@@ -27,7 +27,7 @@ concurrency:
 jobs:
   backend:
     name: Backend (contracts and tests)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -73,7 +73,7 @@ jobs:
 
   panel:
     name: Panel (types, lint and build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -107,7 +107,7 @@ jobs:
 
   tamandua:
     name: Tamandua on itself
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
       contents: read
@@ -156,7 +156,7 @@ jobs:
 
   action:
     name: GitHub Action (uses ./)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
