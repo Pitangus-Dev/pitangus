@@ -174,7 +174,8 @@ jobs:
           path: skills
           base: none
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: The vulnerable examples block
+      # Fails on purpose (exit code 1, shown in red): the next step checks that it did.
+      - name: The vulnerable examples block (expected to fail)
         id: blocked
         continue-on-error: true
         uses: ./  # zizmor: ignore[self-repository]
