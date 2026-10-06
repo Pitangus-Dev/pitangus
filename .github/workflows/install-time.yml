@@ -1,4 +1,4 @@
-# How long a first install takes on a clean machine, done exactly as the README's quick start says: clone a release,
+# How long a first install takes on a clean machine, done exactly as the README's quick start says: clone the latest release,
 # `make setup` (with PREBUILT=1: the published images; without it: built from source) and `make up`, until the panel
 # answers and every engine image is in place. Each GitHub-hosted runner is a fresh VM with nothing cached, so this is a
 # first install; its network is a datacenter's, faster than most homes. Manual only.
@@ -6,11 +6,6 @@ name: Install time
 
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "Release tag to install (empty: the latest)"
-        required: false
-        default: ""
 
 permissions: {}
 
@@ -33,11 +28,10 @@ jobs:
       - name: Install from scratch and time each step
         env:
           MODE: ${{ matrix.mode }}
-          REF: ${{ inputs.ref }}
           REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -eu
-          ref="${REF:-$(git ls-remote --tags --refs "$REPOSITORY" 'v*' | awk -F/ '{print $3}' | sort -V | tail -n 1)}"
+          ref="$(git ls-remote --tags --refs "$REPOSITORY" 'v*' | awk -F/ '{print $3}' | sort -V | tail -n 1)"
           now() { date +%s; }
           start=$(now)
           git clone --quiet --depth 1 --branch "$ref" "$REPOSITORY.git" tamandua
