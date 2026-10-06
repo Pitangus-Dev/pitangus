@@ -1,0 +1,32 @@
+# Worker without the Docker socket: it runs the analysis engines inside its own image (target worker-standalone, the
+# same pinned engines; TAMANDUA_ENGINE_RUNNER=local). Nothing in the stack can then reach the host's Docker, which is
+# equivalent to root on the host. The default on a server:
+#
+#   make setup DOMAIN=tamandua.example.com [PREBUILT=1]           # writes COMPOSE_FILE=…:compose.no-socket.yaml
+#   make setup DOMAIN=tamandua.example.com SOCKET=1               # opt-in: engines as sibling containers (the socket)
+#
+# An overlay on compose.yaml, before compose.images.yaml (which then also adds compose.images.no-socket.yaml).
+# Trade-off: a larger worker image and engines that share its limits (4 GB by default) instead of their own.
+
+services:
+  worker:
+    build:
+      target: worker-standalone
+    image: localhost/tamandua/worker:${TAMANDUA_VERSION:-0.11}
+    environment:
+      # Engines write their temporary files (image layers, databases) to disk, not to the small in-memory /tmp.
+      TMPDIR: /data/tmp
+    volumes: !override
+      - ./data:/data
+      - ./rules:/app/rules:ro
+      - ${TAMANDUA_HOST_CONFIG_DIR:-./config}:/config
+    group_add: !reset []
+    mem_limit: ${TAMANDUA_WORKER_MEMORY:-4g}
+    pids_limit: 1024
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+
+  # The Opengrep binary is already in the worker image: its separate engine image isn't built.
+  opengrep:
+    profiles: [socket]

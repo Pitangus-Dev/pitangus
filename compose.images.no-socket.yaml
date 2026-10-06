@@ -1,0 +1,7 @@
+# The published worker with the engines inside (<TAMANDUA_IMAGE>-worker), for compose.no-socket.yaml with
+# compose.images.yaml: goes last. `make up` checks its signature and pins the checked digest in .env
+# (TAMANDUA_WORKER_IMAGE_TAG=0.11@sha256:…), like the app image's.
+
+services:
+  worker:
+    image: "${TAMANDUA_IMAGE:?TAMANDUA_IMAGE is missing in .env}-worker:${TAMANDUA_WORKER_IMAGE_TAG:-${TAMANDUA_VERSION:-0.11}}"

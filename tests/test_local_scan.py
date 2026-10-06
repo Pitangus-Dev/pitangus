@@ -1,0 +1,239 @@
+"""`tamandua scan`: local folder, comparison with the base branch, threshold and exit codes."""
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from tamandua.modules.runs import local as local_scan
+from tamandua.modules.runs.local import EXIT_BLOCKED, EXIT_INCOMPLETE, EXIT_OK, LocalScanError, merge_base, parse_diff, run
+
+GIT = shutil.which("git")
+
+
+def finding(fingerprint, path, line, severity="high", scanner="sast", package=None):
+    return {"fingerprint": fingerprint, "path": path, "line": line, "severity": severity, "scanner": scanner,
+            "title": f"Regla {fingerprint}", "rule_id": fingerprint, "reason": "motivo", "cwe": [], "owasp": [],
+            "package": package}
+
+
+def scan_result(findings, status="completed", failed=()):
+    steps = [{"id": tool, "name": tool, "status": "inconclusive" if tool in failed else "completed", "detail": "",
+              "tool": {"name": tool}} for tool in ("opengrep", "gitleaks", "trivy", "osv-scanner")]
+    return {"status": status, "findings": findings, "steps": steps}
+
+
+@unittest.skipUnless(GIT, "hace falta git")
+class GitTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.repo = Path(self.directory.name) / "repo"
+        self.repo.mkdir()
+        for args in (("init", "-q", "-b", "main"), ("config", "user.email", "t@t"), ("config", "user.name", "t")):
+            self.git(*args)
+        (self.repo / "app.py").write_text("a = 1\nb = 2\n")
+        (self.repo / "requirements.txt").write_text("requests==2.25.0\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "base")
+        self.git("checkout", "-qb", "feature")
+        (self.repo / "app.py").write_text("a = 1\nb = eval(x)\nc = 3\n")
+        (self.repo / "requirements.txt").write_text("requests==2.25.0\nurllib3==1.26.4\n")
+        self.git("commit", "-qam", "feature")
+        (self.repo / "nuevo.py").write_text("x = 1\n")  # neither added nor committed: it still counts
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def git(self, *args):
+        subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
+
+    def test_changes_include_commits_uncommitted_and_new_files(self):
+        commit = merge_base(self.repo, "main")
+        files = {item["filename"]: item for item in local_scan.diff_files(self.repo, commit)}
+        self.assertEqual(set(files), {"app.py", "requirements.txt", "nuevo.py"})
+        from tamandua.modules.pullrequests.review import changed_lines
+        changed = changed_lines(list(files.values()))
+        self.assertEqual((changed["app.py"], changed["nuevo.py"]), ({2, 3}, None))
+
+    def test_refs_that_look_like_options_or_commands_are_rejected(self):
+        for ref in ("--upload-pack=x", "-v", "main;rm -rf /", "a b", "", "main$(id)"):
+            with self.assertRaises(LocalScanError, msg=ref):
+                merge_base(self.repo, ref)
+        with self.assertRaises(LocalScanError):
+            merge_base(self.repo, "no-existe")
+
+    def test_only_what_the_change_introduces_is_reported(self):
+        head = [finding("eval", "app.py", 2, "critical"), finding("old-sca", "requirements.txt", 1, scanner="sca"),
+                finding("new-sca", "requirements.txt", 1, scanner="sca"), finding("elsewhere", "otro.py", 9)]
+        base = [finding("old-sca", "requirements.txt", 1, scanner="sca")]
+        scans = iter([scan_result(head), scan_result(base)])
+        with tempfile.TemporaryDirectory() as data, \
+                patch.object(local_scan, "scan_repository", side_effect=lambda *args, **kwargs: next(scans)), \
+                patch("tamandua.modules.scanning.engines.docker_available", return_value=True):
+            result = run(self.repo, data_dir=Path(data), base="main")
+        self.assertEqual([item["fingerprint"] for item in result["findings"]], ["eval", "new-sca"])
+        self.assertEqual((result["comparison"]["preexisting_in_changed_code"], result["exit_code"]), (1, EXIT_BLOCKED))
+        # The baseline is really scanned: its copy comes from git, not from the working tree.
+        self.assertTrue(result["comparison"]["baseline"])
+
+    def test_what_the_change_fixes_is_reported_with_how_it_went_away(self):
+        moved_before = {**finding("moved-old", "app.py", 1), "rule_id": "same-rule"}
+        moved_after = {**finding("moved-new", "app.py", 3), "rule_id": "same-rule"}
+        base = [finding("eval-fixed", "app.py", 2, "critical"), finding("gone", "borrado.py", 1), moved_before]
+        scans = iter([scan_result([moved_after]), scan_result(base)])
+        with tempfile.TemporaryDirectory() as data, \
+                patch.object(local_scan, "scan_repository", side_effect=lambda *args, **kwargs: next(scans)), \
+                patch("tamandua.modules.scanning.engines.docker_available", return_value=True):
+            result = run(self.repo, data_dir=Path(data), base="main")
+        self.assertEqual([(item["fingerprint"], item["resolution"]) for item in result["resolved"]],
+                         [("eval-fixed", "fixed"), ("gone", "deleted")])
+        self.assertEqual(result["comparison"]["resolved"], {"fixed": 1, "deleted": 1, "unattributed": 0})
+        self.assertTrue(result["comparison"]["resolved_verifiable"])
+        output = local_scan.render_text(result, locale="en")
+        self.assertIn("Fixed by this change (1)", output)
+        self.assertIn("1 went away because its file was deleted", output)
+        summary = local_scan.render_markdown(result, locale="en")
+        self.assertIn("#### Fixed by this change (1)", summary)
+        self.assertIn("app.py:2", summary)
+        self.assertEqual([item["resolution"] for item in json.loads(local_scan.render_json(result, locale="en"))["resolved"]],
+                         ["fixed", "deleted"])
+
+    def test_nothing_counts_as_fixed_when_either_scan_is_incomplete(self):
+        for head_status, base_status in (("incomplete", "completed"), ("completed", "incomplete")):
+            scans = iter([scan_result([], head_status), scan_result([finding("eval", "app.py", 2)], base_status)])
+            with tempfile.TemporaryDirectory() as data, \
+                    patch.object(local_scan, "scan_repository", side_effect=list(scans)), \
+                    patch("tamandua.modules.scanning.engines.docker_available", return_value=True):
+                result = run(self.repo, data_dir=Path(data), base="main")
+            self.assertEqual((result["resolved"], result["comparison"]["resolved_verifiable"]), ([], False))
+            self.assertIn("can't be verified", local_scan.render_text(result, locale="en"))
+
+    def test_nothing_only_a_failed_engine_sees_counts_as_fixed(self):
+        """Checkov or zizmor can fail in a scan that is still complete: their findings didn't go away, nobody looked."""
+        base = [{**finding("bucket", "app.py", 2, scanner="iac"), "tool": "checkov"},
+                {**finding("eval", "app.py", 3), "tool": "opengrep"}]
+        head = {**scan_result([]), "summary": {"tools": [{"name": "checkov", "status": "inconclusive"}]}}
+        scans = iter([head, scan_result(base)])
+        with tempfile.TemporaryDirectory() as data, \
+                patch.object(local_scan, "scan_repository", side_effect=lambda *args, **kwargs: next(scans)), \
+                patch("tamandua.modules.scanning.engines.docker_available", return_value=True):
+            result = run(self.repo, data_dir=Path(data), base="main")
+        self.assertEqual([item["fingerprint"] for item in result["resolved"]], ["eval"])
+
+    def test_the_base_snapshot_is_the_merge_base_tree(self):
+        with tempfile.TemporaryDirectory() as out:
+            local_scan.snapshot_commit(self.repo, merge_base(self.repo, "main"), Path(out) / "base")
+            self.assertEqual((Path(out) / "base" / "app.py").read_text(), "a = 1\nb = 2\n")
+            self.assertFalse((Path(out) / "base" / "nuevo.py").exists())
+
+    def test_the_base_snapshot_of_a_subfolder_holds_only_that_folder(self):
+        base = merge_base(self.repo, "main")
+        (self.repo / "svc").mkdir()
+        (self.repo / "svc" / "api.py").write_text("x = 1\n")
+        self.git("add", "svc")
+        self.git("commit", "-qm", "svc")
+        with tempfile.TemporaryDirectory() as out:
+            local_scan.snapshot_commit(self.repo / "svc", "HEAD", Path(out) / "base")
+            self.assertEqual([item.name for item in (Path(out) / "base").iterdir()], ["api.py"])
+            local_scan.snapshot_commit(self.repo / "svc", base, Path(out) / "old")
+            self.assertEqual(list((Path(out) / "old").iterdir()), [])
+
+
+class ResolvedTests(unittest.TestCase):
+    def test_a_finding_is_credited_only_when_its_file_changed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in ("app.py", "other.py"):
+                (root / name).write_text("x = 1\n")
+            before = [finding("a", "app.py", 1), finding("b", "other.py", 1), finding("c", "gone.py", 1),
+                      finding("kept", "app.py", 5), {**finding("prev", "app.py", 7), "rule_id": "r"}]
+            after = [finding("kept", "app.py", 6), {**finding("new", "app.py", 8), "previous_fingerprint": "prev", "rule_id": "r"}]
+            gone = local_scan.resolved_findings(before, after, {"app.py": {1}}, root)
+        self.assertEqual({item["fingerprint"]: item["resolution"] for item in gone},
+                         {"a": "fixed", "b": "unattributed", "c": "deleted"})
+
+
+class GateTests(unittest.TestCase):
+    def run_with(self, findings, *, status="completed", failed=(), docker=True, fail_on="high", exclude=None):
+        with tempfile.TemporaryDirectory() as folder, tempfile.TemporaryDirectory() as data, \
+                patch.object(local_scan, "scan_repository", return_value=scan_result(findings, status, failed)), \
+                patch("tamandua.modules.scanning.engines.docker_available", return_value=docker), \
+                patch("tamandua.modules.scanning.engines.docker_problem", return_value="Docker no responde."):
+            return run(Path(folder), data_dir=Path(data), fail_on=fail_on, exclude=exclude)
+
+    def test_the_markdown_summary_groups_packages_and_points_to_the_full_list(self):
+        lodash = {"ecosystem": "npm", "name": "lodash", "version": "4.17.0"}
+        advisories = [finding(f"lodash-{index}", "package.json", 1, "high", "sca", {**lodash, "fixed_version": f"4.17.{20 + index}"})
+                      for index in range(3)]
+        many = [finding(f"f{index}", f"src/{index}.py", 1, "low") for index in range(30)]
+        summary = local_scan.render_markdown(self.run_with(advisories + many), locale="en")
+        self.assertEqual(summary.count("`lodash` 4.17.0"), 1)
+        self.assertIn("4.17.22", summary)
+        self.assertIn("#### Introduced by this change (31)", summary)
+        self.assertIn("more: every one is in `--format json`", summary)
+        self.assertNotIn("panel", summary)
+        self.assertIn("Engines:", summary)
+
+    def test_exit_codes(self):
+        self.assertEqual(self.run_with([])["exit_code"], EXIT_OK)
+        self.assertEqual(self.run_with([finding("a", "x.py", 1, "medium")])["exit_code"], EXIT_OK)
+        self.assertEqual(self.run_with([finding("a", "x.py", 1, "medium")], fail_on="medium")["exit_code"], EXIT_BLOCKED)
+        self.assertEqual(self.run_with([finding("a", "x.py", 1, "critical")], fail_on="never")["exit_code"], EXIT_OK)
+
+    def test_an_incomplete_scan_never_passes_as_clean(self):
+        self.assertEqual(self.run_with([], failed=("trivy",))["exit_code"], EXIT_INCOMPLETE)
+        self.assertEqual(self.run_with([], docker=False)["exit_code"], EXIT_INCOMPLETE)
+        # What was found still blocks, even if an engine is missing.
+        self.assertEqual(self.run_with([finding("a", "x.py", 1, "critical")], failed=("trivy",))["exit_code"], EXIT_BLOCKED)
+
+    def test_text_groups_advisories_of_a_package_into_one_fix(self):
+        package = lambda fixed: {"name": "urllib3", "version": "1.26.4", "fixed_version": fixed, "ecosystem": "PyPI"}
+        result = self.run_with([finding("u1", "requirements.txt", 1, "high", "sca", package("1.26.5")),
+                                finding("u2", "requirements.txt", 1, "medium", "sca", package("2.7.0")),
+                                finding("u3", "requirements.txt", 1, "high", "sca", package("1.26.17"))])
+        text = local_scan.render_text(result)
+        self.assertIn("urllib3 1.26.4: 3 avisos (2 alta, 1 media) → actualiza a 2.7.0", text)
+        self.assertEqual(text.count("urllib3"), 1)
+
+    def test_names_from_the_repository_cannot_inject_terminal_escapes(self):
+        result = self.run_with([finding("a", "evil\x1b[2K\x1b[1A.py", 1, "critical")])
+        text = local_scan.render_text(result)
+        self.assertNotIn("\x1b", text)
+        self.assertIn("evil?[2K?[1A.py:1", text)
+
+    def test_excluded_paths_do_not_count_but_are_reported(self):
+        result = self.run_with([finding("a", "fixtures/vuln/app.py", 1, "critical"), finding("b", "tests/data/x.py", 2, "critical"),
+                                finding("c", "src/app.py", 3, "medium")], exclude=["fixtures/", "**/data/**"])
+        self.assertEqual(([item["fingerprint"] for item in result["findings"]], result["exit_code"]), (["c"], EXIT_OK))
+        self.assertEqual(result["excluded"], {"patterns": ["fixtures/**", "**/data/**"], "findings": 2})
+        self.assertIn("2 en rutas excluidas (fixtures/**, **/data/**): no cuentan.", local_scan.render_text(result))
+        self.assertEqual(json.loads(local_scan.render_json(result))["excluded"]["findings"], 2)
+        for bad in (["../fuera"], ["**"], ["/abs"], ["a;rm"]):
+            with self.assertRaises(LocalScanError):
+                self.run_with([], exclude=bad)
+
+    def test_json_and_sarif_are_machine_readable(self):
+        result = self.run_with([finding("a", "x.py", 3, "critical"), finding("b", ".env", 1, scanner="secrets")])
+        payload = json.loads(local_scan.render_json(result))
+        self.assertEqual((payload["exit_code"], payload["findings"][0]["path"]), (EXIT_BLOCKED, "x.py"))
+        secret = next(item for item in payload["findings"] if item["scanner"] == "secrets")
+        self.assertTrue(secret["fix"]["steps"])  # the fix guide travels with the finding
+        sarif = json.loads(local_scan.render_sarif(result))
+        self.assertEqual(sarif["runs"][0]["results"][0]["level"], "error")
+        self.assertEqual(sarif["runs"][0]["tool"]["driver"]["rules"][0]["properties"]["security-severity"], "9.5")
+
+    def test_parse_diff_handles_renames_deletions_and_binaries(self):
+        text = "\n".join([
+            "diff --git a/old.py b/new.py", "similarity index 90%", "rename from old.py", "rename to new.py",
+            "--- a/old.py", "+++ b/new.py", "@@ -1 +1 @@", "-a", "+b",
+            "diff --git a/gone.py b/gone.py", "deleted file mode 100644", "--- a/gone.py", "+++ /dev/null", "@@ -1 +0,0 @@", "-x",
+            "diff --git a/logo.png b/logo.png", "Binary files a/logo.png and b/logo.png differ"])
+        files = {item["filename"]: item for item in parse_diff(text)}
+        self.assertEqual((files["new.py"]["status"], files["gone.py"]["status"], files["logo.png"]["patch"]), ("modified", "removed", None))
+
+
+if __name__ == "__main__":
+    unittest.main()

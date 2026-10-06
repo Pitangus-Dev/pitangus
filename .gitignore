@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+.venv/
+data/
+config/
+backups/
+.env
+.dev/
+web/node_modules/
+web/dist/
+tamandua/RELEASE
+

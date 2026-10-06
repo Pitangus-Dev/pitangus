@@ -1,0 +1,51 @@
+{
+  "load_failed": "No se pudo cargar esta política.",
+  "sla": {
+    "title": "Plazos de corrección",
+    "summary_item": "{{level}} {{value}}",
+    "days_short": "{{days}} d",
+    "no_deadline": "sin plazo",
+    "dialog_help": "Días para corregir un hallazgo, contados desde que se detecta, en todos los repositorios. Deja un campo vacío para que esa severidad no venza. Por defecto: 7, 30, 90 y 180 días.",
+    "days_label": "{{level}} (días)",
+    "placeholder": "Sin plazo",
+    "invalid": "Cada plazo es un número entero de días entre 1 y 3650, o vacío para dejarlo sin plazo.",
+    "changed_by": "Último cambio de {{by}}.",
+    "changed_by_at": "Último cambio de {{by}}, {{date}}.",
+    "defaults": "Valores por defecto.",
+    "saved": "Guardado. Las fechas límite se recalculan."
+  },
+  "secrets": {
+    "title": "Detección de secretos predeterminada",
+    "engine_defaults": "Reglas integradas de Gitleaks y Trivy",
+    "view": "Ver"
+  },
+  "cra": {
+    "title": "Vendemos productos con software en la UE (CRA)",
+    "on": "Activado · kit de notificación CRA en Cumplimiento",
+    "off": "Desactivado · sin notificación CRA",
+    "changed": "{{by}}, {{date}}",
+    "turn_on": "Activar",
+    "turn_off": "Desactivar",
+    "dialog_on": "Activar la notificación CRA",
+    "dialog_off": "Desactivar la notificación CRA",
+    "help_on": "Cumplimiento muestra el kit CRA: marca tus productos, evalúa cada coincidencia KEV y sigue los plazos de 24 h, 72 h y 14 días.",
+    "help_off": "El kit CRA se oculta y no se abren eventos. Los productos y las decisiones se conservan para cuando lo vuelvas a activar.",
+    "reason": "Motivo (queda en el historial)",
+    "reason_placeholder": "p. ej. vendemos la app móvil en la UE",
+    "reason_short": "Indica un motivo de al menos {{min}} caracteres.",
+    "history": "Cambios recientes",
+    "history_on": "Activado por {{by}}, {{date}}",
+    "history_off": "Desactivado por {{by}}, {{date}}",
+    "saved_on": "Guardado. La notificación CRA está activada.",
+    "saved_off": "Guardado. La notificación CRA está desactivada; sus datos se conservan."
+  },
+  "help": {
+    "title": "Cómo se aplican las políticas",
+    "sla": "Los plazos se aplican a todos los repositorios, al Resumen y a los informes. El reloj corre sobre lo abierto; lo remediado y las excepciones aprobadas nunca vencen.",
+    "secrets": "La detección de secretos predeterminada se aplica en cada análisis de repositorio y revisión de PR. Se ignora el .gitleaks.toml del repositorio, así que un PR no puede debilitar la detección.",
+    "repository": "Un repositorio puede sumar entradas propias desde Hallazgos, nunca quitar lo predeterminado.",
+    "critical": "Un secreto expuesto siempre es crítico.",
+    "admin_only": "Solo un administrador las cambia.",
+    "cra": "Activa la notificación CRA solo si vendes productos con software en la UE; viene desactivada."
+  }
+}

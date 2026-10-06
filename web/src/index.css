@@ -1,0 +1,313 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --color-app: var(--app-bg);
+    --color-panel: var(--app-panel);
+    --color-inset: var(--app-inset);
+    --color-console: var(--app-console);
+    --color-console-top: var(--app-console-top);
+    --color-app-line: var(--app-line);
+    --color-app-soft: var(--app-soft);
+    --color-app-fg: var(--app-fg);
+    --color-app-primary: var(--app-primary);
+    --color-app-secondary: var(--app-secondary);
+    --color-app-muted: var(--app-muted);
+    --color-app-subtle: var(--app-subtle);
+    --color-app-faint: var(--app-faint);
+    --color-brand: var(--brand);
+    /* Estados: texto, fondo suave, borde y sólido (con su texto encima). Únicos colores de estado del panel. */
+    --color-danger: var(--danger);
+    --color-danger-soft: var(--danger-soft);
+    --color-danger-line: var(--danger-line);
+    --color-danger-solid: var(--danger-solid);
+    --color-on-danger: var(--on-solid);
+    --color-attention: var(--attention);
+    --color-attention-soft: var(--attention-soft);
+    --color-attention-line: var(--attention-line);
+    --color-warning: var(--warning);
+    --color-warning-soft: var(--warning-soft);
+    --color-warning-line: var(--warning-line);
+    --color-info: var(--info);
+    --color-info-soft: var(--info-soft);
+    --color-info-line: var(--info-line);
+    --color-success: var(--success);
+    --color-success-soft: var(--success-soft);
+    --color-success-line: var(--success-line);
+    --color-on-brand: var(--on-solid);
+    --color-on-solid: var(--on-solid);
+    --color-overlay: var(--overlay);
+    --color-knob: var(--knob);
+    --color-skeleton: var(--skeleton);
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    /* Los tokens propios del panel salen de los de shadcn: un solo sistema de color. */
+    --app-bg: var(--background);
+    --app-panel: var(--card);
+    --app-inset: oklch(0.985 0 0);
+    --app-console: oklch(0.985 0 0);
+    --app-console-top: oklch(0.97 0 0);
+    --app-line: var(--border);
+    --app-soft: oklch(0.97 0 0);
+    --app-fg: var(--foreground);
+    --app-primary: oklch(0.205 0 0);
+    --app-secondary: oklch(0.32 0 0);
+    --app-muted: var(--muted-foreground);
+    --app-subtle: oklch(0.54 0 0);   /* ≥ 4,6:1 en todos los fondos claros (antes 3,6:1) */
+    --app-faint: oklch(0.62 0 0);    /* solo para bordes y adornos, nunca texto: ≥ 3:1 */
+    --brand: oklch(0.52 0.21 293);
+    --danger: oklch(0.5 0.19 25);
+    --danger-soft: color-mix(in oklch, oklch(0.58 0.22 25) 10%, transparent);
+    --danger-line: color-mix(in oklch, oklch(0.58 0.22 25) 32%, transparent);
+    --danger-solid: oklch(0.52 0.2 25);
+    --attention: oklch(0.5 0.15 50);
+    --attention-soft: color-mix(in oklch, oklch(0.68 0.19 50) 12%, transparent);
+    --attention-line: color-mix(in oklch, oklch(0.68 0.19 50) 35%, transparent);
+    --warning: oklch(0.48 0.12 65);
+    --warning-soft: color-mix(in oklch, oklch(0.75 0.16 75) 12%, transparent);
+    --warning-line: color-mix(in oklch, oklch(0.75 0.16 75) 40%, transparent);
+    --info: oklch(0.48 0.13 240);
+    --info-soft: color-mix(in oklch, oklch(0.62 0.15 240) 10%, transparent);
+    --info-line: color-mix(in oklch, oklch(0.62 0.15 240) 32%, transparent);
+    --success: oklch(0.47 0.12 160);
+    --success-soft: color-mix(in oklch, oklch(0.6 0.14 160) 10%, transparent);
+    --success-line: color-mix(in oklch, oklch(0.6 0.14 160) 32%, transparent);
+    --on-solid: oklch(1 0 0);
+    --overlay: oklch(0 0 0 / 40%);
+    --knob: oklch(1 0 0);
+    --skeleton: oklch(0.93 0 0);
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.5 0 0);   /* ≥ 5,5:1 también sobre el fondo suave (antes 4,3:1) */
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: var(--brand);   /* un solo color de foco en todo el panel */
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+    --app-bg: var(--background);
+    --app-panel: var(--card);
+    --app-inset: oklch(0.175 0 0);
+    --app-console: oklch(0.16 0 0);
+    --app-console-top: oklch(0.19 0 0);
+    --app-line: var(--border);
+    --app-soft: oklch(1 0 0 / 5%);
+    --app-fg: var(--foreground);
+    --app-primary: oklch(0.93 0 0);
+    --app-secondary: oklch(0.85 0 0);
+    --app-muted: var(--muted-foreground);
+    --app-subtle: oklch(0.66 0 0);   /* ≥ 5:1 en todos los fondos oscuros */
+    --app-faint: oklch(0.56 0 0);    /* solo bordes y adornos: ≥ 3:1 */
+    --brand: oklch(0.78 0.14 293);
+    --danger: oklch(0.8 0.1 25);
+    --danger-soft: color-mix(in oklch, oklch(0.64 0.21 25) 14%, transparent);
+    --danger-line: color-mix(in oklch, oklch(0.64 0.21 25) 38%, transparent);
+    --danger-solid: oklch(0.55 0.2 25);
+    --attention: oklch(0.82 0.11 55);
+    --attention-soft: color-mix(in oklch, oklch(0.7 0.18 50) 16%, transparent);
+    --attention-line: color-mix(in oklch, oklch(0.7 0.18 50) 40%, transparent);
+    --warning: oklch(0.85 0.12 85);
+    --warning-soft: color-mix(in oklch, oklch(0.75 0.16 75) 14%, transparent);
+    --warning-line: color-mix(in oklch, oklch(0.75 0.16 75) 40%, transparent);
+    --info: oklch(0.82 0.1 235);
+    --info-soft: color-mix(in oklch, oklch(0.66 0.14 240) 14%, transparent);
+    --info-line: color-mix(in oklch, oklch(0.66 0.14 240) 38%, transparent);
+    --success: oklch(0.82 0.12 160);
+    --success-soft: color-mix(in oklch, oklch(0.66 0.14 160) 14%, transparent);
+    --success-line: color-mix(in oklch, oklch(0.66 0.14 160) 38%, transparent);
+    --on-solid: oklch(1 0 0);
+    --overlay: oklch(0 0 0 / 60%);
+    --knob: oklch(0.97 0 0);
+    --skeleton: oklch(1 0 0 / 9%);
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: var(--brand);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: var(--brand);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
+
+html { background: var(--app-bg); color-scheme: light; }
+html.dark { color-scheme: dark; }
+body { min-width: 320px; }
+::selection { background: color-mix(in oklch, var(--brand) 35%, transparent); }
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+
+/* Gráficas: severidad como rampa ordinal de un solo tono (baja → crítica), validada con el
+   validador de paleta en ambos modos; dos series categóricas para hallados/corregidos;
+   azul secuencial para el mapa de actividad. Los textos nunca usan el color de la serie. */
+:root {
+  --sev-low: #e29b9a; --sev-medium: #d66f6e; --sev-high: #c34443; --sev-critical: #921a1a;
+  --series-found: #2a78d6; --series-fixed: #1baf7a;
+  --seq-1: #9ec5f4; --seq-2: #6da7ec; --seq-3: #3987e5; --seq-4: #256abf; --seq-5: #184f95;
+  --grid-line: #e1e0d9; --axis-line: #c3c2b7;
+}
+.dark {
+  --sev-low: #f3b3b2; --sev-medium: #e98988; --sev-high: #dc5f5e; --sev-critical: #c23c3c;
+  --series-found: #3987e5; --series-fixed: #199e70;
+  --seq-1: #184f95; --seq-2: #256abf; --seq-3: #3987e5; --seq-4: #6da7ec; --seq-5: #9ec5f4;
+  --grid-line: #2c2c2a; --axis-line: #383835;
+}
+
+@keyframes tamandua-breathe { 0%, 100% { opacity: .45; transform: scale(.985) } 50% { opacity: .95; transform: scale(1) } }
+@keyframes tamandua-progress { 0% { transform: translateX(-100%) } 100% { transform: translateX(300%) } }
+/* Accesibilidad (WCAG 2.2 AA). Fuera de las capas de Tailwind a propósito: así ninguna utilidad
+   (`outline-none`, anillos al 50 %) puede dejar un control sin foco visible. */
+
+/* 2.4.7 / 2.4.13: foco visible y con contraste ≥ 3:1 en ambos temas (marca: 5,6:1 claro, 8,5:1 oscuro). */
+:focus-visible { outline: 2px solid var(--brand) !important; outline-offset: 2px !important; }
+/* Interruptores hechos con un checkbox oculto: el foco se dibuja en la pista visible. */
+.peer:focus-visible + .switch-track { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* 2.3.3: quien pide menos movimiento no ve pulsos, giros ni transiciones (los indicadores siguen, quietos). */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Editor de diagramas de amenazas (React Flow): colores del tema, fronteras que no tapan lo de dentro. */
+.tm-canvas .react-flow {
+    --xy-background-color: transparent;
+    --xy-background-pattern-color: color-mix(in oklch, var(--app-faint) 45%, transparent);
+    --xy-edge-stroke: var(--app-muted);
+    --xy-edge-stroke-selected: var(--brand);
+    --xy-connectionline-stroke: var(--brand);
+    --xy-handle-background-color: var(--brand);
+    --xy-handle-border-color: var(--app-panel);
+    --xy-controls-button-background-color: var(--app-panel);
+    --xy-controls-button-background-color-hover: var(--app-soft);
+    --xy-controls-button-color: var(--app-fg);
+    --xy-controls-button-border-color: var(--app-line);
+    --xy-attribution-background-color: transparent;
+    --xy-selection-background-color: color-mix(in oklch, var(--brand) 10%, transparent);
+    --xy-selection-border: 1px dotted var(--brand);
+}
+.tm-canvas .react-flow__node-boundary { pointer-events: none !important; }
+.tm-canvas .react-flow__node-boundary .tm-drag,
+.tm-canvas .react-flow__node-boundary .react-flow__resize-control { pointer-events: all; }
+.tm-canvas .tm-handle { width: 9px; height: 9px; opacity: 0; transition: opacity .15s; }
+.tm-canvas .react-flow__node:hover .tm-handle, .tm-canvas .react-flow__node.selected .tm-handle, .tm-canvas .react-flow.connecting .tm-handle { opacity: 1; }
+.tm-canvas .tm-flow { stroke: var(--app-muted); stroke-width: 1.5; }
+.tm-canvas .tm-flow--plain { stroke: var(--danger); stroke-dasharray: 5 4; }
+.tm-canvas .tm-flow--flagged { stroke: var(--attention); stroke-width: 2; }
+.tm-canvas .tm-flow--selected { stroke: var(--brand); stroke-width: 2.25; }
+.tm-canvas .tm-flow-label { position: absolute; pointer-events: all; cursor: pointer; }
+.tm-canvas .react-flow__edge-textbg { fill: var(--app-panel); }
+
+/* Fronteras y componentes redimensionables desde cualquier borde o esquina, sin seleccionarlos antes: el borde
+   se agarra (10 px de zona útil) y los tiradores aparecen al pasar el ratón. Con Shift se conserva la proporción. */
+.tm-canvas .tm-resize-line { border-color: transparent !important; }
+.tm-canvas .tm-resize-line.left, .tm-canvas .tm-resize-line.right { width: 10px; }
+.tm-canvas .tm-resize-line.top, .tm-canvas .tm-resize-line.bottom { height: 10px; }
+.tm-canvas .tm-resize-handle { opacity: 0; width: 10px; height: 10px; border-radius: 2px; transition: opacity .15s; }
+.tm-canvas .react-flow__node:hover .tm-resize-handle, .tm-canvas .react-flow__node.selected .tm-resize-handle { opacity: 1; }
+/* En un componente, los bordes redimensionan y los puntos de conexión siguen encima para crear flujos. */
+.tm-canvas .react-flow__node-component .tm-handle { z-index: 2; }
+/* Las etiquetas de los flujos van por encima de los componentes: nunca quedan tapadas. */
+.tm-canvas .react-flow__edgelabel-renderer { z-index: 1001 !important; }

@@ -1,0 +1,258 @@
+"""Socketless tests of the local panel's action boundary."""
+
+import json
+import os
+import tempfile
+import unittest
+
+import asgi
+from pathlib import Path
+from unittest.mock import patch
+
+from tamandua.modules.identity.auth import Users
+from tamandua.app.api.server import build_state
+from tamandua.modules.runs.store import list_runs
+
+
+class ServerTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.data_dir = Path(self.directory.name)
+        # The provider credential store is isolated: otherwise the tests would see
+        # the real App of whoever runs them and stop being deterministic.
+        store = patch("tamandua.shared.paths.CONFIG_DIR", self.data_dir / "config")
+        store.start()
+        self.addCleanup(store.stop)
+        # The containerised-engine path is tested in test_scanners; no Docker is launched here.
+        engines = patch.dict("tamandua.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
+        engines.start()
+        self.addCleanup(engines.stop)
+        # These tests cover other things; the TOTP policy has its own.
+        policy = patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"})
+        policy.start()
+        self.addCleanup(policy.stop)
+        self.state = build_state(self.data_dir)
+        self.client = asgi.client_for(self.data_dir, self.state)
+        self.origin = "http://127.0.0.1:8766"
+        # Every route requires a session: the tests sign in as an admin created by the CLI.
+        Users(self.data_dir).create("operadora", "correcto-caballo-bateria", role="admin")
+        self.cookie = self.login("operadora", "correcto-caballo-bateria")
+
+    def login(self, username, password):
+        handler_headers = {"Origin": self.origin, "X-Tamandua-Action": "login"}
+        raw = self.raw_request("POST", "/api/auth/login", json.dumps({"username": username, "password": password}),
+                               handler_headers, cookie=None)
+        for line in raw.split(b"\r\n\r\n", 1)[0].split(b"\r\n"):
+            if line.lower().startswith(b"set-cookie:"):
+                return line.split(b":", 1)[1].strip().split(b";", 1)[0].decode("ascii")
+        raise AssertionError(raw)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def request(self, method, path, body=None, headers=None, cookie="default"):
+        raw = self.raw_request(method, path, body, headers, cookie=cookie)
+        status = int(raw.split(b" ", 2)[1])
+        return status, raw.split(b"\r\n\r\n", 1)[1]
+
+    def raw_request(self, method, path, body=None, headers=None, cookie="default"):
+        cookie = self.cookie if cookie == "default" else cookie
+        return asgi.raw(self.client, method, path, body, {**({"Cookie": cookie} if cookie else {}), **(headers or {})})
+
+    def test_rejects_cross_origin_and_arbitrary_targets(self):
+        body = json.dumps({"source_id": "local:x", "allow_osv_upload": False})
+        status, _ = self.request("POST", "/api/repositories/scans", body, {"Origin": "http://evil.test", "X-Tamandua-Action": "scan-repository"})
+        self.assertEqual(status, 403)
+        status, _ = self.request("POST", "/api/images/scans", json.dumps({"reference": "https://example.com/x"}),
+                                 {"Origin": self.origin, "X-Tamandua-Action": "scan-image"})
+        self.assertEqual(status, 400)
+        for path in ("/assets/../store.py", "/assets/..%2f..%2fversion.py", "/assets/%2e%2e/%2e%2e/version.py", "/assets/%2e%2e"):
+            status, _ = self.request("GET", path)
+            self.assertEqual(status, 404, path)
+        self.assertEqual(list_runs(self.data_dir), [])
+
+    def test_serves_the_panel_and_its_assets(self):
+        response = asgi.request(self.client, "GET", "/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+        asset = next(part for part in response.text.split('"') if part.startswith("/assets/"))
+        self.assertEqual(asgi.request(self.client, "GET", asset).status_code, 200)
+
+    def test_unknown_method_or_path_is_a_plain_404(self):
+        for method, path in (("POST", "/api/runs/abc"), ("PUT", "/api/runs"), ("DELETE", "/api/health"), ("GET", "/api/sla/")):
+            status, body = self.request(method, path, "{}" if method != "GET" else None,
+                                        {"Origin": self.origin, "X-Tamandua-Action": "x"})
+            self.assertEqual((status, json.loads(body)), (404, {"error": "Ruta no encontrada"}), f"{method} {path}")
+
+    def test_unexpected_error_does_not_leak_a_trace(self):
+        client = asgi.TestClient(self.client.app, base_url=str(self.client.base_url), raise_server_exceptions=False)
+        with patch("tamandua.app.api.runs.find_runs", side_effect=RuntimeError("secreto interno")):
+            response = asgi.request(client, "GET", "/api/runs", headers={"Cookie": self.cookie})
+        self.assertEqual((response.status_code, response.json()), (500, {"error": "Error interno del servidor"}))
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+
+    def test_lab_is_no_longer_reachable_from_the_api(self):
+        status, _ = self.request("POST", "/api/lab/scans", json.dumps({"variant": "fixed"}),
+                                 {"Origin": self.origin, "X-Tamandua-Action": "scan-lab"})
+        self.assertEqual(status, 404)
+        self.assertEqual(list_runs(self.data_dir), [])
+
+    def test_ai_keys_can_only_be_removed_and_never_return_to_the_browser(self):
+        from tamandua.modules.integrations import ai_providers
+        secret = "sk-user-owned-key-000111222333"
+        headers = {"Origin": self.origin, "X-Tamandua-Action": "save-ai-key"}
+        # AI isn't used yet: a new key is refused without asking the provider.
+        with patch("tamandua.modules.integrations.ai_providers.check_provider", side_effect=AssertionError("no check")):
+            status, _ = self.request("POST", "/api/providers/keys",
+                                     json.dumps({"provider": "openai", "action": "save", "api_key": secret}), headers)
+        self.assertEqual(status, 400)
+        status, listing = self.request("GET", "/api/providers")
+        self.assertFalse(json.loads(listing)[0]["configured"])
+
+        # A key saved by an earlier version is listed without the key itself, and can be removed.
+        ai_providers._write({"openai": {"api_key": secret, "last4": secret[-4:], "saved_at": "2026-01-01T00:00:00+00:00"}})
+        status, listing = self.request("GET", "/api/providers")
+        self.assertNotIn(secret.encode(), listing)
+        openai = json.loads(listing)[0]
+        self.assertTrue(openai["configured"])
+        self.assertEqual((openai["owner"], openai["last4"]), ("user", "2333"))
+        status, payload = self.request("POST", "/api/providers/keys",
+                                       json.dumps({"provider": "openai", "action": "remove"}), headers)
+        self.assertEqual(status, 200)
+        self.assertNotIn(secret.encode(), payload)
+        self.assertFalse(json.loads(payload)["providers"][0]["configured"])
+
+    def test_provider_endpoint_never_starts_a_lab_scan_or_exposes_keys(self):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "server-secret", "ANTHROPIC_API_KEY": "",
+                                       "TAMANDUA_BOOTSTRAP": "1"}), \
+                patch("tamandua.app.api.sources.check_provider", return_value={"status": "connected"}) as check:
+            status, payload = self.request("GET", "/api/providers")
+            self.assertEqual(status, 200)
+            self.assertNotIn(b"server-secret", payload)
+            status, _ = self.request("POST", "/api/providers/check", json.dumps({"variant": "fixed"}),
+                                     {"Origin": self.origin, "X-Tamandua-Action": "check-provider"})
+            self.assertEqual(status, 400)
+            status, payload = self.request("POST", "/api/providers/check", json.dumps({"provider": "openai"}),
+                                           {"Origin": self.origin, "X-Tamandua-Action": "check-provider"})
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(payload)["status"], "connected")
+            check.assert_called_once_with("openai")
+            self.assertEqual(list_runs(self.data_dir), [])
+
+    def test_soc2_export_is_explicitly_non_certifying(self):
+        from test_dashboard import _finding, _scan
+        from tamandua.modules.runs.store import save_repository_scan
+        run_id = save_repository_scan(self.data_dir, _scan("org/api", [_finding("a")], "2026-09-26T00:00:00+00:00"))["id"]
+        status, report = self.request("GET", f"/api/runs/{run_id}/report-soc2.md")
+        self.assertEqual(status, 200)
+        self.assertIn(b"SOC 2 Tipo II", report)
+        self.assertIn(b"no demuestra", report)
+        for profile in ("soc2", "iso27001"):
+            status, pdf = self.request("GET", f"/api/runs/{run_id}/report-{profile}.pdf")
+            self.assertEqual(status, 200)
+            self.assertTrue(pdf.startswith(b"%PDF-"))
+
+    def test_repository_scan_is_queued_and_never_opts_in_to_osv_implicitly(self):
+        headers = {"Origin": self.origin, "X-Tamandua-Action": "scan-repository"}
+        status, _ = self.request("POST", "/api/repositories/scans",
+                                 json.dumps({"source_id": "https://example.com", "allow_osv_upload": False}), headers)
+        self.assertEqual(status, 400)
+        # Nothing is queued without saying whether OSV is allowed, nor for a repository the credential can't see.
+        status, _ = self.request("POST", "/api/repositories/scans", json.dumps({"source_id": "github:acme/api"}), headers)
+        self.assertEqual(status, 400)
+        status, _ = self.request("POST", "/api/repositories/scans",
+                                 json.dumps({"source_id": "github:acme/api", "allow_osv_upload": False}), headers)
+        self.assertEqual(status, 400)
+        source = {"id": "github:acme/api", "name": "acme/api", "provider": "github"}
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("tamandua.app.api.repositories.find_source", return_value=source), \
+                patch("tamandua.modules.runs.jobs.snapshot_source") as snapshot, \
+                patch("tamandua.modules.scanning.repository._query_osv", side_effect=AssertionError("OSV llamado")):
+            root = Path(temporary)
+            (root / "app.py").write_text('db.execute(f"SELECT {user_id}")\n')
+            snapshot.return_value = root, {**source, "files": 1}
+            # The request returns at once with the id; the work runs in the background.
+            status, payload = self.request("POST", "/api/repositories/scans",
+                                           json.dumps({"source_id": "github:acme/api", "allow_osv_upload": False}), headers)
+            self.assertEqual(status, 202)
+            queued = json.loads(payload)["run"]
+            self.assertEqual(queued["status"], "queued")
+            record = self._wait_for_run(queued["id"])
+        self.assertEqual(record["status"], "incomplete")  # no Docker in tests, so no engine runs: never «completed»
+        self.assertEqual(record["summary"]["sast"], 1)
+        # Progress is for the user: no server paths or raw output.
+        messages = [event["message"] for event in record["progress"]]
+        self.assertTrue(any("Terminado" in message for message in messages), messages)
+        self.assertFalse(any("/var/" in message or "Traceback" in message for message in messages))
+
+    def _wait_for_run(self, run_id, timeout=20.0):
+        import time as _time
+        deadline = _time.time() + timeout
+        while _time.time() < deadline:
+            status, payload = self.request("GET", f"/api/runs/{run_id}")
+            record = json.loads(payload)
+            if record["status"] not in ("queued", "running"):
+                return record
+            _time.sleep(0.05)
+        self.fail("el escaneo no terminó a tiempo")
+
+    def test_health_and_allowed_origins_follow_configuration(self):
+        status, payload = self.request("GET", "/api/health")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(payload)["status"], "ok")
+        # Another Host is refused even on the right port (health alone answers, anonymously, for platform probes).
+        status, _ = self.request("GET", "/api/auth/session", headers={"Host": "evil.test:8766"})
+        self.assertEqual(status, 403)
+        with patch.dict(os.environ, {"TAMANDUA_ALLOWED_ORIGINS": "http://appsec.local:8766"}):
+            status, _ = self.request("GET", "/api/auth/session", headers={"Host": "appsec.local:8766"})
+            self.assertEqual(status, 200)
+            status, _ = self.request("GET", "/api/auth/session")   # 127.0.0.1 is no longer allowed
+            self.assertEqual(status, 403)
+
+    def test_code_connection_from_ui_validates_lists_and_forgets_token(self):
+        secret = "ghp_test_read_only_secret_123"
+        headers = {"Origin": self.origin, "X-Tamandua-Action": "connect-code"}
+        with patch("tamandua.modules.sources.repositories._request", return_value=json.dumps([
+            {"full_name": "example/private", "private": True, "default_branch": "main"}
+        ]).encode()) as request:
+            status, payload = self.request("POST", "/api/integrations/code", json.dumps({"provider": "github", "token": secret}), headers)
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(payload)["repositories"], 1)
+            status, listing = self.request("GET", "/api/sources")
+            self.assertEqual(status, 200)
+            self.assertIn(b"github:example/private", listing)
+            self.assertEqual(json.loads(listing)["providers"]["github"]["origin"], "session")
+            self.assertNotIn(secret.encode(), listing + payload)
+            self.assertEqual(request.call_args.args[1], secret)
+            status, _ = self.request("POST", "/api/integrations/code", json.dumps({"provider": "github", "disconnect": True}), headers)
+            self.assertEqual(status, 200)
+            status, listing = self.request("GET", "/api/sources")
+            self.assertEqual(status, 200)
+            self.assertNotIn(b"github:example/private", listing)
+
+    def test_code_connection_rejects_cross_origin_and_invalid_token(self):
+        body = json.dumps({"provider": "github", "token": "test-token-123"})
+        status, _ = self.request("POST", "/api/integrations/code", body,
+                                 {"Origin": "http://evil.test", "X-Tamandua-Action": "connect-code"})
+        self.assertEqual(status, 403)
+        with patch("tamandua.modules.sources.repositories._request", side_effect=Exception("should not call")):
+            status, _ = self.request("POST", "/api/integrations/code", json.dumps({"provider": "github", "token": "bad token"}),
+                                     {"Origin": self.origin, "X-Tamandua-Action": "connect-code"})
+            self.assertEqual(status, 400)
+
+
+    def test_gitlab_is_refused_while_in_development(self):
+        headers = {"Origin": self.origin, "X-Tamandua-Action": "connect-code"}
+        with patch("tamandua.modules.sources.repositories._request", side_effect=AssertionError("no request")):
+            status, payload = self.request("POST", "/api/integrations/code",
+                                           json.dumps({"provider": "gitlab", "token": "glpat-test-token"}), headers)
+            self.assertEqual(status, 400)
+            self.assertIn("GitLab", json.loads(payload)["error"])
+            status, _ = self.request("GET", "/api/sources?provider=gitlab")
+            self.assertEqual(status, 400)
+            # A token saved before can still be removed.
+            status, _ = self.request("POST", "/api/integrations/code", json.dumps({"provider": "gitlab", "disconnect": True}), headers)
+            self.assertEqual(status, 200)
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,233 @@
+# Self-hosted Tamandua. The recommended way to run it is the Makefile:
+#
+#   make up          # prepares .env, builds, starts and shows the setup code
+#   make help        # every other command
+#
+# Without make:  cp .env.example .env && mkdir -p data config && docker compose up --build -d
+#
+# Services: `api` (panel and API, no Docker), `worker` (runs scans and periodic tasks),
+# `postgres` (data), `opengrep` (only builds the engine image) and, optionally, `backup` (profile `backup`).
+#
+# On a server with a domain, add the HTTPS overlay (Caddy) and, if you use the published images, the images one:
+#   docker compose -f compose.yaml -f compose.prod.yaml [-f compose.images.yaml] up -d
+# `make setup DOMAIN=…` writes that list in .env (COMPOSE_FILE) so every command uses it. See docs/deploy-vps.md.
+#
+# The analysis engines (Trivy, Gitleaks, Opengrep) are sibling containers the WORKER starts through the Docker
+# socket: that's why only it mounts the socket, and why the data folder is shared at the SAME absolute host path
+# (TAMANDUA_HOST_DATA_DIR). The Docker socket is equivalent to root on the host: the service that serves requests
+# (api) doesn't have it.
+# Fixed project name: the volume and network don't depend on the cloned folder's name.
+name: tamandua
+
+# Shared by api and worker (same image, same data and hardening).
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/app/Dockerfile
+    target: app  # not the last stage (worker-standalone, whose command is the worker)
+    args:
+      VERSION: ${TAMANDUA_VERSION:-0.11}
+  image: localhost/tamandua/app:${TAMANDUA_VERSION:-0.11}
+  init: true
+  # Your UID/GID so the files in ./data and ./config are yours (see .env.example).
+  user: "${TAMANDUA_UID:-10001}:${TAMANDUA_GID:-10001}"
+  env_file:
+    - path: .env
+      required: false
+  # Hardening: read-only filesystem (writes only to /data, /config and in-memory temporary
+  # folders), no Linux capabilities and no privilege escalation.
+  read_only: true
+  tmpfs:
+    - /tmp:size=256m
+    - /home/tamandua:size=16m,uid=${TAMANDUA_UID:-10001},gid=${TAMANDUA_GID:-10001}
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+  restart: unless-stopped
+
+x-app-env: &app-env
+  TAMANDUA_DATA_DIR: /data
+  TAMANDUA_HOST_DATA_DIR: ${PWD}/data
+  TAMANDUA_HOST_RULES_DIR: ${PWD}/rules
+  TAMANDUA_CONFIG_DIR: /config
+  TAMANDUA_PUBLIC_URL: ${TAMANDUA_PUBLIC_URL:-http://127.0.0.1:8766}
+  TAMANDUA_ALLOWED_ORIGINS: ${TAMANDUA_ALLOWED_ORIGINS:-http://127.0.0.1:8766,http://localhost:8766}
+  TAMANDUA_LOG_LEVEL: ${TAMANDUA_LOG_LEVEL:-INFO}
+  # Logs go to the container output (docker logs); this also keeps a rotated JSON copy in data/logs/.
+  TAMANDUA_LOG_FILE: ${TAMANDUA_LOG_FILE-logs/app.log}
+  TAMANDUA_DEFAULT_LOCALE: ${TAMANDUA_DEFAULT_LOCALE:-en}
+  # admins (default): TOTP required for administrators · all: for everyone · none: optional
+  TAMANDUA_REQUIRE_TOTP: ${TAMANDUA_REQUIRE_TOTP:-admins}
+  TAMANDUA_PR_POLL_SECONDS: ${TAMANDUA_PR_POLL_SECONDS:-300}
+  TAMANDUA_BRANCH_MIN_MINUTES: ${TAMANDUA_BRANCH_MIN_MINUTES:-60}
+  TAMANDUA_ADVISORY_WATCH_HOURS: ${TAMANDUA_ADVISORY_WATCH_HOURS:-24}
+  # Runs, findings and triage live in PostgreSQL (the `postgres` service, internal network only).
+  TAMANDUA_DATABASE_URL: "postgresql+psycopg://tamandua:${TAMANDUA_DB_PASSWORD:?TAMANDUA_DB_PASSWORD is missing in .env (run make setup)}@postgres:5432/tamandua"
+  HOME: /home/tamandua
+
+x-app-volumes: &app-volumes
+  - ./data:/data
+  - ./rules:/app/rules:ro
+  # Encrypted secrets (GitHub App, Jira, notification channels) and their master key. Never in ./data.
+  - ${TAMANDUA_HOST_CONFIG_DIR:-./config}:/config
+
+services:
+  api:
+    <<: *app
+    container_name: tamandua
+    ports:
+      # This machine only by default. To expose it on the network, use HTTPS (see README).
+      - "${TAMANDUA_HOST_BIND:-127.0.0.1}:${TAMANDUA_HOST_PORT:-8766}:8766"
+    environment:
+      <<: *app-env
+      # The `worker` service runs the scans: the API doesn't need Docker.
+      TAMANDUA_EMBEDDED_WORKER: "0"
+    volumes: *app-volumes
+    # Ceilings so a runaway process can't starve the host (and Postgres with it). The engines run in their own
+    # containers, with their own limits (scanning/engines.py).
+    mem_limit: ${TAMANDUA_API_MEMORY:-1g}
+    pids_limit: 256
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Host = the first allowed origin's, so it also passes behind a proxy (compose.prod.yaml: only the domain).
+      test: ["CMD", "python", "-c", "import os,sys,urllib.parse as p,urllib.request as r; h=p.urlsplit((os.environ.get('TAMANDUA_ALLOWED_ORIGINS') or 'http://127.0.0.1:8766').split(',')[0].strip()).netloc; sys.exit(0 if r.urlopen(r.Request('http://127.0.0.1:8766/api/health', headers={'Host': h}), timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Runs the queued scans (in PostgreSQL) and the periodic tasks. It's the only one with the Docker socket.
+  # It can scale (docker compose up -d --scale worker=2): only one runs the periodic tasks.
+  worker:
+    <<: *app
+    command: ["python", "-m", "tamandua", "--data-dir", "/data", "worker"]
+    # No HTTP: health is its heartbeat in the database (the image's check queries /api/health, which doesn't exist here).
+    healthcheck:
+      test: ["CMD", "python", "-m", "tamandua", "--data-dir", "/data", "worker", "--check"]
+      interval: 60s
+      timeout: 15s
+      start_period: 60s
+      retries: 3
+    environment: *app-env
+    mem_limit: ${TAMANDUA_WORKER_MEMORY:-2g}
+    pids_limit: 512
+    volumes:
+      - ./data:/data
+      - ./rules:/app/rules:ro
+      - ${TAMANDUA_HOST_CONFIG_DIR:-./config}:/config
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Docker socket access to start the engines. On Docker Desktop and OrbStack (macOS,
+    # Windows) the socket belongs to group 0; on Linux and WSL with native Docker, to the `docker`
+    # group, whose number varies: `make` detects it and passes it in DOCKER_SOCKET_GID. With no other
+    # group to add, the second entry repeats your own group (compose doesn't allow two identical ones).
+    group_add:
+      - "0"
+      - "${DOCKER_SOCKET_GID:-${TAMANDUA_GID:-10001}}"
+    depends_on:
+      opengrep:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  # Database. No published port: only the app reaches it, over the compose internal network. Data lives in the
+  # `tamandua-pg` volume (make backup also takes a pg_dump).
+  postgres:
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    container_name: tamandua-postgres
+    environment:
+      POSTGRES_USER: tamandua
+      POSTGRES_DB: tamandua
+      POSTGRES_PASSWORD: "${TAMANDUA_DB_PASSWORD:?TAMANDUA_DB_PASSWORD is missing in .env (run make setup)}"
+    volumes:
+      - tamandua-pg:/var/lib/postgresql
+    # The entrypoint starts as root to own the data folder, then drops to the postgres user: only what that takes.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 128mb
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tamandua -d tamandua"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional scheduled backups (profile `backup`): every TAMANDUA_BACKUP_INTERVAL_HOURS a pg_dump plus config/ and
+  # data/ (without caches) into TAMANDUA_BACKUP_DIR/auto-<date>/, keeping TAMANDUA_BACKUP_KEEP_DAYS days. Same layout
+  # as `make backup`, so `make restore` takes either. Turn it on with COMPOSE_PROFILES=backup in .env.
+  # It only gets the database password, not the rest of .env; config/ and data/ are mounted read-only.
+  backup:
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    profiles: [backup]
+    init: true
+    user: "${TAMANDUA_UID:-10001}:${TAMANDUA_GID:-10001}"
+    entrypoint: ["/bin/sh", "/opt/tamandua/backup-service.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: tamandua
+      PGDATABASE: tamandua
+      PGPASSWORD: "${TAMANDUA_DB_PASSWORD:?TAMANDUA_DB_PASSWORD is missing in .env (run make setup)}"
+      BACKUP_INTERVAL_HOURS: "${TAMANDUA_BACKUP_INTERVAL_HOURS:-24}"
+      BACKUP_KEEP_DAYS: "${TAMANDUA_BACKUP_KEEP_DAYS:-14}"
+      BACKUP_AGE_RECIPIENT: "${TAMANDUA_BACKUP_AGE_RECIPIENT:-}"
+    volumes:
+      - ./scripts/backup-service.sh:/opt/tamandua/backup-service.sh:ro
+      - ./data:/source/data:ro
+      - ${TAMANDUA_HOST_CONFIG_DIR:-./config}:/source/config:ro
+      - ${TAMANDUA_BACKUP_DIR:-./backups}:/backups
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/bin/sh", "/opt/tamandua/backup-service.sh", "--check"]
+      interval: 10m
+      timeout: 10s
+      start_period: 30m
+      retries: 1
+    # After the api is healthy: by then the migrations have run, so even the first backup is a complete one.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Only builds the SAST engine image (with its SHA-256-verified binary) and checks that it
+  # starts; the app runs it later for each scan. It exits right away: that's expected.
+  opengrep:
+    build: docker/engines/opengrep
+    image: localhost/tamandua/opengrep:1.30.0
+    command: ["--version"]
+    network_mode: none
+    restart: "no"
+
+volumes:
+  tamandua-pg:

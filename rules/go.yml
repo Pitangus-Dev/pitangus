@@ -1,0 +1,96 @@
+rules:
+  - id: appsec.go.sql-string-building
+    languages: [go]
+    severity: ERROR
+    message: "The SQL text is built with concatenation or fmt.Sprintf. Use placeholders ($1 / ?) and pass the values as separate arguments."
+    metadata: {cwe: [89], owasp: "A05:2025", category: injection, confidence: HIGH,
+      title: {en: "SQL query built with string formatting", es: "Consulta SQL construida con formato de cadenas"},
+      fix: {en: "The SQL text is built with concatenation or fmt.Sprintf. Use placeholders ($1 / ?) and pass the values as separate arguments.",
+            es: "SQL construido con concatenación o fmt.Sprintf. Usa placeholders ($1 / ?) con los argumentos separados."}}
+    pattern-either:
+      - pattern: $DB.Query("..." + $X, ...)
+      - pattern: $DB.QueryRow("..." + $X, ...)
+      - pattern: $DB.Exec("..." + $X, ...)
+      - pattern: $DB.Query(fmt.Sprintf("...", ...), ...)
+      - pattern: $DB.QueryRow(fmt.Sprintf("...", ...), ...)
+      - pattern: $DB.Exec(fmt.Sprintf("...", ...), ...)
+      - pattern: $DB.Raw("..." + $X, ...)
+      - pattern: $DB.Raw(fmt.Sprintf("...", ...), ...)
+  - id: appsec.go.shell-command-non-literal
+    languages: [go]
+    severity: ERROR
+    message: "A shell runs a command with dynamic content. Call the binary directly with separate arguments and validate the input."
+    metadata: {cwe: [78], owasp: "A05:2025", category: injection, confidence: MEDIUM,
+      title: {en: "Shell command built from dynamic input", es: "Comando de shell construido con datos dinámicos"},
+      fix: {en: "A shell runs a command with dynamic content. Call the binary directly with separate arguments and validate the input.",
+            es: "Comando pasado a un shell con contenido dinámico. Invoca el binario directamente con argumentos separados y valida la entrada."}}
+    patterns:
+      - pattern-either:
+          - pattern: exec.Command("sh", "-c", $X, ...)
+          - pattern: exec.Command("bash", "-c", $X, ...)
+          - pattern: exec.CommandContext($CTX, "sh", "-c", $X, ...)
+          - pattern: exec.CommandContext($CTX, "bash", "-c", $X, ...)
+      - pattern-not: exec.Command("sh", "-c", "...", ...)
+      - pattern-not: exec.Command("bash", "-c", "...", ...)
+  - id: appsec.go.tls-insecure-skip-verify
+    languages: [go]
+    severity: ERROR
+    message: "InsecureSkipVerify turns off certificate validation, so TLS no longer protects the connection. Set RootCAs to the right CA instead."
+    metadata: {cwe: [295], owasp: "A04:2025", category: crypto, confidence: HIGH,
+      title: {en: "TLS certificate validation disabled (InsecureSkipVerify)", es: "Validación de certificados TLS desactivada (InsecureSkipVerify)"},
+      fix: {en: "InsecureSkipVerify turns off certificate validation, so TLS no longer protects the connection. Set RootCAs to the right CA instead.",
+            es: "InsecureSkipVerify desactiva la validación del certificado: el TLS deja de proteger. Configura RootCAs con la CA correcta."}}
+    pattern: |
+      tls.Config{..., InsecureSkipVerify: true, ...}
+  - id: appsec.go.template-html-unescaped
+    languages: [go]
+    severity: WARNING
+    message: "template.HTML on a dynamic value bypasses escaping and allows XSS if it holds external data. Pass it as a plain string so html/template escapes it, or sanitize it first."
+    metadata: {cwe: [79], owasp: "A05:2025", category: xss, confidence: MEDIUM,
+      title: {en: "Unescaped HTML via template.HTML", es: "HTML sin escapar con template.HTML"},
+      fix: {en: "template.HTML on a dynamic value bypasses escaping and allows XSS if it holds external data. Pass it as a plain string so html/template escapes it, or sanitize it first.",
+            es: "template.HTML sobre un valor dinámico desactiva el escape: XSS si contiene datos externos. Pásalo como string para que html/template lo escape, o sanitízalo antes."}}
+    patterns:
+      - pattern: template.HTML($X)
+      - pattern-not: template.HTML("...")
+  - id: appsec.go.path-traversal-from-request
+    languages: [go]
+    severity: ERROR
+    message: "A file path is built from request input. Use filepath.Base, or check that the filepath.Clean result stays inside the allowed directory."
+    metadata: {cwe: [22], owasp: "A01:2025", category: path-traversal, confidence: HIGH,
+      title: {en: "File path built from request input", es: "Ruta de archivo construida con datos de la petición"},
+      fix: {en: "A file path is built from request input. Use filepath.Base, or check that the filepath.Clean result stays inside the allowed directory.",
+            es: "Ruta de archivo construida con entrada de la petición. Usa filepath.Base o comprueba que filepath.Clean quede dentro del directorio permitido."}}
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $R.URL.Query().Get(...)
+          - pattern: $R.FormValue(...)
+          - pattern: $R.PostFormValue(...)
+          - pattern: mux.Vars($R)
+          - pattern: $C.Param(...)
+          - pattern: $C.Query(...)
+    pattern-sanitizers:
+      - pattern: filepath.Base(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: os.Open($P)
+              - pattern: os.ReadFile($P)
+              - pattern: ioutil.ReadFile($P)
+              - pattern: os.Remove($P)
+              - pattern: http.ServeFile($W, $R, $P)
+          - focus-metavariable: $P
+  - id: appsec.go.weak-hash
+    languages: [go]
+    severity: INFO
+    message: "MD5 and SHA-1 are unsafe for passwords and signatures. Use bcrypt or argon2 for passwords and SHA-256 for integrity."
+    metadata: {cwe: [328], owasp: "A04:2025", category: crypto, confidence: LOW,
+      title: {en: "Weak hash algorithm (MD5/SHA-1)", es: "Algoritmo de hash débil (MD5/SHA-1)"},
+      fix: {en: "MD5 and SHA-1 are unsafe for passwords and signatures. Use bcrypt or argon2 for passwords and SHA-256 for integrity.",
+            es: "MD5/SHA-1 no sirven para contraseñas ni firmas. Para contraseñas usa bcrypt/argon2; para integridad, SHA-256."}}
+    pattern-either:
+      - pattern: md5.New()
+      - pattern: md5.Sum(...)
+      - pattern: sha1.New()
+      - pattern: sha1.Sum(...)

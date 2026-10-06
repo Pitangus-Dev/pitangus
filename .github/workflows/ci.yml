@@ -1,0 +1,195 @@
+# Tests and security analysis on every pull request and every push to main.
+#
+# - backend: Python tests.
+# - panel: types, lint, and a check that tamandua/app/static is rebuilt (the served panel is the one in the repo).
+# - tamandua: Tamandua analyzes itself with its CLI (the same usage documented in docs/cli.md).
+#   On a PR only what the PR introduces counts, and it blocks from high severity up; on main it analyzes
+#   everything and reports. fixtures/ are intentionally vulnerable examples: they are excluded and the output
+#   says how many there are.
+# - action: the GitHub Action (action.yml) as users run it, with the published worker image: a clean folder passes and
+#   the vulnerable examples block. The job above stays: it checks this commit's scanner, rules and Docker runner,
+#   while the action runs the last release.
+#
+# Actions pinned by commit; least-privilege permissions per job; no credentials persisted in the checkout.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (contracts and tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_USER: tamandua
+          POSTGRES_PASSWORD: tamandua  # only for the ephemeral CI container
+          POSTGRES_DB: tamandua
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U tamandua" --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      TAMANDUA_DATABASE_URL: postgresql+psycopg://tamandua:tamandua@127.0.0.1:5432/tamandua
+      TAMANDUA_DB_ISOLATE: data-dir
+      TAMANDUA_DEFAULT_LOCALE: es
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes --only-binary :all: -r requirements-dev.txt
+      - name: Architecture contracts
+        run: lint-imports --cache-dir .cache/import-linter
+      - name: Lint
+        run: ruff check tamandua tests scripts api
+      - name: Types
+        run: mypy
+      - name: The panel's OpenAPI schema matches the API
+        run: |
+          python -c "from tamandua.app.api import openapi_document; print(openapi_document(), end='')" > /tmp/openapi.json
+          if ! cmp -s /tmp/openapi.json web/src/shared/api/openapi.json; then
+            echo "::error::web/src/shared/api/openapi.json does not match the API: run 'make openapi' and commit the result."
+            exit 1
+          fi
+      - name: Tests
+        # No Docker daemon for the tests: none of them may start a real engine (they mock what they need).
+        run: DOCKER_HOST=unix:///nonexistent/docker.sock TAMANDUA_CONFIG_DIR="$RUNNER_TEMP/config" python -m unittest discover -s tests
+
+  panel:
+    name: Panel (types, lint and build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: "22"
+      - name: Dependencies
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+      - name: Types
+        working-directory: web
+        run: npx tsc -b
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+      - name: Tests
+        working-directory: web
+        run: npm test
+      - name: The served panel is rebuilt
+        run: |
+          (cd web && npm run build)
+          if [ -n "$(git status --porcelain -- tamandua/app/static)" ]; then
+            git status --short -- tamandua/app/static
+            echo "::error::tamandua/app/static does not match web/src: run 'make web' and commit the result."
+            exit 1
+          fi
+
+  tamandua:
+    name: Tamandua on itself
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read           # upload-sarif reads the run in private repositories
+      security-events: write  # upload the SARIF to code scanning
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0  # history is needed to compare with the base branch
+          persist-credentials: false
+      - name: Build Tamandua
+        run: make build
+      - name: Analyze
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}  # never interpolated directly into the script
+        run: |
+          mkdir -p "$RUNNER_TEMP/tamandua-data"
+          scope=()
+          if [ "$EVENT" = pull_request ]; then
+            scope=(--base "origin/$BASE_REF")
+          else
+            scope=(--fail-on never)  # main: full inventory in code scanning, without blocking
+          fi
+          version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' tamandua/version.py)"  # the tag that make build just built
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock --group-add "$(stat -c %g /var/run/docker.sock)" \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$PWD":/src:ro -v "$RUNNER_TEMP/tamandua-data":/data \
+            "localhost/tamandua/app:$version" python -m tamandua scan /src --name tamandua \
+            --exclude fixtures/ "${scope[@]}" --format sarif --output /data/tamandua.sarif
+      - name: Is there a SARIF?
+        id: sarif
+        if: always()
+        run: if [ -s "$RUNNER_TEMP/tamandua-data/tamandua.sarif" ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Upload to code scanning
+        # On a PR from a fork the token cannot write results: the verdict is already in the analysis step.
+        if: always() && steps.sarif.outputs.exists == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        # In a private repository without GitHub Advanced Security, code scanning does not accept results: CI does
+        # not fail because of that (the verdict is the one from the "Analyze" step).
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
+        with:
+          sarif_file: ${{ runner.temp }}/tamandua-data/tamandua.sarif
+          category: tamandua
+
+  action:
+    name: GitHub Action (uses ./)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read  # pull the worker image while the package is private
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: A clean folder passes
+        id: clean
+        # This commit's action.yml, from our own checkout (nothing earlier writes to the workspace). The `$/` syntax
+        # (July 2026) isn't verified yet for an action at the repository root.
+        uses: ./  # zizmor: ignore[self-repository]
+        with:
+          path: skills
+          base: none
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: The vulnerable examples block
+        id: blocked
+        continue-on-error: true
+        uses: ./  # zizmor: ignore[self-repository]
+        with:
+          path: fixtures
+          base: none
+          sarif: blocked.sarif
+      - name: Exit codes and SARIF
+        env:
+          CLEAN_CODE: ${{ steps.clean.outputs.exit-code }}
+          CLEAN_SARIF: ${{ steps.clean.outputs.sarif }}
+          BLOCKED_CODE: ${{ steps.blocked.outputs.exit-code }}
+          BLOCKED_OUTCOME: ${{ steps.blocked.outcome }}
+          BLOCKED_SARIF: ${{ steps.blocked.outputs.sarif }}
+        run: |
+          test "$CLEAN_CODE" = 0 && test -s "$CLEAN_SARIF"
+          test "$BLOCKED_CODE" = 1 && test "$BLOCKED_OUTCOME" = failure
+          test "$BLOCKED_SARIF" = "$GITHUB_WORKSPACE/blocked.sarif" && grep -q '"results"' "$BLOCKED_SARIF"

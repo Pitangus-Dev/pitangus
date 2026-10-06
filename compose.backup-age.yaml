@@ -1,0 +1,9 @@
+# The `backup` service with age, so it can encrypt every backup (TAMANDUA_BACKUP_AGE_RECIPIENT in .env).
+# The default image has no age: add this file to COMPOSE_FILE in .env, e.g.
+#   COMPOSE_FILE=compose.yaml:compose.prod.yaml:compose.backup-age.yaml
+# and `make up` builds it once (docker/backup/Dockerfile).
+services:
+  backup:
+    image: localhost/tamandua/backup-age:18
+    build:
+      context: docker/backup

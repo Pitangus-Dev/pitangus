@@ -1,0 +1,15 @@
+# Runtime dependencies: what goes into the image. requirements.txt is generated from this file (`make lock`) with every
+# package, transitive ones included, pinned with its hashes; edit here, never there.
+# RS256 signature of the GitHub App JWT and AES-GCM for the secrets vault.
+cryptography>=43,<51
+# PDF reports for findings and threat models.
+reportlab>=4.2,<5
+# HTTP API: FastAPI on Starlette, the Uvicorn ASGI server and Pydantic validation.
+# Exact versions: they are updated on purpose (Dependabot + CI), not by surprise.
+fastapi==0.141.1
+uvicorn==0.54.0
+pydantic==2.13.5
+# Database: PostgreSQL with SQLAlchemy 2 (Core), Alembic migrations and the psycopg 3 driver (LGPL).
+sqlalchemy==2.1.1
+alembic==1.20.0
+psycopg[binary]==3.3.6

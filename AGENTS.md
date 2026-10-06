@@ -1,0 +1,31 @@
+# Tamandua · notes for agents (Codex and others)
+
+This is the counterpart of `CLAUDE.md` for coding agents other than Claude Code; both carry the same rules. The
+detailed guides are the skills in `.claude/skills/*/SKILL.md` (design, i18n) and the reviewers in
+`.claude/agents/*.md` (`design-reviewer`, `i18n-localizer`): read them as instructions even if your tool does not
+load them automatically.
+
+- **Language.** Code, identifiers and comments in English; keep comments few (only the non-obvious why). Commit
+  messages in Spanish. Skills and agents (`.claude/`, `skills/`) in English.
+- **User-facing text** exists in English (source) and Spanish, through the i18n catalogs: follow
+  `.claude/skills/tamandua-i18n/SKILL.md` ("interpret, don't translate"; stored text is language-neutral). For
+  localization work, follow `.claude/agents/i18n-localizer.md`.
+- **Design.** Before creating or changing the panel (`web/src`), a report (PDF or Markdown), an export or the threat
+  diagram, follow `.claude/skills/tamandua-design/SKILL.md`, and review the change against
+  `.claude/agents/design-reviewer.md` before committing.
+- **Data.** Application state lives in PostgreSQL (tables per context in `modules/<ctx>/tables.py`; settings in
+  `shared/documents.py`). On disk only: the master key file when `TAMANDUA_MASTER_KEY` isn't set, and caches that
+  rebuild themselves (`data/`). Never add state to disk or process memory: the API must run as several instances or
+  without a persistent disk (docs/deploy.md). Every environment variable is declared in `shared/settings.py`. A schema
+  change needs an Alembic migration; rewriting data, a migration in `tamandua/app/data_migrations.py` with its test.
+  Never reorder or delete published migrations.
+- **Architecture.** Modular monolith in `tamandua/` (see `docs/architecture.md`). Business code in
+  `tamandua/modules/<context>/`; `modules` never imports `app`/`cli`, `shared` never imports `modules`, and the
+  business code never imports FastAPI/Starlette. `make arch` (import-linter) enforces it. Discuss a new context or a new
+  cross-context dependency first.
+- **Panel.** By feature in `web/src/{app,pages,features,shared}` (a layer never imports from the layers above;
+  `tests/test_web_layers.py`). Server data with TanStack Query (`shared/api/queries.ts`), no loose `setInterval` or
+  `fetch` for new code.
+- **API.** New routes in FastAPI (`tamandua/app/api/<context>.py`) with Pydantic schemas and `guard(Policy(...))`. After changing a route:
+  `make openapi` (the panel uses the generated types in `web/src/shared/api/`; CI checks they are current).
+- **Checks.** `make test` and `make arch` (backend) and `cd web && npx tsc -b && npx oxlint src` (panel).

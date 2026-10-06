@@ -1,0 +1,9 @@
+# Blank issues stay open for questions: the repository has no Discussions.
+blank_issues_enabled: true
+contact_links:
+  - name: Report a vulnerability (private)
+    url: https://github.com/Tamandua-AppSec/tamandua/security/advisories/new
+    about: Security issues go here, never in a public issue. See SECURITY.md.
+  - name: Documentation
+    url: https://github.com/Tamandua-AppSec/tamandua/tree/main/docs
+    about: Installation, configuration, deployment and troubleshooting, in English and Spanish (docs/es).
