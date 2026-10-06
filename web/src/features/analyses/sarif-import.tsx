@@ -10,7 +10,8 @@ import { formatList, formatNumber } from '@/shared/i18n/format'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
-import { AssetPicker, type Asset } from '@/features/sources/asset-picker'
+import { AssetPicker } from '@/features/sources/asset-picker'
+import type { Asset } from '@/features/sources/asset-option'
 import { validBranch } from '@/features/sources/sources'
 
 // Same cap as the server (tamandua/modules/scanning/sarif_import.py MAX_BYTES).

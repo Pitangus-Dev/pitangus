@@ -1,16 +1,11 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import i18n from '@/shared/i18n'
+import { sevColor, sevName } from '@/shared/charts/severity'
 import { formatDay } from '@/shared/i18n/format'
 
 // Gráficas SVG sin dependencias. Marcas finas, huecos de 2 px entre segmentos, rejilla recesiva,
 // leyenda siempre que haya ≥ 2 series, etiquetas directas selectivas y capa de hover con tooltip.
 const SEV = ['low', 'medium', 'high', 'critical'] as const
-export const sevColor: Record<string, string> = { low: 'var(--sev-low)', medium: 'var(--sev-medium)', high: 'var(--sev-high)', critical: 'var(--sev-critical)' }
-export const sevName: Record<string, string> = {
-  get low() { return i18n.t('common:severity.low') }, get medium() { return i18n.t('common:severity.medium') },
-  get high() { return i18n.t('common:severity.high') }, get critical() { return i18n.t('common:severity.critical') },
-}
 const shortDay = (day: string) => day.slice(5).replace('-', '/')
 
 // Ancho real del contenedor: los gráficos se dibujan a su tamaño en píxeles en vez de escalar un viewBox

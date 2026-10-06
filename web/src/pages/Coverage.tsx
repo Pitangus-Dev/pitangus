@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CircleDashed, Clock3, TriangleAlert } from 'lucide-react'
-import { AssetPicker, type Asset } from '@/features/sources/asset-picker'
+import { AssetPicker } from '@/features/sources/asset-picker'
+import type { Asset } from '@/features/sources/asset-option'
 import { Skeleton } from '@/shared/ui/loading'
 import { api } from '@/shared/api/http'
 import { Badge } from '@/shared/ui/badge'
@@ -37,15 +38,19 @@ const OWASP_TOP10 = [['A01', 'Broken Access Control'], ['A02', 'Security Misconf
 export function CoverageView() {
   const { t } = useTranslation('coverage')
   const [asset, setAsset] = useState<Asset | null>(null)
-  const [detail, setDetail] = useState<(RunRow & { owasp_coverage?: OwaspCoverage[]; steps?: ScanStep[] }) | null>(null)
-  const [loading, setLoading] = useState(false)
+  // The last answer, tagged with the run it belongs to: another run is loading until its own answer arrives.
+  const [result, setResult] = useState<{ runId: string; detail: (RunRow & { owasp_coverage?: OwaspCoverage[]; steps?: ScanStep[] }) | null } | null>(null)
   // Hasta que el selector resuelve el repositorio no hay nada que medir: nada de «Sin escaneo» provisional.
   const [resolved, setResolved] = useState(false)
   const runId = asset?.latest_scan?.run_id
+  const detail = runId && result?.runId === runId ? result.detail : null
+  const loading = !!runId && result?.runId !== runId
   useEffect(() => {
-    if (!runId) { setDetail(null); return }
-    setLoading(true)
-    api.get<RunRow & { owasp_coverage?: OwaspCoverage[]; steps?: ScanStep[] }>(`/api/runs/${encodeURIComponent(runId)}`).then(setDetail).catch(() => setDetail(null)).finally(() => setLoading(false))
+    if (!runId) return
+    let current = true
+    api.get<RunRow & { owasp_coverage?: OwaspCoverage[]; steps?: ScanStep[] }>(`/api/runs/${encodeURIComponent(runId)}`)
+      .catch(() => null).then(next => { if (current) setResult({ runId, detail: next }) })
+    return () => { current = false }
   }, [runId])
   const coverage = OWASP_TOP10.map(([id, title]) => detail?.owasp_coverage?.find(item => item.id === id) ?? { id, title, status: 'not_tested' as const, reason: t('no_full_scan') })
   return <div className="space-y-5">

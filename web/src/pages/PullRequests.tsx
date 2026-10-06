@@ -76,7 +76,12 @@ export function PullRequests({ user, onOpenRun }: { user: SessionUser; onOpenRun
   const setListing = (update: Listing | null | ((previous: Listing | null) => Listing | null)) =>
     queryClient.setQueryData<Listing | null>(['pull-requests', sourceId], previous => typeof update === 'function' ? update(previous ?? null) : update)
   const load = useCallback(async () => { await result.refetch() }, [result])
-  useEffect(() => { if (result.error) setError(result.error instanceof Error ? result.error.message : String(result.error)) }, [result.error])
+  // A new listing error replaces the message; clearing it (another action) leaves it hidden until the next one.
+  const [listingError, setListingError] = useState<unknown>(null)
+  if (result.error !== listingError) {
+    setListingError(result.error)
+    if (result.error) setError(result.error instanceof Error ? result.error.message : String(result.error))
+  }
   useEffect(() => { if (sourceId) setRouteParam('repo', sourceId) }, [sourceId])
 
   const save = async (change: Partial<Settings>) => {

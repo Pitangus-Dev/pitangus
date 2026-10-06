@@ -1,22 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import i18n from '@/shared/i18n'
 import { ApiError, api } from '@/shared/api/http'
 import { Check, ChevronRight, CircleAlert, CircleCheck, Copy, LoaderCircle, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
+import type { Domain, DomainKind } from '@/features/sources/domains'
 
-export type DomainKind = 'web' | 'api' | 'surface'
-export type Domain = { id: string; host: string; url: string; kind?: DomainKind; context?: string; txt_name: string; txt_value: string; verified: boolean; registered_at?: string; verified_at?: string | null }
 type Reach = { host: string; reachable: boolean; status: string; http_status?: number; detail: string }
 
-// Getters so the label follows the current language wherever it's read.
-export const kindLabel: Record<DomainKind, string> = {
-  get web() { return i18n.t('sources:domains.kind.web') },
-  get api() { return i18n.t('sources:domains.kind.api') },
-  get surface() { return i18n.t('sources:domains.kind.surface') },
-}
 const kinds = [
   { id: 'web', label: 'domains.kind.web', hint: 'domains.kind_hint.web' },
   { id: 'api', label: 'domains.kind.api', hint: 'domains.kind_hint.api' },
@@ -24,8 +16,9 @@ const kinds = [
 ] as const
 // El backend exige https sin puerto ni query; aquí solo completamos el esquema que la gente omite al escribir.
 const normalize = (value: string) => { const trimmed = value.trim(); return !trimmed || /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}` }
+const probeable = (candidate: string) => /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+\/?[^\s?#]*$/i.test(candidate)
 
-export function useClipboard() {
+function useClipboard() {
   const [copied, setCopied] = useState('')
   return { copied, copy: async (value: string) => { await navigator.clipboard.writeText(value); setCopied(value); window.setTimeout(() => setCopied(''), 1800) } }
 }
@@ -41,13 +34,17 @@ export function AddDomainDialog({ open, onOpenChange, onAdded }: { open: boolean
   const [error, setError] = useState('')
   const aborter = useRef<AbortController | null>(null)
 
-  useEffect(() => { if (!open) { setUrl(''); setKind('web'); setContext(''); setReach(null); setError('') } }, [open])
+  // Closing clears the form, so the next opening starts empty.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (!open) { setUrl(''); setKind('web'); setContext(''); setReach(null); setChecking(false); setError('') }
+  }
+  const changeUrl = (value: string) => { setUrl(value); setReach(null); setChecking(probeable(normalize(value))) }
   // El sondeo es informativo: un dominio que no contesta igual se puede registrar.
   useEffect(() => {
     const candidate = normalize(url)
-    setReach(null)
-    if (!/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+\/?[^\s?#]*$/i.test(candidate)) return setChecking(false)
-    setChecking(true)
+    if (!probeable(candidate)) return
     const timer = window.setTimeout(async () => {
       aborter.current?.abort()
       const controller = new AbortController()
@@ -60,7 +57,7 @@ export function AddDomainDialog({ open, onOpenChange, onAdded }: { open: boolean
       }
       finally { setChecking(false) }
     }, 600)
-    return () => { window.clearTimeout(timer); setChecking(false) }
+    return () => window.clearTimeout(timer)
   }, [url])
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -80,7 +77,7 @@ export function AddDomainDialog({ open, onOpenChange, onAdded }: { open: boolean
       <div className="space-y-2">
         <label htmlFor="domain-url" className="text-sm text-app-secondary">{t('domains.add.domain')}</label>
         <div className="relative">
-          <Input id="domain-url" required autoFocus value={url} onChange={event => setUrl(event.target.value)} placeholder={t('domains.add.placeholder')} className="border-app-line bg-app-soft pr-10" />
+          <Input id="domain-url" required autoFocus value={url} onChange={event => changeUrl(event.target.value)} placeholder={t('domains.add.placeholder')} className="border-app-line bg-app-soft pr-10" />
           <span className="absolute top-1/2 right-3 -translate-y-1/2">{checking ? <LoaderCircle className="size-4 animate-spin text-app-subtle" /> : reach?.reachable ? <CircleCheck className="size-4 text-brand" /> : reach ? <CircleAlert className="size-4 text-warning" /> : null}</span>
         </div>
         {checking && <p className="text-xs text-app-subtle">{t('domains.add.checking')}</p>}
@@ -104,7 +101,9 @@ export function VerifyDomainDialog({ domain, onOpenChange, onVerified }: { domai
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const { copied, copy } = useClipboard()
-  useEffect(() => { setError('') }, [domain])
+  // Another domain (or none) clears the previous verification error.
+  const [shown, setShown] = useState(domain)
+  if (domain !== shown) { setShown(domain); setError('') }
   if (!domain) return null
   const verify = async () => {
     setBusy(true); setError('')
