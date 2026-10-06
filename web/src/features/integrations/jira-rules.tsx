@@ -12,7 +12,7 @@ import { apiPost, type PostBody, type PostResponse, type Response } from '@/shar
 import { assetQuery, keys, type JiraRouting } from '@/shared/api/queries'
 import { formatDate, formatNumber } from '@/shared/i18n/format'
 import type { Page } from '@/shared/lib/types'
-import { assetOption, type Asset } from '@/features/sources/asset-picker'
+import { assetOption, type Asset } from '@/features/sources/asset-option'
 import { destinationOf, destinationTarget, errorMap, type JiraRule } from '@/features/integrations/jira-routing'
 
 type Backfill = Response<'/api/integrations/jira/backfill'>['items'][number]

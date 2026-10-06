@@ -1,30 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Layers3, LoaderCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { api, query } from '@/shared/api/http'
-
-export type BatchSummary = { id: string; label: string; status: 'running' | 'done' | 'cancelled'; created_at: string; by: string; total: number
-  pending: number; running: number; done: number; failed: number; critical: number; high: number; eta_seconds: number
-  failed_items: { name: string; error: string }[] }
+import type { BatchSummary } from '@/features/analyses/use-batches'
 
 const duration = (t: TFunction<'analyses'>, seconds: number) => seconds < 90 ? t('duration.under_two_minutes') : seconds < 5400 ? t('duration.minutes', { value: Math.round(seconds / 60) }) : t('duration.hours', { value: Math.round(seconds / 3600) })
-
-// Estado del lote activo, sondeado mientras avanza. Devuelve también una función para refrescarlo al crear uno.
-export function useBatches() {
-  // Sondea cada 5 s solo mientras haya un lote activo (antes: un setInterval propio).
-  const result = useQuery({
-    queryKey: ['batches'],
-    queryFn: ({ signal }) => api.get<{ active: BatchSummary | null; recent: BatchSummary[] }>('/api/repositories/batches', { signal }),
-    refetchInterval: query => query.state.data?.active ? 5000 : false,
-  })
-  const state = result.data ?? null
-  const reload = useCallback(() => result.refetch(), [result])
-  return { active: state?.active ?? null, last: state?.recent[0] ?? null, reload }
-}
 
 // `viewer`: quién mira. Cancelar es cosa de quien lanzó el lote o de un administrador; sin `viewer`, se muestra siempre.
 export function BatchPanel({ active, last, onChanged, viewer }: { active: BatchSummary | null; last: BatchSummary | null; onChanged: () => void; viewer?: { username: string; admin: boolean } }) {
@@ -61,9 +44,11 @@ export function OrganizationScanDialog({ account, onClose, onStarted }: { accoun
   const [total, setTotal] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // Another organization starts counting again.
+  const [counted, setCounted] = useState(account)
+  if (account !== counted) { setCounted(account); if (account) { setTotal(null); setError('') } }
   useEffect(() => {
     if (!account) return
-    setTotal(null); setError('')
     api.get<{ total: number }>(`/api/sources?${query({ account, provider: 'github', per_page: 1 })}`).then(data => setTotal(data.total)).catch(caught => setError(String(caught)))
   }, [account])
   const start = async () => {

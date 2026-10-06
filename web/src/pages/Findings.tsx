@@ -6,7 +6,7 @@ import { RepositoryResult, type RepositoryRun } from '@/features/findings/reposi
 import { RunProgress, type RunningRun } from '@/features/analyses/run-progress'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
-import { assetOption, type Asset } from '@/features/sources/asset-picker'
+import { assetOption, type Asset } from '@/features/sources/asset-option'
 import { RepositorySettings } from '@/features/findings/repository-settings'
 import { Skeleton } from '@/shared/ui/loading'
 import { api, query } from '@/shared/api/http'
@@ -30,8 +30,10 @@ export function Findings({ user, requestedRun, onNew, onOpenPolicies }: { user: 
   const [run, setRun] = useState<string>(CURRENT)
   const [runLabel, setRunLabel] = useState<ComboOption | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
-  const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<'open' | 'fixed' | 'excluded' | 'all'>('open')
+  // Loading means waiting for this selection's detail; it only stops when that load fails (the skeleton needs no detail).
+  const [failed, setFailed] = useState<{ asset: Asset; run: string; tab: typeof tab } | null>(null)
+  const loading = !!asset && !(failed?.asset === asset && failed.run === run && failed.tab === tab)
   useEffect(() => { if (asset) setRouteParam('repo', asset.key) }, [asset])
   useEffect(() => { setRouteParam('run', run === CURRENT ? null : run) }, [run])
   const [empty, setEmpty] = useState(false)
@@ -62,20 +64,20 @@ export function Findings({ user, requestedRun, onNew, onOpenPolicies }: { user: 
   }, [requestedRun])
 
   // «Estado actual» es el registro del repositorio (escaneos y PRs juntos); una ejecución concreta es su foto.
-  const load = useCallback(async () => {
-    if (!asset) return
-    setLoading(true)
-    try {
-      const next = run === CURRENT
-        ? await api.get<Detail>(`/api/assets/state?${query({ key: asset.key, status: tab })}`)
-        : await api.get<Detail>(`/api/runs/${encodeURIComponent(run)}`)
+  const load = useCallback(() => {
+    if (!asset) return Promise.resolve()
+    const request = run === CURRENT
+      ? api.get<Detail>(`/api/assets/state?${query({ key: asset.key, status: tab })}`)
+      : api.get<Detail>(`/api/runs/${encodeURIComponent(run)}`)
+    return request.then(async next => {
       setDetail(next)
       if (run !== CURRENT) setRunLabel(runOption(next))
       const fresh = (await api.get<Page<Asset>>(`/api/assets?${query({ key: asset.key, limit: 1 })}`).catch(() => null))?.items[0]
       setAssetView(fresh ?? asset)
-    } finally { setLoading(false) }
+    }, caught => { setFailed({ asset, run, tab }); throw caught })
   }, [asset, run, tab])
   useEffect(() => { void load() }, [load])
+  const reload = () => { setFailed(null); void load() }
 
   const searchRuns = useCallback(async (text: string) => {
     if (!asset) return { options: [], total: 0 }
@@ -97,14 +99,14 @@ export function Findings({ user, requestedRun, onNew, onOpenPolicies }: { user: 
     {asset?.removed_at && <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger"><TriangleAlert className="mt-0.5 size-4 shrink-0" /><span>{t('page.removed', { date: formatDate(asset.removed_at) })}</span></div>}
     {/* This repository's own settings in one strip: the findings list is what matters. Global policies live in Policies. */}
     {run === CURRENT && asset && <RepositorySettings key={asset.key} assetKey={asset.key} name={asset.name} secrets={!asset.key.startsWith('image:')}
-      canEdit={user.role === 'admin'} onChanged={() => void load()} onOpenPolicies={onOpenPolicies} />}
+      canEdit={user.role === 'admin'} onChanged={reload} onOpenPolicies={onOpenPolicies} />}
     {run === CURRENT && <div className="flex flex-wrap gap-1.5">{([['open', t('page.tabs.open')], ['fixed', t('page.tabs.fixed')], ['excluded', t('page.tabs.excluded')], ['all', t('common:state.all')]] as const)
       .filter(([key]) => key !== 'excluded' || tab === 'excluded' || (counts?.excluded ?? 0) > 0)
       .map(([key, text]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={`rounded-lg border px-3 py-1.5 text-sm ${tab === key ? 'border-brand/50 bg-brand/10 text-brand' : 'border-app-line bg-app-soft text-app-muted'}`}>{text}{counts ? ` · ${key === 'open' ? counts.open + counts.suppressed : key === 'fixed' ? counts.fixed : key === 'excluded' ? (counts.excluded ?? 0) : counts.open + counts.suppressed + counts.fixed + (counts.excluded ?? 0)}` : ''}</button>)}</div>}
     {loading && !detail ? <Skeleton tiles={6} rows={5} />
       : detail && (detail.status === 'queued' || detail.status === 'running' || detail.status === 'failed')
-        ? <RunProgress run={detail as unknown as RunningRun} onFinished={() => void load()} />
-        : detail ? <RepositoryResult key={`${run}:${tab}`} run={detail} onNew={onNew} canAccept={user.role === 'admin'} canManage={user.role === 'admin'} onChanged={() => void load()} initialView={run === CURRENT && tab !== 'open' ? 'all' : 'active'} exportStatus={tab}
+        ? <RunProgress run={detail as unknown as RunningRun} onFinished={reload} />
+        : detail ? <RepositoryResult key={`${run}:${tab}`} run={detail} onNew={onNew} canAccept={user.role === 'admin'} canManage={user.role === 'admin'} onChanged={reload} initialView={run === CURRENT && tab !== 'open' ? 'all' : 'active'} exportStatus={tab}
           focus={run === CURRENT && asset && focus.repo === asset.key ? focus.finding : null} /> : null}
   </div>
 }

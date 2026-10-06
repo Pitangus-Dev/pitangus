@@ -11,7 +11,8 @@ import { Card, CardContent } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
 import { SkeletonTable } from '@/shared/ui/loading'
-import { BatchPanel, useBatches } from '@/features/analyses/batches'
+import { BatchPanel } from '@/features/analyses/batches'
+import { useBatches } from '@/features/analyses/use-batches'
 
 export type AnalysisRow = { id: string; type: string; status: string; created_at: string; variant?: string; target?: string; source?: { name: string; branch?: string }; trigger?: { kind: string; head_sha?: string; tool?: string; scope?: string }; summary: { candidates?: number; severities?: Record<string, number>; kev?: number } }
 

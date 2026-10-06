@@ -106,14 +106,16 @@ function Editor({ id, catalog: base, user, onBack, onOpenRun }: { id: string; ca
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [picked, setPicked] = useState<Asset[]>([])
-  const load = useCallback(async () => { const data = await api.get<View>(`/api/threat-models/${id}`); setView(data); setDraft(data.model) }, [id])
   // El catálogo solo trae lo analizado y los dominios; los repositorios del modelo llegan con su detalle.
   const catalog = useMemo<Catalog>(() => {
     const assets = new Map(base.assets.map(item => [item.id, item]))
     for (const item of [...(view?.assets ?? []), ...picked]) assets.set(item.id, { ...assets.get(item.id), ...item })
     return { ...base, assets: [...assets.values()] }
   }, [base, view, picked])
-  useEffect(() => { load().catch(caught => setError(caught instanceof Error ? caught.message : String(caught))) }, [load])
+  useEffect(() => {
+    api.get<View>(`/api/threat-models/${id}`).then(data => { setView(data); setDraft(data.model) })
+      .catch(caught => setError(caught instanceof Error ? caught.message : String(caught)))
+  }, [id])
   const dirty = useMemo(() => !!view && !!draft && JSON.stringify(view.model) !== JSON.stringify(draft), [view, draft])
   const save = async () => {
     if (!draft) return
