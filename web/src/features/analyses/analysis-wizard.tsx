@@ -3,7 +3,8 @@ import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { api, query } from '@/shared/api/http'
 import { ArrowLeft, ArrowRight, Boxes, Check, CircleAlert, Code2, FileUp, Globe2, KeyRound, Layers3, LoaderCircle, LockKeyhole, Plus, Search, SearchCheck, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
-import { AddDomainDialog, VerifyDomainDialog, kindLabel, type Domain } from '@/features/sources/domain-dialogs'
+import { AddDomainDialog, VerifyDomainDialog } from '@/features/sources/domain-dialogs'
+import { kindLabel, type Domain } from '@/features/sources/domains'
 import { SoonBadge } from '@/shared/ui/coming-soon'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -13,7 +14,7 @@ import { Input } from '@/shared/ui/input'
 import { SourceSearch } from '@/features/sources/source-search'
 import { fetchSource, type Source, type SourcePage } from '@/features/sources/sources'
 import { SkeletonCard, SkeletonList } from '@/shared/ui/loading'
-import { useBatches } from '@/features/analyses/batches'
+import { useBatches } from '@/features/analyses/use-batches'
 import { SarifImport } from '@/features/analyses/sarif-import'
 
 type ScanPlan = { languages: { name: string; files: number; rules: number }[]; runs: string[]; skips: string[]; osv_needed: boolean; files: number | null; manifests: string[]; iac: string[]; pipelines?: string[] }
@@ -75,10 +76,15 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
       .then(data => setOrgCount({ account: organization, total: data.total })).catch(() => setOrgCount({ account: organization, total: 'error' }))
   }, [organization])
   // El plan se calcula en el servidor con el árbol real del repositorio y los motores disponibles.
+  const [planFor, setPlanFor] = useState({ kind, source })
+  if (planFor.kind !== kind || planFor.source !== source) { setPlanFor({ kind, source }); setPlan(null); setPlanError('') }
   useEffect(() => {
-    setPlan(null); setPlanError('')
     if (kind !== 'code' || !source) return
-    api.get<ScanPlan>(`/api/repositories/plan?source_id=${encodeURIComponent(source)}`).then(setPlan).catch(caught => setPlanError(caught instanceof Error ? caught.message : String(caught)))
+    let current = true
+    api.get<ScanPlan>(`/api/repositories/plan?source_id=${encodeURIComponent(source)}`)
+      .then(next => { if (current) setPlan(next) })
+      .catch(caught => { if (current) setPlanError(caught instanceof Error ? caught.message : String(caught)) })
+    return () => { current = false }
   }, [kind, source])
   useEffect(() => { api.get<{ registries: Registry[] }>('/api/registries').then(data => setRegistries(data.registries)).catch(() => {}) }, [])
 
@@ -263,7 +269,9 @@ function TargetsDialog({ open, onOpenChange, domains, selected, onConfirm, onReg
   const [draft, setDraft] = useState<string[]>(selected)
   const [adding, setAdding] = useState(false)
   const [pending, setPending] = useState<Domain | null>(null)
-  useEffect(() => { if (open) setDraft(selected) }, [open, selected])
+  // Opening (or a new selection while open) starts the draft from the confirmed targets.
+  const [synced, setSynced] = useState({ open, selected })
+  if (synced.open !== open || synced.selected !== selected) { setSynced({ open, selected }); if (open) setDraft(selected) }
   const visible = (domains ?? []).filter(item => item.host.includes(filter.trim().toLowerCase()))
   const toggle = (id: string) => setDraft(previous => previous.includes(id) ? previous.filter(item => item !== id) : previous.length < TARGET_LIMIT ? [...previous, id] : previous)
   return <>
