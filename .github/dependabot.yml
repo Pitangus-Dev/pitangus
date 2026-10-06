@@ -72,6 +72,10 @@ updates:
       day: monday
     cooldown:
       default-days: 7
+    # The panel is built with Node 22 (CI and the image): its types follow that major, not the newest one.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       web:
         patterns: ["*"]
