@@ -31,7 +31,7 @@ export function Findings({ user, requestedRun, onNew, onOpenPolicies }: { user: 
   const [runLabel, setRunLabel] = useState<ComboOption | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [tab, setTab] = useState<'open' | 'fixed' | 'excluded' | 'all'>('open')
-  // Until the first detail arrives the page is loading, unless the load for this very selection failed.
+  // Loading means waiting for this selection's detail; it only stops when that load fails (the skeleton needs no detail).
   const [failed, setFailed] = useState<{ asset: Asset; run: string; tab: typeof tab } | null>(null)
   const loading = !!asset && !(failed?.asset === asset && failed.run === run && failed.tab === tab)
   useEffect(() => { if (asset) setRouteParam('repo', asset.key) }, [asset])

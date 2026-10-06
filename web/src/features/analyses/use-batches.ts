@@ -6,9 +6,8 @@ export type BatchSummary = { id: string; label: string; status: 'running' | 'don
   pending: number; running: number; done: number; failed: number; critical: number; high: number; eta_seconds: number
   failed_items: { name: string; error: string }[] }
 
-// Estado del lote activo, sondeado mientras avanza. Devuelve también una función para refrescarlo al crear uno.
+// The active batch, polled every 5 s only while one runs, and a way to refresh it after starting one.
 export function useBatches() {
-  // Sondea cada 5 s solo mientras haya un lote activo (antes: un setInterval propio).
   const result = useQuery({
     queryKey: ['batches'],
     queryFn: ({ signal }) => api.get<{ active: BatchSummary | null; recent: BatchSummary[] }>('/api/repositories/batches', { signal }),

@@ -6,7 +6,7 @@ import { BRAND } from '@/shared/lib/brand'
 export function useToasts() {
   const { t } = useTranslation('analyses')
   const [toasts, setToasts] = useState<{ id: number; tone: 'ok' | 'error'; text: string }[]>([])
-  // 2.2.1: el aviso se pausa mientras el puntero o el foco están encima, y se puede cerrar.
+  // 2.2.1: a notice pauses while the pointer or focus is on it, and can be dismissed.
   const timers = useRef(new Map<number, number>())
   const nextId = useRef(0)
   const dismiss = (id: number) => { window.clearTimeout(timers.current.get(id)); timers.current.delete(id); setToasts(previous => previous.filter(item => item.id !== id)) }
@@ -16,7 +16,7 @@ export function useToasts() {
     const id = ++nextId.current
     setToasts(previous => [...previous, { id, tone, text }])
     schedule(id)
-    // Aviso del navegador solo si el usuario ya lo permitió; nunca se pide permiso sin acción suya.
+    // A browser notification only if already allowed: permission is never asked without a user action.
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') { try { new Notification(BRAND.name, { body: text, icon: '/assets/favicon.svg' }) } catch { /* sin notificaciones */ } }
   }
   const view = <div aria-live="polite" className="pointer-events-none fixed right-4 bottom-4 z-50 flex w-80 flex-col gap-2">{toasts.map(item =>

@@ -31,9 +31,11 @@ export function RunProgress({ run, onFinished }: { run: RunningRun; onFinished: 
   return <Card className="overflow-hidden border-app-line bg-console">
     <div className="flex items-center justify-between gap-3 border-b border-app-line bg-console-top px-4 py-3 text-xs">
       <span className="flex items-center gap-2 font-mono text-app-muted"><Terminal className="size-3.5" />{live.source?.name ?? t('progress.scan')} · {live.id.slice(0, 8)}</span>
-      <span role="status" aria-live="polite" className={`flex items-center gap-1.5 ${active ? 'text-brand' : live.status === 'failed' ? 'text-danger' : 'text-app-muted'}`}>
+      <span className={`flex items-center gap-1.5 ${active ? 'text-brand' : live.status === 'failed' ? 'text-danger' : 'text-app-muted'}`}>
         {active ? <LoaderCircle className="size-3.5 animate-spin" /> : live.status === 'failed' ? <CircleAlert className="size-3.5" /> : <CircleCheck className="size-3.5" />}
-        {live.status === 'queued' ? t('common:run_status.queued') : live.status === 'running' ? t('progress.running', { seconds: elapsed }) : live.status === 'failed' ? t('progress.failed') : t('progress.done')}
+        {/* The seconds tick with every poll: only the change of state is announced. */}
+        <span aria-hidden>{live.status === 'queued' ? t('common:run_status.queued') : live.status === 'running' ? t('progress.running', { seconds: elapsed }) : live.status === 'failed' ? t('progress.failed') : t('progress.done')}</span>
+        <span role="status" className="sr-only">{live.status === 'queued' ? t('common:run_status.queued') : live.status === 'running' ? t('common:run_status.running') : live.status === 'failed' ? t('progress.failed') : t('progress.done')}</span>
       </span>
     </div>
     {/* 4.1.3: cada paso nuevo se anuncia; el nivel no depende solo del color (1.4.1). */}
