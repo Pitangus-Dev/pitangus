@@ -73,7 +73,7 @@
     "stride": {
       "name": "STRIDE",
       "purpose": "Review security threats to components and flows: spoofing, tampering, repudiation, information disclosure, denial of service and elevation of privilege.",
-      "when": "A good starting point for a web app or an API. Tamandua proposes threats by applying rules to the diagram.",
+      "when": "A good starting point for a web app or an API. Pitangus proposes threats by applying rules to the diagram.",
       "steps": [
         "Set the scope: one feature (login, payments, file upload) before the whole system.",
         "Draw actors, processes, data stores, data flows and trust boundaries.",
@@ -432,7 +432,7 @@
     "file_name": "threat-model-{{method}}.json",
     "file_edited": "edited",
     "copy_failed": "Couldn't copy to the clipboard. Select the text in the editor and copy it by hand.",
-    "ai_prompt": "Generate only a valid JSON object to import a threat model into Tamandua. Use this example as the contract and adapt the names, components, flows, boundaries and content to the system I describe. Keep format=\"tamandua-threat-model\", version=1 and the given methodology. IDs must be unique and use lowercase letters, digits and hyphens; source and target must refer to existing components; each boundary may only contain existing components. Don't include installation IDs or scan evidence. If you mention repositories or domains, use repository_refs or asset_ref: they will stay pending until someone links them. Don't add sections from another methodology; to combine them, use methodology=\"custom\" and enable them in custom_modules. Don't include position, size or box: Tamandua lays out the diagram from the boundaries and flows. Available kinds: actor, web_app, api, service, function, database, cache, queue, storage, external, identity; for anything else, use kind=\"custom\" with custom_kind (its name) and custom_base (one of the kinds above, the role it is analyzed as). Return only JSON, without Markdown.\n\nExample:\n{{example}}",
+    "ai_prompt": "Generate only a valid JSON object to import a threat model into Pitangus. Use this example as the contract and adapt the names, components, flows, boundaries and content to the system I describe. Keep format=\"tamandua-threat-model\", version=1 and the given methodology. IDs must be unique and use lowercase letters, digits and hyphens; source and target must refer to existing components; each boundary may only contain existing components. Don't include installation IDs or scan evidence. If you mention repositories or domains, use repository_refs or asset_ref: they will stay pending until someone links them. Don't add sections from another methodology; to combine them, use methodology=\"custom\" and enable them in custom_modules. Don't include position, size or box: Pitangus lays out the diagram from the boundaries and flows. Available kinds: actor, web_app, api, service, function, database, cache, queue, storage, external, identity; for anything else, use kind=\"custom\" with custom_kind (its name) and custom_base (one of the kinds above, the role it is analyzed as). Return only JSON, without Markdown.\n\nExample:\n{{example}}",
     "title": "Create a model from JSON",
     "description": "Pick an example, edit it here or load a file. Validate the content before creating the model.",
     "examples_label": "Methodology examples",
@@ -478,7 +478,7 @@
     "from_repos": "Start from repositories (optional)",
     "from_repos_chosen_one": "Start from repositories (optional) · {{count}} selected",
     "from_repos_chosen_other": "Start from repositories (optional) · {{count}} selected",
-    "from_repos_hint": "Tamandua reads their manifests (package.json, pyproject, go.mod, Cargo.toml, compose) and proposes each component, citing the dependency it comes from.",
+    "from_repos_hint": "Pitangus reads their manifests (package.json, pyproject, go.mod, Cargo.toml, compose) and proposes each component, citing the dependency it comes from.",
     "no_repos": "No repositories match. Connect GitHub in Integrations if yours don't show up.",
     "scanned": "scanned",
     "not_scanned": "not scanned",
@@ -507,7 +507,7 @@
   "repos": {
     "nothing_new": "Nothing new to propose from that repository: everything it found is already in the diagram.",
     "title": "Project repositories",
-    "none": "none yet · the model doesn't need them, but they let Tamandua propose components and surface evidence",
+    "none": "none yet · the model doesn't need them, but they let Pitangus propose components and surface evidence",
     "propose_from": "Propose components from {{name}}",
     "propose_hint": "Propose components from this repository",
     "remove": "Remove {{name}}",

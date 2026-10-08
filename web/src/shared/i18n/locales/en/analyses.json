@@ -20,7 +20,7 @@
       },
       "image": {
         "description": "Scans an image straight from its registry (Docker Hub, GHCR, ECR…) without running or building it.",
-        "packages": "Packages: Trivy + Grype", "secrets": "Secrets in layers, ENV and history", "config": "Configuration: Tamandua rules + Checkov"
+        "packages": "Packages: Trivy + Grype", "secrets": "Secrets in layers, ENV and history", "config": "Configuration: Pitangus rules + Checkov"
       },
       "web": {
         "description": "Active scanning (DAST) against your running application, on verified domains. Not producing results yet.",
@@ -28,7 +28,7 @@
       },
       "import": {
         "description": "Brings findings from another tool into an asset you already have, so you triage them alongside everything else.",
-        "tools": "Semgrep, CodeQL, Snyk, Trivy… (SARIF 2.1.0)", "existing": "Into a repository or image already in Tamandua",
+        "tools": "Semgrep, CodeQL, Snyk, Trivy… (SARIF 2.1.0)", "existing": "Into a repository or image already in Pitangus",
         "fixes": "A full import marks as fixed what the tool stopped reporting"
       }
     }
@@ -134,7 +134,7 @@
     "runs": "What runs",
     "skips": "What doesn't run",
     "osv_authorized": "Dependencies: api.osv.dev lookup authorized",
-    "osv_consent": "<strong>Query OSV for SCA.</strong> Turning this on lets Tamandua send this repository's dependency names and versions to <mono>api.osv.dev</mono>. It's only needed because Trivy isn't available on this server; without it, dependencies go unchecked.",
+    "osv_consent": "<strong>Query OSV for SCA.</strong> Turning this on lets Pitangus send this repository's dependency names and versions to <mono>api.osv.dev</mono>. It's only needed because Trivy isn't available on this server; without it, dependencies go unchecked.",
     "image_runs": {
       "packages": "System and application packages with Trivy and Grype; advisories both of them report are flagged",
       "secrets": "Secrets in the layers, the environment variables (ENV) and the build history (ARG, URLs with credentials)",
@@ -179,7 +179,7 @@
   },
   "import": {
     "title": "Import SARIF",
-    "description": "Findings from another tool, added to an asset Tamandua already knows. Each tool in the file becomes its own run.",
+    "description": "Findings from another tool, added to an asset Pitangus already knows. Each tool in the file becomes its own run.",
     "asset": "Asset",
     "asset_error": "Couldn't load the assets. Reload the page to try again.",
     "no_asset": "There are no assets yet: scan a repository or an image first, then import its SARIF.",
@@ -197,7 +197,7 @@
       "label": "Scope",
       "full": "Full", "full_hint": "Everything the tool checked in this asset: what it no longer reports is marked fixed",
       "partial": "Partial", "partial_hint": "Only some files or one module: adds and updates, never marks anything fixed",
-      "note": "Tamandua's own scans never close imported findings, and imports never close theirs."
+      "note": "Pitangus scans never close imported findings, and imports never close theirs."
     },
     "more": "More options",
     "optional": "(optional)",

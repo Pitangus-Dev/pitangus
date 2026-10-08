@@ -55,7 +55,7 @@
       "title": "Qué exige el CRA",
       "scope": "Aplica a los fabricantes que venden en la UE productos con elementos digitales. Desde el 11 de septiembre de 2026 hay que notificar cada vulnerabilidad que se explote activamente en el producto.",
       "deadlines": "Plazos, desde que tienes conocimiento: alerta temprana en 24 h, notificación en 72 h e informe final 14 días después de que haya una medida correctora.",
-      "platform": "Se notifica por la plataforma única de ENISA, al CSIRT coordinador y a ENISA. Tamandua no envía nada: prepara el borrador y registra quién marcó cada etapa como enviada.",
+      "platform": "Se notifica por la plataforma única de ENISA, al CSIRT coordinador y a ENISA. Pitangus no envía nada: prepara el borrador y registra quién marcó cada etapa como enviada.",
       "exploited": "«Explotada activamente en tu producto» significa que hay pruebas fiables de que alguien explotó la vulnerabilidad en tu producto sin permiso, no solo que el CVE se explota en algún sitio.",
       "kev": "Que aparezca en CISA KEV es solo una señal: el CVE se explota en el mundo real, pero tu producto puede no llegar al código vulnerable. Evalúalo primero; los plazos empiezan cuando registras que se explota en tu producto.",
       "admin_only": "Solo un administrador marca productos, evalúa eventos y registra lo enviado."

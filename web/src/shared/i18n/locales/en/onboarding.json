@@ -19,7 +19,7 @@
     "analyzed": {
       "title": "Run your first scan",
       "hint_demo": "You already have the demo data: now scan one of your own repositories.",
-      "hint_admin": "Scan a connected repository or an image, or import a SARIF file. If you cloned Tamandua's repository, run “make demo” to scan the bundled examples.",
+      "hint_admin": "Scan a connected repository or an image, or import a SARIF file. If you cloned the Pitangus repository, run “make demo” to scan the bundled examples.",
       "hint_member": "Pick a repository or an image and scan it.",
       "action": "New scan"
     },

@@ -55,7 +55,7 @@
       "title": "What the CRA asks for",
       "scope": "It applies to manufacturers that sell products with digital elements in the EU. From 11 September 2026, every vulnerability actively exploited in the product must be reported.",
       "deadlines": "Deadlines, counted from when you become aware: early warning within 24 h, notification within 72 h, and a final report within 14 days of a corrective measure being available.",
-      "platform": "Reports go through ENISA's single reporting platform, to the coordinating CSIRT and to ENISA. Tamandua doesn't send anything: it prepares the draft and records who marked each stage as sent.",
+      "platform": "Reports go through ENISA's single reporting platform, to the coordinating CSIRT and to ENISA. Pitangus doesn't send anything: it prepares the draft and records who marked each stage as sent.",
       "exploited": "\"Actively exploited in your product\" means reliable evidence that someone exploited the vulnerability in your product without permission, not just that the CVE is exploited somewhere.",
       "kev": "A CISA KEV match is only a signal: the CVE is exploited in the wild, but your product may not reach the vulnerable code. Assess it first; the deadlines start when you record that it's exploited in your product.",
       "admin_only": "Only an admin can mark products, assess events and record what was sent."

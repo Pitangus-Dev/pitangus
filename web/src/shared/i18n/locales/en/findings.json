@@ -22,7 +22,7 @@
     "full": "full import",
     "partial": "partial import",
     "commit": "commit <code>{{commit}}</code>",
-    "help_full": "A new full import from {{tool}} marks fixed whatever it no longer reports. Tamandua's own scans never close these findings.",
+    "help_full": "A new full import from {{tool}} marks fixed whatever it no longer reports. Pitangus scans never close these findings.",
     "help_partial": "Partial import: nothing is marked fixed. Only a full import from {{tool}} or a manual fix closes these findings."
   },
   "state": {
@@ -116,7 +116,7 @@
     "pagination_one": "items · {{count}} finding", "pagination_other": "items · {{count}} findings"
   },
   "scanner": { "sca": "Dependency", "sast": "Code", "secrets": "Secret", "iac": "Infrastructure", "cicd": "CI/CD" },
-  "tool": { "tamandua": "Tamandua rules" },
+  "tool": { "tamandua": "Pitangus rules" },
   "group": {
     "advisories_one": "{{count}} advisory", "advisories_other": "{{count}} advisories",
     "dev": "development",

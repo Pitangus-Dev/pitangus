@@ -19,7 +19,7 @@
     "analyzed": {
       "title": "Lanza tu primer análisis",
       "hint_demo": "Ya tienes los datos de demostración: ahora analiza un repositorio tuyo.",
-      "hint_admin": "Analiza un repositorio conectado o una imagen, o importa un archivo SARIF. Si clonaste el repositorio de Tamandua, ejecuta «make demo» para analizar los ejemplos incluidos.",
+      "hint_admin": "Analiza un repositorio conectado o una imagen, o importa un archivo SARIF. Si clonaste el repositorio de Pitangus, ejecuta «make demo» para analizar los ejemplos incluidos.",
       "hint_member": "Elige un repositorio o una imagen y lánzalo.",
       "action": "Nuevo análisis"
     },
