@@ -11,8 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tamandua.modules.threats import diagram as threat_diagram
-from tamandua.modules.threats import model as tm
+from pitangus.modules.threats import diagram as threat_diagram
+from pitangus.modules.threats import model as tm
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = sorted((ROOT / "web/src/examples/threat-models").glob("*/*.json"))

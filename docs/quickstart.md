@@ -10,8 +10,8 @@ You need Docker (Engine 24+ with Compose v2.24+), `make` and `git`. `make doctor
 place.
 
 ```bash
-git clone --branch v0.11.0 https://github.com/Tamandua-AppSec/tamandua.git
-cd tamandua
+git clone --branch v0.12.0 https://github.com/pitangus-dev/pitangus.git
+cd pitangus
 make setup PREBUILT=1
 make up
 ```
@@ -23,11 +23,11 @@ single-use **setup code**: you use it to create the admin account in the panel. 
 prints it again.
 
 Right after that the panel asks you to turn on two-factor authentication (TOTP) with your authenticator app: it's
-mandatory for admins (`TAMANDUA_REQUIRE_TOTP`, see [configuration.md](configuration.md)), and nothing else opens until
+mandatory for admins (`PITANGUS_REQUIRE_TOTP`, see [configuration.md](configuration.md)), and nothing else opens until
 it's on. Save the backup codes it shows you.
 
 The panel follows your browser's language; switch it any time from the sidebar or the sign-in screen. PR comments,
-notifications, Jira, reports and CLI output use `TAMANDUA_DEFAULT_LOCALE` (`en` by default, see
+notifications, Jira, reports and CLI output use `PITANGUS_DEFAULT_LOCALE` (`en` by default, see
 [configuration.md](configuration.md)).
 
 ## 2. See it work without connecting anything (2 min)
@@ -71,7 +71,7 @@ expiry date: it stays as evidence and stops getting in your way.
 - **Daily new-advisory check:** on by default. Once a day your dependencies are checked, offline, against the
   advisories published since the last scan.
 - **Alerts in your channel:** under **Integrations → Alerts**, add Slack, Teams or a webhook so you hear about
-  things without opening the panel. For messages to link to the finding, set `TAMANDUA_PUBLIC_URL`.
+  things without opening the panel. For messages to link to the finding, set `PITANGUS_PUBLIC_URL`.
 
 ## 6. Later on (optional)
 

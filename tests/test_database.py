@@ -7,23 +7,23 @@ from unittest.mock import patch
 
 from sqlalchemy import create_engine, text
 
-from tamandua.app import database
-from tamandua.shared import db
+from pitangus.app import database
+from pitangus.shared import db
 
 
-@unittest.skipUnless(os.environ.get("TAMANDUA_DATABASE_URL"), "hace falta PostgreSQL (make test lo arranca)")
+@unittest.skipUnless(os.environ.get("PITANGUS_DATABASE_URL"), "hace falta PostgreSQL (make test lo arranca)")
 class MigrationDriftTests(unittest.TestCase):
     def test_alembic_head_matches_the_tables_in_code(self):
         from alembic.autogenerate import compare_metadata
         from alembic.migration import MigrationContext
-        base = os.environ["TAMANDUA_DATABASE_URL"]
+        base = os.environ["PITANGUS_DATABASE_URL"]
         name = f"drift_{uuid.uuid4().hex[:12]}"
         admin = create_engine(base, isolation_level="AUTOCOMMIT")
         with admin.connect() as connection:
             connection.execute(text(f'CREATE DATABASE "{name}"'))
         try:
             url = base.rsplit("/", 1)[0] + f"/{name}"
-            with patch.dict(os.environ, {"TAMANDUA_DATABASE_URL": url, "TAMANDUA_DB_ISOLATE": ""}):
+            with patch.dict(os.environ, {"PITANGUS_DATABASE_URL": url, "PITANGUS_DB_ISOLATE": ""}):
                 db.reset()
                 database.upgrade()
                 with db.engine().connect() as connection:

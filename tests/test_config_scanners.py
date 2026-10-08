@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import testenv
 
-from tamandua.modules.scanning import config_engines as cs
-from tamandua.modules.scanning.image import config_findings, parse_reference
-from tamandua.modules.scanning.engines import IMAGES, parse_trivy
-from tamandua.shared.i18n import text
+from pitangus.modules.scanning import config_engines as cs
+from pitangus.modules.scanning.image import config_findings, parse_reference
+from pitangus.modules.scanning.engines import IMAGES, parse_trivy
+from pitangus.shared.i18n import text
 
 DATA = Path(__file__).parent / "engine-outputs"
 
@@ -164,7 +164,7 @@ if __name__ == "__main__":
 
 class SnapshotDotfilesTests(unittest.TestCase):
     def test_pipelines_enter_the_snapshot_but_credential_files_do_not(self):
-        from tamandua.modules.sources.repositories import _safe_name
+        from pitangus.modules.sources.repositories import _safe_name
         for name in ("repo/.github/workflows/ci.yml", "repo/.gitlab-ci.yml", "repo/.circleci/config.yml",
                      "repo/.github/actions/x/action.yml"):
             with self.subTest(name=name):
@@ -177,14 +177,14 @@ class SnapshotDotfilesTests(unittest.TestCase):
 
 class OpengrepDuplicatesTests(unittest.TestCase):
     def test_same_rule_twice_on_one_line_is_one_finding(self):
-        from tamandua.modules.scanning.engines import parse_opengrep
+        from pitangus.modules.scanning.engines import parse_opengrep
         match = {"check_id": "rules.appsec.js.dom-xss-sink", "path": "/src/app.js", "start": {"line": 9},
                  "extra": {"lines": "a.innerHTML=x;b.innerHTML=y", "severity": "ERROR", "message": "m", "metadata": {}}}
         self.assertEqual(len(parse_opengrep({"results": [match, {**match, "start": {"line": 9, "col": 40}}]})), 1)
 
     def test_minified_bundles_are_detected_for_sast_exclusion_only(self):
         import tempfile
-        from tamandua.modules.scanning.engines import minified_files
+        from pitangus.modules.scanning.engines import minified_files
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / "assets").mkdir()
@@ -202,7 +202,7 @@ class EngineUserTests(unittest.TestCase):
 
     def test_engines_run_as_the_app_user(self):
         import os
-        from tamandua.modules.scanning import engines as scanners
+        from pitangus.modules.scanning import engines as scanners
         with patch.object(scanners.subprocess, "run") as run, patch.object(scanners.shutil, "which", return_value="/usr/bin/docker"):
             scanners._run("gitleaks", ["dir", "/src"], Path("/tmp"))
         command = run.call_args.args[0]
@@ -215,7 +215,7 @@ class EngineUserTests(unittest.TestCase):
     def test_unwritable_cache_falls_back_to_a_fresh_one(self):
         import os
         import tempfile
-        from tamandua.modules.scanning.engines import writable_cache
+        from pitangus.modules.scanning.engines import writable_cache
         with tempfile.TemporaryDirectory() as folder:
             cache = Path(folder) / "trivy-cache"
             self.assertEqual(writable_cache(cache), cache)

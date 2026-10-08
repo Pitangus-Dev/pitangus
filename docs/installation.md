@@ -19,16 +19,16 @@ You don't need to install Python, Node or the scanning engines: everything runs 
 ## First install
 
 ```bash
-git clone https://github.com/Tamandua-AppSec/tamandua.git
-cd tamandua
+git clone https://github.com/pitangus-dev/pitangus.git
+cd pitangus
 make up
 ```
 
-`make up` creates `.env` from `.env.example` with your host user (`TAMANDUA_UID`/`TAMANDUA_GID`, so `data/` and `config/` belong to you and not to root), builds, starts and waits until the panel responds. Without `make`: `sh scripts/init-env.sh && docker compose up --build -d`.
+`make up` creates `.env` from `.env.example` with your host user (`PITANGUS_UID`/`PITANGUS_GID`, so `data/` and `config/` belong to you and not to root), builds, starts and waits until the panel responds. Without `make`: `sh scripts/init-env.sh && docker compose up --build -d`.
 
-The first build takes a few minutes: it compiles the panel, downloads the Opengrep binary and checks its SHA-256. You'll see four services: `api` (the `tamandua` container, panel and API), `worker` (runs the scans) and `postgres` (the `tamandua-postgres` container, the database) keep running; `opengrep` only builds the engine image and **exits right away**. That's expected.
+The first build takes a few minutes: it compiles the panel, downloads the Opengrep binary and checks its SHA-256. You'll see four services: `api` (the `pitangus` container, panel and API), `worker` (runs the scans) and `postgres` (the `pitangus-postgres` container, the database) keep running; `opengrep` only builds the engine image and **exits right away**. That's expected.
 
-To skip the build, run `make setup PREBUILT=1` before `make up`: it pulls the published, signed images for the version you checked out (`tamandua/version.py`) instead of building them. It's still a local install on <http://127.0.0.1:8766>; with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) installed, `make up` checks their signatures first and pins the checked digest in `.env` (without it, it starts anyway and says so).
+To skip the build, run `make setup PREBUILT=1` before `make up`: it pulls the published, signed images for the version you checked out (`pitangus/version.py`) instead of building them. It's still a local install on <http://127.0.0.1:8766>; with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) installed, `make up` checks their signatures first and pins the checked digest in `.env` (without it, it starts anyway and says so).
 
 When it finishes it prints the **setup code** (also available with `make setup-code`, or in the logs):
 
@@ -42,7 +42,7 @@ When it finishes it prints the **setup code** (also available with `make setup-c
 
 Open <http://127.0.0.1:8766>, enter that code and create your admin user. The code proves you're the one who controls the server: without it, whoever opened the URL first could take over the instance. If you restart before using it, a new one is generated.
 
-The panel follows your browser's language; you can switch it from the sidebar or the sign-in screen. Everything Tamandua writes without a person asking (PR comments, notifications, Jira, reports and CLI output) uses `TAMANDUA_DEFAULT_LOCALE` (`en` or `es`, default `en`); set it in `.env` if your team works in Spanish. See [configuration.md](configuration.md).
+The panel follows your browser's language; you can switch it from the sidebar or the sign-in screen. Everything Pitangus writes without a person asking (PR comments, notifications, Jira, reports and CLI output) uses `PITANGUS_DEFAULT_LOCALE` (`en` or `es`, default `en`); set it in `.env` if your team works in Spanish. See [configuration.md](configuration.md).
 
 Then:
 
@@ -50,7 +50,7 @@ Then:
 2. **Integrations**: create and connect your GitHub App following the panel's guide (also in [github-app.md](github-app.md)).
 3. **Repositories**: pick one and click **Scan**.
 
-The local NVD copy for the CVE tracker downloads in the background: a few hours without an API key, much less with `TAMANDUA_NVD_API_KEY` (free at <https://nvd.nist.gov/developers/request-an-api-key>). Everything else works in the meantime.
+The local NVD copy for the CVE tracker downloads in the background: a few hours without an API key, much less with `PITANGUS_NVD_API_KEY` (free at <https://nvd.nist.gov/developers/request-an-api-key>). Everything else works in the meantime.
 
 ## Upgrade
 
@@ -64,15 +64,15 @@ make update
 
 | Folder | Contents | How to handle it |
 | --- | --- | --- |
-| Database (`tamandua-pg` volume) | Runs, finding history and triage (PostgreSQL) | `make backup` dumps it with `pg_dump` into `database.dump`. |
+| Database (`pitangus-pg` volume) | Runs, finding history and triage (PostgreSQL) | `make backup` dumps it with `pg_dump` into `database.dump`. |
 | `data/` | Users (passwords hashed with scrypt), settings, logs, NVD copy and caches | No plaintext secrets. You can leave out `data/feeds/`, `data/trivy-cache/` and `data/grype-cache/`: they're downloaded again. |
-| `config/` | `master.key` (unless `TAMANDUA_MASTER_KEY` is set) | **This is the key to your credentials**, which are stored encrypted in the database. `make backup` leaves it out unless the backup is encrypted: keep a copy in your password manager, never with the backups. |
+| `config/` | `master.key` (unless `PITANGUS_MASTER_KEY` is set) | **This is the key to your credentials**, which are stored encrypted in the database. `make backup` leaves it out unless the backup is encrypted: keep a copy in your password manager, never with the backups. |
 
 ```bash
 make backup        # backups/<date>/database.dump, data.tgz and master-key.sha256 (which key it needs)
 ```
 
-The app pauses for a few seconds so the backup is consistent, and the command refuses to run while scans are in progress (`FORCE=1` overrides it). The master key isn't in the backup, so a stray copy of it reveals no secret; on a new machine, put `config/master.key` back before restoring. To copy backups off the machine, encrypt them with age (`TAMANDUA_BACKUP_AGE_RECIPIENT`, [deploy-vps.md](deploy-vps.md#backups)): then the key goes in too, encrypted. To restore:
+The app pauses for a few seconds so the backup is consistent, and the command refuses to run while scans are in progress (`FORCE=1` overrides it). The master key isn't in the backup, so a stray copy of it reveals no secret; on a new machine, put `config/master.key` back before restoring. To copy backups off the machine, encrypt them with age (`PITANGUS_BACKUP_AGE_RECIPIENT`, [deploy-vps.md](deploy-vps.md#backups)): then the key goes in too, encrypted. To restore:
 
 ```bash
 make restore FROM=backups/<date> CONFIRM=restore   # saves the current state in backups/pre-restore-<date>/ first
@@ -81,11 +81,11 @@ make up
 
 Scheduled backups (a Compose service with retention), cron and offsite copies: [deploy-vps.md](deploy-vps.md#backups).
 
-If you lose `config/master.key` (or change `TAMANDUA_MASTER_KEY`), the stored secrets can't be decrypted: you'll have to reconnect the GitHub App and re-enter the Jira token. No other data is lost.
+If you lose `config/master.key` (or change `PITANGUS_MASTER_KEY`), the stored secrets can't be decrypted: you'll have to reconnect the GitHub App and re-enter the Jira token. No other data is lost.
 
 ## Expose it on your network or the internet
 
-By default the port is only published on `127.0.0.1`. To reach it from other machines you need HTTPS: the server **refuses to start** if `TAMANDUA_PUBLIC_URL` isn't loopback and doesn't start with `https://`. For a server with a domain, `make setup DOMAIN=tamandua.example.com` adds Caddy with automatic certificates: the full guide (sizing, firewall, backups, upgrades, monitoring, Coolify and Dokploy) is [deploy-vps.md](deploy-vps.md).
+By default the port is only published on `127.0.0.1`. To reach it from other machines you need HTTPS: the server **refuses to start** if `PITANGUS_PUBLIC_URL` isn't loopback and doesn't start with `https://`. For a server with a domain, `make setup DOMAIN=pitangus.example.com` adds Caddy with automatic certificates: the full guide (sizing, firewall, backups, upgrades, monitoring, Coolify and Dokploy) is [deploy-vps.md](deploy-vps.md).
 
 On a laptop the worker controls Docker through its socket, which is equivalent to root on the host; server mode (`DOMAIN=…`) runs the engines inside the worker instead. Either way, only expose the panel to people you trust.
 

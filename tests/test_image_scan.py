@@ -6,10 +6,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import testenv
-from tamandua.shared import paths
-from tamandua.modules.scanning import image as image_scan
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.scanning.image import ImageError, config_findings, merge_packages, parse_reference
+from pitangus.shared import paths
+from pitangus.modules.scanning import image as image_scan
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.scanning.image import ImageError, config_findings, merge_packages, parse_reference
 
 from tests.test_auth import PASSWORD, HttpCase
 
@@ -40,7 +40,7 @@ class ReferenceTests(unittest.TestCase):
             for host in ("localhost:5000", "127.0.0.1:5000", "10.0.0.5:5000"):
                 with self.subTest(host=host), self.assertRaises(ImageError):
                     image_scan.check_registry_address(host)
-        with patch.dict(os.environ, {"TAMANDUA_ALLOW_PRIVATE_REGISTRIES": "1"}):
+        with patch.dict(os.environ, {"PITANGUS_ALLOW_PRIVATE_REGISTRIES": "1"}):
             image_scan.check_registry_address("localhost:5000")
 
 
@@ -66,9 +66,9 @@ class RegistryPinningTests(unittest.TestCase):
         def fake_run(command, **kwargs):
             captured["argv"] = command
             return image_scan.subprocess.CompletedProcess(command, 0, json.dumps({"Results": [], "Metadata": {}}), "")
-        with patch("tamandua.modules.scanning.image.unavailable", return_value=None), \
-                patch.dict(os.environ, {"TAMANDUA_ENGINE_RUNNER": "docker"}), \
-                patch("tamandua.modules.scanning.engines.subprocess.run", side_effect=fake_run), \
+        with patch("pitangus.modules.scanning.image.unavailable", return_value=None), \
+                patch.dict(os.environ, {"PITANGUS_ENGINE_RUNNER": "docker"}), \
+                patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=fake_run), \
                 tempfile.TemporaryDirectory() as folder:
             image_scan.run_trivy_image("ghcr.io/acme/api:1", Path(folder), {}, None, {"ghcr.io": "140.82.113.33"})
         position = captured["argv"].index("--add-host")
@@ -111,8 +111,8 @@ class CredentialTests(unittest.TestCase):
             class Done:
                 returncode, stdout, stderr = 0, json.dumps({"Results": [], "Metadata": {}}), ""
             return Done()
-        with patch("tamandua.modules.scanning.image.unavailable", return_value=None), \
-                patch("tamandua.modules.scanning.engines.subprocess.run", side_effect=fake_run):
+        with patch("pitangus.modules.scanning.image.unavailable", return_value=None), \
+                patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=fake_run):
             image_scan.run_trivy_image("ghcr.io/acme/api:1", Path(self.directory.name) / "cache", {}, {"username": "brayan", "token": TOKEN})
         self.assertNotIn(TOKEN, " ".join(captured["argv"]))
         self.assertIn("TRIVY_PASSWORD", captured["argv"])
@@ -167,11 +167,11 @@ class ImageRoutesTests(HttpCase):
 
     def test_scan_validation_and_registry_admin_only(self):
         self.assertEqual(self.post("/api/images/scans", "scan-image", {"reference": "http://x"}, self.member)[0], 400)
-        with patch.dict(os.environ, {"TAMANDUA_ALLOW_PRIVATE_REGISTRIES": ""}):
+        with patch.dict(os.environ, {"PITANGUS_ALLOW_PRIVATE_REGISTRIES": ""}):
             status, body, _ = self.post("/api/images/scans", "scan-image", {"reference": "localhost:5000/app:1"}, self.member)
         self.assertEqual(status, 400)
         self.assertIn("privada", body["error"])
-        with patch("tamandua.modules.scanning.image.check_registry_address"), \
+        with patch("pitangus.modules.scanning.image.check_registry_address"), \
                 patch.object(self.state.jobs, "enqueue_image_scan", return_value={"id": "r1", "status": "queued"}) as enqueue:
             status, body, _ = self.post("/api/images/scans", "scan-image", {"reference": "ghcr.io/acme/api:1"}, self.member)
         self.assertEqual((status, body["image"]["reference"]), (202, "ghcr.io/acme/api:1"))

@@ -7,9 +7,9 @@ from unittest.mock import patch
 
 import testenv
 
-from tamandua.modules.scanning import engines as scanners
-from tamandua.modules.scanning.engines import _pick_fixed, merge_secrets, parse_gitleaks, parse_opengrep, parse_trivy
-from tamandua.shared.i18n import text
+from pitangus.modules.scanning import engines as scanners
+from pitangus.modules.scanning.engines import _pick_fixed, merge_secrets, parse_gitleaks, parse_opengrep, parse_trivy
+from pitangus.shared.i18n import text
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -33,7 +33,7 @@ class TrivyParserTests(unittest.TestCase):
         self.assertIn("de 4.17.20 a 4.17.21", text(lodash["remediation"]))
         self.assertEqual(lodash["cve"], ["CVE-2021-23337"])
         # Same fingerprint the OSV path would produce for the same advisory: no duplicate tickets across engines.
-        from tamandua.modules.intel.advisories import fingerprint
+        from pitangus.modules.intel.advisories import fingerprint
         self.assertEqual(lodash["fingerprint"], fingerprint("sca", "CVE-2021-23337", "npm", "lodash", "4.17.20"))
 
     def test_kev_and_epss_enrich_priority(self):
@@ -119,7 +119,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_without_docker_each_engine_declares_not_tested_and_never_runs(self):
         with patch.dict(scanners._docker_state, {"ok": False}, clear=True), \
-                patch("tamandua.modules.scanning.engines._run", side_effect=AssertionError("lanzó un contenedor")):
+                patch("pitangus.modules.scanning.engines._run", side_effect=AssertionError("lanzó un contenedor")):
             for runner in (lambda: scanners.run_opengrep(Path(".")), lambda: scanners.run_gitleaks(Path(".")),
                            lambda: scanners.run_trivy(Path("."), Path("/tmp/x"), {})):
                 result = runner()
@@ -136,8 +136,8 @@ class RunnerTests(unittest.TestCase):
             if command[1] == "run":
                 raise subprocess.TimeoutExpired(command, kwargs.get("timeout"))
             return subprocess.CompletedProcess(command, 0, "", "")
-        with patch("tamandua.modules.scanning.engines.shutil.which", return_value="docker"), \
-                patch("tamandua.modules.scanning.engines.subprocess.run", side_effect=run):
+        with patch("pitangus.modules.scanning.engines.shutil.which", return_value="docker"), \
+                patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=run):
             with self.assertRaises(subprocess.TimeoutExpired):
                 scanners._run("gitleaks", ["version"], None, timeout=1)
         name = calls[0][calls[0].index("--name") + 1]
@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
 class DevDependencyTests(unittest.TestCase):
     def test_dev_dependencies_are_included_marked_and_deprioritized(self):
-        from tamandua.modules.scanning.engines import parse_trivy
+        from pitangus.modules.scanning.engines import parse_trivy
         vector = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
         def vuln(name, pkg_id):
             return {"VulnerabilityID": f"CVE-2026-{len(name)}000", "PkgID": pkg_id, "PkgName": name, "InstalledVersion": "1.0.0",

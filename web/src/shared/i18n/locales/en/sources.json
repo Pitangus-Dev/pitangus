@@ -226,7 +226,7 @@
         "token": "key for a service account with Artifact Registry Reader"
       }
     },
-    "private_blocked": "Registries on your internal network (private IPs) are blocked so nobody can use the panel to reach internal services. To allow them, start the server with <code>TAMANDUA_ALLOW_PRIVATE_REGISTRIES=1</code>."
+    "private_blocked": "Registries on your internal network (private IPs) are blocked so nobody can use the panel to reach internal services. To allow them, start the server with <code>PITANGUS_ALLOW_PRIVATE_REGISTRIES=1</code>."
   },
   "domains": {
     "kind": {

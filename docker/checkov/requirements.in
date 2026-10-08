@@ -3,5 +3,5 @@
 #   docker run --rm -v "$PWD/docker/checkov:/work" -w /work python:3.12-slim-bookworm sh -c \
 #     "pip install pip-tools==7.5.1 && pip-compile --generate-hashes --allow-unsafe --strip-extras --no-header \
 #      --output-file requirements.txt requirements.in"
-# The version must match IMAGES["checkov"] in tamandua/modules/scanning/engines.py (tests/test_packaging.py checks it).
+# The version must match IMAGES["checkov"] in pitangus/modules/scanning/engines.py (tests/test_packaging.py checks it).
 checkov==3.3.19

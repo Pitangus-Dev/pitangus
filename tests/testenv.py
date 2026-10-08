@@ -2,7 +2,7 @@
 
 import os
 
-KEEP = ("TAMANDUA_DATABASE_URL", "TAMANDUA_DB_ISOLATE", "TAMANDUA_CONFIG_DIR")
+KEEP = ("PITANGUS_DATABASE_URL", "PITANGUS_DB_ISOLATE", "PITANGUS_CONFIG_DIR")
 
 
 def base(**extra) -> dict:
@@ -13,6 +13,6 @@ def docker_runner(case) -> None:
     """Pins the Docker engine runner for a test. With `auto`, the first check (often a patched one) would choose the
     runner for every test after it."""
     from unittest.mock import patch
-    pinned = patch.dict(os.environ, {"TAMANDUA_ENGINE_RUNNER": "docker"})
+    pinned = patch.dict(os.environ, {"PITANGUS_ENGINE_RUNNER": "docker"})
     pinned.start()
     case.addCleanup(pinned.stop)

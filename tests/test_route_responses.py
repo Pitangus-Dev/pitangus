@@ -3,7 +3,7 @@
 import unittest
 from unittest.mock import patch
 
-from tamandua.modules.identity.auth import Users
+from pitangus.modules.identity.auth import Users
 from test_auth import PASSWORD, HttpCase
 
 
@@ -33,7 +33,7 @@ class RouteResponseTests(HttpCase):
                                          "url": "https://siem.example.com/hook", "events": ["findings"], "threshold": "high"}, self.admin)
             self.assertEqual((status, set(saved)), (200, {"channel", "secret"}))
             self.assertTrue(saved["secret"])  # a webhook's signing secret, shown once
-            with patch("tamandua.app.api.notifications.notifications.test", return_value=(False, "Connection refused")):
+            with patch("pitangus.app.api.notifications.notifications.test", return_value=(False, "Connection refused")):
                 status, tested, _ = self.post("/api/notifications", "notifications", {"op": "test", "id": saved["channel"]["id"]}, self.admin)
             self.assertEqual((status, tested["ok"], tested["detail"], len(tested["channels"])), (200, False, "Connection refused", 1))
             status, left, _ = self.post("/api/notifications", "notifications", {"op": "remove", "id": saved["channel"]["id"]}, self.admin)

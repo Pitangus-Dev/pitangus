@@ -9,15 +9,15 @@ import time
 import unittest
 
 import testenv
-from tamandua.shared import documents
+from pitangus.shared import documents
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.integrations import github as github_app
-from tamandua.shared import paths, vault
-from tamandua.shared.i18n import localize
-from tamandua.modules.integrations.github import GitHubAppError, config, install_url
-from tamandua.modules.integrations.installations import clear_github, github_installation, github_installations, load, save_github
+from pitangus.modules.integrations import github as github_app
+from pitangus.shared import paths, vault
+from pitangus.shared.i18n import localize
+from pitangus.modules.integrations.github import GitHubAppError, config, install_url
+from pitangus.modules.integrations.installations import clear_github, github_installation, github_installations, load, save_github
 
 try:
     from cryptography.hazmat.primitives import hashes, serialization
@@ -28,7 +28,7 @@ except ImportError:
 
 
 def _environment(key_file: str) -> dict:
-    return {"GITHUB_APP_ID": "123456", "GITHUB_APP_SLUG": "tamandua-local",
+    return {"GITHUB_APP_ID": "123456", "GITHUB_APP_SLUG": "pitangus-local",
             "GITHUB_APP_CLIENT_ID": "Iv1.0123456789abcdef", "GITHUB_APP_CLIENT_SECRET": "s" * 40,
             "GITHUB_APP_PRIVATE_KEY_FILE": key_file}
 
@@ -53,7 +53,7 @@ class GitHubAppTests(unittest.TestCase):
 
     def test_install_url_points_at_the_selection_screen(self):
         with tempfile.NamedTemporaryFile() as key, patch.dict(os.environ, testenv.base(**_environment(key.name)), clear=True):
-            self.assertEqual(install_url(), "https://github.com/apps/tamandua-local/installations/new")
+            self.assertEqual(install_url(), "https://github.com/apps/pitangus-local/installations/new")
 
     @unittest.skipUnless(CRYPTO, "requiere cryptography (.venv)")
     def test_verified_app_is_stored_encrypted_and_bad_input_is_refused(self):
@@ -78,7 +78,7 @@ class GitHubAppTests(unittest.TestCase):
             serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
         with self.assertRaises(GitHubAppError):
             github_app.verify_app("4242", weak)
-        with patch.dict(os.environ, testenv.base(), clear=True), patch("tamandua.modules.integrations.github._get", side_effect=fake_get):
+        with patch.dict(os.environ, testenv.base(), clear=True), patch("pitangus.modules.integrations.github._get", side_effect=fake_get):
             verified = github_app.verify_app(" 4242 ", pem)
             self.assertEqual(seen[0][0], "https://api.github.com/app")
             self.assertNotIn("PRIVATE KEY", seen[0][1])  # GitHub gets a JWT, never the key
@@ -92,7 +92,7 @@ class GitHubAppTests(unittest.TestCase):
             github_app._app_jwt()  # signs with the key decrypted from the store
             self.assertTrue(github_app.forget_app())
             self.assertFalse(github_app.config()["configured"])
-        with patch.dict(os.environ, testenv.base(), clear=True), patch("tamandua.modules.integrations.github._get", side_effect=GitHubAppError("401")):
+        with patch.dict(os.environ, testenv.base(), clear=True), patch("pitangus.modules.integrations.github._get", side_effect=GitHubAppError("401")):
             with self.assertRaises(GitHubAppError):
                 github_app.verify_app("4242", pem)
 
@@ -132,11 +132,11 @@ class GitHubAppTests(unittest.TestCase):
 
     def test_installation_token_is_reused_until_it_is_close_to_expiring(self):
         github_app._tokens[99] = ("ghs_vigente", time.time() + 3600)
-        with patch("tamandua.shared.http.build_opener", side_effect=AssertionError("pidió token de nuevo")):
+        with patch("pitangus.shared.http.build_opener", side_effect=AssertionError("pidió token de nuevo")):
             self.assertEqual(github_app.installation_token(99), "ghs_vigente")
         github_app._tokens[99] = ("ghs_por_caducar", time.time() + 60)
-        with patch("tamandua.modules.integrations.github._app_jwt", return_value="jwt"), \
-                patch("tamandua.shared.http.build_opener") as opener:
+        with patch("pitangus.modules.integrations.github._app_jwt", return_value="jwt"), \
+                patch("pitangus.shared.http.build_opener") as opener:
             response = opener.return_value.open.return_value.__enter__.return_value
             response.read.return_value = json.dumps({"token": "ghs_nuevo"}).encode()
             self.assertEqual(github_app.installation_token(99), "ghs_nuevo")
@@ -176,8 +176,8 @@ class GitHubAppTests(unittest.TestCase):
         first = [{"id": index, "account": {"login": "org" + str(index), "type": "Organization"}}
                  for index in range(1, 101)]
         second = [{"id": 101, "account": {"login": "extra", "type": "Organization"}}]
-        with patch("tamandua.modules.integrations.github._app_jwt", return_value="jwt"), \
-                patch("tamandua.modules.integrations.github._get", side_effect=[first, second]) as fetch:
+        with patch("pitangus.modules.integrations.github._app_jwt", return_value="jwt"), \
+                patch("pitangus.modules.integrations.github._get", side_effect=[first, second]) as fetch:
             rows = github_app.app_installations()
         self.assertEqual((len(rows), rows[-1]["account"]), (101, "extra"))
         self.assertIn("page=2", fetch.call_args_list[-1].args[0])
@@ -197,8 +197,8 @@ class GitHubAppTests(unittest.TestCase):
                 for index in range(start, min(start + 100, 901))]}
 
         try:
-            with patch("tamandua.modules.integrations.github.installation_token", return_value="token"), \
-                    patch("tamandua.modules.integrations.github._get", side_effect=fetch):
+            with patch("pitangus.modules.integrations.github.installation_token", return_value="token"), \
+                    patch("pitangus.modules.integrations.github._get", side_effect=fetch):
                 started = time.monotonic()
                 first = github_app.installation_repositories_snapshot(12345)
                 second = github_app.installation_repositories_snapshot(12345)
@@ -227,7 +227,7 @@ class CatalogPagingTests(unittest.TestCase):
 
     def test_a_page_costs_one_request_and_the_total_comes_from_github(self):
         from fake_github import fake_github
-        from tamandua.modules.sources.repositories import source_page
+        from pitangus.modules.sources.repositories import source_page
         with fake_github(self.BIG, self.ACCOUNTS) as calls:
             listing = source_page(None, [7], page=3)
             listed = [url for url in calls if "/installation/repositories" in url]
@@ -237,7 +237,7 @@ class CatalogPagingTests(unittest.TestCase):
 
     def test_pages_continue_across_organizations_and_filter_by_account(self):
         from fake_github import fake_github
-        from tamandua.modules.sources.repositories import source_page
+        from pitangus.modules.sources.repositories import source_page
         with fake_github(self.BIG, self.ACCOUNTS):
             last = source_page(None, [7, 8], page=37)
             only_beta = source_page(None, [7, 8], account="beta")
@@ -247,7 +247,7 @@ class CatalogPagingTests(unittest.TestCase):
 
     def test_search_uses_github_when_the_whole_account_is_granted(self):
         from fake_github import fake_github
-        from tamandua.modules.sources.repositories import source_page
+        from pitangus.modules.sources.repositories import source_page
         with fake_github(self.BIG, self.ACCOUNTS) as calls:
             found = source_page(None, [7], query="repo-12 org:otra")
         self.assertIn("/search/repositories", calls[-1])
@@ -258,7 +258,7 @@ class CatalogPagingTests(unittest.TestCase):
 
     def test_one_repository_is_validated_without_listing_the_catalog(self):
         from fake_github import fake_github
-        from tamandua.modules.sources.repositories import find_source
+        from pitangus.modules.sources.repositories import find_source
         with fake_github(self.BIG, self.ACCOUNTS) as calls:
             found = find_source(None, [7, 8], "github:acme/repo-700")
             by_uid = find_source(None, [7, 8], "github#5001")

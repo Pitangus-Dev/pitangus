@@ -39,7 +39,7 @@ const STAGE_STYLE: Record<Stage['state'], string> = {
 }
 
 // CRA kit (art. 14, EU Regulation 2024/2847), shown only when the workspace policy turns it on. A KEV match on a
-// product is a signal to assess; only "exploited in our product" starts the deadlines. Tamandua never reports.
+// product is a signal to assess; only "exploited in our product" starts the deadlines. Pitangus never reports.
 export function CraSection({ admin, onNew }: { admin: boolean; onNew: () => void }) {
   const { t } = useTranslation('compliance')
   const [error, setError] = useState('')

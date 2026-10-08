@@ -10,11 +10,11 @@ export type SearchValues = (field: string, q: string) => Promise<JiraFieldValues
 // What a saved destination remembers of each mapped field: the chosen values' names among them.
 export type FieldSnapshot = Record<string, { allowed?: unknown } | undefined> | null | undefined
 export type Variable = JiraVariables['variables'][number]
-export type Source = 'none' | 'tamandua' | 'fixed' | 'template'
+export type Source = 'none' | 'pitangus' | 'fixed' | 'template'
 // One row being edited: every source keeps what was typed, so switching back and forth loses nothing.
 export type Entry = { source: Source; key: string; value: string; values: string[]; text: string; names: Record<string, string> }
 export type Draft = Record<string, Entry>
-export type MappingSpec = { source: 'tamandua'; key: string } | { source: 'fixed'; value: string | number | string[] } | { source: 'template'; text: string }
+export type MappingSpec = { source: 'pitangus'; key: string } | { source: 'fixed'; value: string | number | string[] } | { source: 'template'; text: string }
 
 export const TEMPLATED = ['text', 'rich_text', 'labels', 'strings']
 export const LISTS = ['labels', 'strings']
@@ -33,7 +33,7 @@ export function fittingVariables(field: JiraField, variables: JiraVariables, cur
 export function sourcesFor(field: JiraField, variables: JiraVariables, current?: string): Source[] {
   if (!field.fillable) return []
   const sources: Source[] = []
-  if (fittingVariables(field, variables, current).length) sources.push('tamandua')
+  if (fittingVariables(field, variables, current).length) sources.push('pitangus')
   if (!CHOICES.includes(field.type) || field.allowed.length) sources.push('fixed')
   if (TEMPLATED.includes(field.type)) sources.push('template')
   if (!mustFill(field)) sources.push('none')
@@ -49,7 +49,7 @@ function namesOf(field: JiraField, snapshot?: { allowed?: unknown }): Record<str
 export function entryFrom(field: JiraField, spec: Record<string, unknown> | null | undefined, snapshot?: { allowed?: unknown }): Entry {
   if (!spec || !field.fillable) return EMPTY
   const names = CHOICES.includes(field.type) ? namesOf(field, snapshot) : {}
-  if (spec.source === 'tamandua' && typeof spec.key === 'string') return { ...EMPTY, source: 'tamandua', key: spec.key }
+  if (spec.source === 'pitangus' && typeof spec.key === 'string') return { ...EMPTY, source: 'pitangus', key: spec.key }
   if (spec.source === 'template' && typeof spec.text === 'string') return { ...EMPTY, source: 'template', text: spec.text }
   if (spec.source === 'fixed') {
     const value = spec.value
@@ -66,7 +66,7 @@ export function initialDraft(fields: JiraField[], mapping: Record<string, Record
 // What the API takes for one row: a spec, null (left empty) or 'incomplete' (a source chosen without its value).
 export function specOf(field: JiraField, entry: Entry): MappingSpec | null | 'incomplete' | 'number' {
   if (entry.source === 'none') return null
-  if (entry.source === 'tamandua') return entry.key ? { source: 'tamandua', key: entry.key } : 'incomplete'
+  if (entry.source === 'pitangus') return entry.key ? { source: 'pitangus', key: entry.key } : 'incomplete'
   if (entry.source === 'template') return entry.text.trim() ? { source: 'template', text: entry.text } : 'incomplete'
   if (field.type === 'options') return entry.values.length ? { source: 'fixed', value: entry.values } : 'incomplete'
   const value = entry.value.trim()

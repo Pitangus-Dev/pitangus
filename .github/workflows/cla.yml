@@ -32,20 +32,20 @@ jobs:
       github.event_name == 'pull_request_target' ||
       (github.event.issue.pull_request &&
         (github.event.comment.body == 'recheck' ||
-         github.event.comment.body == 'I have read the Tamandua CLA and I accept it' ||
-         github.event.comment.body == 'He leído el CLA de Tamandua y lo acepto'))
+         github.event.comment.body == 'I have read the Pitangus CLA and I accept it' ||
+         github.event.comment.body == 'He leído el CLA de Pitangus y lo acepto'))
     steps:
       - name: Check and record signatures
         # v9.0.0, pinned by commit
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
-            const PHRASE = 'I have read the Tamandua CLA and I accept it'
-            const PHRASES = [PHRASE, 'He leído el CLA de Tamandua y lo acepto']  // either language signs
+            const PHRASE = 'I have read the Pitangus CLA and I accept it'
+            const PHRASES = [PHRASE, 'He leído el CLA de Pitangus y lo acepto']  // either language signs
             const BRANCH = 'cla-signatures'
             const FILE = 'signatures/v1/cla.json'
-            const MARKER = '<!-- tamandua-cla -->'
-            const DOCUMENT = 'https://github.com/Tamandua-AppSec/tamandua/blob/main/.github/CLA.md'
+            const MARKER = '<!-- pitangus-cla -->'
+            const DOCUMENT = 'https://github.com/pitangus-dev/pitangus/blob/main/.github/CLA.md'
             const ALLOWLIST = new Set(['BrayansStivens'])
             const { owner, repo } = context.repo
             const number = context.payload.pull_request ? context.payload.pull_request.number : context.payload.issue.number

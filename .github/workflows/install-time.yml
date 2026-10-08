@@ -34,9 +34,9 @@ jobs:
           ref="$(git ls-remote --tags --refs "$REPOSITORY" 'v*' | awk -F/ '{print $3}' | sort -V | tail -n 1)"
           now() { date +%s; }
           start=$(now)
-          git clone --quiet --depth 1 --branch "$ref" "$REPOSITORY.git" tamandua
+          git clone --quiet --depth 1 --branch "$ref" "$REPOSITORY.git" pitangus
           cloned=$(now)
-          cd tamandua
+          cd pitangus
           if [ "$MODE" = prebuilt ]; then make setup PREBUILT=1; else make setup; fi
           make up
           ready=$(now)

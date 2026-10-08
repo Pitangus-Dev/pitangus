@@ -76,7 +76,7 @@
     "count_of": "{{value}} de {{total}} CVE · lo más reciente primero",
     "aria": "Sincronización con NVD",
     "error": "NVD no responde ahora; se reintenta solo.",
-    "hint": "Ya puedes buscar en lo cargado. NVD limita la descarga sin API key; con TAMANDUA_NVD_API_KEY va unas 8 veces más rápido."
+    "hint": "Ya puedes buscar en lo cargado. NVD limita la descarga sin API key; con PITANGUS_NVD_API_KEY va unas 8 veces más rápido."
   },
   "sheet": {
     "published": "Publicado {{date}}",

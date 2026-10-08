@@ -5,9 +5,9 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from tamandua.modules.reporting.audit import ReportError, render_audit_pdf, validate_options
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.runs.store import save_repository_scan
+from pitangus.modules.reporting.audit import ReportError, render_audit_pdf, validate_options
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.runs.store import save_repository_scan
 from test_auth import PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
 
@@ -37,7 +37,7 @@ class OptionsTests(unittest.TestCase):
 class RouteTests(HttpCase):
     def setUp(self):
         super().setUp()
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("miembro", PASSWORD)
             _, _, cookies = self.post("/api/auth/login", "login", {"username": "miembro", "password": PASSWORD})
         self.cookie = cookies[0].split("; ")[0]
@@ -45,7 +45,7 @@ class RouteTests(HttpCase):
         self.run = save_repository_scan(self.data_dir, _scan("org/api", findings, datetime.now(timezone.utc).isoformat()))
 
     def report(self, body):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             return self.post("/api/reports/audit", "audit-report", body, self.cookie)
 
     def test_a_member_generates_one_document_with_the_chosen_findings(self):
@@ -58,16 +58,16 @@ class RouteTests(HttpCase):
         self.assertGreater(len(pdf_all), 0)
 
     def test_the_asset_state_can_be_reported_too(self):
-        from tamandua.modules.sources.assets import asset_key
+        from pitangus.modules.sources.assets import asset_key
         status, pdf, _ = self.report({"asset": asset_key(self.run), "status": "all", "fingerprints": ["a" * 64]})
         self.assertEqual(status, 200, pdf)
         self.assertTrue(pdf.startswith(b"%PDF-"))
 
     def test_an_organization_report_includes_its_coverage_against_github(self):
         from fake_github import fake_github
-        from tamandua.modules.integrations.installations import save_github
+        from pitangus.modules.integrations.installations import save_github
         save_github(self.data_dir, 7, {"account": "org", "repository_selection": "all"}, "admin")
-        with patch("tamandua.app.api.reporting.render_portfolio_pdf", wraps=__import__("tamandua.modules.reporting.audit", fromlist=["x"]).render_portfolio_pdf) as render, \
+        with patch("pitangus.app.api.reporting.render_portfolio_pdf", wraps=__import__("pitangus.modules.reporting.audit", fromlist=["x"]).render_portfolio_pdf) as render, \
                 fake_github({7: [(1, "org/api"), (2, "org/web"), (3, "org/infra")]}, {7: ("org", "all")}):
             status, pdf, _ = self.report({"account": "org", "options": {"framework": "iso27001"}})
         self.assertEqual(status, 200, pdf)
@@ -76,7 +76,7 @@ class RouteTests(HttpCase):
         self.assertEqual((coverage["total"], coverage["missing"]), (3, ["org/infra", "org/web"]))
 
     def test_a_selection_of_repositories_goes_into_one_document(self):
-        from tamandua.modules.sources.assets import asset_key
+        from pitangus.modules.sources.assets import asset_key
         status, pdf, _ = self.report({"assets": [asset_key(self.run)]})
         self.assertEqual(status, 200, pdf)
         for body, expected in (({"assets": []}, 400), ({"assets": ["no-existe"]}, 404), ({"account": "nadie"}, 404),

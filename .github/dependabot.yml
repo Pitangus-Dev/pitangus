@@ -2,7 +2,7 @@
 # old (cooldown): a hijacked release is usually caught and yanked within days. Security updates ignore the cooldown.
 #
 # Not covered here (keep them fresh by hand):
-# - the engine images in tamandua/modules/scanning/engines.py (IMAGES) and their copies in docker/app/Dockerfile,
+# - the engine images in pitangus/modules/scanning/engines.py (IMAGES) and their copies in docker/app/Dockerfile,
 #   pinned by digest without a tag: tests/test_packaging.py keeps both in step;
 # - docker/checkov: its version must match IMAGES["checkov"];
 # - the postgres and caddy digests repeated in the compose files, scripts/test-db.sh and the CI service.

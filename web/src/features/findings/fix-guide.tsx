@@ -5,7 +5,7 @@ import { Button } from '@/shared/ui/button'
 import { api } from '@/shared/api/http'
 import { formatDate } from '@/shared/i18n/format'
 
-// Cómo corregir un hallazgo (tamandua/modules/findings/fix_guide.py) y reverificarlo (verifications.py): cierra el ciclo
+// Cómo corregir un hallazgo (pitangus/modules/findings/fix_guide.py) y reverificarlo (verifications.py): cierra el ciclo
 // encontrar → corregir → verificar sin buscar el hallazgo a mano en un análisis nuevo.
 export type FixGuide = { kind: 'dependency' | 'code' | 'secret' | 'config'; steps: string[]; commands: { label: string; code: string }[]
   example: { language: string; before: string; after: string; note?: string } | null }

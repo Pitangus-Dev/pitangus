@@ -4,12 +4,12 @@ import re
 import unittest
 from pathlib import Path
 
-from tamandua.cli.main import build_parser
+from pitangus.cli.main import build_parser
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = sorted((ROOT / "skills").glob("*/SKILL.md"))
 NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-GIT_OPTIONS = {"--short", "--show-toplevel"}  # from the git commands that accompany Tamandua
+GIT_OPTIONS = {"--short", "--show-toplevel"}  # from the git commands that accompany Pitangus
 
 
 def frontmatter(text: str) -> dict:

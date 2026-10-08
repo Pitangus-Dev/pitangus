@@ -9,19 +9,19 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.app import wiring
-from tamandua.modules.pullrequests import review as pr_review
-from tamandua.modules.pullrequests import watch as pr_watch
-from tamandua.modules.runs.jobs import ScanJobs
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.integrations.github import GitHubAppError, PULLS_FORBIDDEN
-from tamandua.modules.runs.store import load_run, save_repository_scan, render_profile_report
-from tamandua.modules.reporting.pdf import render_pdf
-from tamandua.shared.i18n import text
+from pitangus.app import wiring
+from pitangus.modules.pullrequests import review as pr_review
+from pitangus.modules.pullrequests import watch as pr_watch
+from pitangus.modules.runs.jobs import ScanJobs
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.integrations.github import GitHubAppError, PULLS_FORBIDDEN
+from pitangus.modules.runs.store import load_run, save_repository_scan, render_profile_report
+from pitangus.modules.reporting.pdf import render_pdf
+from pitangus.shared.i18n import text
 from fake_github import fake_github
 from test_auth import ORIGIN, PASSWORD, HttpCase
 
-wiring.configure()  # like every Tamandua process: domain events and injected readers
+wiring.configure()  # like every Pitangus process: domain events and injected readers
 
 SHA = "c" * 40
 APP = "import subprocess\n\ndef old(cmd):\n    return subprocess.run(cmd, shell=True)\n\n\ndef new(user):\n    return eval(user)\n"
@@ -69,7 +69,7 @@ class LogicTests(unittest.TestCase):
 
     def test_unused_dependency_detection(self):
         import tempfile
-        from tamandua.modules.scanning.unused_deps import analyze, split_by_pr
+        from pitangus.modules.scanning.unused_deps import analyze, split_by_pr
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "package.json").write_text(json.dumps({"dependencies": {"react": "19", "left-pad": "1", "tailwindcss": "4", "@scope/ui": "1", "prisma": "5"},
@@ -94,7 +94,7 @@ class LogicTests(unittest.TestCase):
         row = next(line for line in body.splitlines() if "click" in line)
         self.assertEqual(row.count("`"), 2)       # only the code's own
         self.assertNotIn("\n[click]", body)
-        self.assertIn("el panel de Tamandua", body)
+        self.assertIn("el panel de Pitangus", body)
 
     def test_comment_escapes_tables_and_mentions_preexisting(self):
         outcome = {"introduced": [finding("a")], "preexisting": [finding("b")], "verdict": pr_review.verdict([finding("a")])}
@@ -112,7 +112,7 @@ class JobTests(unittest.TestCase):
         self.repo = self.data_dir / "repo"
         self.repo.mkdir()
         (self.repo / "app.py").write_text(APP, encoding="utf-8")
-        for target, value in (("tamandua.modules.scanning.engines._docker_state", {"ok": False}),):
+        for target, value in (("pitangus.modules.scanning.engines._docker_state", {"ok": False}),):
             engines = patch.dict(target, value)
             engines.start()
             self.addCleanup(engines.stop)
@@ -127,7 +127,7 @@ class JobTests(unittest.TestCase):
             main = self.data_dir / "main"
             main.mkdir(exist_ok=True)
             (main / "app.py").write_text(APP.split("\n\n\ndef new")[0] + "\n", encoding="utf-8")
-            from tamandua.modules.scanning.repository import scan_repository
+            from pitangus.modules.scanning.repository import scan_repository
             scan = scan_repository(main, {"id": "github:org/api", "name": "org/api", "provider": "github", "files": 1})
             save_repository_scan(self.data_dir, scan)
 
@@ -138,11 +138,11 @@ class JobTests(unittest.TestCase):
 
         pull = {"number": 12, "title": "Nueva función", "url": "https://github.com/org/api/pull/12", "author": "ana",
                 "head_sha": SHA, "head_ref": "feat", "base_ref": "main", "draft": False}
-        with patch("tamandua.modules.runs.jobs.snapshot_source", snapshot), \
-                patch("tamandua.modules.integrations.github.pull_files", return_value=[{"filename": "app.py", "status": "modified", "patch": PATCH}]), \
-                patch("tamandua.modules.integrations.github.installation_details", return_value={"permissions": permissions}), \
-                patch("tamandua.modules.integrations.github.upsert_pr_comment", side_effect=lambda *args: self.posted.append(("comment", args)) or "created"), \
-                patch("tamandua.modules.integrations.github.set_commit_status", side_effect=lambda *args: self.posted.append(("status", args))):
+        with patch("pitangus.modules.runs.jobs.snapshot_source", snapshot), \
+                patch("pitangus.modules.integrations.github.pull_files", return_value=[{"filename": "app.py", "status": "modified", "patch": PATCH}]), \
+                patch("pitangus.modules.integrations.github.installation_details", return_value={"permissions": permissions}), \
+                patch("pitangus.modules.integrations.github.upsert_pr_comment", side_effect=lambda *args: self.posted.append(("comment", args)) or "created"), \
+                patch("pitangus.modules.integrations.github.set_commit_status", side_effect=lambda *args: self.posted.append(("status", args))):
             jobs = ScanJobs(self.data_dir)
             queued = jobs.enqueue_pr_review(source_id="github:org/api", pull=pull, installation_id=7, requested_by="ana")
             for _ in range(200):
@@ -191,14 +191,14 @@ class SecretInDocsTests(unittest.TestCase):
                     "KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30"))
 
     def test_jwt_added_to_readme_is_introduced_and_blocks(self):
-        from tamandua.modules.sources.repositories import _analyzable
+        from pitangus.modules.sources.repositories import _analyzable
         self.assertTrue(_analyzable(Path("README.md")))
         self.assertTrue(_analyzable(Path("docs/.npmrc")))
         self.assertFalse(_analyzable(Path("public/logo.png")))
         readme = "# Safari\n\nGetting started\n\n![img](a.png)\n" + self.JWT + "\nFirst, run the development server:\n"
         (self.repo / "README.md").write_text(readme, encoding="utf-8")
         patch_text = "@@ -3,3 +3,5 @@\n Getting started\n \n+![img](a.png)\n+" + self.JWT + "\n First, run the development server:\n"
-        with patch("tamandua.modules.integrations.github.pull_files", return_value=[{"filename": "README.md", "status": "modified", "patch": patch_text}]):
+        with patch("pitangus.modules.integrations.github.pull_files", return_value=[{"filename": "README.md", "status": "modified", "patch": patch_text}]):
             record = self._review_only({"pull_requests": "write", "statuses": "write"})
         secrets = [item for item in record["findings"] if item["scanner"] == "secrets"]
         self.assertEqual([(item["path"], item["line"]) for item in secrets], [("README.md", 6)])
@@ -215,10 +215,10 @@ class SecretInDocsTests(unittest.TestCase):
             shutil.copytree(self.repo, destination, dirs_exist_ok=True)
             return destination, {"id": source_id, "name": "org/api", "provider": "github", "files": 2, "sha256": "x"}
         pull = {"number": 4, "title": "README", "url": "u", "author": "ana", "head_sha": SHA, "head_ref": "p", "base_ref": "main", "draft": False}
-        with patch("tamandua.modules.runs.jobs.snapshot_source", snapshot), \
-                patch("tamandua.modules.integrations.github.installation_details", return_value={"permissions": permissions}), \
-                patch("tamandua.modules.integrations.github.upsert_pr_comment", side_effect=lambda *args: self.posted.append(("comment", args)) or "created"), \
-                patch("tamandua.modules.integrations.github.set_commit_status", side_effect=lambda *args: self.posted.append(("status", args))):
+        with patch("pitangus.modules.runs.jobs.snapshot_source", snapshot), \
+                patch("pitangus.modules.integrations.github.installation_details", return_value={"permissions": permissions}), \
+                patch("pitangus.modules.integrations.github.upsert_pr_comment", side_effect=lambda *args: self.posted.append(("comment", args)) or "created"), \
+                patch("pitangus.modules.integrations.github.set_commit_status", side_effect=lambda *args: self.posted.append(("status", args))):
             jobs = ScanJobs(self.data_dir)
             queued = jobs.enqueue_pr_review(source_id="github:org/api", pull=pull, installation_id=7, requested_by="ana")
             for _ in range(200):
@@ -249,8 +249,8 @@ class WatcherTests(unittest.TestCase):
                 return [{"id": f"github:{name}", "uid": "github#1" if installation == 77 else "github#2", "name": name}]
 
             pulls = [{"number": 1, "head_sha": "a" * 40, "draft": False}]
-            with patch("tamandua.modules.integrations.github.installation_repositories", side_effect=repositories), \
-                    patch("tamandua.modules.integrations.github.open_pull_requests", return_value=pulls):
+            with patch("pitangus.modules.integrations.github.installation_repositories", side_effect=repositories), \
+                    patch("pitangus.modules.integrations.github.open_pull_requests", return_value=pulls):
                 self.assertEqual(pr_watch.Watcher(data_dir, Jobs(), lambda: [77, 88]).poll(), 2)
             self.assertEqual(queued, [("github:acme/api", 77), ("github:beta/web", 88)])
 
@@ -272,8 +272,8 @@ class WatcherTests(unittest.TestCase):
             pulls = [{"number": 1, "head_sha": "a" * 40, "draft": False}, {"number": 2, "head_sha": "b" * 40, "draft": True}]
             watcher = pr_watch.Watcher(data_dir, Jobs(), lambda: 7)
             installed = [{"id": "github:org/api", "uid": "github#1", "name": "org/api"}, {"id": "github:org/off", "uid": "github#2", "name": "org/off"}]
-            with patch("tamandua.modules.integrations.github.open_pull_requests", return_value=pulls) as listing, \
-                    patch("tamandua.modules.integrations.github.installation_repositories", return_value=installed):
+            with patch("pitangus.modules.integrations.github.open_pull_requests", return_value=pulls) as listing, \
+                    patch("pitangus.modules.integrations.github.installation_repositories", return_value=installed):
                 self.assertEqual(watcher.poll(), 1)
                 self.assertEqual(watcher.poll(), 0)  # same commit: not repeated
                 pulls[0]["head_sha"] = "d" * 40      # new push
@@ -286,7 +286,7 @@ class WatcherTests(unittest.TestCase):
 
 class BranchWatchTests(unittest.TestCase):
     def test_the_default_branch_is_rescanned_when_it_changes(self):
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"TAMANDUA_BRANCH_MIN_MINUTES": "60"}):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"PITANGUS_BRANCH_MIN_MINUTES": "60"}):
             data_dir = Path(directory)
             for index in range(1, 6):
                 pr_watch.configure(data_dir, f"github#{index}", enabled=True, by="operadora")
@@ -307,9 +307,9 @@ class BranchWatchTests(unittest.TestCase):
             heads = {f"org/r{index}": "a" * 40 for index in range(1, 6)}
             jobs = Jobs()
             watcher = pr_watch.Watcher(data_dir, jobs, lambda: 7)
-            with patch("tamandua.modules.integrations.github.installation_repositories", return_value=installed), \
-                    patch("tamandua.modules.integrations.github.open_pull_requests", return_value=[]), \
-                    patch("tamandua.modules.integrations.github.branch_head", side_effect=lambda installation, name, branch: heads[name]):
+            with patch("pitangus.modules.integrations.github.installation_repositories", return_value=installed), \
+                    patch("pitangus.modules.integrations.github.open_pull_requests", return_value=[]), \
+                    patch("pitangus.modules.integrations.github.branch_head", side_effect=lambda installation, name, branch: heads[name]):
                 self.assertEqual(watcher.poll(), 3)            # at most three per round
                 self.assertEqual(watcher.poll(), 1)            # the fourth; the fifth only watches PRs
                 self.assertEqual(watcher.poll(), 0)            # no new commits, no repeat
@@ -330,7 +330,7 @@ class BranchWatchTests(unittest.TestCase):
 class RouteTests(HttpCase):
     def test_the_overview_shows_settings_saved_by_name_without_rewriting_them(self):
         """Old settings are keyed by name until the watcher moves them: a GET reads them and writes nothing."""
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("lectora", PASSWORD, role="member")
             _, _, cookies = self.post("/api/auth/login", "login", {"username": "lectora", "password": PASSWORD})
             cookie = cookies[0].split("; ")[0]
@@ -339,7 +339,7 @@ class RouteTests(HttpCase):
             pr_watch._save(self.data_dir, state)
             pr_watch.mark(self.data_dir, "github:org/api", 3, "c" * 40, "0" * 32)
             before = pr_watch.load(self.data_dir)
-            with patch("tamandua.app.api.pullrequests.github_installations", return_value=[7]), \
+            with patch("pitangus.app.api.pullrequests.github_installations", return_value=[7]), \
                     fake_github({7: [(1, "org/api"), (2, "org/web")]}, {7: ("org", "selected")}):
                 status, overview, _ = self.call("GET", "/api/pull-requests/watch", headers={"Cookie": cookie})
             self.assertEqual(status, 200)
@@ -348,13 +348,13 @@ class RouteTests(HttpCase):
             self.assertEqual(pr_watch.load(self.data_dir), before)
 
     def test_settings_survive_when_github_denies_reading_pulls(self):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("operadora", PASSWORD, role="admin")
             _, _, cookies = self.post("/api/auth/login", "login", {"username": "operadora", "password": PASSWORD})
             cookie = cookies[0].split("; ")[0]
-            with patch("tamandua.app.api.pullrequests.github_installations", return_value=[7]), \
+            with patch("pitangus.app.api.pullrequests.github_installations", return_value=[7]), \
                     fake_github({7: [(1, "org/api"), (2, "org/web")]}, {7: ("org", "selected")}), \
-                    patch("tamandua.app.api.pullrequests.open_pull_requests", side_effect=GitHubAppError(PULLS_FORBIDDEN)):
+                    patch("pitangus.app.api.pullrequests.open_pull_requests", side_effect=GitHubAppError(PULLS_FORBIDDEN)):
                 status, body, _ = self.call("GET", "/api/pull-requests?source_id=github:org/api", headers={"Cookie": cookie})
                 self.assertEqual((status, body["pulls"], body["settings"]["gate"]), (200, [], "high"))
                 self.assertIn("Pull requests", body["pulls_error"])
@@ -386,12 +386,12 @@ class RouteTests(HttpCase):
         body = {"source_id": "github:org/api", "number": 5}
 
         def review(action, payload, session=None):
-            return self.call("POST", "/api/pull-requests/review", payload, {"Origin": ORIGIN, "X-Tamandua-Action": action,
+            return self.call("POST", "/api/pull-requests/review", payload, {"Origin": ORIGIN, "X-Pitangus-Action": action,
                                                                             "Content-Type": "application/json", **({"Cookie": session} if session else {})})
         self.assertEqual(review("review-pr", body)[0], 401)
-        with patch("tamandua.app.api.pullrequests.github_installations", return_value=[7]), \
+        with patch("pitangus.app.api.pullrequests.github_installations", return_value=[7]), \
                 fake_github({7: [(1, "org/api")]}, {7: ("org", "selected")}), \
-                patch("tamandua.app.api.pullrequests.pull_request", side_effect=lambda installation, name, number: dict(pull)) as fetched:
+                patch("pitangus.app.api.pullrequests.pull_request", side_effect=lambda installation, name, number: dict(pull)) as fetched:
             self.assertEqual(review("wrong-action", body, cookie)[0], 403)
             for bad in ({**body, "number": True}, {**body, "number": 0}, {**body, "extra": 1}, {**body, "source_id": "gitlab:1"}):
                 self.assertEqual(review("review-pr", bad, cookie)[0], 400, bad)

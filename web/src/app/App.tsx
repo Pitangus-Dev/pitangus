@@ -114,7 +114,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows])
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('tamandua-theme')
+    const saved = localStorage.getItem('pitangus-theme')
     return saved === 'light' || saved === 'system' ? saved : 'dark'
   })
   useEffect(() => {
@@ -125,7 +125,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
     }
     apply()
     media.addEventListener('change', apply)
-    localStorage.setItem('tamandua-theme', theme)
+    localStorage.setItem('pitangus-theme', theme)
     return () => media.removeEventListener('change', apply)
   }, [theme])
 

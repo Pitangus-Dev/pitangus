@@ -3,7 +3,7 @@
 # Usage: make restore FROM=backups/<date> CONFIRM=restore
 #
 # Before touching anything it checks the backup and saves the current state in backups/pre-restore-<date>/ (it's
-# a normal backup: `make restore FROM=backups/pre-restore-<date>` undoes the restore). Restore on the same Tamandua
+# a normal backup: `make restore FROM=backups/pre-restore-<date>` undoes the restore). Restore on the same Pitangus
 # version as the backup or a newer one: the app migrates the data forward when it starts, never backwards.
 set -eu
 
@@ -54,13 +54,13 @@ done
 if [ ! -f "$from/config.tgz" ]; then
   if [ -f "$from/master-key.sha256" ]; then
     sha256() { if command -v sha256sum >/dev/null; then sha256sum; else shasum -a 256; fi | cut -d' ' -f1; }
-    key=$(sed -n 's/^TAMANDUA_MASTER_KEY=//p' .env 2>/dev/null | tail -n1 | sed "s/^[\"']//; s/[\"']\$//")
+    key=$(sed -n 's/^PITANGUS_MASTER_KEY=//p' .env 2>/dev/null | tail -n1 | sed "s/^[\"']//; s/[\"']\$//")
     if [ -n "$key" ]; then current=$(printf '%s' "$key" | tr -d ' \r\n' | sha256)
     elif [ -r config/master.key ]; then current=$(tr -d ' \r\n' < config/master.key | sha256)
     else current=; fi
     if [ "$current" != "$(tr -d ' \r\n' < "$from/master-key.sha256")" ] && [ "${FORCE:-}" != "1" ]; then
       echo "The current master key is not the one $from needs (master-key.sha256): its secrets would not open." >&2
-      echo "Put that key back (TAMANDUA_MASTER_KEY in .env or config/master.key), or FORCE=1 to restore anyway." >&2
+      echo "Put that key back (PITANGUS_MASTER_KEY in .env or config/master.key), or FORCE=1 to restore anyway." >&2
       exit 1
     fi
   fi
@@ -76,7 +76,7 @@ stamp=$(date +%Y%m%d-%H%M%S)
 safety="backups/pre-restore-$stamp"
 mkdir -p "$safety"
 chmod 700 backups "$safety"
-docker compose exec -T postgres pg_dump -U tamandua -d tamandua -Fc > "$safety/database.dump"
+docker compose exec -T postgres pg_dump -U pitangus -d pitangus -Fc > "$safety/database.dump"
 # config/ (the master key) is only copied when the backup replaces it: otherwise it stays in place, and a plain
 # copy of the key next to the secrets it opens is what backups avoid.
 [ -d config ] && [ -f "$from/config.tgz" ] && tar czf "$safety/config.tgz" config
@@ -86,9 +86,9 @@ chmod 600 "$safety"/*
 echo "Current state saved in $safety/"
 
 # 4. The database, whole: dropped and recreated, so no table from a newer schema survives.
-docker compose exec -T postgres psql -q -U tamandua -d postgres -v ON_ERROR_STOP=1 \
-  -c 'DROP DATABASE IF EXISTS tamandua WITH (FORCE)' -c 'CREATE DATABASE tamandua OWNER tamandua'
-docker compose exec -T postgres pg_restore -U tamandua -d tamandua --no-owner --exit-on-error < "$from/database.dump"
+docker compose exec -T postgres psql -q -U pitangus -d postgres -v ON_ERROR_STOP=1 \
+  -c 'DROP DATABASE IF EXISTS pitangus WITH (FORCE)' -c 'CREATE DATABASE pitangus OWNER pitangus'
+docker compose exec -T postgres pg_restore -U pitangus -d pitangus --no-owner --exit-on-error < "$from/database.dump"
 echo "Database restored."
 
 # 5. Secrets (replaced, not merged: a stale key must not survive) and data (the caches are downloaded again).

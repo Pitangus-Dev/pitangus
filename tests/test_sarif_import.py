@@ -9,13 +9,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.findings import registry, triage
-from tamandua.modules.runs import registry as run_registry
-from tamandua.modules.runs.imports import ImportRefused, import_sarif
-from tamandua.modules.runs.store import load_run, render_repository_report, render_repository_sarif, save_repository_scan
-from tamandua.modules.scanning.engines import _stable, parse_opengrep
-from tamandua.modules.scanning.sarif_import import MAX_RESULTS, MAX_RUNS, SarifError, parse
-from tamandua.shared.i18n import text
+from pitangus.modules.findings import registry, triage
+from pitangus.modules.runs import registry as run_registry
+from pitangus.modules.runs.imports import ImportRefused, import_sarif
+from pitangus.modules.runs.store import load_run, render_repository_report, render_repository_sarif, save_repository_scan
+from pitangus.modules.scanning.engines import _stable, parse_opengrep
+from pitangus.modules.scanning.sarif_import import MAX_RESULTS, MAX_RUNS, SarifError, parse
+from pitangus.shared.i18n import text
 
 from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
@@ -109,7 +109,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(len({item["fingerprint"] for item in twice}), 2)  # identical keys, told apart by order
         self.assertEqual(twice[0]["fingerprint"], before)
 
-    def test_never_collides_with_tamandua_engines(self):
+    def test_never_collides_with_pitangus_engines(self):
         opengrep = parse_opengrep({"results": [{"check_id": "rule.one", "path": "/src/src/app.py", "start": {"line": 10},
                                                 "extra": {"lines": "eval(x)", "severity": "ERROR", "metadata": {}}}]})[0]
         imported = only(sarif("opengrep", [result()]))[0]
@@ -166,7 +166,7 @@ class RegistryTests(unittest.TestCase):
         return save_repository_scan(self.data_dir, record, created_at=self.clock.isoformat())
 
     def import_(self, document, **options):
-        with patch("tamandua.modules.runs.imports.datetime") as clock:
+        with patch("pitangus.modules.runs.imports.datetime") as clock:
             self.clock += timedelta(hours=1)
             clock.now.return_value = self.clock
             return import_sarif(self.data_dir, document, **{"asset": "org/api", "requested_by": "ana", **options})
@@ -205,7 +205,7 @@ class RegistryTests(unittest.TestCase):
         gone = next(entry for digest, entry in self.entries().items() if digest in semgrep and entry["status"] == "fixed")
         self.assertIn("Semgrep OSS", text(gone["fixed"]["how"], "en"))
         self.assertEqual(set(self.status("CodeQL").values()), {"open"})  # another tool's import vouches for nothing else
-        self.assertEqual(self.status()[A], "open")                     # nor for Tamandua's own findings
+        self.assertEqual(self.status()[A], "open")                     # nor for Pitangus's own findings
         self.import_(fixture())
         self.assertEqual(set(self.status("Semgrep OSS").values()), {"open"})  # it came back: it reopens
 
@@ -221,7 +221,7 @@ class RegistryTests(unittest.TestCase):
         self.import_(sarif("Snyk Code", []))
         self.assertEqual(set(self.status().values()), {"open"})
 
-    def test_tamandua_scans_and_pr_reviews_never_fix_imported_findings(self):
+    def test_pitangus_scans_and_pr_reviews_never_fix_imported_findings(self):
         self.import_(fixture())
         self.scan([])
         self.scan([], pr=3)
@@ -252,14 +252,14 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(caught.exception.status, status, options)
 
     def test_a_repository_the_app_covers_counts_as_an_asset(self):
-        from tamandua.modules.sources import assets as source_assets
+        from pitangus.modules.sources import assets as source_assets
         source_assets.set_scan_branch(self.data_dir, "github#9", None, name="org/new", source_id="github:org/new", by="ana")
         outcome = self.import_(fixture(), asset="org/new")
         self.assertEqual(outcome["asset"], "github#9")
         self.assertEqual(load_run(self.data_dir, outcome["runs"][0]["id"])["source"]["id"], "github:org/new")
 
     def test_all_runs_of_a_document_or_none(self):
-        from tamandua.modules.runs import imports, store
+        from pitangus.modules.runs import imports, store
         calls = []
 
         def failing(*args, **kwargs):
@@ -274,21 +274,21 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(set(self.status()), {A})
 
     def test_the_dashboard_counts_imported_findings(self):
-        from tamandua.modules.reporting import dashboard
+        from pitangus.modules.reporting import dashboard
         self.import_(fixture())
         without = fixture()
         without["runs"][0]["results"] = without["runs"][0]["results"][:1]
         self.import_({"version": "2.1.0", "runs": without["runs"][:1]})
         data = dashboard.compute(self.data_dir)
         asset = next(row for row in data["top_assets"] if row["name"] == "org/api")
-        self.assertEqual((asset["open"], asset["critical"]), (3, 1))  # Tamandua's one + Semgrep's one + CodeQL's one
+        self.assertEqual((asset["open"], asset["critical"]), (3, 1))  # Pitangus's one + Semgrep's one + CodeQL's one
         self.assertEqual(data["kpis"]["fixed_in_window"], 1)
 
 
 class ApiTests(HttpCase):
     def setUp(self):
         super().setUp()
-        from tamandua.modules.identity.auth import Users
+        from pitangus.modules.identity.auth import Users
         record = _scan("org/api", [_finding(A)], datetime.now(timezone.utc).isoformat())
         record["source"]["uid"] = KEY
         save_repository_scan(self.data_dir, record)
@@ -307,7 +307,7 @@ class ApiTests(HttpCase):
         self.assertEqual(self.post("/api/imports/sarif", "import-sarif", envelope)[0], 401)
         self.assertEqual(self.post("/api/imports/sarif", "scan-repository", envelope, self.member)[0], 403)
         self.assertEqual(self.call("POST", "/api/imports/sarif", envelope, {"Cookie": self.member, "Origin": "http://evil.test",
-                                                                            "X-Tamandua-Action": "import-sarif"})[0], 403)
+                                                                            "X-Pitangus-Action": "import-sarif"})[0], 403)
         status, body, _ = self.post("/api/imports/sarif", "import-sarif", envelope, self.member)
         self.assertEqual((status, [run["tool"] for run in body["runs"]], body["asset"]), (200, ["Semgrep OSS", "CodeQL"], KEY))
         self.assertEqual(load_run(self.data_dir, body["runs"][0]["id"])["requested_by"], "analista")
@@ -315,7 +315,7 @@ class ApiTests(HttpCase):
         self.assertEqual(status, 404)
         self.assertEqual(self.post("/api/imports/sarif", "import-sarif", {**envelope, "sarif": {"version": "1"}}, self.member)[0], 400)
         self.assertEqual(self.post("/api/imports/sarif", "import-sarif", {**envelope, "extra": 1}, self.member)[0], 400)
-        # Tamandua can't re-run another tool: re-verifying an imported finding asks for a new import.
+        # Pitangus can't re-run another tool: re-verifying an imported finding asks for a new import.
         _, imported, _ = self.post("/api/imports/sarif", "import-sarif", envelope, self.member)
         run = load_run(self.data_dir, imported["runs"][1]["id"])
         status, answer, _ = self.post("/api/findings/reverify", "reverify-finding",
@@ -326,14 +326,14 @@ class ApiTests(HttpCase):
     def test_ci_route_is_off_without_a_long_token_and_bearer_only(self):
         envelope = {"asset": "org/api", "sarif": fixture()}
         self.assertEqual(self.ci(envelope)[0], 404)
-        with patch.dict(os.environ, {"TAMANDUA_IMPORT_TOKEN": "short"}):
+        with patch.dict(os.environ, {"PITANGUS_IMPORT_TOKEN": "short"}):
             self.assertEqual(self.ci(envelope, token="short")[0], 404)
-        with patch.dict(os.environ, {"TAMANDUA_IMPORT_TOKEN": TOKEN}):
+        with patch.dict(os.environ, {"PITANGUS_IMPORT_TOKEN": TOKEN}):
             status, _, headers = self.ci(envelope, token=None)
-            self.assertEqual((status, headers["www-authenticate"]), (401, 'Bearer realm="tamandua-import"'))
+            self.assertEqual((status, headers["www-authenticate"]), (401, 'Bearer realm="pitangus-import"'))
             self.assertEqual(self.ci(envelope, token="x" * 40)[0], 401)
             self.assertEqual(self.ci(envelope, token=None, headers={"Authorization": f"Basic {TOKEN}"})[0], 401)
-            status, body, _ = self.ci(envelope, headers={"X-Tamandua-Actor": "octo cat\n<script>"})
+            status, body, _ = self.ci(envelope, headers={"X-Pitangus-Actor": "octo cat\n<script>"})
             self.assertEqual((status, len(body["runs"])), (200, 2))
             self.assertEqual(load_run(self.data_dir, body["runs"][0]["id"])["requested_by"], "ci:octocatscript")
             status, body, _ = self.ci(fixture(), query="?asset=org/api&tool=Strix&scope=partial")  # bare SARIF, options in the query
@@ -344,16 +344,16 @@ class ApiTests(HttpCase):
 
     def test_only_the_import_routes_accept_large_bodies(self):
         large = b" " * 2_000_000 + json.dumps({"asset": "org/api", "sarif": fixture()}).encode()
-        with patch.dict(os.environ, {"TAMANDUA_IMPORT_TOKEN": TOKEN}):
+        with patch.dict(os.environ, {"PITANGUS_IMPORT_TOKEN": TOKEN}):
             self.assertEqual(self.ci(None, raw=large)[0], 200)
             too_large = b" " * 10_000_001
             self.assertEqual(self.ci(None, raw=too_large)[0], 413)
-        headers = {"Cookie": self.member, "Origin": ORIGIN, "X-Tamandua-Action": "import-sarif"}
+        headers = {"Cookie": self.member, "Origin": ORIGIN, "X-Pitangus-Action": "import-sarif"}
         import asgi
         self.assertEqual(asgi.request(self.client, "POST", "/api/imports/sarif", large, headers).status_code, 200)
         self.assertEqual(asgi.request(self.client, "POST", "/api/imports/sarif", too_large, headers).status_code, 413)
         self.assertEqual(asgi.request(self.client, "POST", "/api/repositories/scans", large,
-                                      {**headers, "X-Tamandua-Action": "scan-repository"}).status_code, 413)
+                                      {**headers, "X-Pitangus-Action": "scan-repository"}).status_code, 413)
 
 
 class CliTests(unittest.TestCase):
@@ -366,7 +366,7 @@ class CliTests(unittest.TestCase):
         save_repository_scan(self.data_dir, record)
 
     def cli(self, *arguments, environment=None):
-        from tamandua.cli.main import main
+        from pitangus.cli.main import main
         with patch("sys.stdout", io.StringIO()) as out, patch("sys.stderr", io.StringIO()) as err, \
                 patch.dict(os.environ, environment or {}):
             code = main(["--data-dir", str(self.data_dir), "import-sarif", *arguments])
@@ -390,9 +390,9 @@ class CliTests(unittest.TestCase):
         self.assertIn("bad.sarif", err)
 
     def test_remote_import_needs_the_token_and_https(self):
-        self.assertEqual(self.cli(str(FIXTURE), "--asset", "org/api", "--server", "https://tamandua.example.com")[0], 2)
-        env = {"TAMANDUA_IMPORT_TOKEN": TOKEN}
-        for server in ("http://tamandua.example.com", "ftp://x", "https://user@x.example.com", "https://x.example.com/?a=1"):
+        self.assertEqual(self.cli(str(FIXTURE), "--asset", "org/api", "--server", "https://pitangus.example.com")[0], 2)
+        env = {"PITANGUS_IMPORT_TOKEN": TOKEN}
+        for server in ("http://pitangus.example.com", "ftp://x", "https://user@x.example.com", "https://x.example.com/?a=1"):
             self.assertEqual(self.cli(str(FIXTURE), "--asset", "org/api", "--server", server, environment=env)[0], 2, server)
 
     def test_remote_import_posts_to_the_ci_route_without_redirects(self):
@@ -411,9 +411,9 @@ class CliTests(unittest.TestCase):
                 return Response(json.dumps({"asset": KEY, "name": "org/api", "runs": [
                     {"id": "f" * 32, "tool": "CodeQL", "version": None, "scope": "full", "status": "completed", "findings": 1,
                      "excluded": 0, "skipped": 0, "opened": 1, "fixed": 0}]}).encode())
-        with patch("tamandua.shared.http.opener", return_value=Opener()):
+        with patch("pitangus.shared.http.opener", return_value=Opener()):
             code, out, _ = self.cli(str(FIXTURE), "--asset", "org/api", "--tool", "CodeQL", "--server", "http://127.0.0.1:8766/",
-                                    environment={"TAMANDUA_IMPORT_TOKEN": TOKEN})
+                                    environment={"PITANGUS_IMPORT_TOKEN": TOKEN})
         self.assertEqual(code, 0)
         self.assertIn("CodeQL", out)
         request = sent[0]
@@ -428,9 +428,9 @@ class CliTests(unittest.TestCase):
         class Opener:
             def open(self, request, timeout):
                 raise HTTPError(request.full_url, 404, "Not Found", {}, io.BytesIO(b'{"error": "No asset"}'))
-        with patch("tamandua.shared.http.opener", return_value=Opener()):
-            code, _, err = self.cli(str(FIXTURE), "--asset", "org/api", "--server", "https://tamandua.example.com",
-                                    environment={"TAMANDUA_IMPORT_TOKEN": TOKEN})
+        with patch("pitangus.shared.http.opener", return_value=Opener()):
+            code, _, err = self.cli(str(FIXTURE), "--asset", "org/api", "--server", "https://pitangus.example.com",
+                                    environment={"PITANGUS_IMPORT_TOKEN": TOKEN})
         self.assertEqual(code, 2)
         self.assertIn("404", err)
 

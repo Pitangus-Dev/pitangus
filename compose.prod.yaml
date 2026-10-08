@@ -1,30 +1,30 @@
 # Server with a public domain: Caddy in front with automatic HTTPS. An overlay on compose.yaml:
 #
-#   make setup DOMAIN=tamandua.example.com     # writes COMPOSE_FILE=compose.yaml:compose.prod.yaml in .env
+#   make setup DOMAIN=pitangus.example.com     # writes COMPOSE_FILE=compose.yaml:compose.prod.yaml in .env
 #   make up
 #
 # or by hand: docker compose -f compose.yaml -f compose.prod.yaml up -d
 #
 # What changes:
-# - `caddy` publishes 80 and 443 (TCP, and UDP for HTTP/3), gets and renews the certificate for TAMANDUA_DOMAIN and
+# - `caddy` publishes 80 and 443 (TCP, and UDP for HTTP/3), gets and renews the certificate for PITANGUS_DOMAIN and
 #   redirects HTTP to HTTPS. Its configuration is docker/caddy/Caddyfile.
-# - `api` publishes no port: only Caddy reaches it, over the `edge` network. TAMANDUA_PUBLIC_URL and
-#   TAMANDUA_ALLOWED_ORIGINS are derived from the domain (https://<domain>), for the api and the worker alike.
+# - `api` publishes no port: only Caddy reaches it, over the `edge` network. PITANGUS_PUBLIC_URL and
+#   PITANGUS_ALLOWED_ORIGINS are derived from the domain (https://<domain>), for the api and the worker alike.
 # - The api believes X-Forwarded-For (the real client address, for sign-in throttling and the logs) because nothing
 #   but Caddy, the worker and PostgreSQL can reach it; Caddy replaces any X-Forwarded-For a client sends.
 # The security headers (CSP, HSTS, nosniff, frame, referrer) stay the app's: Caddy doesn't add a second set.
 # Needs Compose v2.24+ (`!reset`). Guide: docs/deploy-vps.md
 
 x-public-env: &public-env
-  TAMANDUA_PUBLIC_URL: "https://${TAMANDUA_DOMAIN:?TAMANDUA_DOMAIN is missing in .env (make setup DOMAIN=tamandua.example.com)}"
-  TAMANDUA_ALLOWED_ORIGINS: "https://${TAMANDUA_DOMAIN:?TAMANDUA_DOMAIN is missing in .env}"
+  PITANGUS_PUBLIC_URL: "https://${PITANGUS_DOMAIN:?PITANGUS_DOMAIN is missing in .env (make setup DOMAIN=pitangus.example.com)}"
+  PITANGUS_ALLOWED_ORIGINS: "https://${PITANGUS_DOMAIN:?PITANGUS_DOMAIN is missing in .env}"
 
 services:
   api:
     ports: !reset []
     environment:
       <<: *public-env
-      TAMANDUA_FORWARDED_ALLOW_IPS: "*"
+      PITANGUS_FORWARDED_ALLOW_IPS: "*"
     networks:
       - default
       - edge
@@ -35,13 +35,13 @@ services:
 
   caddy:
     image: caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
-    container_name: tamandua-caddy
+    container_name: pitangus-caddy
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     environment:
-      TAMANDUA_DOMAIN: "${TAMANDUA_DOMAIN:?TAMANDUA_DOMAIN is missing in .env}"
+      PITANGUS_DOMAIN: "${PITANGUS_DOMAIN:?PITANGUS_DOMAIN is missing in .env}"
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       # Certificates and the ACME account: keep them across restarts (Let's Encrypt limits reissuing).

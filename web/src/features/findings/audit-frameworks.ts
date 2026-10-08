@@ -15,7 +15,7 @@ export const FRAMEWORKS: [Framework, string, string][] = [
   ['co-sfc', 'audit.frameworks.co_sfc.name', 'audit.frameworks.co_sfc.hint'],
   ['general', 'audit.frameworks.general.name', 'audit.frameworks.general.hint'],
 ]
-const MEMORY = 'tamandua-audit-report'
+const MEMORY = 'pitangus-audit-report'
 // What doesn't change between reports is remembered in this browser (a convenience; nothing leaves it).
 export const remembered = (): Partial<Record<string, string>> => { try { return JSON.parse(localStorage.getItem(MEMORY) ?? '{}') } catch { return {} } }
 export const rememberedFramework = () => remembered().framework as Framework | undefined

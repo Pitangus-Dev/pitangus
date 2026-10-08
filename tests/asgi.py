@@ -2,7 +2,7 @@
 
 from starlette.testclient import TestClient
 
-from tamandua.app.api import create_app
+from pitangus.app.api import create_app
 
 PORT = 8766
 

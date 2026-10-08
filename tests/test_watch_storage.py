@@ -7,10 +7,10 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from tamandua.modules.pullrequests import watch
-from tamandua.modules.sources import assets
-from tamandua.modules.sources.tables import repo_registry
-from tamandua.shared import db
+from pitangus.modules.pullrequests import watch
+from pitangus.modules.sources import assets
+from pitangus.modules.sources.tables import repo_registry
+from pitangus.shared import db
 
 
 class WatchStorageTests(unittest.TestCase):

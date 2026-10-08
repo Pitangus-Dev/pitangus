@@ -10,10 +10,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.runs import batches
-from tamandua.shared import paths
-from tamandua.modules.integrations import notifications
-from tamandua.modules.runs.store import save_repository_scan
+from pitangus.modules.runs import batches
+from pitangus.shared import paths
+from pitangus.modules.integrations import notifications
+from pitangus.modules.runs.store import save_repository_scan
 from test_dashboard import _finding, _scan
 
 PUBLIC = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
@@ -26,7 +26,7 @@ class NotificationTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         for patcher in (patch.object(paths, "CONFIG_DIR", Path(self.directory.name) / "config"),
-                        patch.dict(os.environ, {"TAMANDUA_PUBLIC_URL": "https://tamandua.example.com"}),
+                        patch.dict(os.environ, {"PITANGUS_PUBLIC_URL": "https://pitangus.example.com"}),
                         patch("socket.getaddrinfo", return_value=PUBLIC)):
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -59,9 +59,9 @@ class NotificationTests(unittest.TestCase):
         notifications.on_run(record, [_finding("a" * 64, "high"), _finding("b" * 64, "medium")], sender=self.sender, wait=True)
         self.assertEqual([item[0] for item in self.sent], ["https://siem.example.com/in"])  # nothing critical: no Slack
         _, payload, headers, body = self.sent[0]
-        self.assertEqual(headers["X-Tamandua-Signature"], "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest())
+        self.assertEqual(headers["X-Pitangus-Signature"], "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest())
         self.assertEqual((payload["event"], payload["asset"], payload["counts"]["high"]), ("findings", "acme/api", 1))
-        self.assertEqual(payload["link"], f"https://tamandua.example.com/#/hallazgos?run={'r' * 32}")
+        self.assertEqual(payload["link"], f"https://pitangus.example.com/#/hallazgos?run={'r' * 32}")
         self.sent.clear()
         notifications.on_run(record, [_finding("c" * 64, "critical"), *(_finding(str(index) * 64, "low") for index in range(6))], sender=self.sender, wait=True)
         slack = next(payload for url, payload, _, _ in self.sent if url == SLACK)
@@ -99,13 +99,13 @@ if __name__ == "__main__":
     unittest.main()
 
 
-from tamandua.modules.identity.auth import Users  # noqa: E402
+from pitangus.modules.identity.auth import Users  # noqa: E402
 from test_auth import PASSWORD, HttpCase  # noqa: E402
 
 
 class RouteTests(HttpCase):
     def test_only_an_admin_sees_or_changes_the_channels(self):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("admin", PASSWORD, role="admin")
             Users(self.data_dir).create("miembro", PASSWORD)
             admin = self.post("/api/auth/login", "login", {"username": "admin", "password": PASSWORD})[2][0].split("; ")[0]

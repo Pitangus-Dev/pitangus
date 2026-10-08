@@ -10,10 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.threats import model as tm
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.scanning.inventory import collect
-from tamandua.modules.runs.store import save_repository_scan
+from pitangus.modules.threats import model as tm
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.scanning.inventory import collect
+from pitangus.modules.runs.store import save_repository_scan
 from test_auth import PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
 
@@ -232,12 +232,12 @@ class ModelTests(unittest.TestCase):
             # Boxes that don't fit (the database spills out) and that overlap each other.
             "boundaries": [{"id": "backend", "name": "Backend", "components": ["api", "db"], "box": {"x": 350, "y": 120, "width": 450, "height": 380}},
                            {"id": "nube", "name": "Nube", "components": ["gcp"], "box": {"x": 660, "y": 20, "width": 200, "height": 120}}]}
-        imported = tm.from_portable({"format": "tamandua-threat-model", "version": 1, "model": base})
+        imported = tm.from_portable({"format": "pitangus-threat-model", "version": 1, "model": base})
         self.assertTrue(imported.get("relayout"))
         self.assertTrue(all(item["position"] is None for item in imported["components"]))
         coherent = {**base, "components": [{**item, "position": None} for item in base["components"]],
                     "boundaries": [{**item, "box": None} for item in base["boundaries"]]}
-        self.assertFalse(tm.from_portable({"format": "tamandua-threat-model", "version": 1, "model": coherent}).get("relayout"))
+        self.assertFalse(tm.from_portable({"format": "pitangus-threat-model", "version": 1, "model": coherent}).get("relayout"))
 
     def test_automatic_layout_keeps_members_inside_and_boxes_apart(self):
         import glob
@@ -287,12 +287,12 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(next(item for item in draft["components"] if item["kind"] == "external")["data"], ["payment"])
 
     def test_live_inventory_from_github_manifests(self):
-        from tamandua.modules.scanning import inventory
+        from pitangus.modules.scanning import inventory
         files = [("pyproject.toml", b'[project]\ndependencies = ["fastapi>=0.110", "psycopg[binary]", "sqlalchemy", "stripe"]\n'),
                  ("crates/api/Cargo.toml", b'[dependencies]\naxum = "0.7"\nsqlx = { version = "0.8" }\n'),
                  ("../../escape/package.json", b'{"dependencies": {"express": "4"}}')]
-        with patch("tamandua.modules.integrations.github.installation_repository", return_value={"id": REPO, "name": "org/shop", "branch": "main"}), \
-                patch("tamandua.modules.integrations.github.repository_manifests", return_value=files) as fetch:
+        with patch("pitangus.modules.integrations.github.installation_repository", return_value={"id": REPO, "name": "org/shop", "branch": "main"}), \
+                patch("pitangus.modules.integrations.github.repository_manifests", return_value=files) as fetch:
             found = inventory.live(REPO, installation_id=7)
         self.assertEqual(fetch.call_args.args[1:], ("org/shop", "main"))
         self.assertNotIn("npm", found["packages"])  # the path that left the directory was ignored
@@ -385,7 +385,7 @@ class ModelTests(unittest.TestCase):
         original = model(methodology="custom", custom_modules=["stride", "trees", "manual"],
                          repository_refs=["grupo/por-conectar"])
         document = tm.to_portable(original, {REPO: {"name": "org/shop"}})
-        self.assertEqual(document["format"], "tamandua-threat-model")
+        self.assertEqual(document["format"], "pitangus-threat-model")
         self.assertEqual(document["model"]["components"][1]["asset_ref"], "org/shop")
         self.assertEqual(set(document["model"]["repository_refs"]), {"org/shop", "grupo/por-conectar"})
         imported = tm.from_portable(json.loads(json.dumps(document)))
@@ -396,6 +396,8 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(imported["repositories"], [])
         self.assertEqual(imported["flows"], original["flows"])
         self.assertEqual(tm.to_portable(imported)["model"]["repository_refs"], document["model"]["repository_refs"])
+        legacy = tm.from_portable({**json.loads(json.dumps(document)), "format": "tamandua-threat-model"})
+        self.assertEqual(legacy["flows"], original["flows"])  # files exported before the rename still import
         simple = tm.from_portable({**document["model"], "repositories": ["sin/crear"]})
         self.assertIn("sin/crear", simple["repository_refs"])
         for invalid in ({"format": "otro", "version": 1, "model": document["model"]},
@@ -428,7 +430,7 @@ class ModelTests(unittest.TestCase):
 
 class RouteTests(HttpCase):
     def test_suggest_edit_decide_and_export(self):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("operadora", PASSWORD, role="admin")
             _, _, cookies = self.post("/api/auth/login", "login", {"username": "operadora", "password": PASSWORD})
             cookie = cookies[0].split("; ")[0]

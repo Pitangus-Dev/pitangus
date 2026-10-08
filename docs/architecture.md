@@ -2,7 +2,7 @@ English · [Español](es/arquitectura.md)
 
 # Architecture
 
-Tamandua is three services: the **API** (FastAPI, which also serves the panel), one or more **workers** that run the
+Pitangus is three services: the **API** (FastAPI, which also serves the panel), one or more **workers** that run the
 queued scans and the periodic tasks, and **PostgreSQL**, which holds all the state. The scan engines run as
 short-lived sibling containers started by the worker, with the code mounted read-only, no capabilities, and memory,
 CPU and process limits. The API has no access to Docker.
@@ -12,7 +12,7 @@ flowchart LR
   browser["Browser<br/>React panel"] -- "HTTPS or loopback<br/>HttpOnly cookie + CSRF" --> api
 
   subgraph host["Your machine (Docker)"]
-    api["tamandua<br/>API · panel"]
+    api["pitangus<br/>API · panel"]
     worker["worker<br/>queue · periodic tasks"]
     db[("PostgreSQL<br/>runs · findings · settings")]
     api --- db
@@ -21,7 +21,7 @@ flowchart LR
     subgraph engines["Short-lived engines (read-only, no capabilities)"]
       trivy["Trivy<br/>SCA · IaC · secrets"]
       gitleaks["Gitleaks<br/>secrets"]
-      opengrep["Opengrep<br/>SAST, 58 Tamandua rules"]
+      opengrep["Opengrep<br/>SAST, 58 Pitangus rules"]
       checkov["Checkov<br/>IaC · pipelines"]
       zizmor["zizmor<br/>GitHub Actions"]
     end
@@ -37,11 +37,11 @@ flowchart LR
 
 ## Code layout
 
-A modular monolith (`tamandua/`) whose layers are checked by import-linter on every PR (`make arch`, see
+A modular monolith (`pitangus/`) whose layers are checked by import-linter on every PR (`make arch`, see
 `pyproject.toml`):
 
 ```
-tamandua/
+pitangus/
   cli/          command line (scan for CI, demo, users…)
   app/          composition: API (api/: typed FastAPI routes, one module per context), worker,
                 migrations (Alembic and data), demo data, panel static files, wiring (event subscribers and
@@ -87,7 +87,7 @@ nobody subscribed to is an error, so a process that wasn't wired fails instead o
 
 - `AssetPurged` (runs): a repository gone from GitHub for longer than the grace period. Runs deletes its runs first,
   then triage, the registry, Jira links, PR watching, the repository registry, exclusions and secret detection settings
-  forget it, in that order. An interrupted purge leaves rows without runs, which `tamandua integrity` cleans up.
+  forget it, in that order. An interrupted purge leaves rows without runs, which `pitangus integrity` cleans up.
 - `RepositoriesListed` (pullrequests): the PR watcher read the complete repository list of the installations (never a
   partial one); runs reconciles the analysed repositories with it and purges the ones past the grace period.
 
@@ -110,7 +110,7 @@ something is running. Types for the migrated routes come from the OpenAPI schema
 API security lives in one place (`app/api/security.py`): allowed host → CSRF (Origin + action header) → session →
 second factor → role → body size. Every route applies it through `deps.guard(Policy(...))`.
 Handlers never read headers or cookies on their own; an unhandled error returns a 500 with no stack trace.
-The React + TypeScript panel (`web/`) is built into `tamandua/app/static/`.
+The React + TypeScript panel (`web/`) is built into `pitangus/app/static/`.
 
 Services (compose): `api` (panel and API with FastAPI, no access to Docker), `worker` (runs the queued scans and the
 periodic tasks; the only one with the Docker socket; it can scale out, and only the leader, elected with a PostgreSQL
@@ -122,9 +122,9 @@ notification outbox (`outbox`, with retries) live in PostgreSQL: a restart loses
 The API keeps no state of its own: users, runs, the queue, settings, the encrypted secrets, the session signing key and
 the local NVD copy are all in PostgreSQL. Several API instances can serve at once, and one without a persistent disk
 (a serverless function) works too; its data folder only holds caches that rebuild themselves. The worker runs the
-engines in one of two ways (`TAMANDUA_ENGINE_RUNNER`): a sibling container per engine through the Docker socket, or as
+engines in one of two ways (`PITANGUS_ENGINE_RUNNER`): a sibling container per engine through the Docker socket, or as
 processes from the engines installed in its own image (`worker-standalone`), for platforms without a socket. Periodic
-tasks run on the leader worker's clock, or are triggered from outside (`TAMANDUA_PERIODIC=external`). Every target is
+tasks run on the leader worker's clock, or are triggered from outside (`PITANGUS_PERIODIC=external`). Every target is
 in [deploy.md](deploy.md).
 
 ## How a scan flows
@@ -140,7 +140,7 @@ in [deploy.md](deploy.md).
 ## Data on disk
 
 ```
-PostgreSQL (tamandua-pg volume; schema managed by Alembic migrations in tamandua/app/alembic)
+PostgreSQL (pitangus-pg volume; schema managed by Alembic migrations in pitangus/app/alembic)
   runs                runs: list row, full record, report and SARIF (JSONB + columns for filtering)
   registry_*          findings registry per asset (state, CVE with a GIN index) and per-run idempotency
   triage_decisions    triage decisions with their history
@@ -155,14 +155,14 @@ PostgreSQL (tamandua-pg volume; schema managed by Alembic migrations in tamandua
 data/
   feeds/            downloaded KEV and EPSS files (a cache that can be rebuilt)
   trivy-cache/      Trivy's vulnerability database
-  logs/app.log      optional JSON copy of the logs (TAMANDUA_LOG_FILE; Compose sets it), rotated, no secrets
+  logs/app.log      optional JSON copy of the logs (PITANGUS_LOG_FILE; Compose sets it), rotated, no secrets
   backups/          copy of whatever each data migration touched (the last 5 are kept)
 config/
-  master.key        master key, only when TAMANDUA_MASTER_KEY isn't set (a single server)
+  master.key        master key, only when PITANGUS_MASTER_KEY isn't set (a single server)
 ```
 
-**Upgrading without breaking data.** Alembic migrations (`tamandua/app/alembic/versions/`) own the database schema and
-run at startup. For data that has to be rewritten, `tamandua/app/data_migrations.py` compares the version stored in
+**Upgrading without breaking data.** Alembic migrations (`pitangus/app/alembic/versions/`) own the database schema and
+run at startup. For data that has to be rewritten, `pitangus/app/data_migrations.py` compares the version stored in
 the database (document `data-version`; an older `data-version.json` is adopted once) with the code's version and applies the pending migrations in order, exactly once, after copying
 to `data/backups/` only what they are about to touch. Each step records its version: if one fails, the next start
 resumes from there. A fresh install starts at the latest version; data from a newer version than the code (a
@@ -176,10 +176,10 @@ downgrade) blocks startup instead of risking damage.
 - **One GitHub App per workspace**, with four permissions. To cover several organizations, GitHub requires the App to be installable on any account; the administrator explicitly picks which ones to connect to the workspace. A leaked key would reach every installation of that App, so keeping it safe is still critical.
 - **Honest results.** Whatever couldn't be tested shows up as `not_tested` with its reason; an incomplete scan is never presented as "zero vulnerabilities".
 - **Language-neutral storage, rendered per reader.** Every user-facing text exists in English (the source and the
-  fallback) and Spanish, in catalogs (`tamandua/shared/i18n/locales/` and `web/src/shared/i18n/locales/`). What gets
+  fallback) and Spanish, in catalogs (`pitangus/shared/i18n/locales/` and `web/src/shared/i18n/locales/`). What gets
   stored (findings, progress, limitations, errors) is a message code plus parameters, rendered when read in the
   reader's language: the API renders per request, and reports, PR comments, notifications, Jira and the CLI render
-  with an explicit locale (`TAMANDUA_DEFAULT_LOCALE`, `en` by default). The same finding reads naturally in either
+  with an explicit locale (`PITANGUS_DEFAULT_LOCALE`, `en` by default). The same finding reads naturally in either
   language, and switching languages never rewrites data. Third-party text (advisories, scanner check names) is shown
   as published, never machine-translated.
 

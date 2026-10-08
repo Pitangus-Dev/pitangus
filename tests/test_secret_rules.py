@@ -13,18 +13,18 @@ from unittest.mock import patch
 
 import testenv
 
-from tamandua.app import wiring
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.scanning import engines
-from tamandua.modules.runs.store import save_repository_scan
-from tamandua.modules.scanning import secret_rules as sr
-from tamandua.modules.runs import assets
-from tamandua.shared import documents
-from tamandua.shared.i18n import text
+from pitangus.app import wiring
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.scanning import engines
+from pitangus.modules.runs.store import save_repository_scan
+from pitangus.modules.scanning import secret_rules as sr
+from pitangus.modules.runs import assets
+from pitangus.shared import documents
+from pitangus.shared.i18n import text
 from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_dashboard import _scan
 
-wiring.configure()  # like every Tamandua process: domain events and injected readers
+wiring.configure()  # like every Pitangus process: domain events and injected readers
 
 ADMIN = {"username": "operadora", "role": "admin"}
 RULE = {"id": "acme-token", "description": "ACME internal token", "regex": r"ACME-TOKEN-[0-9a-f]{32}",
@@ -119,7 +119,7 @@ class ValidationTests(unittest.TestCase):
 
 class ReadLimitsTests(unittest.TestCase):
     def test_reading_keeps_the_limits_the_api_declares_even_for_an_older_document(self):
-        from tamandua.shared import documents
+        from pitangus.shared import documents
         with tempfile.TemporaryDirectory() as folder:
             data_dir = Path(folder)
             many = [f"item-{index}" for index in range(sr.MAX_ENTRIES + 50)]
@@ -142,7 +142,7 @@ class GitleaksConfigTests(unittest.TestCase):
             rules=[RULE], disabled_rules=["jwt"], allowlist={"regexes": ["AKIA[0-9]{4}"], "paths": ["fixtures/", "**/testdata/*.json"],
                                                            "stopwords": ["example"]}))))
         self.assertEqual(config["extend"], {"useDefault": True, "disabledRules": ["jwt"]})
-        self.assertEqual(config["rules"], [{"id": "tamandua-acme-token", "description": "ACME internal token",
+        self.assertEqual(config["rules"], [{"id": "pitangus-acme-token", "description": "ACME internal token",
                                             "regex": r"ACME-TOKEN-[0-9a-f]{32}", "keywords": ["acme-token"]}])
         allowlist = config["allowlists"][0]
         self.assertEqual(allowlist["regexes"], ["AKIA[0-9]{4}"])
@@ -166,7 +166,7 @@ class GitleaksConfigTests(unittest.TestCase):
                 rule = {"id": "acme-token", "description": description, "regex": r"KEY='[A-Z]{10}'\\d", "keywords": []}
                 raw = sr.gitleaks_toml({**sr.empty(), "rules": [rule]})
                 config = tomllib.loads(raw)
-                self.assertEqual(config["rules"], [{"id": "tamandua-acme-token", "description": description,
+                self.assertEqual(config["rules"], [{"id": "pitangus-acme-token", "description": description,
                                                     "regex": r"KEY='[A-Z]{10}'\\d"}])
                 self.assertEqual(config["extend"], {"useDefault": True})
         # Through normalize, line breaks never even get there.
@@ -185,12 +185,12 @@ class TrivyConfigTests(unittest.TestCase):
         config = json.loads(sr.trivy_secret_config(sr.normalize(settings(
             rules=[RULE], disabled_rules=["jwt", "aws-access-token", "adafruit-api-key"],
             allowlist={"regexes": ["AKIA[0-9]{4}"], "paths": ["fixtures/"], "stopwords": ["exa.mple"]}))))
-        self.assertEqual(config["rules"], [{"id": "tamandua-acme-token", "category": "Tamandua", "title": "ACME internal token",
+        self.assertEqual(config["rules"], [{"id": "pitangus-acme-token", "category": "Pitangus", "title": "ACME internal token",
                                             "severity": "CRITICAL", "regex": r"ACME-TOKEN-[0-9a-f]{32}", "keywords": ["acme-token"]}])
         self.assertEqual(config["allow-rules"], [
-            {"id": "tamandua-path-1", "description": "Tamandua", "path": r"^fixtures/.*(?:/.*)?$"},
-            {"id": "tamandua-regex-1", "description": "Tamandua", "regex": "AKIA[0-9]{4}"},
-            {"id": "tamandua-stopword-1", "description": "Tamandua", "regex": r"(?i)exa\.mple"}])
+            {"id": "pitangus-path-1", "description": "Pitangus", "path": r"^fixtures/.*(?:/.*)?$"},
+            {"id": "pitangus-regex-1", "description": "Pitangus", "regex": "AKIA[0-9]{4}"},
+            {"id": "pitangus-stopword-1", "description": "Pitangus", "regex": r"(?i)exa\.mple"}])
         # adafruit-api-key has no Trivy detector: Trivy keeps running as is for it.
         self.assertEqual(config["disable-rules"], ["aws-access-key-id", "jwt-token"])
 
@@ -239,7 +239,7 @@ class EngineWiringTests(unittest.TestCase):
         self.assertNotIn("/cfg", self.calls[0]["mounts"])
 
     def test_settings_mounted_read_only_and_custom_findings_mapped(self):
-        report = [{"RuleID": "tamandua-acme-token", "File": "/src/app/settings.py", "StartLine": 3, "Entropy": 4.1},
+        report = [{"RuleID": "pitangus-acme-token", "File": "/src/app/settings.py", "StartLine": 3, "Entropy": 4.1},
                   {"RuleID": "github-pat", "File": "/src/app/other.py", "StartLine": 1, "Entropy": 4.4}]
         with self.gitleaks(report):
             result = engines.run_gitleaks(self.snapshot, self.settings)
@@ -248,15 +248,15 @@ class EngineWiringTests(unittest.TestCase):
         self.assertEqual(call["mounts"]["/cfg"][1], "ro")
         self.assertEqual(call["mounts"]["/out"][1], "")
         self.assertNotEqual(call["mounts"]["/cfg"][0], call["mounts"]["/out"][0])
-        self.assertIn("tamandua-acme-token", call["config"])
+        self.assertIn("pitangus-acme-token", call["config"])
         self.assertEqual(result["status"], "completed")
         self.assertIn("1", text(result["detail"], "en"))
         custom, builtin = result["findings"]
         self.assertEqual((custom["title"], custom["severity"], custom["rule_id"], custom["tool"]),
-                         ("ACME internal token", "critical", "tamandua-acme-token", "gitleaks"))
+                         ("ACME internal token", "critical", "pitangus-acme-token", "gitleaks"))
         self.assertEqual(custom["priority"]["action"], "act")
         self.assertEqual(custom["remediation"], {"$t": "scanning.secrets.rotate"})
-        self.assertEqual(custom["fingerprint"], engines._stable("secrets", "tamandua-acme-token", "app/settings.py", "3"))
+        self.assertEqual(custom["fingerprint"], engines._stable("secrets", "pitangus-acme-token", "app/settings.py", "3"))
         self.assertNotEqual(builtin["title"], "ACME internal token")
         # The fingerprint doesn't depend on the (editable) description.
         renamed = {**self.settings, "rules": [{**self.settings["rules"][0], "description": "Other text", "severity": "low"}]}
@@ -283,7 +283,7 @@ class EngineWiringTests(unittest.TestCase):
 
     def test_trivy_gets_secret_config_and_retries_without_it_when_rejected(self):
         payload = {"Results": [{"Target": "app/settings.py", "Class": "secret", "Secrets": [
-            {"RuleID": "tamandua-acme-token", "StartLine": 3, "Severity": "CRITICAL", "Title": "ACME internal token"}]}]}
+            {"RuleID": "pitangus-acme-token", "StartLine": 3, "Severity": "CRITICAL", "Title": "ACME internal token"}]}]}
         calls = []
 
         def fake(key, arguments, snapshot, *, mounts=None, **kwargs):
@@ -297,7 +297,7 @@ class EngineWiringTests(unittest.TestCase):
         call = calls[0]
         self.assertEqual(call["arguments"][call["arguments"].index("--secret-config") + 1], "/cfg/trivy-secret.yaml")
         self.assertEqual(call["mounts"]["/cfg"][1], "ro")
-        self.assertIn("tamandua-path-1", call["config"])
+        self.assertIn("pitangus-path-1", call["config"])
         self.assertEqual(result["status"], "completed")
         finding = result["findings"][0]
         self.assertEqual((finding["title"], finding["severity"], finding["tool"]), ("ACME internal token", "critical", "trivy"))
@@ -342,7 +342,7 @@ class SecretRulesApiTests(HttpCase):
 
     def save(self, action, body, cookie, **headers):
         return self.call("POST", "/api/secrets/config", body,
-                         {"Origin": ORIGIN, "X-Tamandua-Action": action, "Content-Type": "application/json", "Cookie": cookie, **headers})
+                         {"Origin": ORIGIN, "X-Pitangus-Action": action, "Content-Type": "application/json", "Cookie": cookie, **headers})
 
     def body(self, **changes):
         return {**settings(rules=[RULE]), "reason": "ACME tokens leak in configs", **changes}
@@ -447,7 +447,7 @@ class RepositorySettingsTests(unittest.TestCase):
 
     def test_a_repository_scan_applies_its_own_entries(self):
         sr.save(self.data_dir, settings(rules=[OWN]), reason="Beta partner integration", user=ADMIN, asset=KEY)
-        from tamandua.modules.scanning import repository
+        from pitangus.modules.scanning import repository
         seen = []
         with patch.object(repository, "engines_available", return_value=True), \
                 patch.object(repository, "run_opengrep", return_value=_tool("opengrep")), \
@@ -475,17 +475,17 @@ class SecretsAreAlwaysCriticalTests(unittest.TestCase):
     def test_every_secret_engine_reports_critical(self):
         generic = [{"RuleID": "generic-api-key", "File": "/src/app.py", "StartLine": 2, "Entropy": 3.0}]
         self.assertEqual(engines.parse_gitleaks(generic)[0]["severity"], "critical")
-        custom = engines.parse_gitleaks([{"RuleID": "tamandua-acme-token", "File": "/src/a.py", "StartLine": 1}],
+        custom = engines.parse_gitleaks([{"RuleID": "pitangus-acme-token", "File": "/src/a.py", "StartLine": 1}],
                                         sr.custom_rules({"rules": [{**RULE, "severity": "low"}]}))[0]
         self.assertEqual((custom["severity"], custom["priority"]["action"]), ("critical", "act"))
         payload = {"Results": [{"Target": "app/settings.py", "Class": "secret", "Secrets": [
             {"RuleID": "github-pat", "StartLine": 3, "Severity": "LOW", "Title": "GitHub PAT"},
-            {"RuleID": "tamandua-acme-token", "StartLine": 9, "Severity": "MEDIUM", "Title": "ACME"}]}]}
+            {"RuleID": "pitangus-acme-token", "StartLine": 9, "Severity": "MEDIUM", "Title": "ACME"}]}]}
         self.assertEqual({item["severity"] for item in engines.parse_trivy(payload, {}, sr.custom_rules({"rules": [RULE]}))}, {"critical"})
 
     def test_images_and_the_internal_patterns_too(self):
-        from tamandua.modules.scanning import repository
-        from tamandua.modules.scanning.image import config_findings, parse_reference
+        from pitangus.modules.scanning import repository
+        from pitangus.modules.scanning.image import config_findings, parse_reference
         metadata = {"ImageConfig": {"created": "2099-01-01T00:00:00Z", "config": {"User": "app", "Env": ["NPM_TOKEN=npm_secretvalue123"],
                                                                                    "Healthcheck": {"Test": ["CMD", "true"]}}, "history": []}}
         found = [item for item in config_findings(metadata, parse_reference("ghcr.io/acme/api:1.0")) if item["scanner"] == "secrets"]
@@ -512,7 +512,7 @@ class AssetSecretApiTests(HttpCase):
 
     def save(self, body, cookie, action="save-asset-secret-rules", **headers):
         return self.call("POST", "/api/assets/secrets", body,
-                         {"Origin": ORIGIN, "X-Tamandua-Action": action, "Content-Type": "application/json", "Cookie": cookie, **headers})
+                         {"Origin": ORIGIN, "X-Pitangus-Action": action, "Content-Type": "application/json", "Cookie": cookie, **headers})
 
     def body(self, **changes):
         return {**settings(rules=[OWN], allowlist={"regexes": ["BETA-0{24}"], "paths": ["samples/"], "stopwords": []}),
@@ -537,14 +537,14 @@ class AssetSecretApiTests(HttpCase):
         # The defaults stay as they were; a rule id already used by the repository is refused with a pointer to it.
         self.assertEqual(self.call("GET", "/api/secrets/config", headers={"Cookie": self.admin})[1]["rules"], [])
         status, body, _ = self.call("POST", "/api/secrets/config", {**settings(rules=[OWN]), "reason": "Move it to the defaults"},
-                                    {"Origin": ORIGIN, "X-Tamandua-Action": "save-secret-rules", "Content-Type": "application/json",
+                                    {"Origin": ORIGIN, "X-Pitangus-Action": "save-secret-rules", "Content-Type": "application/json",
                                      "Cookie": self.admin, "Accept-Language": "en"})
         self.assertEqual((status, body["field"]), (400, "rules.0.id"))
         self.assertIn("org/app", body["error"])
 
     def test_a_clash_with_a_default_is_a_400_on_the_field(self):
         status, _, _ = self.call("POST", "/api/secrets/config", {**settings(rules=[RULE]), "reason": "Organization defaults"},
-                                 {"Origin": ORIGIN, "X-Tamandua-Action": "save-secret-rules", "Content-Type": "application/json", "Cookie": self.admin})
+                                 {"Origin": ORIGIN, "X-Pitangus-Action": "save-secret-rules", "Content-Type": "application/json", "Cookie": self.admin})
         self.assertEqual(status, 200)
         status, body, _ = self.save(self.body(rules=[OWN, RULE]), self.admin)
         self.assertEqual((status, body["field"]), (400, "rules.1.id"))
@@ -584,7 +584,7 @@ class _Engines:
         if self.fail_reference and not filtered:
             return subprocess.CompletedProcess(arguments, 2, "", "boom")
         seen = [(rule, path, line) for rule, path, line, value in self.secrets
-                if (not rule.startswith("tamandua-") or rule in custom) and rule not in disabled
+                if (not rule.startswith("pitangus-") or rule in custom) and rule not in disabled
                 and not any(re.match(pattern, path) for pattern in paths)
                 and not any(re.search(pattern, value) for pattern in regexes)
                 and not any(word in value.lower() for word in stopwords)]
@@ -619,7 +619,7 @@ class WithheldSecretsTests(unittest.TestCase):
             return engines.run_gitleaks(self.snapshot, applied), fake.calls
 
     def test_no_second_run_without_an_allowlist_or_disabled_rules(self):
-        secrets = [("github-pat", "app/a.py", 1, "ghp_x"), ("tamandua-acme-token", "app/b.py", 2, "ACME")]
+        secrets = [("github-pat", "app/a.py", 1, "ghp_x"), ("pitangus-acme-token", "app/b.py", 2, "ACME")]
         for applied in (None, sr.normalize(settings(rules=[RULE]))):
             result, calls = self.gitleaks(secrets, applied)
             self.assertEqual(len(calls), 1)
@@ -633,18 +633,18 @@ class WithheldSecretsTests(unittest.TestCase):
     def test_allowlisted_secrets_are_withheld_with_the_reason_and_stable_fingerprints(self):
         applied = sr.normalize(settings(rules=[RULE], allowlist={"paths": ["fixtures/"], "regexes": ["EXAMPLE-[0-9]+"], "stopwords": []}))
         secrets = [("github-pat", "fixtures/key.py", 1, "ghp_fixture"), ("generic-api-key", "app/config.py", 4, "EXAMPLE-123"),
-                   ("tamandua-acme-token", "fixtures/acme.py", 2, "ACME-TOKEN-1"), ("github-pat", "app/real.py", 9, "ghp_real")]
+                   ("pitangus-acme-token", "fixtures/acme.py", 2, "ACME-TOKEN-1"), ("github-pat", "app/real.py", 9, "ghp_real")]
         result, calls = self.gitleaks(secrets, applied)
         self.assertEqual([call["filtered"] for call in calls], [True, False])
         reference = calls[1]
         self.assertIn("--redact", reference["arguments"])
-        self.assertEqual([rule["id"] for rule in reference["config"]["rules"]], ["tamandua-acme-token"])  # custom rules still apply
+        self.assertEqual([rule["id"] for rule in reference["config"]["rules"]], ["pitangus-acme-token"])  # custom rules still apply
         self.assertEqual(result["status"], "completed")
         self.assertEqual([item["path"] for item in result["findings"]], ["app/real.py"])
         withheld = {item["path"]: item for item in result["withheld"]}
         self.assertEqual(set(withheld), {"fixtures/key.py", "app/config.py", "fixtures/acme.py"})
         self.assertEqual(withheld["fixtures/key.py"]["fingerprint"], engines._stable("secrets", "github-pat", "fixtures/key.py", "1"))
-        self.assertEqual(withheld["fixtures/acme.py"]["fingerprint"], engines._stable("secrets", "tamandua-acme-token", "fixtures/acme.py", "2"))
+        self.assertEqual(withheld["fixtures/acme.py"]["fingerprint"], engines._stable("secrets", "pitangus-acme-token", "fixtures/acme.py", "2"))
         self.assertEqual(withheld["fixtures/acme.py"]["title"], "ACME internal token")
         reason = withheld["fixtures/key.py"]["excluded_reason"]
         self.assertEqual((reason["$t"], reason["params"]["path"]), ("scanning.secret_rules.withheld.path", "fixtures/**"))
@@ -682,7 +682,7 @@ class WithheldSecretsTests(unittest.TestCase):
         self.assertIn("incomplete", text(result["detail"], "en"))
 
     def scan(self, secrets, **options):
-        from tamandua.modules.scanning import repository
+        from pitangus.modules.scanning import repository
         fake = _Engines(secrets, **options)
         with patch.object(engines, "_run", side_effect=fake), \
                 patch.object(repository, "engines_available", return_value=True), \
@@ -698,7 +698,7 @@ class WithheldSecretsTests(unittest.TestCase):
         return save_repository_scan(self.data_dir, scan, created_at=self.clock.isoformat()), fake.calls
 
     def test_the_registry_shows_an_allowlisted_secret_as_excluded_never_fixed(self):
-        from tamandua.modules.findings import registry
+        from pitangus.modules.findings import registry
         leak, real = ("github-pat", "fixtures/key.py", 1, "ghp_fixture"), ("github-pat", "app/real.py", 9, "ghp_real")
         digest = engines._stable("secrets", "github-pat", "fixtures/key.py", "1")
 

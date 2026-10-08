@@ -9,11 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.app import demo
-from tamandua.modules.pullrequests import watch as pr_watch
-from tamandua.modules.threats import model as tm
-from tamandua.modules.identity.auth import Users, totp_code
-from tamandua.modules.runs.store import list_runs, save_repository_scan
+from pitangus.app import demo
+from pitangus.modules.pullrequests import watch as pr_watch
+from pitangus.modules.threats import model as tm
+from pitangus.modules.identity.auth import Users, totp_code
+from pitangus.modules.runs.store import list_runs, save_repository_scan
 from test_auth import PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
 
@@ -29,7 +29,7 @@ class DemoTests(unittest.TestCase):
             return {**_scan("demo · ejemplos vulnerables", [_finding("a" * 64)], datetime.now(timezone.utc).isoformat()),
                     "source": {**source, "sha256": "x"}, "context": kwargs.get("context", "")}
 
-        with tempfile.TemporaryDirectory() as folder, patch("tamandua.modules.scanning.repository.scan_repository", side_effect=scan):
+        with tempfile.TemporaryDirectory() as folder, patch("pitangus.modules.scanning.repository.scan_repository", side_effect=scan):
             data = Path(folder)
             first = demo.seed(data, fixtures=ROOT / "fixtures", models=ROOT / "web/src/examples/threat-models", report=lambda message: None)
             second = demo.seed(data, fixtures=ROOT / "fixtures", models=ROOT / "web/src/examples/threat-models", report=lambda message: None)
@@ -37,12 +37,12 @@ class DemoTests(unittest.TestCase):
             self.assertEqual((first["code"]["status"], "threat_model" in first, "threat_model" in second), ("completed", True, False))
             self.assertEqual([model["name"] for model in tm.list_models(data)], [demo.model_name()])  # not duplicated
             self.assertEqual({row["source"]["id"] for row in list_runs(data)}, {"local:demo-ejemplos"})
-            # Tests run with TAMANDUA_DEFAULT_LOCALE=es: the demo speaks Spanish and imports the Spanish example.
+            # Tests run with PITANGUS_DEFAULT_LOCALE=es: the demo speaks Spanish and imports the Spanish example.
             self.assertEqual(demo.model_name(), "Demo · Portal de clientes (STRIDE)")
             saved = tm.load(data, first["threat_model"])
             self.assertIn("Portal web", {item["name"] for item in saved["components"]})
             # Switching the default locale doesn't import the model again.
-            with patch.dict(os.environ, {"TAMANDUA_DEFAULT_LOCALE": "en"}):
+            with patch.dict(os.environ, {"PITANGUS_DEFAULT_LOCALE": "en"}):
                 third = demo.seed(data, fixtures=ROOT / "fixtures", models=ROOT / "web/src/examples/threat-models", report=lambda message: None)
             self.assertNotIn("threat_model", third)
             with self.assertRaises(FileNotFoundError):
@@ -50,7 +50,7 @@ class DemoTests(unittest.TestCase):
 
     def test_demo_texts_follow_the_default_locale(self):
         models = ROOT / "web/src/examples/threat-models"
-        with patch.dict(os.environ, {"TAMANDUA_DEFAULT_LOCALE": "en"}):
+        with patch.dict(os.environ, {"PITANGUS_DEFAULT_LOCALE": "en"}):
             self.assertEqual(demo.models_folder(models), models / "en")
             self.assertEqual(demo.model_name(), "Demo · Customer portal (STRIDE)")
             self.assertEqual(demo.demo_source(), {"id": "local:demo-ejemplos", "name": "demo · vulnerable samples", "provider": "local"})
@@ -62,7 +62,7 @@ class DemoTests(unittest.TestCase):
 
 class OnboardingTests(HttpCase):
     def test_steps_follow_the_real_state(self):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("admin", PASSWORD, role="admin")
             cookie = self.post("/api/auth/login", "login", {"username": "admin", "password": PASSWORD})[2][0].split("; ")[0]
             _, state, _ = self.call("GET", "/api/onboarding", headers={"Cookie": cookie})

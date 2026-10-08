@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Tamandua image: web panel, API and scan queue.
+# Pitangus image: web panel, API and scan queue.
 # Built from the repository root:  make build   (or docker compose build)
 #
 # Two stages: Node builds the panel and only its static files reach the final image,
@@ -13,8 +13,8 @@ WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY web/ ./
-# vite.config writes to ../tamandua/app/static: keep the repository layout.
-RUN mkdir -p /src/tamandua/app && npm run build
+# vite.config writes to ../pitangus/app/static: keep the repository layout.
+RUN mkdir -p /src/pitangus/app && npm run build
 
 # ---------- 2. runtime ----------
 FROM python:3.12-slim-bookworm@sha256:54c85f3c47607a77f32adec749d3c81d1348bf25833671f512b26a9b6d778cb3 AS app
@@ -22,14 +22,14 @@ ARG VERSION=dev
 ARG DOCKER_CLI_VERSION=29.8.2
 ARG DOCKER_CLI_SHA_AMD64=995d1ef289677f74fd58d8d2c35727b6a4ee389c69db8638a3e42d0487aa5b0f
 ARG DOCKER_CLI_SHA_ARM64=76a624e4a8e5da654d1150e808175125efb5a6f1b6aa1cbd9caee18f51047a50
-LABEL org.opencontainers.image.title="Tamandua" \
+LABEL org.opencontainers.image.title="Pitangus" \
       org.opencontainers.image.description="Self-hosted application security: SAST, secrets, dependencies, PRs and CVE tracker" \
-      org.opencontainers.image.source="https://github.com/Tamandua-AppSec/tamandua" \
-      org.opencontainers.image.documentation="https://github.com/Tamandua-AppSec/tamandua/tree/main/docs" \
+      org.opencontainers.image.source="https://github.com/pitangus-dev/pitangus" \
+      org.opencontainers.image.documentation="https://github.com/pitangus-dev/pitangus/tree/main/docs" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.version="${VERSION}"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LANG=C.UTF-8 \
-    TAMANDUA_BIND=0.0.0.0 TAMANDUA_DATA_DIR=/data TAMANDUA_CONFIG_DIR=/config
+    PITANGUS_BIND=0.0.0.0 PITANGUS_DATA_DIR=/data PITANGUS_CONFIG_DIR=/config
 # The pinned base is upgraded at build time too: Debian's security fixes released after the digest are taken in, so the
 # published image doesn't carry vulnerabilities that already have a fix. The Docker CLI is checked against its SHA-256.
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends ca-certificates curl dnsutils git \
@@ -41,28 +41,28 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --disable-pip-version-check --require-hashes --only-binary :all: -r requirements.txt
-COPY tamandua/ ./tamandua/
+COPY pitangus/ ./pitangus/
 COPY rules/ ./rules/
-COPY --from=web /src/tamandua/app/static ./tamandua/app/static
-# The exact release (the tag without the v, 0.11.1) for /api/health, the panel and the reports; tamandua/version.py
+COPY --from=web /src/pitangus/app/static ./pitangus/app/static
+# The exact release (the tag without the v, 0.12.1) for /api/health, the panel and the reports; pitangus/version.py
 # ignores a value that doesn't belong to its VERSION (the default "dev").
-RUN printf '%s\n' "${VERSION}" > tamandua/RELEASE
+RUN printf '%s\n' "${VERSION}" > pitangus/RELEASE
 # Unprivileged user; compose aligns its UID/GID with the host's so data/ and config/ are yours.
-RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin tamandua \
- && mkdir -p /data /config && chown -R tamandua:tamandua /data /config
-USER tamandua
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin pitangus \
+ && mkdir -p /data /config && chown -R pitangus:pitangus /data /config
+USER pitangus
 VOLUME ["/data", "/config"]
 EXPOSE 8766
 # The Host header is the first allowed origin's: behind a proxy (public domain only) 127.0.0.1 is refused.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD ["python", "-c", "import os,sys,urllib.parse as p,urllib.request as r; h=p.urlsplit((os.environ.get('TAMANDUA_ALLOWED_ORIGINS') or 'http://127.0.0.1:8766').split(',')[0].strip()).netloc; sys.exit(0 if r.urlopen(r.Request('http://127.0.0.1:8766/api/health', headers={'Host': h}), timeout=4).status == 200 else 1)"]
-CMD ["python", "-m", "tamandua", "--data-dir", "/data", "serve", "--port", "8766"]
+  CMD ["python", "-c", "import os,sys,urllib.parse as p,urllib.request as r; h=p.urlsplit((os.environ.get('PITANGUS_ALLOWED_ORIGINS') or 'http://127.0.0.1:8766').split(',')[0].strip()).netloc; sys.exit(0 if r.urlopen(r.Request('http://127.0.0.1:8766/api/health', headers={'Host': h}), timeout=4).status == 200 else 1)"]
+CMD ["python", "-m", "pitangus", "--data-dir", "/data", "serve", "--port", "8766"]
 
 # ---------- 3. worker with the engines inside (no Docker socket) ----------
 # For platforms that can't hand a container the Docker socket (Railway, Render, Fly.io, Kubernetes, a PaaS):
 #   docker build --target worker-standalone -f docker/app/Dockerfile .
 # The same pinned engines as the Docker runner (scanning/engines.py IMAGES), copied from their official images by digest,
-# and run as processes of the worker (TAMANDUA_ENGINE_RUNNER=local). Opengrep is the SHA-256-verified release binary.
+# and run as processes of the worker (PITANGUS_ENGINE_RUNNER=local). Opengrep is the SHA-256-verified release binary.
 # tests/test_packaging.py checks that these digests and versions match IMAGES and the Opengrep Dockerfile.
 FROM aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa AS trivy
 FROM ghcr.io/google/osv-scanner@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa AS osv-scanner
@@ -106,8 +106,8 @@ RUN python -m venv /opt/checkov \
  && ln -s /opt/checkov/bin/checkov /usr/local/bin/checkov \
  && trivy --version >/dev/null && osv-scanner --version >/dev/null && gitleaks version >/dev/null && grype version >/dev/null \
  && zizmor --version >/dev/null && opengrep --version >/dev/null && checkov --version >/dev/null
-ENV TAMANDUA_ENGINE_RUNNER=local PYTHONUTF8=1
-USER tamandua
+ENV PITANGUS_ENGINE_RUNNER=local PYTHONUTF8=1
+USER pitangus
 HEALTHCHECK --interval=60s --timeout=15s --start-period=60s --retries=3 \
-  CMD ["python", "-m", "tamandua", "--data-dir", "/data", "worker", "--check"]
-CMD ["python", "-m", "tamandua", "--data-dir", "/data", "worker"]
+  CMD ["python", "-m", "pitangus", "--data-dir", "/data", "worker", "--check"]
+CMD ["python", "-m", "pitangus", "--data-dir", "/data", "worker"]

@@ -1,6 +1,6 @@
 [English](CLA.md) · Español
 
-# Acuerdo de Licencia de Contribución (CLA) · Tamandua
+# Acuerdo de Licencia de Contribución (CLA) · Pitangus
 
 Versión 1.0 · 23 de septiembre de 2026
 
@@ -12,10 +12,10 @@ Se firma una sola vez comentando en tu primer pull request, tal y como indica el
 
 ## 1. Definiciones
 
-- **«Titular»**: quien mantiene el proyecto Tamandua, hoy la persona que controla la cuenta de GitHub [BrayansStivens](https://github.com/BrayansStivens), y cualquier sucesor o cesionario conforme a la sección 8.
+- **«Titular»**: quien mantiene el proyecto Pitangus, hoy la persona que controla la cuenta de GitHub [BrayansStivens](https://github.com/BrayansStivens), y cualquier sucesor o cesionario conforme a la sección 8.
 - **«Tú»**: la persona física que acepta este acuerdo o, si contribuyes en nombre de una organización, esa organización.
 - **«Contribución»**: cualquier obra (código, documentación, reglas, diseños u otro material) que envíes al Titular para su inclusión en el proyecto, por pull request, issue, parche o cualquier otro medio, salvo que la marques claramente por escrito como «No es una contribución».
-- **«Proyecto»**: el software Tamandua (repositorio `Tamandua-AppSec/tamandua`) y su documentación, en cualquier versión o edición.
+- **«Proyecto»**: el software Pitangus (repositorio `pitangus-dev/pitangus`) y su documentación, en cualquier versión o edición.
 
 ## 2. Licencia de derechos de autor
 
@@ -60,9 +60,9 @@ El Titular puede ceder este acuerdo y los derechos que le otorga a un sucesor, p
 
 En tu primer pull request, el workflow *CLA* (`.github/workflows/cla.yml`) te pedirá que comentes exactamente:
 
-> He leído el CLA de Tamandua y lo acepto
+> He leído el CLA de Pitangus y lo acepto
 
-(o su equivalente en inglés, «I have read the Tamandua CLA and I accept it»).
+(o su equivalente en inglés, «I have read the Pitangus CLA and I accept it»).
 
 Tu usuario de GitHub, la fecha y el pull request quedan registrados en la rama `cla-signatures` de este repositorio. La firma vale para todas tus contribuciones futuras bajo esta versión del acuerdo.
 

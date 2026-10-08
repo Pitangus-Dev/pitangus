@@ -1141,7 +1141,7 @@ export interface paths {
         };
         /**
          * Jira Fields
-         * @description The create screen's fields, normalized, and the mapping Tamandua suggests for them.
+         * @description The create screen's fields, normalized, and the mapping Pitangus suggests for them.
          */
         get: operations["jira_fields_api_integrations_jira_projects__project__issue_types__issue_type__fields_get"];
         put?: never;
@@ -1843,7 +1843,7 @@ export interface paths {
         put?: never;
         /**
          * Ci Import
-         * @description The same import for a pipeline, authenticated by TAMANDUA_IMPORT_TOKEN instead of a session.
+         * @description The same import for a pipeline, authenticated by PITANGUS_IMPORT_TOKEN instead of a session.
          */
         post: operations["ci_import_api_ci_sarif_post"];
         delete?: never;
@@ -2963,7 +2963,7 @@ export interface components {
         };
         /**
          * JiraField
-         * @description A create field. `type` says what Tamandua can put in it; `fillable` false: it can only be left empty.
+         * @description A create field. `type` says what Pitangus can put in it; `fillable` false: it can only be left empty.
          */
         JiraField: {
             /** Id */
@@ -3019,7 +3019,7 @@ export interface components {
         };
         /**
          * JiraFields
-         * @description The fields of an issue type's create screen and the mapping Tamandua proposes for them.
+         * @description The fields of an issue type's create screen and the mapping Pitangus proposes for them.
          */
         JiraFields: {
             /** Fields */
@@ -3237,7 +3237,7 @@ export interface components {
         };
         /**
          * JiraVariables
-         * @description What a mapping can use: Tamandua's variables (`source: tamandua`, or `{{key}}` in a template).
+         * @description What a mapping can use: Pitangus's variables (`source: pitangus`, or `{{key}}` in a template).
          */
         JiraVariables: {
             /** Variables */
@@ -4654,7 +4654,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Metrics are off (TAMANDUA_METRICS_TOKEN is not set) */
+            /** @description Metrics are off (PITANGUS_METRICS_TOKEN is not set) */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -4688,7 +4688,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Off: not TAMANDUA_PERIODIC=external, or no TAMANDUA_CRON_TOKEN / CRON_SECRET */
+            /** @description Off: not PITANGUS_PERIODIC=external, or no PITANGUS_CRON_TOKEN / CRON_SECRET */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6413,7 +6413,7 @@ export interface operations {
                              * Source
                              * @enum {string}
                              */
-                            source: "tamandua" | "fixed" | "template";
+                            source: "pitangus" | "fixed" | "template";
                             /** Key */
                             key?: string | null;
                             /** Value */
@@ -7589,7 +7589,7 @@ export interface operations {
             };
             header?: {
                 /** @description Who triggered the pipeline, recorded as requested_by ci:<actor> */
-                "X-Tamandua-Actor"?: string;
+                "X-Pitangus-Actor"?: string;
             };
             path?: never;
             cookie?: never;
@@ -7654,7 +7654,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Off (no TAMANDUA_IMPORT_TOKEN), or unknown asset */
+            /** @description Off (no PITANGUS_IMPORT_TOKEN), or unknown asset */
             404: {
                 headers: {
                     [name: string]: unknown;

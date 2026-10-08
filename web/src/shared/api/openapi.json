@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Tamandua",
-    "version": "0.11"
+    "title": "Pitangus",
+    "version": "0.12"
   },
   "paths": {
     "/api/auth/session": {
@@ -623,7 +623,7 @@
             "description": "Missing or wrong bearer token"
           },
           "404": {
-            "description": "Metrics are off (TAMANDUA_METRICS_TOKEN is not set)"
+            "description": "Metrics are off (PITANGUS_METRICS_TOKEN is not set)"
           }
         },
         "security": [
@@ -655,7 +655,7 @@
             "description": "Missing or wrong bearer token"
           },
           "404": {
-            "description": "Off: not TAMANDUA_PERIODIC=external, or no TAMANDUA_CRON_TOKEN / CRON_SECRET"
+            "description": "Off: not PITANGUS_PERIODIC=external, or no PITANGUS_CRON_TOKEN / CRON_SECRET"
           }
         },
         "security": [
@@ -3408,7 +3408,7 @@
           "jira"
         ],
         "summary": "Jira Fields",
-        "description": "The create screen's fields, normalized, and the mapping Tamandua suggests for them.",
+        "description": "The create screen's fields, normalized, and the mapping Pitangus suggests for them.",
         "operationId": "jira_fields_api_integrations_jira_projects__project__issue_types__issue_type__fields_get",
         "parameters": [
           {
@@ -3630,7 +3630,7 @@
                                 "source": {
                                   "type": "string",
                                   "enum": [
-                                    "tamandua",
+                                    "pitangus",
                                     "fixed",
                                     "template"
                                   ],
@@ -3717,7 +3717,7 @@
                   "issue_type"
                 ],
                 "title": "JiraDestinationIn",
-                "description": "`project`: key or id; `issue_type`: id (or name). No `mapping`: Tamandua's suggested one."
+                "description": "`project`: key or id; `issue_type`: id (or name). No `mapping`: Pitangus's suggested one."
               }
             }
           },
@@ -5733,7 +5733,7 @@
           "imports"
         ],
         "summary": "Ci Import",
-        "description": "The same import for a pipeline, authenticated by TAMANDUA_IMPORT_TOKEN instead of a session.",
+        "description": "The same import for a pipeline, authenticated by PITANGUS_IMPORT_TOKEN instead of a session.",
         "operationId": "ci_import_api_ci_sarif_post",
         "responses": {
           "200": {
@@ -5747,7 +5747,7 @@
             }
           },
           "404": {
-            "description": "Off (no TAMANDUA_IMPORT_TOKEN), or unknown asset"
+            "description": "Off (no PITANGUS_IMPORT_TOKEN), or unknown asset"
           },
           "409": {
             "description": "The name matches several assets"
@@ -5923,7 +5923,7 @@
             "description": "With a bare SARIF body: branch"
           },
           {
-            "name": "X-Tamandua-Actor",
+            "name": "X-Pitangus-Actor",
             "in": "header",
             "required": false,
             "schema": {
@@ -9470,7 +9470,7 @@
           "fillable"
         ],
         "title": "JiraField",
-        "description": "A create field. `type` says what Tamandua can put in it; `fillable` false: it can only be left empty."
+        "description": "A create field. `type` says what Pitangus can put in it; `fillable` false: it can only be left empty."
       },
       "JiraFieldError": {
         "properties": {
@@ -9594,7 +9594,7 @@
           "suggested"
         ],
         "title": "JiraFields",
-        "description": "The fields of an issue type's create screen and the mapping Tamandua proposes for them."
+        "description": "The fields of an issue type's create screen and the mapping Pitangus proposes for them."
       },
       "JiraIssueType": {
         "properties": {
@@ -10235,7 +10235,7 @@
           "limits"
         ],
         "title": "JiraVariables",
-        "description": "What a mapping can use: Tamandua's variables (`source: tamandua`, or `{{key}}` in a template)."
+        "description": "What a mapping can use: Pitangus's variables (`source: pitangus`, or `{{key}}` in a template)."
       },
       "LinkInfo": {
         "properties": {
@@ -13147,23 +13147,23 @@
       "session": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "tamandua_session",
+        "name": "pitangus_session",
         "description": "Session signed in to the panel."
       },
       "metrics": {
         "type": "http",
         "scheme": "bearer",
-        "description": "TAMANDUA_METRICS_TOKEN (Prometheus scraper)."
+        "description": "PITANGUS_METRICS_TOKEN (Prometheus scraper)."
       },
       "cron": {
         "type": "http",
         "scheme": "bearer",
-        "description": "TAMANDUA_CRON_TOKEN or CRON_SECRET (external scheduler)."
+        "description": "PITANGUS_CRON_TOKEN or CRON_SECRET (external scheduler)."
       },
       "import": {
         "type": "http",
         "scheme": "bearer",
-        "description": "TAMANDUA_IMPORT_TOKEN (CI uploading SARIF)."
+        "description": "PITANGUS_IMPORT_TOKEN (CI uploading SARIF)."
       }
     }
   },

@@ -5,12 +5,12 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from tamandua.modules.findings import registry
-from tamandua.modules.findings import triage
-from tamandua.modules.runs import registry as run_registry
-from tamandua.modules.runs.store import save_repository_scan
+from pitangus.modules.findings import registry
+from pitangus.modules.findings import triage
+from pitangus.modules.runs import registry as run_registry
+from pitangus.modules.runs.store import save_repository_scan
 from test_dashboard import _finding, _scan
-from tamandua.shared.i18n import text
+from pitangus.shared.i18n import text
 
 KEY = "github#7"
 A, B, C = "a" * 64, "b" * 64, "c" * 64
@@ -75,7 +75,7 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(self.status(), {A: "fixed", B: "fixed"})
 
     def test_the_dashboard_ignores_incomplete_scans(self):
-        from tamandua.modules.reporting import dashboard
+        from pitangus.modules.reporting import dashboard
         self.run_([_finding(A), _finding(B)])
         self.run_([], status="incomplete")
         data = dashboard.compute(self.data_dir)

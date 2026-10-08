@@ -16,9 +16,9 @@ export class ApiError extends Error {
   }
 }
 
-export const UNAUTHORIZED_EVENT = 'tamandua:unauthorized'
-export const TOTP_REQUIRED_EVENT = 'tamandua:totp-required'
-export const LOADING_EVENT = 'tamandua:loading'
+export const UNAUTHORIZED_EVENT = 'pitangus:unauthorized'
+export const TOTP_REQUIRED_EVENT = 'pitangus:totp-required'
+export const LOADING_EVENT = 'pitangus:loading'
 
 // Peticiones en curso: la barra de progreso superior las escucha para que nada cargue en silencio.
 let inflight = 0
@@ -68,12 +68,12 @@ export const api = {
     track(fetch(path, { credentials: 'same-origin', signal: init?.signal, headers: localeHeaders() }).then(response => parse<T>(response, path))),
   post: <T>(path: string, action: string, body: unknown, init?: { signal?: AbortSignal }) => track(fetch(path, {
     method: 'POST', credentials: 'same-origin', signal: init?.signal,
-    headers: { ...localeHeaders(), 'Content-Type': 'application/json', 'X-Tamandua-Action': action }, body: JSON.stringify(body),
+    headers: { ...localeHeaders(), 'Content-Type': 'application/json', 'X-Pitangus-Action': action }, body: JSON.stringify(body),
   }).then(response => parse<T>(response, path))),
   // Descarga la respuesta de un POST (p. ej. un informe generado con opciones de un formulario).
   downloadPost: (path: string, action: string, body: unknown, filename: string) => track(fetch(path, {
     method: 'POST', credentials: 'same-origin',
-    headers: { ...localeHeaders(), 'Content-Type': 'application/json', 'X-Tamandua-Action': action }, body: JSON.stringify(body),
+    headers: { ...localeHeaders(), 'Content-Type': 'application/json', 'X-Pitangus-Action': action }, body: JSON.stringify(body),
   }).then(async response => {
     if (!response.ok) { await parse(response, path); throw new ApiError(`Error ${response.status}`, response.status) }
     saveBlob(await response.blob(), filename)

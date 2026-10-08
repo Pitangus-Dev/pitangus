@@ -10,8 +10,8 @@ pueden dejar para después.
 Necesitas Docker (Engine 24+ con Compose v2.24+), `make` y `git`. `make doctor` comprueba que todo está.
 
 ```bash
-git clone --branch v0.11.0 https://github.com/Tamandua-AppSec/tamandua.git
-cd tamandua
+git clone --branch v0.12.0 https://github.com/pitangus-dev/pitangus.git
+cd pitangus
 make setup PREBUILT=1
 make up
 ```
@@ -23,12 +23,12 @@ unos 2 minutos a 50 Mbps. Al terminar muestra la URL (<http://127.0.0.1:8766>) y
 `make setup-code` lo vuelve a mostrar.
 
 Justo después, el panel te pide activar el segundo factor (TOTP) con tu app de autenticación: es obligatorio para los
-administradores (`TAMANDUA_REQUIRE_TOTP`, ver [configuracion.md](configuracion.md)) y no se abre nada más hasta que
+administradores (`PITANGUS_REQUIRE_TOTP`, ver [configuracion.md](configuracion.md)) y no se abre nada más hasta que
 lo actives. Guarda los códigos de respaldo que te muestra.
 
 El panel sigue el idioma de tu navegador; puedes cambiarlo cuando quieras desde la barra lateral o la pantalla de
 inicio de sesión. Los comentarios en PRs, los avisos, Jira, los informes y la salida de la CLI usan
-`TAMANDUA_DEFAULT_LOCALE` (`en` por defecto, ver [configuracion.md](configuracion.md)).
+`PITANGUS_DEFAULT_LOCALE` (`en` por defecto, ver [configuracion.md](configuracion.md)).
 
 ## 2. Verlo funcionar sin conectar nada (2 min)
 
@@ -71,7 +71,7 @@ fecha de caducidad: queda como evidencia y no vuelve a molestar.
 - **Avisos nuevos a diario:** activos por defecto. Una vez al día se contrastan tus dependencias con los
   avisos publicados después del último análisis, sin conexión.
 - **Avisos a tu canal:** en **Integraciones → Avisos**, añade Slack, Teams o un webhook para enterarte sin abrir
-  el panel. Para que los mensajes enlacen al hallazgo, define `TAMANDUA_PUBLIC_URL`.
+  el panel. Para que los mensajes enlacen al hallazgo, define `PITANGUS_PUBLIC_URL`.
 
 ## 6. Más adelante (opcional)
 

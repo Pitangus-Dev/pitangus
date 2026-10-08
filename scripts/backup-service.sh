@@ -24,17 +24,17 @@ fi
 # The age arguments (-r <recipient>…) become the positional parameters passed to backup().
 set --
 if [ -n "${BACKUP_AGE_RECIPIENT:-}" ]; then
-  command -v age >/dev/null || { echo "TAMANDUA_BACKUP_AGE_RECIPIENT is set but this image has no age: add compose.backup-age.yaml to COMPOSE_FILE in .env and run make up." >&2; exit 2; }
+  command -v age >/dev/null || { echo "PITANGUS_BACKUP_AGE_RECIPIENT is set but this image has no age: add compose.backup-age.yaml to COMPOSE_FILE in .env and run make up." >&2; exit 2; }
   set -f; old_ifs=$IFS; IFS=,
   for recipient in $BACKUP_AGE_RECIPIENT; do
     recipient=$(printf '%s' "$recipient" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
     [ -z "$recipient" ] || set -- "$@" -r "$recipient"
   done
   IFS=$old_ifs; set +f
-  [ $# -gt 0 ] && printf '' | age "$@" >/dev/null || { echo "TAMANDUA_BACKUP_AGE_RECIPIENT has no valid age recipient (age1… or ssh-ed25519 …, comma-separated)." >&2; exit 2; }
+  [ $# -gt 0 ] && printf '' | age "$@" >/dev/null || { echo "PITANGUS_BACKUP_AGE_RECIPIENT has no valid age recipient (age1… or ssh-ed25519 …, comma-separated)." >&2; exit 2; }
   echo "Backups encrypted with age for $(($# / 2)) recipient(s), the master key included."
 else
-  echo "Warning: backups are NOT encrypted; set TAMANDUA_BACKUP_AGE_RECIPIENT before copying them offsite (docs/deploy-vps.md#backups)." >&2
+  echo "Warning: backups are NOT encrypted; set PITANGUS_BACKUP_AGE_RECIPIENT before copying them offsite (docs/deploy-vps.md#backups)." >&2
 fi
 
 # `set -e` doesn't apply inside `if ! backup`: every step stops the backup on its own.

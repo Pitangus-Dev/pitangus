@@ -7,11 +7,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.reporting import dashboard
-from tamandua.modules.intel.advisories import _parse_nvd
-from tamandua.modules.scanning.coverage import owasp_coverage, rules_by_category
-from tamandua.shared.i18n import localize
-from tamandua.modules.runs.store import list_runs, page_runs, save_repository_scan
+from pitangus.modules.reporting import dashboard
+from pitangus.modules.intel.advisories import _parse_nvd
+from pitangus.modules.scanning.coverage import owasp_coverage, rules_by_category
+from pitangus.shared.i18n import localize
+from pitangus.modules.runs.store import list_runs, page_runs, save_repository_scan
 
 
 def _finding(fingerprint, severity="high", cwe=(79,), kev=None, epss=None, package="axios"):
@@ -51,7 +51,7 @@ class IndexAndPagingTests(unittest.TestCase):
             self.assertEqual(len(list_runs(data_dir)), 30)
 
     def test_find_runs_filters_in_the_database(self):
-        from tamandua.modules.runs.store import find_runs
+        from pitangus.modules.runs.store import find_runs
         with tempfile.TemporaryDirectory() as temporary:
             data_dir = Path(temporary)
             now = datetime.now(timezone.utc)
@@ -75,7 +75,7 @@ class ConcurrentIndexTests(unittest.TestCase):
     def test_concurrent_writers_do_not_fail_or_lose_rows(self):
         """Before (files): fixed-name temp file, no lock → FileExistsError and lost rows. Now it is the database."""
         import threading
-        from tamandua.modules.runs.store import list_runs, save_record
+        from pitangus.modules.runs.store import list_runs, save_record
         with tempfile.TemporaryDirectory() as temporary:
             data_dir = Path(temporary)
             errors = []
@@ -110,7 +110,7 @@ class CoverageTests(unittest.TestCase):
         self.assertIn("Trivy", rows["A03"]["reason"])
         self.assertIn("1 hallazgo", rows["A03"]["reason"])
         self.assertEqual(rows["A05"]["status"], "partial")
-        self.assertIn("reglas de Tamandua", rows["A05"]["reason"])
+        self.assertIn("reglas de Pitangus", rows["A05"]["reason"])
         self.assertEqual(rows["A05"]["findings"], 1)
         # With no infrastructure files, A02 says so instead of faking coverage.
         self.assertIn("no encontró archivos de infraestructura", rows["A02"]["reason"])
@@ -126,8 +126,8 @@ class CoverageTests(unittest.TestCase):
 class DashboardTests(unittest.TestCase):
     def test_open_fixed_mttr_and_exploitability_come_from_consecutive_runs(self):
         with tempfile.TemporaryDirectory() as temporary, \
-                patch("tamandua.modules.reporting.dashboard.load_feeds", return_value={"kev": {"__meta__": {"version": "2026.09.22"}, "CVE-2026-1": {"date_added": "2026-09-20", "ransomware": True, "name": "Prueba"}}}), \
-                patch("tamandua.modules.reporting.dashboard.load_recent_cves", return_value={"__meta__": {"total": 3}, "items": [{"cve": "CVE-2026-9", "published": "2026-09-23T00:00:00", "score": 9.8, "severity": "critical", "description": "axios does something bad"}]}):
+                patch("pitangus.modules.reporting.dashboard.load_feeds", return_value={"kev": {"__meta__": {"version": "2026.09.22"}, "CVE-2026-1": {"date_added": "2026-09-20", "ransomware": True, "name": "Prueba"}}}), \
+                patch("pitangus.modules.reporting.dashboard.load_recent_cves", return_value={"__meta__": {"total": 3}, "items": [{"cve": "CVE-2026-9", "published": "2026-09-23T00:00:00", "score": 9.8, "severity": "critical", "description": "axios does something bad"}]}):
             data_dir = Path(temporary)
             (data_dir / "feeds").mkdir(parents=True)
             now = datetime.now(timezone.utc)
@@ -198,7 +198,7 @@ if __name__ == "__main__":
 class NvdRefreshTests(unittest.TestCase):
     def test_refresh_asks_for_the_newest_page_and_counts(self):
         import tempfile
-        from tamandua.modules.intel import advisories
+        from pitangus.modules.intel import advisories
         calls = []
 
         def fetch(params):
@@ -214,7 +214,7 @@ class NvdRefreshTests(unittest.TestCase):
             page = calls[-1]
             self.assertEqual((page["resultsPerPage"], page["startIndex"]), (2000, 3381 - 2000))
             self.assertEqual(len([call for call in calls if call["resultsPerPage"] == 1]), 9)  # 7d, 30d and 7 per day
-            with patch("tamandua.modules.intel.advisories._refresh_in_background"):
+            with patch("pitangus.modules.intel.advisories._refresh_in_background"):
                 advisories._feed_cache.pop("nvd-recent", None)
                 recent = advisories.load_recent_cves(Path(directory))
             self.assertEqual(recent["items"][0]["cve"], "CVE-2026-2")

@@ -5,8 +5,8 @@ import unittest
 from pathlib import Path
 
 import asgi
-from tamandua.app.api import openapi_document
-from tamandua.modules.identity.auth import Users
+from pitangus.app.api import openapi_document
+from pitangus.modules.identity.auth import Users
 from test_auth import ORIGIN, PASSWORD, HttpCase
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,7 +47,7 @@ class OpenApiTests(unittest.TestCase):
 
 class OpenApiSecurityTests(unittest.TestCase):
     def test_document_declares_the_session_cookie_and_the_public_health_route(self):
-        from tamandua.modules.identity.auth import COOKIE_NAME
+        from pitangus.modules.identity.auth import COOKIE_NAME
         document = json.loads(openapi_document())
         self.assertEqual(document["components"]["securitySchemes"]["session"], {
             "type": "apiKey", "in": "cookie", "name": COOKIE_NAME, "description": "Session signed in to the panel."})
@@ -88,12 +88,12 @@ class BodyLimitTests(unittest.TestCase):
     def test_oversized_or_unbounded_bodies_are_refused_before_reading(self):
         import tempfile
         from pathlib import Path
-        from tamandua.app.api.server import build_state
+        from pitangus.app.api.server import build_state
         with tempfile.TemporaryDirectory() as temporary:
             client = asgi.client_for(Path(temporary), build_state(Path(temporary)))
             big = asgi.request(client, "POST", "/api/repositories/branch", b"{" + b" " * 1_000_001 + b"}",
-                               {"Content-Type": "application/json", "Origin": ORIGIN, "X-Tamandua-Action": "set-scan-branch"})
+                               {"Content-Type": "application/json", "Origin": ORIGIN, "X-Pitangus-Action": "set-scan-branch"})
             self.assertEqual(big.status_code, 413)
             chunked = asgi.request(client, "POST", "/api/repositories/branch", iter([b"{}"]),
-                                   {"Content-Type": "application/json", "Origin": ORIGIN, "X-Tamandua-Action": "set-scan-branch"})
+                                   {"Content-Type": "application/json", "Origin": ORIGIN, "X-Pitangus-Action": "set-scan-branch"})
             self.assertEqual(chunked.status_code, 411)

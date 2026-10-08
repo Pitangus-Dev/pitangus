@@ -9,20 +9,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.app import wiring
-from tamandua.modules.findings import exclusions, tickets, triage, verifications
-from tamandua.modules.findings import registry as findings_registry
-from tamandua.modules.integrations.github import GitHubAppError
-from tamandua.modules.pullrequests import watch as pr_watch
-from tamandua.modules.pullrequests.watch import RepositoriesListed
-from tamandua.modules.runs import assets as run_assets
-from tamandua.modules.runs.assets import AssetPurged
-from tamandua.modules.runs.store import list_runs, save_repository_scan
-from tamandua.modules.sources import assets as source_assets
-from tamandua.shared import events
+from pitangus.app import wiring
+from pitangus.modules.findings import exclusions, tickets, triage, verifications
+from pitangus.modules.findings import registry as findings_registry
+from pitangus.modules.integrations.github import GitHubAppError
+from pitangus.modules.pullrequests import watch as pr_watch
+from pitangus.modules.pullrequests.watch import RepositoriesListed
+from pitangus.modules.runs import assets as run_assets
+from pitangus.modules.runs.assets import AssetPurged
+from pitangus.modules.runs.store import list_runs, save_repository_scan
+from pitangus.modules.sources import assets as source_assets
+from pitangus.shared import events
 from test_dashboard import _finding, _scan
 
-wiring.configure()  # like every Tamandua process: domain events and injected readers
+wiring.configure()  # like every Pitangus process: domain events and injected readers
 
 ROOT = Path(__file__).resolve().parents[1]
 USER = {"username": "ana", "role": "admin"}
@@ -74,17 +74,17 @@ class WiringTests(unittest.TestCase):
     def test_a_process_that_was_not_wired_refuses_to_publish(self):
         self.assertEqual(self.python(
             "from pathlib import Path\n"
-            "from tamandua.shared import events\n"
-            "from tamandua.modules.runs.assets import AssetPurged\n"
+            "from pitangus.shared import events\n"
+            "from pitangus.modules.runs.assets import AssetPurged\n"
             "try:\n    events.publish(AssetPurged(Path('data'), 'github#1'))\n"
             "except events.Unhandled:\n    print('unwired')\n"), "unwired")
 
     def test_the_cli_wires_its_process_before_anything_else(self):
         self.assertEqual(self.python(
-            "from tamandua.cli.main import main\n"
-            "from tamandua.shared import events\n"
-            "from tamandua.modules.runs.assets import AssetPurged\n"
-            "from tamandua.modules.pullrequests.watch import RepositoriesListed\n"
+            "from pitangus.cli.main import main\n"
+            "from pitangus.shared import events\n"
+            "from pitangus.modules.runs.assets import AssetPurged\n"
+            "from pitangus.modules.pullrequests.watch import RepositoriesListed\n"
             "try:\n    main(['--help'])\nexcept SystemExit:\n    pass\n"
             "print(len(events.subscribers(AssetPurged)), len(events.subscribers(RepositoriesListed)))\n"),
             f"{len(wiring.FORGET_ON_PURGE)} 1")
@@ -145,7 +145,7 @@ class PurgeFlowTests(unittest.TestCase):
             run_assets.purge(self.data_dir, "github#1")
         self.assertTrue(any("AssetPurged" in note and "pullrequests.watch.forget" in note for note in caught.exception.__notes__))
         state = self.remembered("github#1")
-        # Runs first (an interrupted purge is what `tamandua integrity` cleans up), then the subscribers in order.
+        # Runs first (an interrupted purge is what `pitangus integrity` cleans up), then the subscribers in order.
         self.assertEqual((state["runs"], state["triage"], state["registry"], state["tickets"]), (False, False, False, False))
         self.assertEqual((state["registry_entry"], state["exclusions"]), (True, True))
 
@@ -162,7 +162,7 @@ class RepositoriesListedFlowTests(unittest.TestCase):
             return 0
 
     def poll(self, **listing):
-        with patch("tamandua.modules.integrations.github.installation_repositories", **listing):
+        with patch("pitangus.modules.integrations.github.installation_repositories", **listing):
             return pr_watch.Watcher(self.data_dir, self.Jobs(), lambda: 7).poll()
 
     def test_a_complete_listing_reconciles_the_analysed_repositories(self):

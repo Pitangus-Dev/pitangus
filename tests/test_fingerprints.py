@@ -9,12 +9,12 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from tamandua.modules.findings import registry, tickets, triage, verifications
-from tamandua.modules.intel.advisories import dependency_finding, fingerprint
-from tamandua.modules.pullrequests.review import classify
-from tamandua.modules.runs import registry as run_registry
-from tamandua.modules.runs.store import save_repository_scan
-from tamandua.modules.scanning import engines, image
+from pitangus.modules.findings import registry, tickets, triage, verifications
+from pitangus.modules.intel.advisories import dependency_finding, fingerprint
+from pitangus.modules.pullrequests.review import classify
+from pitangus.modules.runs import registry as run_registry
+from pitangus.modules.runs.store import save_repository_scan
+from pitangus.modules.scanning import engines, image
 from test_dashboard import _finding, _scan
 
 # Placeholders stand where the secrets were: the parser only reads what precedes each one.
@@ -93,7 +93,7 @@ class SecretIdentityTests(unittest.TestCase):
         self.assertNotIn("previous_fingerprint", found[0])
 
     def test_internal_patterns_keep_their_fingerprint_when_lines_are_added_above(self):
-        from tamandua.modules.scanning.repository import _secret_candidates
+        from pitangus.modules.scanning.repository import _secret_candidates
         token = "ghp_" + "Q" * 36
         before = _secret_candidates(self.snapshot(f'TOKEN = "{token}"\n') / "app.py", "app.py")
         after = _secret_candidates(self.snapshot(f'import os\n\nTOKEN = "{token}"\n') / "app.py", "app.py")

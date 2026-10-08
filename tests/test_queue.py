@@ -10,13 +10,13 @@ from unittest.mock import patch
 
 from sqlalchemy import select, text, update
 
-from tamandua.modules.integrations import notifications
-from tamandua.modules.integrations.tables import outbox
-from tamandua.modules.runs import queue
-from tamandua.modules.runs.jobs import ScanJobs
-from tamandua.modules.runs.store import load_run
-from tamandua.modules.runs.tables import jobs
-from tamandua.shared import db, paths
+from pitangus.modules.integrations import notifications
+from pitangus.modules.integrations.tables import outbox
+from pitangus.modules.runs import queue
+from pitangus.modules.runs.jobs import ScanJobs
+from pitangus.modules.runs.store import load_run
+from pitangus.modules.runs.tables import jobs
+from pitangus.shared import db, paths
 
 
 class QueueTests(unittest.TestCase):
@@ -61,7 +61,7 @@ class QueueTests(unittest.TestCase):
     def test_a_long_scan_keeps_its_lease_while_another_worker_recovers(self):
         import time
         from datetime import timedelta
-        from tamandua.modules.runs import jobs as jobs_module
+        from pitangus.modules.runs import jobs as jobs_module
         slow, busy = ScanJobs(self.data_dir, worker=False), ScanJobs(self.data_dir, worker=False)
         queued = slow.enqueue_image_scan(image={"reference": "nginx:1", "asset": "image:nginx", "name": "nginx"}, context="", requested_by="ana")
         seen = {}
@@ -109,7 +109,7 @@ class QueueTests(unittest.TestCase):
         with db.transaction(self.data_dir) as connection:
             stored = json.dumps(connection.execute(select(jobs.c.payload)).scalar_one())
         self.assertNotIn("glpat-SECRETO-123", stored)
-        from tamandua.shared import vault
+        from pitangus.shared import vault
         self.assertEqual(vault.unseal(json.loads(stored)["tokens"], "job-tokens"), {"gitlab": "glpat-SECRETO-123"})
         with self.assertRaises(vault.VaultError):  # sealed for something else: it doesn't open
             vault.unseal(json.loads(stored)["tokens"], "otra-cosa")
@@ -127,7 +127,7 @@ class QueueTests(unittest.TestCase):
 
     def test_a_leader_that_loses_its_connection_stops_its_tasks_and_competes_again(self):
         import time
-        from tamandua.app import worker as worker_module
+        from pitangus.app import worker as worker_module
         stopped, started = [], []
 
         class Task:
@@ -162,7 +162,7 @@ class QueueTests(unittest.TestCase):
                 leader.join(5)
 
     def test_only_one_worker_leads_the_periodic_tasks(self):
-        from tamandua.app.worker import LEADER_KEY
+        from pitangus.app.worker import LEADER_KEY
         first, second = db.engine().connect(), db.engine().connect()
         try:
             acquire = text("SELECT pg_try_advisory_lock(:key)")
@@ -195,7 +195,7 @@ class OutboxTests(unittest.TestCase):
         self.directory.cleanup()
 
     def test_a_message_is_sent_outside_any_transaction(self):
-        from tamandua.shared.db import _current
+        from pitangus.shared.db import _current
         seen = []
         notifications.deliver("findings", lambda channel: {"event": "findings", "title": "t", "text": "x", "asset": None,
                                                            "run_id": None, "link": None, "counts": {}, "items": [], "more": 0},

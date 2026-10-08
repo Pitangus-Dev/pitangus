@@ -71,7 +71,7 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
   const fields = useQuery({ ...jiraFieldsQuery(project?.key ?? '', issueType), enabled: !!project && !!issueType })
   const variables = useQuery(jiraVariablesQuery())
   const sameTarget = !!destination && project?.key === initialProject?.key && issueType === ((destination.issue_type as JiraRef).id ?? issueType)
-  // Saved mapping when editing the same project and type (unless it is a legacy one); Tamandua's suggestion otherwise.
+  // Saved mapping when editing the same project and type (unless it is a legacy one); Pitangus's suggestion otherwise.
   const ready = fields.data && variables.data
   const saved = sameTarget && !!destination && !destination.legacy
   const draft = edited ?? (fields.data ? initialDraft(fields.data.fields, saved ? destination.mapping : fields.data.suggested, saved ? destination.fields as FieldSnapshot : null) : null)

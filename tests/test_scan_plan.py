@@ -3,8 +3,8 @@
 import unittest
 from unittest.mock import patch
 
-from tamandua.modules.scanning import plan as scan_plan
-from tamandua.shared.i18n import localize
+from pitangus.modules.scanning import plan as scan_plan
+from pitangus.shared.i18n import localize
 
 FILES = ["app/main.py", "app/models.py", "web/src/App.tsx", "crates/core/src/lib.rs", "node_modules/x/index.js",
          "pyproject.toml", "uv.lock", "web/package-lock.json", "Dockerfile", "infra/main.tf", "README.md"]
@@ -12,8 +12,8 @@ FILES = ["app/main.py", "app/models.py", "web/src/App.tsx", "crates/core/src/lib
 
 class PlanTests(unittest.TestCase):
     def plan(self, available: bool):
-        with patch("tamandua.modules.scanning.plan.files_of", return_value=FILES), \
-                patch("tamandua.modules.scanning.plan.engine_ready", return_value=available):
+        with patch("pitangus.modules.scanning.plan.files_of", return_value=FILES), \
+                patch("pitangus.modules.scanning.plan.engine_ready", return_value=available):
             return localize(scan_plan.plan("github:o/r", installation_id=7))
 
     def test_languages_rules_manifests_and_iac(self):
@@ -26,7 +26,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(result["manifests"], ["pyproject.toml", "uv.lock", "web/package-lock.json"])
         self.assertEqual(result["iac"], ["Dockerfile", "infra/main.tf"])
         self.assertTrue(any("Opengrep" in item and "Python (14 reglas, 2 archivos)" in item for item in result["runs"]))
-        self.assertTrue(any(item.startswith("Sin reglas SAST de Tamandua para Rust (1 archivo)") for item in result["skips"]))
+        self.assertTrue(any(item.startswith("Sin reglas SAST de Pitangus para Rust (1 archivo)") for item in result["skips"]))
         self.assertFalse(result["osv_needed"])
 
     def test_without_engines_it_says_so_and_offers_osv(self):

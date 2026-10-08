@@ -8,7 +8,7 @@ import { LOADING_EVENT } from '@/shared/api/http'
 export function Splash() {
   const { t } = useTranslation('ui')
   return <div className="grid min-h-screen place-items-center bg-app" role="status" aria-label={t('splash', { name: BRAND.name })}>
-    <div className="flex animate-[tamandua-breathe_1.8s_ease-in-out_infinite] items-center gap-3 opacity-80">
+    <div className="flex animate-[pitangus-breathe_1.8s_ease-in-out_infinite] items-center gap-3 opacity-80">
       <BrandMark size={40} /><span className="text-2xl font-semibold tracking-tight text-app-fg">{BRAND.name}</span>
     </div>
   </div>
@@ -29,7 +29,7 @@ export function TopProgress() {
     return () => { window.removeEventListener(LOADING_EVENT, listen); window.clearTimeout(timer) }
   }, [])
   return <div aria-hidden className={`pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`}>
-    <div className="h-full w-1/3 motion-safe:animate-[tamandua-progress_1.1s_ease-in-out_infinite] bg-brand" />
+    <div className="h-full w-1/3 motion-safe:animate-[pitangus-progress_1.1s_ease-in-out_infinite] bg-brand" />
   </div>
 }
 

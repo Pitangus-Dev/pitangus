@@ -101,7 +101,7 @@
       "source_label": "Qué va en {{field}}",
       "value_label": "Valor de {{field}}",
       "source": {
-        "tamandua": "Dato de Pitangus",
+        "pitangus": "Dato de Pitangus",
         "fixed": "Valor fijo",
         "template": "Plantilla",
         "none": "Dejar vacío"
@@ -335,7 +335,7 @@
     "hint": {
       "slack": "En Slack: Apps → Incoming Webhooks → Add to Slack, elige el canal y copia la URL (https://hooks.slack.com/…).",
       "teams": "En Teams: en el canal, … → Workflows → «Publicar en un canal cuando se reciba una solicitud de webhook» y copia la URL.",
-      "webhook": "Cualquier servicio que acepte un POST con JSON. Cada aviso lleva la cabecera X-Tamandua-Signature (HMAC-SHA256 del cuerpo)."
+      "webhook": "Cualquier servicio que acepte un POST con JSON. Cada aviso lleva la cabecera X-Pitangus-Signature (HMAC-SHA256 del cuerpo)."
     },
     "saved": "Canal «{{name}}» guardado. Envía una prueba para comprobarlo.",
     "confirm_remove": "¿Quitar «{{name}}»? Para volver a añadirlo necesitarás la URL del webhook otra vez.",
@@ -350,7 +350,7 @@
     "remove_label": "Quitar {{name}}",
     "secret_title": "Secreto de firma de este webhook: guárdalo ahora, no se vuelve a mostrar.",
     "secret_label": "secreto de firma",
-    "secret_help": "El receptor calcula HMAC-SHA256 del cuerpo con este secreto y lo compara con la cabecera X-Tamandua-Signature.",
+    "secret_help": "El receptor calcula HMAC-SHA256 del cuerpo con este secreto y lo compara con la cabecera X-Pitangus-Signature.",
     "secret_saved": "Ya lo guardé",
     "add": "Añadir canal",
     "where": "Dónde",
@@ -361,6 +361,6 @@
     "threshold_label": "Hallazgos desde",
     "save": "Guardar canal",
     "url_note": "La URL se guarda cifrada y nunca vuelve al navegador.",
-    "links_note": "Para que los mensajes enlacen al hallazgo, define TAMANDUA_PUBLIC_URL con la dirección del panel."
+    "links_note": "Para que los mensajes enlacen al hallazgo, define PITANGUS_PUBLIC_URL con la dirección del panel."
   }
 }

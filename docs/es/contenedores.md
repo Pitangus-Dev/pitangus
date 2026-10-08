@@ -2,7 +2,7 @@
 
 # Contenedores y Makefile
 
-Todo Tamandua corre en Docker. El `Makefile` de la raíz envuelve los comandos de `docker compose` para que levantarlo, actualizarlo o hacer copias sea una sola orden.
+Todo Pitangus corre en Docker. El `Makefile` de la raíz envuelve los comandos de `docker compose` para que levantarlo, actualizarlo o hacer copias sea una sola orden.
 
 ## Qué necesitas
 
@@ -20,8 +20,8 @@ Python y Node **no** hacen falta para usarlo: solo para desarrollar (`make dev-s
 ## Levantarlo
 
 ```bash
-git clone https://github.com/Tamandua-AppSec/tamandua.git
-cd tamandua
+git clone https://github.com/pitangus-dev/pitangus.git
+cd pitangus
 make up
 ```
 
@@ -41,7 +41,7 @@ Funciona igual en macOS (Apple Silicon e Intel), Linux y Windows con WSL o Git B
 | --- | --- |
 | `make help` | Lista de comandos. |
 | `make doctor` | Comprueba Docker, Compose, arquitectura, disco, puerto, permisos de `data/` y `config/`, y motores. |
-| `make setup` | Solo crea `.env` y las carpetas; no toca un `.env` existente. `make setup PREBUILT=1` usa las imágenes publicadas en lugar de construirlas. En un servidor, `make setup DOMAIN=tamandua.example.com [PREBUILT=1]` lo pasa a HTTPS con Caddy (y a las imágenes publicadas): mira [despliegue-vps.md](despliegue-vps.md). |
+| `make setup` | Solo crea `.env` y las carpetas; no toca un `.env` existente. `make setup PREBUILT=1` usa las imágenes publicadas en lugar de construirlas. En un servidor, `make setup DOMAIN=pitangus.example.com [PREBUILT=1]` lo pasa a HTTPS con Caddy (y a las imágenes publicadas): mira [despliegue-vps.md](despliegue-vps.md). |
 | `make build` | Construye las imágenes de la app y de Opengrep. |
 | `make up` | Construye si hace falta, arranca, descarga los motores que falten y muestra URL y código. |
 | `make demo` | Analiza los ejemplos vulnerables del repositorio e importa un modelo de amenazas, para probar sin conectar nada. `IMAGE=nginx:1.21` añade una imagen. |
@@ -55,10 +55,10 @@ Funciona igual en macOS (Apple Silicon e Intel), Linux y Windows con WSL o Git B
 | `make update` | Hace una copia, `git pull` (si estás en una rama), descarga las imágenes publicadas si las usas y vuelve a levantar con la versión nueva (la base se migra al arrancar). |
 | `make backup` | Vuelca la base de datos y copia `data/` y `config/` en `backups/<fecha>/`. Se niega si hay análisis en curso (salvo `FORCE=1`). |
 | `make restore FROM=backups/<fecha> CONFIRM=restore` | Restaura una copia (base de datos, `config/`, `data/`) después de guardar el estado actual en `backups/pre-restore-<fecha>/`. Luego, `make up`. |
-| `make verify-images` | Comprueba las firmas cosign de las imágenes publicadas (`TAMANDUA_IMAGE`). |
+| `make verify-images` | Comprueba las firmas cosign de las imágenes publicadas (`PITANGUS_IMAGE`). |
 | `make shell` | Terminal dentro del contenedor. |
 | `make cli ARGS="…"` | CLI de la app, p. ej. `make cli ARGS="user list"` o `make cli ARGS="user reset-totp --username ana"`. |
-| `make clean` | Para todo y borra las imágenes de Tamandua. |
+| `make clean` | Para todo y borra las imágenes de Pitangus. |
 | `make purge CONFIRM=delete` | **Borra `data/` y `config/`**: ejecuciones, usuarios y secretos. |
 | `make dev-setup` · `make dev` | Entorno de desarrollo sin contenedor (ver [desarrollo.md](desarrollo.md)). |
 | `make test` · `make lint` · `make check` | Pruebas del backend, lint del panel y ambos. |
@@ -93,8 +93,8 @@ scripts/
 
 | Imagen | Origen | Tamaño aprox. |
 | --- | --- | --- |
-| `localhost/tamandua/app:<versión>` | Se construye de `docker/app/Dockerfile` (Node solo en la etapa de compilación) | 360 MB |
-| `localhost/tamandua/opengrep:1.30.0` | Se construye de `docker/engines/opengrep/` | 230 MB |
+| `localhost/pitangus/app:<versión>` | Se construye de `docker/app/Dockerfile` (Node solo en la etapa de compilación) | 360 MB |
+| `localhost/pitangus/opengrep:1.30.0` | Se construye de `docker/engines/opengrep/` | 230 MB |
 | `aquasec/trivy` | Docker Hub, fijada por digest | 240 MB |
 | `ghcr.io/gitleaks/gitleaks` | GHCR, fijada por digest | 80 MB |
 | `anchore/grype` | Docker Hub, fijada por digest; solo para imágenes de contenedor | 110 MB (+2,1 GB de base) |
@@ -103,9 +103,9 @@ scripts/
 | `caddy` | Docker Hub, fijada por digest; solo con `compose.prod.yaml` | 50 MB |
 | Destino `worker-standalone` | `docker/app/Dockerfile`: la app más todos los motores, copiados por digest de las imágenes de arriba (Checkov instalado con pip) | 1,8 GB |
 
-**Imágenes publicadas.** Cada etiqueta de versión construye `ghcr.io/tamandua-appsec/tamandua:<versión>`, `ghcr.io/tamandua-appsec/tamandua-worker:<versión>` (motores dentro) y `ghcr.io/tamandua-appsec/tamandua-opengrep:<versión del motor>` para amd64 y arm64, con SBOM y procedencia SLSA, firmadas con cosign sin claves (`.github/workflows/release.yml`). `compose.images.yaml` las usa en lugar de construirlas; `make verify-images` comprueba las firmas. Todas las imágenes de motores que se usan tienen también variante arm64.
+**Imágenes publicadas.** Cada etiqueta de versión construye `ghcr.io/pitangus-dev/pitangus:<versión>`, `ghcr.io/pitangus-dev/pitangus-worker:<versión>` (motores dentro) y `ghcr.io/pitangus-dev/pitangus-opengrep:<versión del motor>` para amd64 y arm64, con SBOM y procedencia SLSA, firmadas con cosign sin claves (`.github/workflows/release.yml`). `compose.images.yaml` las usa en lugar de construirlas; `make verify-images` comprueba las firmas. Todas las imágenes de motores que se usan tienen también variante arm64.
 
-Las bases (`node`, `python`, `debian`) van fijadas por digest, de modo que dos construcciones de la misma versión usan exactamente las mismas capas. Las etiquetas OCI de la imagen de la app declaran versión, licencia y repositorio (`docker inspect tamandua`).
+Las bases (`node`, `python`, `debian`) van fijadas por digest, de modo que dos construcciones de la misma versión usan exactamente las mismas capas. Las etiquetas OCI de la imagen de la app declaran versión, licencia y repositorio (`docker inspect pitangus`).
 
 ## Endurecimiento del contenedor de la app
 
@@ -120,7 +120,7 @@ Las bases (`node`, `python`, `debian`) van fijadas por digest, de modo que dos c
 
 Los motores se lanzan por cada análisis como contenedores efímeros (`--rm`) con el código en solo lectura, `--cap-drop ALL`, `no-new-privileges`, 3 GB de memoria, 2 CPU y 512 procesos como máximo; Gitleaks, Opengrep, Checkov y zizmor sin red.
 
-**La concesión que queda:** para lanzar así los motores, el worker monta `/var/run/docker.sock`, lo que equivale a root en el host. Por eso el panel solo escucha en `127.0.0.1` por defecto. La alternativa es la imagen del worker con los motores dentro (`TAMANDUA_ENGINE_RUNNER=local`): sin socket, cada motor como un proceso del worker con su propia carpeta personal y sin heredar la configuración, pero sin un contenedor por motor. Los motores que no necesitan red reciben un espacio de nombres de red vacío donde la plataforma permite espacios de nombres de usuario (no en un contenedor con el perfil seccomp por defecto de Docker).
+**La concesión que queda:** para lanzar así los motores, el worker monta `/var/run/docker.sock`, lo que equivale a root en el host. Por eso el panel solo escucha en `127.0.0.1` por defecto. La alternativa es la imagen del worker con los motores dentro (`PITANGUS_ENGINE_RUNNER=local`): sin socket, cada motor como un proceso del worker con su propia carpeta personal y sin heredar la configuración, pero sin un contenedor por motor. Los motores que no necesitan red reciben un espacio de nombres de red vacío donde la plataforma permite espacios de nombres de usuario (no en un contenedor con el perfil seccomp por defecto de Docker).
 
 ## Aislamiento entre análisis
 

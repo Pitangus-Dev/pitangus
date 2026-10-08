@@ -4,36 +4,40 @@ English · [Español](es/marca.md)
 
 ## Name
 
-**Tamandua** is the southern tamandua (*Tamandua tetradactyla*), a small anteater that lives in Colombia and across much of South America. It eats ants and termites — *bugs* — digging them out of places nobody looks with a long, precise tongue, and it wears a natural black "vest" that looks like armor. It's small, patient and very effective: exactly what we want to be for small teams.
+**Pitangus** is the great kiskadee (*Pitangus sulphuratus*), the bird Colombians call **bichofué**. It perches still on a branch, watches everything that moves and catches bugs of every kind, in the air or on the ground; it's small and still takes on hawks far bigger than itself. That's what we want to be for small teams: watch every change, catch what's wrong and show it's gone.
 
-The brand is written **Tamandua**, with no accent; in Spanish prose you can say «el tamandúa». The technical name is also `tamandua`: package, CLI, `TAMANDUA_*` variables, images, container and the GitHub commit status. The GitHub repository is `tamandua`, in the `Tamandua-AppSec` organization.
+The brand is written **Pitangus**. The technical name is also `pitangus`: package, CLI, `PITANGUS_*` variables, images, container and the GitHub commit status. The GitHub repository is `pitangus`, in the `pitangus-dev` organization. Pitangus is made in Colombia by **Arodium**.
 
 ## Mascot and logo
 
-<img src="assets/tamandua.svg" width="96" alt="Tamandua logo">
+<img src="assets/pitangus.svg" width="96" alt="Pitangus logo: the head of a great kiskadee in profile">
 
-The tamandua, in profile, catches a small yellow beetle with its tongue on a rounded violet square. The source file is [`assets/tamandua.svg`](assets/tamandua.svg) (the same one the panel uses as its favicon); in the panel it is drawn by `web/src/shared/ui/brand-mark.tsx`.
+The kiskadee's head in profile: the black mask with the white brow, the black bill and a sulphur-yellow breast. The source files are [`assets/pitangus.svg`](assets/pitangus.svg) (the head alone, for light backgrounds) and `web/public/assets/pitangus-icon.svg` (the head on a cream tile: the favicon and the mark on dark backgrounds, where the black would merge with the background). In the panel they're drawn by `web/src/shared/ui/brand-mark.tsx`.
 
-- Minimum size: 16 px (favicon). Below 24 px the beetle stops being legible, but the silhouette is still recognizable.
-- Don't stretch it, rotate it or change its colors; on violet backgrounds, place the logo on white or black.
-- Next to the name: the logo on the left and "Tamandua" in semibold, with a gap equal to a quarter of the logo's side.
+- Minimum size: 16 px (favicon). Below 24 px the brow is no longer legible, but the silhouette is still recognizable.
+- Don't stretch it, rotate it or change its colors; on dark backgrounds always use the cream tile.
+- Next to the name: the logo on the left and "Pitangus" in semibold, with a gap equal to a quarter of the logo's side.
 
 ## Color
 
-We chose violet because security products barely use it (blues and grays dominate), it looks modern and, above all, it **doesn't compete with the severity colors**: red, orange and amber are reserved for critical, high and medium, and green for what's been fixed.
+The palette comes from the bird: sulphur yellow from its breast, ink from its mask, rufous from its wings and the paper of the field notes. Yellow is a fill color, never text on light backgrounds (it fails contrast); on light backgrounds the accent for text, links and focus is rufous.
 
 | Token | Light | Dark | Use |
 | --- | --- | --- | --- |
-| `--brand` | `oklch(0.52 0.21 293)` · `#7342D3` | `oklch(0.78 0.14 293)` · `#BBA5FF` | accents, links, selection, indicators |
-| Logo gradient | `#8B5CF6` → `#5B21B6` | same | logo only |
-| Mascot cream | `#FFF3DE` | same | logo only |
-| Vest | `#1E1433` | same | logo only |
-| Beetle | `#FCD34D` · thorax `#E9B949` | same | logo only |
-| Tongue and cheek | `#F9A8D4` | same | logo only |
-| Inner ear | `#F2C9A0` | same | logo only |
+| `--primary` (sulphur) | `#F2C230` with ink text | `#F5CD4A` | primary buttons and fills |
+| `--brand` (accent) | rufous `#9C4A1E` | sulphur `#F5CD4A` | links, selection, focus, indicators |
+| Ink | `#1C1A16` | — | text on light; the mask in the logo |
+| Paper / night | `#FBF5E6` | `#16140F` · surfaces `#211E16` | backgrounds |
+| Cream | `#FFFDF5` · `#FFF8E8` | text on dark | the tile and the brow in the logo |
+| PDF reports | `#9C4A1E` on `#FBF5E6` | — | `pitangus/modules/reporting/design.py` |
 
-Accent contrast: 6.1:1 on white and 8.5:1 on the dark theme's cards (WCAG AA for text). The accent never colors severity text or chart series: those have their own validated palette.
+Accent contrast: rufous 5.7:1 on cream and sulphur 12:1 on the dark background (WCAG AA for text). The accent never colors severity text or chart series: those have their own validated palette, and a severity is always shown with its label, never by color alone.
 
 ## Voice
 
-Direct, without fear or alarmism: we say what's happening, why it matters and how to fix it. In English: plain, second person, active voice. In Spanish: neutral Latin American Spanish, *tú*. Each language is written for its own readers, not translated from the other (see [`.claude/skills/tamandua-i18n/SKILL.md`](../.claude/skills/tamandua-i18n/SKILL.md)). Tagline: **"Eats your bugs"** (in Spanish, **«Se come tus bugs»**).
+Direct, without fear or alarmism: we say what's happening, why it matters and how to fix it. In English: plain, second person, active voice. In Spanish: neutral Latin American Spanish, *tú*. Each language is written for its own readers, not translated from the other (see [`.claude/skills/pitangus-i18n/SKILL.md`](../.claude/skills/pitangus-i18n/SKILL.md)).
+
+- Headline: **"Watch every change. Prove every fix."** (in Spanish, **«Vigila cada cambio. Demuestra cada corrección.»**).
+- Tagline: **"Spot it. Fix it. Prove it."** (in Spanish, **«Detéctalo. Corrígelo. Demuéstralo.»**).
+
+"Prove" means evidence: the finding no longer reproduces when the same analysis runs again. It's not a guarantee that there are no vulnerabilities; say so wherever the claim needs nuance.

@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Something Tamandua should do, or do differently
+about: Something Pitangus should do, or do differently
 labels: enhancement
 ---
 

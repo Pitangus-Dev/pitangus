@@ -116,7 +116,7 @@
     "pagination_one": "elementos · {{count}} hallazgo", "pagination_other": "elementos · {{count}} hallazgos"
   },
   "scanner": { "sca": "Dependencia", "sast": "Código", "secrets": "Secreto", "iac": "Infraestructura", "cicd": "CI/CD" },
-  "tool": { "tamandua": "Reglas de Pitangus" },
+  "tool": { "pitangus": "Reglas de Pitangus" },
   "group": {
     "advisories_one": "{{count}} aviso", "advisories_other": "{{count}} avisos",
     "dev": "de desarrollo",

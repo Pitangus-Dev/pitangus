@@ -2,5 +2,5 @@
 // Pitangus preview: only the visible name changes; the repository keeps its current address.
 export const BRAND = {
   name: 'Pitangus',
-  repo: 'https://github.com/Tamandua-AppSec/tamandua',
+  repo: 'https://github.com/pitangus-dev/pitangus',
 } as const

@@ -11,14 +11,14 @@ from urllib.parse import parse_qs, urlsplit
 
 from sqlalchemy import select, text, update
 
-from tamandua.modules.findings import tickets as jira_links
-from tamandua.modules.findings import triage
-from tamandua.modules.integrations import jira, jira_mapping, jira_routing as routing, notifications
-from tamandua.modules.integrations.tables import JIRA_CHANNEL, outbox
-from tamandua.modules.runs import jira_sync
-from tamandua.modules.runs.store import save_repository_scan
-from tamandua.shared import db
-from tamandua.modules.identity.auth import Users
+from pitangus.modules.findings import tickets as jira_links
+from pitangus.modules.findings import triage
+from pitangus.modules.integrations import jira, jira_mapping, jira_routing as routing, notifications
+from pitangus.modules.integrations.tables import JIRA_CHANNEL, outbox
+from pitangus.modules.runs import jira_sync
+from pitangus.modules.runs.store import save_repository_scan
+from pitangus.shared import db
+from pitangus.modules.identity.auth import Users
 from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
 
@@ -52,7 +52,7 @@ BUG_FIELDS = [_field("summary", "Summary", "string", required=True, system="summ
 
 
 class FakeJira:
-    """The REST calls Tamandua makes, answered from memory. Pages of 3 so pagination is exercised."""
+    """The REST calls Pitangus makes, answered from memory. Pages of 3 so pagination is exercised."""
 
     def __init__(self, *, priority_field=True, existing_label=None, page=3):
         self.calls, self.issues, self.comments, self.deleted = [], {}, {}, set()
@@ -121,7 +121,7 @@ class JiraCase(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.data_dir = Path(self.directory.name)
-        store = patch("tamandua.shared.paths.CONFIG_DIR", self.data_dir / "config")
+        store = patch("pitangus.shared.paths.CONFIG_DIR", self.data_dir / "config")
         store.start()
         self.addCleanup(store.stop)
         self.fake = FakeJira()
@@ -173,7 +173,7 @@ class ConnectorTests(JiraCase):
         self.assertNotIn(TOKEN, json.dumps(state))
         for path in (self.data_dir / "config").iterdir() if (self.data_dir / "config").exists() else []:
             self.assertNotIn(TOKEN.encode(), path.read_bytes(), path.name)
-        from tamandua.shared import vault
+        from pitangus.shared import vault
         self.assertEqual(vault.get("jira")["token"], TOKEN)
 
     def test_discovery_is_normalized_and_paginated(self):
@@ -217,8 +217,8 @@ class LongListTests(JiraCase):
                 jira.field_values("SEC", "10001", bad, "x")
 
     def test_a_value_past_the_first_page_validates_and_only_the_choice_is_kept(self):
-        saved = self.destination(mapping={"summary": {"source": "tamandua", "key": "summary"},
-                                          "description": {"source": "tamandua", "key": "description"},
+        saved = self.destination(mapping={"summary": {"source": "pitangus", "key": "summary"},
+                                          "description": {"source": "pitangus", "key": "description"},
                                           "components": {"source": "fixed", "value": ["9280"]}})
         self.assertEqual(saved["mapping"]["components"], {"source": "fixed", "value": ["9280"]})
         stored = routing.load(self.data_dir)["destinations"][0]["fields"]["components"]["allowed"]
@@ -238,7 +238,7 @@ class MappingTests(JiraCase):
     def test_default_mapping_fills_summary_description_priority_labels_and_due_date(self):
         fields = self.fields()
         mapping = jira_mapping.default_mapping(fields)
-        self.assertEqual(mapping["duedate"], {"source": "tamandua", "key": "due_date"})
+        self.assertEqual(mapping["duedate"], {"source": "pitangus", "key": "due_date"})
         clean, snapshot, warnings = jira_mapping.validate(mapping, fields)
         self.assertEqual(set(clean), {"summary", "description", "priority", "labels", "duedate"})
         self.assertEqual(warnings, [])
@@ -246,10 +246,10 @@ class MappingTests(JiraCase):
 
     def test_invalid_mappings_say_which_field_and_why(self):
         fields = self.fields()
-        found = self.errors({"description": {"source": "tamandua", "key": "description"},
+        found = self.errors({"description": {"source": "pitangus", "key": "description"},
                              "customfield_100": {"source": "fixed", "value": "999"},
                              "customfield_200": {"source": "fixed", "value": "x"},
-                             "customfield_300": {"source": "tamandua", "key": "description"},
+                             "customfield_300": {"source": "pitangus", "key": "description"},
                              "duedate": {"source": "template", "text": "{{due_date}}"},
                              "labels": {"source": "template", "text": "{{title}} {{__class__}}"},
                              "customfield_999": {"source": "fixed", "value": "x"}}, fields)
@@ -261,7 +261,7 @@ class MappingTests(JiraCase):
                                  "labels": "integrations.jira.mapping.unknown_variables",
                                  "customfield_999": "integrations.jira.mapping.not_on_screen"})
         bug = jira.create_fields("SEC", "10002")["fields"]
-        self.assertEqual(self.errors({"summary": {"source": "tamandua", "key": "summary"}, "description": {"source": "tamandua", "key": "description"}}, bug),
+        self.assertEqual(self.errors({"summary": {"source": "pitangus", "key": "summary"}, "description": {"source": "pitangus", "key": "description"}}, bug),
                          {"customfield_400": "integrations.jira.mapping.required_unsupported"})
 
     def test_templates_are_plain_substitution(self):
@@ -273,11 +273,11 @@ class MappingTests(JiraCase):
         self.connect()
         destination = self.destination(mapping={
             "summary": {"source": "template", "text": "{{severity}}: {{title}}\nsecond line"},
-            "description": {"source": "tamandua", "key": "description"},
+            "description": {"source": "pitangus", "key": "description"},
             "labels": {"source": "fixed", "value": ["team payments"]},
-            "customfield_100": {"source": "tamandua", "key": "severity"},
-            "customfield_300": {"source": "tamandua", "key": "line"},
-            "duedate": {"source": "tamandua", "key": "due_date"}})
+            "customfield_100": {"source": "pitangus", "key": "severity"},
+            "customfield_300": {"source": "pitangus", "key": "line"},
+            "duedate": {"source": "pitangus", "key": "due_date"}})
         fields = jira_mapping.build(destination, {"severity": "high", "title": "XSS", "description": "# Fix\nline", "line": 12,
                                                   "due_date": "2026-10-29"}, [FP_A])
         self.assertEqual(fields["project"], {"id": "10000"})
@@ -392,8 +392,8 @@ class ExportTests(JiraCase):
 
 class MigrationTests(JiraCase):
     def test_the_single_project_becomes_a_destination_and_the_manual_default_rule(self):
-        from tamandua.app import data_migrations
-        from tamandua.shared import vault
+        from pitangus.app import data_migrations
+        from pitangus.shared import vault
         old = {"site": "acme.atlassian.net", "email": "sec@acme.io", "token": TOKEN, "project": "SEC", "project_name": "Seguridad",
                "issue_type": "Task", "saved_by": "operadora"}
         vault.put("jira", old)
@@ -413,7 +413,7 @@ class MigrationTests(JiraCase):
         self.assertIn(jira.identity_label("github:org/api", "pkg:npm:axios@1.0.0"), issue["labels"])
 
     def test_nothing_to_migrate_without_a_project(self):
-        from tamandua.app import data_migrations
+        from pitangus.app import data_migrations
         self.assertEqual(data_migrations._jira_routing(self.data_dir), 0)
         self.assertEqual(routing.load(self.data_dir)["destinations"], [])
 
@@ -461,7 +461,7 @@ class AutomaticTests(JiraCase):
         self.assertEqual(row.status, "failed")  # Jira said no: retrying would say no again
         with patch.object(jira_sync, "_on_run", side_effect=RuntimeError("boom")):
             record = self.scan("org/web", [_finding(FP_B)])
-        from tamandua.modules.findings import registry
+        from pitangus.modules.findings import registry
         self.assertEqual(registry.load(self.data_dir, "github:org/web")["findings"][FP_B]["first_run"], record["id"])
 
     def test_pull_request_reviews_and_triaged_findings_create_nothing(self):
@@ -546,7 +546,7 @@ class CommentTests(JiraCase):
         self.drain()
         body = self.fake.comments["SEC-101"][0]
         self.assertIn(fixed["id"][:12], json.dumps(body["body"], ensure_ascii=False))
-        self.assertIn("verificó la corrección", json.dumps(body["body"], ensure_ascii=False))  # TAMANDUA_DEFAULT_LOCALE (es)
+        self.assertIn("verificó la corrección", json.dumps(body["body"], ensure_ascii=False))  # PITANGUS_DEFAULT_LOCALE (es)
         self.assertEqual(body["properties"][0]["value"], {"event": "fixed", "run": fixed["id"]})
         # Delivered twice (at least once): the property keeps it from commenting twice.
         self.assertEqual(jira_sync.deliver(self.data_dir, self.rows()[0].payload), "existing")
@@ -747,7 +747,7 @@ class RouteTests(HttpCase):
             self.assertEqual(self.get(path, self.member)[0], 403, path)
             self.assertEqual(self.get(path, self.admin)[0], 200, path)
         status, fields, _ = self.get("/api/integrations/jira/projects/SEC/issue-types/10001/fields", self.admin)
-        self.assertEqual(fields["suggested"]["summary"], {"source": "tamandua", "key": "summary"})
+        self.assertEqual(fields["suggested"]["summary"], {"source": "pitangus", "key": "summary"})
         status, _, _ = self.post("/api/integrations/jira/destinations", "jira-routing",
                                       {"name": "PAY", "project": "PAY", "issue_type": "10001"}, self.member)
         self.assertEqual(status, 403)
@@ -761,8 +761,8 @@ class RouteTests(HttpCase):
                                                                   "token": TOKEN}, self.admin)
         status, body, _ = self.call("POST", "/api/integrations/jira/destinations",
                                          {"name": "Seg", "project": "SEC", "issue_type": "10001",
-                                          "mapping": {"description": {"source": "tamandua", "key": "description"}}},
-                                         {"Origin": ORIGIN, "X-Tamandua-Action": "jira-routing", "Cookie": self.admin,
+                                          "mapping": {"description": {"source": "pitangus", "key": "description"}}},
+                                         {"Origin": ORIGIN, "X-Pitangus-Action": "jira-routing", "Cookie": self.admin,
                                           "Accept-Language": "en"})
         self.assertEqual(status, 400)
         self.assertEqual(body["errors"], [{"field": "summary", "error": "\"Summary\" is required in Jira: map it"}])

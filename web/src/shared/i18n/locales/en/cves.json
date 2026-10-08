@@ -76,7 +76,7 @@
     "count_of": "{{value}} of {{total}} CVEs · newest first",
     "aria": "NVD sync",
     "error": "NVD isn't responding right now; it will retry on its own.",
-    "hint": "You can already search what's loaded. NVD throttles downloads without an API key; with TAMANDUA_NVD_API_KEY it's about 8 times faster."
+    "hint": "You can already search what's loaded. NVD throttles downloads without an API key; with PITANGUS_NVD_API_KEY it's about 8 times faster."
   },
   "sheet": {
     "published": "Published {{date}}",

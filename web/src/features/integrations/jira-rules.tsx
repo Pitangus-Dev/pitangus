@@ -168,7 +168,7 @@ const bodyOf = (rule: JiraRule | null, draft: RuleDraft): RuleBody => ({
   destination: draft.destination || null, mode: draft.mode, min_severity: draft.min_severity, backfill: draft.mode === 'auto' && draft.backfill, enabled: draft.enabled,
 })
 
-// A rule: which assets, where their issues go and whether Tamandua creates them on its own.
+// A rule: which assets, where their issues go and whether Pitangus creates them on its own.
 export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule | null; routing: JiraRouting; onClose: () => void; onSaved: (result: PostResponse<'/api/integrations/jira/rules'>) => void }) {
   const { t } = useTranslation('integrations')
   const id = useId()

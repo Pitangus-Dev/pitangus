@@ -1,11 +1,11 @@
-# Tamandua as a GitHub Action: `python -m tamandua scan` from the published worker image, which carries the seven
-# engines and runs them as local processes (TAMANDUA_ENGINE_RUNNER=local): no build and no Docker socket.
-# Optionally sends other tools' SARIF to a Tamandua server (`import-sarif`). Documented in docs/cli.md ("In CI").
+# Pitangus as a GitHub Action: `python -m pitangus scan` from the published worker image, which carries the seven
+# engines and runs them as local processes (PITANGUS_ENGINE_RUNNER=local): no build and no Docker socket.
+# Optionally sends other tools' SARIF to a Pitangus server (`import-sarif`). Documented in docs/cli.md ("In CI").
 #
 # Every input reaches the scripts through `env:` and is quoted; arguments are built as bash arrays (no eval).
 # The image runs by the digest whose cosign signature was checked (keyless, the release workflow of a v* tag).
 # tests/test_action.py runs these scripts against a fake `docker` and `cosign` and checks the pins and the default image.
-name: Tamandua
+name: Pitangus
 description: Block pull requests on the vulnerabilities, secrets and misconfigurations they introduce. SARIF for code scanning.
 author: BrayansStivens
 branding:
@@ -31,11 +31,11 @@ inputs:
     description: "Name shown in the results. Empty: the repository's name."
     default: ""
   sarif:
-    description: "Where to write the SARIF. Empty: `$RUNNER_TEMP/tamandua.sarif`."
+    description: "Where to write the SARIF. Empty: `$RUNNER_TEMP/pitangus.sarif`."
     default: ""
   image:
-    description: Tamandua worker image.
-    default: ghcr.io/tamandua-appsec/tamandua-worker:0.11
+    description: Pitangus worker image.
+    default: ghcr.io/pitangus-dev/pitangus-worker:0.12
   verify:
     description: >-
       `false`: don't check the image's signature. Only for an `image` of your own (a fork or a private mirror); the
@@ -48,10 +48,10 @@ inputs:
     description: "`false`: skip the scan (only `import-sarif`)."
     default: "true"
   import-sarif:
-    description: SARIF files from other tools to send to a Tamandua server, one path per line.
+    description: SARIF files from other tools to send to a Pitangus server, one path per line.
     default: ""
   server:
-    description: Tamandua server URL, for `import-sarif`.
+    description: Pitangus server URL, for `import-sarif`.
     default: ""
   token:
     description: Import token for `import-sarif` (use a secret). Reaches the container only as an environment variable.
@@ -72,15 +72,15 @@ inputs:
 outputs:
   sarif:
     description: Path of the SARIF written by the scan (empty if there is none).
-    value: ${{ steps.tamandua.outputs.sarif }}
+    value: ${{ steps.pitangus.outputs.sarif }}
   exit-code:
     description: 0 pass, 1 blocked, 2 usage error or unverified image, 3 incomplete (the CLI's codes).
-    value: ${{ steps.tamandua.outputs.exit-code }}
+    value: ${{ steps.pitangus.outputs.exit-code }}
 
 runs:
   using: composite
   steps:
-    - name: Pull the Tamandua image
+    - name: Pull the Pitangus image
       if: inputs.registry-token != ''
       shell: bash
       env:
@@ -89,7 +89,7 @@ runs:
         REGISTRY_USER: ${{ inputs.registry-user }}
       run: |
         # A throwaway Docker config: the credential doesn't outlive this step (nor reach later steps of the job).
-        config="$(mktemp -d "$RUNNER_TEMP/tamandua-docker.XXXXXX")"
+        config="$(mktemp -d "$RUNNER_TEMP/pitangus-docker.XXXXXX")"
         trap 'rm -rf "$config"' EXIT
         registry=docker.io
         case "$IMAGE" in
@@ -104,14 +104,14 @@ runs:
       if: inputs.verify != 'false'
       uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 
-    - name: Tamandua
-      id: tamandua
+    - name: Pitangus
+      id: pitangus
       shell: bash
       env:
         IMAGE: ${{ inputs.image }}
         VERIFY: ${{ inputs.verify }}
-        PUBLISHED: ghcr.io/tamandua-appsec/tamandua-worker
-        SIGNERS: '^https://github\.com/Tamandua-AppSec/tamandua/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+(\.[0-9]+)?$'
+        PUBLISHED: ghcr.io/pitangus-dev/pitangus-worker
+        SIGNERS: '^https://github\.com/pitangus-dev/pitangus/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+(\.[0-9]+)?$'
         SCAN: ${{ inputs.scan }}
         SCAN_PATH: ${{ inputs.path }}
         BASE: ${{ inputs.base }}
@@ -127,7 +127,7 @@ runs:
         ASSET: ${{ inputs.asset }}
       run: |
         usage() {
-          echo "::error title=Tamandua::$1"
+          echo "::error title=Pitangus::$1"
           echo "exit-code=2" >> "$GITHUB_OUTPUT"
           exit 2
         }
@@ -147,7 +147,7 @@ runs:
           usage "verify: false is only for an image of your own; $PUBLISHED is always checked"
         fi
         [ "$SCAN" = true ] || [ -n "$IMPORT_SARIF" ] || usage "nothing to do: scan is false and import-sarif is empty"
-        data="$RUNNER_TEMP/tamandua"  # engine caches, reused by later runs in the same job
+        data="$RUNNER_TEMP/pitangus"  # engine caches, reused by later runs in the same job
         mkdir -p "$data"
 
         # Everything is checked (and the files to import staged) before any container starts.
@@ -156,7 +156,7 @@ runs:
           target="${SCAN_PATH#./}"
           while [ "${target%/}" != "$target" ]; do target="${target%/}"; done
           [ "$target" != . ] || target=""
-          scan=(python -m tamandua scan "/src${target:+/$target}" --name "${NAME:-${GITHUB_REPOSITORY#*/}}"
+          scan=(python -m pitangus scan "/src${target:+/$target}" --name "${NAME:-${GITHUB_REPOSITORY#*/}}"
                 --fail-on "$FAIL_ON" --format sarif --output /data/result.sarif --summary /data/summary.md)
           case "$BASE" in
             none) ;;
@@ -184,7 +184,7 @@ runs:
             cp "$file" "$staged/$copy"
             files+=("/data/import/$copy")
           done <<< "$(lines "$IMPORT_SARIF")"
-          import=(python -m tamandua import-sarif "${files[@]}" --asset "${ASSET:-$GITHUB_REPOSITORY}" --server "$SERVER")
+          import=(python -m pitangus import-sarif "${files[@]}" --asset "${ASSET:-$GITHUB_REPOSITORY}" --server "$SERVER")
           if [ -n "${GITHUB_BASE_REF:-}" ]; then
             # A pull request's results describe its branch, not the asset: they may add, never remediate.
             import+=(--partial)
@@ -206,10 +206,10 @@ runs:
           [ -n "$image" ] || usage "$IMAGE has no registry digest to check its signature against"
           cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --certificate-identity-regexp "$SIGNERS" "$image" > /dev/null ||
-            usage "$image is not signed by Tamandua's release workflow (an image of your own: verify: false)"
+            usage "$image is not signed by Pitangus's release workflow (an image of your own: verify: false)"
           echo "Signature verified: $image"
         else
-          echo "::warning title=Tamandua::Running $IMAGE without checking its signature (verify: false)"
+          echo "::warning title=Pitangus::Running $IMAGE without checking its signature (verify: false)"
         fi
 
         # The container runs as the runner's user, without capabilities, with the workspace read-only and a read-only
@@ -221,7 +221,7 @@ runs:
         # GIT_CONFIG_*: `path` can be a subfolder, and git checks ownership on the repository root.
         run=(docker run --rm --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges
              --read-only --tmpfs /tmp:exec
-             -e HOME=/tmp -e TAMANDUA_ENGINE_RUNNER=local -e TAMANDUA_DEFAULT_LOCALE
+             -e HOME=/tmp -e PITANGUS_ENGINE_RUNNER=local -e PITANGUS_DEFAULT_LOCALE
              -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/src
              -v "$GITHUB_WORKSPACE:/src:ro" -v "$data:/data")
 
@@ -232,7 +232,7 @@ runs:
           # What the change introduces and fixes, on the run's summary page.
           if [ -s "$data/summary.md" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$data/summary.md" >> "$GITHUB_STEP_SUMMARY"; fi
           if [ -s "$data/result.sarif" ]; then
-            sarif="${SARIF:-$RUNNER_TEMP/tamandua.sarif}"
+            sarif="${SARIF:-$RUNNER_TEMP/pitangus.sarif}"
             case "$sarif" in /*) ;; *) sarif="$GITHUB_WORKSPACE/$sarif" ;; esac
             mkdir -p "$(dirname "$sarif")"
             cp "$data/result.sarif" "$sarif"
@@ -242,7 +242,7 @@ runs:
         import_code=0
         if [ -n "$IMPORT_SARIF" ]; then
           # `-e NAME` without a value: Docker reads it from its own environment, never from the command line.
-          TAMANDUA_IMPORT_TOKEN="$TOKEN" "${run[@]}" -e TAMANDUA_IMPORT_TOKEN "$image" "${import[@]}" || import_code=$?
+          PITANGUS_IMPORT_TOKEN="$TOKEN" "${run[@]}" -e PITANGUS_IMPORT_TOKEN "$image" "${import[@]}" || import_code=$?
           rm -rf "$staged"
         fi
 

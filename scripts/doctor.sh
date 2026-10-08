@@ -1,5 +1,5 @@
 #!/bin/sh
-# Checks that this machine can run Tamandua and says how to fix what's missing.
+# Checks that this machine can run Pitangus and says how to fix what's missing.
 # Usage: make doctor   (or sh scripts/doctor.sh)
 set -u
 
@@ -12,7 +12,7 @@ version_ge() { # $1 >= $2, comparing dot-separated numbers
   [ "$(printf '%s\n%s\n' "$2" "$1" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)" = "$2" ]
 }
 
-echo "Tamandua · environment check"
+echo "Pitangus · environment check"
 echo
 
 echo "Tools"
@@ -62,10 +62,10 @@ for dir in data config; do
   fi
 done
 if [ -f .env ]; then
-  uid=$(sed -n 's/^TAMANDUA_UID=//p' .env | tail -n1); gid=$(sed -n 's/^TAMANDUA_GID=//p' .env | tail -n1)
-  if [ "${uid:-}" = "$(id -u)" ] && [ "${gid:-}" = "$(id -g)" ]; then pass "TAMANDUA_UID/GID match your user"; else note "TAMANDUA_UID/GID in .env ($uid/$gid) are not yours ($(id -u)/$(id -g))" "Fix them in .env, or delete .env and run 'make setup'."; fi
-  port=$(sed -n 's/^TAMANDUA_HOST_PORT=//p' .env | tail -n1)
-  domain=$(sed -n 's/^TAMANDUA_DOMAIN=//p' .env | tail -n1)
+  uid=$(sed -n 's/^PITANGUS_UID=//p' .env | tail -n1); gid=$(sed -n 's/^PITANGUS_GID=//p' .env | tail -n1)
+  if [ "${uid:-}" = "$(id -u)" ] && [ "${gid:-}" = "$(id -g)" ]; then pass "PITANGUS_UID/GID match your user"; else note "PITANGUS_UID/GID in .env ($uid/$gid) are not yours ($(id -u)/$(id -g))" "Fix them in .env, or delete .env and run 'make setup'."; fi
+  port=$(sed -n 's/^PITANGUS_HOST_PORT=//p' .env | tail -n1)
+  domain=$(sed -n 's/^PITANGUS_DOMAIN=//p' .env | tail -n1)
 fi
 port=${port:-8766}
 if [ -n "${domain:-}" ]; then
@@ -74,7 +74,7 @@ if [ -n "${domain:-}" ]; then
     address=$(getent ahosts "$domain" 2>/dev/null | awk 'NR==1 {print $1}')
     if [ -n "$address" ]; then pass "$domain resolves to $address"; else bad "$domain does not resolve" "Create an A (and AAAA, if the server has IPv6) record pointing at this server's public IP."; fi
   fi
-  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx tamandua-caddy; then
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx pitangus-caddy; then
     pass "Caddy is already running (80 and 443)"
   else
     for web in 80 443; do
@@ -86,10 +86,10 @@ if [ -n "${domain:-}" ]; then
     done
   fi
   grep -q '^COMPOSE_FILE=.*compose.prod.yaml' .env || note "COMPOSE_FILE in .env doesn't include compose.prod.yaml" "Run 'make setup DOMAIN=$domain' so every command uses the HTTPS overlay."
-elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx tamandua; then
-  pass "Tamandua is already running (port $port)"
+elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx pitangus; then
+  pass "Pitangus is already running (port $port)"
 elif (command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 "$port" 2>/dev/null); then
-  bad "port $port is in use by another program" "Change TAMANDUA_HOST_PORT, TAMANDUA_PUBLIC_URL and TAMANDUA_ALLOWED_ORIGINS in .env."
+  bad "port $port is in use by another program" "Change PITANGUS_HOST_PORT, PITANGUS_PUBLIC_URL and PITANGUS_ALLOWED_ORIGINS in .env."
 else
   pass "port $port free"
 fi
@@ -97,7 +97,7 @@ fi
 echo
 echo "Analysis engines"
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  for image in $(sed -n 's/.*"image": "\([^"]*\)".*/\1/p' tamandua/modules/scanning/engines.py); do
+  for image in $(sed -n 's/.*"image": "\([^"]*\)".*/\1/p' pitangus/modules/scanning/engines.py); do
     if docker image inspect "$image" >/dev/null 2>&1; then pass "$image"; else note "missing $image" "'make build' builds Opengrep and 'make engines' pulls Trivy, OSV-Scanner, Gitleaks, Grype, Checkov and zizmor (otherwise they are pulled on the first scan)."; fi
   done
 fi

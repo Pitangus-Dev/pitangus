@@ -1,0 +1,1243 @@
+"""External scanners in containers pinned by digest, each covering one area.
+
+- Trivy: dependencies of any ecosystem, infrastructure configuration
+  (Dockerfile, Kubernetes, Terraform) and secrets. Needs network only to fetch its
+  vulnerability database, which is cached; sends nothing from the repository.
+- OSV-Scanner: dependencies against the OSV database (which includes Dependabot's GitHub
+  Advisory Database) and more manifest formats (.NET, Gradle, uv…). Downloads the advisory
+  databases and compares locally; what matches Trivy is merged into a single finding.
+- Gitleaks: high-precision secrets. No network.
+- Opengrep: multi-language SAST with our own rules (`rules/`). No network.
+- Checkov and zizmor: infrastructure as code and CI/CD pipelines (`config_scanners`). No network.
+
+Each container runs with no capabilities, no privilege escalation, the
+snapshot mounted read-only and **with the same UID and GID as the app**: on Linux,
+root without capabilities can't enter the app's 0700 folders and the engines
+would return zero findings without warning (on macOS, Docker Desktop hides this). If Docker or an image is missing,
+the step is declared `not_tested` with the reason: a run is never faked.
+
+Secret values are never stored: only rule, file and line.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import signal
+import subprocess
+import tempfile
+import time
+import uuid
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Protocol
+
+from pitangus.shared import log as logging_setup, paths, settings
+from pitangus.shared.i18n import msg
+from pitangus.modules.intel import data_sources
+from pitangus.modules.intel.advisories import compare_versions, cvss3_base_score, prioritize, severity_from_score
+from pitangus.modules.intel.advisories import fingerprint as sca_fingerprint
+from pitangus.modules.intel.packages import dependency_fingerprint
+from pitangus.modules.scanning import secret_rules
+from pitangus.shared.model import EngineResult, Finding
+
+RULES_DIR = paths.RULES_DIR
+ENGINE_TMPFS = "1g"
+# Opengrep's release binary unpacks its bundled runtime into /tmp and runs it from there.
+EXEC_FROM_TMP = {"opengrep"}
+IMAGES = {
+    "trivy": {"name": "Trivy", "version": "0.75.0",
+              "image": "aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"},
+    # Dependencies against the OSV database (includes Dependabot's GitHub Advisory Database) and more manifest formats.
+    "osv-scanner": {"name": "OSV-Scanner", "version": "2.6.0",
+                    "image": "ghcr.io/google/osv-scanner@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa"},
+    "gitleaks": {"name": "Gitleaks", "version": "8.30.1",
+                 "image": "ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f"},
+    "opengrep": {"name": "Opengrep", "version": "1.30.0", "image": "localhost/pitangus/opengrep:1.30.0"},
+    # Second opinion on container images: it disagrees with Trivy mostly on system packages.
+    "grype": {"name": "Grype", "version": "0.120.0",
+              "image": "anchore/grype@sha256:5c88961f4130e830542d441c7ed6c78baa28e799163abac53d2be4923fb5ab7d"},
+    # Infrastructure as code and pipelines: nearly twice as many rules as Trivy for Terraform and CloudFormation.
+    "checkov": {"name": "Checkov", "version": "3.3.19",
+                "image": "bridgecrew/checkov@sha256:d3e96adafdb315ca82e792ca8708c01adae85292800fb064c8b309b3d0cb7b80"},
+    # GitHub Actions in depth: template injection, dangerous triggers, permissions and unpinned actions.
+    "zizmor": {"name": "zizmor", "version": "1.30.1",
+               "image": "ghcr.io/zizmorcore/zizmor@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101"},
+}
+# Languages with our own rules and the extensions that identify them in the snapshot.
+RULE_LANGUAGES = {
+    "JavaScript": {".js", ".jsx", ".mjs", ".cjs"}, "TypeScript": {".ts", ".tsx"}, "Python": {".py"},
+    "Java": {".java"}, "Go": {".go"}, "PHP": {".php"}, "Ruby": {".rb"}, "C#": {".cs"},
+}
+OTHER_LANGUAGES = {"Kotlin": {".kt", ".kts"}, "Rust": {".rs"}, "Swift": {".swift"}, "Scala": {".scala"},
+                   "Dart": {".dart"}, "C/C++": {".c", ".h", ".cpp", ".cc", ".hpp"}, "Vue": {".vue"}, "Svelte": {".svelte"}}
+SEVERITY_LABEL = {"CRITICAL": "critical", "HIGH": "high", "MEDIUM": "medium", "LOW": "low", "UNKNOWN": "medium",
+                  "ERROR": "high", "WARNING": "medium", "INFO": "low"}
+CONFIDENCE = {"HIGH": 8, "MEDIUM": 6, "LOW": 4}
+_docker_state: dict[str, bool] = {}
+
+
+_own_mounts: dict[str, object] = {"at": None, "mounts": {}}
+
+
+def in_container() -> bool:
+    return Path("/.dockerenv").exists()
+
+
+def own_mounts() -> dict[str, str]:
+    """This container's mounts as the daemon sees them: {internal path: host path}.
+
+    Docker is asked instead of trusting `${PWD}` in compose, which arrives empty in PowerShell or cmd
+    (Windows). That way it works the same on macOS (Apple Silicon and Intel), Linux, Windows and WSL.
+    Outside a container, or if Docker doesn't answer, returns {} (and retries a minute later)."""
+    at = _own_mounts["at"]
+    if at is not None and (_own_mounts["mounts"] or time.monotonic() - at < 60):
+        return dict(_own_mounts["mounts"])
+    mounts: dict[str, str] = {}
+    binary, identity = shutil.which("docker"), os.environ.get("HOSTNAME", "")
+    if binary and re.fullmatch(r"[0-9a-f]{12,64}", identity) and in_container():
+        try:
+            completed = subprocess.run([binary, "inspect", identity, "--format", "{{json .Mounts}}"],
+                                       capture_output=True, text=True, timeout=8)
+            rows = json.loads(completed.stdout or "[]") if completed.returncode == 0 else []
+        except (OSError, subprocess.TimeoutExpired, ValueError):
+            rows = []
+        for row in rows if isinstance(rows, list) else []:
+            if isinstance(row, dict) and row.get("Type") == "bind" and isinstance(row.get("Source"), str) \
+                    and isinstance(row.get("Destination"), str):
+                mounts[row["Destination"].rstrip("/")] = row["Source"]
+    _own_mounts.update(at=time.monotonic(), mounts=mounts)
+    return dict(mounts)
+
+
+def _host_pairs() -> list[tuple[str, str]]:
+    detected = own_mounts()
+    pairs = []
+    for inside, configured in ((settings.text("PITANGUS_DATA_DIR"), settings.text("PITANGUS_HOST_DATA_DIR")),
+                               (str(RULES_DIR), settings.text("PITANGUS_HOST_RULES_DIR"))):
+        if not inside:
+            continue
+        outside = detected.get(str(Path(inside)).rstrip("/")) or (configured if _usable(inside, configured) else None)
+        if outside:
+            pairs.append((inside, outside))
+    return pairs
+
+
+def _usable(inside: str, outside: str | None) -> bool:
+    # `${PWD}/data` with an empty PWD becomes `/data`: the same as the internal path, it doesn't point at the host.
+    return bool(outside and outside.strip() and outside.rstrip("/") not in (inside.rstrip("/"), "/data", "/rules"))
+
+
+def host_path(path: Path) -> str:
+    """A path as the Docker daemon sees it.
+
+    When the app runs in a container, the volumes it requests for sibling
+    containers are resolved on the host, not inside the app. The host path is
+    found by asking Docker for this container's mounts; if that isn't possible,
+    PITANGUS_HOST_DATA_DIR and PITANGUS_HOST_RULES_DIR are used.
+    """
+    resolved = path.resolve()
+    if runner() == "local":
+        return str(resolved)
+    for inside, outside in _host_pairs():
+        try:
+            return str(Path(outside) / resolved.relative_to(Path(inside).resolve()))
+        except ValueError:
+            continue
+    return str(resolved)
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+_TOKENS = re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,})")
+
+
+def cause(completed: subprocess.CompletedProcess | None) -> str:
+    """The last useful line of the engine's or Docker's stderr, to say *why* it failed.
+
+    It is trimmed, stripped of colors and any token, and the host data folder is
+    shortened: what the panel shows helps diagnose without exposing credentials."""
+    if completed is None:
+        return ""
+    lines = [line.strip() for line in _ANSI.sub("", completed.stderr or "").splitlines() if line.strip()]
+    return _clean_cause(lines[-1]) if lines else ""
+
+
+def _clean_cause(line: str) -> str:
+    text = _TOKENS.sub("[token]", line)
+    host = settings.text("PITANGUS_HOST_DATA_DIR")
+    if len(host) > 1:
+        text = text.replace(host, "<datos>")
+    return " ".join(text.split())[:240]
+
+
+def config_cause(completed: subprocess.CompletedProcess) -> str:
+    """Why an engine rejected its configuration: the first error line (a Go panic ends with its stack, not its cause)."""
+    lines = [line.strip() for line in _ANSI.sub("", completed.stderr or "").splitlines() if line.strip()]
+    first = next((line for line in lines if re.search(r"panic:|FTL|FATAL|error", line, re.IGNORECASE)), None)
+    return _clean_cause(first) if first else cause(completed)
+
+
+def with_cause(message, completed: subprocess.CompletedProcess | None):
+    reason = cause(completed)
+    if not reason:
+        return message
+    return msg("scanning.engines.with_cause", message=message.rstrip(".") if isinstance(message, str) else message, cause=reason)
+
+
+def joined(items, key: str = "scanning.join.comma"):
+    """Folds strings or messages into one message, two at a time, with `key` ({{first}} and {{second}})."""
+    items = [item for item in items if item]
+    if all(isinstance(item, str) for item in items) and key == "scanning.join.comma":
+        return ", ".join(items)
+    result = items[0] if items else ""
+    for item in items[1:]:
+        result = msg(key, first=result, second=item)
+    return result
+
+
+def and_list(items):
+    """«A», «A and B», «A, B and C», in the reader's language."""
+    items = list(items)
+    if len(items) <= 1:
+        return items[0] if items else ""
+    return msg("scanning.join.and", rest=joined(items[:-1]), last=items[-1])
+
+
+def host_mount_problem() -> dict | None:
+    """Inside the container, the engines mount the *host's* data folder. If it couldn't be
+    found (neither by asking Docker nor from the environment), the engines would fail with no explanation."""
+    inside = settings.text("PITANGUS_DATA_DIR")
+    if not inside or not in_container():
+        return None
+    if any(pair[0] == inside for pair in _host_pairs()):
+        return None
+    return msg("scanning.engines.host_mount_problem")
+
+
+_last_image_error: dict[str, str] = {}
+
+
+DOCKER_SOCKET = Path("/var/run/docker.sock")
+
+
+def socket_problem() -> dict | None:
+    """Typical on Linux and WSL: the socket belongs to the `docker` group, not root, and the container isn't in it."""
+    try:
+        if not DOCKER_SOCKET.exists() or os.access(DOCKER_SOCKET, os.R_OK | os.W_OK):
+            return None
+        gid = DOCKER_SOCKET.stat().st_gid
+    except OSError:
+        return None
+    return msg("scanning.engines.socket_problem", gid=gid)
+
+
+RECHECK_SECONDS = 60  # a Docker that wasn't answering is asked again after this (it may have been starting)
+
+
+def docker_available() -> bool:
+    checked = _docker_state.get("at")
+    stale = checked is not None and not _docker_state.get("ok") and time.monotonic() - checked > RECHECK_SECONDS
+    if "ok" not in _docker_state or stale:
+        binary = shutil.which("docker")
+        try:
+            completed = subprocess.run([binary, "info", "--format", "{{.ServerVersion}}"], capture_output=True, text=True,
+                                       timeout=8) if binary else None
+        except (OSError, subprocess.TimeoutExpired):
+            completed = None
+        # Without access to the socket, `docker info` can exit 0 with no server version: that isn't a usable Docker.
+        _docker_state["ok"] = bool(completed) and completed.returncode == 0 and bool(completed.stdout.strip())
+        _docker_state["why"] = socket_problem() or cause(completed) if not _docker_state["ok"] else ""
+        _docker_state["at"] = time.monotonic()
+        _runner_state.pop("auto", None)  # the runner choice follows what Docker answers now
+    return _docker_state["ok"]
+
+
+def docker_problem():
+    """Why Docker isn't available, in one sentence; empty if it is."""
+    return "" if docker_available() else (_docker_state.get("why") or msg("scanning.engines.docker_unresponsive"))
+
+
+def image_available(key: str) -> bool:
+    binary = shutil.which("docker")
+    try:
+        completed = subprocess.run([binary, "image", "inspect", IMAGES[key]["image"]], capture_output=True, text=True,
+                                   timeout=15) if binary else None
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    _last_image_error[key] = cause(completed)
+    return bool(completed) and completed.returncode == 0
+
+
+# The local runner runs the same pinned engines installed in the worker image (the `worker-standalone` target), for
+# platforms without a Docker socket. Each engine's arguments are the ones its image's entrypoint takes.
+BINARIES = {"trivy": "trivy", "osv-scanner": "osv-scanner", "gitleaks": "gitleaks", "opengrep": "opengrep",
+            "grype": "grype", "checkov": "checkov", "zizmor": "zizmor"}
+_runner_state: dict[str, str] = {}
+
+
+def runner() -> str:
+    """"docker" (a sibling container per engine) or "local" (the engines installed next to the worker).
+    PITANGUS_ENGINE_RUNNER decides; `auto` prefers Docker and falls back to installed engines."""
+    choice = settings.text("PITANGUS_ENGINE_RUNNER")
+    if choice in ("docker", "local"):
+        return choice
+    if "auto" not in _runner_state:
+        installed = any(shutil.which(binary) for binary in BINARIES.values())
+        _runner_state["auto"] = "local" if installed and not docker_available() else "docker"
+    return _runner_state["auto"]
+
+
+def engine_ready(key: str) -> bool:
+    if runner() == "local":
+        return shutil.which(BINARIES[key]) is not None
+    return docker_available() and image_available(key)
+
+
+def engines_available() -> bool:
+    """Whether this process can run engines at all (Docker answers, or at least one engine is installed)."""
+    if runner() == "local":
+        return any(shutil.which(binary) for binary in BINARIES.values())
+    return docker_available()
+
+
+def engines_problem():
+    """Why no engine can run, in one sentence; empty if some can."""
+    if engines_available():
+        return ""
+    return msg("scanning.engines.none_installed") if runner() == "local" else docker_problem()
+
+
+def unavailable(key: str, without_docker):
+    """None if engine `key` can run; else the reason, in the terms of the runner in use."""
+    if runner() == "local":
+        return None if engine_ready(key) else msg("scanning.engines.not_installed", engine=IMAGES[key]["name"], binary=BINARIES[key])
+    return None if docker_available() else without_docker
+
+
+def engine_status() -> list[dict]:
+    """Which engines are ready (images in the host's Docker, or installed binaries). For `make doctor` and `engines`."""
+    local = runner() == "local"
+    return [{"tool": key, "name": meta["name"], "version": meta["version"], "image": shutil.which(BINARIES[key]) or BINARIES[key] if local else meta["image"],
+             "ready": engine_ready(key), "built_locally": local or "@sha256:" not in meta["image"]} for key, meta in IMAGES.items()]
+
+
+def pull_engines(report=None) -> list[dict]:
+    """Pulls the missing published images by digest; Opengrep's is built with `make build`.
+
+    `make engines` pulls from the host (with progress); this is for those who don't use make."""
+    if runner() == "local":  # installed with the image: nothing to download
+        return [{**row, "action": msg("scanning.engines.action.none") if row["ready"] else msg("scanning.engines.action.not_installed")}
+                for row in engine_status()]
+    binary = shutil.which("docker")
+    results = []
+    for row in engine_status():
+        if report and not (row["ready"] or row["built_locally"] or not binary):
+            report(msg("scanning.engines.pulling", name=row["name"], version=row["version"]))
+        if row["ready"] or row["built_locally"] or not binary:
+            results.append({**row, "action": msg("scanning.engines.action.none") if row["ready"]
+                            else msg("scanning.engines.action.build") if row["built_locally"] else msg("scanning.engines.action.no_docker")})
+            continue
+        try:
+            completed = subprocess.run([binary, "pull", "--quiet", row["image"]], capture_output=True, text=True, timeout=3600)
+        except (OSError, subprocess.TimeoutExpired):
+            completed = None
+        done = bool(completed) and completed.returncode == 0
+        results.append({**row, "ready": done, "action": msg("scanning.engines.action.pulled") if done
+                        else with_cause(msg("scanning.engines.action.pull_failed"), completed)})
+    return results
+
+
+@dataclass(frozen=True)
+class ScanContext:
+    """What every engine of a scan may need: the snapshot, the data folder (caches), the KEV/EPSS feeds, the secret
+    detection settings of this repository and whether the person allowed queries that leave the machine."""
+    root: Path
+    data_dir: Path
+    feeds: dict
+    secret_settings: dict | None = None
+    allow_osv_upload: bool = False
+
+
+class Engine(Protocol):
+    """An engine a scan runs. `key` names it in IMAGES (version, image, how it's installed); `required`: without its
+    result the run is incomplete; `progress`: the message said before it runs; `merged`: its progress line waits for
+    the merge with other engines, which completes its detail."""
+    key: str
+    required: bool
+    progress: str
+    merged: bool
+
+    def run(self, context: ScanContext) -> EngineResult: ...
+
+
+@dataclass(frozen=True)
+class EngineStep:
+    """An `Engine` made of a function: how most engines are declared (`scanning/repository.py`, CODE_ENGINES)."""
+    key: str
+    call: Callable[[ScanContext], EngineResult]
+    progress: str
+    required: bool = True
+    merged: bool = False
+
+    def run(self, context: ScanContext) -> EngineResult:
+        return self.call(context)
+
+
+def run_engines(engines: Sequence[Engine], context: ScanContext, report: Callable[[str, object], None]) -> dict[str, EngineResult]:
+    """Runs each engine in order and reports it; returns their results by key. An engine that fails to run says so in
+    its result (`inconclusive`), never by raising."""
+    results: dict[str, EngineResult] = {}
+    for engine in engines:
+        report("info", msg(engine.progress, version=IMAGES[engine.key]["version"]))
+        result = results[engine.key] = engine.run(context)
+        if not engine.merged:
+            report_done(report, result)
+    return results
+
+
+def report_done(report: Callable[[str, object], None], result: EngineResult) -> None:
+    report("ok" if result["status"] != "inconclusive" else "warn",
+           msg("scanning.progress.engine", engine=IMAGES[result["tool"]]["name"], detail=result.get("detail")))
+
+
+def _result(key: str, status: str, detail, findings: list | None = None, started: float | None = None) -> EngineResult:
+    meta = IMAGES[key]
+    return {"tool": key, "name": meta["name"], "version": meta["version"], "image": meta["image"],
+            "status": status, "detail": detail, "findings": findings or [],
+            "duration_s": round(time.time() - started, 1) if started else None}
+
+
+def engine_user() -> list[str]:
+    """`--user` with this process's UID and GID, and a writable HOME for engines that keep state."""
+    if not hasattr(os, "getuid"):
+        return []
+    return ["--user", f"{os.getuid()}:{os.getgid()}", "-e", "HOME=/tmp"]
+
+
+def writable_cache(preferred: Path) -> Path:
+    """The engine's cache if this user can write to it; otherwise (e.g. engines running as root in an
+    earlier version created it), a new one next to it. The old one can be deleted by hand."""
+    preferred.mkdir(parents=True, exist_ok=True)
+    blocked = not os.access(preferred, os.W_OK | os.X_OK) or any(
+        not os.access(entry, os.W_OK) for entry in list(preferred.iterdir())[:50])
+    if not blocked:
+        return preferred
+    fallback = preferred.with_name(f"{preferred.name}-{os.getuid() if hasattr(os, 'getuid') else 'user'}")
+    fallback.mkdir(parents=True, exist_ok=True)
+    return fallback
+
+
+def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool = False,
+         mounts: list[str] | None = None, timeout: int = 900, env: dict[str, str] | None = None,
+         secret_env: dict[str, str] | None = None, hosts: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    """The engine's ephemeral container. `secret_env` travels through the Docker client's environment
+    (`-e NAME` with no value), never on the command line, so it doesn't show in `ps` or in the logs.
+    `hosts`: names the container resolves to a fixed address ({name: address}), already checked by the caller."""
+    if runner() == "local":
+        return _run_local(key, arguments, snapshot, mounts=mounts, timeout=timeout, env=env, secret_env=secret_env, network=network)
+    environment = [part for name, value in (env or {}).items() for part in ("-e", f"{name}={value}")]
+    environment += [part for name in (secret_env or {}) for part in ("-e", name)]
+    source = ["-v", f"{host_path(snapshot)}:/src:ro"] if snapshot is not None else []
+    docker = shutil.which("docker")
+    name = f"pitangus-{key}-{uuid.uuid4().hex[:12]}"
+    command = [docker, "run", "--rm", "--name", name, "--label", "pitangus.engine=1",
+               "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+               # Only /tmp (HOME) and the mounted folders are writable; the tmpfs counts against --memory.
+               "--read-only", "--tmpfs", f"/tmp:rw,{'exec' if key in EXEC_FROM_TMP else 'noexec'},nosuid,nodev,size={ENGINE_TMPFS}",
+               *engine_user(), "--pids-limit", "512", "--memory", "3g", "--cpus", "2",
+               "--network", "bridge" if network else "none",
+               *[part for host, address in (hosts or {}).items() for part in ("--add-host", f"{host}:{address}")],
+               # An image built here has no digest: never let Docker fetch that name from a registry instead.
+               *([] if "@sha256:" in IMAGES[key]["image"] else ["--pull", "never"]),
+               *source, *environment, *(mounts or []), IMAGES[key]["image"], *arguments]
+    process_env = {**os.environ, **(secret_env or {})} if secret_env else None
+    try:
+        return subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=process_env)
+    except subprocess.TimeoutExpired:
+        # The timeout only kills the docker client: the engine container would keep its CPU and memory.
+        try:
+            subprocess.run([docker, "rm", "--force", name], capture_output=True, text=True, timeout=60)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        raise
+
+
+_log = logging_setup.get("engines")
+_netns_state: dict[str, list[str]] = {}
+
+
+def network_isolation() -> list[str]:
+    """The prefix that runs a local engine in its own, empty network namespace (`unshare`), or [] where the platform
+    doesn't allow it: most containers without extra privileges have no user namespaces. Asked once per process."""
+    if "prefix" not in _netns_state:
+        found: list[str] = []
+        binary = shutil.which("unshare")
+        for mapping in ("--map-current-user", "--map-root-user") if binary else ():
+            prefix = [binary, "--user", mapping, "--net", "--"]
+            try:
+                if subprocess.run([*prefix, "true"], capture_output=True, timeout=10).returncode == 0:
+                    found = prefix
+                    break
+            except (OSError, subprocess.TimeoutExpired):
+                break
+        if not found:
+            _log.warning("local_engines_share_the_network", extra={"reason": "unshare --user --net is not allowed here"})
+        _netns_state["prefix"] = found
+    return _netns_state["prefix"]
+
+
+def _run_local(key: str, arguments: list[str], snapshot: Path | None, *, mounts: list[str] | None, timeout: int,
+               env: dict[str, str] | None, secret_env: dict[str, str] | None, network: bool = False) -> subprocess.CompletedProcess:
+    """The engine installed next to the worker, with the same arguments as its container. Container paths (/src,
+    /cache, /rules…) become the real folders, and back in its output, so parsers see what they always saw.
+
+    It gets a fresh HOME and only PATH from this process: never the database URL, the master key or any other
+    setting. An engine that needs no network gets an empty network namespace where the platform allows it
+    (`network_isolation`); elsewhere it runs with its offline flags. Pinned names (`hosts`) need the Docker runner.
+    """
+    binary = shutil.which(BINARIES[key])
+    if binary is None:
+        raise OSError(f"{BINARIES[key]} is not installed")
+    paths = {"/src": str(Path(snapshot).resolve())} if snapshot is not None else {}
+    parts = list(mounts or [])
+    for flag, spec in zip(parts[::2], parts[1::2]):
+        if flag == "-v":
+            source, destination = spec.split(":")[:2]
+            paths[destination] = source
+    order = sorted(paths, key=len, reverse=True)
+
+    def local(value: str) -> str:
+        for inside in order:
+            if value == inside or value.startswith(inside + "/"):
+                return paths[inside] + value[len(inside):]
+        return value
+
+    def back(text: str) -> str:
+        for inside in order:
+            text = text.replace(paths[inside], inside)
+        return text
+
+    with tempfile.TemporaryDirectory(prefix=f"engine-{key}-") as home:
+        environment = {"PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"), "HOME": home, "TMPDIR": home,
+                       "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONUTF8": "1", **{name: local(value) for name, value in (env or {}).items()},
+                       **(secret_env or {})}
+        # `ulimit -c 0`: a crashing engine never dumps repository contents to disk. Through sh rather than preexec_fn,
+        # which isn't safe in a process with threads (the worker has them); "$@" passes the arguments untouched.
+        isolated = [] if network else network_isolation()
+        command = [*isolated, "/bin/sh", "-c", 'ulimit -c 0 && exec "$0" "$@"', binary, *(local(argument) for argument in arguments)]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=environment,
+                                   cwd=home, start_new_session=True)
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)  # the engine and anything it started
+            process.communicate()
+            raise
+    # Report files an engine writes (Gitleaks' /out) also name the real folders.
+    if "/out" in paths:
+        for report in Path(paths["/out"]).glob("*.json"):
+            if report.stat().st_size < 50_000_000:
+                report.write_text(back(report.read_text(encoding="utf-8", errors="replace")), encoding="utf-8")
+    return subprocess.CompletedProcess([BINARIES[key], *arguments], process.returncode, back(stdout), back(stderr))
+
+
+def _relative(path: str) -> str:
+    return re.sub(r"^/src/", "", path or "")
+
+
+def _stable(*parts: str) -> str:
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()
+
+
+SEVERITY_NAME = {"critical": msg("scanning.severity.critical"), "high": msg("scanning.severity.high"),
+                 "medium": msg("scanning.severity.medium"), "low": msg("scanning.severity.low"), "info": msg("scanning.severity.info")}
+
+
+SECRET_SEVERITY = "critical"  # an exposed secret is always critical, whatever the engine or the rule says
+
+
+def _base(scanner: str, rule: str, title, path: str, line: int, severity: str, *, reason,
+          remediation, cwe: list[int], owasp: str, confidence: int, digest: str, tool: str) -> Finding:
+    if scanner == "secrets":
+        severity = SECRET_SEVERITY
+    action = "act" if severity == "critical" else "attend" if severity == "high" else "track"
+    return {"finding_id": digest[:16], "fingerprint": digest, "scanner": scanner, "tool": tool, "rule_id": rule,
+            "title": title[:200] if isinstance(title, str) else title, "path": path, "line": line, "severity": severity,
+            "confidence": confidence, "verdict": "candidate", "cwe": cwe, "owasp": [owasp], "cve": [], "ghsa": [],
+            "package": None, "advisory": None, "kev": None, "epss": None,
+            "priority": {"action": action, "factors": [
+                msg("scanning.priority.static_severity", severity=SEVERITY_NAME.get(severity, severity)),
+                msg("scanning.priority.confirm_reachability")]},
+            "reason": reason, "remediation": remediation}
+
+
+# --- Opengrep ---------------------------------------------------------------------
+
+def snapshot_languages(snapshot: Path) -> dict:
+    """Which languages the repository has, and which of them have our own rules."""
+    present: dict[str, int] = {}
+    for path in snapshot.rglob("*"):
+        if not path.is_file():
+            continue
+        for table in (RULE_LANGUAGES, OTHER_LANGUAGES):
+            for language, extensions in table.items():
+                if path.suffix.lower() in extensions:
+                    present[language] = present.get(language, 0) + 1
+    return {"covered": {name: count for name, count in present.items() if name in RULE_LANGUAGES},
+            "uncovered": {name: count for name, count in present.items() if name not in RULE_LANGUAGES}}
+
+
+def _rule_texts(value, limit: int = 2000) -> dict | str:
+    """A Pitangus rule text in its own languages (`metadata.title` / `metadata.fix` as {en, es}), or "" if absent."""
+    from pitangus.shared.i18n import inline
+    if not isinstance(value, dict):
+        return ""
+    return inline({locale: text[:limit] for locale, text in value.items() if isinstance(text, str)})
+
+
+def _rule_id(check_id: str) -> str:
+    """Opengrep prefixes each rule id with the dotted path of the rules folder ("rules." in a container, the whole real
+    path when the engine runs locally). Our ids start at "appsec.", so the fingerprint is the same either way."""
+    start = check_id.find("appsec.")
+    return check_id[start:] if start >= 0 else check_id.removeprefix("rules.")
+
+
+def parse_opengrep(payload: dict) -> list[Finding]:
+    findings, seen = [], set()
+    for result in payload.get("results", []):
+        extra = result.get("extra") or {}
+        metadata = extra.get("metadata") or {}
+        rule = _rule_id(str(result.get("check_id", "")))
+        path = _relative(result.get("path", ""))
+        line = int((result.get("start") or {}).get("line") or 1)
+        snippet = " ".join(str(extra.get("lines", "")).split())[:200]
+        severity = "critical" if str(metadata.get("severity", "")).upper() == "CRITICAL" \
+            else SEVERITY_LABEL.get(str(extra.get("severity", "")).upper(), "medium")
+        cwe = [int(item) for item in metadata.get("cwe", []) if str(item).isdigit()]
+        message = str(extra.get("message", "")).strip()
+        title = _rule_texts(metadata.get("title"), 200) \
+            or f"{metadata.get('category', 'sast').capitalize()}: {rule.rsplit('.', 1)[-1].replace('-', ' ')}"
+        remediation = _rule_texts(metadata.get("fix")) or _rule_texts({"en": message})
+        finding = _base(
+            "sast", rule, title, path, line, severity, tool="opengrep",
+            reason=msg("scanning.opengrep.reason", snippet=snippet, path=path, line=line), remediation=remediation,
+            cwe=cwe, owasp=str(metadata.get("owasp", "A05:2025")),
+            confidence=CONFIDENCE.get(str(metadata.get("confidence", "MEDIUM")).upper(), 6),
+            # The fingerprint uses the snippet, not the line: moving code must not reopen tickets.
+            digest=_stable("sast", rule, path, snippet))
+        # Two matches of the same rule on the same line are a single finding (same fingerprint).
+        if finding["fingerprint"] not in seen:
+            seen.add(finding["fingerprint"])
+            findings.append(finding)
+    return findings
+
+
+MINIFIED_SUFFIXES = {".js", ".mjs", ".cjs", ".css"}
+
+
+def minified_files(snapshot: Path, limit: int = 200) -> list[str]:
+    """Compiled or minified JavaScript and CSS: endless lines that SAST can't make sense of.
+
+    They stay in the snapshot (a bundle may carry an embedded key and Gitleaks must see it);
+    they are only excluded from Opengrep.
+    """
+    found = []
+    for path in sorted(snapshot.rglob("*")):
+        if len(found) >= limit:
+            break
+        if path.suffix.lower() not in MINIFIED_SUFFIXES or not path.is_file() or path.is_symlink():
+            continue
+        try:
+            with path.open("rb") as handle:
+                head = handle.read(512_000)
+        except OSError:
+            continue
+        lines = head.split(b"\n")
+        if max((len(line) for line in lines), default=0) > 3000 or len(head) / max(1, len(lines)) > 500:
+            found.append(path.relative_to(snapshot).as_posix())
+    return found
+
+
+def _rules_for(snapshot: Path) -> Path:
+    """The rules as the engine can mount them. With compose they come mounted from the host; with the app launched
+    by `docker run` (CI) they exist only inside its image, and the engine (a sibling container) wouldn't see them.
+    In that case they are copied next to the snapshot, which is in the mounted data folder."""
+    if not in_container() or any(Path(inside).resolve() == RULES_DIR.resolve() for inside, _ in _host_pairs()):
+        return RULES_DIR
+    target = snapshot.parent / "opengrep-rules"
+    if not target.exists():
+        shutil.copytree(RULES_DIR, target)
+    return target
+
+
+def run_opengrep(snapshot: Path) -> EngineResult:
+    started = time.time()
+    if runner() == "local":
+        if not engine_ready("opengrep"):
+            return _result("opengrep", "not_tested", unavailable("opengrep", None))
+    elif not docker_available():
+        return _result("opengrep", "not_tested", msg("scanning.opengrep.no_docker", problem=docker_problem()))
+    elif not image_available("opengrep"):
+        reason = _last_image_error.get("opengrep", "")
+        # "No such image" means it hasn't been built yet; anything else is a problem with Docker.
+        if not reason or "no such image" in reason.lower():
+            return _result("opengrep", "not_tested", msg("scanning.opengrep.image_missing"))
+        return _result("opengrep", "not_tested", msg("scanning.opengrep.image_error", cause=reason))
+    languages = snapshot_languages(snapshot)
+    compiled = minified_files(snapshot)
+    excludes = [part for path in compiled for part in ("--exclude", path)]
+    try:
+        completed = _run("opengrep", ["scan", "--config", "/rules", "--json", "--quiet", *excludes, "/src"], snapshot,
+                         mounts=["-v", f"{host_path(_rules_for(snapshot))}:/rules:ro"])
+        # 0: no findings · 1: findings. Any other code (2 fatal, 7 invalid configuration…) means it didn't scan:
+        # counting it as "0 candidates" would be a false clean.
+        if completed.returncode not in (0, 1):
+            return _result("opengrep", "inconclusive", with_cause(msg("scanning.opengrep.exit_code", code=completed.returncode), completed), started=started)
+        payload = json.loads(completed.stdout or "{}")
+    except subprocess.TimeoutExpired:
+        return _result("opengrep", "inconclusive", msg("scanning.opengrep.timeout"), started=started)
+    except (OSError, ValueError):
+        return _result("opengrep", "inconclusive", msg("scanning.engines.unreadable", engine="Opengrep"), started=started)
+    findings = parse_opengrep(payload)
+    errors = [item for item in payload.get("errors", []) if isinstance(item, dict)]
+    covered = ", ".join(f"{name} ({count})" for name, count in sorted(languages["covered"].items())) \
+        or msg("scanning.opengrep.no_covered_language")
+    uncovered = ", ".join(sorted(languages["uncovered"]))
+    parts = [msg("scanning.opengrep.detail", rulesets=sum(1 for _ in RULES_DIR.glob("*.yml")), languages=covered,
+                 candidates=len(findings))]
+    if uncovered:
+        parts.append(msg("scanning.opengrep.uncovered", languages=uncovered))
+    if compiled:
+        parts.append(msg("scanning.opengrep.minified", count=len(compiled)))
+    if errors:
+        parts.append(msg("scanning.opengrep.errors", count=len(errors)))
+    detail = joined(parts, "scanning.join.sentences")
+    status = "partial" if (errors or uncovered) else "completed"
+    return _result("opengrep", status, detail, findings, started)
+
+
+# --- Trivy ----------------------------------------------------------------------------
+
+def _pick_fixed(fixed: str | None, installed: str) -> str | None:
+    candidates = [item.strip() for item in str(fixed or "").split(",") if item.strip()]
+    later = [item for item in candidates if compare_versions(item, installed) > 0]
+    return min(later, key=lambda item: (len(item.split(".")), item)) if later else (candidates[0] if candidates else None)
+
+
+def _trivy_vulnerability(entry: dict, target: str, ecosystem: str, feeds: dict, packages: dict | None = None) -> dict:
+    identifier = str(entry.get("VulnerabilityID", ""))
+    name, installed = str(entry.get("PkgName", "")), str(entry.get("InstalledVersion", ""))
+    fixed = _pick_fixed(entry.get("FixedVersion"), installed)
+    scores = entry.get("CVSS") or {}
+    vector = score = None
+    for source in ("nvd", "ghsa", "redhat"):
+        block = scores.get(source) or {}
+        if block.get("V3Vector"):
+            vector, score = block["V3Vector"], cvss3_base_score(block["V3Vector"]) or block.get("V3Score")
+            break
+    severity = severity_from_score(score, entry.get("Severity"))
+    cves = [identifier] if identifier.startswith("CVE-") else [item for item in entry.get("VendorIDs", []) or [] if str(item).startswith("CVE-")]
+    ghsas = [identifier] if identifier.startswith("GHSA-") else []
+    kev = next((feeds.get("kev", {}).get(cve) for cve in cves if feeds.get("kev", {}).get(cve)), None)
+    epss = next((feeds.get("epss", {}).get(cve) for cve in cves if feeds.get("epss", {}).get(cve)), None)
+    priority = prioritize(severity, score, kev, epss, fixed)
+    summary = str(entry.get("Title") or "").strip() or identifier
+    cwe = [int(match.group(1)) for item in entry.get("CweIDs", []) or [] if (match := re.fullmatch(r"CWE-(\d+)", str(item)))]
+    references = [url for url in entry.get("References", []) or [] if isinstance(url, str) and url.startswith("https://")][:8]
+    remediation = (msg("scanning.sca.upgrade", package=name, installed=installed, fixed=fixed, target=target)
+                   if fixed else msg("scanning.sca.no_fix", package=name))
+    meta = (packages or {}).get(entry.get("PkgID")) or {}
+    dev = bool(meta.get("Dev"))
+    if dev:
+        # Dev dependency: never reaches production, but runs on developer machines and in CI (supply chain).
+        priority["factors"].append(msg("scanning.priority.dev_dependency"))
+        if not kev and priority["action"] == "act":
+            priority["action"] = "attend"
+        elif not kev:
+            priority["action"] = "track"
+        remediation = msg("scanning.sca.dev_remediation", remediation=remediation)
+    relationship = meta.get("Relationship")
+    digest = dependency_fingerprint({identifier, *cves, *ghsas}, identifier, ecosystem, name, installed)
+    previous = sca_fingerprint("sca", identifier, ecosystem, name, installed)
+    return {"finding_id": digest[:16], "fingerprint": digest, **({"previous_fingerprint": previous} if previous != digest else {}),
+            "scanner": "sca", "tool": "trivy", "rule_id": identifier,
+            "title": f"{name} {installed}: {summary}"[:200], "path": target, "line": 1, "severity": severity,
+            "confidence": 8 if score is not None else 6, "verdict": "candidate", "cwe": cwe, "owasp": ["A03:2025"],
+            "cve": cves, "ghsa": ghsas,
+            "package": {"ecosystem": ecosystem, "name": name, "version": installed, "fixed_version": fixed, "introduced": None,
+                        "dev": dev, "direct": relationship == "direct" if relationship else None},
+            "advisory": {"id": identifier, "aliases": cves + ghsas, "summary": summary,
+                         "details": str(entry.get("Description") or "")[:2000], "cvss_vector": vector,
+                         "cvss_score": score, "published": entry.get("PublishedDate"),
+                         "modified": entry.get("LastModifiedDate"), "references": references},
+            "kev": kev, "epss": {"score": epss[0], "percentile": epss[1]} if epss else None,
+            "source": data_sources.from_trivy(entry),
+            "priority": priority, "reason": summary, "remediation": remediation}
+
+
+def _trivy_misconfiguration(entry: dict, target: str) -> dict:
+    cause = entry.get("CauseMetadata") or {}
+    line = int(cause.get("StartLine") or 1)
+    rule = str(entry.get("AVDID") or entry.get("ID") or "misconfig")
+    severity = SEVERITY_LABEL.get(str(entry.get("Severity", "")).upper(), "medium")
+    resource = str(cause.get("Resource") or cause.get("Provider") or "")
+    finding = _base("iac", rule, f"{entry.get('Title', rule)}", target, line, severity, tool="trivy",
+                    reason=str(entry.get("Message") or entry.get("Description") or "").strip(),
+                    remediation=str(entry.get("Resolution") or "").strip() or msg("scanning.iac.review_reference"),
+                    cwe=[], owasp="A02:2025", confidence=8,
+                    digest=_stable("iac", rule, target, resource or str(line)))
+    # Line range: lets the same issue be recognized when Checkov flags it on the resource block.
+    finding["end_line"] = max(line, int(cause.get("EndLine") or line))
+    return finding
+
+
+def _trivy_secret(entry: dict, target: str, custom: dict | None = None) -> dict:
+    line = int(entry.get("StartLine") or 1)
+    rule = str(entry.get("RuleID") or "secret")
+    if rule in (custom or {}):
+        return _custom_secret(custom[rule], rule, target, line, tool="trivy", confidence=8)
+    # The value is never stored: Trivy already redacts it, and here it isn't even read.
+    category = entry.get("Category")
+    return _base("secrets", rule, (SECRET_TITLES.get(rule) or msg("scanning.secrets.exposed_titled", title=str(entry.get("Title") or rule))),
+                 target, line, SECRET_SEVERITY, tool="trivy",
+                 reason=msg("scanning.secrets.trivy_reason", category=str(category), path=target, line=line) if category
+                 else msg("scanning.secrets.trivy_reason_generic", path=target, line=line),
+                 remediation=msg("scanning.secrets.rotate"),
+                 cwe=[798], owasp="A04:2025", confidence=8, digest=_stable("secrets", rule, target, str(line)))
+
+
+MAX_PACKAGES = 20_000
+
+
+def trivy_packages(payload: dict, *, system: bool = False) -> list[dict]:
+    """Packages with their version (not just the vulnerable ones), from Trivy.
+
+    By default, application packages: against them, advisories published later are checked daily without
+    rescanning (see advisory_watch). With `system`, an image's operating system packages, which only go
+    to the SBOM (their advisories depend on the distribution version and arrive on rescan).
+    Besides name and version it keeps what an SBOM asks for: purl, licenses and whether it's a direct dependency."""
+    packages, seen = [], set()
+    wanted = "os-pkgs" if system else "lang-pkgs"
+    for result in payload.get("Results", []) or []:
+        if result.get("Class") != wanted:
+            continue
+        ecosystem = str(result.get("Type") or "").lower()
+        target = _relative(str(result.get("Target", "")))
+        for item in result.get("Packages") or []:
+            name, version = str(item.get("Name") or ""), str(item.get("Version") or "")
+            key = (ecosystem, name, version, target)
+            if not name or not version or key in seen:
+                continue
+            seen.add(key)
+            package = {"ecosystem": ecosystem, "name": name, "version": version, "path": target}
+            purl = str((item.get("Identifier") or {}).get("PURL") or "")
+            if purl.startswith("pkg:"):
+                package["purl"] = purl[:500]
+            licenses = [str(entry)[:100] for entry in item.get("Licenses") or [] if entry][:5]
+            if licenses:
+                package["licenses"] = licenses
+            if item.get("Relationship") in ("direct", "indirect"):
+                package["direct"] = item["Relationship"] == "direct"
+            packages.append(package)
+            if len(packages) >= MAX_PACKAGES:
+                return packages
+    return packages
+
+
+def parse_trivy(payload: dict, feeds: dict, custom: dict | None = None) -> list[Finding]:
+    findings, secrets = [], []
+    for result in payload.get("Results", []) or []:
+        target = _relative(str(result.get("Target", "")))
+        ecosystem = str(result.get("Type") or "").lower() or "unknown"
+        packages = {item.get("ID"): item for item in result.get("Packages") or [] if item.get("ID")}
+        for entry in result.get("Vulnerabilities") or []:
+            findings.append(_trivy_vulnerability(entry, target, ecosystem, feeds, packages))
+        for entry in result.get("Misconfigurations") or []:
+            if str(entry.get("Status", "FAIL")).upper() == "FAIL":
+                findings.append(_trivy_misconfiguration(entry, target))
+        for entry in result.get("Secrets") or []:
+            # Trivy masks every secret on the line in `Match`: what comes before the first `*` is this one's context.
+            match = entry.get("Match")
+            context = secret_context(match.split("*", 1)[0]) if isinstance(match, str) and "*" in match else None
+            secrets.append((len(findings), (_trivy_secret(entry, target, custom), context, (target, int(entry.get("StartLine") or 1)))))
+            findings.append(None)
+    for (position, _), finding in zip(secrets, with_secret_identities([item for _, item in secrets])):
+        findings[position] = finding
+    seen, unique = set(), []
+    for finding in findings:
+        if finding["fingerprint"] not in seen:
+            seen.add(finding["fingerprint"])
+            unique.append(finding)
+    return unique
+
+
+def _trivy_fs(snapshot: Path, cache_dir: Path, scanners: str, config_dir: Path | None, *,
+              network: bool = True) -> subprocess.CompletedProcess:
+    # Include dev dependencies (flagged as such) and the full package list, to tell which ones they are.
+    secret_config = ["--secret-config", "/cfg/trivy-secret.yaml"] if config_dir else []
+    return _run("trivy", ["fs", "--scanners", scanners, *secret_config, "--include-dev-deps", "--list-all-pkgs",
+                          "--cache-dir", "/cache", "--format", "json", "--quiet",
+                          "--timeout", "14m", "/src"], snapshot, network=network,
+                mounts=["-v", f"{host_path(cache_dir)}:/cache",
+                        *(["-v", f"{host_path(config_dir)}:/cfg:ro"] if config_dir else [])])
+
+
+def run_trivy(snapshot: Path, cache_dir: Path, feeds: dict, secret_settings: dict | None = None) -> EngineResult:
+    """`secret_settings`: the organization's secret detection settings (secret_rules), applied through
+    `--secret-config`. If Trivy rejects them, it runs again without secret detection so dependencies and IaC are
+    still analyzed, and the step says secrets were not covered by Trivy."""
+    started = time.time()
+    if problem := unavailable("trivy", msg("scanning.trivy.no_docker")):
+        return _result("trivy", "not_tested", problem)
+    cache_dir = writable_cache(cache_dir)
+    rejected = None
+    try:
+        with tempfile.TemporaryDirectory(prefix="trivy-config-", dir=snapshot.parent) as folder:
+            config_dir = None
+            if secret_settings:
+                config_dir = Path(folder)
+                (config_dir / "trivy-secret.yaml").write_text(secret_rules.trivy_secret_config(secret_settings), encoding="utf-8")
+            completed = _trivy_fs(snapshot, cache_dir, "vuln,misconfig,secret", config_dir)
+        if config_dir and completed.returncode != 0 and not completed.stdout.strip() and "secret config" in completed.stderr.lower():
+            reason = config_cause(completed)
+            rejected = msg("scanning.trivy.secret_config_rejected_cause", cause=reason) if reason \
+                else msg("scanning.trivy.secret_config_rejected")
+            completed = _trivy_fs(snapshot, cache_dir, "vuln,misconfig", None)
+        if completed.returncode != 0 and not completed.stdout.strip():
+            failure = msg("scanning.trivy.failed_download") if "download" in completed.stderr.lower() \
+                else msg("scanning.engines.failed_early", engine="Trivy")
+            return _result("trivy", "inconclusive", with_cause(failure, completed), started=started)
+        payload = json.loads(completed.stdout or "{}")
+    except subprocess.TimeoutExpired:
+        return _result("trivy", "inconclusive", msg("scanning.trivy.timeout"), started=started)
+    except (OSError, ValueError):
+        return _result("trivy", "inconclusive", msg("scanning.engines.unreadable", engine="Trivy"), started=started)
+    findings = parse_trivy(payload, feeds, secret_rules.custom_rules(secret_settings))
+    kinds = {"sca": 0, "iac": 0, "secrets": 0}
+    for finding in findings:
+        kinds[finding["scanner"]] = kinds.get(finding["scanner"], 0) + 1
+    targets = [result.get("Target", "") for result in payload.get("Results", []) or []]
+    manifests = [target for result, target in zip(payload.get("Results", []) or [], targets) if result.get("Class") == "lang-pkgs"]
+    configs = [target for result, target in zip(payload.get("Results", []) or [], targets) if result.get("Class") == "config"]
+    dev = sum(1 for finding in findings if (finding.get("package") or {}).get("dev"))
+    counts = {"manifests": len(manifests), "configs": len(configs), "sca": kinds["sca"], "iac": kinds["iac"], "secrets": kinds["secrets"]}
+    detail = msg("scanning.trivy.detail_dev", dev=dev, **counts) if dev else msg("scanning.trivy.detail", **counts)
+    if not feeds.get("kev") or not feeds.get("epss"):
+        detail = joined([detail, msg("scanning.trivy.no_feeds")], "scanning.join.sentences")
+    if rejected:
+        detail = joined([detail, rejected], "scanning.join.sentences")
+    result = {**_result("trivy", "partial" if rejected else "completed", detail, findings, started), "packages": trivy_packages(payload)}
+    return _withhold(result, secret_settings, lambda reference: _trivy_secrets(snapshot, cache_dir, reference))
+
+
+def _trivy_secrets(snapshot: Path, cache_dir: Path, settings: dict | None) -> list[dict] | None:
+    """Secret detection alone, for the unfiltered run. Without network: it needs no vulnerability database."""
+    try:
+        with tempfile.TemporaryDirectory(prefix="trivy-config-", dir=snapshot.parent) as folder:
+            config_dir = None
+            if settings:
+                config_dir = Path(folder)
+                (config_dir / "trivy-secret.yaml").write_text(secret_rules.trivy_secret_config(settings), encoding="utf-8")
+            completed = _trivy_fs(snapshot, cache_dir, "secret", config_dir, network=False)
+        if completed.returncode != 0 and not completed.stdout.strip():
+            return None
+        payload = json.loads(completed.stdout or "{}")
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return None
+    return parse_trivy(payload, {}, secret_rules.custom_rules(settings)) if isinstance(payload, dict) else None
+
+
+def _withhold(result: dict, settings: dict | None, reference) -> dict:
+    """With settings that filter, adds `withheld`: the secrets only an unfiltered run (`reference`) sees
+    (secret_rules.withheld). If that run fails, `withheld` is None and the step partial: the scan is then incomplete,
+    so a secret that stopped appearing is never taken as fixed."""
+    if result["status"] != "completed" or not secret_rules.filters(settings):
+        return result
+    unfiltered = reference(secret_rules.unfiltered(settings))
+    if unfiltered is None:
+        return {**result, "status": "partial", "withheld": None,
+                "detail": joined([result["detail"], msg("scanning.secret_rules.withheld.unknown")], "scanning.join.sentences")}
+    kept = {finding["fingerprint"] for finding in result["findings"]}
+    return {**result, "withheld": [secret_rules.withheld(finding, settings) for finding in unfiltered
+                                   if finding["scanner"] == "secrets" and finding["fingerprint"] not in kept]}
+
+
+# --- OSV-Scanner ---------------------------------------------------------------------
+
+def parse_osv_scanner(payload: dict, feeds: dict) -> list[Finding]:
+    """One finding per advisory and package. OSV groups the identifiers of the same advisory in `groups`
+    (GHSA, PYSEC, CVE…); one from each group becomes the primary and the rest become aliases."""
+    from pitangus.modules.intel.advisories import dependency_finding
+    from pitangus.modules.scanning.dependency_merge import stable_fingerprint
+    findings, seen = [], set()
+    for result in payload.get("results") or []:
+        path = _relative(str((result.get("source") or {}).get("path") or ""))
+        for entry in result.get("packages") or []:
+            package = entry.get("package") or {}
+            name, version, ecosystem = str(package.get("name") or ""), str(package.get("version") or ""), str(package.get("ecosystem") or "")
+            if not name or not version:
+                continue
+            vulnerabilities = {item.get("id"): item for item in entry.get("vulnerabilities") or [] if isinstance(item, dict) and item.get("id")}
+            groups = entry.get("groups") or [{"ids": [identifier]} for identifier in vulnerabilities]
+            for group in groups:
+                ids = [item for item in group.get("ids") or [] if item in vulnerabilities]
+                if not ids:
+                    continue
+                main = next((item for item in ids if item.startswith("GHSA-")), ids[0])
+                aliases = set(group.get("aliases") or []) | set(ids)
+                for item in ids:
+                    aliases |= set(vulnerabilities[item].get("aliases") or [])
+                advisory = {**vulnerabilities[main], "aliases": sorted(aliases - {main})}
+                finding = dependency_finding({"ecosystem": ecosystem, "name": name, "version": version, "path": path}, advisory, feeds)
+                digest = stable_fingerprint(main, aliases, ecosystem, name, version)
+                if digest in seen:
+                    continue
+                seen.add(digest)
+                finding.pop("previous_fingerprint", None)  # OSV-Scanner already used this fingerprint
+                finding.update(fingerprint=digest, finding_id=digest[:16], tool="osv-scanner")
+                findings.append(finding)
+    return findings
+
+
+def run_osv_scanner(snapshot: Path, cache_dir: Path, feeds: dict, *, resolve: bool = False) -> EngineResult:
+    """OSV-Scanner with the advisory databases downloaded locally: the dependency list never leaves this machine.
+
+    Only with `resolve` (the user allowed external queries) does it resolve transitive dependencies of
+    manifests without a lockfile, which queries deps.dev. Call analysis stays off: in Rust it would
+    run the repository's build scripts."""
+    started = time.time()
+    if problem := unavailable("osv-scanner", msg("scanning.osv.no_docker")):
+        return _result("osv-scanner", "not_tested", problem)
+    cache_dir = writable_cache(cache_dir)
+    arguments = ["scan", "source", "-r", "--format", "json", "--offline-vulnerabilities", "--download-offline-databases",
+                 "--allow-no-lockfiles", "--no-call-analysis=go", "--no-call-analysis=rust", *([] if resolve else ["--no-resolve"]), "/src"]
+    try:
+        completed = _run("osv-scanner", arguments, snapshot, network=True, timeout=1800,
+                         env={"OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY": "/cache"}, mounts=["-v", f"{host_path(cache_dir)}:/cache"])
+        # 0: no advisories · 1: advisories. Any other code is an engine error.
+        if completed.returncode not in (0, 1) or not completed.stdout.strip():
+            if completed.returncode == 0:
+                return _result("osv-scanner", "completed", msg("scanning.osv.no_manifests"), started=started)
+            return _result("osv-scanner", "inconclusive", with_cause(msg("scanning.engines.failed_early", engine="OSV-Scanner"), completed), started=started)
+        payload = json.loads(completed.stdout)
+    except subprocess.TimeoutExpired:
+        return _result("osv-scanner", "inconclusive", msg("scanning.osv.timeout"), started=started)
+    except (OSError, ValueError):
+        return _result("osv-scanner", "inconclusive", msg("scanning.engines.unreadable", engine="OSV-Scanner"), started=started)
+    findings = parse_osv_scanner(payload, feeds)
+    manifests = {str((result.get("source") or {}).get("path") or "") for result in payload.get("results") or []}
+    packages = sum(len(result.get("packages") or []) for result in payload.get("results") or [])
+    detail = msg("scanning.osv.detail_resolved" if resolve else "scanning.osv.detail",
+                 manifests=len(manifests), packages=packages, advisories=len(findings))
+    return _result("osv-scanner", "completed", detail, findings, started)
+
+
+# --- Gitleaks -------------------------------------------------------------------------
+
+# Names of the most common Gitleaks rules; the rest use their identifier.
+SECRET_TITLES = {
+    "jwt": msg("scanning.secrets.titles.jwt"), "generic-api-key": msg("scanning.secrets.titles.generic_api_key"),
+    "private-key": msg("scanning.secrets.titles.private_key"), "aws-access-token": msg("scanning.secrets.titles.aws_access_token"),
+    "aws-secret-access-key": msg("scanning.secrets.titles.aws_secret_access_key"), "github-pat": msg("scanning.secrets.titles.github_pat"),
+    "github-fine-grained-pat": msg("scanning.secrets.titles.github_fine_grained_pat"),
+    "github-app-token": msg("scanning.secrets.titles.github_app_token"), "github-oauth": msg("scanning.secrets.titles.github_oauth"),
+    "gitlab-pat": msg("scanning.secrets.titles.gitlab_pat"), "slack-bot-token": msg("scanning.secrets.titles.slack_bot_token"),
+    "slack-webhook-url": msg("scanning.secrets.titles.slack_webhook_url"),
+    "stripe-access-token": msg("scanning.secrets.titles.stripe_access_token"), "gcp-api-key": msg("scanning.secrets.titles.gcp_api_key"),
+    "openai-api-key": msg("scanning.secrets.titles.openai_api_key"), "anthropic-api-key": msg("scanning.secrets.titles.anthropic_api_key"),
+    "twilio-api-key": msg("scanning.secrets.titles.twilio_api_key"), "sendgrid-api-token": msg("scanning.secrets.titles.sendgrid_api_token"),
+    "npm-access-token": msg("scanning.secrets.titles.npm_access_token"), "pypi-upload-token": msg("scanning.secrets.titles.pypi_upload_token"),
+    "azure-ad-client-secret": msg("scanning.secrets.titles.azure_ad_client_secret"),
+    "heroku-api-key": msg("scanning.secrets.titles.heroku_api_key"),
+}
+
+
+def secret_title(rule: str) -> dict:
+    return SECRET_TITLES.get(rule) or msg("scanning.secrets.exposed_rule", rule=rule)
+
+
+SECRET_CONTEXT = 30  # characters before a secret that identify it (Trivy keeps 30 around a secret on long lines)
+
+
+def secret_context(prefix: str | None) -> str | None:
+    """What precedes a secret on its line (`GITHUB_TOKEN = "`), other secrets masked: identifies where it lives
+    without a trace of its value. None when unknown."""
+    if prefix is None:
+        return None
+    return " ".join(prefix.split())[-SECRET_CONTEXT:]
+
+
+LEAD_WINDOW = 256  # characters read before a secret to find its context: bounded, whatever the line's length
+
+
+def masked_lead(text: str, start: int, spans: list[tuple[int, int]]) -> str:
+    """The text before offset `start` on a line (at most LEAD_WINDOW characters), with every span in `spans`
+    (the secrets found on that line) masked by `*`."""
+    begin = max(0, start - LEAD_WINDOW)
+    lead = list(text[begin:start])
+    for span_start, span_end in spans:
+        for position in range(max(span_start, begin), min(span_end, start)):
+            lead[position - begin] = "*"
+    return "".join(lead)
+
+
+def with_secret_identities(items: list[tuple[Finding, str | None, tuple]]) -> list[Finding]:
+    """Secrets' fingerprints without their line number: rule, file, what precedes each on its line and, among identical
+    ones, their order in the file (`items`: finding, context, position). A line added above a secret no longer makes
+    it look fixed and new. The former, line-based fingerprint stays in `previous_fingerprint` so the registry carries
+    state and triage over (findings/registry.py). Without a context, a secret keeps the line-based one."""
+    result, seen = [finding for finding, _, _ in items], {}
+    for index in sorted(range(len(items)), key=lambda position: items[position][2]):
+        finding, context, _ = items[index]
+        if context is None:
+            continue
+        identity = (finding["rule_id"], finding["path"], context)
+        order = seen[identity] = seen.get(identity, -1) + 1
+        digest = _stable("secrets", finding["rule_id"], finding["path"], "context", context, str(order))
+        result[index] = {**finding, "fingerprint": digest, "finding_id": digest[:16], "previous_fingerprint": finding["fingerprint"]}
+    return result
+
+
+def _gitleaks_span(entry: dict) -> tuple[int, int] | None:
+    """Where a Gitleaks match sits on its line, as 0-based offsets [start, end). Gitleaks 8 counts columns from 1 on
+    the first line of a file and from 2 on the rest (checked with 8.30.1)."""
+    try:
+        line, start, end = int(entry.get("StartLine") or 0), int(entry.get("StartColumn") or 0), int(entry.get("EndColumn") or 0)
+    except (TypeError, ValueError):
+        return None
+    shift = 1 if line == 1 else 2
+    if line < 1 or start - shift < 0:
+        return None
+    return start - shift, max(start - shift, end - shift + 1)
+
+
+def _gitleaks_contexts(payload: list, root: Path | None) -> dict[int, str]:
+    """The context of each Gitleaks entry (by its position in `payload`) read from the snapshot: the line before
+    the match with every other match on it masked, plus the redacted match's own lead (`api_key = "`)."""
+    if root is None:
+        return {}
+    wanted: dict[str, dict[int, list[tuple[int, tuple[int, int]]]]] = {}
+    for index, entry in enumerate(payload):
+        span = _gitleaks_span(entry) if isinstance(entry, dict) else None
+        if span:
+            wanted.setdefault(_relative(str(entry.get("File", ""))), {}).setdefault(int(entry["StartLine"]), []).append((index, span))
+    contexts: dict[int, str] = {}
+    base = root.resolve()
+    for path, lines in wanted.items():
+        try:
+            target = (root / path).resolve()
+            target.relative_to(base)  # never outside the snapshot
+            with target.open("r", encoding="utf-8", errors="replace") as handle:
+                for number, text in enumerate(handle, 1):
+                    if number > max(lines):
+                        break
+                    spans = [span for _, span in lines.get(number, [])]
+                    for index, (start, _) in lines.get(number, []):
+                        match = str(payload[index].get("Match") or "")
+                        lead = match.split("REDACTED", 1)[0] if "REDACTED" in match else ""
+                        contexts[index] = masked_lead(text, start, spans) + lead
+        except (OSError, ValueError):
+            continue
+    return contexts
+
+
+def _custom_secret(rule: dict, rule_id: str, path: str, line: int, *, tool: str, confidence: int) -> dict:
+    """A finding from a custom rule: its description (as written, one language) as the title."""
+    return _base("secrets", rule_id, rule["description"], path, line, SECRET_SEVERITY, tool=tool,
+                 reason=msg("scanning.secrets.custom_reason", rule=rule["id"], path=path, line=line),
+                 remediation=msg("scanning.secrets.rotate"), cwe=[798], owasp="A04:2025", confidence=confidence,
+                 digest=_stable("secrets", rule_id, path, str(line)))
+
+
+def parse_gitleaks(payload: list, custom: dict | None = None, root: Path | None = None) -> list[Finding]:
+    """`root`: the snapshot, to read what precedes each secret on its line (Gitleaks redacts the whole match)."""
+    entries = [entry for entry in payload or [] if isinstance(entry, dict)]
+    contexts = _gitleaks_contexts(entries, root)
+    items = []
+    for index, entry in enumerate(entries):
+        rule = str(entry.get("RuleID") or "secret")
+        path = _relative(str(entry.get("File", "")))
+        line = int(entry.get("StartLine") or 1)
+        entropy = float(entry.get("Entropy") or 0)
+        if rule in (custom or {}):
+            finding = _custom_secret(custom[rule], rule, path, line, tool="gitleaks", confidence=8 if entropy >= 3.5 else 6)
+        else:
+            # The value never reaches the finding: gitleaks runs with --redact and the context stops where the secret starts.
+            finding = _base("secrets", rule, secret_title(rule), path, line, SECRET_SEVERITY, tool="gitleaks",
+                            reason=msg("scanning.secrets.gitleaks_reason", rule=rule, path=path, line=line, entropy=f"{entropy:.1f}"),
+                            remediation=msg("scanning.secrets.rotate"),
+                            cwe=[798], owasp="A04:2025", confidence=8 if entropy >= 3.5 else 6,
+                            digest=_stable("secrets", rule, path, str(line)))
+        items.append((finding, secret_context(contexts.get(index)), (path, line, int(entry.get("StartColumn") or 0))))
+    return with_secret_identities(items)
+
+
+def _gitleaks_report(snapshot: Path, settings: dict | None, started: float, *, strict: bool = False) -> tuple[list | None, dict | None]:
+    """(report, None), or (None, the step's result) when Gitleaks couldn't produce it. `strict`: a missing report is
+    a failure even without settings."""
+    # The report is written next to the snapshot: it's the only folder both containers see.
+    # The settings go in a separate folder, mounted read-only.
+    with tempfile.TemporaryDirectory(prefix="gitleaks-", dir=snapshot.parent) as output, \
+            tempfile.TemporaryDirectory(prefix="gitleaks-config-", dir=snapshot.parent) as config:
+        arguments = ["dir", "/src", "--report-format", "json", "--report-path", "/out/report.json",
+                     "--no-banner", "--exit-code", "0", "--redact"]
+        mounts = ["-v", f"{host_path(Path(output))}:/out"]
+        if settings:
+            (Path(config) / "gitleaks.toml").write_text(secret_rules.gitleaks_toml(settings), encoding="utf-8")
+            arguments[2:2] = ["--config", "/cfg/gitleaks.toml"]
+            mounts += ["-v", f"{host_path(Path(config))}:/cfg:ro"]
+        try:
+            completed = _run("gitleaks", arguments, snapshot, mounts=mounts, timeout=600)
+            report = Path(output) / "report.json"
+            # Without settings, a missing report keeps its old meaning; with them it may be the settings' fault.
+            if (settings or strict) and (completed.returncode != 0 or not report.is_file()):
+                if "config" not in (completed.stderr or "").lower():
+                    return None, _result("gitleaks", "inconclusive", with_cause(msg("scanning.engines.failed", engine="Gitleaks"), completed),
+                                         started=started)
+                reason = config_cause(completed)
+                failure = msg("scanning.gitleaks.config_failed_cause", cause=reason) if reason else msg("scanning.gitleaks.config_failed")
+                return None, _result("gitleaks", "inconclusive", failure, started=started)
+            payload = json.loads(report.read_text(encoding="utf-8") or "[]") if report.is_file() else []
+        except subprocess.TimeoutExpired:
+            return None, _result("gitleaks", "inconclusive", msg("scanning.engines.timeout", engine="Gitleaks"), started=started)
+        except (OSError, ValueError):
+            return None, _result("gitleaks", "inconclusive", msg("scanning.gitleaks.unreadable"), started=started)
+    if completed.returncode not in (0, 1):
+        return None, _result("gitleaks", "inconclusive", with_cause(msg("scanning.engines.failed", engine="Gitleaks"), completed), started=started)
+    return (payload if isinstance(payload, list) else []), None
+
+
+def run_gitleaks(snapshot: Path, settings: dict | None = None) -> EngineResult:
+    """`settings`: the organization's secret detection settings (secret_rules). With them, Gitleaks gets a generated
+    `--config` mounted read-only; if it rejects it, the step is inconclusive, never clean."""
+    started = time.time()
+    if problem := unavailable("gitleaks", msg("scanning.gitleaks.no_docker")):
+        return _result("gitleaks", "not_tested", problem)
+    payload, failure = _gitleaks_report(snapshot, settings, started)
+    if failure:
+        return failure
+    findings = parse_gitleaks(payload, secret_rules.custom_rules(settings), snapshot)
+    detail = msg("scanning.gitleaks.detail_configured", secrets=len(findings), **secret_rules.counts(settings)) if settings \
+        else msg("scanning.gitleaks.detail", secrets=len(findings))
+
+    def reference(unfiltered: dict | None) -> list[dict] | None:
+        report, failed = _gitleaks_report(snapshot, unfiltered, started, strict=True)
+        return None if failed else parse_gitleaks(report, secret_rules.custom_rules(unfiltered), snapshot)
+    return _withhold(_result("gitleaks", "completed", detail, findings, started), settings, reference)
+
+
+def merge_secrets(*groups: list[Finding]) -> list[Finding]:
+    """The same secret seen by two engines: one is kept and the other is noted."""
+    by_location: dict[tuple[str, int], dict] = {}
+    for group in groups:
+        for finding in group:
+            key = (finding["path"], finding["line"])
+            if key in by_location:
+                by_location[key].setdefault("also_detected_by", []).append(finding["tool"])
+            else:
+                by_location[key] = finding
+    return list(by_location.values())

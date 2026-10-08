@@ -101,7 +101,7 @@
       "source_label": "What goes in {{field}}",
       "value_label": "Value for {{field}}",
       "source": {
-        "tamandua": "Pitangus data",
+        "pitangus": "Pitangus data",
         "fixed": "Fixed value",
         "template": "Template",
         "none": "Leave empty"
@@ -335,7 +335,7 @@
     "hint": {
       "slack": "In Slack: Apps → Incoming Webhooks → Add to Slack, pick the channel and copy the URL (https://hooks.slack.com/…).",
       "teams": "In Teams: on the channel, … → Workflows → \"Post to a channel when a webhook request is received\", then copy the URL.",
-      "webhook": "Any service that accepts a JSON POST. Every notification carries the X-Tamandua-Signature header (HMAC-SHA256 of the body)."
+      "webhook": "Any service that accepts a JSON POST. Every notification carries the X-Pitangus-Signature header (HMAC-SHA256 of the body)."
     },
     "saved": "Channel \"{{name}}\" saved. Send a test to check it.",
     "confirm_remove": "Remove \"{{name}}\"? To add it back you'll need the webhook URL again.",
@@ -350,7 +350,7 @@
     "remove_label": "Remove {{name}}",
     "secret_title": "This webhook's signing secret: save it now, it won't be shown again.",
     "secret_label": "signing secret",
-    "secret_help": "The receiver computes an HMAC-SHA256 of the body with this secret and compares it with the X-Tamandua-Signature header.",
+    "secret_help": "The receiver computes an HMAC-SHA256 of the body with this secret and compares it with the X-Pitangus-Signature header.",
     "secret_saved": "I've saved it",
     "add": "Add channel",
     "where": "Where",
@@ -361,6 +361,6 @@
     "threshold_label": "Findings from",
     "save": "Save channel",
     "url_note": "The URL is stored encrypted and never comes back to the browser.",
-    "links_note": "To have messages link to the finding, set TAMANDUA_PUBLIC_URL to the panel's address."
+    "links_note": "To have messages link to the finding, set PITANGUS_PUBLIC_URL to the panel's address."
   }
 }

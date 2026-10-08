@@ -1,8 +1,8 @@
 # Tests and security analysis on every pull request and every push to main.
 #
 # - backend: Python tests.
-# - panel: types, lint, and a check that tamandua/app/static is rebuilt (the served panel is the one in the repo).
-# - tamandua: Tamandua analyzes itself with its CLI (the same usage documented in docs/cli.md).
+# - panel: types, lint, and a check that pitangus/app/static is rebuilt (the served panel is the one in the repo).
+# - pitangus: Pitangus analyzes itself with its CLI (the same usage documented in docs/cli.md).
 #   On a PR only what the PR introduces counts, and it blocks from high severity up; on main it analyzes
 #   everything and reports. fixtures/ are intentionally vulnerable examples: they are excluded and the output
 #   says how many there are.
@@ -35,15 +35,15 @@ jobs:
       postgres:
         image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
         env:
-          POSTGRES_USER: tamandua
-          POSTGRES_PASSWORD: tamandua  # only for the ephemeral CI container
-          POSTGRES_DB: tamandua
+          POSTGRES_USER: pitangus
+          POSTGRES_PASSWORD: pitangus  # only for the ephemeral CI container
+          POSTGRES_DB: pitangus
         ports: ["5432:5432"]
-        options: --health-cmd "pg_isready -U tamandua" --health-interval 2s --health-timeout 5s --health-retries 30
+        options: --health-cmd "pg_isready -U pitangus" --health-interval 2s --health-timeout 5s --health-retries 30
     env:
-      TAMANDUA_DATABASE_URL: postgresql+psycopg://tamandua:tamandua@127.0.0.1:5432/tamandua
-      TAMANDUA_DB_ISOLATE: data-dir
-      TAMANDUA_DEFAULT_LOCALE: es
+      PITANGUS_DATABASE_URL: postgresql+psycopg://pitangus:pitangus@127.0.0.1:5432/pitangus
+      PITANGUS_DB_ISOLATE: data-dir
+      PITANGUS_DEFAULT_LOCALE: es
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -57,19 +57,19 @@ jobs:
       - name: Architecture contracts
         run: lint-imports --cache-dir .cache/import-linter
       - name: Lint
-        run: ruff check tamandua tests scripts api
+        run: ruff check pitangus tests scripts api
       - name: Types
         run: mypy
       - name: The panel's OpenAPI schema matches the API
         run: |
-          python -c "from tamandua.app.api import openapi_document; print(openapi_document(), end='')" > /tmp/openapi.json
+          python -c "from pitangus.app.api import openapi_document; print(openapi_document(), end='')" > /tmp/openapi.json
           if ! cmp -s /tmp/openapi.json web/src/shared/api/openapi.json; then
             echo "::error::web/src/shared/api/openapi.json does not match the API: run 'make openapi' and commit the result."
             exit 1
           fi
       - name: Tests
         # No Docker daemon for the tests: none of them may start a real engine (they mock what they need).
-        run: DOCKER_HOST=unix:///nonexistent/docker.sock TAMANDUA_CONFIG_DIR="$RUNNER_TEMP/config" python -m unittest discover -s tests
+        run: DOCKER_HOST=unix:///nonexistent/docker.sock PITANGUS_CONFIG_DIR="$RUNNER_TEMP/config" python -m unittest discover -s tests
 
   panel:
     name: Panel (types, lint and build)
@@ -99,14 +99,14 @@ jobs:
       - name: The served panel is rebuilt
         run: |
           (cd web && npm run build)
-          if [ -n "$(git status --porcelain -- tamandua/app/static)" ]; then
-            git status --short -- tamandua/app/static
-            echo "::error::tamandua/app/static does not match web/src: run 'make web' and commit the result."
+          if [ -n "$(git status --porcelain -- pitangus/app/static)" ]; then
+            git status --short -- pitangus/app/static
+            echo "::error::pitangus/app/static does not match web/src: run 'make web' and commit the result."
             exit 1
           fi
 
-  tamandua:
-    name: Tamandua on itself
+  pitangus:
+    name: Pitangus on itself
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
@@ -118,31 +118,31 @@ jobs:
         with:
           fetch-depth: 0  # history is needed to compare with the base branch
           persist-credentials: false
-      - name: Build Tamandua
+      - name: Build Pitangus
         run: make build
       - name: Analyze
         env:
           EVENT: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}  # never interpolated directly into the script
         run: |
-          mkdir -p "$RUNNER_TEMP/tamandua-data"
+          mkdir -p "$RUNNER_TEMP/pitangus-data"
           scope=()
           if [ "$EVENT" = pull_request ]; then
             scope=(--base "origin/$BASE_REF")
           else
             scope=(--fail-on never)  # main: full inventory in code scanning, without blocking
           fi
-          version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' tamandua/version.py)"  # the tag that make build just built
+          version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' pitangus/version.py)"  # the tag that make build just built
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock --group-add "$(stat -c %g /var/run/docker.sock)" \
             --user "$(id -u):$(id -g)" -e HOME=/tmp \
-            -v "$PWD":/src:ro -v "$RUNNER_TEMP/tamandua-data":/data \
-            "localhost/tamandua/app:$version" python -m tamandua scan /src --name tamandua \
-            --exclude fixtures/ "${scope[@]}" --format sarif --output /data/tamandua.sarif
+            -v "$PWD":/src:ro -v "$RUNNER_TEMP/pitangus-data":/data \
+            "localhost/pitangus/app:$version" python -m pitangus scan /src --name pitangus \
+            --exclude fixtures/ "${scope[@]}" --format sarif --output /data/pitangus.sarif
       - name: Is there a SARIF?
         id: sarif
         if: always()
-        run: if [ -s "$RUNNER_TEMP/tamandua-data/tamandua.sarif" ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; fi
+        run: if [ -s "$RUNNER_TEMP/pitangus-data/pitangus.sarif" ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; fi
       - name: Upload to code scanning
         # On a PR from a fork the token cannot write results: the verdict is already in the analysis step.
         if: always() && steps.sarif.outputs.exists == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -151,8 +151,8 @@ jobs:
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
         with:
-          sarif_file: ${{ runner.temp }}/tamandua-data/tamandua.sarif
-          category: tamandua
+          sarif_file: ${{ runner.temp }}/pitangus-data/pitangus.sarif
+          category: pitangus
 
   action:
     name: GitHub Action (uses ./)

@@ -1,4 +1,4 @@
-"""Foreign keys (cascades), migration 0003 on a database with orphans, and `tamandua integrity` for the logical relations."""
+"""Foreign keys (cascades), migration 0003 on a database with orphans, and `pitangus integrity` for the logical relations."""
 
 import io
 import os
@@ -12,23 +12,23 @@ from unittest.mock import patch
 from sqlalchemy import create_engine, delete, func, insert, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
-from tamandua.app import wiring
-from tamandua.app import database
-from tamandua.app import integrity
-from tamandua.modules.findings import triage
-from tamandua.modules.findings import registry as findings_registry
-from tamandua.modules.findings.tables import registry_assets, registry_findings, triage_decisions
-from tamandua.modules.identity.auth import Sessions, Users
-from tamandua.modules.identity.tables import auth_challenges, sessions, users
-from tamandua.modules.runs import queue
-from tamandua.modules.runs.store import delete_runs, save_record, save_repository_scan
-from tamandua.modules.runs.tables import jobs, runs
-from tamandua.modules.runs import assets
-from tamandua.shared import db
-from tamandua.shared.db import TENANT
+from pitangus.app import wiring
+from pitangus.app import database
+from pitangus.app import integrity
+from pitangus.modules.findings import triage
+from pitangus.modules.findings import registry as findings_registry
+from pitangus.modules.findings.tables import registry_assets, registry_findings, triage_decisions
+from pitangus.modules.identity.auth import Sessions, Users
+from pitangus.modules.identity.tables import auth_challenges, sessions, users
+from pitangus.modules.runs import queue
+from pitangus.modules.runs.store import delete_runs, save_record, save_repository_scan
+from pitangus.modules.runs.tables import jobs, runs
+from pitangus.modules.runs import assets
+from pitangus.shared import db
+from pitangus.shared.db import TENANT
 from test_dashboard import _finding, _scan
 
-wiring.configure()  # like every Tamandua process: domain events and injected readers
+wiring.configure()  # like every Pitangus process: domain events and injected readers
 
 PASSWORD = "-".join(("frase", "de", "prueba", "larga", "42"))
 NOW = datetime.now(timezone.utc).isoformat()
@@ -45,7 +45,7 @@ def scan(name, uid, fingerprints):
     return record
 
 
-@unittest.skipUnless(os.environ.get("TAMANDUA_DATABASE_URL"), "needs PostgreSQL (make test starts it)")
+@unittest.skipUnless(os.environ.get("PITANGUS_DATABASE_URL"), "needs PostgreSQL (make test starts it)")
 class ForeignKeyTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -99,7 +99,7 @@ class ForeignKeyTests(unittest.TestCase):
         self.assertEqual(integrity.check(self.data_dir), dict.fromkeys(integrity.FIXABLE + integrity.REPORTED, 0))
 
 
-@unittest.skipUnless(os.environ.get("TAMANDUA_DATABASE_URL"), "needs PostgreSQL (make test starts it)")
+@unittest.skipUnless(os.environ.get("PITANGUS_DATABASE_URL"), "needs PostgreSQL (make test starts it)")
 class MigrationTests(unittest.TestCase):
     """The Alembic path of a production install (not the per-test schema): 0002 with orphans, then head."""
 
@@ -117,13 +117,13 @@ class MigrationTests(unittest.TestCase):
 
     def test_upgrade_cleans_orphans_then_adds_the_foreign_keys(self):
         from alembic import command
-        base = os.environ["TAMANDUA_DATABASE_URL"]
+        base = os.environ["PITANGUS_DATABASE_URL"]
         name = f"fk_{uuid.uuid4().hex[:12]}"
         admin = create_engine(base, isolation_level="AUTOCOMMIT")
         with admin.connect() as connection:
             connection.execute(text(f'CREATE DATABASE "{name}"'))
         try:
-            with patch.dict(os.environ, {"TAMANDUA_DATABASE_URL": base.rsplit("/", 1)[0] + f"/{name}", "TAMANDUA_DB_ISOLATE": ""}):
+            with patch.dict(os.environ, {"PITANGUS_DATABASE_URL": base.rsplit("/", 1)[0] + f"/{name}", "PITANGUS_DB_ISOLATE": ""}):
                 db.reset()
                 database.tables()
                 with db.engine().begin() as connection:
@@ -132,7 +132,7 @@ class MigrationTests(unittest.TestCase):
                     command.upgrade(settings, "0002")
                     for statement in self.ORPHANS.split(";")[:-1]:
                         connection.execute(text(statement))
-                with self.assertLogs("tamandua.database", "INFO") as logs:
+                with self.assertLogs("pitangus.database", "INFO") as logs:
                     database.upgrade()
                 with db.engine().connect() as connection:
                     left = {table: sorted(connection.execute(text(f"SELECT {column} FROM {table}")).scalars())
@@ -165,7 +165,7 @@ class MigrationTests(unittest.TestCase):
                           "registry_assets recreated for orphan findings: 1"])
 
 
-@unittest.skipUnless(os.environ.get("TAMANDUA_DATABASE_URL"), "needs PostgreSQL (make test starts it)")
+@unittest.skipUnless(os.environ.get("PITANGUS_DATABASE_URL"), "needs PostgreSQL (make test starts it)")
 class DoctorTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -185,7 +185,7 @@ class DoctorTests(unittest.TestCase):
         save_record(self.data_dir, {**scan("org/api", "github#5", ["d" * 64]), "id": uuid.uuid4().hex, "created_at": NOW})
 
     def integrity(self, *extra):
-        from tamandua.cli.main import main as cli
+        from pitangus.cli.main import main as cli
         with patch("sys.stdout", io.StringIO()) as out, patch("sys.stderr", io.StringIO()):
             code = cli(["--data-dir", str(self.data_dir), "integrity", *extra])
         return code, out.getvalue()
@@ -204,7 +204,7 @@ class DoctorTests(unittest.TestCase):
         self.assertIn("Estado de hallazgos de repositorios sin ejecuciones: 1", output)
         self.assertIn("Decisiones de triage de repositorios sin ejecuciones: 1", output)
         self.assertIn("Ejecuciones terminadas que faltan en el registro de hallazgos: 1", output)
-        self.assertIn("Se pueden borrar 2 filas huérfanas: ejecuta tamandua integrity --fix.", output)
+        self.assertIn("Se pueden borrar 2 filas huérfanas: ejecuta pitangus integrity --fix.", output)
         self.assertEqual(count(self.data_dir, registry_findings, registry_findings.c.asset_key == "github#9"), 2)
         self.assertEqual(count(self.data_dir, triage_decisions), 2)
 
@@ -223,10 +223,10 @@ class DoctorTests(unittest.TestCase):
 
     def test_output_in_english(self):
         self.leave_orphans()
-        with patch.dict(os.environ, {"TAMANDUA_DEFAULT_LOCALE": "en"}):
+        with patch.dict(os.environ, {"PITANGUS_DEFAULT_LOCALE": "en"}):
             _, output = self.integrity()
         self.assertIn("Triage decisions of repositories with no runs left: 1", output)
-        self.assertIn("2 orphan rows can be deleted: run tamandua integrity --fix.", output)
+        self.assertIn("2 orphan rows can be deleted: run pitangus integrity --fix.", output)
 
 
 if __name__ == "__main__":
