@@ -11,10 +11,10 @@ between minor versions: anything that changes behaviour is called out below.
 
 - **Tamandua is now Pitangus**: the great kiskadee (*Pitangus sulphuratus*, the bird Colombians call bichofué), made in
   Colombia by Arodium. New logo and palette in the panel and the PDF reports, and a new tagline: "Spot it. Fix it.
-  Prove it." The repository moved to `pitangus-dev/pitangus`.
+  Prove it." The repository moved to `Pitangus-Dev/pitangus`.
 - **Every technical name follows, with no aliases**: the package and CLI (`pitangus`, `python -m pitangus`), the
   `PITANGUS_*` variables, the images (`ghcr.io/pitangus-dev/pitangus`, `-worker`, `-opengrep`), the GitHub Action
-  (`pitangus-dev/pitangus`), the compose project, containers, database, user and volume (`pitangus`, `pitangus-pg`),
+  (`Pitangus-Dev/pitangus`), the compose project, containers, database, user and volume (`pitangus`, `pitangus-pg`),
   the `X-Pitangus-*` headers, the session cookie (everyone signs in again), the `pitangus_*` metrics, the commit
   status context (`pitangus`: update branch protection rules that required `tamandua`), the DNS record for new domain
   verifications (`_pitangus.<domain>`) and the ids of custom secret rules (`pitangus-<id>`).
@@ -25,7 +25,7 @@ between minor versions: anything that changes behaviour is called out below.
 ### Upgrading from Tamandua 0.11
 
 1. On 0.11, take a backup: `make backup`.
-2. Check out `v0.12.0` from `https://github.com/pitangus-dev/pitangus` and rename the variables in `.env`:
+2. Check out `v0.12.0` from `https://github.com/Pitangus-Dev/pitangus` and rename the variables in `.env`:
    `sed -i.bak -e 's/TAMANDUA_/PITANGUS_/g' -e 's#tamandua-appsec/tamandua#pitangus-dev/pitangus#g' .env`.
 3. `make up` starts the new `pitangus` project with an empty database.
 4. `make restore FROM=backups/<date> CONFIRM=restore` brings your data back.

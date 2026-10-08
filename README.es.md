@@ -4,7 +4,7 @@
 
 <h1 align="center">Pitangus</h1>
 
-<p align="center"><a href="https://github.com/pitangus-dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/pitangus-dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
+<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
 
 <p align="center"><strong>Detéctalo. Corrígelo. Demuéstralo.</strong> Seguridad de aplicaciones autoalojada, libre y sin enviar tu código a nadie.</p>
 
@@ -37,7 +37,7 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 Necesitas **Docker** (Engine 24+ con Compose v2.24+), **make** y **git**, 4 GB de memoria y 8 GB de disco. `make doctor` lo comprueba.
 
 ```bash
-git clone --branch v0.12.0 https://github.com/pitangus-dev/pitangus.git
+git clone --branch v0.12.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up

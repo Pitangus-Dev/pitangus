@@ -24,7 +24,7 @@ from pitangus.modules.reporting.design import coverage_gaps
 from pitangus.shared.i18n import default_locale, t
 
 SPEC = "1.6"
-TOOL_URL = "https://github.com/pitangus-dev/pitangus"
+TOOL_URL = "https://github.com/Pitangus-Dev/pitangus"
 
 
 def _stamp(now: datetime | None) -> str:

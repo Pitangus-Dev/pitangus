@@ -19,7 +19,7 @@ SOCKET ?=
 FROM ?=
 SERVICE ?= api
 # Who signs the published images (cosign keyless, GitHub OIDC): the repository whose release workflow built them.
-SIGNER ?= pitangus-dev/pitangus
+SIGNER ?= Pitangus-Dev/pitangus
 OPENGREP_VERSION := $(shell sed -n 's/^ARG OPENGREP_VERSION=//p' docker/engines/opengrep/Dockerfile)
 VENV := .venv
 export PITANGUS_VERSION := $(VERSION)

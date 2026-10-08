@@ -143,7 +143,7 @@ jobs:
           fetch-depth: 0              # history is needed to compare against the base
           persist-credentials: false
       - id: pitangus
-        uses: pitangus-dev/pitangus@v0.12.0   # pin it to the tag's commit SHA, as with the other actions
+        uses: Pitangus-Dev/pitangus@v0.12.0   # pin it to the tag's commit SHA, as with the other actions
         with:
           exclude: |
             fixtures/
@@ -207,7 +207,7 @@ own scan:
         run: |
           python -m pip install semgrep   # pin the version
           semgrep scan --config p/ci --metrics off --sarif --output semgrep.sarif
-      - uses: pitangus-dev/pitangus@v0.12.0
+      - uses: Pitangus-Dev/pitangus@v0.12.0
         if: always()
         with:
           scan: false

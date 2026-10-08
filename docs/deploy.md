@@ -42,7 +42,7 @@ session signing key. Keep it in the platform's secrets manager, with a copy apar
 repository and no Docker socket (the worker runs the engines inside its own image).
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/pitangus-dev/pitangus/main/deploy/compose.yaml
+curl -fsSLO https://raw.githubusercontent.com/Pitangus-Dev/pitangus/main/deploy/compose.yaml
 printf 'PITANGUS_DB_PASSWORD=%s\nPITANGUS_MASTER_KEY=%s\nPITANGUS_PUBLIC_URL=%s\n' \
   "$(openssl rand -hex 24)" "$(openssl rand -base64 32)" "https://pitangus.example.com" > .env
 docker compose --profile https up -d        # --profile https: Caddy gets the certificate (skip it behind your own proxy)

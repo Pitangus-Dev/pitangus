@@ -42,7 +42,7 @@ copias de la base. `pitangus check-config` revisa toda la configuración y dice 
 construir, sin el repositorio y sin el socket de Docker (el worker ejecuta los motores dentro de su propia imagen).
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/pitangus-dev/pitangus/main/deploy/compose.yaml
+curl -fsSLO https://raw.githubusercontent.com/Pitangus-Dev/pitangus/main/deploy/compose.yaml
 printf 'PITANGUS_DB_PASSWORD=%s\nPITANGUS_MASTER_KEY=%s\nPITANGUS_PUBLIC_URL=%s\n' \
   "$(openssl rand -hex 24)" "$(openssl rand -base64 32)" "https://pitangus.example.com" > .env
 docker compose --profile https up -d        # --profile https: Caddy obtiene el certificado (sin él, detrás de tu proxy)

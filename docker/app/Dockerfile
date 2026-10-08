@@ -24,8 +24,8 @@ ARG DOCKER_CLI_SHA_AMD64=995d1ef289677f74fd58d8d2c35727b6a4ee389c69db8638a3e42d0
 ARG DOCKER_CLI_SHA_ARM64=76a624e4a8e5da654d1150e808175125efb5a6f1b6aa1cbd9caee18f51047a50
 LABEL org.opencontainers.image.title="Pitangus" \
       org.opencontainers.image.description="Self-hosted application security: SAST, secrets, dependencies, PRs and CVE tracker" \
-      org.opencontainers.image.source="https://github.com/pitangus-dev/pitangus" \
-      org.opencontainers.image.documentation="https://github.com/pitangus-dev/pitangus/tree/main/docs" \
+      org.opencontainers.image.source="https://github.com/Pitangus-Dev/pitangus" \
+      org.opencontainers.image.documentation="https://github.com/Pitangus-Dev/pitangus/tree/main/docs" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.version="${VERSION}"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LANG=C.UTF-8 \

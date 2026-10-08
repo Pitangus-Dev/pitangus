@@ -4,7 +4,7 @@ description: Find and fix security vulnerabilities in the current repository wit
 license: AGPL-3.0-only
 metadata:
   author: pitangus
-  homepage: https://github.com/pitangus-dev/pitangus
+  homepage: https://github.com/Pitangus-Dev/pitangus
 ---
 
 # Fix findings with Pitangus and prove the fix
@@ -20,7 +20,7 @@ Pitangus runs in Docker from its own folder (`~/pitangus` by default; honor `PIT
 PITANGUS_DIR="${PITANGUS_DIR:-$HOME/pitangus}"; test -f "$PITANGUS_DIR/Makefile" && echo ready
 ```
 
-If it is missing, **ask before** installing it: cloning `https://github.com/pitangus-dev/pitangus` into that
+If it is missing, **ask before** installing it: cloning `https://github.com/Pitangus-Dev/pitangus` into that
 folder and running `make -C "$PITANGUS_DIR" build` downloads Docker images (several hundred MB). It does not work
 without Docker.
 

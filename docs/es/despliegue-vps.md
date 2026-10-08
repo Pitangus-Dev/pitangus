@@ -7,7 +7,7 @@ Esta guía deja Pitangus en un servidor propio (Hetzner, DigitalOcean, Hostinger
 Con un servidor recién creado y un registro DNS que ya apunte a él, son cuatro comandos:
 
 ```bash
-git clone https://github.com/pitangus-dev/pitangus.git && cd pitangus
+git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
 git checkout v0.12.0                                   # la versión que quieras (ver Actualizar)
 make setup DOMAIN=pitangus.example.com PREBUILT=1   # HTTPS con Caddy + imágenes publicadas
 make up                                             # muestra https://pitangus.example.com y el código de configuración
@@ -98,7 +98,7 @@ Si quieres, un registro CAA `0 issue "letsencrypt.org"` limita quién puede emit
 Con el usuario `pitangus`:
 
 ```bash
-git clone https://github.com/pitangus-dev/pitangus.git && cd pitangus
+git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
 git checkout v0.12.0
 make setup DOMAIN=pitangus.example.com PREBUILT=1
 make doctor

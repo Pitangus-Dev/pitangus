@@ -4,7 +4,7 @@ English · [Español](README.es.md)
 
 <h1 align="center">Pitangus</h1>
 
-<p align="center"><a href="https://github.com/pitangus-dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/pitangus-dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
+<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
 
 <p align="center"><strong>Spot it. Fix it. Prove it.</strong> Self-hosted, open-source application security that never sends your code anywhere.</p>
 
@@ -37,7 +37,7 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 You need **Docker** (Engine 24+ with Compose v2.24+), **make** and **git**, 4 GB of memory and 8 GB of disk. `make doctor` checks all of it.
 
 ```bash
-git clone --branch v0.12.0 https://github.com/pitangus-dev/pitangus.git
+git clone --branch v0.12.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up

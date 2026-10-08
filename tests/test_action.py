@@ -145,14 +145,14 @@ class ActionDefinitionTests(unittest.TestCase):
 
     def test_only_the_release_workflow_of_a_version_tag_signs(self):
         signers = re.compile(steps(ACTION)[MAIN]["literal"]["SIGNERS"])
-        for identity in ("https://github.com/pitangus-dev/pitangus/.github/workflows/release.yml@refs/tags/v0.10.4",
-                         "https://github.com/pitangus-dev/pitangus/.github/workflows/release.yml@refs/tags/v0.12"):
+        for identity in ("https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags/v0.10.4",
+                         "https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags/v0.12"):
             self.assertRegex(identity, signers)
-        for identity in ("https://github.com/pitangus-dev/pitangus/.github/workflows/release.yml@refs/heads/main",
-                         "https://github.com/pitangus-dev/pitangus/.github/workflows/ci.yml@refs/tags/v0.10.4",
+        for identity in ("https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/heads/main",
+                         "https://github.com/Pitangus-Dev/pitangus/.github/workflows/ci.yml@refs/tags/v0.10.4",
                          "https://github.com/someone/pitangus/.github/workflows/release.yml@refs/tags/v0.10.4",
-                         "https://github.com/pitangus-dev/pitangus/.github/workflows/release.yml@refs/tags/v0.10.4-evil",
-                         "https://github.com/pitangus-devXpitangus/.github/workflows/release.yml@refs/tags/v0.10.4",
+                         "https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags/v0.10.4-evil",
+                         "https://github.com/Pitangus-DevXpitangus/.github/workflows/release.yml@refs/tags/v0.10.4",
                          "https://github.com/BrayansStivens/appsec-agent/.github/workflows/release.yml@refs/tags/v0.10.1"):
             self.assertNotRegex(identity, signers)
         self.assertIn("if: inputs.verify != 'false'\n      uses: sigstore/cosign-installer@", ACTION)

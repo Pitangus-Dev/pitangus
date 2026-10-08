@@ -45,7 +45,7 @@ jobs:
             const BRANCH = 'cla-signatures'
             const FILE = 'signatures/v1/cla.json'
             const MARKER = '<!-- pitangus-cla -->'
-            const DOCUMENT = 'https://github.com/pitangus-dev/pitangus/blob/main/.github/CLA.md'
+            const DOCUMENT = 'https://github.com/Pitangus-Dev/pitangus/blob/main/.github/CLA.md'
             const ALLOWLIST = new Set(['BrayansStivens'])
             const { owner, repo } = context.repo
             const number = context.payload.pull_request ? context.payload.pull_request.number : context.payload.issue.number

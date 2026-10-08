@@ -19,7 +19,7 @@ You don't need to install Python, Node or the scanning engines: everything runs 
 ## First install
 
 ```bash
-git clone https://github.com/pitangus-dev/pitangus.git
+git clone https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make up
 ```

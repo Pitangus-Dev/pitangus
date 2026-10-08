@@ -19,7 +19,7 @@ No hace falta instalar Python, Node ni los motores de análisis: todo va en cont
 ## Primera instalación
 
 ```bash
-git clone https://github.com/pitangus-dev/pitangus.git
+git clone https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make up
 ```

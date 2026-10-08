@@ -20,7 +20,7 @@ You **don't** need Python or Node to use it, only to develop it (`make dev-setup
 ## Start it
 
 ```bash
-git clone https://github.com/pitangus-dev/pitangus.git
+git clone https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make up
 ```

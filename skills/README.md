@@ -14,7 +14,7 @@ Fixing findings and the `pre-push` hook need Docker and a copy of Pitangus (in `
 ## Install
 
 ```bash
-npx skills add pitangus-dev/pitangus
+npx skills add Pitangus-Dev/pitangus
 ```
 
 Or by hand: copy the skill's folder into your agent's skills folder (in Claude Code, `~/.claude/skills/` or the

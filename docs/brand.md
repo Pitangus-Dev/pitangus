@@ -6,7 +6,7 @@ English · [Español](es/marca.md)
 
 **Pitangus** is the great kiskadee (*Pitangus sulphuratus*), the bird Colombians call **bichofué**. It perches still on a branch, watches everything that moves and catches bugs of every kind, in the air or on the ground; it's small and still takes on hawks far bigger than itself. That's what we want to be for small teams: watch every change, catch what's wrong and show it's gone.
 
-The brand is written **Pitangus**. The technical name is also `pitangus`: package, CLI, `PITANGUS_*` variables, images, container and the GitHub commit status. The GitHub repository is `pitangus`, in the `pitangus-dev` organization. Pitangus is made in Colombia by **Arodium**.
+The brand is written **Pitangus**. The technical name is also `pitangus`: package, CLI, `PITANGUS_*` variables, images, container and the GitHub commit status. The GitHub repository is `pitangus`, in the `Pitangus-Dev` organization. Pitangus is made in Colombia by **Arodium**.
 
 ## Mascot and logo
 

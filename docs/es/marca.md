@@ -6,7 +6,7 @@
 
 **Pitangus** es el *Pitangus sulphuratus*, el pájaro que en Colombia llamamos **bichofué**. Se queda quieto en su rama, vigila todo lo que se mueve y caza bichos de todo tipo, en el aire o en el suelo; es pequeño y aun así enfrenta a gavilanes mucho más grandes que él. Eso queremos ser para los equipos pequeños: vigilar cada cambio, atrapar lo que está mal y demostrar que ya no está.
 
-La marca se escribe **Pitangus**; en texto en español también se puede decir «el bichofué». El nombre técnico también es `pitangus`: paquete, CLI, variables `PITANGUS_*`, imágenes, contenedor y estado de commit en GitHub. El repositorio de GitHub es `pitangus`, en la organización `pitangus-dev`. Pitangus está hecho en Colombia por **Arodium**.
+La marca se escribe **Pitangus**; en texto en español también se puede decir «el bichofué». El nombre técnico también es `pitangus`: paquete, CLI, variables `PITANGUS_*`, imágenes, contenedor y estado de commit en GitHub. El repositorio de GitHub es `pitangus`, en la organización `Pitangus-Dev`. Pitangus está hecho en Colombia por **Arodium**.
 
 ## Mascota y logo
 

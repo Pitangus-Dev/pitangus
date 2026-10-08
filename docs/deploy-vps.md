@@ -7,7 +7,7 @@ This guide puts Pitangus on its own server (Hetzner, DigitalOcean, Hostinger, OV
 With a fresh server and a DNS record already pointing at it, it's four commands:
 
 ```bash
-git clone https://github.com/pitangus-dev/pitangus.git && cd pitangus
+git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
 git checkout v0.12.0                                   # the release you want (see Upgrades)
 make setup DOMAIN=pitangus.example.com PREBUILT=1   # HTTPS with Caddy + published images
 make up                                             # prints https://pitangus.example.com and the setup code
@@ -98,7 +98,7 @@ Optionally, a CAA record `0 issue "letsencrypt.org"` limits who can issue certif
 As the `pitangus` user:
 
 ```bash
-git clone https://github.com/pitangus-dev/pitangus.git && cd pitangus
+git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
 git checkout v0.12.0
 make setup DOMAIN=pitangus.example.com PREBUILT=1
 make doctor

@@ -20,7 +20,7 @@ Python y Node **no** hacen falta para usarlo: solo para desarrollar (`make dev-s
 ## Levantarlo
 
 ```bash
-git clone https://github.com/pitangus-dev/pitangus.git
+git clone https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make up
 ```
