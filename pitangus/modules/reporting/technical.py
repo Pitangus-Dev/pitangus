@@ -17,7 +17,7 @@ from reportlab.platypus import KeepTogether, Paragraph, Spacer, Table
 from pitangus.modules.reporting.audit import status_label, status_of
 from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
-from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, BRAND, BRAND_BG, DANGER, DANGER_BG, INK, MUTED, ORDER, SEVERITY, SOFT,
+from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, DANGER, DANGER_BG, INK, MUTED, ORDER, SEVERITY, SOFT,
                             STYLE, SUCCESS, SUCCESS_BG, WIDTH, GAP_STATES, build, bullets, chip, count, coverage_gaps, day, h2, header,
                             hexval, kpis, listing, meta, severity_label, step_status, t as _t, table)
 from pitangus.shared import i18n
@@ -75,7 +75,7 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
     story += [Spacer(1, 10), h2(t("reports.common.summary")),
               kpis([(t("reports.technical.kpi.pending"), len(active), INK, SOFT), (t("reports.audit.kpi.critical"), counts["critical"], SEVERITY["critical"][1], DANGER_BG),
                     (t("reports.audit.kpi.high"), counts["high"], ATTENTION, ATTENTION_BG), (t("reports.technical.kpi.kev"), kev, DANGER, DANGER_BG),
-                    (t("reports.technical.kpi.actions"), len(groups), BRAND, BRAND_BG), (t("reports.audit.kpi.fixed"), len(fixed), SUCCESS, SUCCESS_BG)]),
+                    (t("reports.technical.kpi.actions"), len(groups), INK, SOFT), (t("reports.audit.kpi.fixed"), len(fixed), SUCCESS, SUCCESS_BG)]),
               Spacer(1, 6), Paragraph(_t(summary, 900), STYLE["body"])]
     gaps = coverage_gaps(record.get("steps") or [], locale=locale)
     if gaps:

@@ -25,7 +25,8 @@ from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, NextPageT
 from pitangus.shared import i18n
 
 # Panel tokens in light mode (web/src/index.css), in hex for the PDF and the SVG.
-BRAND, BRAND_BG = colors.HexColor("#9c4a1e"), colors.HexColor("#fbf5e6")
+BRAND_HEX = "#9c4a1e"
+BRAND, BRAND_BG = colors.HexColor(BRAND_HEX), colors.HexColor("#fbf5e6")
 INK, MUTED, LINE, SOFT = colors.HexColor("#171717"), colors.HexColor("#636363"), colors.HexColor("#e5e5e5"), colors.HexColor("#f5f5f5")
 SUCCESS, SUCCESS_BG = colors.HexColor("#006e42"), colors.HexColor("#e9f8ef")
 DANGER, DANGER_BG = colors.HexColor("#b71824"), colors.HexColor("#ffefed")

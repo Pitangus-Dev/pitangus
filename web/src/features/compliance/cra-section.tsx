@@ -155,7 +155,7 @@ function EventCard({ event, admin, onChange }: { event: CraEvent; admin: boolean
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div className="min-w-0"><p className="flex flex-wrap items-center gap-2 font-medium"><Flame aria-hidden className={`size-4 ${event.state === 'not_affected' ? 'text-app-muted' : 'text-danger'}`} /><span className="font-mono text-sm">{event.cve}</span>
         <StateChip state={event.state} />
-        {event.kev.ransomware && <span className="rounded border border-danger-line px-1.5 text-[11px] text-danger">{t('event.ransomware')}</span>}{event.status === 'fixed' && <span className="rounded border border-app-line px-1.5 text-[11px] text-brand">{t('event.fixed')}</span>}</p>
+        {event.kev.ransomware && <span className="rounded border border-danger-line px-1.5 text-[11px] text-danger">{t('event.ransomware')}</span>}{event.status === 'fixed' && <span className="rounded border border-app-line px-1.5 text-[11px] text-success">{t('event.fixed')}</span>}</p>
         <p className="mt-0.5 text-sm text-app-muted">{event.product} · {event.packages.join(', ') || event.title}</p>
         <p className="text-xs text-app-subtle">{[event.kev.name, t('event.in_kev', { date: event.kev.date_added ? day(event.kev.date_added) : '—' }),
           event.aware_at ? t('event.clock', { date: formatDate(event.aware_at) }) : ''].filter(Boolean).join(' · ')}</p></div>

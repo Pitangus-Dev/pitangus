@@ -76,7 +76,7 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
 }
 
 function Kpi({ label, value, suffix = '', hint, tone, icon: Icon }: { label: string; value: number | string; suffix?: string; hint: string; tone: 'rose' | 'amber' | 'teal' | 'muted'; icon?: typeof Flame }) {
-  const color = { rose: 'text-danger', amber: 'text-warning', teal: 'text-brand', muted: 'text-app-fg' }[tone]
+  const color = { rose: 'text-danger', amber: 'text-warning', teal: 'text-success', muted: 'text-app-fg' }[tone]
   return <Card className="border-app-line bg-panel"><CardContent className="flex items-start justify-between p-4"><div className="min-w-0"><div className={`text-2xl font-semibold ${color}`}>{value}<span className="text-sm font-normal text-app-subtle">{suffix}</span></div><div className="mt-0.5 text-xs text-app-muted">{label}</div><div className="truncate text-[11px] text-app-subtle" title={hint}>{hint}</div></div>{Icon && <Icon className="size-4 shrink-0 text-app-subtle" />}</CardContent></Card>
 }
 // Novedades a dos columnas: a la izquierda las cifras y el «skyline» de severidad de los últimos

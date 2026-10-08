@@ -19,7 +19,7 @@ from reportlab.platypus import CondPageBreak, KeepTogether, Paragraph, Spacer, T
 
 from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
-from pitangus.modules.reporting.design import (BRAND, BRAND_BG, DANGER_BG, INK, ORDER, SEVERITY, SOFT, STYLE, SUCCESS, SUCCESS_BG, WIDTH,
+from pitangus.modules.reporting.design import (DANGER_BG, INK, ORDER, SEVERITY, SOFT, STYLE, SUCCESS, SUCCESS_BG, WIDTH,
                             build, bullets, chip as _chip, count as _count, coverage_gaps, day as _day, disclaimer, grid as _grid, h2, header,
                             hexval, kpis as _kpis, listing, meta, signoff, t as _t)
 from pitangus.shared import i18n
@@ -281,7 +281,7 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
                      (i18n.t("reports.audit.kpi.critical", locale), counts["critical"], SEVERITY["critical"][1], DANGER_BG),
                      (i18n.t("reports.audit.kpi.high", locale), counts["high"], SEVERITY["high"][0], SEVERITY["high"][1]),
                      (i18n.t("reports.audit.kpi.open", locale), active, INK, SOFT), (i18n.t("reports.audit.kpi.fixed", locale), fixed, SUCCESS, SUCCESS_BG),
-                     (i18n.t("reports.audit.kpi.excepted", locale), excepted, BRAND, BRAND_BG)]),
+                     (i18n.t("reports.audit.kpi.excepted", locale), excepted, INK, SOFT)]),
               Spacer(1, 6), Paragraph(_t(" ".join(sentences), 900), STYLE["body"])]
     if controls:
         story += _controls(framework_label, controls, deadlines=bool(((record.get("summary") or {}).get("sla") or {}).get("days")), locale=locale)
@@ -398,7 +398,7 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
                      (i18n.t("reports.audit.kpi.open_high", locale), totals["high"], SEVERITY["high"][0], SEVERITY["high"][1]),
                      (i18n.t("reports.audit.kpi.open", locale), totals["open"], INK, SOFT),
                      (i18n.t("reports.audit.kpi.fixed", locale), totals["fixed"], SUCCESS, SUCCESS_BG),
-                     (i18n.t("reports.audit.kpi.excepted", locale), totals["excepted"], BRAND, BRAND_BG)]),
+                     (i18n.t("reports.audit.kpi.excepted", locale), totals["excepted"], INK, SOFT)]),
               Spacer(1, 6),
               Paragraph(_t(i18n.t("reports.audit.portfolio_summary", locale, repositories=msg("reports.count.repositories", count=len(rows)),
                                   pending=msg("reports.count.pending_findings", count=totals["open"]),

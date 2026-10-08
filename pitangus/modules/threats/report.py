@@ -16,7 +16,7 @@ from reportlab.platypus import Paragraph, Spacer
 
 from pitangus.modules.threats import diagram as threat_diagram
 from pitangus.modules.threats import methods as threat_methods
-from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, BRAND, BRAND_BG, DANGER_BG, INK, SEVERITY, SOFT, STYLE, SUCCESS,
+from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, DANGER_BG, INK, SEVERITY, SOFT, STYLE, SUCCESS,
                             SUCCESS_BG, WIDTH, build, bullets, chip, disclaimer, h2, header, kpis, listing, meta, severity_label,
                             table, wide_page, wide_size)
 from pitangus.modules.reporting.design import t as esc
@@ -168,7 +168,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
     story += [Spacer(1, 10), h2(r("summary")),
               kpis([(r("kpi_open"), len(data["pending"]), INK, SOFT), (r("kpi_critical"), counts["critical"], SEVERITY["critical"][1], DANGER_BG),
                     (r("kpi_high"), counts["high"], ATTENTION, ATTENTION_BG), (r("kpi_evidenced"), len(data["evidenced"]), ATTENTION, ATTENTION_BG),
-                    (r("kpi_team"), team_open, BRAND, BRAND_BG), (r("kpi_decided"), len(data["decided"]), SUCCESS, SUCCESS_BG)]),
+                    (r("kpi_team"), team_open, INK, SOFT), (r("kpi_decided"), len(data["decided"]), SUCCESS, SUCCESS_BG)]),
               Spacer(1, 6),
               Paragraph(esc(summary, 900), STYLE["body"]),
               Paragraph(esc(r("how_to_read"), 400), STYLE["note"])]

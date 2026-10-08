@@ -39,7 +39,6 @@
     --color-success: var(--success);
     --color-success-soft: var(--success-soft);
     --color-success-line: var(--success-line);
-    --color-on-brand: var(--on-solid);
     --color-on-solid: var(--on-solid);
     --color-overlay: var(--overlay);
     --color-knob: var(--knob);
@@ -299,7 +298,7 @@ body { min-width: 320px; }
 .tm-canvas .tm-flow { stroke: var(--app-muted); stroke-width: 1.5; }
 .tm-canvas .tm-flow--plain { stroke: var(--danger); stroke-dasharray: 5 4; }
 .tm-canvas .tm-flow--flagged { stroke: var(--attention); stroke-width: 2; }
-.tm-canvas .tm-flow--selected { stroke: var(--brand); stroke-width: 2.25; }
+.tm-canvas .tm-flow--selected { stroke: var(--app-fg); stroke-width: 2.25; }
 .tm-canvas .tm-flow-label { position: absolute; pointer-events: all; cursor: pointer; }
 .tm-canvas .react-flow__edge-textbg { fill: var(--app-panel); }
 

@@ -18,13 +18,13 @@ from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer,
 
 # Tokens of the report design system (report_design); this renderer remains for the
 # reports that are still Markdown (legacy dossiers, PR reviews).
-from pitangus.modules.reporting.design import BRAND as TEAL, INK, LINE, MUTED, SOFT
+from pitangus.modules.reporting.design import BRAND, BRAND_HEX, INK, LINE, MUTED, SOFT
 from pitangus.shared.i18n import t
 
 AMBER = colors.HexColor("#8a4c00")
 
 STYLES = {
-    "eyebrow": ParagraphStyle("eyebrow", fontName="Helvetica-Bold", fontSize=9, leading=13, textColor=TEAL, spaceAfter=8),
+    "eyebrow": ParagraphStyle("eyebrow", fontName="Helvetica-Bold", fontSize=9, leading=13, textColor=BRAND, spaceAfter=8),
     "title": ParagraphStyle("title", fontName="Helvetica-Bold", fontSize=25, leading=29, textColor=INK, spaceAfter=11),
     "subtitle": ParagraphStyle("subtitle", fontName="Helvetica", fontSize=10, leading=15, textColor=MUTED, spaceAfter=15),
     "h2": ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=13, leading=18, textColor=INK, spaceBefore=16, spaceAfter=7, keepWithNext=True),
@@ -40,7 +40,7 @@ def _inline(value: str) -> str:
     # Escape the untrusted text first; only then add our own markup.
     safe = html.escape(value, quote=False)
     safe = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", safe)
-    safe = re.sub(r"`([^`]+)`", r'<font color="#9c4a1e">\1</font>', safe)
+    safe = re.sub(r"`([^`]+)`", rf'<font color="{BRAND_HEX}">\1</font>', safe)
     return safe.replace("\n", "<br/>")
 
 
@@ -54,7 +54,7 @@ def _table(lines: list[str]) -> Table:
     table = Table(rows, colWidths=[available / width] * width, hAlign="LEFT", repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), SOFT),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.7, TEAL),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.7, BRAND),
         ("LINEBELOW", (0, 1), (-1, -1), 0.3, LINE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
@@ -76,7 +76,7 @@ def render_pdf(markdown: str, *, title: str, kind: str, reference: str = "", loc
     story = [Paragraph("PITANGUS", STYLES["eyebrow"]),
              Paragraph(_inline(title), STYLES["title"]),
              Paragraph(_inline(kind + (f"  ·  {reference}" if reference else "")), STYLES["subtitle"]),
-             HRFlowable(width="100%", thickness=1.2, color=TEAL, spaceAfter=12)]
+             HRFlowable(width="100%", thickness=1.2, color=BRAND, spaceAfter=12)]
     lines = markdown.splitlines()
     index = 0
     # The Markdown heading already shows on the compact cover.
@@ -104,7 +104,7 @@ def render_pdf(markdown: str, *, title: str, kind: str, reference: str = "", loc
         elif line.startswith("> "):
             story.append(Paragraph(_inline(line[2:]), STYLES["quote"]))
         elif re.match(r"^(?:[-*] |\d+\. )", line):
-            story.append(Paragraph("<font color='#9c4a1e'>•</font>  " + _inline(re.sub(r"^(?:[-*] |\d+\. )", "", line)), STYLES["body"]))
+            story.append(Paragraph(f"<font color='{BRAND_HEX}'>•</font>  " + _inline(re.sub(r"^(?:[-*] |\d+\. )", "", line)), STYLES["body"]))
         else:
             story.append(Paragraph(_inline(line), STYLES["body"]))
         index += 1
@@ -112,7 +112,7 @@ def render_pdf(markdown: str, *, title: str, kind: str, reference: str = "", loc
     def frame(canvas, document):
         canvas.saveState()
         width, height = A4
-        canvas.setFillColor(TEAL)
+        canvas.setFillColor(BRAND)
         canvas.rect(0, height - 4, width, 4, stroke=0, fill=1)
         canvas.setStrokeColor(LINE)
         canvas.line(20 * mm, 14 * mm, width - 20 * mm, 14 * mm)

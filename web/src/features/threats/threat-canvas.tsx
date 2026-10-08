@@ -103,7 +103,7 @@ function ComponentNode({ data, selected }: NodeProps<Node<ComponentData, 'compon
   const shape = PROCESSES.includes(base) ? 'rounded-full px-5' : STORES.includes(base) ? 'rounded-none border-x-0 border-y-2' : base === 'external' ? 'rounded-lg border-dashed' : 'rounded-lg'
   const sensitive = component.data.some(item => SENSITIVE.includes(item))
   return <div title={component.name} className={`tm-node flex h-full min-h-[64px] w-full flex-col items-center justify-center border-[1.5px] px-3 py-2 text-center shadow-sm ${shape}
-    ${NODE_BASE} ${NODE_WASH[tone]} ${flagged ? 'ring-2 ring-attention' : ''} ${selected ? 'outline-2 outline-offset-2 outline-brand' : ''}`}>
+    ${NODE_BASE} ${NODE_WASH[tone]} ${flagged ? 'ring-2 ring-attention' : ''} ${selected ? 'outline-2 outline-offset-2 outline-app-fg' : ''}`}>
     <NodeResizer isVisible minWidth={140} minHeight={64} maxWidth={520} maxHeight={320} keepAspectRatio={keepRatio} color="var(--brand)" lineClassName="tm-resize-line" handleClassName="tm-resize-handle" />
     {(['t', 'r', 'b', 'l'] as const).map(side => <Handle key={side} id={side} type="source" position={{ t: Position.Top, r: Position.Right, b: Position.Bottom, l: Position.Left }[side]} className="tm-handle" />)}
     <span className="line-clamp-2 text-[13px] leading-4 font-semibold text-app-fg">{component.name}</span>
@@ -118,7 +118,7 @@ function ComponentNode({ data, selected }: NodeProps<Node<ComponentData, 'compon
 
 function BoundaryNode({ data, selected }: NodeProps<Node<BoundaryData, 'boundary'>>) {
   const keepRatio = useContext(ShiftContext)
-  return <div className={`tm-boundary relative h-full w-full rounded-2xl border-2 border-dashed ${BOUNDARY_TONE[data.tone]} ${selected ? 'outline-2 outline-offset-2 outline-brand' : ''}`}>
+  return <div className={`tm-boundary relative h-full w-full rounded-2xl border-2 border-dashed ${BOUNDARY_TONE[data.tone]} ${selected ? 'outline-2 outline-offset-2 outline-app-fg' : ''}`}>
     <NodeResizer isVisible minWidth={220} minHeight={140} keepAspectRatio={keepRatio} color="var(--brand)" lineClassName="tm-resize-line" handleClassName="tm-resize-handle" />
     <span className={`tm-drag absolute top-2 left-3 cursor-move rounded-md bg-panel px-1.5 py-0.5 text-xs font-semibold ${data.tone === 'neutral' ? 'text-app-muted' : TEXT_TONE[data.tone]}`}>{data.name}</span>
   </div>

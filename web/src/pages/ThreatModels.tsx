@@ -22,7 +22,7 @@ import { assetGroups, newId, type Catalog, type Component, type CustomModule, ty
 
 // Catalog keys (`threats` namespace; severities from `common`).
 const statusLabel = { evidenced: 'status.evidenced', open: 'status.open', mitigated: 'status.mitigated', accepted: 'status.accepted', not_applicable: 'status.not_applicable' }
-const statusClass = { evidenced: 'border-warning-line bg-warning-soft text-warning', open: 'border-app-line text-app-secondary', mitigated: 'border-brand/30 text-brand', accepted: 'border-brand/30 text-brand', not_applicable: 'border-app-line text-app-subtle' }
+const statusClass = { evidenced: 'border-warning-line bg-warning-soft text-warning', open: 'border-app-line text-app-secondary', mitigated: 'border-success-line text-success', accepted: 'border-info-line text-info', not_applicable: 'border-app-line text-app-subtle' }
 const severityClass: Record<string, string> = { critical: 'border-transparent bg-danger-solid text-on-solid', high: 'border-attention-line bg-attention-soft text-attention', medium: 'border-warning-line bg-warning-soft text-warning', low: 'border-info-line bg-info-soft text-info' }
 const severityLabel: Record<string, string> = { critical: 'common:severity.critical', high: 'common:severity.high', medium: 'common:severity.medium', low: 'common:severity.low', info: 'common:severity.info' }
 const LIKELIHOOD = { low: 'threat.likelihood.low', medium: 'threat.likelihood.medium', high: 'threat.likelihood.high' } as const

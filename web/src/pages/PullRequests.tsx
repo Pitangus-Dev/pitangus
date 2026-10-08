@@ -112,7 +112,7 @@ export function PullRequests({ user, onOpenRun }: { user: SessionUser; onOpenRun
     <div className="min-w-0 space-y-5">
     <Card className="border-app-line bg-panel"><CardHeader className="gap-3">
       <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><CardTitle className="truncate">{selected?.name ?? t('repo.choose')}</CardTitle><CardDescription className="mt-1">{t('repo.description')}</CardDescription></div>
-        {settings && <Badge variant="outline" className={settings.enabled ? 'border-brand/30 text-brand' : 'border-app-line text-app-muted'}>{settings.enabled ? t('repo.watching') : t('repo.not_watching')}</Badge>}</div>
+        {settings && <Badge variant="outline" className={settings.enabled ? 'border-success-line text-success' : 'border-app-line text-app-muted'}>{settings.enabled ? t('repo.watching') : t('repo.not_watching')}</Badge>}</div>
       {settings && <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-app-line bg-inset px-4 py-3 text-sm">
         <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-brand" checked={settings.post_comment} disabled={!admin || !!busy} onChange={event => void save({ post_comment: event.target.checked })} />{t('repo.post_comment')}</label>
         <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-brand" checked={settings.branch} disabled={!admin || !!busy} onChange={event => void save({ branch: event.target.checked })} />{t('repo.branch')}</label>
