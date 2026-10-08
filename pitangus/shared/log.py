@@ -19,8 +19,9 @@ from pathlib import Path
 
 from pitangus.shared import settings
 
+# Domains verified before the rename keep their `tamandua-verify=` token.
 SECRET_PATTERN = re.compile(r"(ghp_|ghs_|ghu_|gho_|ghr_|github_pat_|sk-[A-Za-z0-9-]|xox[abp]-|AKIA|ATATT|eyJ[A-Za-z0-9_-]{10,}"
-                            r"|pitangus-verify=|Bearer |Basic |token=|apiKey=|client_secret=)[A-Za-z0-9_\-./+=]*")
+                            r"|(?:pitangus|tamandua)-verify=|Bearer |Basic |token=|apiKey=|client_secret=)[A-Za-z0-9_\-./+=]*")
 PEM_PATTERN = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(-----END [A-Z ]*PRIVATE KEY-----|$)", re.S)
 _configured = False
 _known: set[str] = set()
