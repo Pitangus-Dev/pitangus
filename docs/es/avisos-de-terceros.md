@@ -2,19 +2,19 @@
 
 # Software y datos de terceros
 
-Tamandua (AGPL-3.0, ver `LICENSE`) orquesta motores de análisis de terceros y consulta bases públicas de
+Pitangus (AGPL-3.0, ver `LICENSE`) orquesta motores de análisis de terceros y consulta bases públicas de
 vulnerabilidades. Este documento lista qué se usa, bajo qué licencia y qué obliga, tanto al distribuir
-Tamandua como al ofrecerlo como servicio gestionado.
+Pitangus como al ofrecerlo como servicio gestionado.
 
 Licencias comprobadas el 2026-09-25 contra el repositorio de cada proyecto (API de GitHub) y los metadatos de
-los paquetes instalados. Revisa este archivo al cambiar una versión fijada en `tamandua/modules/scanning/engines.py`.
+los paquetes instalados. Revisa este archivo al cambiar una versión fijada en `pitangus/modules/scanning/engines.py`.
 
 ## Motores de análisis
 
 Se ejecutan como **procesos independientes en su propio contenedor** (`docker run`), con sus imágenes
-oficiales fijadas por digest. Tamandua no enlaza su código ni lo modifica: es agregación, no una obra derivada.
+oficiales fijadas por digest. Pitangus no enlaza su código ni lo modifica: es agregación, no una obra derivada.
 
-| Motor | Versión | Licencia | Uso en Tamandua | Obligaciones |
+| Motor | Versión | Licencia | Uso en Pitangus | Obligaciones |
 |---|---|---|---|---|
 | [Trivy](https://github.com/aquasecurity/trivy) | 0.75.0 | Apache-2.0 | Dependencias, imágenes, IaC | Conservar avisos de licencia y NOTICE |
 | [OSV-Scanner](https://github.com/google/osv-scanner) | 2.6.0 | Apache-2.0 | Dependencias con la base OSV | Conservar avisos |
@@ -34,28 +34,28 @@ producto competidor. Cualquier regla nueva debe ser propia o de una fuente con l
 
 ## Bases de vulnerabilidades
 
-Se consultan en tiempo de análisis; no se redistribuyen dentro de Tamandua.
+Se consultan en tiempo de análisis; no se redistribuyen dentro de Pitangus.
 
 | Fuente | Uso | Licencia o términos | Atribución |
 |---|---|---|---|
 | [OSV.dev](https://osv.dev) (API) | Avisos por paquete y versión | Servicio de Google (Apache-2.0); cada aviso conserva la licencia de su fuente | Citar la fuente del aviso |
 | [GitHub Advisory Database](https://github.com/github/advisory-database) | Avisos (vía OSV y los motores) | CC-BY-4.0 | «Contiene datos de la GitHub Advisory Database (CC-BY-4.0)» |
 | [NVD](https://nvd.nist.gov) (API 2.0) | CVSS y descripciones | Dominio público (Gobierno de EE. UU.) | «This product uses data from the NVD API but is not endorsed or certified by the NVD.» |
-| [EUVD](https://euvd.enisa.europa.eu) (ENISA, API de búsqueda) | CVSS cuando NVD no puntúa y fecha de explotación activa, bajo demanda en el CVE tracker | Aviso legal de ENISA: reutilización citando la fuente; condiciones propias de la API **por confirmar** | Citar «EUVD (ENISA)»; se apaga con `TAMANDUA_EUVD=off` |
+| [EUVD](https://euvd.enisa.europa.eu) (ENISA, API de búsqueda) | CVSS cuando NVD no puntúa y fecha de explotación activa, bajo demanda en el CVE tracker | Aviso legal de ENISA: reutilización citando la fuente; condiciones propias de la API **por confirmar** | Citar «EUVD (ENISA)»; se apaga con `PITANGUS_EUVD=off` |
 | [OpenSSF Malicious Packages](https://github.com/ossf/malicious-packages) | Avisos `MAL-*` de paquetes maliciosos (vía OSV-Scanner) | Apache-2.0 | Conservar el aviso |
 | [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) | Explotación activa conocida | Dominio público (Gobierno de EE. UU.) | Citar CISA |
 | [EPSS](https://www.first.org/epss/) | Probabilidad de explotación | Uso libre con atribución (FIRST) | «EPSS: FIRST.org» |
 | Bases de Trivy y Grype (`trivy-db`, `grype-db`) | Descargadas por cada motor | Código Apache-2.0; las bases no declaran licencia propia y agregan fuentes con términos distintos | Ver la sección siguiente |
 
-Los informes de Tamandua muestran los identificadores (CVE, GHSA) y enlazan a la fuente; la descripción
+Los informes de Pitangus muestran los identificadores (CVE, GHSA) y enlazan a la fuente; la descripción
 íntegra de cada aviso se conserva con su referencia.
 
 ## Datos que agregan `trivy-db` y `grype-db`
 
 Revisado el 2026-09-25 fuente por fuente: la URL exacta en el código de `aquasecurity/trivy-db`,
-`aquasecurity/vuln-list-update` y `anchore/vunnel`, y la licencia en el origen de cada una. Tamandua no
+`aquasecurity/vuln-list-update` y `anchore/vunnel`, y la licencia en el origen de cada una. Pitangus no
 redistribuye estas bases: cada motor las descarga en la instalación que lo ejecuta. Aun así, al ofrecer
-Tamandua como servicio, los resultados derivados de ellas se muestran a clientes.
+Pitangus como servicio, los resultados derivados de ellas se muestran a clientes.
 
 **Incompatibles con un servicio de pago tal cual:**
 
@@ -94,7 +94,7 @@ gratuita con límites compartidos, y Aqua recomienda a los usos empresariales al
    no se analizan en el servicio de pago.
 2. Decidir las fuentes ambiguas (Amazon en primer lugar) pidiendo permiso o excluyéndolas.
 3. ~~Mostrar la fuente de cada aviso~~ Hecho: cada hallazgo de dependencias guarda su fuente y su licencia
-   (`tamandua/modules/intel/data_sources.py`); el panel la muestra en el detalle y los informes técnico, de auditoría y
+   (`pitangus/modules/intel/data_sources.py`); el panel la muestra en el detalle y los informes técnico, de auditoría y
    Markdown incluyen «Fuentes de los avisos» con la atribución de cada base y el aviso del NVD. Los análisis
    anteriores a este cambio no tienen fuente registrada hasta que se vuelven a analizar.
 
@@ -113,7 +113,7 @@ técnico, no asesoría legal.
 | pycparser (dependencia de cffi) | BSD-3-Clause |
 | ReportLab | BSD (licencia propia de ReportLab Inc., de tipo BSD) |
 
-**Panel web** (lo que viaja compilado en `tamandua/app/static`): React y React DOM (MIT), @xyflow/react (MIT),
+**Panel web** (lo que viaja compilado en `pitangus/app/static`): React y React DOM (MIT), @xyflow/react (MIT),
 @base-ui/react (MIT), lucide-react (ISC), class-variance-authority (Apache-2.0), qrcode (MIT),
 tw-animate-css (MIT), Tailwind CSS (MIT) y la fuente **Geist** (SIL OFL-1.1: se puede incrustar y
 redistribuir; no se puede vender la fuente por separado).
@@ -122,9 +122,9 @@ Revisión completa del árbol de `web/node_modules` (411 paquetes): MIT, ISC, BS
 Python-2.0, CC-BY-4.0 y OFL-1.1. La única excepción es **lightningcss** (MPL-2.0), que solo se usa al compilar
 el CSS y no se distribuye.
 
-## Al ofrecer Tamandua como servicio gestionado
+## Al ofrecer Pitangus como servicio gestionado
 
-- **La AGPL-3.0 de Tamandua** obliga a ofrecer el código fuente de la versión que se ejecuta a quien la usa por
+- **La AGPL-3.0 de Pitangus** obliga a ofrecer el código fuente de la versión que se ejecuta a quien la usa por
   red. Las funciones de la edición comercial que no sean AGPL deben vivir fuera de este repositorio; el
   [CLA](../../.github/CLA.es.md) permite al titular distribuir las contribuciones también bajo licencia comercial.
 - **Los motores** permiten el uso como servicio. **Los datos**, no todos: ver «Datos que agregan `trivy-db` y

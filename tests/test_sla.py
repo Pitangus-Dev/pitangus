@@ -4,18 +4,18 @@ import os
 import tempfile
 import unittest
 
-from tamandua.shared import documents
+from pitangus.shared import documents
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.reporting import dashboard
-from tamandua.modules.findings import registry as findings_registry
-from tamandua.modules.findings import sla
-from tamandua.modules.findings import triage
-from tamandua.modules.reporting.audit import render_audit_pdf, validate_options
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.runs.store import save_repository_scan
+from pitangus.modules.reporting import dashboard
+from pitangus.modules.findings import registry as findings_registry
+from pitangus.modules.findings import sla
+from pitangus.modules.findings import triage
+from pitangus.modules.reporting.audit import render_audit_pdf, validate_options
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.runs.store import save_repository_scan
 from test_auth import PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
 from test_report_design import text as pdf_text
@@ -114,14 +114,14 @@ class IntegrationTests(unittest.TestCase):
 class RouteTests(HttpCase):
     def setUp(self):
         super().setUp()
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("jefa", PASSWORD, role="admin")
             Users(self.data_dir).create("miembro", PASSWORD)
             self.admin = self.post("/api/auth/login", "login", {"username": "jefa", "password": PASSWORD})[2][0].split("; ")[0]
             self.member = self.post("/api/auth/login", "login", {"username": "miembro", "password": PASSWORD})[2][0].split("; ")[0]
 
     def test_everyone_reads_only_admins_change(self):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             self.assertEqual(self.call("GET", "/api/sla")[0], 401)
             status, body, _ = self.call("GET", "/api/sla", headers={"Cookie": self.member})
             self.assertEqual((status, body["days"]), (200, sla.DEFAULTS))

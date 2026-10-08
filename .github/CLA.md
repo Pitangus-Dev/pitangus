@@ -1,6 +1,6 @@
 English · [Español](CLA.es.md)
 
-# Contributor License Agreement (CLA) · Tamandua
+# Contributor License Agreement (CLA) · Pitangus
 
 Version 1.0 · September 23, 2026
 
@@ -12,10 +12,10 @@ You sign it only once, by commenting on your first pull request as the bot instr
 
 ## 1. Definitions
 
-- **"Owner"**: whoever maintains the Tamandua project, currently the person who controls the GitHub account [BrayansStivens](https://github.com/BrayansStivens), and any successor or assignee under section 8.
+- **"Owner"**: whoever maintains the Pitangus project, currently the person who controls the GitHub account [BrayansStivens](https://github.com/BrayansStivens), and any successor or assignee under section 8.
 - **"You"**: the individual who accepts this agreement or, if you contribute on behalf of an organization, that organization.
 - **"Contribution"**: any work (code, documentation, rules, designs or other material) that you submit to the Owner for inclusion in the project, by pull request, issue, patch or any other means, unless you clearly mark it in writing as "Not a Contribution".
-- **"Project"**: the Tamandua software (repository `Tamandua-AppSec/tamandua`) and its documentation, in any version or edition.
+- **"Project"**: the Pitangus software (repository `Pitangus-Dev/pitangus`) and its documentation, in any version or edition.
 
 ## 2. Copyright license
 
@@ -60,6 +60,6 @@ The Owner may assign this agreement and the rights it grants the Owner to a succ
 
 On your first pull request, the *CLA* workflow (`.github/workflows/cla.yml`) will ask you to comment exactly:
 
-> I have read the Tamandua CLA and I accept it
+> I have read the Pitangus CLA and I accept it
 
-(or its Spanish equivalent, «He leído el CLA de Tamandua y lo acepto»). Your GitHub username, the date and the pull request are recorded in the `cla-signatures` branch of this repository. The signature covers all your future contributions under this version of the agreement.
+(or its Spanish equivalent, «He leído el CLA de Pitangus y lo acepto»). Your GitHub username, the date and the pull request are recorded in the `cla-signatures` branch of this repository. The signature covers all your future contributions under this version of the agreement.

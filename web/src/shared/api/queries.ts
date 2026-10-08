@@ -50,7 +50,7 @@ export const runQuery = <T extends { status: string }>(id: string) => queryOptio
   refetchInterval: query => active(query.state.data?.status) ? 2000 : false,
 })
 
-// The exact version the server runs (0.11.1 in a release image), for the header badge.
+// The exact version the server runs (0.12.1 in a release image), for the header badge.
 export const healthQuery = () => queryOptions({ queryKey: keys.health, queryFn: ({ signal }) => apiGet('/api/health', undefined, { signal }), staleTime: 5 * 60_000 })
 export const slaQuery = () => queryOptions({ queryKey: keys.sla, queryFn: ({ signal }) => apiGet('/api/sla', undefined, { signal }) })
 export const craQuery = () => queryOptions({ queryKey: keys.craOverview, queryFn: ({ signal }) => apiGet('/api/cra', undefined, { signal }) })

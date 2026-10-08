@@ -2,7 +2,7 @@
 # Creates .env from .env.example with your UID/GID, and the data/, config/ and backups/ folders (yours, not root's).
 # Leaves an existing .env alone, except for what you ask for:
 #   make setup [PREBUILT=1]                           local use (http://127.0.0.1:8766)
-#   make setup DOMAIN=tamandua.example.com [PREBUILT=1 | PREBUILT=ghcr.io/you/tamandua]
+#   make setup DOMAIN=pitangus.example.com [PREBUILT=1 | PREBUILT=ghcr.io/you/pitangus]
 #     server: HTTPS with Caddy for that domain (compose.prod.yaml).
 #     The worker runs the engines inside its own image, without the Docker socket (compose.no-socket.yaml).
 #     SOCKET=1: engines as sibling containers through the socket instead; SOCKET=0 switches an existing server over.
@@ -26,17 +26,17 @@ set_var() {
 random_hex() { od -An -N"$1" -tx1 /dev/urandom | tr -d ' \n'; }
 
 if [ -n "$DOMAIN" ] && ! printf '%s' "$DOMAIN" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$'; then
-  echo "DOMAIN must be a host name like tamandua.example.com (no scheme, port or path)." >&2
+  echo "DOMAIN must be a host name like pitangus.example.com (no scheme, port or path)." >&2
   exit 2
 fi
 case "$PREBUILT" in
   ''|0) image= ;;
-  1) image=ghcr.io/tamandua-appsec/tamandua ;;
+  1) image=ghcr.io/pitangus-dev/pitangus ;;
   *) image=$PREBUILT ;;
 esac
-# A registry may carry a port (registry.example.com:5000/tamandua); the name itself, no tag or digest.
+# A registry may carry a port (registry.example.com:5000/pitangus); the name itself, no tag or digest.
 if [ -n "$image" ] && { ! printf '%s' "$image" | grep -Eq '^[a-z0-9][a-z0-9._:/-]*[a-z0-9]$' || case "${image##*/}" in *:*) true ;; *) false ;; esac; }; then
-  echo "PREBUILT must be 1 or an image name without tag, like ghcr.io/you/tamandua." >&2
+  echo "PREBUILT must be 1 or an image name without tag, like ghcr.io/you/pitangus." >&2
   exit 2
 fi
 case "$SOCKET" in
@@ -47,7 +47,7 @@ esac
 current=$(sed -n 's/^COMPOSE_FILE=//p' .env 2>/dev/null | tail -n1)
 has() { case ":$current:" in *":$1:"*) true ;; *) false ;; esac; }
 # Published images stay unless PREBUILT says otherwise (PREBUILT=0 goes back to building).
-[ -n "$PREBUILT" ] || ! has compose.images.yaml || image=$(sed -n 's/^TAMANDUA_IMAGE=//p' .env | tail -n1)
+[ -n "$PREBUILT" ] || ! has compose.images.yaml || image=$(sed -n 's/^PITANGUS_IMAGE=//p' .env | tail -n1)
 if [ "$SOCKET" = 0 ] || { [ -z "$SOCKET" ] && { has compose.no-socket.yaml || { [ -n "$DOMAIN" ] && ! has compose.prod.yaml; }; }; }; then
   no_socket=1
 else
@@ -64,30 +64,30 @@ compose_files() {
   printf '%s' "$files"
 }
 if [ ! -f .env ]; then
-  sed -e "s/^TAMANDUA_UID=.*/TAMANDUA_UID=$(id -u)/" -e "s/^TAMANDUA_GID=.*/TAMANDUA_GID=$(id -g)/" .env.example > .env
+  sed -e "s/^PITANGUS_UID=.*/PITANGUS_UID=$(id -u)/" -e "s/^PITANGUS_GID=.*/PITANGUS_GID=$(id -g)/" .env.example > .env
   chmod 600 .env
   echo "Created .env with your user ($(id -u):$(id -g)). Review it to change the port, URL or TLS."
 else
   echo ".env already exists: left unchanged."
 fi
 # PostgreSQL password: random and only in .env. An .env from before PostgreSQL gets it appended, nothing else changes.
-if ! grep -q '^TAMANDUA_DB_PASSWORD=.' .env; then
+if ! grep -q '^PITANGUS_DB_PASSWORD=.' .env; then
   password=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
-  if grep -q '^TAMANDUA_DB_PASSWORD=' .env; then
-    sed -i.bak "s/^TAMANDUA_DB_PASSWORD=.*/TAMANDUA_DB_PASSWORD=$password/" .env && rm -f .env.bak
+  if grep -q '^PITANGUS_DB_PASSWORD=' .env; then
+    sed -i.bak "s/^PITANGUS_DB_PASSWORD=.*/PITANGUS_DB_PASSWORD=$password/" .env && rm -f .env.bak
   else
-    printf '\n# Database password (generated; do not share it).\nTAMANDUA_DB_PASSWORD=%s\n' "$password" >> .env
+    printf '\n# Database password (generated; do not share it).\nPITANGUS_DB_PASSWORD=%s\n' "$password" >> .env
   fi
   echo "Generated the PostgreSQL password in .env."
 fi
 if [ -n "$DOMAIN" ]; then
   files=$(compose_files server "$image")
-  set_var TAMANDUA_DOMAIN "$DOMAIN"
-  set_var TAMANDUA_PUBLIC_URL "https://$DOMAIN"
-  set_var TAMANDUA_ALLOWED_ORIGINS "https://$DOMAIN"
+  set_var PITANGUS_DOMAIN "$DOMAIN"
+  set_var PITANGUS_PUBLIC_URL "https://$DOMAIN"
+  set_var PITANGUS_ALLOWED_ORIGINS "https://$DOMAIN"
   set_var COMPOSE_FILE "$files"
-  [ -n "$image" ] && set_var TAMANDUA_IMAGE "$image"
-  grep -q '^TAMANDUA_METRICS_TOKEN=.' .env || set_var TAMANDUA_METRICS_TOKEN "$(random_hex 32)"
+  [ -n "$image" ] && set_var PITANGUS_IMAGE "$image"
+  grep -q '^PITANGUS_METRICS_TOKEN=.' .env || set_var PITANGUS_METRICS_TOKEN "$(random_hex 32)"
   echo "Server mode: https://$DOMAIN behind Caddy ($files)."
   [ -n "$no_socket" ] && echo "Engines inside the worker: no Docker socket in any container (SOCKET=1 to use it)."
 elif [ -n "$PREBUILT" ] || [ -n "$SOCKET" ]; then
@@ -95,12 +95,12 @@ elif [ -n "$PREBUILT" ] || [ -n "$SOCKET" ]; then
   # mode keeps Caddy.
   files=$(compose_files "$(has compose.prod.yaml && echo server)" "$image")
   set_var COMPOSE_FILE "$files"
-  [ -z "$image" ] || set_var TAMANDUA_IMAGE "$image"
+  [ -z "$image" ] || set_var PITANGUS_IMAGE "$image"
   echo "Compose files: $files."
 fi
 # Back to building (PREBUILT=0): the published image and its pins go, so nothing checks or pulls them.
 if [ -z "$image" ] && has compose.images.yaml; then
-  sed -i.bak '/^TAMANDUA_IMAGE=/d; /^TAMANDUA_IMAGE_TAG=/d; /^TAMANDUA_WORKER_IMAGE_TAG=/d' .env && rm -f .env.bak
+  sed -i.bak '/^PITANGUS_IMAGE=/d; /^PITANGUS_IMAGE_TAG=/d; /^PITANGUS_WORKER_IMAGE_TAG=/d' .env && rm -f .env.bak
 fi
 mkdir -p data config backups
 chmod 700 config backups

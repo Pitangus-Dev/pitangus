@@ -1,4 +1,4 @@
-# Caddy in front of Tamandua (compose.prod.yaml). Automatic HTTPS for TAMANDUA_DOMAIN: certificate from
+# Caddy in front of Pitangus (compose.prod.yaml). Automatic HTTPS for PITANGUS_DOMAIN: certificate from
 # Let's Encrypt (ZeroSSL as fallback), renewed on its own, and HTTP redirected to HTTPS.
 # The app sets the security headers (CSP, HSTS, nosniff, frame, referrer): none are repeated here.
 {
@@ -14,7 +14,7 @@
 	}
 }
 
-{$TAMANDUA_DOMAIN} {
+{$PITANGUS_DOMAIN} {
 	# Above the app's own limit (1 MB), which answers with a precise error; this only stops abuse earlier.
 	request_body {
 		max_size 2MB

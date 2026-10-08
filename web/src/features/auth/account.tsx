@@ -68,7 +68,7 @@ export function Account({ user, onChanged, only }: { user: SessionUser; onChange
       <div><div className="text-lg font-semibold">{user.display_name}</div><div className="text-sm text-app-muted">{user.last_login_at
         ? t('account.profile_last_login', { username: user.username, role, date: formatDate(user.last_login_at) })
         : t('account.profile', { username: user.username, role })}</div></div>
-      <Badge variant="outline" className={user.totp_enabled ? 'border-brand/30 text-brand' : 'border-warning-line text-warning'}>{user.totp_enabled ? <><ShieldCheck className="size-3" />{t('account.totp_on')}</> : <><ShieldOff className="size-3" />{t('account.totp_off')}</>}</Badge>
+      <Badge variant="outline" className={user.totp_enabled ? 'border-success-line text-success' : 'border-warning-line text-warning'}>{user.totp_enabled ? <><ShieldCheck className="size-3" />{t('account.totp_on')}</> : <><ShieldOff className="size-3" />{t('account.totp_off')}</>}</Badge>
     </CardContent></Card>}
     {message && <div role={message.tone === 'error' ? 'alert' : 'status'} className={`xl:col-span-2 rounded-xl border px-4 py-3 text-sm ${message.tone === 'error' ? 'border-danger-line bg-danger-soft text-danger' : 'border-brand/30 bg-brand/10 text-brand'}`}>{message.text}</div>}
 

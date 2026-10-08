@@ -2,57 +2,57 @@ English · [Español](es/configuracion.md)
 
 # Configuration
 
-Every variable is optional and goes in `.env` (a copy of `.env.example`). After changing any of them, run `docker compose up -d`. `python -m tamandua check-config` (or `make cli ARGS=check-config`) checks them all; the server and the worker do it on start and stop with a clear message if one is invalid. On other platforms, see [deploy.md](deploy.md).
+Every variable is optional and goes in `.env` (a copy of `.env.example`). After changing any of them, run `docker compose up -d`. `python -m pitangus check-config` (or `make cli ARGS=check-config`) checks them all; the server and the worker do it on start and stop with a clear message if one is invalid. On other platforms, see [deploy.md](deploy.md).
 
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `TAMANDUA_HOST_BIND` / `TAMANDUA_HOST_PORT` | `127.0.0.1` / `8766` | Where the panel is published on the host. |
-| `TAMANDUA_PUBLIC_URL` | `http://127.0.0.1:8766` | URL people use to open the panel; it determines `Secure` cookies, HSTS and the App's Setup URL. |
-| `TAMANDUA_ALLOWED_ORIGINS` | 127.0.0.1 and localhost | Accepted origins (Host header and CSRF). |
-| `TAMANDUA_DEFAULT_LOCALE` | `en` | `en` or `es`. Language for PR comments, notifications, Jira issues, reports and CLI output when no person asked for one. The panel doesn't use it: it follows the browser's language, and each person can change it from the sidebar or the sign-in screen. |
-| `TAMANDUA_MASTER_KEY` | generated in `config/` | Master key (`openssl rand -base64 32`): it encrypts every secret in the database. Required where there is no persistent disk; the same on the API and every worker. |
-| `TAMANDUA_SESSION_KEY` | generated, sealed in the database | Key that signs session cookies (32 bytes in base64). Only to pin it from a secrets manager. |
-| `TAMANDUA_REQUIRE_TOTP` | `admins` | `admins`, `all` or `none`. |
-| `TAMANDUA_NVD_API_KEY` | — | NVD API key: faster CVE downloads. Sent in a header and never logged. |
-| `TAMANDUA_DB_PASSWORD` | (generated) | PostgreSQL password; `make setup` writes it to `.env`. |
-| `TAMANDUA_DATABASE_URL` | (compose) | PostgreSQL connection string. `compose.yaml` builds it from the password; outside compose, e.g. `postgresql://tamandua:…@localhost:5432/tamandua` (the `postgres://` URLs managed databases hand out work as they are). |
-| `TAMANDUA_EMBEDDED_WORKER` | `1` | `1`: the server also runs the scans (a single process). In compose the API uses `0` and the `worker` service runs them. |
-| `TAMANDUA_CVE_SYNC` | `on` | `off` turns off the local NVD copy. |
-| `TAMANDUA_EUVD` | `on` | `off` stops querying EUVD (ENISA) when NVD hasn't scored a CVE. Only the CVE identifier is sent. |
-| `TAMANDUA_PR_POLL_SECONDS` | `300` | How often watched PRs are checked. |
-| `TAMANDUA_BRANCH_MIN_MINUTES` | `60` | Minimum gap between two automatic rescans of the same repository's main branch (minimum 10). |
-| `TAMANDUA_ADVISORY_WATCH_HOURS` | `24` | How many hours between offline checks of already-scanned dependencies against new advisories. `0` turns it off. |
-| `TAMANDUA_ALLOW_PRIVATE_WEBHOOKS` | empty | `1` allows alerts to webhooks on your internal network (blocked by default to prevent SSRF). |
-| `TAMANDUA_ALLOW_PRIVATE_REGISTRIES` | — | `1` allows scanning images from registries with a private IP (your internal network). Blocked by default to prevent SSRF. |
-| `TAMANDUA_TLS_CERT` / `_KEY` | — | TLS without a proxy. |
-| `TAMANDUA_ALLOW_INSECURE_HTTP` | empty (off) | `1` lets the server start when `TAMANDUA_PUBLIC_URL` is plain `http://` on an address other than `127.0.0.1`/`localhost`, which it otherwise refuses. Passwords, session cookies and tokens then cross the network in clear: only on a trusted network, at your own risk. Prefer HTTPS. |
-| `TAMANDUA_DOWNLOAD_TIMEOUT` | `900` | Seconds a repository archive may take to download from GitHub before the scan gives up (minimum 60). Raise it for very large repositories or slow links. |
-| `TAMANDUA_API_MEMORY`, `TAMANDUA_WORKER_MEMORY` | `1g`, `2g` (`4g` for the worker in `deploy/compose.yaml`, where the engines run inside it) | Memory ceilings of the API and worker containers in Compose, so a runaway process can't starve the host and Postgres. The engines' own containers have theirs (3 GB, 2 CPUs). |
+| `PITANGUS_HOST_BIND` / `PITANGUS_HOST_PORT` | `127.0.0.1` / `8766` | Where the panel is published on the host. |
+| `PITANGUS_PUBLIC_URL` | `http://127.0.0.1:8766` | URL people use to open the panel; it determines `Secure` cookies, HSTS and the App's Setup URL. |
+| `PITANGUS_ALLOWED_ORIGINS` | 127.0.0.1 and localhost | Accepted origins (Host header and CSRF). |
+| `PITANGUS_DEFAULT_LOCALE` | `en` | `en` or `es`. Language for PR comments, notifications, Jira issues, reports and CLI output when no person asked for one. The panel doesn't use it: it follows the browser's language, and each person can change it from the sidebar or the sign-in screen. |
+| `PITANGUS_MASTER_KEY` | generated in `config/` | Master key (`openssl rand -base64 32`): it encrypts every secret in the database. Required where there is no persistent disk; the same on the API and every worker. |
+| `PITANGUS_SESSION_KEY` | generated, sealed in the database | Key that signs session cookies (32 bytes in base64). Only to pin it from a secrets manager. |
+| `PITANGUS_REQUIRE_TOTP` | `admins` | `admins`, `all` or `none`. |
+| `PITANGUS_NVD_API_KEY` | — | NVD API key: faster CVE downloads. Sent in a header and never logged. |
+| `PITANGUS_DB_PASSWORD` | (generated) | PostgreSQL password; `make setup` writes it to `.env`. |
+| `PITANGUS_DATABASE_URL` | (compose) | PostgreSQL connection string. `compose.yaml` builds it from the password; outside compose, e.g. `postgresql://pitangus:…@localhost:5432/pitangus` (the `postgres://` URLs managed databases hand out work as they are). |
+| `PITANGUS_EMBEDDED_WORKER` | `1` | `1`: the server also runs the scans (a single process). In compose the API uses `0` and the `worker` service runs them. |
+| `PITANGUS_CVE_SYNC` | `on` | `off` turns off the local NVD copy. |
+| `PITANGUS_EUVD` | `on` | `off` stops querying EUVD (ENISA) when NVD hasn't scored a CVE. Only the CVE identifier is sent. |
+| `PITANGUS_PR_POLL_SECONDS` | `300` | How often watched PRs are checked. |
+| `PITANGUS_BRANCH_MIN_MINUTES` | `60` | Minimum gap between two automatic rescans of the same repository's main branch (minimum 10). |
+| `PITANGUS_ADVISORY_WATCH_HOURS` | `24` | How many hours between offline checks of already-scanned dependencies against new advisories. `0` turns it off. |
+| `PITANGUS_ALLOW_PRIVATE_WEBHOOKS` | empty | `1` allows alerts to webhooks on your internal network (blocked by default to prevent SSRF). |
+| `PITANGUS_ALLOW_PRIVATE_REGISTRIES` | — | `1` allows scanning images from registries with a private IP (your internal network). Blocked by default to prevent SSRF. |
+| `PITANGUS_TLS_CERT` / `_KEY` | — | TLS without a proxy. |
+| `PITANGUS_ALLOW_INSECURE_HTTP` | empty (off) | `1` lets the server start when `PITANGUS_PUBLIC_URL` is plain `http://` on an address other than `127.0.0.1`/`localhost`, which it otherwise refuses. Passwords, session cookies and tokens then cross the network in clear: only on a trusted network, at your own risk. Prefer HTTPS. |
+| `PITANGUS_DOWNLOAD_TIMEOUT` | `900` | Seconds a repository archive may take to download from GitHub before the scan gives up (minimum 60). Raise it for very large repositories or slow links. |
+| `PITANGUS_API_MEMORY`, `PITANGUS_WORKER_MEMORY` | `1g`, `2g` (`4g` for the worker in `deploy/compose.yaml`, where the engines run inside it) | Memory ceilings of the API and worker containers in Compose, so a runaway process can't starve the host and Postgres. The engines' own containers have theirs (3 GB, 2 CPUs). |
 | `DOCKER_SOCKET_GID` | detected by `make` | Group that owns the Docker socket on Linux and WSL with native Docker (`stat -Lc %g /var/run/docker.sock`), so the worker can start the engines. Read by Compose, not by the app; set it only if you start with `docker compose` directly. Not needed on Docker Desktop or OrbStack (group `0`, always added). |
 | `GITHUB_APP_ID` + `GITHUB_APP_SLUG` + `GITHUB_APP_PRIVATE_KEY_FILE` | — | Alternative to the form: mount the App as a deployment secret. Takes precedence over the secret store. |
-| `TAMANDUA_HOST_CONFIG_DIR` | `./config` | Host folder for the master key, when `TAMANDUA_MASTER_KEY` isn't set. |
-| `TAMANDUA_FORWARDED_ALLOW_IPS` | empty | Behind a reverse proxy that is the only way to reach the API: the proxy addresses whose `X-Forwarded-For` is believed (`*` = any peer). Without it, sign-in throttling and the logs see the proxy's address for everybody. `compose.prod.yaml` sets it for Caddy. |
-| `TAMANDUA_ENGINE_RUNNER` | `auto` | `docker`: each engine in a sibling container through the Docker socket. `local`: the engines installed in the worker image (`tamandua-worker`), no socket. `auto`: Docker if it answers, else the installed engines. |
-| `TAMANDUA_PERIODIC` | `leader` | `leader`: a worker runs the periodic tasks on its own clock. `external`: a scheduler triggers them with `tamandua periodic` or `GET /api/cron` ([deploy.md](deploy.md#periodic-tasks)). |
-| `TAMANDUA_CRON_TOKEN` / `CRON_SECRET` | empty (off) | Bearer token for `GET /api/cron`, only with `TAMANDUA_PERIODIC=external`. At least 32 characters. `CRON_SECRET` is what Vercel Cron sends. |
-| `TAMANDUA_LOG_FORMAT` | `text` | `json`: one JSON object per line on the process output. |
-| `TAMANDUA_LOG_FILE` | empty (Compose: `logs/app.log`) | Also write JSON logs to this file, rotated at 10 MB × 5; a relative path is under the data folder. |
-| `TAMANDUA_METRICS_TOKEN` | empty (off) | Turns on `/api/metrics` (Prometheus) for requests with `Authorization: Bearer <token>`. At least 32 characters: `openssl rand -hex 32`. |
-| `TAMANDUA_IMPORT_TOKEN` | empty (off) | Turns on `POST /api/ci/sarif`, which lets CI import another tool's SARIF 2.1.0 into an existing asset with `Authorization: Bearer <token>` (no session). At least 32 characters: `openssl rand -hex 32`. Also what `tamandua import-sarif --server` sends, read from the environment. |
+| `PITANGUS_HOST_CONFIG_DIR` | `./config` | Host folder for the master key, when `PITANGUS_MASTER_KEY` isn't set. |
+| `PITANGUS_FORWARDED_ALLOW_IPS` | empty | Behind a reverse proxy that is the only way to reach the API: the proxy addresses whose `X-Forwarded-For` is believed (`*` = any peer). Without it, sign-in throttling and the logs see the proxy's address for everybody. `compose.prod.yaml` sets it for Caddy. |
+| `PITANGUS_ENGINE_RUNNER` | `auto` | `docker`: each engine in a sibling container through the Docker socket. `local`: the engines installed in the worker image (`pitangus-worker`), no socket. `auto`: Docker if it answers, else the installed engines. |
+| `PITANGUS_PERIODIC` | `leader` | `leader`: a worker runs the periodic tasks on its own clock. `external`: a scheduler triggers them with `pitangus periodic` or `GET /api/cron` ([deploy.md](deploy.md#periodic-tasks)). |
+| `PITANGUS_CRON_TOKEN` / `CRON_SECRET` | empty (off) | Bearer token for `GET /api/cron`, only with `PITANGUS_PERIODIC=external`. At least 32 characters. `CRON_SECRET` is what Vercel Cron sends. |
+| `PITANGUS_LOG_FORMAT` | `text` | `json`: one JSON object per line on the process output. |
+| `PITANGUS_LOG_FILE` | empty (Compose: `logs/app.log`) | Also write JSON logs to this file, rotated at 10 MB × 5; a relative path is under the data folder. |
+| `PITANGUS_METRICS_TOKEN` | empty (off) | Turns on `/api/metrics` (Prometheus) for requests with `Authorization: Bearer <token>`. At least 32 characters: `openssl rand -hex 32`. |
+| `PITANGUS_IMPORT_TOKEN` | empty (off) | Turns on `POST /api/ci/sarif`, which lets CI import another tool's SARIF 2.1.0 into an existing asset with `Authorization: Bearer <token>` (no session). At least 32 characters: `openssl rand -hex 32`. Also what `pitangus import-sarif --server` sends, read from the environment. |
 
-**Server with a domain** ([deploy-vps.md](deploy-vps.md)). Read by Compose, not by the app; `make setup DOMAIN=… [PREBUILT=1] [SOCKET=1]` writes them (`make setup PREBUILT=1`, without a domain, only `COMPOSE_FILE` and `TAMANDUA_IMAGE`).
+**Server with a domain** ([deploy-vps.md](deploy-vps.md)). Read by Compose, not by the app; `make setup DOMAIN=… [PREBUILT=1] [SOCKET=1]` writes them (`make setup PREBUILT=1`, without a domain, only `COMPOSE_FILE` and `PITANGUS_IMAGE`).
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `TAMANDUA_DOMAIN` | — | Domain Caddy gets the certificate for (`compose.prod.yaml`). The public URL and allowed origins become `https://<domain>`. |
+| `PITANGUS_DOMAIN` | — | Domain Caddy gets the certificate for (`compose.prod.yaml`). The public URL and allowed origins become `https://<domain>`. |
 | `COMPOSE_FILE` | `compose.yaml` | Compose files every command uses, e.g. `compose.yaml:compose.prod.yaml:compose.no-socket.yaml:compose.images.yaml:compose.images.no-socket.yaml`. `make setup` keeps `compose.backup-age.yaml` if you added it. |
-| `TAMANDUA_IMAGE` | — | Published image to run instead of building (`compose.images.yaml`), e.g. `ghcr.io/tamandua-appsec/tamandua`. |
-| `TAMANDUA_IMAGE_TAG` | the code's version | Tag of that image; accepts a digest (`0.11@sha256:…`). |
-| `TAMANDUA_WORKER_IMAGE_TAG` | the code's version | The same for `<TAMANDUA_IMAGE>-worker`, the worker with the engines inside (without the socket). `make up` pins both to the digests it checked. |
+| `PITANGUS_IMAGE` | — | Published image to run instead of building (`compose.images.yaml`), e.g. `ghcr.io/pitangus-dev/pitangus`. |
+| `PITANGUS_IMAGE_TAG` | the code's version | Tag of that image; accepts a digest (`0.12@sha256:…`). |
+| `PITANGUS_WORKER_IMAGE_TAG` | the code's version | The same for `<PITANGUS_IMAGE>-worker`, the worker with the engines inside (without the socket). `make up` pins both to the digests it checked. |
 | `COMPOSE_PROFILES` | — | `backup` turns on the scheduled backups service. |
-| `TAMANDUA_BACKUP_DIR` | `./backups` | Where the backup service writes. |
-| `TAMANDUA_BACKUP_INTERVAL_HOURS` / `_KEEP_DAYS` | `24` / `14` | How often it backs up, and for how long it keeps its own copies. |
-| `TAMANDUA_BACKUP_AGE_RECIPIENT` | — | age public keys (`age1…` or `ssh-ed25519 …`, comma-separated) to encrypt every backup with, master key included; also read by `make backup` (needs `age` on the host). The service needs `compose.backup-age.yaml` in `COMPOSE_FILE`. Empty: not encrypted, and without the master key. |
+| `PITANGUS_BACKUP_DIR` | `./backups` | Where the backup service writes. |
+| `PITANGUS_BACKUP_INTERVAL_HOURS` / `_KEEP_DAYS` | `24` / `14` | How often it backs up, and for how long it keeps its own copies. |
+| `PITANGUS_BACKUP_AGE_RECIPIENT` | — | age public keys (`age1…` or `ssh-ed25519 …`, comma-separated) to encrypt every backup with, master key included; also read by `make backup` (needs `age` on the host). The service needs `compose.backup-age.yaml` in `COMPOSE_FILE`. Empty: not encrypted, and without the master key. |
 
 **Deliberate trade-off:** with the repository's `compose.yaml`, so you don't have to install anything but Docker, the worker launches the engines as sibling containers through the Docker socket, which is equivalent to root on the host. On a server, `make setup DOMAIN=…` (`compose.no-socket.yaml`) and [`deploy/compose.yaml`](../deploy/compose.yaml) use the worker image with the engines inside instead: no socket at all. [What each one isolates](deploy-vps.md#engines-and-the-docker-socket).

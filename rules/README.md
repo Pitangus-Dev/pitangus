@@ -1,6 +1,6 @@
-# Tamandua rules
+# Pitangus rules
 
-Built-in SAST rules maintained by the Tamandua project, written in Semgrep syntax for the **Opengrep** engine (LGPL-2.1). They are ours and ship under MIT (see `LICENSE`): the Semgrep registry rules changed license in December 2024 (internal use only, no offering them as a service) and cannot be part of a product.
+Built-in SAST rules maintained by the Pitangus project, written in Semgrep syntax for the **Opengrep** engine (LGPL-2.1). They are ours and ship under MIT (see `LICENSE`): the Semgrep registry rules changed license in December 2024 (internal use only, no offering them as a service) and cannot be part of a product.
 
 Approach: **precision over coverage**. Each rule targets a concrete sink (code execution, SQL, deserialization, unescaped HTML, unverified TLS) and, where the language allows it, uses intra-file taint analysis from request inputs. "Non-literal argument" patterns are medium confidence and say so in `metadata.confidence`.
 
@@ -25,4 +25,4 @@ Every rule carries its finding title and its fix in both languages; the engine s
 
 User-authored custom rules are a separate, future feature managed from the panel; they don't live in this folder.
 
-Validate: `docker run --rm --network none -v "$PWD/rules:/rules:ro" localhost/tamandua/opengrep:1.30.0 scan --validate --config /rules /rules`
+Validate: `docker run --rm --network none -v "$PWD/rules:/rules:ro" localhost/pitangus/opengrep:1.30.0 scan --validate --config /rules /rules`

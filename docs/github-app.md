@@ -2,7 +2,7 @@ English · [Español](es/github-app.md)
 
 # Connecting GitHub
 
-Every Tamandua installation uses **its own** GitHub App: you create it, on your account or on an organization you administer. If you need several organizations, set it up so it can be installed on any account. GitHub doesn't let you create Apps through the API, so this happens in GitHub's form. The panel (**Integrations**) shows this same guide with the values already filled in for your installation, plus buttons to copy them.
+Every Pitangus installation uses **its own** GitHub App: you create it, on your account or on an organization you administer. If you need several organizations, set it up so it can be installed on any account. GitHub doesn't let you create Apps through the API, so this happens in GitHub's form. The panel (**Integrations**) shows this same guide with the values already filled in for your installation, plus buttons to copy them.
 
 ## 1. Create the App
 
@@ -15,7 +15,7 @@ Fill in only these fields:
 
 | Field | Value |
 | --- | --- |
-| **GitHub App name** | Anything you like, e.g. `Tamandua`. It must be unique across GitHub: if it's taken, add your team's name. |
+| **GitHub App name** | Anything you like, e.g. `Pitangus`. It must be unique across GitHub: if it's taken, add your team's name. |
 | **Homepage URL** | Any URL of yours, e.g. your GitHub profile or your panel's URL. |
 | **Callback URL** | Leave empty. |
 | **Request user authorization (OAuth) during installation** | Unchecked. |
@@ -56,7 +56,7 @@ To add or remove repositories later: **Integrations → Change repositories** on
 
 ## Pull request review
 
-In **Pull requests**, turn on watching per repository and choose the blocking threshold. Every few minutes (`TAMANDUA_PR_POLL_SECONDS`), open PRs with new commits are reviewed: only what the PR introduces compared with the main branch counts. The result is published as **a single comment** that gets updated, and as a `tamandua` commit status. The comment speaks the language set in `TAMANDUA_DEFAULT_LOCALE` (English by default, or Spanish), because the whole team reads it.
+In **Pull requests**, turn on watching per repository and choose the blocking threshold. Every few minutes (`PITANGUS_PR_POLL_SECONDS`), open PRs with new commits are reviewed: only what the PR introduces compared with the main branch counts. The result is published as **a single comment** that gets updated, and as a `pitangus` commit status. The comment speaks the language set in `PITANGUS_DEFAULT_LOCALE` (English by default, or Spanish), because the whole team reads it.
 
 ## Alternative: mount the App as a secret
 

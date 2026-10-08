@@ -1,4 +1,4 @@
-# Self-hosted Tamandua. The recommended way to run it is the Makefile:
+# Self-hosted Pitangus. The recommended way to run it is the Makefile:
 #
 #   make up          # prepares .env, builds, starts and shows the setup code
 #   make help        # every other command
@@ -14,10 +14,10 @@
 #
 # The analysis engines (Trivy, Gitleaks, Opengrep) are sibling containers the WORKER starts through the Docker
 # socket: that's why only it mounts the socket, and why the data folder is shared at the SAME absolute host path
-# (TAMANDUA_HOST_DATA_DIR). The Docker socket is equivalent to root on the host: the service that serves requests
+# (PITANGUS_HOST_DATA_DIR). The Docker socket is equivalent to root on the host: the service that serves requests
 # (api) doesn't have it.
 # Fixed project name: the volume and network don't depend on the cloned folder's name.
-name: tamandua
+name: pitangus
 
 # Shared by api and worker (same image, same data and hardening).
 x-app: &app
@@ -26,11 +26,11 @@ x-app: &app
     dockerfile: docker/app/Dockerfile
     target: app  # not the last stage (worker-standalone, whose command is the worker)
     args:
-      VERSION: ${TAMANDUA_VERSION:-0.11}
-  image: localhost/tamandua/app:${TAMANDUA_VERSION:-0.11}
+      VERSION: ${PITANGUS_VERSION:-0.12}
+  image: localhost/pitangus/app:${PITANGUS_VERSION:-0.12}
   init: true
   # Your UID/GID so the files in ./data and ./config are yours (see .env.example).
-  user: "${TAMANDUA_UID:-10001}:${TAMANDUA_GID:-10001}"
+  user: "${PITANGUS_UID:-10001}:${PITANGUS_GID:-10001}"
   env_file:
     - path: .env
       required: false
@@ -39,7 +39,7 @@ x-app: &app
   read_only: true
   tmpfs:
     - /tmp:size=256m
-    - /home/tamandua:size=16m,uid=${TAMANDUA_UID:-10001},gid=${TAMANDUA_GID:-10001}
+    - /home/pitangus:size=16m,uid=${PITANGUS_UID:-10001},gid=${PITANGUS_GID:-10001}
   cap_drop:
     - ALL
   security_opt:
@@ -52,53 +52,53 @@ x-app: &app
   restart: unless-stopped
 
 x-app-env: &app-env
-  TAMANDUA_DATA_DIR: /data
-  TAMANDUA_HOST_DATA_DIR: ${PWD}/data
-  TAMANDUA_HOST_RULES_DIR: ${PWD}/rules
-  TAMANDUA_CONFIG_DIR: /config
-  TAMANDUA_PUBLIC_URL: ${TAMANDUA_PUBLIC_URL:-http://127.0.0.1:8766}
-  TAMANDUA_ALLOWED_ORIGINS: ${TAMANDUA_ALLOWED_ORIGINS:-http://127.0.0.1:8766,http://localhost:8766}
-  TAMANDUA_LOG_LEVEL: ${TAMANDUA_LOG_LEVEL:-INFO}
+  PITANGUS_DATA_DIR: /data
+  PITANGUS_HOST_DATA_DIR: ${PWD}/data
+  PITANGUS_HOST_RULES_DIR: ${PWD}/rules
+  PITANGUS_CONFIG_DIR: /config
+  PITANGUS_PUBLIC_URL: ${PITANGUS_PUBLIC_URL:-http://127.0.0.1:8766}
+  PITANGUS_ALLOWED_ORIGINS: ${PITANGUS_ALLOWED_ORIGINS:-http://127.0.0.1:8766,http://localhost:8766}
+  PITANGUS_LOG_LEVEL: ${PITANGUS_LOG_LEVEL:-INFO}
   # Logs go to the container output (docker logs); this also keeps a rotated JSON copy in data/logs/.
-  TAMANDUA_LOG_FILE: ${TAMANDUA_LOG_FILE-logs/app.log}
-  TAMANDUA_DEFAULT_LOCALE: ${TAMANDUA_DEFAULT_LOCALE:-en}
+  PITANGUS_LOG_FILE: ${PITANGUS_LOG_FILE-logs/app.log}
+  PITANGUS_DEFAULT_LOCALE: ${PITANGUS_DEFAULT_LOCALE:-en}
   # admins (default): TOTP required for administrators · all: for everyone · none: optional
-  TAMANDUA_REQUIRE_TOTP: ${TAMANDUA_REQUIRE_TOTP:-admins}
-  TAMANDUA_PR_POLL_SECONDS: ${TAMANDUA_PR_POLL_SECONDS:-300}
-  TAMANDUA_BRANCH_MIN_MINUTES: ${TAMANDUA_BRANCH_MIN_MINUTES:-60}
-  TAMANDUA_ADVISORY_WATCH_HOURS: ${TAMANDUA_ADVISORY_WATCH_HOURS:-24}
+  PITANGUS_REQUIRE_TOTP: ${PITANGUS_REQUIRE_TOTP:-admins}
+  PITANGUS_PR_POLL_SECONDS: ${PITANGUS_PR_POLL_SECONDS:-300}
+  PITANGUS_BRANCH_MIN_MINUTES: ${PITANGUS_BRANCH_MIN_MINUTES:-60}
+  PITANGUS_ADVISORY_WATCH_HOURS: ${PITANGUS_ADVISORY_WATCH_HOURS:-24}
   # Runs, findings and triage live in PostgreSQL (the `postgres` service, internal network only).
-  TAMANDUA_DATABASE_URL: "postgresql+psycopg://tamandua:${TAMANDUA_DB_PASSWORD:?TAMANDUA_DB_PASSWORD is missing in .env (run make setup)}@postgres:5432/tamandua"
-  HOME: /home/tamandua
+  PITANGUS_DATABASE_URL: "postgresql+psycopg://pitangus:${PITANGUS_DB_PASSWORD:?PITANGUS_DB_PASSWORD is missing in .env (run make setup)}@postgres:5432/pitangus"
+  HOME: /home/pitangus
 
 x-app-volumes: &app-volumes
   - ./data:/data
   - ./rules:/app/rules:ro
   # Encrypted secrets (GitHub App, Jira, notification channels) and their master key. Never in ./data.
-  - ${TAMANDUA_HOST_CONFIG_DIR:-./config}:/config
+  - ${PITANGUS_HOST_CONFIG_DIR:-./config}:/config
 
 services:
   api:
     <<: *app
-    container_name: tamandua
+    container_name: pitangus
     ports:
       # This machine only by default. To expose it on the network, use HTTPS (see README).
-      - "${TAMANDUA_HOST_BIND:-127.0.0.1}:${TAMANDUA_HOST_PORT:-8766}:8766"
+      - "${PITANGUS_HOST_BIND:-127.0.0.1}:${PITANGUS_HOST_PORT:-8766}:8766"
     environment:
       <<: *app-env
       # The `worker` service runs the scans: the API doesn't need Docker.
-      TAMANDUA_EMBEDDED_WORKER: "0"
+      PITANGUS_EMBEDDED_WORKER: "0"
     volumes: *app-volumes
     # Ceilings so a runaway process can't starve the host (and Postgres with it). The engines run in their own
     # containers, with their own limits (scanning/engines.py).
-    mem_limit: ${TAMANDUA_API_MEMORY:-1g}
+    mem_limit: ${PITANGUS_API_MEMORY:-1g}
     pids_limit: 256
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
       # Host = the first allowed origin's, so it also passes behind a proxy (compose.prod.yaml: only the domain).
-      test: ["CMD", "python", "-c", "import os,sys,urllib.parse as p,urllib.request as r; h=p.urlsplit((os.environ.get('TAMANDUA_ALLOWED_ORIGINS') or 'http://127.0.0.1:8766').split(',')[0].strip()).netloc; sys.exit(0 if r.urlopen(r.Request('http://127.0.0.1:8766/api/health', headers={'Host': h}), timeout=4).status == 200 else 1)"]
+      test: ["CMD", "python", "-c", "import os,sys,urllib.parse as p,urllib.request as r; h=p.urlsplit((os.environ.get('PITANGUS_ALLOWED_ORIGINS') or 'http://127.0.0.1:8766').split(',')[0].strip()).netloc; sys.exit(0 if r.urlopen(r.Request('http://127.0.0.1:8766/api/health', headers={'Host': h}), timeout=4).status == 200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -107,21 +107,21 @@ services:
   # It can scale (docker compose up -d --scale worker=2): only one runs the periodic tasks.
   worker:
     <<: *app
-    command: ["python", "-m", "tamandua", "--data-dir", "/data", "worker"]
+    command: ["python", "-m", "pitangus", "--data-dir", "/data", "worker"]
     # No HTTP: health is its heartbeat in the database (the image's check queries /api/health, which doesn't exist here).
     healthcheck:
-      test: ["CMD", "python", "-m", "tamandua", "--data-dir", "/data", "worker", "--check"]
+      test: ["CMD", "python", "-m", "pitangus", "--data-dir", "/data", "worker", "--check"]
       interval: 60s
       timeout: 15s
       start_period: 60s
       retries: 3
     environment: *app-env
-    mem_limit: ${TAMANDUA_WORKER_MEMORY:-2g}
+    mem_limit: ${PITANGUS_WORKER_MEMORY:-2g}
     pids_limit: 512
     volumes:
       - ./data:/data
       - ./rules:/app/rules:ro
-      - ${TAMANDUA_HOST_CONFIG_DIR:-./config}:/config
+      - ${PITANGUS_HOST_CONFIG_DIR:-./config}:/config
       - /var/run/docker.sock:/var/run/docker.sock
     # Docker socket access to start the engines. On Docker Desktop and OrbStack (macOS,
     # Windows) the socket belongs to group 0; on Linux and WSL with native Docker, to the `docker`
@@ -129,7 +129,7 @@ services:
     # group to add, the second entry repeats your own group (compose doesn't allow two identical ones).
     group_add:
       - "0"
-      - "${DOCKER_SOCKET_GID:-${TAMANDUA_GID:-10001}}"
+      - "${DOCKER_SOCKET_GID:-${PITANGUS_GID:-10001}}"
     depends_on:
       opengrep:
         condition: service_completed_successfully
@@ -137,16 +137,16 @@ services:
         condition: service_healthy
 
   # Database. No published port: only the app reaches it, over the compose internal network. Data lives in the
-  # `tamandua-pg` volume (make backup also takes a pg_dump).
+  # `pitangus-pg` volume (make backup also takes a pg_dump).
   postgres:
     image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
-    container_name: tamandua-postgres
+    container_name: pitangus-postgres
     environment:
-      POSTGRES_USER: tamandua
-      POSTGRES_DB: tamandua
-      POSTGRES_PASSWORD: "${TAMANDUA_DB_PASSWORD:?TAMANDUA_DB_PASSWORD is missing in .env (run make setup)}"
+      POSTGRES_USER: pitangus
+      POSTGRES_DB: pitangus
+      POSTGRES_PASSWORD: "${PITANGUS_DB_PASSWORD:?PITANGUS_DB_PASSWORD is missing in .env (run make setup)}"
     volumes:
-      - tamandua-pg:/var/lib/postgresql
+      - pitangus-pg:/var/lib/postgresql
     # The entrypoint starts as root to own the data folder, then drops to the postgres user: only what that takes.
     cap_drop:
       - ALL
@@ -161,7 +161,7 @@ services:
     shm_size: 128mb
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tamandua -d tamandua"]
+      test: ["CMD-SHELL", "pg_isready -U pitangus -d pitangus"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -171,29 +171,29 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Optional scheduled backups (profile `backup`): every TAMANDUA_BACKUP_INTERVAL_HOURS a pg_dump plus config/ and
-  # data/ (without caches) into TAMANDUA_BACKUP_DIR/auto-<date>/, keeping TAMANDUA_BACKUP_KEEP_DAYS days. Same layout
+  # Optional scheduled backups (profile `backup`): every PITANGUS_BACKUP_INTERVAL_HOURS a pg_dump plus config/ and
+  # data/ (without caches) into PITANGUS_BACKUP_DIR/auto-<date>/, keeping PITANGUS_BACKUP_KEEP_DAYS days. Same layout
   # as `make backup`, so `make restore` takes either. Turn it on with COMPOSE_PROFILES=backup in .env.
   # It only gets the database password, not the rest of .env; config/ and data/ are mounted read-only.
   backup:
     image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     profiles: [backup]
     init: true
-    user: "${TAMANDUA_UID:-10001}:${TAMANDUA_GID:-10001}"
-    entrypoint: ["/bin/sh", "/opt/tamandua/backup-service.sh"]
+    user: "${PITANGUS_UID:-10001}:${PITANGUS_GID:-10001}"
+    entrypoint: ["/bin/sh", "/opt/pitangus/backup-service.sh"]
     environment:
       PGHOST: postgres
-      PGUSER: tamandua
-      PGDATABASE: tamandua
-      PGPASSWORD: "${TAMANDUA_DB_PASSWORD:?TAMANDUA_DB_PASSWORD is missing in .env (run make setup)}"
-      BACKUP_INTERVAL_HOURS: "${TAMANDUA_BACKUP_INTERVAL_HOURS:-24}"
-      BACKUP_KEEP_DAYS: "${TAMANDUA_BACKUP_KEEP_DAYS:-14}"
-      BACKUP_AGE_RECIPIENT: "${TAMANDUA_BACKUP_AGE_RECIPIENT:-}"
+      PGUSER: pitangus
+      PGDATABASE: pitangus
+      PGPASSWORD: "${PITANGUS_DB_PASSWORD:?PITANGUS_DB_PASSWORD is missing in .env (run make setup)}"
+      BACKUP_INTERVAL_HOURS: "${PITANGUS_BACKUP_INTERVAL_HOURS:-24}"
+      BACKUP_KEEP_DAYS: "${PITANGUS_BACKUP_KEEP_DAYS:-14}"
+      BACKUP_AGE_RECIPIENT: "${PITANGUS_BACKUP_AGE_RECIPIENT:-}"
     volumes:
-      - ./scripts/backup-service.sh:/opt/tamandua/backup-service.sh:ro
+      - ./scripts/backup-service.sh:/opt/pitangus/backup-service.sh:ro
       - ./data:/source/data:ro
-      - ${TAMANDUA_HOST_CONFIG_DIR:-./config}:/source/config:ro
-      - ${TAMANDUA_BACKUP_DIR:-./backups}:/backups
+      - ${PITANGUS_HOST_CONFIG_DIR:-./config}:/source/config:ro
+      - ${PITANGUS_BACKUP_DIR:-./backups}:/backups
     read_only: true
     tmpfs:
       - /tmp:size=64m
@@ -202,7 +202,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "/bin/sh", "/opt/tamandua/backup-service.sh", "--check"]
+      test: ["CMD", "/bin/sh", "/opt/pitangus/backup-service.sh", "--check"]
       interval: 10m
       timeout: 10s
       start_period: 30m
@@ -224,10 +224,10 @@ services:
   # starts; the app runs it later for each scan. It exits right away: that's expected.
   opengrep:
     build: docker/engines/opengrep
-    image: localhost/tamandua/opengrep:1.30.0
+    image: localhost/pitangus/opengrep:1.30.0
     command: ["--version"]
     network_mode: none
     restart: "no"
 
 volumes:
-  tamandua-pg:
+  pitangus-pg:

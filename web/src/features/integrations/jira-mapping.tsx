@@ -5,7 +5,7 @@ import { Input } from '@/shared/ui/input'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { CHOICES, EMPTY, LISTS, fittingVariables, mustFill, sourcesFor, type Draft, type Entry, type JiraField, type JiraVariables, type SearchValues, type Source, type Variable } from '@/features/integrations/jira-mapping-model'
 
-const SOURCE_LABEL = { none: 'jira.mapping.source.none', tamandua: 'jira.mapping.source.tamandua', fixed: 'jira.mapping.source.fixed', template: 'jira.mapping.source.template' } as const
+const SOURCE_LABEL = { none: 'jira.mapping.source.none', pitangus: 'jira.mapping.source.pitangus', fixed: 'jira.mapping.source.fixed', template: 'jira.mapping.source.template' } as const
 const TYPE_LABEL: Record<string, string> = {
   text: 'jira.mapping.type.text', rich_text: 'jira.mapping.type.rich_text', number: 'jira.mapping.type.number', date: 'jira.mapping.type.date',
   datetime: 'jira.mapping.type.datetime', option: 'jira.mapping.type.option', options: 'jira.mapping.type.options', priority: 'jira.mapping.type.priority',
@@ -63,7 +63,7 @@ function MappingRow({ field, variables, entry, error, onChange, searchValues }: 
   const control = 'h-8 w-full min-w-0 rounded-lg border border-app-line bg-app-soft px-2 text-sm text-app-fg aria-invalid:border-danger'
   const valueLabel = t('jira.mapping.value_label', { field: field.name })
   let value: React.ReactNode = <span className="text-xs text-app-subtle">{mustFill(field) ? t('jira.mapping.choose_source') : t('jira.mapping.left_empty')}</span>
-  if (entry.source === 'tamandua') value = <select id={`${id}-value`} aria-label={valueLabel} aria-invalid={!!error || undefined} aria-describedby={describedBy} value={entry.key} onChange={event => set({ key: event.target.value })} className={control}>
+  if (entry.source === 'pitangus') value = <select id={`${id}-value`} aria-label={valueLabel} aria-invalid={!!error || undefined} aria-describedby={describedBy} value={entry.key} onChange={event => set({ key: event.target.value })} className={control}>
     <option value="">{t('jira.mapping.pick_variable')}</option>{fittingVariables(field, variables, entry.key).map(variable => <option key={variable.key} value={variable.key}>{variable.label}</option>)}</select>
   else if (entry.source === 'template') value = <TemplateInput id={`${id}-value`} label={valueLabel} text={entry.text} variables={variables.variables} invalid={!!error} describedBy={describedBy} onChange={text => set({ text })} />
   else if (entry.source === 'fixed' && field.allowed_truncated && CHOICES.includes(field.type))

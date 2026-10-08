@@ -22,7 +22,7 @@
     "full": "importación completa",
     "partial": "importación parcial",
     "commit": "commit <code>{{commit}}</code>",
-    "help_full": "Una nueva importación completa de {{tool}} marca como remediado lo que ya no reporte. Los análisis de Tamandua nunca cierran estos hallazgos.",
+    "help_full": "Una nueva importación completa de {{tool}} marca como remediado lo que ya no reporte. Los análisis de Pitangus nunca cierran estos hallazgos.",
     "help_partial": "Importación parcial: no se marca nada como remediado. Solo una importación completa de {{tool}} o una corrección manual cierra estos hallazgos."
   },
   "state": {
@@ -116,7 +116,7 @@
     "pagination_one": "elementos · {{count}} hallazgo", "pagination_other": "elementos · {{count}} hallazgos"
   },
   "scanner": { "sca": "Dependencia", "sast": "Código", "secrets": "Secreto", "iac": "Infraestructura", "cicd": "CI/CD" },
-  "tool": { "tamandua": "Reglas de Tamandua" },
+  "tool": { "pitangus": "Reglas de Pitangus" },
   "group": {
     "advisories_one": "{{count}} aviso", "advisories_other": "{{count}} avisos",
     "dev": "de desarrollo",

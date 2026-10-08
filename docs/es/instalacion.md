@@ -19,16 +19,16 @@ No hace falta instalar Python, Node ni los motores de análisis: todo va en cont
 ## Primera instalación
 
 ```bash
-git clone https://github.com/Tamandua-AppSec/tamandua.git
-cd tamandua
+git clone https://github.com/Pitangus-Dev/pitangus.git
+cd pitangus
 make up
 ```
 
-`make up` crea `.env` desde `.env.example` con tu usuario del host (`TAMANDUA_UID`/`TAMANDUA_GID`, para que `data/` y `config/` sean tuyas y no de root), construye, arranca y espera a que el panel responda. Sin `make`: `sh scripts/init-env.sh && docker compose up --build -d`.
+`make up` crea `.env` desde `.env.example` con tu usuario del host (`PITANGUS_UID`/`PITANGUS_GID`, para que `data/` y `config/` sean tuyas y no de root), construye, arranca y espera a que el panel responda. Sin `make`: `sh scripts/init-env.sh && docker compose up --build -d`.
 
-La primera construcción tarda unos minutos: compila el panel, descarga el binario de Opengrep y comprueba su SHA-256. Verás cuatro servicios: `api` (el contenedor `tamandua`, con el panel y la API), `worker` (ejecuta los análisis) y `postgres` (el contenedor `tamandua-postgres`, la base de datos) se quedan en marcha; `opengrep` solo construye la imagen del motor y **termina enseguida**: es normal.
+La primera construcción tarda unos minutos: compila el panel, descarga el binario de Opengrep y comprueba su SHA-256. Verás cuatro servicios: `api` (el contenedor `pitangus`, con el panel y la API), `worker` (ejecuta los análisis) y `postgres` (el contenedor `pitangus-postgres`, la base de datos) se quedan en marcha; `opengrep` solo construye la imagen del motor y **termina enseguida**: es normal.
 
-Si prefieres no construir nada, ejecuta `make setup PREBUILT=1` antes de `make up`: descarga las imágenes publicadas y firmadas de la versión que tienes (`tamandua/version.py`) en lugar de construirlas. Sigue siendo una instalación local en <http://127.0.0.1:8766>; con [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) instalado, `make up` comprueba antes sus firmas y fija en `.env` el digest comprobado (sin cosign arranca igual y lo avisa).
+Si prefieres no construir nada, ejecuta `make setup PREBUILT=1` antes de `make up`: descarga las imágenes publicadas y firmadas de la versión que tienes (`pitangus/version.py`) en lugar de construirlas. Sigue siendo una instalación local en <http://127.0.0.1:8766>; con [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) instalado, `make up` comprueba antes sus firmas y fija en `.env` el digest comprobado (sin cosign arranca igual y lo avisa).
 
 Al terminar muestra el **código de configuración** (también con `make setup-code`, o en los logs):
 
@@ -42,7 +42,7 @@ Al terminar muestra el **código de configuración** (también con `make setup-c
 
 Abre <http://127.0.0.1:8766>, escribe ese código y crea tu usuario administrador. El código demuestra que eres quien controla el servidor: sin él, el primero que abriera la URL podría quedarse con la instancia. Si reinicias antes de usarlo, sale uno nuevo.
 
-El panel sigue el idioma de tu navegador; puedes cambiarlo desde la barra lateral o la pantalla de inicio de sesión. Lo que Tamandua escribe sin que nadie lo pida en persona (comentarios en PRs, avisos, Jira, informes y salida de la CLI) usa `TAMANDUA_DEFAULT_LOCALE` (`en` o `es`, por defecto `en`): ponlo en `es` en `.env` si tu equipo trabaja en español. Ver [configuracion.md](configuracion.md).
+El panel sigue el idioma de tu navegador; puedes cambiarlo desde la barra lateral o la pantalla de inicio de sesión. Lo que Pitangus escribe sin que nadie lo pida en persona (comentarios en PRs, avisos, Jira, informes y salida de la CLI) usa `PITANGUS_DEFAULT_LOCALE` (`en` o `es`, por defecto `en`): ponlo en `es` en `.env` si tu equipo trabaja en español. Ver [configuracion.md](configuracion.md).
 
 Luego:
 
@@ -50,7 +50,7 @@ Luego:
 2. **Integraciones**: crea y conecta tu GitHub App con la guía del panel (también en [github-app.md](github-app.md)).
 3. **Repositorios**: elige uno y pulsa **Analizar**.
 
-La copia local de NVD para el CVE tracker se descarga sola en segundo plano: unas horas sin API key, mucho menos con `TAMANDUA_NVD_API_KEY` (gratuita en <https://nvd.nist.gov/developers/request-an-api-key>). Todo lo demás funciona mientras tanto.
+La copia local de NVD para el CVE tracker se descarga sola en segundo plano: unas horas sin API key, mucho menos con `PITANGUS_NVD_API_KEY` (gratuita en <https://nvd.nist.gov/developers/request-an-api-key>). Todo lo demás funciona mientras tanto.
 
 ## Actualizar
 
@@ -64,15 +64,15 @@ make update
 
 | Carpeta | Qué contiene | Cómo tratarla |
 | --- | --- | --- |
-| Base de datos (volumen `tamandua-pg`) | Ejecuciones, registro de hallazgos y triage (PostgreSQL) | `make backup` la vuelca con `pg_dump` en `database.dump`. |
+| Base de datos (volumen `pitangus-pg`) | Ejecuciones, registro de hallazgos y triage (PostgreSQL) | `make backup` la vuelca con `pg_dump` en `database.dump`. |
 | `data/` | Usuarios (contraseñas con scrypt), ajustes, logs, copia de NVD y cachés | Sin secretos en claro. Se pueden excluir `data/feeds/`, `data/trivy-cache/` y `data/grype-cache/`: se vuelven a descargar. |
-| `config/` | `master.key` (salvo que definas `TAMANDUA_MASTER_KEY`) | **Es la llave de tus credenciales**, que se guardan cifradas en la base. `make backup` la deja fuera salvo que la copia vaya cifrada: guarda una copia en tu gestor de contraseñas, nunca con las copias. |
+| `config/` | `master.key` (salvo que definas `PITANGUS_MASTER_KEY`) | **Es la llave de tus credenciales**, que se guardan cifradas en la base. `make backup` la deja fuera salvo que la copia vaya cifrada: guarda una copia en tu gestor de contraseñas, nunca con las copias. |
 
 ```bash
 make backup        # backups/<fecha>/database.dump, data.tgz y master-key.sha256 (qué clave necesita)
 ```
 
-La app se detiene unos segundos para que la copia sea coherente, y el comando se niega si hay análisis en curso (`FORCE=1` para forzarlo). La clave maestra no va en la copia, así que una copia suelta no revela ningún secreto; en una máquina nueva, devuelve `config/master.key` a su sitio antes de restaurar. Para sacar las copias de la máquina, cífralas con age (`TAMANDUA_BACKUP_AGE_RECIPIENT`, [despliegue-vps.md](despliegue-vps.md#copias-de-seguridad)): entonces la clave también entra, cifrada. Para restaurar:
+La app se detiene unos segundos para que la copia sea coherente, y el comando se niega si hay análisis en curso (`FORCE=1` para forzarlo). La clave maestra no va en la copia, así que una copia suelta no revela ningún secreto; en una máquina nueva, devuelve `config/master.key` a su sitio antes de restaurar. Para sacar las copias de la máquina, cífralas con age (`PITANGUS_BACKUP_AGE_RECIPIENT`, [despliegue-vps.md](despliegue-vps.md#copias-de-seguridad)): entonces la clave también entra, cifrada. Para restaurar:
 
 ```bash
 make restore FROM=backups/<fecha> CONFIRM=restore   # antes guarda el estado actual en backups/pre-restore-<fecha>/
@@ -81,11 +81,11 @@ make up
 
 Copias programadas (un servicio de Compose con retención), cron y copias fuera del servidor: [despliegue-vps.md](despliegue-vps.md#copias-de-seguridad).
 
-Si pierdes `config/master.key` (o cambias `TAMANDUA_MASTER_KEY`), los secretos guardados no se pueden descifrar: tendrás que volver a conectar la GitHub App y el token de Jira. El resto de datos no se pierde.
+Si pierdes `config/master.key` (o cambias `PITANGUS_MASTER_KEY`), los secretos guardados no se pueden descifrar: tendrás que volver a conectar la GitHub App y el token de Jira. El resto de datos no se pierde.
 
 ## Exponerlo en tu red o en internet
 
-Por defecto el puerto solo se publica en `127.0.0.1`. Para abrirlo desde otras máquinas necesitas HTTPS: el servidor **se niega a arrancar** si `TAMANDUA_PUBLIC_URL` no es loopback y no empieza por `https://`. En un servidor con dominio, `make setup DOMAIN=tamandua.example.com` añade Caddy con certificados automáticos: la guía completa (dimensionado, cortafuegos, copias, actualizaciones, monitorización, Coolify y Dokploy) está en [despliegue-vps.md](despliegue-vps.md).
+Por defecto el puerto solo se publica en `127.0.0.1`. Para abrirlo desde otras máquinas necesitas HTTPS: el servidor **se niega a arrancar** si `PITANGUS_PUBLIC_URL` no es loopback y no empieza por `https://`. En un servidor con dominio, `make setup DOMAIN=pitangus.example.com` añade Caddy con certificados automáticos: la guía completa (dimensionado, cortafuegos, copias, actualizaciones, monitorización, Coolify y Dokploy) está en [despliegue-vps.md](despliegue-vps.md).
 
 En un portátil, el worker maneja Docker a través de su socket, lo que equivale a root en el host. En modo servidor (`DOMAIN=…`) los motores corren dentro del worker. En cualquier caso, expón el panel solo a personas de confianza.
 

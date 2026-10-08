@@ -4,10 +4,10 @@ import json
 import unittest
 from pathlib import Path
 
-from tamandua.modules.intel import data_sources
-from tamandua.modules.scanning.dependency_merge import merge_dependencies
-from tamandua.modules.scanning.engines import parse_osv_scanner, parse_trivy
-from tamandua.modules.runs.store import _sources_section
+from pitangus.modules.intel import data_sources
+from pitangus.modules.scanning.dependency_merge import merge_dependencies
+from pitangus.modules.scanning.engines import parse_osv_scanner, parse_trivy
+from pitangus.modules.runs.store import _sources_section
 
 OUTPUTS = Path(__file__).resolve().parent / "engine-outputs"
 

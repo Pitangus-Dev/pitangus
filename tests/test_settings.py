@@ -4,38 +4,38 @@ import base64
 import unittest
 from unittest.mock import patch
 
-from tamandua.shared import settings
-from tamandua.shared.i18n import text
+from pitangus.shared import settings
+from pitangus.shared.i18n import text
 
 
 def problems(**environment) -> list[str]:
-    base = {"TAMANDUA_DATABASE_URL": "postgresql+psycopg://u:p@db/t"}
+    base = {"PITANGUS_DATABASE_URL": "postgresql+psycopg://u:p@db/t"}
     return [text(problem, "en") for problem in settings.problems({**base, **environment})]
 
 
 class SettingsTests(unittest.TestCase):
     def test_a_valid_environment_has_no_problems(self):
-        self.assertEqual(problems(TAMANDUA_PUBLIC_URL="https://tamandua.example.com", TAMANDUA_PR_POLL_SECONDS="120",
-                                  TAMANDUA_EMBEDDED_WORKER="false", TAMANDUA_LOG_LEVEL="debug",
-                                  TAMANDUA_MASTER_KEY=base64.b64encode(b"0123456789abcdef" * 2).decode()), [])
+        self.assertEqual(problems(PITANGUS_PUBLIC_URL="https://pitangus.example.com", PITANGUS_PR_POLL_SECONDS="120",
+                                  PITANGUS_EMBEDDED_WORKER="false", PITANGUS_LOG_LEVEL="debug",
+                                  PITANGUS_MASTER_KEY=base64.b64encode(b"0123456789abcdef" * 2).decode()), [])
 
     def test_each_mistake_is_named(self):
-        found = problems(TAMANDUA_PR_POLL_SECONDS="5", TAMANDUA_EMBEDDED_WORKER="maybe", TAMANDUA_REQUIRE_TOTP="some",
-                         TAMANDUA_PUBLIC_URL="tamandua.example.com", TAMANDUA_MASTER_KEY="short", TAMANDUA_METRICS_TOKEN="abc")
+        found = problems(PITANGUS_PR_POLL_SECONDS="5", PITANGUS_EMBEDDED_WORKER="maybe", PITANGUS_REQUIRE_TOTP="some",
+                         PITANGUS_PUBLIC_URL="pitangus.example.com", PITANGUS_MASTER_KEY="short", PITANGUS_METRICS_TOKEN="abc")
         self.assertEqual(len(found), 6)
-        for name in ("TAMANDUA_PR_POLL_SECONDS", "TAMANDUA_EMBEDDED_WORKER", "TAMANDUA_REQUIRE_TOTP", "TAMANDUA_PUBLIC_URL",
-                     "TAMANDUA_MASTER_KEY", "TAMANDUA_METRICS_TOKEN"):
+        for name in ("PITANGUS_PR_POLL_SECONDS", "PITANGUS_EMBEDDED_WORKER", "PITANGUS_REQUIRE_TOTP", "PITANGUS_PUBLIC_URL",
+                     "PITANGUS_MASTER_KEY", "PITANGUS_METRICS_TOKEN"):
             self.assertTrue(any(name in problem for problem in found), name)
-        self.assertNotIn("abc", " ".join(found).replace("TAMANDUA_METRICS_TOKEN", ""))  # a secret's value is never echoed
+        self.assertNotIn("abc", " ".join(found).replace("PITANGUS_METRICS_TOKEN", ""))  # a secret's value is never echoed
 
     def test_the_database_url_is_required(self):
-        self.assertIn("TAMANDUA_DATABASE_URL", text(settings.problems({})[0], "en"))
+        self.assertIn("PITANGUS_DATABASE_URL", text(settings.problems({})[0], "en"))
 
     def test_values_are_read_when_asked_with_defaults_and_minimums(self):
-        with patch.dict("os.environ", {"TAMANDUA_PR_POLL_SECONDS": "10", "TAMANDUA_ALLOWED_ORIGINS": " https://a.example/ ,https://b.example"}):
-            self.assertEqual(settings.integer("TAMANDUA_PR_POLL_SECONDS"), 60)
-            self.assertEqual(settings.items("TAMANDUA_ALLOWED_ORIGINS"), ["https://a.example", "https://b.example"])
-            self.assertTrue(settings.flag("TAMANDUA_EMBEDDED_WORKER"))  # default on
+        with patch.dict("os.environ", {"PITANGUS_PR_POLL_SECONDS": "10", "PITANGUS_ALLOWED_ORIGINS": " https://a.example/ ,https://b.example"}):
+            self.assertEqual(settings.integer("PITANGUS_PR_POLL_SECONDS"), 60)
+            self.assertEqual(settings.items("PITANGUS_ALLOWED_ORIGINS"), ["https://a.example", "https://b.example"])
+            self.assertTrue(settings.flag("PITANGUS_EMBEDDED_WORKER"))  # default on
         with self.assertRaises(KeyError):
             settings.text("SOMETHING_NOT_DECLARED")
 

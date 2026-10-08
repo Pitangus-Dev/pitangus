@@ -2,8 +2,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Report a vulnerability (private)
-    url: https://github.com/Tamandua-AppSec/tamandua/security/advisories/new
+    url: https://github.com/Pitangus-Dev/pitangus/security/advisories/new
     about: Security issues go here, never in a public issue. See SECURITY.md.
   - name: Documentation
-    url: https://github.com/Tamandua-AppSec/tamandua/tree/main/docs
+    url: https://github.com/Pitangus-Dev/pitangus/tree/main/docs
     about: Installation, configuration, deployment and troubleshooting, in English and Spanish (docs/es).

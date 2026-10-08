@@ -1,5 +1,5 @@
 {
-  "format": "tamandua-threat-model",
+  "format": "pitangus-threat-model",
   "version": 1,
   "model": {
     "name": "Portal de clientes · Árbol de ataque",

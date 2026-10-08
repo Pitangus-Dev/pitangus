@@ -2,7 +2,7 @@
 
 # Arquitectura
 
-Tamandua son tres servicios: el **API** (FastAPI, sirve también el panel), uno o varios **workers** que ejecutan los
+Pitangus son tres servicios: el **API** (FastAPI, sirve también el panel), uno o varios **workers** que ejecutan los
 análisis de la cola y las tareas periódicas, y **PostgreSQL**, donde vive todo el estado. Los motores de análisis corren
 como contenedores hermanos efímeros lanzados por el worker, con el código montado en solo lectura, sin capacidades y
 con límites de memoria, CPU y procesos. El API no tiene acceso a Docker.
@@ -12,7 +12,7 @@ flowchart LR
   browser["Navegador<br/>panel React"] -- "HTTPS o loopback<br/>cookie HttpOnly + CSRF" --> api
 
   subgraph host["Tu máquina (Docker)"]
-    api["tamandua<br/>API · panel"]
+    api["pitangus<br/>API · panel"]
     worker["worker<br/>cola · tareas periódicas"]
     db[("PostgreSQL<br/>ejecuciones · hallazgos · configuración")]
     api --- db
@@ -37,10 +37,10 @@ flowchart LR
 
 ## Estructura del código
 
-Monolito modular (`tamandua/`), con capas que comprueba import-linter en cada PR (`make arch`, ver `pyproject.toml`):
+Monolito modular (`pitangus/`), con capas que comprueba import-linter en cada PR (`make arch`, ver `pyproject.toml`):
 
 ```
-tamandua/
+pitangus/
   cli/          línea de comandos (scan para CI, demo, usuarios…)
   app/          composición: API (api/: rutas FastAPI tipadas, un módulo por contexto), worker,
                 migraciones (Alembic y de datos), datos de demostración, estáticos del panel, cableado (suscriptores
@@ -90,7 +90,7 @@ Hoy hay dos:
 - `AssetPurged` (runs): un repositorio que desapareció de GitHub y superó el margen. Runs borra primero sus
   ejecuciones; después lo olvidan, en este orden, el triage, el registro, los vínculos con Jira, la vigilancia de PR,
   el registro de repositorios, las exclusiones y los ajustes de detección de secretos. Una purga interrumpida deja filas
-  sin ejecuciones, y `tamandua integrity` las limpia.
+  sin ejecuciones, y `pitangus integrity` las limpia.
 - `RepositoriesListed` (pullrequests): el vigilante de PR leyó la lista completa de repositorios de las instalaciones
   (nunca una parcial); runs la contrasta con lo analizado y purga lo que ya superó el margen.
 
@@ -115,7 +115,7 @@ La seguridad de la API está en un solo sitio (`app/api/security.py`): host perm
 acción) → sesión → segundo factor → rol → tamaño del cuerpo. Todas las rutas la aplican con
 `deps.guard(Policy(...))`. Los manejadores no leen cabeceras ni cookies por su cuenta; un error no controlado responde
 500 sin traza.
-El panel React + TypeScript (`web/`) se compila a `tamandua/app/static/`.
+El panel React + TypeScript (`web/`) se compila a `pitangus/app/static/`.
 
 Servicios (compose): `api` (panel y API con FastAPI, sin acceso a Docker), `worker` (ejecuta los análisis de la
 cola y las tareas periódicas; el único con el socket de Docker; se puede escalar y las tareas periódicas solo las corre el
@@ -127,10 +127,10 @@ líder, elegido con un cerrojo de PostgreSQL), `postgres` y `opengrep` (solo con
 La API no guarda estado propio: usuarios, ejecuciones, la cola, la configuración, los secretos cifrados, la clave de
 firma de sesiones y la copia local de NVD están en PostgreSQL. Pueden atender varias instancias de la API a la vez, y
 también una sin disco persistente (una función serverless); su carpeta de datos solo guarda cachés que se regeneran. El
-worker ejecuta los motores de una de dos formas (`TAMANDUA_ENGINE_RUNNER`): un contenedor hermano por motor a través
+worker ejecuta los motores de una de dos formas (`PITANGUS_ENGINE_RUNNER`): un contenedor hermano por motor a través
 del socket de Docker, o como procesos, con los motores instalados en su propia imagen (`worker-standalone`), para
 plataformas sin socket. Las tareas periódicas van con el reloj del worker líder o se disparan desde fuera
-(`TAMANDUA_PERIODIC=external`). Todos los destinos están en [despliegue.md](despliegue.md).
+(`PITANGUS_PERIODIC=external`). Todos los destinos están en [despliegue.md](despliegue.md).
 
 ## Flujo de un análisis
 
@@ -145,7 +145,7 @@ plataformas sin socket. Las tareas periódicas van con el reloj del worker líde
 ## Datos en disco
 
 ```
-PostgreSQL (volumen tamandua-pg; esquema con migraciones de Alembic en tamandua/app/alembic)
+PostgreSQL (volumen pitangus-pg; esquema con migraciones de Alembic en pitangus/app/alembic)
   runs                ejecuciones: fila de listado, registro completo, informe y SARIF (JSONB + columnas para filtrar)
   registry_*          registro de hallazgos por activo (estado, CVE con índice GIN) e idempotencia por ejecución
   triage_decisions    decisiones de triage con su historial
@@ -160,15 +160,15 @@ PostgreSQL (volumen tamandua-pg; esquema con migraciones de Alembic en tamandua/
 data/
   feeds/            ficheros descargados de KEV y EPSS (caché regenerable)
   trivy-cache/      base de vulnerabilidades de Trivy
-  logs/app.log      copia JSON opcional de los registros (TAMANDUA_LOG_FILE; Compose la activa), rotada, sin secretos
+  logs/app.log      copia JSON opcional de los registros (PITANGUS_LOG_FILE; Compose la activa), rotada, sin secretos
   backups/          copia de lo que tocó cada migración de datos (se guardan las 5 últimas)
 config/
-  master.key        clave maestra, solo si no se define TAMANDUA_MASTER_KEY (un único servidor)
+  master.key        clave maestra, solo si no se define PITANGUS_MASTER_KEY (un único servidor)
 ```
 
 **Actualizar sin romper los datos.** El esquema de la base lo llevan las migraciones de Alembic
-(`tamandua/app/alembic/versions/`), que se aplican al arrancar. Para datos que haya que reescribir,
-`tamandua/app/data_migrations.py` compara la versión
+(`pitangus/app/alembic/versions/`), que se aplican al arrancar. Para datos que haya que reescribir,
+`pitangus/app/data_migrations.py` compara la versión
 guardada en la base (documento `data-version`; un `data-version.json` antiguo se adopta una vez) con la del código y aplica, en orden y una sola vez, las migraciones pendientes,
 tras copiar a `data/backups/` solo lo que van a tocar. Cada paso guarda su versión: si uno falla, el siguiente
 arranque reanuda desde ahí. Una instalación nueva nace en la última versión; unos datos de una versión más nueva
@@ -182,10 +182,10 @@ que el código (volver a una versión anterior) impiden arrancar en vez de arrie
 - **Una GitHub App por workspace**, con cuatro permisos. Para varias organizaciones, GitHub exige que pueda instalarse en cualquier cuenta; el administrador escoge explícitamente cuáles conectar al workspace. Una clave filtrada tendría acceso a todas las instalaciones de esa App, por lo que su custodia sigue siendo crítica.
 - **Honestidad en los resultados.** Lo que no se pudo probar sale como `not_tested` con su motivo; un análisis incompleto nunca se presenta como «cero vulnerabilidades».
 - **Lo guardado no tiene idioma; se muestra en el de quien lee.** Todo texto que lee una persona existe en inglés
-  (origen y respaldo) y en español, en catálogos (`tamandua/shared/i18n/locales/` y `web/src/shared/i18n/locales/`).
+  (origen y respaldo) y en español, en catálogos (`pitangus/shared/i18n/locales/` y `web/src/shared/i18n/locales/`).
   Lo que se guarda (hallazgos, progreso, limitaciones, errores) es un código de mensaje con sus parámetros, que se
   muestra al leerlo en el idioma de quien lo lee: la API lo hace por petición, y los informes, comentarios de PR,
-  avisos, Jira y la CLI con un idioma explícito (`TAMANDUA_DEFAULT_LOCALE`, `en` por defecto). Un mismo hallazgo se
+  avisos, Jira y la CLI con un idioma explícito (`PITANGUS_DEFAULT_LOCALE`, `en` por defecto). Un mismo hallazgo se
   lee con naturalidad en los dos idiomas, y cambiar de idioma nunca reescribe datos. El texto de terceros (avisos,
   nombres de comprobaciones de los motores) se muestra tal como se publicó, sin traducción automática.
 

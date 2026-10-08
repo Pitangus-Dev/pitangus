@@ -8,12 +8,12 @@ import xml.etree.ElementTree as ET
 import zlib
 from pathlib import Path
 
-from tamandua.modules.threats import diagram as threat_diagram
-from tamandua.modules.threats import model as tm
-from tamandua.modules.threats import report as threat_report
-from tamandua.modules.reporting.audit import render_audit_pdf, validate_options
-from tamandua.modules.findings.remediation import action, fix_groups
-from tamandua.modules.reporting.technical import render_technical_pdf
+from pitangus.modules.threats import diagram as threat_diagram
+from pitangus.modules.threats import model as tm
+from pitangus.modules.threats import report as threat_report
+from pitangus.modules.reporting.audit import render_audit_pdf, validate_options
+from pitangus.modules.findings.remediation import action, fix_groups
+from pitangus.modules.reporting.technical import render_technical_pdf
 from test_threat_model import model
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "web/src/examples/threat-models/en/stride.json"
@@ -93,7 +93,7 @@ class ReportTests(unittest.TestCase):
         self.assertLessEqual(pages(pdf), 5)
 
     def test_markdown_report_renders_in_the_requested_language(self):
-        from tamandua.modules.runs.store import render_repository_report
+        from pitangus.modules.runs.store import render_repository_report
         findings = [{**advisory("CVE-1", "high", "12.0.0"), "ghsa": [], "reason": "", "kev": None}, code("a", "critical")]
         record = {**self.record(findings), "status": "completed", "owasp_coverage": [], "limitations": [],
                   "steps": [{"name": "Opengrep", "status": "completed", "detail": ""}],

@@ -3,7 +3,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{tamandua,rules}/**"
+      "includeFiles": "{pitangus,rules}/**"
     }
   },
   "rewrites": [

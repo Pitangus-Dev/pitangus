@@ -1,6 +1,6 @@
 import type { Response } from '@/shared/api/client'
 import i18n from '@/shared/i18n'
-// Plazo de corrección (tamandua/modules/findings/sla.py): solo en lo pendiente del registro; null si su severidad no tiene plazo.
+// Plazo de corrección (pitangus/modules/findings/sla.py): solo en lo pendiente del registro; null si su severidad no tiene plazo.
 export type { Sla } from '@/shared/lib/types'
 import type { Sla } from '@/shared/lib/types'
 // La política sale del esquema de la API (generado): no se define a mano.

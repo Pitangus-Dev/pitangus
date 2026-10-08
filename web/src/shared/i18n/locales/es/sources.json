@@ -226,7 +226,7 @@
         "token": "clave de una cuenta de servicio con Artifact Registry Reader"
       }
     },
-    "private_blocked": "Los registros de tu red interna (IP privada) están bloqueados para que nadie use el panel para llegar a servicios internos. Para permitirlos, arranca con <code>TAMANDUA_ALLOW_PRIVATE_REGISTRIES=1</code>."
+    "private_blocked": "Los registros de tu red interna (IP privada) están bloqueados para que nadie use el panel para llegar a servicios internos. Para permitirlos, arranca con <code>PITANGUS_ALLOW_PRIVATE_REGISTRIES=1</code>."
   },
   "domains": {
     "kind": {

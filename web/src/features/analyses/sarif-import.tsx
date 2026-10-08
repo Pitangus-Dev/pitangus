@@ -14,7 +14,7 @@ import { AssetPicker } from '@/features/sources/asset-picker'
 import type { Asset } from '@/features/sources/asset-option'
 import { validBranch } from '@/features/sources/sources'
 
-// Same cap as the server (tamandua/modules/scanning/sarif_import.py MAX_BYTES).
+// Same cap as the server (pitangus/modules/scanning/sarif_import.py MAX_BYTES).
 export const SARIF_MAX_BYTES = 10_000_000
 const MAX_MB = SARIF_MAX_BYTES / 1_000_000
 const COMMIT = /^[0-9a-f]{7,64}$/i
@@ -29,7 +29,7 @@ const fileSize = (bytes: number) => bytes < 1_000_000
   ? formatNumber(Math.max(1, bytes / 1000), { style: 'unit', unit: 'kilobyte', maximumFractionDigits: 0 })
   : formatNumber(bytes / 1_000_000, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 1 })
 
-// Findings from another tool into an asset Tamandua already knows; one run per tool in the file.
+// Findings from another tool into an asset Pitangus already knows; one run per tool in the file.
 export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => void | Promise<void>; onBack: () => void }) {
   const { t } = useTranslation('analyses')
   const id = useId()

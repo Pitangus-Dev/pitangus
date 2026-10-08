@@ -8,24 +8,24 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from tamandua.app import wiring
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.integrations import github
-from tamandua.modules.integrations.github import BranchNotFound, branch_head, valid_branch
-from tamandua.modules.integrations.installations import save_github
-from tamandua.modules.pullrequests import watch as pr_watch
-from tamandua.modules.runs.jobs import ScanJobs
-from tamandua.modules.runs.store import save_repository_scan
-from tamandua.modules.scanning.repository import scan_repository
-from tamandua.modules.runs import assets as run_assets
-from tamandua.modules.sources import assets
-from tamandua.shared.i18n import msg, text
+from pitangus.app import wiring
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.integrations import github
+from pitangus.modules.integrations.github import BranchNotFound, branch_head, valid_branch
+from pitangus.modules.integrations.installations import save_github
+from pitangus.modules.pullrequests import watch as pr_watch
+from pitangus.modules.runs.jobs import ScanJobs
+from pitangus.modules.runs.store import save_repository_scan
+from pitangus.modules.scanning.repository import scan_repository
+from pitangus.modules.runs import assets as run_assets
+from pitangus.modules.sources import assets
+from pitangus.shared.i18n import msg, text
 
 from fake_github import fake_github
 from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_jobs import _wait
 
-wiring.configure()  # like every Tamandua process: domain events and injected readers
+wiring.configure()  # like every Pitangus process: domain events and injected readers
 
 REPOS = {7: [(1, "acme/api"), (2, "acme/web")]}
 ACCOUNTS = {7: ("acme", "selected")}
@@ -46,8 +46,8 @@ class BranchNameTests(unittest.TestCase):
         class Opener:
             open = staticmethod(refuse)
 
-        with patch("tamandua.modules.integrations.github.installation_token", return_value="token"), \
-                patch("tamandua.shared.http.build_opener", return_value=Opener()):
+        with patch("pitangus.modules.integrations.github.installation_token", return_value="token"), \
+                patch("pitangus.shared.http.build_opener", return_value=Opener()):
             with self.assertRaises(BranchNotFound) as caught:
                 branch_head(7, "acme/api", "develop")
         self.assertIn("develop", text(caught.exception.message, "en"))
@@ -72,7 +72,7 @@ class BaselineTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.data_dir = Path(self.directory.name)
-        engines = patch.dict("tamandua.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
+        engines = patch.dict("pitangus.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
         engines.start()
         self.addCleanup(engines.stop)
 
@@ -95,7 +95,7 @@ class PinnedScanTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.data_dir = Path(self.directory.name)
-        engines = patch.dict("tamandua.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
+        engines = patch.dict("pitangus.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
         engines.start()
         self.addCleanup(engines.stop)
         self.refs = []
@@ -106,7 +106,7 @@ class PinnedScanTests(unittest.TestCase):
         return destination, {"id": source_id, "uid": "github#1", "name": "org/api", "provider": "github", "files": 1, "branch": "main"}
 
     def run_scan(self, **kwargs):
-        with patch("tamandua.modules.runs.jobs.snapshot_source", side_effect=self.snapshot):
+        with patch("pitangus.modules.runs.jobs.snapshot_source", side_effect=self.snapshot):
             jobs = ScanJobs(self.data_dir)
             self.addCleanup(jobs.stop)
             queued = jobs.enqueue_repository_scan(source_id="github:org/api", source_name="org/api", allow_osv_upload=False, context="",
@@ -115,21 +115,21 @@ class PinnedScanTests(unittest.TestCase):
 
     def test_the_configured_branch_is_scanned_at_its_latest_commit(self):
         assets.set_scan_branch(self.data_dir, "github#1", "develop", name="org/api", source_id="github:org/api", by="admin")
-        with patch("tamandua.modules.integrations.github.branch_head", return_value="d" * 40) as head:
+        with patch("pitangus.modules.integrations.github.branch_head", return_value="d" * 40) as head:
             record = self.run_scan()
         head.assert_called_once_with(7, "org/api", "develop")
         self.assertEqual(self.refs, ["d" * 40])
         self.assertEqual((record["status"], record["source"]["branch"], record["source"]["commit"]), ("incomplete", "develop", "d" * 40))
 
     def test_without_a_setting_the_default_branch_is_pinned(self):
-        with patch("tamandua.modules.integrations.github.installation_repository", return_value={"branch": "main"}), \
-                patch("tamandua.modules.integrations.github.branch_head", return_value="a" * 40):
+        with patch("pitangus.modules.integrations.github.installation_repository", return_value={"branch": "main"}), \
+                patch("pitangus.modules.integrations.github.branch_head", return_value="a" * 40):
             record = self.run_scan()
         self.assertEqual(self.refs, ["a" * 40])
         self.assertEqual((record["source"]["branch"], record["source"]["commit"]), ("main", "a" * 40))
 
     def test_a_pinned_commit_is_not_resolved_again(self):
-        with patch("tamandua.modules.integrations.github.branch_head") as head:
+        with patch("pitangus.modules.integrations.github.branch_head") as head:
             record = self.run_scan(branch="release/2.0", commit="e" * 40)
         head.assert_not_called()
         self.assertEqual((self.refs, record["source"]["branch"]), (["e" * 40], "release/2.0"))
@@ -137,7 +137,7 @@ class PinnedScanTests(unittest.TestCase):
     def test_a_deleted_scan_branch_fails_the_run_naming_it(self):
         assets.set_scan_branch(self.data_dir, "github#1", "gone", name="org/api", source_id="github:org/api", by="admin")
         missing = msg("integrations.github.branch_not_found", branch="gone")
-        with patch("tamandua.modules.integrations.github.branch_head", side_effect=BranchNotFound(missing)):
+        with patch("pitangus.modules.integrations.github.branch_head", side_effect=BranchNotFound(missing)):
             record = self.run_scan()
         self.assertEqual((record["status"], self.refs), ("failed", []))
         self.assertIn("gone", text(record["limitations"][0], "en"))
@@ -167,9 +167,9 @@ class WatcherTests(unittest.TestCase):
 
     def poll(self, jobs, pulls, heads=None):
         heads = heads or {"main": "a" * 40}
-        with patch("tamandua.modules.integrations.github.installation_repositories", return_value=self.installed), \
-                patch("tamandua.modules.integrations.github.open_pull_requests", return_value=pulls), \
-                patch("tamandua.modules.integrations.github.branch_head", side_effect=lambda installation, name, branch: heads[branch]):
+        with patch("pitangus.modules.integrations.github.installation_repositories", return_value=self.installed), \
+                patch("pitangus.modules.integrations.github.open_pull_requests", return_value=pulls), \
+                patch("pitangus.modules.integrations.github.branch_head", side_effect=lambda installation, name, branch: heads[branch]):
             return pr_watch.Watcher(self.data_dir, jobs, lambda: 7).poll()
 
     def test_only_prs_into_the_target_branches_are_reviewed(self):
@@ -221,7 +221,7 @@ class PurgeTests(unittest.TestCase):
 class RouteTests(HttpCase):
     def setUp(self):
         super().setUp()
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("admin", PASSWORD, role="admin")
             Users(self.data_dir).create("miembro", PASSWORD)
             self.admin = self.post("/api/auth/login", "login", {"username": "admin", "password": PASSWORD})[2][0].split("; ")[0]
@@ -229,7 +229,7 @@ class RouteTests(HttpCase):
         save_github(self.data_dir, 7, {"account": "acme", "repository_selection": "selected"}, "admin")
 
     def send(self, path, action, body, cookie, locale=None):
-        headers = {"Origin": ORIGIN, "X-Tamandua-Action": action, "Cookie": cookie, "Content-Type": "application/json",
+        headers = {"Origin": ORIGIN, "X-Pitangus-Action": action, "Cookie": cookie, "Content-Type": "application/json",
                    **({"Accept-Language": locale} if locale else {})}
         with fake_github(REPOS, ACCOUNTS, BRANCHES):
             return self.call("POST", path, body, headers)[:2]
@@ -263,8 +263,8 @@ class RouteTests(HttpCase):
             self.assertEqual(self.send(path, "pr-settings", body, self.admin)[0], 403, path)
             with fake_github(REPOS, ACCOUNTS, BRANCHES):
                 json = {"Content-Type": "application/json"}
-                self.assertEqual(self.call("POST", path, body, {**json, "X-Tamandua-Action": action, "Cookie": self.admin})[0], 403, path)
-                self.assertEqual(self.call("POST", path, body, {**json, "Origin": ORIGIN, "X-Tamandua-Action": action})[0], 401, path)
+                self.assertEqual(self.call("POST", path, body, {**json, "X-Pitangus-Action": action, "Cookie": self.admin})[0], 403, path)
+                self.assertEqual(self.call("POST", path, body, {**json, "Origin": ORIGIN, "X-Pitangus-Action": action})[0], 401, path)
             self.assertEqual(self.send(path, action, {**body, "uid": "github#99"}, self.admin)[0], 404, path)  # not in the App
             self.assertEqual(self.send(path, action, {**body, "extra": 1}, self.admin)[0], 400, path)
         self.assertIsNone(assets.scan_branch(self.data_dir, "github#1"))

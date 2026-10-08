@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.runs import batches
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.integrations.installations import save_github
+from pitangus.modules.runs import batches
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.integrations.installations import save_github
 from fake_github import fake_github
 from test_auth import PASSWORD, HttpCase
 
@@ -54,7 +54,7 @@ class BatchLogicTests(unittest.TestCase):
         self.assertEqual((current["id"], index), (batch["id"], 0))
 
     def test_progress_comes_from_the_real_runs(self):
-        from tamandua.modules.runs.store import save_repository_scan
+        from pitangus.modules.runs.store import save_repository_scan
         from test_dashboard import _finding, _scan
         batch = batches.create(self.data, [item("acme/a"), item("acme/b"), item("acme/c")], by="ana", label="tres")
         run = save_repository_scan(self.data, {**_scan("acme/a", [_finding("a" * 64, "critical")], datetime.now(timezone.utc).isoformat()),
@@ -70,8 +70,8 @@ class BatchLogicTests(unittest.TestCase):
 
 class ImageBatchTests(unittest.TestCase):
     def test_images_are_batched_by_full_reference_and_fed_to_the_image_scanner(self):
-        from tamandua.modules.scanning.image import parse_reference
-        from tamandua.modules.runs.jobs import ScanJobs
+        from pitangus.modules.scanning.image import parse_reference
+        from pitangus.modules.runs.jobs import ScanJobs
         with tempfile.TemporaryDirectory() as folder:
             data = Path(folder)
             items = [{"kind": "image", "image": parse_reference(reference)} for reference in ("nginx:1.21", "nginx:1.27-alpine", "nginx:1.21")]
@@ -90,7 +90,7 @@ class WorkerTests(unittest.TestCase):
     def test_the_real_worker_goes_through_the_whole_batch(self):
         """The worker takes the batch's repositories one by one when it has nothing else to do, until it is done."""
         import time
-        from tamandua.modules.runs.jobs import ScanJobs
+        from pitangus.modules.runs.jobs import ScanJobs
         from test_dashboard import _finding, _scan
 
         def snapshot(source_id, destination, tokens, installation, ref=None, progress=None):
@@ -100,8 +100,8 @@ class WorkerTests(unittest.TestCase):
         def scan(root, source, **kwargs):
             return _scan(source["name"], [_finding(source["name"].encode().hex().ljust(64, "0")[:64], "high")], datetime.now(timezone.utc).isoformat())
 
-        with tempfile.TemporaryDirectory() as folder, patch("tamandua.modules.runs.jobs.snapshot_source", side_effect=snapshot), \
-                patch("tamandua.modules.runs.jobs.scan_repository", side_effect=scan):
+        with tempfile.TemporaryDirectory() as folder, patch("pitangus.modules.runs.jobs.snapshot_source", side_effect=snapshot), \
+                patch("pitangus.modules.runs.jobs.scan_repository", side_effect=scan):
             data = Path(folder)
             batch = batches.create(data, [item("acme/a"), item("acme/b"), item("acme/c")], by="ana", label="tres")
             jobs = ScanJobs(data)
@@ -116,19 +116,19 @@ class WorkerTests(unittest.TestCase):
 class BatchRouteTests(HttpCase):
     def setUp(self):
         super().setUp()
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("admin", PASSWORD, role="admin")
             Users(self.data_dir).create("miembro", PASSWORD)
             self.admin = self.post("/api/auth/login", "login", {"username": "admin", "password": PASSWORD})[2][0].split("; ")[0]
             self.member = self.post("/api/auth/login", "login", {"username": "miembro", "password": PASSWORD})[2][0].split("; ")[0]
         save_github(self.data_dir, 7, {"account": "acme", "repository_selection": "all"}, "admin")
         # The worker takes nothing from the batch during the test: only the API is tested here.
-        patcher = patch("tamandua.modules.runs.jobs.ScanJobs._feed_batch")
+        patcher = patch("pitangus.modules.runs.jobs.ScanJobs._feed_batch")
         patcher.start()
         self.addCleanup(patcher.stop)
 
     def create(self, body, cookie):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}), fake_github(REPOS, ACCOUNTS):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}), fake_github(REPOS, ACCOUNTS):
             return self.post("/api/repositories/batches", "scan-batch", body, cookie)
 
     def test_a_member_scans_a_selection_but_not_a_whole_organization(self):
@@ -138,7 +138,7 @@ class BatchRouteTests(HttpCase):
         self.assertEqual(status, 403)
         # Another batch while one is still running: rejected.
         self.assertEqual(self.create({"source_ids": ["github:acme/servicio-03"]}, self.member)[0], 409)
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             _, listing, _ = self.call("GET", "/api/repositories/batches", headers={"Cookie": self.member})
             self.assertEqual(listing["active"]["total"], 2)
             self.assertEqual(self.post("/api/repositories/batches/cancel", "cancel-batch", {"id": listing["active"]["id"]}, self.member)[0], 200)
@@ -149,7 +149,7 @@ class BatchRouteTests(HttpCase):
 
     def test_a_member_scans_several_images_in_one_batch(self):
         def create(body):
-            with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+            with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
                 return self.post("/api/images/batches", "scan-image-batch", body, self.member)
         for body in ({"references": []}, {"references": ["NGINX:Mayúsculas"]}, {"references": [7]},
                      {"references": [f"nginx:{index}" for index in range(101)]}, {"references": ["nginx"], "extra": 1}):

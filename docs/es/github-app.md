@@ -2,7 +2,7 @@
 
 # Conectar GitHub
 
-Cada instalación de Tamandua usa **su propia** GitHub App: la creas tú, en tu cuenta o en una organización que administres. Si necesitas varias organizaciones, configúrala para que pueda instalarse en cualquier cuenta. GitHub no permite crear Apps por API, así que se hace en su formulario. El panel (**Integraciones**) muestra esta misma guía con los valores ya rellenos para tu instalación y botones para copiarlos.
+Cada instalación de Pitangus usa **su propia** GitHub App: la creas tú, en tu cuenta o en una organización que administres. Si necesitas varias organizaciones, configúrala para que pueda instalarse en cualquier cuenta. GitHub no permite crear Apps por API, así que se hace en su formulario. El panel (**Integraciones**) muestra esta misma guía con los valores ya rellenos para tu instalación y botones para copiarlos.
 
 ## 1. Crear la App
 
@@ -15,7 +15,7 @@ Rellena solo esto:
 
 | Campo | Valor |
 | --- | --- |
-| **GitHub App name** | El que quieras, p. ej. `Tamandua`. Tiene que ser único en todo GitHub: si ya existe, añade tu equipo. |
+| **GitHub App name** | El que quieras, p. ej. `Pitangus`. Tiene que ser único en todo GitHub: si ya existe, añade tu equipo. |
 | **Homepage URL** | Cualquier URL tuya; p. ej. tu perfil de GitHub o la URL de tu panel. |
 | **Callback URL** | Vacío. |
 | **Request user authorization (OAuth) during installation** | Sin marcar. |
@@ -56,7 +56,7 @@ Para añadir o quitar repositorios más tarde: **Integraciones → Cambiar repos
 
 ## Revisión de pull requests
 
-En **Pull requests** activa la vigilancia por repositorio y elige el umbral de bloqueo. Cada pocos minutos (`TAMANDUA_PR_POLL_SECONDS`) se revisan los PRs abiertos con commits nuevos: solo cuenta lo que el PR introduce frente a la rama principal. El resultado se publica como **un único comentario** que se actualiza y como un estado de commit `tamandua`.
+En **Pull requests** activa la vigilancia por repositorio y elige el umbral de bloqueo. Cada pocos minutos (`PITANGUS_PR_POLL_SECONDS`) se revisan los PRs abiertos con commits nuevos: solo cuenta lo que el PR introduce frente a la rama principal. El resultado se publica como **un único comentario** que se actualiza y como un estado de commit `pitangus`.
 
 ## Alternativa: montar la App como secreto
 

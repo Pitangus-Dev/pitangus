@@ -13,7 +13,7 @@ import { SUPPRESSED, TRIAGE_LABEL, type TriageState, type TriageStatus } from '@
 const triageClass: Record<TriageStatus, string> = {
   open: 'border-app-line text-app-muted', in_progress: 'border-info-line text-info',
   false_positive: 'border-app-line bg-app-soft text-app-subtle line-through decoration-app-faint', accepted: 'border-brand/30 text-brand',
-  fixed: 'border-brand/30 text-brand',
+  fixed: 'border-success-line text-success',
 }
 const icon: Record<TriageStatus, typeof CircleDot> = { open: RotateCcw, in_progress: Wrench, false_positive: ShieldX, accepted: ThumbsUp, fixed: CheckCheck }
 const VERB = {

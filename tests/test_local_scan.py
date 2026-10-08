@@ -1,4 +1,4 @@
-"""`tamandua scan`: local folder, comparison with the base branch, threshold and exit codes."""
+"""`pitangus scan`: local folder, comparison with the base branch, threshold and exit codes."""
 
 import json
 import shutil
@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.runs import local as local_scan
-from tamandua.modules.runs.local import EXIT_BLOCKED, EXIT_INCOMPLETE, EXIT_OK, LocalScanError, merge_base, parse_diff, run
+from pitangus.modules.runs import local as local_scan
+from pitangus.modules.runs.local import EXIT_BLOCKED, EXIT_INCOMPLETE, EXIT_OK, LocalScanError, merge_base, parse_diff, run
 
 GIT = shutil.which("git")
 
@@ -54,7 +54,7 @@ class GitTests(unittest.TestCase):
         commit = merge_base(self.repo, "main")
         files = {item["filename"]: item for item in local_scan.diff_files(self.repo, commit)}
         self.assertEqual(set(files), {"app.py", "requirements.txt", "nuevo.py"})
-        from tamandua.modules.pullrequests.review import changed_lines
+        from pitangus.modules.pullrequests.review import changed_lines
         changed = changed_lines(list(files.values()))
         self.assertEqual((changed["app.py"], changed["nuevo.py"]), ({2, 3}, None))
 
@@ -72,7 +72,7 @@ class GitTests(unittest.TestCase):
         scans = iter([scan_result(head), scan_result(base)])
         with tempfile.TemporaryDirectory() as data, \
                 patch.object(local_scan, "scan_repository", side_effect=lambda *args, **kwargs: next(scans)), \
-                patch("tamandua.modules.scanning.engines.docker_available", return_value=True):
+                patch("pitangus.modules.scanning.engines.docker_available", return_value=True):
             result = run(self.repo, data_dir=Path(data), base="main")
         self.assertEqual([item["fingerprint"] for item in result["findings"]], ["eval", "new-sca"])
         self.assertEqual((result["comparison"]["preexisting_in_changed_code"], result["exit_code"]), (1, EXIT_BLOCKED))
@@ -86,7 +86,7 @@ class GitTests(unittest.TestCase):
         scans = iter([scan_result([moved_after]), scan_result(base)])
         with tempfile.TemporaryDirectory() as data, \
                 patch.object(local_scan, "scan_repository", side_effect=lambda *args, **kwargs: next(scans)), \
-                patch("tamandua.modules.scanning.engines.docker_available", return_value=True):
+                patch("pitangus.modules.scanning.engines.docker_available", return_value=True):
             result = run(self.repo, data_dir=Path(data), base="main")
         self.assertEqual([(item["fingerprint"], item["resolution"]) for item in result["resolved"]],
                          [("eval-fixed", "fixed"), ("gone", "deleted")])
@@ -106,7 +106,7 @@ class GitTests(unittest.TestCase):
             scans = iter([scan_result([], head_status), scan_result([finding("eval", "app.py", 2)], base_status)])
             with tempfile.TemporaryDirectory() as data, \
                     patch.object(local_scan, "scan_repository", side_effect=list(scans)), \
-                    patch("tamandua.modules.scanning.engines.docker_available", return_value=True):
+                    patch("pitangus.modules.scanning.engines.docker_available", return_value=True):
                 result = run(self.repo, data_dir=Path(data), base="main")
             self.assertEqual((result["resolved"], result["comparison"]["resolved_verifiable"]), ([], False))
             self.assertIn("can't be verified", local_scan.render_text(result, locale="en"))
@@ -119,7 +119,7 @@ class GitTests(unittest.TestCase):
         scans = iter([head, scan_result(base)])
         with tempfile.TemporaryDirectory() as data, \
                 patch.object(local_scan, "scan_repository", side_effect=lambda *args, **kwargs: next(scans)), \
-                patch("tamandua.modules.scanning.engines.docker_available", return_value=True):
+                patch("pitangus.modules.scanning.engines.docker_available", return_value=True):
             result = run(self.repo, data_dir=Path(data), base="main")
         self.assertEqual([item["fingerprint"] for item in result["resolved"]], ["eval"])
 
@@ -160,8 +160,8 @@ class GateTests(unittest.TestCase):
     def run_with(self, findings, *, status="completed", failed=(), docker=True, fail_on="high", exclude=None):
         with tempfile.TemporaryDirectory() as folder, tempfile.TemporaryDirectory() as data, \
                 patch.object(local_scan, "scan_repository", return_value=scan_result(findings, status, failed)), \
-                patch("tamandua.modules.scanning.engines.docker_available", return_value=docker), \
-                patch("tamandua.modules.scanning.engines.docker_problem", return_value="Docker no responde."):
+                patch("pitangus.modules.scanning.engines.docker_available", return_value=docker), \
+                patch("pitangus.modules.scanning.engines.docker_problem", return_value="Docker no responde."):
             return run(Path(folder), data_dir=Path(data), fail_on=fail_on, exclude=exclude)
 
     def test_the_markdown_summary_groups_packages_and_points_to_the_full_list(self):

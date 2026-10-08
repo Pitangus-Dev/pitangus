@@ -78,10 +78,10 @@ export function AddDomainDialog({ open, onOpenChange, onAdded }: { open: boolean
         <label htmlFor="domain-url" className="text-sm text-app-secondary">{t('domains.add.domain')}</label>
         <div className="relative">
           <Input id="domain-url" required autoFocus value={url} onChange={event => changeUrl(event.target.value)} placeholder={t('domains.add.placeholder')} className="border-app-line bg-app-soft pr-10" />
-          <span className="absolute top-1/2 right-3 -translate-y-1/2">{checking ? <LoaderCircle className="size-4 animate-spin text-app-subtle" /> : reach?.reachable ? <CircleCheck className="size-4 text-brand" /> : reach ? <CircleAlert className="size-4 text-warning" /> : null}</span>
+          <span className="absolute top-1/2 right-3 -translate-y-1/2">{checking ? <LoaderCircle className="size-4 animate-spin text-app-subtle" /> : reach?.reachable ? <CircleCheck className="size-4 text-success" /> : reach ? <CircleAlert className="size-4 text-warning" /> : null}</span>
         </div>
         {checking && <p className="text-xs text-app-subtle">{t('domains.add.checking')}</p>}
-        {reach && <p className={`text-xs ${reach.reachable ? 'text-brand' : 'text-warning'}`}>{reach.reachable ? t('domains.add.reachable') : reach.detail}{reach.reachable && reach.http_status ? ` · HTTPS ${reach.http_status}` : ''}</p>}
+        {reach && <p className={`text-xs ${reach.reachable ? 'text-success' : 'text-warning'}`}>{reach.reachable ? t('domains.add.reachable') : reach.detail}{reach.reachable && reach.http_status ? ` · HTTPS ${reach.http_status}` : ''}</p>}
       </div>
       <details className="group">
         <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm text-app-muted"><ChevronRight className="size-4 transition group-open:rotate-90" />{t('domains.add.more')}</summary>

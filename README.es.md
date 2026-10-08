@@ -1,18 +1,18 @@
 [English](README.md) · Español
 
-<p align="center"><img src="docs/assets/tamandua.svg" width="112" alt="Tamandua, un oso hormiguero de collar atrapando un escarabajo con la lengua"></p>
+<p align="center"><img src="docs/assets/pitangus.svg" width="112" alt="Pitangus: la cabeza de un bichofué de perfil"></p>
 
-<h1 align="center">Tamandua</h1>
+<h1 align="center">Pitangus</h1>
 
-<p align="center"><a href="https://github.com/Tamandua-AppSec/tamandua/actions/workflows/ci.yml"><img src="https://github.com/Tamandua-AppSec/tamandua/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
+<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
 
-<p align="center"><strong>Se come tus bugs.</strong> Seguridad de aplicaciones autoalojada, libre y sin enviar tu código a nadie.</p>
+<p align="center"><strong>Detéctalo. Corrígelo. Demuéstralo.</strong> Seguridad de aplicaciones autoalojada, libre y sin enviar tu código a nadie.</p>
 
-Tamandua analiza tus repositorios e imágenes de contenedor, te dice **qué corregir primero y cómo** (el comando exacto o un ejemplo de código), comprueba que quedó corregido y **vigila solo** lo que cambia después. Todo corre en tu máquina, con tus credenciales: tu código no va a ningún servicio nuestro.
+Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corregir primero y cómo** (el comando exacto o un ejemplo de código), comprueba que quedó corregido y **vigila solo** lo que cambia después. Todo corre en tu máquina, con tus credenciales: tu código no va a ningún servicio nuestro.
 
-> Estado: **beta (v0.11)**. Funcional y con pruebas, pero la API y los formatos de `data/` aún pueden cambiar entre versiones.
+> Estado: **beta (v0.12)**. Funcional y con pruebas, pero la API y los formatos de `data/` aún pueden cambiar entre versiones.
 
-## Por qué Tamandua
+## Por qué Pitangus
 
 - **Autoalojado y libre (AGPL-3.0).** El código, las dependencias y los hallazgos se quedan en tu servidor.
 - **Un solo sitio para todo:** código (SAST), dependencias, secretos, infraestructura como código, pipelines e imágenes, con siete motores abiertos y sin duplicados entre ellos.
@@ -37,8 +37,8 @@ Tamandua analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 Necesitas **Docker** (Engine 24+ con Compose v2.24+), **make** y **git**, 4 GB de memoria y 8 GB de disco. `make doctor` lo comprueba.
 
 ```bash
-git clone --branch v0.11.0 https://github.com/Tamandua-AppSec/tamandua.git
-cd tamandua
+git clone --branch v0.12.0 https://github.com/Pitangus-Dev/pitangus.git
+cd pitangus
 make setup PREBUILT=1
 make up
 make demo
@@ -47,11 +47,11 @@ make demo
 `make setup PREBUILT=1` usa las imágenes publicadas y firmadas, y todo sigue solo en tu máquina; `make up` las
 descarga junto con los motores, arranca y te muestra la URL y el **código de configuración**. Medido en una máquina
 limpia: menos de un minuto más unos 800 MB de descargas (unos 2 minutos a 50 Mbps). Si prefieres construir las imágenes
-desde el código, omite `make setup PREBUILT=1`. `make demo` analiza de verdad los ejemplos vulnerables que trae el repositorio e importa un modelo de amenazas, para ver Tamandua funcionando sin conectar nada (`make demo IMAGE=nginx:1.21` añade una imagen).
+desde el código, omite `make setup PREBUILT=1`. `make demo` analiza de verdad los ejemplos vulnerables que trae el repositorio e importa un modelo de amenazas, para ver Pitangus funcionando sin conectar nada (`make demo IMAGE=nginx:1.21` añade una imagen).
 
 Abre <http://127.0.0.1:8766>, crea el administrador con el código y sigue **Primeros pasos** en el Resumen. La guía completa, con qué es opcional: [docs/es/inicio-rapido.md](docs/es/inicio-rapido.md).
 
-El panel sigue el idioma de tu navegador y tiene un selector de idioma en la barra lateral y en la pantalla de inicio de sesión. Los comentarios en PRs, los avisos, Jira, los informes y la salida de la CLI usan `TAMANDUA_DEFAULT_LOCALE` (`en` o `es`, por defecto `en`).
+El panel sigue el idioma de tu navegador y tiene un selector de idioma en la barra lateral y en la pantalla de inicio de sesión. Los comentarios en PRs, los avisos, Jira, los informes y la salida de la CLI usan `PITANGUS_DEFAULT_LOCALE` (`en` o `es`, por defecto `en`).
 
 ## Documentación
 
@@ -63,7 +63,7 @@ El panel sigue el idioma de tu navegador y tiene un selector de idioma en la bar
 | [Desplegar en un VPS](docs/es/despliegue-vps.md) | Tu propio servidor con dominio: HTTPS, copias, actualizaciones, monitorización, Coolify y Dokploy |
 | [Conectar GitHub](docs/es/github-app.md) | Crear la GitHub App paso a paso y revisar PRs |
 | [Terminal y CI](docs/es/cli.md) | `scan`: analiza una carpeta o lo que introduce un cambio, con salida SARIF y códigos de salida; en CI, un solo paso con la GitHub Action |
-| [Skills para asistentes](skills/README.md) | Claude Code, Cursor o Codex corrigen lo que encuentra Tamandua y lo verifican, o lo montan en tu CI |
+| [Skills para asistentes](skills/README.md) | Claude Code, Cursor o Codex corrigen lo que encuentra Pitangus y lo verifican, o lo montan en tu CI |
 | [Funcionalidades](docs/es/funcionalidades.md) | Qué hace cada parte y con qué criterio |
 | [Configuración](docs/es/configuracion.md) | Variables de `.env` |
 | [Seguridad](docs/es/seguridad.md) | Secretos, transporte, qué sale de tu máquina y concesiones |
@@ -86,7 +86,7 @@ Para reportar una vulnerabilidad: [SECURITY.es.md](.github/SECURITY.es.md).
 
 ## Llevarlo a un servidor (HTTPS)
 
-Tamandua corre donde corra un contenedor. [docs/es/despliegue.md](docs/es/despliegue.md) cubre cada destino: un solo archivo de compose para cualquier servidor o panel de Docker (Coolify, Dokploy, Portainer, Hostinger), además de Render, Railway y Vercel para la API (sin probar). Su worker puede ejecutar los motores dentro de su propia imagen, así que ningún destino necesita el socket de Docker del servidor.
+Pitangus corre donde corra un contenedor. [docs/es/despliegue.md](docs/es/despliegue.md) cubre cada destino: un solo archivo de compose para cualquier servidor o panel de Docker (Coolify, Dokploy, Portainer, Hostinger), además de Render, Railway y Vercel para la API (sin probar). Su worker puede ejecutar los motores dentro de su propia imagen, así que ningún destino necesita el socket de Docker del servidor.
 
 En tu propio VPS con este repositorio, con el registro DNS apuntando al servidor:
 
@@ -105,8 +105,8 @@ Issues y PRs son bienvenidos: lee [CONTRIBUTING.es.md](.github/CONTRIBUTING.es.m
 
 ## Licencia
 
-Tamandua es software libre bajo la [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only): puedes usarlo, estudiarlo, modificarlo y redistribuirlo. Si ofreces una versión modificada a otras personas a través de la red, tienes que poner a su disposición el código fuente de esa versión con la misma licencia.
+Pitangus es software libre bajo la [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only): puedes usarlo, estudiarlo, modificarlo y redistribuirlo. Si ofreces una versión modificada a otras personas a través de la red, tienes que poner a su disposición el código fuente de esa versión con la misma licencia.
 
 Las reglas SAST de [`rules/`](rules/) tienen su propia licencia MIT, para que puedas reutilizarlas en otras herramientas.
 
-Copyright © 2026 BrayansStivens y colaboradores de Tamandua.
+Copyright © 2026 BrayansStivens y colaboradores de Pitangus.

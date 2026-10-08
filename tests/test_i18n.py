@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.shared import i18n
+from pitangus.shared import i18n
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_LOCALES = ROOT / "web/src/shared/i18n/locales"
@@ -52,7 +52,7 @@ class CatalogTests(unittest.TestCase):
 
     def test_every_server_key_in_code_exists(self):
         known = set(i18n.catalog("en"))
-        source = "\n".join(path.read_text() for path in (ROOT / "tamandua").rglob("*.py"))
+        source = "\n".join(path.read_text() for path in (ROOT / "pitangus").rglob("*.py"))
         used = set(re.findall(r"\bmsg\(\s*[\"']([\w.-]+)[\"']", source)) | set(re.findall(r"\bt\(\s*[\"']([\w.-]+)[\"']", source))
         missing = {key for key in used if key not in known and f"{key}_one" not in known}
         self.assertEqual(missing, set())
@@ -85,7 +85,7 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(i18n.localize(only_spanish, "en"), "Solo español")
 
     def test_accept_language_negotiation(self):
-        with patch.dict("os.environ", {"TAMANDUA_DEFAULT_LOCALE": "en"}):
+        with patch.dict("os.environ", {"PITANGUS_DEFAULT_LOCALE": "en"}):
             self.assertEqual(i18n.negotiate("es-CO,es;q=0.9,en;q=0.8"), "es")
             self.assertEqual(i18n.negotiate("fr-FR,en;q=0.5"), "en")
             self.assertEqual(i18n.negotiate("de"), "en")
@@ -98,8 +98,8 @@ class ApiLocaleTests(unittest.TestCase):
         import tempfile
 
         import asgi
-        from tamandua.app.api.server import build_state
-        with tempfile.TemporaryDirectory() as folder, patch("tamandua.shared.paths.CONFIG_DIR", Path(folder) / "config"):
+        from pitangus.app.api.server import build_state
+        with tempfile.TemporaryDirectory() as folder, patch("pitangus.shared.paths.CONFIG_DIR", Path(folder) / "config"):
             client = asgi.client_for(Path(folder), build_state(Path(folder)))
             for language, expected in (("en", "Not found"), ("es", "Ruta no encontrada")):
                 response = asgi.request(client, "GET", "/api/no-such-route", headers={"Accept-Language": language})

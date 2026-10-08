@@ -7,7 +7,7 @@ import { api } from '@/shared/api/http'
 
 type State = { mfa: boolean; github: boolean; analyzed: boolean; demo: boolean; watching: boolean; alerts: boolean; admin: boolean }
 type Step = { id: string; done: boolean; title: string; hint: string; view?: string; action?: string }
-const HIDDEN = 'tamandua-getting-started-hidden'
+const HIDDEN = 'pitangus-getting-started-hidden'
 
 // Primeros pasos: deducidos del estado real (GET /api/onboarding), una acción por paso. Se ocultan solos al
 // completarlos o cuando la persona los descarta (solo en este navegador).

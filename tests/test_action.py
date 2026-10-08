@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tamandua.version import VERSION
+from pitangus.version import VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 ACTION = (ROOT / "action.yml").read_text(encoding="utf-8")
@@ -99,7 +99,7 @@ def documented(path: Path, header: str) -> list[str]:
     return names
 
 
-PUBLISHED = "ghcr.io/tamandua-appsec/tamandua-worker"
+PUBLISHED = "ghcr.io/pitangus-dev/pitangus-worker"
 DIGEST = "sha256:" + "ab" * 32
 
 # FAKE_LOCAL: the image is already on the runner. FAKE_DIGESTS: its RepoDigests. FAKE_CODES: exit codes of the
@@ -108,7 +108,7 @@ FAKE_DOCKER = f"""#!{sys.executable}
 import json, os, sys
 log = os.environ["FAKE_LOG"]
 previous = [json.loads(line) for line in open(log)] if os.path.exists(log) else []
-record = {{"tool": "docker", "argv": sys.argv[1:], "token": os.environ.get("TAMANDUA_IMPORT_TOKEN"),
+record = {{"tool": "docker", "argv": sys.argv[1:], "token": os.environ.get("PITANGUS_IMPORT_TOKEN"),
            "docker_config": os.environ.get("DOCKER_CONFIG"), "stdin": sys.stdin.read() if "login" in sys.argv else None}}
 open(log, "a").write(json.dumps(record) + "\\n")
 if sys.argv[1:3] == ["image", "inspect"]:
@@ -121,7 +121,7 @@ if sys.argv[1:3] == ["image", "inspect"]:
 if sys.argv[1] != "run":
     sys.exit(0)
 if "scan" in sys.argv:
-    open(os.path.join(os.environ["RUNNER_TEMP"], "tamandua", "result.sarif"), "w").write('{{"version": "2.1.0"}}')
+    open(os.path.join(os.environ["RUNNER_TEMP"], "pitangus", "result.sarif"), "w").write('{{"version": "2.1.0"}}')
 runs = sum(call["argv"][:1] == ["run"] for call in previous)
 codes = os.environ.get("FAKE_CODES", "").split(",")
 sys.exit(int(codes[runs]) if runs < len(codes) and codes[runs] else 0)
@@ -135,7 +135,7 @@ sys.exit(int(os.environ.get("FAKE_COSIGN") or 0))
 
 
 PULL, MAIN = (next(i for i, step in enumerate(steps(ACTION)) if marker in step["run"])
-              for marker in ("docker login", "python -m tamandua scan"))
+              for marker in ("docker login", "python -m pitangus scan"))
 
 
 class ActionDefinitionTests(unittest.TestCase):
@@ -145,14 +145,14 @@ class ActionDefinitionTests(unittest.TestCase):
 
     def test_only_the_release_workflow_of_a_version_tag_signs(self):
         signers = re.compile(steps(ACTION)[MAIN]["literal"]["SIGNERS"])
-        for identity in ("https://github.com/Tamandua-AppSec/tamandua/.github/workflows/release.yml@refs/tags/v0.10.4",
-                         "https://github.com/Tamandua-AppSec/tamandua/.github/workflows/release.yml@refs/tags/v0.11"):
+        for identity in ("https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags/v0.10.4",
+                         "https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags/v0.12"):
             self.assertRegex(identity, signers)
-        for identity in ("https://github.com/Tamandua-AppSec/tamandua/.github/workflows/release.yml@refs/heads/main",
-                         "https://github.com/Tamandua-AppSec/tamandua/.github/workflows/ci.yml@refs/tags/v0.10.4",
-                         "https://github.com/someone/tamandua/.github/workflows/release.yml@refs/tags/v0.10.4",
-                         "https://github.com/Tamandua-AppSec/tamandua/.github/workflows/release.yml@refs/tags/v0.10.4-evil",
-                         "https://github.com/Tamandua-AppSecXtamandua/.github/workflows/release.yml@refs/tags/v0.10.4",
+        for identity in ("https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/heads/main",
+                         "https://github.com/Pitangus-Dev/pitangus/.github/workflows/ci.yml@refs/tags/v0.10.4",
+                         "https://github.com/someone/pitangus/.github/workflows/release.yml@refs/tags/v0.10.4",
+                         "https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags/v0.10.4-evil",
+                         "https://github.com/Pitangus-DevXpitangus/.github/workflows/release.yml@refs/tags/v0.10.4",
                          "https://github.com/BrayansStivens/appsec-agent/.github/workflows/release.yml@refs/tags/v0.10.1"):
             self.assertNotRegex(identity, signers)
         self.assertIn("if: inputs.verify != 'false'\n      uses: sigstore/cosign-installer@", ACTION)
@@ -173,7 +173,7 @@ class ActionDefinitionTests(unittest.TestCase):
         for path in DOCS:
             self.assertEqual(documented(path, "Input|Entrada"), keys(ACTION, "inputs"), path)
             self.assertEqual(documented(path, "Output|Salida"), keys(ACTION, "outputs"), path)
-            self.assertIn(f"tamandua-worker:{VERSION}", path.read_text(encoding="utf-8"), path)
+            self.assertIn(f"pitangus-worker:{VERSION}", path.read_text(encoding="utf-8"), path)
 
     def test_the_self_test_job_uses_the_local_action(self):
         self.assertRegex((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"), r"(?m)^\s+uses: \./(\s|$)")
@@ -213,7 +213,7 @@ class ActionScriptTests(unittest.TestCase):
         return completed.returncode, calls, outputs
 
     def run_main(self, inputs: dict | None = None, codes: str = "", **env) -> tuple[int, list[dict], dict]:
-        """The Tamandua step; `calls` are only the containers it starts (the checks are in `self.checks`)."""
+        """The Pitangus step; `calls` are only the containers it starts (the checks are in `self.checks`)."""
         code, calls, outputs = self.run_step(MAIN, inputs, codes, **env)
         self.checks = [call for call in calls if call["argv"][:1] != ["run"]]
         return code, [call for call in calls if call["argv"][:1] == ["run"]], outputs
@@ -227,32 +227,32 @@ class ActionScriptTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(len(calls), 1)
         argv = calls[0]["argv"]
-        self.assertEqual(self.command(calls[0]), ["python", "-m", "tamandua", "scan", "/src", "--name", "shop",
+        self.assertEqual(self.command(calls[0]), ["python", "-m", "pitangus", "scan", "/src", "--name", "shop",
                                                   "--fail-on", "high", "--format", "sarif", "--output",
                                                   "/data/result.sarif", "--summary", "/data/summary.md", "--base", "origin/main"])
         self.assertEqual(argv[:2], ["run", "--rm"])
         self.assertIn(f"{self.root / 'workspace'}:/src:ro", argv)
-        self.assertIn(f"{self.root / 'temp' / 'tamandua'}:/data", argv)
-        self.assertIn("TAMANDUA_ENGINE_RUNNER=local", argv)
+        self.assertIn(f"{self.root / 'temp' / 'pitangus'}:/data", argv)
+        self.assertIn("PITANGUS_ENGINE_RUNNER=local", argv)
         self.assertIn(f"{os.getuid()}:{os.getgid()}", argv)
         self.assertEqual(argv[argv.index("--cap-drop") + 1], "ALL")
         self.assertFalse(any("docker.sock" in item for item in argv))
         self.assertIsNone(calls[0]["token"])
-        sarif = self.root / "temp" / "tamandua.sarif"
+        sarif = self.root / "temp" / "pitangus.sarif"
         self.assertEqual(outputs, {"sarif": str(sarif), "exit-code": "0"})
         self.assertTrue(sarif.is_file())
 
     def test_inputs_become_arguments_without_a_shell(self):
         code, calls, outputs = self.run_main({
             "path": "./sub/dir/", "base": "main; touch pwned", "fail-on": "critical", "name": "$(touch pwned)",
-            "exclude": "fixtures/\n  **/testdata  \n\n", "allow-incomplete": "true", "sarif": "out/tamandua.sarif"},
+            "exclude": "fixtures/\n  **/testdata  \n\n", "allow-incomplete": "true", "sarif": "out/pitangus.sarif"},
             codes="1")
         self.assertEqual(code, 1)
         self.assertEqual(self.command(calls[0]), [
-            "python", "-m", "tamandua", "scan", "/src/sub/dir", "--name", "$(touch pwned)", "--fail-on", "critical",
+            "python", "-m", "pitangus", "scan", "/src/sub/dir", "--name", "$(touch pwned)", "--fail-on", "critical",
             "--format", "sarif", "--output", "/data/result.sarif", "--summary", "/data/summary.md", "--base", "main; touch pwned",
             "--exclude", "fixtures/", "--exclude", "**/testdata", "--allow-incomplete"])
-        self.assertEqual(outputs, {"sarif": str(self.root / "workspace" / "out" / "tamandua.sarif"), "exit-code": "1"})
+        self.assertEqual(outputs, {"sarif": str(self.root / "workspace" / "out" / "pitangus.sarif"), "exit-code": "1"})
         self.assertEqual(list(self.root.rglob("pwned")), [])
 
     def test_base_none_scans_everything_even_on_a_pull_request(self):
@@ -273,19 +273,19 @@ class ActionScriptTests(unittest.TestCase):
 
     def test_import_only_passes_the_token_through_the_environment(self):
         code, calls, outputs = self.run_main({
-            "scan": "false", "import-sarif": "a.sarif\n reports/b.sarif \n", "server": "https://tamandua.example.com",
+            "scan": "false", "import-sarif": "a.sarif\n reports/b.sarif \n", "server": "https://pitangus.example.com",
             "token": "s3cret-token", "import-partial": "true"})
         self.assertEqual(code, 0)
         self.assertEqual(len(calls), 1)
         self.assertEqual(self.command(calls[0]), [
-            "python", "-m", "tamandua", "import-sarif", "/data/import/1-a.sarif", "/data/import/2-b.sarif",
-            "--asset", "acme/shop", "--server", "https://tamandua.example.com", "--partial"])
+            "python", "-m", "pitangus", "import-sarif", "/data/import/1-a.sarif", "/data/import/2-b.sarif",
+            "--asset", "acme/shop", "--server", "https://pitangus.example.com", "--partial"])
         self.assertEqual(calls[0]["token"], "s3cret-token")
         argv = calls[0]["argv"]
-        self.assertIn("TAMANDUA_IMPORT_TOKEN", argv)
+        self.assertIn("PITANGUS_IMPORT_TOKEN", argv)
         self.assertFalse(any("s3cret" in item for item in argv))
         self.assertEqual(outputs, {"exit-code": "0"})
-        self.assertFalse((self.root / "temp" / "tamandua" / "import").exists())
+        self.assertFalse((self.root / "temp" / "pitangus" / "import").exists())
 
     def test_scan_then_import_keeps_the_scan_verdict(self):
         code, calls, outputs = self.run_main({"import-sarif": "a.sarif", "server": "https://t.example",
@@ -332,7 +332,7 @@ class ActionScriptTests(unittest.TestCase):
                 code, calls, outputs = self.run_main(**env)
                 self.assertEqual((code, outputs.get("exit-code")), (2, "2"))
                 self.assertEqual(calls, [])
-                self.assertIn("::error title=Tamandua::", self.stdout)
+                self.assertIn("::error title=Pitangus::", self.stdout)
 
     def test_only_an_image_of_your_own_can_skip_the_check(self):
         code, calls, outputs = self.run_main({"verify": "false"})
@@ -344,13 +344,13 @@ class ActionScriptTests(unittest.TestCase):
                 code, calls, _ = self.run_main({"image": image, "verify": "false"})
                 self.assertEqual(code, 2)
                 self.assertEqual(calls, [])
-        mirror = "registry.example.com:5000/team/tamandua-worker:0.10"
+        mirror = "registry.example.com:5000/team/pitangus-worker:0.10"
         self.output.unlink(missing_ok=True)
         code, calls, _ = self.run_main({"image": mirror, "verify": "false"})
         self.assertEqual(code, 0)
         self.assertEqual(self.checks, [])
-        self.assertEqual(calls[0]["argv"][calls[0]["argv"].index(mirror) + 1:][:4], ["python", "-m", "tamandua", "scan"])
-        self.assertIn(f"::warning title=Tamandua::Running {mirror} without checking its signature", self.stdout)
+        self.assertEqual(calls[0]["argv"][calls[0]["argv"].index(mirror) + 1:][:4], ["python", "-m", "pitangus", "scan"])
+        self.assertIn(f"::warning title=Pitangus::Running {mirror} without checking its signature", self.stdout)
 
     def test_registry_login_reads_the_token_from_stdin_and_forgets_it(self):
         code, calls, _ = self.run_step(PULL, {"registry-token": "ghs_example"})

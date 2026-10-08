@@ -1,13 +1,13 @@
-# Published images for self-hosting, on every version tag (v0.11, v0.11.1…):
+# Published images for self-hosting, on every version tag (v0.12, v0.12.1…):
 #
-#   ghcr.io/<owner>/tamandua:<version>              panel, API and worker (docker/app/Dockerfile)
-#   ghcr.io/<owner>/tamandua-worker:<version>       worker with the engines inside, no Docker socket (target worker-standalone)
-#   ghcr.io/<owner>/tamandua-opengrep:<engine>      SAST engine (docker/engines/opengrep/Dockerfile)
+#   ghcr.io/<owner>/pitangus:<version>              panel, API and worker (docker/app/Dockerfile)
+#   ghcr.io/<owner>/pitangus-worker:<version>       worker with the engines inside, no Docker socket (target worker-standalone)
+#   ghcr.io/<owner>/pitangus-opengrep:<engine>      SAST engine (docker/engines/opengrep/Dockerfile)
 #
 # linux/amd64 and linux/arm64, with an SBOM and SLSA provenance attached by BuildKit, and signed with cosign keyless
 # (GitHub OIDC: no key to store or leak). Verify with `make verify-images` or the command in docs/deploy-vps.md.
 #
-# The tag must match tamandua/version.py (v0.11 or v0.11.<patch>): the compose files of that checkout ask for that tag.
+# The tag must match pitangus/version.py (v0.12 or v0.12.<patch>): the compose files of that checkout ask for that tag.
 # A patch tag also moves the <major.minor> tag, which is the one compose pulls.
 # Actions pinned by commit; no cache (a release is built from scratch); only this job can write packages, and only
 # from the `release` environment.
@@ -40,15 +40,15 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - image: tamandua
+          - image: pitangus
             context: .
             file: docker/app/Dockerfile
             target: app   # not the last stage (worker-standalone, whose command is the worker)
-          - image: tamandua-worker
+          - image: pitangus-worker
             context: .
             file: docker/app/Dockerfile
             target: worker-standalone
-          - image: tamandua-opengrep
+          - image: pitangus-opengrep
             context: docker/engines/opengrep
             file: docker/engines/opengrep/Dockerfile
     steps:
@@ -63,13 +63,13 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           REF_NAME: ${{ github.ref_name }}  # never interpolated directly into the script
         run: |
-          version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' tamandua/version.py)"
+          version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' pitangus/version.py)"
           if ! printf '%s' "$REF_NAME" | grep -Eq "^v${version//./\\.}(\.[0-9]+)?$"; then
-            echo "::error::Tag $REF_NAME does not match tamandua/version.py ($version): use v$version or v$version.<patch>."
+            echo "::error::Tag $REF_NAME does not match pitangus/version.py ($version): use v$version or v$version.<patch>."
             exit 1
           fi
           name="ghcr.io/${OWNER,,}/$IMAGE"
-          if [ "$IMAGE" = tamandua ] || [ "$IMAGE" = tamandua-worker ]; then
+          if [ "$IMAGE" = pitangus ] || [ "$IMAGE" = pitangus-worker ]; then
             tags="$name:$version"
             [ "$REF_NAME" != "v$version" ] && tags="$tags,$name:${REF_NAME#v}"
             build_args="VERSION=${REF_NAME#v}"
@@ -109,13 +109,13 @@ jobs:
           target: ${{ matrix.target }}
           platforms: linux/amd64
           build-args: ${{ steps.meta.outputs.build_args }}
-          tags: tamandua-check:${{ matrix.image }}
+          tags: pitangus-check:${{ matrix.image }}
           pull: true
           load: true
 
       - name: No critical vulnerability with a fix
         env:
-          IMAGE: tamandua-check:${{ matrix.image }}
+          IMAGE: pitangus-check:${{ matrix.image }}
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa \

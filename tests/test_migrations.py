@@ -6,9 +6,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.app import data_migrations as migrations
-from tamandua.app.data_migrations import Migration
-from tamandua.shared import documents, paths
+from pitangus.app import data_migrations as migrations
+from pitangus.app.data_migrations import Migration
+from pitangus.shared import documents, paths
 
 
 class MigrationTests(unittest.TestCase):
@@ -97,7 +97,7 @@ class SealTotpSeedsMigrationTests(unittest.TestCase):
     def test_clear_seeds_are_sealed_and_still_verify(self):
         import base64
         import time
-        from tamandua.modules.identity.auth import Users, totp_code
+        from pitangus.modules.identity.auth import Users, totp_code
         users = Users(self.data_dir)
         user = users.create("ana", "una-clave-larga-y-segura-2026", role="admin")
         seed = base64.b32encode(b"0123456789abcdefghij").decode()
@@ -123,22 +123,22 @@ class CraOptInMigrationTests(unittest.TestCase):
         self.directory.cleanup()
 
     def test_marked_products_keep_the_kit_on_and_old_events_are_to_assess(self):
-        from tamandua.modules.compliance import cra
-        from tamandua.shared import documents
-        from tamandua.shared.i18n import localize
+        from pitangus.modules.compliance import cra
+        from pitangus.shared import documents
+        from pitangus.shared.i18n import localize
         old = {"products": {"github#9": {"name": "Portal", "support_until": None, "by": "ana", "at": "2026-09-01T00:00:00+00:00"}},
                "reports": {"github#9|CVE-2026-1111": {}}}
         documents.save(self.data_dir, "cra", old)
         self.assertIn("cra_opt_in", migrations.upgrade(self.data_dir))
         policy = localize(cra.policy(self.data_dir), "en")
-        self.assertEqual((policy["enabled"], policy["by"], len(policy["history"])), (True, "tamandua", 1))
+        self.assertEqual((policy["enabled"], policy["by"], len(policy["history"])), (True, "pitangus", 1))
         self.assertIn("products were already marked", policy["reason"])
         state = documents.load(self.data_dir, "cra", {})
         self.assertEqual((state["products"], state["reports"]), (old["products"], old["reports"]))  # nothing else rewritten
         self.assertEqual(migrations._cra_opt_in(self.data_dir), 0)  # idempotent
 
     def test_without_products_the_kit_stays_off(self):
-        from tamandua.modules.compliance import cra
+        from pitangus.modules.compliance import cra
         migrations.upgrade(self.data_dir)
         self.assertEqual((cra.enabled(self.data_dir), cra.policy(self.data_dir)["history"]), (False, []))
 
@@ -161,10 +161,10 @@ class VaultToDatabaseMigrationTests(unittest.TestCase):
 
     def test_vault_file_and_session_key_are_imported(self):
         import base64
-        from tamandua.modules.identity.auth import SESSION_KEY, Sessions
-        from tamandua.shared import vault
+        from pitangus.modules.identity.auth import SESSION_KEY, Sessions
+        from pitangus.shared import vault
         vault.put("jira", {"token": "jira-token-antiguo"})
-        from tamandua.shared import db
+        from pitangus.shared import db
         with db.separate_transaction(self.config) as connection:  # as an earlier version left it: only the file
             rows = {row.name: {"nonce": row.nonce, "data": row.data} for row in connection.execute(
                 vault.vault_entries.select().with_only_columns(vault.vault_entries.c.name, vault.vault_entries.c.nonce,
@@ -192,8 +192,8 @@ class WatchAndRegistryTablesTests(unittest.TestCase):
         documents.save(self.data_dir, migrations.VERSION_DOCUMENT, {"version": 4, "history": []})
 
     def test_the_documents_become_rows_once(self):
-        from tamandua.modules.pullrequests import watch
-        from tamandua.modules.sources import assets
+        from pitangus.modules.pullrequests import watch
+        from pitangus.modules.sources import assets
         documents.save(self.data_dir, "pr-watch", {
             "repositories": {"github#1": {"enabled": True, "gate": "critical"}},
             "reviewed": {"github#1": {"7": {"head_sha": "a" * 40, "run_id": "1" * 32}, "8": {"head_sha": "b" * 40, "run_id": "2" * 32, "closed": True}}},
@@ -211,6 +211,29 @@ class WatchAndRegistryTablesTests(unittest.TestCase):
         self.assertIsNone(documents.load(self.data_dir, "repo-registry"))
         self.assertEqual(migrations.upgrade(self.data_dir), [])
 
+
+
+class BrandRenameMigrationTests(unittest.TestCase):
+    """Tamandua became Pitangus: saved Jira mappings that read Tamandua's variables keep working."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.data_dir = Path(self.directory.name) / "data"
+        self.data_dir.mkdir()
+        documents.save(self.data_dir, migrations.VERSION_DOCUMENT, {"version": 6, "history": []})
+
+    def test_the_old_variable_source_is_renamed_once(self):
+        documents.save(self.data_dir, "jira-routing", {"destinations": [{"id": "d1", "mapping": {
+            "summary": {"source": "tamandua", "key": "summary"}, "labels": {"source": "fixed", "value": ["appsec"]}}}]})
+        self.assertIn("brand_rename", migrations.upgrade(self.data_dir))
+        mapping = documents.load(self.data_dir, "jira-routing")["destinations"][0]["mapping"]
+        self.assertEqual(mapping, {"summary": {"source": "pitangus", "key": "summary"}, "labels": {"source": "fixed", "value": ["appsec"]}})
+        self.assertEqual(migrations._brand_rename(self.data_dir), 0)  # idempotent
+
+    def test_without_jira_nothing_is_created(self):
+        self.assertIn("brand_rename", migrations.upgrade(self.data_dir))
+        self.assertIsNone(documents.load(self.data_dir, "jira-routing"))
 
 if __name__ == "__main__":
     unittest.main()

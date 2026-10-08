@@ -5,13 +5,13 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from tamandua.modules.findings import exclusions
-from tamandua.modules.findings import registry as findings_registry
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.runs.store import save_repository_scan
+from pitangus.modules.findings import exclusions
+from pitangus.modules.findings import registry as findings_registry
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.runs.store import save_repository_scan
 from test_auth import PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
-from tamandua.shared.i18n import localize
+from pitangus.shared.i18n import localize
 
 ADMIN = {"username": "operadora", "role": "admin"}
 KEY = "github#7"

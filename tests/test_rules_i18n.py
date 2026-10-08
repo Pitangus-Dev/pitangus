@@ -1,4 +1,4 @@
-"""Every Tamandua rule (rules/*.yml) carries its title and fix in English and Spanish."""
+"""Every Pitangus rule (rules/*.yml) carries its title and fix in English and Spanish."""
 
 import json
 import re
@@ -46,8 +46,8 @@ class RuleTextsTests(unittest.TestCase):
                 self.assertEqual(json.loads(message[1]), _texts(block, "fix").get("en"))
 
     def test_engine_keeps_both_languages_and_the_fingerprint_ignores_them(self):
-        from tamandua.modules.scanning.engines import parse_opengrep
-        from tamandua.shared.i18n import localize
+        from pitangus.modules.scanning.engines import parse_opengrep
+        from pitangus.shared.i18n import localize
 
         block = rules()["appsec.py.shell-command-non-literal"]
         title, fix = _texts(block, "title"), _texts(block, "fix")

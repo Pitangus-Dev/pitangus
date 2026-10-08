@@ -6,15 +6,15 @@ import tarfile
 import tempfile
 import unittest
 
-from tamandua.modules.runs.store import artifact as store_artifact
+from pitangus.modules.runs.store import artifact as store_artifact
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.sources.domains import DomainError, check_reachability, register_domain, verify_domain
-from tamandua.modules.scanning.repository import scan_repository
-from tamandua.modules.sources.repositories import SourceError, _analyzable, _extract_limited, available_sources, list_repositories, snapshot_source
-from tamandua.modules.runs.store import save_repository_scan
-from tamandua.shared.i18n import localize, text
+from pitangus.modules.sources.domains import DomainError, check_reachability, register_domain, verify_domain
+from pitangus.modules.scanning.repository import scan_repository
+from pitangus.modules.sources.repositories import SourceError, _analyzable, _extract_limited, available_sources, list_repositories, snapshot_source
+from pitangus.modules.runs.store import save_repository_scan
+from pitangus.shared.i18n import localize, text
 
 
 class RepositoryWorkflowTests(unittest.TestCase):
@@ -22,7 +22,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
         # These tests cover the internal path (no containerized engines). With Docker
         # present they would run Trivy/Opengrep for real: slow and with a different result.
         # clear=True: a real check left behind (its time stamp) would make Docker be asked again.
-        patcher = patch.dict("tamandua.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
+        patcher = patch.dict("pitangus.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -33,7 +33,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
             secret = "ghp_" + "A" * 36
             (root / "settings.env").write_text(f"TOKEN={secret}\n")
             (root / "requirements.txt").write_text("requests==2.30.0\n")
-            with patch("tamandua.modules.scanning.repository._query_osv", side_effect=AssertionError("OSV llamado")):
+            with patch("pitangus.modules.scanning.repository._query_osv", side_effect=AssertionError("OSV llamado")):
                 result = scan_repository(root, {"id": "local:fixture", "name": "fixture", "provider": "local"})
             self.assertEqual(result["summary"]["sast"], 1)
             self.assertEqual(result["summary"]["secrets"], 1)
@@ -47,7 +47,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "requirements.txt").write_text("requests==2.30.0\n")
-            with patch("tamandua.modules.scanning.repository._query_osv", return_value=[{"vulns": [{"id": "CVE-2026-12345"}]}]) as query:
+            with patch("pitangus.modules.scanning.repository._query_osv", return_value=[{"vulns": [{"id": "CVE-2026-12345"}]}]) as query:
                 result = scan_repository(root, {"id": "local:fixture", "name": "fixture"}, allow_osv_upload=True)
             query.assert_called_once()
             self.assertEqual(result["summary"]["sca"], 1)
@@ -81,8 +81,8 @@ class RepositoryWorkflowTests(unittest.TestCase):
             archive.addfile(info, io.BytesIO(content))
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"}), \
-                patch("tamandua.modules.sources.repositories._request", side_effect=[listing, listing]) as request, \
-                patch("tamandua.modules.sources.repositories._download_archive",
+                patch("pitangus.modules.sources.repositories._request", side_effect=[listing, listing]) as request, \
+                patch("pitangus.modules.sources.repositories._download_archive",
                       side_effect=lambda *args, **kwargs: args[3].write_bytes(stream.getvalue())) as download:
             entries = list_repositories("github")
             self.assertEqual(entries[0]["id"], "github:owner/project")
@@ -104,8 +104,8 @@ class RepositoryWorkflowTests(unittest.TestCase):
             archive.addfile(info, io.BytesIO(content))
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.dict("os.environ", {"GITHUB_TOKEN": ""}), \
-                patch("tamandua.modules.sources.repositories._request", side_effect=[listing, listing]) as request, \
-                patch("tamandua.modules.sources.repositories._download_archive",
+                patch("pitangus.modules.sources.repositories._request", side_effect=[listing, listing]) as request, \
+                patch("pitangus.modules.sources.repositories._download_archive",
                       side_effect=lambda *args, **kwargs: args[3].write_bytes(stream.getvalue())) as download:
             sources = available_sources({"github": "session-secret"})
             self.assertEqual(sources["providers"]["github"]["origin"], "session")
@@ -119,7 +119,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
     def test_gitlab_stays_off_even_with_a_token(self):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.dict("os.environ", {"GITLAB_TOKEN": "glpat-test-token", "GITHUB_TOKEN": ""}), \
-                patch("tamandua.modules.sources.repositories._request", side_effect=AssertionError("no request")):
+                patch("pitangus.modules.sources.repositories._request", side_effect=AssertionError("no request")):
             sources = available_sources({"gitlab": "session-token"})
             self.assertEqual(sources["sources"], [])
             self.assertNotIn("gitlab", sources["providers"])
@@ -153,7 +153,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
         # It compresses very well: a few KB on disk declaring 2 MB of content.
         self.assertLess(len(blob), 100_000)
         with tempfile.TemporaryDirectory() as temporary, \
-                patch("tamandua.modules.sources.repositories.MAX_EXPANSION", 500_000):
+                patch("pitangus.modules.sources.repositories.MAX_EXPANSION", 500_000):
             with self.assertRaises(SourceError) as caught:
                 _extract_limited(blob, Path(temporary))
         self.assertIn("bomba de descompresión", text(caught.exception.message))
@@ -173,8 +173,8 @@ class RepositoryWorkflowTests(unittest.TestCase):
         blob = archive.getvalue()
 
         with tempfile.TemporaryDirectory() as temporary, \
-                patch("tamandua.modules.sources.repositories.MAX_FILE", 1_000), \
-                patch("tamandua.modules.sources.repositories.MAX_FILES", 4):
+                patch("pitangus.modules.sources.repositories.MAX_FILE", 1_000), \
+                patch("pitangus.modules.sources.repositories.MAX_FILES", 4):
             root = Path(temporary)
             # Going over the limits can't be an error: that would leave the user with nothing.
             stats = _extract_limited(blob, root)
@@ -215,16 +215,16 @@ class RepositoryWorkflowTests(unittest.TestCase):
 
     def test_reachability_refuses_private_targets_without_opening_a_socket(self):
         addresses = [(2, 1, 6, "", ("127.0.0.1", 443))]
-        with patch("tamandua.modules.sources.domains.socket.getaddrinfo", return_value=addresses), \
-                patch("tamandua.modules.sources.domains.socket.create_connection", side_effect=AssertionError("conexión abierta")):
+        with patch("pitangus.modules.sources.domains.socket.getaddrinfo", return_value=addresses), \
+                patch("pitangus.modules.sources.domains.socket.create_connection", side_effect=AssertionError("conexión abierta")):
             result = check_reachability("https://interno.example.com/")
         self.assertFalse(result["reachable"])
         self.assertEqual(result["status"], "private_address")
 
     def test_reachability_pins_the_resolved_public_address(self):
         addresses = [(2, 1, 6, "", ("93.184.216.34", 443))]
-        with patch("tamandua.modules.sources.domains.socket.getaddrinfo", return_value=addresses), \
-                patch("tamandua.modules.sources.domains.socket.create_connection", side_effect=OSError("sin ruta")) as connect:
+        with patch("pitangus.modules.sources.domains.socket.getaddrinfo", return_value=addresses), \
+                patch("pitangus.modules.sources.domains.socket.create_connection", side_effect=OSError("sin ruta")) as connect:
             result = check_reachability("https://app.example.com/panel")
         self.assertEqual(connect.call_args.args[0], ("93.184.216.34", 443))
         self.assertEqual(result["status"], "unreachable")
@@ -251,7 +251,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
                     register_domain(root, url)
             record = register_domain(root, "https://app.example.com/path")
             self.assertFalse(record["verified"])
-            with patch("tamandua.modules.sources.domains.subprocess.run") as run:
+            with patch("pitangus.modules.sources.domains.subprocess.run") as run:
                 run.return_value.returncode = 0
                 run.return_value.stdout = f'"{record["txt_value"]}"\n'
                 verified = verify_domain(root, record["id"])
@@ -275,15 +275,15 @@ class DownloadTests(unittest.TestCase):
             return self.chunks.pop(0) if self.chunks else b""
 
     def run_download(self, chunks, *, timeout="900"):
-        from tamandua.modules.sources import repositories as repository_sources
+        from pitangus.modules.sources import repositories as repository_sources
         clock = [0.0]
         response = self.Slow(chunks, lambda: clock.__setitem__(0, clock[0] + 11))
         messages = []
         opener = type("Opener", (), {"open": lambda self, *a, **k: response})()
         with tempfile.TemporaryDirectory() as temporary, \
-                patch.dict("os.environ", {"TAMANDUA_DOWNLOAD_TIMEOUT": timeout}), \
-                patch("tamandua.shared.http.build_opener", return_value=opener), \
-                patch("tamandua.modules.sources.repositories.time.monotonic", side_effect=lambda: clock[0]):
+                patch.dict("os.environ", {"PITANGUS_DOWNLOAD_TIMEOUT": timeout}), \
+                patch("pitangus.shared.http.build_opener", return_value=opener), \
+                patch("pitangus.modules.sources.repositories.time.monotonic", side_effect=lambda: clock[0]):
             written = repository_sources._download_archive("https://api.github.com/x", "t", "github", Path(temporary) / "a.tar.gz",
                                                            progress=lambda level, message: messages.append(message))
         return written, messages
@@ -295,7 +295,7 @@ class DownloadTests(unittest.TestCase):
         self.assertIn("Extrayendo", text(messages[-1]))
 
     def test_a_download_that_never_ends_fails_with_a_clear_message(self):
-        from tamandua.modules.sources.repositories import SourceError
+        from pitangus.modules.sources.repositories import SourceError
         with self.assertRaises(SourceError) as caught:
             self.run_download([b"x"] * 1000, timeout="60")
         self.assertIn("superó 1 min", text(caught.exception.message))
@@ -309,8 +309,8 @@ class EngineRegistryTests(unittest.TestCase):
     """The code scan runs the engines of CODE_ENGINES, in order, and only the required ones leave it incomplete."""
 
     def test_every_engine_is_known_and_runs_once_in_order(self):
-        from tamandua.modules.scanning import repository as repository_scan
-        from tamandua.modules.scanning.engines import IMAGES, ScanContext, _result, run_engines
+        from pitangus.modules.scanning import repository as repository_scan
+        from pitangus.modules.scanning.engines import IMAGES, ScanContext, _result, run_engines
         keys = [engine.key for engine in repository_scan.CODE_ENGINES]
         self.assertEqual(len(keys), len(set(keys)))
         self.assertTrue(set(keys) <= set(IMAGES))
@@ -323,8 +323,8 @@ class EngineRegistryTests(unittest.TestCase):
         self.assertEqual(lines.count("ok"), len(keys) - 1)  # the merged one reports after its merge
 
     def test_an_optional_engine_that_fails_does_not_make_the_run_incomplete(self):
-        from tamandua.modules.scanning import repository as repository_scan
-        from tamandua.modules.scanning.engines import _result
+        from pitangus.modules.scanning import repository as repository_scan
+        from pitangus.modules.scanning.engines import _result
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.object(repository_scan, "engines_available", return_value=True), \
                 patch.object(repository_scan, "run_opengrep", side_effect=lambda *_: _result("opengrep", "completed", "ok")), \
@@ -345,8 +345,8 @@ class EnginesDownTests(unittest.TestCase):
     """If the engines don't run (images not built), the run can't be presented as clean."""
 
     def test_scan_without_engines_is_incomplete_and_says_why(self):
-        from tamandua.modules.scanning import repository as repository_scan
-        from tamandua.modules.scanning.engines import _result
+        from pitangus.modules.scanning import repository as repository_scan
+        from pitangus.modules.scanning.engines import _result
         down = lambda key: _result(key, "inconclusive", "Imagen no construida")
         messages = []
         with tempfile.TemporaryDirectory() as temporary, \
@@ -369,10 +369,10 @@ class EnginesDownTests(unittest.TestCase):
 class EngineCauseTests(unittest.TestCase):
     def test_the_docker_error_is_shown_without_tokens_or_host_paths(self):
         import subprocess
-        from tamandua.modules.scanning.engines import with_cause
-        failed = subprocess.CompletedProcess([], 125, "", "\x1b[31mdocker: Error response from daemon: invalid mount /c/Users/yo/tamandua/data/work/x "
+        from pitangus.modules.scanning.engines import with_cause
+        failed = subprocess.CompletedProcess([], 125, "", "\x1b[31mdocker: Error response from daemon: invalid mount /c/Users/yo/pitangus/data/work/x "
                                                              "token ghp_abcdefghijklmnopqrstuvwxyz123456\x1b[0m\n")
-        with patch.dict("os.environ", {"TAMANDUA_HOST_DATA_DIR": "/c/Users/yo/tamandua/data"}):
+        with patch.dict("os.environ", {"PITANGUS_HOST_DATA_DIR": "/c/Users/yo/pitangus/data"}):
             rendered = text(with_cause("Gitleaks terminó con error.", failed))
         self.assertTrue(rendered.startswith("Gitleaks terminó con error: docker: Error response from daemon: invalid mount <datos>/work/x"))
         self.assertNotIn("ghp_", rendered)
@@ -380,27 +380,27 @@ class EngineCauseTests(unittest.TestCase):
 
     def test_the_host_path_is_asked_to_docker_on_any_platform(self):
         import subprocess
-        from tamandua.modules.scanning import engines as scanners
-        mounts = json.dumps([{"Type": "bind", "Source": "/run/desktop/mnt/host/c/Users/yo/tamandua/data", "Destination": "/data"},
+        from pitangus.modules.scanning import engines as scanners
+        mounts = json.dumps([{"Type": "bind", "Source": "/run/desktop/mnt/host/c/Users/yo/pitangus/data", "Destination": "/data"},
                              {"Type": "bind", "Source": "/var/run/docker.sock", "Destination": "/var/run/docker.sock"}])
         scanners._own_mounts.update(at=None, mounts={})
         # In PowerShell `${PWD}` arrives empty and compose leaves the host path as `/data`.
-        with patch.dict("os.environ", {"TAMANDUA_DATA_DIR": "/data", "TAMANDUA_HOST_DATA_DIR": "/data", "HOSTNAME": "074eeb4e2cfd"}), \
+        with patch.dict("os.environ", {"PITANGUS_DATA_DIR": "/data", "PITANGUS_HOST_DATA_DIR": "/data", "HOSTNAME": "074eeb4e2cfd"}), \
                 patch.object(scanners, "in_container", return_value=True), \
                 patch.object(scanners.shutil, "which", return_value="/usr/bin/docker"), \
                 patch.object(scanners.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, mounts, "")), \
                 patch.object(Path, "resolve", lambda self, strict=False: self):
-            self.assertEqual(scanners.host_path(Path("/data/work/snap")), "/run/desktop/mnt/host/c/Users/yo/tamandua/data/work/snap")
+            self.assertEqual(scanners.host_path(Path("/data/work/snap")), "/run/desktop/mnt/host/c/Users/yo/pitangus/data/work/snap")
             self.assertIsNone(scanners.host_mount_problem())
         scanners._own_mounts.update(at=None, mounts={})
 
     def test_without_docker_answer_a_bad_env_path_is_explained(self):
-        from tamandua.modules.scanning import engines as scanners
+        from pitangus.modules.scanning import engines as scanners
         scanners._own_mounts.update(at=None, mounts={})
-        with patch.dict("os.environ", {"TAMANDUA_DATA_DIR": "/data", "TAMANDUA_HOST_DATA_DIR": "/data", "HOSTNAME": "x"}), \
+        with patch.dict("os.environ", {"PITANGUS_DATA_DIR": "/data", "PITANGUS_HOST_DATA_DIR": "/data", "HOSTNAME": "x"}), \
                 patch.object(scanners, "in_container", return_value=True):
-            self.assertIn("TAMANDUA_HOST_DATA_DIR", text(scanners.host_mount_problem()))
-        with patch.dict("os.environ", {"TAMANDUA_DATA_DIR": "/data", "TAMANDUA_HOST_DATA_DIR": "/home/yo/tamandua/data", "HOSTNAME": "x"}), \
+            self.assertIn("PITANGUS_HOST_DATA_DIR", text(scanners.host_mount_problem()))
+        with patch.dict("os.environ", {"PITANGUS_DATA_DIR": "/data", "PITANGUS_HOST_DATA_DIR": "/home/yo/pitangus/data", "HOSTNAME": "x"}), \
                 patch.object(scanners, "in_container", return_value=True):
             self.assertIsNone(scanners.host_mount_problem())
         scanners._own_mounts.update(at=None, mounts={})
@@ -410,11 +410,11 @@ class DockerAccessTests(unittest.TestCase):
     """Linux and WSL with native Docker: the socket belongs to the `docker` group and the container may not be in it."""
 
     def tearDown(self):
-        from tamandua.modules.scanning import engines as scanners
+        from pitangus.modules.scanning import engines as scanners
         scanners._docker_state.clear()
 
     def test_a_socket_without_permission_is_explained_with_its_group(self):
-        from tamandua.modules.scanning import engines as scanners
+        from pitangus.modules.scanning import engines as scanners
         with tempfile.TemporaryDirectory() as temporary:
             socket = Path(temporary) / "docker.sock"
             socket.write_text("")
@@ -427,7 +427,7 @@ class DockerAccessTests(unittest.TestCase):
 
     def test_a_docker_that_was_down_is_asked_again(self):
         import subprocess
-        from tamandua.modules.scanning import engines as scanners
+        from pitangus.modules.scanning import engines as scanners
         scanners._docker_state.clear()
         down = subprocess.CompletedProcess([], 1, "", "Cannot connect to the Docker daemon")
         up = subprocess.CompletedProcess([], 0, "27.5.1\n", "")
@@ -444,7 +444,7 @@ class DockerAccessTests(unittest.TestCase):
 
     def test_docker_info_without_server_version_is_not_available(self):
         import subprocess
-        from tamandua.modules.scanning import engines as scanners
+        from pitangus.modules.scanning import engines as scanners
         scanners._docker_state.clear()
         answer = subprocess.CompletedProcess([], 0, "\n", "permission denied while trying to connect to the Docker daemon socket")
         with patch.object(scanners.shutil, "which", return_value="/usr/bin/docker"), \
@@ -459,7 +459,7 @@ class MakefileEnginesTests(unittest.TestCase):
         """`make engines` reads the images with sed; if their format in scanners.py changes, this warns."""
         import re
         import subprocess
-        from tamandua.modules.scanning.engines import IMAGES
+        from pitangus.modules.scanning.engines import IMAGES
         root = Path(__file__).resolve().parents[1]
         command = re.search(r"^ENGINE_IMAGES := (.+)$", (root / "Makefile").read_text(encoding="utf-8"), re.M).group(1)
         listed = subprocess.run(command, shell=True, cwd=root, capture_output=True, text=True, check=True).stdout.split()

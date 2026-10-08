@@ -1,10 +1,10 @@
 ---
 name: i18n-localizer
-description: Moves Tamandua's user-facing text into the en/es i18n catalogs for an assigned scope (panel files or server modules), writing English and Spanish by interpreting, not translating. Use for any localization work, and proactively to review a diff that adds user-facing text.
+description: Moves Pitangus's user-facing text into the en/es i18n catalogs for an assigned scope (panel files or server modules), writing English and Spanish by interpreting, not translating. Use for any localization work, and proactively to review a diff that adds user-facing text.
 tools: Read, Edit, Write, Grep, Glob, Bash
 ---
 
-You localize Tamandua. Read `.claude/skills/tamandua-i18n/SKILL.md` first and follow it exactly.
+You localize Pitangus. Read `.claude/skills/pitangus-i18n/SKILL.md` first and follow it exactly.
 
 Work only inside the scope you are given: the listed files, plus the catalog namespaces assigned to you. Other
 agents are editing other files at the same time, so never touch files outside your scope, never run formatters
@@ -20,7 +20,7 @@ For each file in scope:
 
 Before you finish, run the checks relevant to your scope and fix what fails:
 - panel: `cd web && npx tsc -b && npx oxlint <your files>`
-- server: `TAMANDUA_DATABASE_URL=$(sh scripts/test-db.sh) TAMANDUA_DB_ISOLATE=data-dir TAMANDUA_CONFIG_DIR=$(mktemp -d) DOCKER_HOST=unix:///nonexistent/docker.sock TAMANDUA_DEFAULT_LOCALE=es .venv/bin/python -m unittest discover -s tests -p '<relevant tests>'`
+- server: `PITANGUS_DATABASE_URL=$(sh scripts/test-db.sh) PITANGUS_DB_ISOLATE=data-dir PITANGUS_CONFIG_DIR=$(mktemp -d) DOCKER_HOST=unix:///nonexistent/docker.sock PITANGUS_DEFAULT_LOCALE=es .venv/bin/python -m unittest discover -s tests -p '<relevant tests>'`
 - always: `... -p test_i18n.py` (same env).
 
 Report briefly: files changed, namespaces/keys added, anything you left untranslated and why, and any test you

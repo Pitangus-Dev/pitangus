@@ -1,6 +1,6 @@
 import i18n from '@/shared/i18n'
 
-// Plazo de corrección de un hallazgo (tamandua/modules/findings/sla.py); lo reexporta features/findings/sla.
+// Plazo de corrección de un hallazgo (pitangus/modules/findings/sla.py); lo reexporta features/findings/sla.
 export type Sla = { days: number; due: string; days_left: number; state: 'overdue' | 'soon' | 'ok' }
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info'
 export type Action = 'act' | 'attend' | 'track'

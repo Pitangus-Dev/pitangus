@@ -9,10 +9,10 @@ from unittest.mock import patch
 from sqlalchemy import select
 
 import testenv
-from tamandua.shared import paths
-from tamandua.shared import log as logging_setup
-from tamandua.shared import vault
-from tamandua.shared.i18n import text
+from pitangus.shared import paths
+from pitangus.shared import log as logging_setup
+from pitangus.shared import vault
+from pitangus.shared.i18n import text
 
 # Synthetic values built from pieces: the repository holds no credential-shaped literals.
 OPENAI_KEY = "-".join(("sk", "proj", "valor", "muy", "secreto", "123"))
@@ -32,14 +32,14 @@ class VaultTests(unittest.TestCase):
         self.addCleanup(environment.stop)
 
     def rows(self) -> dict:
-        from tamandua.shared import db
+        from pitangus.shared import db
         with db.separate_transaction(self.config) as connection:
             return {row.name: {"nonce": row.nonce, "data": row.data}
                     for row in connection.execute(select(vault.vault_entries.c.name, vault.vault_entries.c.nonce, vault.vault_entries.c.data))}
 
     def overwrite(self, name: str, entry: dict) -> None:
         from sqlalchemy.dialects.postgresql import insert
-        from tamandua.shared import db
+        from pitangus.shared import db
         statement = insert(vault.vault_entries).values(name=name, **entry)
         with db.separate_transaction(self.config) as connection:
             connection.execute(statement.on_conflict_do_update(index_elements=["tenant_id", "name"],
@@ -68,18 +68,18 @@ class VaultTests(unittest.TestCase):
         with self.assertRaises(vault.VaultError):
             vault.get("jira")
         vault.put("jira", {"token": "ATATT3xFfGF0-token-de-prueba"})
-        with patch.dict(os.environ, {"TAMANDUA_MASTER_KEY": base64.b64encode(b"k" * 32).decode()}):
+        with patch.dict(os.environ, {"PITANGUS_MASTER_KEY": base64.b64encode(b"k" * 32).decode()}):
             with self.assertRaises(vault.VaultError):
                 vault.get("jira")
-        with patch.dict(os.environ, {"TAMANDUA_MASTER_KEY": "corta"}):
+        with patch.dict(os.environ, {"PITANGUS_MASTER_KEY": "corta"}):
             with self.assertRaises(vault.VaultError) as raised:
                 vault.put("x", "y")
         # English for logs; the message renders in each reader's language.
-        self.assertEqual(str(raised.exception), "TAMANDUA_MASTER_KEY isn't valid base64")
-        self.assertEqual(text(raised.exception.message, "es"), "TAMANDUA_MASTER_KEY no es base64 válido")
+        self.assertEqual(str(raised.exception), "PITANGUS_MASTER_KEY isn't valid base64")
+        self.assertEqual(text(raised.exception.message, "es"), "PITANGUS_MASTER_KEY no es base64 válido")
 
     def test_master_key_from_environment_is_never_written(self):
-        with patch.dict(os.environ, {"TAMANDUA_MASTER_KEY": base64.b64encode(b"m" * 32).decode()}):
+        with patch.dict(os.environ, {"PITANGUS_MASTER_KEY": base64.b64encode(b"m" * 32).decode()}):
             vault.put("jira", {"token": "ATATT3xFfGF0-otro-token"})
             self.assertEqual(vault.get("jira")["token"], "ATATT3xFfGF0-otro-token")
         self.assertFalse((self.config / "master.key").exists())

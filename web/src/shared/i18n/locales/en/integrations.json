@@ -30,7 +30,7 @@
     "label_note": "Each issue carries the label <code>appsec-&lt;fingerprint&gt;</code>: exporting the same finding again links the existing issue instead of creating a duplicate.",
     "remove": "Disconnect",
     "remove_title": "Disconnect Jira?",
-    "remove_help": "Tamandua stops creating and commenting on issues. Existing issues stay in Jira, and destinations and rules are kept for when you connect again.",
+    "remove_help": "Pitangus stops creating and commenting on issues. Existing issues stay in Jira, and destinations and rules are kept for when you connect again.",
     "site": "Site",
     "site_placeholder": "https://your-site.atlassian.net",
     "email": "Account email",
@@ -52,7 +52,7 @@
     },
     "destinations": {
       "title": "Destinations",
-      "help": "A Jira project and issue type, and what Tamandua puts in each of its fields.",
+      "help": "A Jira project and issue type, and what Pitangus puts in each of its fields.",
       "add": "Add destination",
       "limit": "At most {{max}} destinations",
       "empty": "No destinations yet. Add one to choose the project and issue type your issues go to.",
@@ -71,7 +71,7 @@
       "saved_warnings_other": "Destination {{name}} saved, with {{count}} notes:",
       "new_title": "New destination",
       "edit_title": "Edit {{name}}",
-      "editor_help": "Pick the project and issue type from Jira, then check what goes in each field. Tamandua suggests a mapping you can keep as is.",
+      "editor_help": "Pick the project and issue type from Jira, then check what goes in each field. Pitangus suggests a mapping you can keep as is.",
       "name": "Name",
       "name_placeholder": "Payments team",
       "name_required": "Give it a name",
@@ -91,9 +91,9 @@
     "mapping": {
       "title": "Fields",
       "help": "Required fields are marked. Fields left empty take Jira's default, if there is one.",
-      "caption": "What Tamandua puts in each field of the issue",
+      "caption": "What Pitangus puts in each field of the issue",
       "loading": "Loading the issue type's fields",
-      "truncated": "This issue type has more fields than Tamandua lists; only the first ones appear here.",
+      "truncated": "This issue type has more fields than Pitangus lists; only the first ones appear here.",
       "field": "Jira field",
       "source_column": "Filled with",
       "value": "Value",
@@ -101,7 +101,7 @@
       "source_label": "What goes in {{field}}",
       "value_label": "Value for {{field}}",
       "source": {
-        "tamandua": "Tamandua data",
+        "pitangus": "Pitangus data",
         "fixed": "Fixed value",
         "template": "Template",
         "none": "Leave empty"
@@ -121,7 +121,7 @@
       "allowed_truncated": "many values: search them",
       "choose_source": "Choose what goes here",
       "left_empty": "Stays empty",
-      "pick_variable": "Pick a Tamandua value",
+      "pick_variable": "Pick a Pitangus value",
       "pick_value": "Pick a value",
       "search_value": "Search a value by name",
       "search_values": "Add values by name",
@@ -133,12 +133,12 @@
       "more_one": "{{count}} more optional field",
       "more_other": "{{count}} more optional fields",
       "fewer": "Hide optional fields",
-      "unsupported_summary_one": "{{count}} field Tamandua can't fill",
-      "unsupported_summary_other": "{{count}} fields Tamandua can't fill",
-      "unsupported_help": "Users, cascading selects, links and similar fields: Tamandua leaves them empty.",
-      "unsupported_reason": "Tamandua can't fill this kind of field. Give it a default value in Jira or choose another issue type.",
+      "unsupported_summary_one": "{{count}} field Pitangus can't fill",
+      "unsupported_summary_other": "{{count}} fields Pitangus can't fill",
+      "unsupported_help": "Users, cascading selects, links and similar fields: Pitangus leaves them empty.",
+      "unsupported_reason": "Pitangus can't fill this kind of field. Give it a default value in Jira or choose another issue type.",
       "required": "Jira requires this field: choose what goes in it",
-      "required_unsupported": "Jira requires this field and Tamandua can't fill it",
+      "required_unsupported": "Jira requires this field and Pitangus can't fill it",
       "incomplete": "Complete the value, or choose Leave empty",
       "number": "Write a number"
     },
@@ -184,7 +184,7 @@
       "mode_manual": "Manual",
       "mode_manual_help": "Someone creates them from Findings.",
       "mode_auto": "Automatic",
-      "mode_auto_help": "Tamandua creates them for new findings from full scans, imports and new advisories. Never for PR reviews.",
+      "mode_auto_help": "Pitangus creates them for new findings from full scans, imports and new advisories. Never for PR reviews.",
       "min_severity": "Minimum severity",
       "at_least": "{{severity}} and above",
       "backfill": "Also create issues for findings already open",
@@ -273,7 +273,7 @@
       "relinked_other": "{{count}} had issues that were deleted in Jira: created again"
     },
     "queue": {
-      "intro": "More than {{max}} findings go through the queue: this window closes and Tamandua creates the issues in the background, a few seconds apart. Follow them from the Jira indicator at the top.",
+      "intro": "More than {{max}} findings go through the queue: this window closes and Pitangus creates the issues in the background, a few seconds apart. Follow them from the Jira indicator at the top.",
       "progress_one": "{{done}} of {{total}} issues · {{pending}} in the queue",
       "progress_other": "{{done}} of {{total}} issues · {{pending}} in the queue",
       "progress_label": "Issues processed",
@@ -318,8 +318,8 @@
       "title": "Create new issues anyway",
       "action_one": "Create a new issue anyway",
       "action_other": "Create new issues anyway",
-      "explain_one": "Tamandua creates a new issue for this finding and links it instead of the current one. The current issue stays in Jira, untouched.",
-      "explain_other": "Tamandua creates a new issue for each of these {{count}} findings and links it instead of the current one. The current issues stay in Jira, untouched.",
+      "explain_one": "Pitangus creates a new issue for this finding and links it instead of the current one. The current issue stays in Jira, untouched.",
+      "explain_other": "Pitangus creates a new issue for each of these {{count}} findings and links it instead of the current one. The current issues stay in Jira, untouched.",
       "confirm_one": "Create {{count}} new issue",
       "confirm_other": "Create {{count}} new issues"
     }
@@ -335,7 +335,7 @@
     "hint": {
       "slack": "In Slack: Apps → Incoming Webhooks → Add to Slack, pick the channel and copy the URL (https://hooks.slack.com/…).",
       "teams": "In Teams: on the channel, … → Workflows → \"Post to a channel when a webhook request is received\", then copy the URL.",
-      "webhook": "Any service that accepts a JSON POST. Every notification carries the X-Tamandua-Signature header (HMAC-SHA256 of the body)."
+      "webhook": "Any service that accepts a JSON POST. Every notification carries the X-Pitangus-Signature header (HMAC-SHA256 of the body)."
     },
     "saved": "Channel \"{{name}}\" saved. Send a test to check it.",
     "confirm_remove": "Remove \"{{name}}\"? To add it back you'll need the webhook URL again.",
@@ -350,7 +350,7 @@
     "remove_label": "Remove {{name}}",
     "secret_title": "This webhook's signing secret: save it now, it won't be shown again.",
     "secret_label": "signing secret",
-    "secret_help": "The receiver computes an HMAC-SHA256 of the body with this secret and compares it with the X-Tamandua-Signature header.",
+    "secret_help": "The receiver computes an HMAC-SHA256 of the body with this secret and compares it with the X-Pitangus-Signature header.",
     "secret_saved": "I've saved it",
     "add": "Add channel",
     "where": "Where",
@@ -361,6 +361,6 @@
     "threshold_label": "Findings from",
     "save": "Save channel",
     "url_note": "The URL is stored encrypted and never comes back to the browser.",
-    "links_note": "To have messages link to the finding, set TAMANDUA_PUBLIC_URL to the panel's address."
+    "links_note": "To have messages link to the finding, set PITANGUS_PUBLIC_URL to the panel's address."
   }
 }

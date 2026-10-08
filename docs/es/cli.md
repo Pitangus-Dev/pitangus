@@ -8,21 +8,21 @@ Sirve para revisar tu cambio antes de subirlo y para bloquear un pull request en
 
 ## Uso rápido
 
-Desde la carpeta de Tamandua (solo hace falta `make` y Docker):
+Desde la carpeta de Pitangus (solo hace falta `make` y Docker):
 
 ```bash
 make scan DIR=../mi-repo
 make scan DIR=../mi-repo ARGS="--base main"
 ```
 
-Con `--base main` solo se informa de lo que **tu cambio introduce**. Tamandua analiza también el
+Con `--base main` solo se informa de lo que **tu cambio introduce**. Pitangus analiza también el
 punto de partida (el merge-base con `main`) y descarta lo que ya estaba: si tocas un
 `package-lock.json` que ya tenía vulnerabilidades, no te las cobra; si añades una dependencia
 vulnerable, sí. Cuenta lo que aún no has subido (cambios sin commit y archivos nuevos que git no
 ignora), así que funciona antes del push.
 
 ```text
-Tamandua · mi-repo · cambios respecto a main (merge-base 73223791, 3 archivos)
+Pitangus · mi-repo · cambios respecto a main (merge-base 73223791, 3 archivos)
 
 CRÍTICA  app.py:8  Injection: eval exec non literal
 ALTA     requirements.txt  urllib3 1.26.4: 9 avisos (5 alta, 4 media) → actualiza a 2.7.0
@@ -42,7 +42,7 @@ BLOQUEA · umbral: alta o superior · 7 hallazgos nuevos de severidad alta o sup
 cambio ya no tiene. Cuenta como **corregido** solo si los dos análisis terminaron y su archivo es uno de los que el
 cambio modificó. Si desapareció porque se borró el archivo, o sin que se tocara su archivo, la salida lo dice y no lo
 cuenta como corrección; si alguno de los dos análisis quedó incompleto, dice que no se puede verificar. Un hallazgo
-que solo se movió (misma regla, mismo archivo) no se reporta. Sirve para lo que detectan los motores de Tamandua; los
+que solo se movió (misma regla, mismo archivo) no se reporta. Sirve para lo que detectan los motores de Pitangus; los
 hallazgos importados de otras herramientas se verifican importando de nuevo los resultados de esa herramienta.
 
 Los avisos de una misma dependencia salen en una línea con la versión que los cierra todos.
@@ -85,24 +85,24 @@ Un análisis completo tarda del orden de medio minuto, así que encaja mejor en 
 
 ```sh
 #!/bin/sh
-make -s -C ~/tamandua scan DIR="$(git rev-parse --show-toplevel)" ARGS="--base origin/main --quiet"
+make -s -C ~/pitangus scan DIR="$(git rev-parse --show-toplevel)" ARGS="--base origin/main --quiet"
 ```
 
 ## Importar resultados de otras herramientas (`import-sarif`)
 
 ```sh
-python -m tamandua import-sarif ARCHIVO [ARCHIVO...] --asset NOMBRE [--tool NOMBRE] [--partial] [--commit SHA] [--branch NOMBRE] [--server URL]
+python -m pitangus import-sarif ARCHIVO [ARCHIVO...] --asset NOMBRE [--tool NOMBRE] [--partial] [--commit SHA] [--branch NOMBRE] [--server URL]
 ```
 
 Añade los hallazgos de cualquier herramienta que escriba SARIF 2.1.0 (Semgrep, CodeQL, Snyk, Trivy, Strix…) al
-registro de un activo que Tamandua ya conoce, por su clave o por su nombre (`owner/repo`). Desde ese momento siguen el
-mismo ciclo que los de Tamandua: triage, plazos, incidencias y avisos.
+registro de un activo que Pitangus ya conoce, por su clave o por su nombre (`owner/repo`). Desde ese momento siguen el
+mismo ciclo que los de Pitangus: triage, plazos, incidencias y avisos.
 
-- **Completa por defecto:** lo que esa misma herramienta deje de reportar queda remediado. Los análisis de Tamandua
+- **Completa por defecto:** lo que esa misma herramienta deje de reportar queda remediado. Los análisis de Pitangus
   nunca remedian un hallazgo importado, porque sus motores no ven lo que encontró otra herramienta.
 - `--partial`: la herramienta miró solo una parte del activo; la importación abre y actualiza, nunca remedia.
 - `--tool` reemplaza el nombre de herramienta que trae el SARIF. Varios archivos forman una sola importación.
-- `--server https://…` envía los archivos a `/api/ci/sarif` de ese servidor con el token de `TAMANDUA_IMPORT_TOKEN`
+- `--server https://…` envía los archivos a `/api/ci/sarif` de ese servidor con el token de `PITANGUS_IMPORT_TOKEN`
   (una variable de entorno, nunca una opción; `http://` sin cifrar solo para localhost). Sin `--server` importa en
   la base de datos local (en el propio servidor).
 
@@ -111,16 +111,16 @@ En el panel, **Nuevo análisis → Importar SARIF** hace lo mismo desde el naveg
 
 ## En CI
 
-En CI, Tamandua corre desde la imagen publicada del worker, `ghcr.io/tamandua-appsec/tamandua-worker:0.11`, que trae
+En CI, Pitangus corre desde la imagen publicada del worker, `ghcr.io/pitangus-dev/pitangus-worker:0.12`, que trae
 los motores dentro y los ejecuta como procesos propios: nada que construir y sin socket de Docker.
 
 ### GitHub Actions
 
-Un paso con la Action de Tamandua. En un pull request compara por su cuenta con la rama base, y deja un SARIF listo
+Un paso con la Action de Pitangus. En un pull request compara por su cuenta con la rama base, y deja un SARIF listo
 para code scanning:
 
 ```yaml
-name: Tamandua
+name: Pitangus
 on:
   pull_request:
   push:
@@ -139,20 +139,20 @@ jobs:
         with:
           fetch-depth: 0              # hace falta la historia para comparar con la base
           persist-credentials: false
-      - id: tamandua
-        uses: Tamandua-AppSec/tamandua@v0.11.0   # fíjala al SHA del commit de la etiqueta, como las demás
+      - id: pitangus
+        uses: Pitangus-Dev/pitangus@v0.12.0   # fíjala al SHA del commit de la etiqueta, como las demás
         with:
           exclude: |
             fixtures/
       - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
-        if: always() && steps.tamandua.outputs.sarif != ''
+        if: always() && steps.pitangus.outputs.sarif != ''
         with:
-          sarif_file: ${{ steps.tamandua.outputs.sarif }}
-          category: tamandua
+          sarif_file: ${{ steps.pitangus.outputs.sarif }}
+          category: pitangus
 ```
 
 El paso termina con el mismo código que `scan` (tabla de arriba): falla con `1`, `2` y `3`. El informe sale en el
-log, en inglés salvo que el paso ponga `env: TAMANDUA_DEFAULT_LOCALE: es`.
+log, en inglés salvo que el paso ponga `env: PITANGUS_DEFAULT_LOCALE: es`.
 
 | Entrada | Por defecto | Qué hace |
 | --- | --- | --- |
@@ -161,14 +161,14 @@ log, en inglés salvo que el paso ponga `env: TAMANDUA_DEFAULT_LOCALE: es`.
 | `fail-on` | `high` | Como `--fail-on`: `critical`, `high`, `medium`, `low` o `never`. |
 | `exclude` | vacío | Un patrón por línea; cada uno se convierte en un `--exclude`. |
 | `name` | el nombre del repositorio | Como `--name`. |
-| `sarif` | `$RUNNER_TEMP/tamandua.sarif` | Dónde escribir el SARIF (las rutas relativas parten del workspace). |
-| `image` | `ghcr.io/tamandua-appsec/tamandua-worker:0.11` | Imagen del worker. Fíjala por digest (`…@sha256:…`) si no quieres que nada cambie sin avisar. |
+| `sarif` | `$RUNNER_TEMP/pitangus.sarif` | Dónde escribir el SARIF (las rutas relativas parten del workspace). |
+| `image` | `ghcr.io/pitangus-dev/pitangus-worker:0.12` | Imagen del worker. Fíjala por digest (`…@sha256:…`) si no quieres que nada cambie sin avisar. |
 | `verify` | `true` | `false`: no comprueba la firma de la imagen. Solo para una `image` tuya (un fork, un espejo privado): la imagen publicada se comprueba siempre. |
 | `allow-incomplete` | `false` | `true`: como `--allow-incomplete`. |
 | `scan` | `true` | `false`: no analiza, solo importa (más abajo). |
-| `import-sarif` | vacío | SARIF de otras herramientas que se envían a un servidor Tamandua, uno por línea. |
-| `server` | vacío | El servidor Tamandua (`https://…`) para `import-sarif`. |
-| `token` | vacío | El `TAMANDUA_IMPORT_TOKEN` del servidor, desde un secreto. Al contenedor solo le llega como variable de entorno. |
+| `import-sarif` | vacío | SARIF de otras herramientas que se envían a un servidor Pitangus, uno por línea. |
+| `server` | vacío | El servidor Pitangus (`https://…`) para `import-sarif`. |
+| `token` | vacío | El `PITANGUS_IMPORT_TOKEN` del servidor, desde un secreto. Al contenedor solo le llega como variable de entorno. |
 | `asset` | `owner/name` del repositorio | Activo (que el servidor ya conoce) al que se suman los hallazgos importados. |
 | `import-partial` | `false` | `true`: la herramienta importada miró solo una parte del activo, así que lo que no reporta sigue abierto. En una pull request siempre está activo: sus resultados son de la rama, no del activo. |
 | `registry-token` | vacío | Solo si usas la imagen desde un registro privado tuyo (un espejo, un fork): un token para descargarla. La imagen publicada es pública. |
@@ -182,12 +182,12 @@ log, en inglés salvo que el paso ponga `env: TAMANDUA_DEFAULT_LOCALE: es`.
 La página de resumen de la ejecución muestra el veredicto, lo que la pull request introduce y lo que corrige.
 
 Antes de ejecutar nada, la Action resuelve la imagen a su digest, comprueba la firma cosign de ese digest (keyless: el
-certificado tiene que venir del workflow de release de Tamandua en una etiqueta `v*`, por el emisor OIDC de GitHub) y
+certificado tiene que venir del workflow de release de Pitangus en una etiqueta `v*`, por el emisor OIDC de GitHub) y
 ejecuta ese mismo digest: lo que corre es justo lo que se comprobó. Fijar la Action por SHA fija su código; esto fija
 la imagen. Instala cosign con un `sigstore/cosign-installer` fijado.
 
 Cómo corre: `docker run` de la imagen con el usuario del runner, sin capabilities, con el sistema de archivos de
-solo lectura, el workspace montado en solo lectura y las cachés de los motores en `$RUNNER_TEMP/tamandua` (varios
+solo lectura, el workspace montado en solo lectura y las cachés de los motores en `$RUNNER_TEMP/pitangus` (varios
 pasos del mismo job las comparten). Ahí los motores no pueden tener una red vacía propia (un `docker run` normal no
 permite los espacios de nombres de usuario que hacen falta), así que comparten la red del contenedor y corren con sus
 opciones sin conexión; tu código sigue sin enviarse a ningún sitio.
@@ -195,22 +195,22 @@ opciones sin conexión; tu código sigue sin enviarse a ningún sitio.
 #### Resultados de otras herramientas
 
 Con `import-sarif`, la Action envía el SARIF de cualquier herramienta (Semgrep, CodeQL, Snyk…) a tu servidor
-Tamandua, que suma sus hallazgos al registro del activo junto a los suyos. El servidor necesita
-`TAMANDUA_IMPORT_TOKEN` ([configuración](configuracion.md)) y debe conocer ya el activo. Por ejemplo, solo Semgrep,
-sin el análisis propio de Tamandua:
+Pitangus, que suma sus hallazgos al registro del activo junto a los suyos. El servidor necesita
+`PITANGUS_IMPORT_TOKEN` ([configuración](configuracion.md)) y debe conocer ya el activo. Por ejemplo, solo Semgrep,
+sin el análisis propio de Pitangus:
 
 ```yaml
       - name: Semgrep
         run: |
           python -m pip install semgrep   # fija la versión
           semgrep scan --config p/ci --metrics off --sarif --output semgrep.sarif
-      - uses: Tamandua-AppSec/tamandua@v0.11.0
+      - uses: Pitangus-Dev/pitangus@v0.12.0
         if: always()
         with:
           scan: false
           import-sarif: semgrep.sarif
-          server: https://tamandua.example.com
-          token: ${{ secrets.TAMANDUA_IMPORT_TOKEN }}
+          server: https://pitangus.example.com
+          token: ${{ secrets.PITANGUS_IMPORT_TOKEN }}
 ```
 
 Deja `scan` en `true` para analizar e importar en el mismo paso.
@@ -221,9 +221,9 @@ La imagen del worker como imagen del job: ya trae git, Python y los motores, y c
 Sin socket de Docker y sin Docker-in-Docker.
 
 ```yaml
-tamandua:
+pitangus:
   stage: test
-  image: ghcr.io/tamandua-appsec/tamandua-worker:0.11
+  image: ghcr.io/pitangus-dev/pitangus-worker:0.12
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
@@ -232,18 +232,18 @@ tamandua:
   script:
     # El checkout es de otro usuario: hay que decirle a git que es de confianza.
     - git -c safe.directory="$CI_PROJECT_DIR" fetch origin "$BASE:refs/remotes/origin/$BASE"
-    - python -m tamandua scan . --name "$CI_PROJECT_NAME" --base "origin/$BASE"
+    - python -m pitangus scan . --name "$CI_PROJECT_NAME" --base "origin/$BASE"
 ```
 
 En un runner con ejecutor `shell`, usa `docker run` como hace la Action, sin el socket:
 
 ```sh
-mkdir -p /tmp/tamandua-data   # la creas tú, no Docker: tiene que ser de tu usuario
-docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/src:ro -v /tmp/tamandua-data:/data \
-  ghcr.io/tamandua-appsec/tamandua-worker:0.11 python -m tamandua scan /src --name "$CI_PROJECT_NAME" --base "origin/$BASE"
+mkdir -p /tmp/pitangus-data   # la creas tú, no Docker: tiene que ser de tu usuario
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/src:ro -v /tmp/pitangus-data:/data \
+  ghcr.io/pitangus-dev/pitangus-worker:0.12 python -m pitangus scan /src --name "$CI_PROJECT_NAME" --base "origin/$BASE"
 ```
 
-> El propio repositorio de Tamandua usa la Action en [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), y
+> El propio repositorio de Pitangus usa la Action en [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), y
 > además se analiza con la imagen construida en cada commit (con `--exclude fixtures/` para sus ejemplos vulnerables
 > a propósito). La plantilla de GitLab está comprobada en local con la misma imagen y un checkout de otro usuario,
 > pero aún no en un runner real. Si algo falla, el motivo aparece en la línea «Sin analizar».

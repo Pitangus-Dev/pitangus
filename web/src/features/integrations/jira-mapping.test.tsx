@@ -18,7 +18,7 @@ const VARIABLES: JiraVariables = {
     { key: 'summary', type: 'text', label: 'Issue title' }, { key: 'description', type: 'rich_text', label: 'Full description' },
     { key: 'line', type: 'number', label: 'Line' }, { key: 'due_date', type: 'date', label: 'Due date' }, { key: 'labels', type: 'labels', label: 'Labels' },
   ],
-  sources: ['tamandua', 'fixed', 'template'],
+  sources: ['pitangus', 'fixed', 'template'],
   fits: { text: ['date', 'labels', 'number', 'text'], rich_text: ['labels', 'number', 'rich_text', 'text'], number: ['number'], date: ['date'], option: [], priority: [] },
   by_name: { option: ['severity', 'jira_priority'], priority: ['severity', 'jira_priority'] },
   limits: { fields: 50, template: 2000, fixed_values: 20, backfill: 5000 },
@@ -31,7 +31,7 @@ const FIELDS: JiraField[] = [
   field('project', 'Project', 'managed', { required: true }),
 ]
 const DESTINATION = { id: 'd1', name: 'Payments', project: { id: '100', key: 'PAY', name: 'Payments' }, issue_type: { id: '3', name: 'Bug' },
-  mapping: { summary: { source: 'tamandua', key: 'summary' } }, fields: {} } as JiraDestination
+  mapping: { summary: { source: 'pitangus', key: 'summary' } }, fields: {} } as JiraDestination
 
 function editor(save: (call: Call) => { status?: number; body?: unknown } | undefined = () => undefined) {
   const calls = mockApi(call => {
@@ -48,21 +48,21 @@ const posts = (calls: Call[]) => calls.filter(call => call.path === '/api/integr
 const optionsOf = (select: HTMLElement) => within(select).getAllByRole('option').map(option => option.textContent)
 
 describe('destination field mapping', () => {
-  it('offers only the Tamandua variables that fit each field type', async () => {
+  it('offers only the Pitangus variables that fit each field type', async () => {
     const draft = initialDraft(FIELDS, {})
     const change = vi.fn()
     const { rerender } = renderWithQueries(<MappingTable fields={FIELDS} variables={VARIABLES} draft={draft} errors={{}} onChange={change} searchValues={vi.fn()} />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: tr('jira.mapping.more', { count: 1 }) }))
-    // An option field takes no variable (fits is empty): the source list has no "Tamandua data".
-    expect(optionsOf(screen.getByLabelText(tr('jira.mapping.source_label', { field: 'Team' })))).not.toContain(tr('jira.mapping.source.tamandua'))
+    // An option field takes no variable (fits is empty): the source list has no "Pitangus data".
+    expect(optionsOf(screen.getByLabelText(tr('jira.mapping.source_label', { field: 'Team' })))).not.toContain(tr('jira.mapping.source.pitangus'))
     // A required field can't be left empty.
     expect(optionsOf(screen.getByLabelText(tr('jira.mapping.source_label', { field: 'Summary' })))).not.toContain(tr('jira.mapping.source.none'))
 
-    const points: Entry = { source: 'tamandua', key: '', value: '', values: [], text: '', names: {} }
+    const points: Entry = { source: 'pitangus', key: '', value: '', values: [], text: '', names: {} }
     rerender(<MappingTable fields={FIELDS} variables={VARIABLES} draft={{ ...draft, customfield_2: points }} errors={{}} onChange={change} searchValues={vi.fn()} />)
     expect(optionsOf(screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Story points' }))).slice(1)).toEqual(['Line'])
-    // Fields Tamandua can't fill are listed, never offered.
+    // Fields Pitangus can't fill are listed, never offered.
     expect(screen.queryByLabelText(tr('jira.mapping.source_label', { field: 'Assignee' }))).toBeNull()
     expect(screen.getByText(tr('jira.mapping.unsupported_summary', { count: 1 }))).toBeTruthy()
   })
@@ -82,7 +82,7 @@ describe('destination field mapping', () => {
 
     await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce())
     expect(posts(calls)[0]).toMatchObject({ action: 'jira-routing', body: { id: 'd1', name: 'Payments', project: 'PAY', issue_type: '3',
-      mapping: { summary: { source: 'tamandua', key: 'summary' }, customfield_1: { source: 'fixed', value: '10' }, customfield_2: null } } })
+      mapping: { summary: { source: 'pitangus', key: 'summary' }, customfield_1: { source: 'fixed', value: '10' }, customfield_2: null } } })
     expect(saved.mock.calls[0][0].warnings).toEqual([{ field: 'labels', error: 'No labels field' }])
   })
 

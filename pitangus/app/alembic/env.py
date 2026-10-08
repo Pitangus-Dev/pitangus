@@ -1,0 +1,26 @@
+"""Alembic environment: uses the connection handed over by pitangus.app.database (or the configured URL)."""
+
+from alembic import context
+from sqlalchemy import create_engine
+
+from pitangus.app.database import tables
+from pitangus.shared import db
+
+tables()
+target = db.metadata
+
+
+def run() -> None:
+    connection = context.config.attributes.get("connection")
+    if connection is not None:
+        context.configure(connection=connection, target_metadata=target, compare_type=True)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+    with create_engine(context.config.get_main_option("sqlalchemy.url")).begin() as own:
+        context.configure(connection=own, target_metadata=target, compare_type=True)
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+run()

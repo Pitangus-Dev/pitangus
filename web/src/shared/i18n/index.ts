@@ -6,7 +6,7 @@ export const LOCALES = ['en', 'es'] as const
 export type Locale = (typeof LOCALES)[number]
 export const LOCALE_NAMES: Record<Locale, string> = { en: 'English', es: 'Español' }
 const INTL: Record<Locale, string> = { en: 'en-US', es: 'es-419' }
-const STORAGE_KEY = 'tamandua-locale'
+const STORAGE_KEY = 'pitangus-locale'
 
 export const isLocale = (value: unknown): value is Locale => LOCALES.includes(value as Locale)
 

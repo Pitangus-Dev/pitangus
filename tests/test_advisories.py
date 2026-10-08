@@ -7,10 +7,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.intel import advisories
-from tamandua.modules.intel.advisories import (affected_range, compare_versions, cvss3_base_score, dependency_finding,
+from pitangus.modules.intel import advisories
+from pitangus.modules.intel.advisories import (affected_range, compare_versions, cvss3_base_score, dependency_finding,
                                       fetch_advisory, prioritize, severity_from_score)
-from tamandua.shared.i18n import localize, text
+from pitangus.shared.i18n import localize, text
 
 MINIMATCH = {
     "id": "GHSA-23c5-xmqv-rm74", "aliases": ["CVE-2026-27904"],
@@ -136,14 +136,14 @@ class FeedTests(unittest.TestCase):
             (data_dir / "feeds" / "kev.json").write_text(json.dumps(kev), encoding="utf-8")
             (data_dir / "feeds" / "epss.csv.gz").write_bytes(epss)
             advisories._feed_cache.clear()
-            with patch("tamandua.modules.intel.advisories.urlopen", side_effect=AssertionError("salió a la red con caché fresca")):
+            with patch("pitangus.modules.intel.advisories.urlopen", side_effect=AssertionError("salió a la red con caché fresca")):
                 feeds = advisories.load_feeds(data_dir)
         self.assertTrue(feeds["kev"]["CVE-2021-44228"]["ransomware"])
         self.assertEqual(feeds["kev"]["__meta__"]["version"], "2026.09.22")
         self.assertEqual(feeds["epss"]["CVE-2021-44228"], (0.99999, 1.0))
 
     def test_invalid_identifier_never_reaches_the_network(self):
-        with patch("tamandua.modules.intel.advisories.urlopen", side_effect=AssertionError("consultó OSV")):
+        with patch("pitangus.modules.intel.advisories.urlopen", side_effect=AssertionError("consultó OSV")):
             self.assertIsNone(fetch_advisory("../etc/passwd"))
             self.assertIsNone(fetch_advisory("x"))
 

@@ -7,18 +7,18 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.compliance import cra
-from tamandua.modules.intel import cve_db
-from tamandua.modules.intel import euvd
-from tamandua.modules.findings import fix_guide
-from tamandua.modules.compliance import sbom
-from tamandua.modules.findings import triage
-from tamandua.modules.compliance import vex
-from tamandua.modules.intel.advisories import dependency_finding
-from tamandua.shared.i18n import localize, text
-from tamandua.modules.reporting.audit import FRAMEWORKS, render_audit_pdf, validate_options
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.runs.store import list_runs, load_run, save_repository_scan
+from pitangus.modules.compliance import cra
+from pitangus.modules.intel import cve_db
+from pitangus.modules.intel import euvd
+from pitangus.modules.findings import fix_guide
+from pitangus.modules.compliance import sbom
+from pitangus.modules.findings import triage
+from pitangus.modules.compliance import vex
+from pitangus.modules.intel.advisories import dependency_finding
+from pitangus.shared.i18n import localize, text
+from pitangus.modules.reporting.audit import FRAMEWORKS, render_audit_pdf, validate_options
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.runs.store import list_runs, load_run, save_repository_scan
 import asgi
 from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_cve_db import nvd_entry
@@ -48,7 +48,7 @@ class MaliciousTests(unittest.TestCase):
         self.assertIn("paquete malicioso", text(other["fix"]["steps"][0]))
         self.assertFalse(any("Actualiza" in step for step in localize(finding["fix"]["steps"])))
         # The reports (table and "what to do first") say the same as the panel, and malicious comes first.
-        from tamandua.modules.findings.remediation import action, fix_groups
+        from pitangus.modules.findings.remediation import action, fix_groups
         groups = fix_groups([_finding("c" * 64, "critical", package="axios"), finding, other])
         self.assertTrue(groups[0]["malicious"])
         self.assertTrue(action(groups[0], short=True).startswith("Eliminar event-stream 3.3.6"))
@@ -115,7 +115,7 @@ class SbomAndVexTests(unittest.TestCase):
 
 
 def assert_cyclonedx(case, document):
-    """The CycloneDX 1.6 JSON shape Tamandua relies on (no schema validator in the test dependencies): required
+    """The CycloneDX 1.6 JSON shape Pitangus relies on (no schema validator in the test dependencies): required
     fields, unique bom-refs across nested components, and every dependency or composition ref pointing to one."""
     case.assertEqual((document["bomFormat"], document["specVersion"], document["version"]), ("CycloneDX", "1.6", 1))
     case.assertRegex(document["serialNumber"], r"^urn:uuid:[0-9a-f-]{36}$")
@@ -170,20 +170,20 @@ class PortfolioSbomAndVexTests(unittest.TestCase):
         api, image = document["components"]
         self.assertEqual((api["type"], api["bom-ref"], api["version"]), ("application", "pkg:github/acme/api", "c" * 40))
         identity = {prop["name"]: prop["value"] for prop in api["properties"]}
-        self.assertEqual((identity["tamandua:uid"], identity["tamandua:branch"], identity["tamandua:asset"], identity["tamandua:run"]),
+        self.assertEqual((identity["pitangus:uid"], identity["pitangus:branch"], identity["pitangus:asset"], identity["pitangus:run"]),
                          ("github#1", "main", "github#1", "r1"))
         self.assertEqual((image["type"], image["bom-ref"], image["version"]), ("container", "oci:nginx:1.21", "sha256:abc"))
         # The same package in two assets is two entries, each under its parent, with the plain purl kept.
         lodash = [(parent["bom-ref"], child) for parent in (api, image) for child in parent["components"] if child["purl"] == "pkg:npm/lodash@4.17.20"]
         self.assertEqual([child["bom-ref"] for _, child in lodash], ["pkg:github/acme/api|pkg:npm/lodash@4.17.20", "oci:nginx:1.21|pkg:npm/lodash@4.17.20"])
         graph = {entry["ref"]: entry["dependsOn"] for entry in document["dependencies"]}
-        self.assertEqual(graph["urn:tamandua:portfolio"], ["pkg:github/acme/api", "oci:nginx:1.21"])
+        self.assertEqual(graph["urn:pitangus:portfolio"], ["pkg:github/acme/api", "oci:nginx:1.21"])
         self.assertIn("pkg:github/acme/api|pkg:npm/lodash@4.17.20", graph["pkg:github/acme/api"])
         self.assertNotIn("pkg:github/acme/api|pkg:npm/left-pad@1.3.0", graph["pkg:github/acme/api"])  # transitive, as in the per-asset SBOM
         self.assertEqual(set(graph["oci:nginx:1.21"]), {child["bom-ref"] for child in image["components"]})
         # The image scan had an engine fail: that asset (only) is declared incomplete; nothing was truncated.
         self.assertEqual(document["compositions"], [{"aggregate": "incomplete", "assemblies": ["oci:nginx:1.21"]}])
-        self.assertNotIn("tamandua:truncated", {prop["name"] for prop in document["metadata"]["properties"]})
+        self.assertNotIn("pitangus:truncated", {prop["name"] for prop in document["metadata"]["properties"]})
         self.assertEqual({phase["phase"] for phase in document["metadata"]["lifecycles"]}, {"pre-build", "post-build"})
 
     def test_past_the_limits_the_document_says_what_was_left_out(self):
@@ -192,11 +192,11 @@ class PortfolioSbomAndVexTests(unittest.TestCase):
         assert_cyclonedx(self, document)
         (api,) = document["components"]  # the image didn't fit
         self.assertEqual(len(api["components"]), 3)
-        self.assertIn("Only 3 of 4 components", {prop["name"]: prop["value"] for prop in api["properties"]}["tamandua:truncated"])
+        self.assertIn("Only 3 of 4 components", {prop["name"]: prop["value"] for prop in api["properties"]}["pitangus:truncated"])
         notes = {prop["name"]: prop["value"] for prop in document["metadata"]["properties"]}
-        self.assertEqual((notes["tamandua:assets"], notes["tamandua:components"]), ("1", "3"))
-        self.assertIn("1 of 5 assets", notes["tamandua:truncated"])
-        self.assertEqual(document["compositions"], [{"aggregate": "incomplete", "assemblies": ["pkg:github/acme/api", "urn:tamandua:portfolio"]}])
+        self.assertEqual((notes["pitangus:assets"], notes["pitangus:components"]), ("1", "3"))
+        self.assertIn("1 of 5 assets", notes["pitangus:truncated"])
+        self.assertEqual(document["compositions"], [{"aggregate": "incomplete", "assemblies": ["pkg:github/acme/api", "urn:pitangus:portfolio"]}])
 
     def test_portfolio_vex_keeps_each_statement_on_its_asset(self):
         first, second = acme_record(), {**acme_record(), "findings": [_finding("c" * 64, "high", package="qs")]}
@@ -208,7 +208,7 @@ class PortfolioSbomAndVexTests(unittest.TestCase):
                                     ("oci:nginx:1.21", "pkg:npm/qs@1.0.0")])
         self.assertEqual(document["statements"][0]["products"][0]["identifiers"], {"purl": "pkg:github/acme/api"})
         self.assertNotIn("identifiers", document["statements"][2]["products"][0])
-        self.assertEqual(document["tooling"], "Tamandua 0.9")
+        self.assertEqual(document["tooling"], "Pitangus 0.9")
         partial = vex.portfolio([("pkg:github/acme/api", first)], total=3, version="0.9", now=NOW, locale="en")
         self.assertIn("1 of 3 assets", partial["tooling"])
         with patch.object(vex, "PORTFOLIO_STATEMENTS", 1):
@@ -219,7 +219,7 @@ class PortfolioSbomAndVexTests(unittest.TestCase):
 class ExportRouteTests(HttpCase):
     def setUp(self):
         super().setUp()
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("miembro", PASSWORD)
             self.cookie = {"Cookie": self.post("/api/auth/login", "login", {"username": "miembro", "password": PASSWORD})[2][0].split("; ")[0]}
         scan = {**_scan("org/api", [_finding("a" * 64, "critical")], datetime.now(timezone.utc).isoformat()),
@@ -228,7 +228,7 @@ class ExportRouteTests(HttpCase):
         self.key = "github:org/api"
 
     def get(self, path):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             return self.call("GET", path, headers=self.cookie)
 
     def test_sbom_and_vex_from_a_run_and_from_the_asset_state(self):
@@ -269,7 +269,7 @@ class EuvdTests(unittest.TestCase):
             raise OSError("sin red")
         self.assertEqual(euvd.lookup(self.data_dir, "CVE-2026-7777", fetch=down, now=NOW + timedelta(days=30))["id"], "EUVD-2026-9")
         self.assertIsNone(euvd.lookup(self.data_dir, "no-es-un-cve", fetch=fetch))
-        with patch.dict(os.environ, {"TAMANDUA_EUVD": "off"}):
+        with patch.dict(os.environ, {"PITANGUS_EUVD": "off"}):
             self.assertIsNone(euvd.lookup(self.data_dir, "CVE-2026-8888", fetch=fetch))
 
 
@@ -282,7 +282,7 @@ class EuvdRouteTests(HttpCase):
         cve_db.upsert(self.data_dir, [entry])
         payload = {"items": [{"id": "EUVD-2026-5", "aliases": "CVE-2026-55555", "baseScore": 7.5, "baseScoreVersion": "3.1",
                               "baseScoreVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"}]}
-        with patch("tamandua.modules.intel.euvd._fetch", side_effect=lambda cve: euvd.parse(payload, cve)):
+        with patch("pitangus.modules.intel.euvd._fetch", side_effect=lambda cve: euvd.parse(payload, cve)):
             status, body, _ = self.call("GET", "/api/cve-db/item?id=CVE-2026-55555", headers=cookie)
         self.assertEqual((status, body["score"], body["severity"], body["score_source"]), (200, 7.5, "high", "euvd"))
 
@@ -374,7 +374,7 @@ class CraTests(unittest.TestCase):
                 cra.assess(self.data_dir, bad, "exploited", reason=None, user=ADMIN)
 
     def test_events_reported_before_assessments_read_as_exploited_from_the_signal(self):
-        from tamandua.shared import documents
+        from pitangus.shared import documents
         state = documents.load(self.data_dir, "cra", {})
         state["reports"] = {self.event_id: {"early_warning": {"at": "2026-09-20T12:00:00+00:00", "by": "luis"}}}
         documents.save(self.data_dir, "cra", state)
@@ -405,7 +405,7 @@ JSON = {"Content-Type": "application/json"}
 
 def _send(case, path, action, body, cookie):
     """A POST to a typed route, as the panel sends it."""
-    return case.call("POST", path, body, {"Origin": ORIGIN, "X-Tamandua-Action": action, "Cookie": cookie, **JSON})
+    return case.call("POST", path, body, {"Origin": ORIGIN, "X-Pitangus-Action": action, "Cookie": cookie, **JSON})
 
 
 def _login(case, username, role="member"):
@@ -540,7 +540,7 @@ class EvidenceHubTests(HttpCase):
             status, body, _ = _send(self, "/api/evidence/portfolio", "audit-report", {"framework": framework}, member)
             self.assertEqual((status, body[:5]), (200, b"%PDF-"), framework)
         self.assertEqual(self.call("POST", "/api/evidence/portfolio", {"framework": "soc2"}, {"Cookie": member, "Origin": ORIGIN, **JSON})[0], 403)  # CSRF
-        self.assertEqual(self.call("POST", "/api/evidence/portfolio", {"framework": "soc2"}, {"Origin": ORIGIN, "X-Tamandua-Action": "audit-report", **JSON})[0], 401)
+        self.assertEqual(self.call("POST", "/api/evidence/portfolio", {"framework": "soc2"}, {"Origin": ORIGIN, "X-Pitangus-Action": "audit-report", **JSON})[0], 401)
         for bad in ({"framework": "hipaa"}, {"framework": "soc2", "title": "x"}, {}):
             self.assertEqual(_send(self, "/api/evidence/portfolio", "audit-report", bad, member)[0], 400, bad)
 
@@ -574,10 +574,10 @@ class EvidenceHubTests(HttpCase):
         self.assertEqual({component["name"] for component in document["components"]}, {"org/api", "org/ui"})  # not the failed one
         self.assertEqual([len(component["components"]) for component in document["components"]], [1, 1])  # lodash twice
         _, default, _ = self.call("GET", "/api/evidence/portfolio/sbom", headers={"Cookie": member})
-        self.assertEqual(default["metadata"]["component"]["name"], "Tamandua portfolio")  # machine-readable: never localized
+        self.assertEqual(default["metadata"]["component"]["name"], "Pitangus portfolio")  # machine-readable: never localized
         self.assertEqual(self.call("GET", "/api/evidence/portfolio/sbom?organization=" + "a" * 121, headers={"Cookie": member})[0], 400)
         _, control, _ = self.call("GET", "/api/evidence/portfolio/sbom?organization=%07x", headers={"Cookie": member})
-        self.assertEqual(control["metadata"]["component"]["name"], "Tamandua portfolio")
+        self.assertEqual(control["metadata"]["component"]["name"], "Pitangus portfolio")
 
         response = asgi.request(self.client, "GET", "/api/evidence/portfolio/vex", None, {"Cookie": member})
         self.assertEqual((response.status_code, response.headers["content-type"]), (200, "application/json"))
@@ -603,7 +603,7 @@ class CraFrameworkGateTests(HttpCase):
                     ("/api/evidence/portfolio", options))
         message = "The CRA mapping is only available while CRA reporting is on. An admin can turn it on in Policies."
         for path, body in requests:
-            status, answer, _ = self.call("POST", path, body, {"Origin": ORIGIN, "X-Tamandua-Action": "audit-report", "Cookie": member,
+            status, answer, _ = self.call("POST", path, body, {"Origin": ORIGIN, "X-Pitangus-Action": "audit-report", "Cookie": member,
                                                              "Accept-Language": "en", **JSON})
             self.assertEqual((status, answer["error"]), (400, message), (path, body))
         cra.set_policy(self.data_dir, True, reason="Vendemos en la UE", user=ADMIN)

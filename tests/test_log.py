@@ -8,12 +8,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.shared import log
+from pitangus.shared import log
 
 
 class LogTests(unittest.TestCase):
     def setUp(self):
-        self.root = logging.getLogger("tamandua")
+        self.root = logging.getLogger("pitangus")
         self.saved = (log._configured, list(self.root.handlers), self.root.level)
         log._configured = False
 
@@ -26,7 +26,7 @@ class LogTests(unittest.TestCase):
 
     def test_json_on_the_process_output_and_no_file_by_default(self):
         stream = io.StringIO()
-        with tempfile.TemporaryDirectory() as folder, patch.dict("os.environ", {"TAMANDUA_LOG_FORMAT": "json"}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict("os.environ", {"PITANGUS_LOG_FORMAT": "json"}), \
                 patch.object(log.sys, "stderr", stream):
             log.configure(Path(folder))
             log.get("test").info("hello", extra={"run_id": "r1", "reason": "token=ghp_abcdefghijklmnopqrstuvwxyz0123456789"})
@@ -36,7 +36,7 @@ class LogTests(unittest.TestCase):
         self.assertNotIn("ghp_abcdefghijklmnopqrstuvwxyz", event["reason"])
 
     def test_a_relative_log_file_lives_under_the_data_folder(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict("os.environ", {"TAMANDUA_LOG_FILE": "logs/app.log"}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict("os.environ", {"PITANGUS_LOG_FILE": "logs/app.log"}), \
                 patch.object(log.sys, "stderr", io.StringIO()):
             log.configure(Path(folder))
             log.get("test").warning("written")

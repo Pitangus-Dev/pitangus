@@ -40,7 +40,7 @@ export function RunProgress({ run, onFinished }: { run: RunningRun; onFinished: 
     </div>
     {/* 4.1.3: cada paso nuevo se anuncia; el nivel no depende solo del color (1.4.1). */}
     <CardContent role="log" aria-live="polite" aria-label={t('progress.log')} tabIndex={0} className="max-h-72 overflow-y-auto p-4 font-mono text-xs leading-6">
-      {(live.progress ?? []).map((event, index) => <div key={index} className="flex gap-3"><span className="shrink-0 text-app-subtle">{formatTime(event.at)}</span><span className={event.level === 'ok' ? 'text-brand' : event.level === 'warn' ? 'text-warning' : event.level === 'error' ? 'text-danger' : 'text-app-secondary'}>{event.level === 'warn' ? <span className="font-semibold">{t('progress.warning')} </span> : event.level === 'error' ? <span className="font-semibold">{t('progress.error')} </span> : null}{event.message}</span></div>)}
+      {(live.progress ?? []).map((event, index) => <div key={index} className="flex gap-3"><span className="shrink-0 text-app-subtle">{formatTime(event.at)}</span><span className={event.level === 'ok' ? 'text-success' : event.level === 'warn' ? 'text-warning' : event.level === 'error' ? 'text-danger' : 'text-app-secondary'}>{event.level === 'warn' ? <span className="font-semibold">{t('progress.warning')} </span> : event.level === 'error' ? <span className="font-semibold">{t('progress.error')} </span> : null}{event.message}</span></div>)}
       {active && <div aria-hidden className="flex gap-3 text-app-subtle"><span className="shrink-0">{formatTime(now)}</span><span className="motion-safe:animate-pulse">…</span></div>}
       <div ref={bottom} />
     </CardContent>

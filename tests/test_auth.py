@@ -15,12 +15,12 @@ import asgi
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.identity import auth
-from tamandua.modules.identity.auth import AuthError, Authenticator, Locked, Users, totp_code
-from tamandua.cli.main import main as cli
+from pitangus.modules.identity import auth
+from pitangus.modules.identity.auth import AuthError, Authenticator, Locked, Users, totp_code
+from pitangus.cli.main import main as cli
 from fastapi.routing import APIRoute
-from tamandua.app.api import ROUTERS
-from tamandua.app.api.server import build_state
+from pitangus.app.api import ROUTERS
+from pitangus.app.api.server import build_state
 
 # Test password built from parts: a literal like this would (rightly) trip a secret detector.
 NEW_PASSWORD = "-".join(("otra", "frase", "muy", "larga", "99"))
@@ -67,7 +67,7 @@ class AuthenticatorTests(unittest.TestCase):
     def test_stored_data_holds_no_plain_secret(self):
         """The signing key lives sealed in the vault, never on disk; the database holds neither the password nor a
         session identifier in the clear."""
-        from tamandua.shared import vault
+        from pitangus.shared import vault
         result = self.auth.login("operadora", PASSWORD, "1.1.1.1")
         self.assertFalse((self.data_dir / "auth").exists())
         self.assertIn("session-key", vault.names())
@@ -100,8 +100,8 @@ class AuthenticatorTests(unittest.TestCase):
 
     def test_users_keep_their_order_and_changes_touch_only_their_row(self):
         from sqlalchemy import select
-        from tamandua.modules.identity.tables import users
-        from tamandua.shared import db
+        from pitangus.modules.identity.tables import users
+        from pitangus.shared import db
         users_ = self.auth.users
         users_.create("segunda", PASSWORD)
         third = users_.create("tercera", PASSWORD)
@@ -119,8 +119,8 @@ class AuthenticatorTests(unittest.TestCase):
 
     def test_a_locked_out_address_adds_no_rows_for_made_up_usernames(self):
         from sqlalchemy import func, select
-        from tamandua.modules.identity.tables import auth_throttle
-        from tamandua.shared import db
+        from pitangus.modules.identity.tables import auth_throttle
+        from pitangus.shared import db
         for index in range(auth.LOCK_AFTER):
             with self.assertRaises(AuthError):
                 self.auth.login(f"nadie{index}", "incorrecta-del-todo", "atacante")
@@ -135,8 +135,8 @@ class AuthenticatorTests(unittest.TestCase):
         import time
         from datetime import datetime, timedelta, timezone
         from sqlalchemy import insert, select
-        from tamandua.modules.identity.tables import auth_throttle
-        from tamandua.shared import db
+        from pitangus.modules.identity.tables import auth_throttle
+        from pitangus.shared import db
         old, now = datetime.now(timezone.utc) - timedelta(hours=2), time.time()
         rows = [{"key": f"user:idle{index}", "failures": 1, "until": 0, "updated_at": old} for index in range(auth.PRUNE_BATCH + 200)]
         rows += [{"key": "client:still-locked", "failures": 9, "until": now + 600, "updated_at": old},
@@ -154,9 +154,9 @@ class AuthenticatorTests(unittest.TestCase):
         self.assertEqual(left(), {"client:still-locked", "user:recent"})
 
     def test_code_tokens_are_shared_and_sealed(self):
-        from tamandua.modules.integrations import code_tokens
-        from tamandua.shared import vault
-        with patch("tamandua.shared.paths.CONFIG_DIR", self.data_dir / "config"):
+        from pitangus.modules.integrations import code_tokens
+        from pitangus.shared import vault
+        with patch("pitangus.shared.paths.CONFIG_DIR", self.data_dir / "config"):
             code_tokens.connect("gitlab", "glpat-token-de-prueba-123")
             self.assertEqual(code_tokens.current(), {"gitlab": "glpat-token-de-prueba-123"})
             self.assertIn("code_tokens", vault.names())
@@ -208,8 +208,8 @@ def stored_identity(data_dir) -> str:
     """Everything the database stores about users and sessions, as text (to check no secret is in the clear)."""
     import json
     from sqlalchemy import select
-    from tamandua.modules.identity.tables import sessions, users
-    from tamandua.shared import db
+    from pitangus.modules.identity.tables import sessions, users
+    from pitangus.shared import db
     with db.transaction(data_dir) as connection:
         rows = [*connection.execute(select(users.c.record)).scalars(), *connection.execute(select(sessions.c.id, sessions.c.record)).all()]
     return json.dumps(rows, default=str)
@@ -231,12 +231,12 @@ class HttpCase(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.data_dir = Path(self.directory.name)
-        store = patch("tamandua.shared.paths.CONFIG_DIR", self.data_dir / "config")
+        store = patch("pitangus.shared.paths.CONFIG_DIR", self.data_dir / "config")
         store.start()
         self.addCleanup(store.stop)
-        engines = patch.dict("tamandua.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
+        engines = patch.dict("pitangus.modules.scanning.engines._docker_state", {"ok": False}, clear=True)
         # These tests cover other things; the TOTP policy has its own.
-        policy = patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"})
+        policy = patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"})
         policy.start()
         self.addCleanup(policy.stop)
         engines.start()
@@ -258,7 +258,7 @@ class HttpCase(unittest.TestCase):
         return response.status_code, body, cookies
 
     def post(self, path, action, body, cookie=None):
-        return self.call("POST", path, body, {"Origin": ORIGIN, "X-Tamandua-Action": action,
+        return self.call("POST", path, body, {"Origin": ORIGIN, "X-Pitangus-Action": action,
                                               **({"Cookie": cookie} if cookie else {})})
 
 
@@ -296,7 +296,7 @@ class GateTests(HttpCase):
     def test_login_needs_origin_and_action(self):
         Users(self.data_dir).create("analista", PASSWORD)
         status, _, _ = self.call("POST", "/api/auth/login", {"username": "analista", "password": PASSWORD},
-                                 {"Origin": "http://evil.test", "X-Tamandua-Action": "login"})
+                                 {"Origin": "http://evil.test", "X-Pitangus-Action": "login"})
         self.assertEqual(status, 403)
         status, body, _ = self.post("/api/auth/login", "login", {"username": "nadie", "password": PASSWORD})
         self.assertEqual((status, body["error"]), (401, "Usuario o contraseña incorrectos"))
@@ -322,7 +322,7 @@ class GateTests(HttpCase):
 
     def test_secure_cookie_behind_https(self):
         Users(self.data_dir).create("analista", PASSWORD)
-        with patch.dict(os.environ, {"TAMANDUA_PUBLIC_URL": "https://appsec.example.com"}):
+        with patch.dict(os.environ, {"PITANGUS_PUBLIC_URL": "https://appsec.example.com"}):
             _, _, cookies = self.post("/api/auth/login", "login", {"username": "analista", "password": PASSWORD})
         self.assertIn("Secure", cookies[0].split("; "))
 
@@ -344,7 +344,7 @@ class PolicyAndUsersTests(HttpCase):
         return self.post("/api/auth/totp/confirm", "totp-confirm", {"code": code}, cookie)
 
     def test_admin_without_totp_can_only_enrol(self):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "admins"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "admins"}):
             cookie = self.login_cookie()
             _, session, _ = self.call("GET", "/api/auth/session", headers={"Cookie": cookie})
             self.assertTrue(session["totp_required"])

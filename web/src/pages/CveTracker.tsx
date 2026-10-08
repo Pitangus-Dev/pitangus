@@ -186,7 +186,7 @@ function SyncBanner({ overview }: { overview: CveOverview }) {
     <div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2">{sync.error ? <ShieldAlert className="size-4 text-warning" /> : <LoaderCircle className="size-4 animate-spin text-app-muted" />}
       {sync.phase === 'pending' ? t('sync.preparing') : t('sync.downloading', { percent: formatPercent(sync.progress) })}</span>
       <span className="text-xs text-app-subtle">{sync.nvd_total ? t('sync.count_of', { value: formatNumber(overview.count), total: formatNumber(sync.nvd_total) }) : t('sync.count', { value: formatNumber(overview.count) })}</span></div>
-    <div role="progressbar" aria-label={t('sync.aria')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sync.progress * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.max(2, sync.progress * 100)}%` }} /></div>
+    <div role="progressbar" aria-label={t('sync.aria')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sync.progress * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-brand transition-all" style={{ width: `${Math.max(2, sync.progress * 100)}%` }} /></div>
     <p className="mt-2 text-xs text-app-subtle">{sync.error ? t('sync.error') : t('sync.hint')}</p>
   </div>
 }

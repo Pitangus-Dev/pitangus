@@ -11,11 +11,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.scanning import engines
+from pitangus.modules.scanning import engines
 
 # A stand-in engine: prints what it received (arguments, part of its environment, what it can read).
 FAKE = """#!/bin/sh
-printf '{"args": "%s", "home": "%s", "db": "%s", "key": "%s", "cache": "%s"}\\n' "$*" "$HOME" "$TAMANDUA_DATABASE_URL" "$TAMANDUA_MASTER_KEY" "$OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY"
+printf '{"args": "%s", "home": "%s", "db": "%s", "key": "%s", "cache": "%s"}\\n' "$*" "$HOME" "$PITANGUS_DATABASE_URL" "$PITANGUS_MASTER_KEY" "$OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY"
 cat "$2/app.py" >&2
 """
 SLEEPER = """#!/bin/sh
@@ -34,8 +34,8 @@ class LocalRunnerTests(unittest.TestCase):
             folder.mkdir()
         (self.snapshot / "app.py").write_text("print('hi')\n")
         path = f"{self.bin}:/usr/bin:/bin"  # only the stand-ins, whatever the machine has installed
-        environment = patch.dict(os.environ, {"PATH": path, "TAMANDUA_ENGINE_RUNNER": "local",
-                                              "TAMANDUA_MASTER_KEY": base64.b64encode(b"not-a-real-key-just-a-test-1234").decode()})
+        environment = patch.dict(os.environ, {"PATH": path, "PITANGUS_ENGINE_RUNNER": "local",
+                                              "PITANGUS_MASTER_KEY": base64.b64encode(b"not-a-real-key-just-a-test-1234").decode()})
         environment.start()
         self.addCleanup(environment.stop)
 
@@ -107,7 +107,7 @@ class NetworkIsolationTests(unittest.TestCase):
 
             def communicate(self, timeout=None):
                 return "", ""
-        with patch.dict(os.environ, {"TAMANDUA_ENGINE_RUNNER": "local"}), \
+        with patch.dict(os.environ, {"PITANGUS_ENGINE_RUNNER": "local"}), \
                 patch.object(engines.shutil, "which", return_value="/usr/local/bin/gitleaks"), \
                 patch.object(engines, "network_isolation", return_value=PREFIX), \
                 patch.object(engines.subprocess, "Popen", Process):
@@ -127,7 +127,7 @@ class NetworkIsolationTests(unittest.TestCase):
         self.assertEqual(run.call_count, 2)
 
     def test_without_unshare_engines_run_as_before_and_it_is_logged(self):
-        with patch.object(engines.shutil, "which", return_value=None), self.assertLogs("tamandua.engines", "WARNING") as logs:
+        with patch.object(engines.shutil, "which", return_value=None), self.assertLogs("pitangus.engines", "WARNING") as logs:
             self.assertEqual(engines.network_isolation(), [])
         self.assertIn("local_engines_share_the_network", logs.output[0])
 

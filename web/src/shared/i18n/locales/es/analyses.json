@@ -20,7 +20,7 @@
       },
       "image": {
         "description": "Analiza una imagen desde su registro (Docker Hub, GHCR, ECR…) sin ejecutarla ni construirla.",
-        "packages": "Paquetes: Trivy + Grype", "secrets": "Secretos en capas, ENV e historial", "config": "Configuración: reglas de Tamandua + Checkov"
+        "packages": "Paquetes: Trivy + Grype", "secrets": "Secretos en capas, ENV e historial", "config": "Configuración: reglas de Pitangus + Checkov"
       },
       "web": {
         "description": "Escaneo activo (DAST) contra tu aplicación en marcha, sobre dominios verificados. Todavía no dan resultados.",
@@ -28,7 +28,7 @@
       },
       "import": {
         "description": "Trae los hallazgos de otra herramienta a un activo que ya tienes, para hacer su triage junto con todo lo demás.",
-        "tools": "Semgrep, CodeQL, Snyk, Trivy… (SARIF 2.1.0)", "existing": "En un repositorio o una imagen que ya está en Tamandua",
+        "tools": "Semgrep, CodeQL, Snyk, Trivy… (SARIF 2.1.0)", "existing": "En un repositorio o una imagen que ya está en Pitangus",
         "fixes": "Una importación completa marca como remediado lo que la herramienta dejó de reportar"
       }
     }
@@ -179,7 +179,7 @@
   },
   "import": {
     "title": "Importar SARIF",
-    "description": "Hallazgos de otra herramienta, sumados a un activo que Tamandua ya conoce. Cada herramienta del archivo queda como una ejecución propia.",
+    "description": "Hallazgos de otra herramienta, sumados a un activo que Pitangus ya conoce. Cada herramienta del archivo queda como una ejecución propia.",
     "asset": "Activo",
     "asset_error": "No se pudieron cargar los activos. Recarga la página para volver a intentarlo.",
     "no_asset": "Aún no hay activos: analiza primero un repositorio o una imagen y luego importa su SARIF.",
@@ -197,7 +197,7 @@
       "label": "Alcance",
       "full": "Completa", "full_hint": "Todo lo que la herramienta revisó en este activo: lo que ya no reporte se marca como remediado",
       "partial": "Parcial", "partial_hint": "Solo algunos archivos o un módulo: agrega y actualiza, no marca nada como remediado",
-      "note": "Los análisis de Tamandua nunca cierran hallazgos importados, ni una importación cierra los suyos."
+      "note": "Los análisis de Pitangus nunca cierran hallazgos importados, ni una importación cierra los suyos."
     },
     "more": "Más opciones",
     "optional": "(opcional)",

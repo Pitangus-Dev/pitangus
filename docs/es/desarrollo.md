@@ -2,7 +2,7 @@
 
 # Desarrollo
 
-Para contribuir o ejecutar Tamandua sin contenedores. Lee también [CONTRIBUTING.es.md](../../.github/CONTRIBUTING.es.md).
+Para contribuir o ejecutar Pitangus sin contenedores. Lee también [CONTRIBUTING.es.md](../../.github/CONTRIBUTING.es.md).
 
 ## Sin contenedores
 
@@ -10,7 +10,7 @@ Requiere Python 3.12+ y Node 22. Sin Docker no corren los motores (Trivy, Gitlea
 
 ```bash
 make dev-setup   # .venv con las dependencias de Python y node_modules del panel
-make web         # compila el panel en tamandua/app/static/
+make web         # compila el panel en pitangus/app/static/
 make dev         # servidor en http://127.0.0.1:8767 con datos en .dev/ (no toca los de Docker)
 make check       # pruebas y contratos de arquitectura del backend + tipos y lint del panel
 ```
@@ -20,9 +20,9 @@ make check       # pruebas y contratos de arquitectura del backend + tipos y lin
 La CLI usa el mismo almacén que el panel (en Docker: `make cli ARGS="…"`):
 
 ```bash
-.venv/bin/python -m tamandua --data-dir .dev/data sources
-.venv/bin/python -m tamandua --data-dir .dev/data scan-repository --source-id github:org/repo
-.venv/bin/python -m tamandua --data-dir .dev/data runs
+.venv/bin/python -m pitangus --data-dir .dev/data sources
+.venv/bin/python -m pitangus --data-dir .dev/data scan-repository --source-id github:org/repo
+.venv/bin/python -m pitangus --data-dir .dev/data runs
 ```
 
 ## Paginación de la API
@@ -31,7 +31,7 @@ La CLI usa el mismo almacén que el panel (en Docker: `make cli ARGS="…"`):
 
 ## Logs
 
-Los registros salen por la salida de errores, legibles por defecto o como un objeto JSON por evento con `TAMANDUA_LOG_FORMAT=json` (hora, nivel, componente, identificador de ejecución, método, ruta, estado, duración). `TAMANDUA_LOG_FILE=logs/app.log` guarda además una copia JSON en la carpeta de datos, rotada a 10 MB × 5 (Compose lo activa). `TAMANDUA_LOG_LEVEL=DEBUG` para depurar. No se registran cuerpos, cabeceras ni tokens, y `redact()` tacha patrones de credenciales que pudieran colarse en un mensaje.
+Los registros salen por la salida de errores, legibles por defecto o como un objeto JSON por evento con `PITANGUS_LOG_FORMAT=json` (hora, nivel, componente, identificador de ejecución, método, ruta, estado, duración). `PITANGUS_LOG_FILE=logs/app.log` guarda además una copia JSON en la carpeta de datos, rotada a 10 MB × 5 (Compose lo activa). `PITANGUS_LOG_LEVEL=DEBUG` para depurar. No se registran cuerpos, cabeceras ni tokens, y `redact()` tacha patrones de credenciales que pudieran colarse en un mensaje.
 
 ## Desarrollo y pruebas
 
@@ -49,7 +49,7 @@ cd ..
 
 Las pruebas del panel (`npm test`, vitest con Testing Library) van junto a lo que prueban (`*.test.tsx`) y cubren el inicio de sesión, el triage y el lanzamiento de un análisis. Sustituyen `fetch` por `mockApi` (`web/src/shared/test/`) y buscan los elementos por el texto del catálogo, así que cambiar un texto no las rompe.
 
-Las pruebas necesitan PostgreSQL: `make test` arranca uno efímero en Docker (datos en memoria) y da a cada prueba su propio esquema (`TAMANDUA_DB_ISOLATE=data-dir`). Para correr una sola: `TAMANDUA_DATABASE_URL=$(sh scripts/test-db.sh) TAMANDUA_DB_ISOLATE=data-dir TAMANDUA_CONFIG_DIR=$(mktemp -d) .venv/bin/python -m unittest discover -s tests -p 'test_x.py'` (la carpeta de configuración temporal evita que las pruebas creen una clave maestra en la tuya). Cada `make test` usa su propia base de datos, que se borra al terminar, y apunta Docker a un socket que no existe: ninguna prueba puede lanzar un motor real, simulan lo que necesitan. `make lint-py` pasa ruff y mypy, y `make arch` los contratos de arquitectura; la CI corre los tres. mypy se salta los módulos listados en `pyproject.toml`, que tenían errores de tipos cuando llegó: arreglar uno es sacarlo de la lista.
+Las pruebas necesitan PostgreSQL: `make test` arranca uno efímero en Docker (datos en memoria) y da a cada prueba su propio esquema (`PITANGUS_DB_ISOLATE=data-dir`). Para correr una sola: `PITANGUS_DATABASE_URL=$(sh scripts/test-db.sh) PITANGUS_DB_ISOLATE=data-dir PITANGUS_CONFIG_DIR=$(mktemp -d) .venv/bin/python -m unittest discover -s tests -p 'test_x.py'` (la carpeta de configuración temporal evita que las pruebas creen una clave maestra en la tuya). Cada `make test` usa su propia base de datos, que se borra al terminar, y apunta Docker a un socket que no existe: ninguna prueba puede lanzar un motor real, simulan lo que necesitan. `make lint-py` pasa ruff y mypy, y `make arch` los contratos de arquitectura; la CI corre los tres. mypy se salta los módulos listados en `pyproject.toml`, que tenían errores de tipos cuando llegó: arreglar uno es sacarlo de la lista.
 
 ### Dependencias de Python
 
@@ -65,7 +65,7 @@ make lock ARGS="--upgrade"                   # lo actualiza todo, dependencias t
 
 ### Añadir o migrar una ruta de la API
 
-Las rutas nuevas van en FastAPI, en `tamandua/app/api/<contexto>.py`: parámetros y respuesta con modelos Pydantic,
+Las rutas nuevas van en FastAPI, en `pitangus/app/api/<contexto>.py`: parámetros y respuesta con modelos Pydantic,
 seguridad con `guard(Policy(public=…, admin=…, action=…))` (CSRF, sesión, segundo factor, rol; ver
 `app/api/security.py`) y la lógica en el módulo de negocio, nunca en la ruta. El cuerpo de la petición se lee después
 de la protección con `deps.body(Modelo, mensaje_inválido)`, así una petición sin sesión nunca llega a validarse.
@@ -81,7 +81,7 @@ Después, `make openapi` regenera el esquema y los tipos TypeScript del panel (`
 
 ### Añadir un motor
 
-Un motor del análisis de código es un `Engine` (`tamandua/modules/scanning/engines.py`): su clave, si sin él la
+Un motor del análisis de código es un `Engine` (`pitangus/modules/scanning/engines.py`): su clave, si sin él la
 ejecución queda incompleta, el mensaje de progreso que se dice antes de correrlo y cómo corre sobre un `ScanContext`
 (snapshot, carpeta de datos, feeds de KEV/EPSS, ajustes de secretos, permiso para salir de la máquina). Para añadir uno:
 
@@ -89,28 +89,28 @@ ejecución queda incompleta, el mensaje de progreso que se dice antes de correrl
    (`docker/app/Dockerfile`, `worker-standalone`; `tests/test_packaging.py` comprueba que cuadran).
 2. Una función `run_*` que responde un `EngineResult`: `inconclusive` con el motivo cuando no puede correr, nunca una
    excepción.
-3. Su línea en `CODE_ENGINES` (`tamandua/modules/scanning/repository.py`), en el orden en que corre. Si se solapa con
+3. Su línea en `CODE_ENGINES` (`pitangus/modules/scanning/repository.py`), en el orden en que corre. Si se solapa con
    otro motor, la fusión que une sus hallazgos va después de correr los motores, y el motor es `merged`.
 
 ### Cambiar el esquema de la base de datos
 
-Las tablas se definen en `tamandua/modules/<contexto>/tables.py`. Un cambio lleva su migración de Alembic:
+Las tablas se definen en `pitangus/modules/<contexto>/tables.py`. Un cambio lleva su migración de Alembic:
 
 ```bash
-TAMANDUA_DATABASE_URL=… .venv/bin/python -c "from alembic import command; from tamandua.app.database import config; command.revision(config(), message='qué cambia', autogenerate=True)"
+PITANGUS_DATABASE_URL=… .venv/bin/python -c "from alembic import command; from pitangus.app.database import config; command.revision(config(), message='qué cambia', autogenerate=True)"
 ```
 
-Revisa el archivo generado en `tamandua/app/alembic/versions/`. `tests/test_database.py` falla si las tablas del código y
+Revisa el archivo generado en `pitangus/app/alembic/versions/`. `tests/test_database.py` falla si las tablas del código y
 las migraciones no coinciden.
 
 ### Cambiar el formato de datos que ya existen
 
-Quien actualiza Tamandua ya tiene datos: una versión nueva nunca debe romperlos ni pedirle que haga nada a mano.
+Quien actualiza Pitangus ya tiene datos: una versión nueva nunca debe romperlos ni pedirle que haga nada a mano.
 
 1. **Lector tolerante.** El código lee también el formato anterior (en un documento JSONB o una columna `record`):
    `dict.get` con valor por defecto para campos nuevos, sin suponer tipos que antes no existían.
 2. **Migración si hay que reescribir.** Un cambio de tablas va en Alembic (arriba). Reescribir contenido va al final
-   de `MIGRATIONS` en `tamandua/app/data_migrations.py`: idempotente, rápida en instalaciones grandes y sin
+   de `MIGRATIONS` en `pitangus/app/data_migrations.py`: idempotente, rápida en instalaciones grandes y sin
    reordenar ni borrar nunca una publicada (la versión es su posición).
 3. **Prueba con datos viejos** en `tests/test_migrations.py` (o junto al módulo).
 
@@ -120,19 +120,19 @@ Si el cambio solo añade un campo que puede faltar, basta con el punto 1: no hac
 
 ## Textos e idiomas
 
-Tamandua habla inglés y español. **El código, los identificadores y los comentarios van en inglés**; todo lo que lee
+Pitangus habla inglés y español. **El código, los identificadores y los comentarios van en inglés**; todo lo que lee
 una persona (panel, errores de la API, hallazgos, guías de corrección, progreso, informes, comentarios de PR, avisos)
 existe en los dos idiomas. Antes de añadir o cambiar cualquiera de esos textos, lee
-[`.claude/skills/tamandua-i18n/SKILL.md`](../../.claude/skills/tamandua-i18n/SKILL.md):
+[`.claude/skills/pitangus-i18n/SKILL.md`](../../.claude/skills/pitangus-i18n/SKILL.md):
 
 - **Catálogos, no literales.** Panel: `web/src/shared/i18n/locales/{en,es}/<namespace>.json` con `t('…')`. Servidor:
-  `tamandua/shared/i18n/locales/{en,es}/<namespace>.json`.
+  `pitangus/shared/i18n/locales/{en,es}/<namespace>.json`.
 - **Se guardan códigos, no frases.** En el servidor, `msg("namespace.key", **params)` crea un mensaje sin idioma que
   se muestra al leerlo, en el idioma de quien lo lee (`localize`, `text`); `t()` solo para lo que no se guarda.
 - **Interpretar, no traducir.** El inglés es el origen y el respaldo; el español dice lo mismo como lo diría un
   ingeniero de seguridad hispanohablante, nunca palabra por palabra. La skill tiene la voz y el glosario.
 - **Pruebas.** `tests/test_i18n.py` (parte de `make test`) comprueba que en/es tienen las mismas claves y los mismos
   `{{params}}`, y que toda clave literal usada en el código existe. Las pruebas corren con
-  `TAMANDUA_DEFAULT_LOCALE=es`; el inglés se comprueba de forma explícita con `Accept-Language: en`.
+  `PITANGUS_DEFAULT_LOCALE=es`; el inglés se comprueba de forma explícita con `Accept-Language: en`.
 
 La documentación sigue la misma regla: inglés en `docs/`, español en `docs/es/`, y cada página enlaza con la otra.

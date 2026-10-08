@@ -5,15 +5,15 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from tamandua.modules.findings import registry as findings_registry
-from tamandua.modules.findings import fix_guide
-from tamandua.modules.findings import triage
-from tamandua.modules.findings import verifications
-from tamandua.modules.identity.auth import Users
-from tamandua.modules.runs.store import save_repository_scan
+from pitangus.modules.findings import registry as findings_registry
+from pitangus.modules.findings import fix_guide
+from pitangus.modules.findings import triage
+from pitangus.modules.findings import verifications
+from pitangus.modules.identity.auth import Users
+from pitangus.modules.runs.store import save_repository_scan
 from test_auth import PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
-from tamandua.shared.i18n import localize, text
+from pitangus.shared.i18n import localize, text
 
 
 def dependency(path, name, version, fixed, *, ecosystem="npm", direct=True):
@@ -41,7 +41,7 @@ class FixGuideTests(unittest.TestCase):
         self.assertEqual(fix_guide.guide(dev)["commands"][0]["code"], "yarn add -D jest@29.7.0")  # stays dev-only
 
     def test_the_pull_request_table_only_shows_a_command_that_updates(self):
-        from tamandua.modules.pullrequests.review import markdown_rows
+        from pitangus.modules.pullrequests.review import markdown_rows
         finding = {**_finding("e" * 64, "high", package="minimist"), "path": "package-lock.json",
                    "package": {"ecosystem": "npm", "name": "minimist", "version": "0.0.8", "fixed_version": "1.2.6", "direct": False}}
         row = markdown_rows([finding])[-1]
@@ -83,7 +83,7 @@ class FixCommandSafetyTests(unittest.TestCase):
 class ReverifyTests(HttpCase):
     def setUp(self):
         super().setUp()
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             Users(self.data_dir).create("miembro", PASSWORD)
             _, _, cookies = self.post("/api/auth/login", "login", {"username": "miembro", "password": PASSWORD})
         self.cookie = cookies[0].split("; ")[0]
@@ -92,13 +92,13 @@ class ReverifyTests(HttpCase):
                                                              datetime.now(timezone.utc).isoformat()))
 
     def reverify(self, fingerprint, run_id=None):
-        with patch.dict(os.environ, {"TAMANDUA_REQUIRE_TOTP": "none"}):
+        with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
             return self.post("/api/findings/reverify", "reverify-finding", {"run_id": run_id or self.run["id"], "fingerprint": fingerprint}, self.cookie)
 
     def test_reverify_rescans_once_and_reports_the_outcome(self):
         source = {"id": "github:org/api", "name": "org/api", "installation_id": 7, "uid": None}
-        with patch("tamandua.app.api.findings.find_source", return_value=source), \
-                patch("tamandua.modules.runs.jobs.ScanJobs.enqueue_repository_scan", return_value={"id": "f" * 32, "status": "queued"}) as enqueue:
+        with patch("pitangus.app.api.findings.find_source", return_value=source), \
+                patch("pitangus.modules.runs.jobs.ScanJobs.enqueue_repository_scan", return_value={"id": "f" * 32, "status": "queued"}) as enqueue:
             status, body, _ = self.reverify("a" * 64)
         self.assertEqual((status, body["joined"], enqueue.call_args.kwargs["trigger"]), (202, False, {"kind": "reverify"}))
         # The scan finishes: "a" is gone, "b" remains.

@@ -6,10 +6,10 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tamandua.modules.reporting import dashboard
-from tamandua.modules.findings import triage
-from tamandua.modules.runs.store import load_run, render_repository_report, render_repository_sarif, render_tickets
-from tamandua.modules.runs.store import save_repository_scan
+from pitangus.modules.reporting import dashboard
+from pitangus.modules.findings import triage
+from pitangus.modules.runs.store import load_run, render_repository_report, render_repository_sarif, render_tickets
+from pitangus.modules.runs.store import save_repository_scan
 from test_dashboard import _finding, _scan
 
 ADMIN = {"username": "operadora", "role": "admin"}
@@ -76,7 +76,7 @@ class TriageTests(unittest.TestCase):
         report = render_repository_report(record)
         self.assertIn("## Descartados en triage", report)
         self.assertIn("Contenido saneado por DOMPurify", report)
-        with patch("tamandua.modules.reporting.dashboard.load_recent_cves", return_value={"__meta__": {}, "items": []}):
+        with patch("pitangus.modules.reporting.dashboard.load_recent_cves", return_value={"__meta__": {}, "items": []}):
             kpis = dashboard.compute(self.data_dir, 30)["kpis"]
         self.assertEqual((kpis["open"]["total"], kpis["triage"]["false_positive"]), (1, 1))
 
