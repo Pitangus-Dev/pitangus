@@ -53,7 +53,7 @@ export function ThreatModels({ user, onOpenRun }: { user: SessionUser; onOpenRun
   </div>
 }
 
-// Los modelos enlazan por identidad estable (`github#123`), que sobrevive a un renombrado.
+// Models link by stable identity (`github#123`), which survives a rename.
 const sourceKey = (source: Source) => source.uid ?? source.id
 
 function CreateDialog({ open, assets, onClose, onCreated }: { open: boolean; assets: Asset[]; onClose: () => void; onCreated: (id: string) => void }) {
@@ -61,7 +61,7 @@ function CreateDialog({ open, assets, onClose, onCreated }: { open: boolean; ass
   const [name, setName] = useState('')
   const [methodology, setMethodology] = useState<Methodology>('stride')
   const [customModules, setCustomModules] = useState<CustomModule[]>(['manual', 'elements'])
-  // Se guarda el nombre de cada elegido: la búsqueda cambia de página y el nombre sigue haciendo falta.
+  // Each chosen one's name is kept: the search moves on to other pages and the name is still needed.
   const [chosenNames, setChosenNames] = useState<Record<string, string>>({})
   const chosen = Object.keys(chosenNames)
   const [busy, setBusy] = useState(false)
@@ -72,7 +72,7 @@ function CreateDialog({ open, assets, onClose, onCreated }: { open: boolean; ass
     event.preventDefault()
     setBusy(true); setError('')
     try {
-      // Sin nombre, el sistema se llama como sus repositorios: el nombre no debe bloquear la propuesta.
+      // Without a name the system takes its repositories' names: the name must not block the proposal.
       const fallback = Object.values(chosenNames).map(item => item.split('/').pop()).join(' + ').slice(0, 80)
       const finalName = name.trim() || fallback || t('create.default_name')
       const body = chosen.length ? { name: finalName, suggest: chosen, methodology, custom_modules: customModules } : { model: { name: finalName, methodology, custom_modules: customModules, components: [], flows: [], boundaries: [], repositories: [] } }
@@ -100,13 +100,13 @@ function Editor({ id, catalog: base, user, onBack, onOpenRun }: { id: string; ca
   const [draft, setDraft] = useState<Model | null>(null)
   const [tab, setTab] = useState<string>('')
   const [picking, setPicking] = useState(false)
-  // La guía se abre a demanda y se recuerda: quien ya sabe modelar no la ve si no la pide.
+  // The guide opens on demand and is remembered: someone who already models doesn't see it unless asked.
   const [guide, setGuide] = useState(() => { try { return localStorage.getItem('tm-guide') === 'open' } catch { return false } })
-  const toggleGuide = (next: boolean) => { setGuide(next); try { localStorage.setItem('tm-guide', next ? 'open' : 'closed') } catch { /* sin almacenamiento */ } }
+  const toggleGuide = (next: boolean) => { setGuide(next); try { localStorage.setItem('tm-guide', next ? 'open' : 'closed') } catch { /* no storage */ } }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [picked, setPicked] = useState<Asset[]>([])
-  // El catálogo solo trae lo analizado y los dominios; los repositorios del modelo llegan con su detalle.
+  // The catalog only brings what was analyzed and the domains; the model's repositories come with their detail.
   const catalog = useMemo<Catalog>(() => {
     const assets = new Map(base.assets.map(item => [item.id, item]))
     for (const item of [...(view?.assets ?? []), ...picked]) assets.set(item.id, { ...assets.get(item.id), ...item })
@@ -133,7 +133,7 @@ function Editor({ id, catalog: base, user, onBack, onOpenRun }: { id: string; ca
   const methodology: Methodology = draft.methodology ?? 'stride'
   const tabs = methodology === 'custom' ? customTabs(draft.custom_modules ?? ['manual', 'elements']) : TABS[methodology]
   const current = tabs.some(([key]) => key === tab) ? tab : tabs[0][0]
-  // Amenazas propias: se guardan al momento junto con el resto del modelo.
+  // The team's threats: saved at once with the rest of the model.
   const saveModel = async (next: Model) => {
     setBusy(true); setError('')
     try { const data = await api.post<View>('/api/threat-models', 'save-threat-model', { id, model: payloadOf(next) }); setView(data); setDraft(data.model); return true }
@@ -150,7 +150,7 @@ function Editor({ id, catalog: base, user, onBack, onOpenRun }: { id: string; ca
   return <div className="space-y-5">
     <div className="flex flex-col gap-4 rounded-2xl border border-app-line bg-panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><button onClick={onBack} className="mb-2 inline-flex items-center gap-1 text-xs text-app-subtle hover:text-app-fg"><ArrowLeft className="size-3" />{t('editor.back')}</button><h2 className="text-xl font-semibold">{view.model.name}</h2><div className="mt-1.5 flex flex-wrap items-center gap-2"><button onClick={() => setPicking(true)} className="inline-flex items-center gap-1 rounded-lg border border-brand/30 bg-brand/[0.07] px-2 py-0.5 text-xs font-medium text-brand hover:bg-brand/10" title={t('editor.change_approach')}>{methodName(methodology)}<Pencil className="size-3" /></button><button onClick={() => toggleGuide(!guide)} aria-pressed={guide} className="inline-flex items-center gap-1 rounded-lg border border-app-line px-2 py-0.5 text-xs text-app-muted hover:text-app-fg"><BookOpen className="size-3" />{guide ? t('editor.hide_guide') : t('editor.guide')}</button></div><p className="mt-1 text-xs text-app-subtle">{[t('count.components', { count: view.model.components.length }), t('count.flows', { count: view.model.flows.length }), t('count.boundaries', { count: view.model.boundaries.length }), ...(view.model.updated_at ? [t('editor.updated', { date: formatDate(view.model.updated_at), user: view.model.updated_by })] : [])].join(' · ')}</p></div>
-        {/* Una sola entrada para exportar (ley de Hick): ocho formatos en dos grupos, no ocho botones a la vez. */}
+        {/* One entry point to export (Hick's law): eight formats in two groups, not eight buttons at once. */}
         <div className="flex flex-wrap gap-2"><Menu><MenuTrigger render={<Button size="sm" variant="outline" disabled={busy} className="border-app-line bg-app-soft" />}><ArrowDownToLine />{t('editor.export')}<ChevronDown className="size-3.5" /></MenuTrigger>
           <MenuContent>{EXPORTS.map(group => <MenuGroup key={group.label} label={t(group.label)}>{group.items.map(([label, file]) => <MenuItem key={file} onClick={() => void downloadFile(file)}>{t(label)}</MenuItem>)}</MenuGroup>)}</MenuContent></Menu>
           {user.role === 'admin' && <Button size="sm" variant="ghost" onClick={() => void remove()} aria-label={t('editor.delete')}><Trash2 /></Button>}</div></div>
@@ -173,7 +173,7 @@ function Editor({ id, catalog: base, user, onBack, onOpenRun }: { id: string; ca
   </div>
 }
 
-// Repositorios del proyecto: se asocian cuando se quiera y de ellos se pueden proponer componentes.
+// The project's repositories: linked whenever wanted, and components can be proposed from them.
 function ProjectRepositories({ draft, setDraft, catalog, onError, onPicked }: { draft: Model; setDraft: (model: Model) => void; catalog: Catalog; onError: (text: string) => void; onPicked: (asset: Asset) => void }) {
   const { t } = useTranslation('threats')
   const [busy, setBusy] = useState('')
@@ -295,11 +295,12 @@ function Threats({ view, draft, methodology, busy, onChanged, onOpenRun, onSaveM
           {expanded && <div className="space-y-3 border-t border-app-line bg-inset px-4 py-4 text-sm">
             <p className="text-app-secondary">{row.why}</p>
             <div><span className="text-xs font-medium text-app-muted">{t('threat.mitigations')}</span><ul className="mt-1 list-disc space-y-0.5 pl-5 text-app-secondary">{row.mitigations.map(item => <li key={item}>{item}</li>)}</ul></div>
-            <p className="font-mono text-xs text-app-subtle">{row.rule} · {row.cwe.map(item => `CWE-${item}`).join(', ')}</p>
+            {row.framework !== 'manual' && <p className="font-mono text-xs text-app-subtle">{[row.rule, ...row.cwe.map(item => `CWE-${item}`)].join(' · ')}</p>}
+            {row.contradicted && row.decision && <p className="rounded-lg border border-danger-line bg-danger-soft p-3 text-xs text-danger">{t('threat.contradicted', { status: t(statusLabel[row.decision.status as Threat['status']] ?? statusLabel.open).toLowerCase(), by: row.decision.by, date: formatDate(row.decision.at) })}</p>}
             {row.evidence.length > 0 && <div className="rounded-lg border border-warning-line bg-warning-soft p-3"><span className="text-xs font-medium text-warning"><ShieldAlert className="mr-1 inline size-3.5" />{t('threat.evidence', { count: row.evidence_count })}</span><span className="mt-0.5 block text-[11px] text-app-subtle">{row.evidence_scope?.some(scope => !scope.path) ? t('threat.evidence_repo') : t('threat.evidence_paths', { paths: row.evidence_scope?.map(scope => scope.path).join(', ') })}</span><ul className="mt-2 space-y-1 text-xs">{row.evidence.slice(0, 8).map(item => <li key={item.fingerprint} className="flex flex-wrap items-center gap-2"><Badge variant="outline" className={`text-[11px] ${severityClass[item.severity] ?? ''}`}>{severityLabel[item.severity] ? t(severityLabel[item.severity]) : item.severity}</Badge><span className="text-app-secondary">{item.title}</span><span className="font-mono text-app-subtle">{item.location}</span><button onClick={() => onOpenRun(item.run_id)} className="text-brand hover:underline">{t('threat.view_findings')}</button></li>)}</ul></div>}
             {row.framework === 'manual' && (row.likelihood || row.impact || row.owner) && <p className="text-xs text-app-muted">{t('threat.rating', { likelihood: row.likelihood ? t(LIKELIHOOD[row.likelihood]) : '—', impact: row.impact ? t(IMPACT[row.impact]) : '—', owner: row.owner || '—' })}</p>}
             {row.framework === 'manual' && <div className="flex gap-1.5"><Button size="xs" variant="outline" className="border-app-line bg-app-soft" onClick={() => setEditing((draft.manual_threats ?? []).find(item => item.id === row.manual_id) ?? null)}><Pencil />{t('common:actions.edit')}</Button><Button size="xs" variant="ghost" onClick={() => void removeManual(row.manual_id ?? '')}><Trash2 />{t('common:actions.remove')}</Button></div>}
-            {row.decision && <p className="text-xs text-app-muted"><strong>{t(statusLabel[row.status])}</strong> {t('threat.decided', { by: row.decision.by, date: formatDate(row.decision.at), reason: row.decision.reason })}</p>}
+            {row.decision && <p className="text-xs text-app-muted"><strong>{t(statusLabel[row.decision.status as Threat['status']] ?? statusLabel.open)}</strong> {t('threat.decided', { by: row.decision.by, date: formatDate(row.decision.at), reason: row.decision.reason })}</p>}
             <div className="flex flex-wrap gap-1.5">{row.decision ? <Button size="xs" variant="outline" className="border-app-line bg-app-soft" onClick={() => void reopen(row)}>{t('threat.reopen')}</Button>
               : (['mitigated', 'accepted', 'not_applicable'] as const).map(next => <Button key={next} size="xs" variant="outline" className="border-app-line bg-app-soft" onClick={() => setDeciding({ threat: row, status: next })}>{t(statusLabel[next])}</Button>)}</div>
           </div>}

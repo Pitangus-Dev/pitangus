@@ -598,7 +598,8 @@
       "high": "alto"
     },
     "decided": "por {{by}} el {{date}}: {{reason}}",
-    "reopen": "Reabrir"
+    "reopen": "Reabrir",
+    "contradicted": "Marcada como «{{status}}» por {{by}} el {{date}}, pero los análisis la siguen encontrando: revisa la decisión. Sigue «con indicios» hasta que dejen de encontrarla."
   },
   "decision": {
     "mitigated": "Di qué control la mitiga (y dónde se puede comprobar).",

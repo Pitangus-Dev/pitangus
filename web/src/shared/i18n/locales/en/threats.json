@@ -598,7 +598,8 @@
       "high": "high"
     },
     "decided": "by {{by}} on {{date}}: {{reason}}",
-    "reopen": "Reopen"
+    "reopen": "Reopen",
+    "contradicted": "Marked {{status}} by {{by}} on {{date}}, but the scans still find it: review the decision. It stays \"with evidence\" until they don't."
   },
   "decision": {
     "mitigated": "Say which control mitigates it (and where it can be verified).",

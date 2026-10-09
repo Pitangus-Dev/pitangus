@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/shared/ui/input'
 import { currentLocale } from '@/shared/i18n'
 import { attackUrl, guideOf, methodName, METHOD_ORDER, type Methodology } from '@/features/threats/threat-guides'
+import { baseKind } from '@/features/threats/threat-layout'
 import { elementsOf, newId, type AttackMapping, type AttackTree, type Catalog, type Level, type ManualThreat, type Model, type Threat, type TreeNode } from '@/features/threats/threat-model-types'
 
-// Apartados propios de cada enfoque de modelado y su guía de consulta.
+// Each modeling approach's own sections and its reference guide.
 
 const select = 'h-8 rounded-lg border border-app-line bg-app-soft px-2 text-xs text-app-fg'
 const area = 'w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 text-sm leading-6 text-app-fg'
@@ -22,7 +23,7 @@ const SEVERITY_COUNT = { critical: 'pasta.severity_count.critical', high: 'pasta
 const techniqueName = (item?: { name: string; name_es?: string }) => item ? (currentLocale() === 'es' && item.name_es ? item.name_es : item.name) : undefined
 
 
-// ------------------------------------------------------------------ elegir enfoque
+// ------------------------------------------------------------------ choosing an approach
 
 export function MethodPicker({ value, onChange }: { value: Methodology; onChange: (next: Methodology) => void }) {
   const { t } = useTranslation('threats')
@@ -45,7 +46,7 @@ export function MethodDialog({ current, onClose, onPick }: { current: Methodolog
   </DialogContent></Dialog>
 }
 
-// ------------------------------------------------------------------ guía de consulta
+// ------------------------------------------------------------------ reference guide
 
 export function GuidePanel({ methodology, onClose }: { methodology: Methodology; onClose: () => void }) {
   const { t } = useTranslation('threats')
@@ -67,7 +68,7 @@ export function GuidePanel({ methodology, onClose }: { methodology: Methodology;
 }
 
 
-// ------------------------------------------------------------------ amenazas propias
+// ------------------------------------------------------------------ the team's threats
 
 export function ManualThreatDialog({ model, initial, methodology, onClose, onSave, busy }: {
   model: Model; initial?: ManualThreat; methodology: Methodology; onClose: () => void; onSave: (threat: ManualThreat) => void; busy: boolean
@@ -147,7 +148,7 @@ function Go({ onClick, children }: { onClick: () => void; children: ReactNode })
   return <button type="button" onClick={onClick} className="text-brand hover:underline">{children}</button>
 }
 
-// ------------------------------------------------------------------ árboles de ataque
+// ------------------------------------------------------------------ attack trees
 
 export function AttackTrees({ model, setModel }: { model: Model; setModel: (model: Model) => void }) {
   const { t } = useTranslation('threats')
@@ -165,7 +166,7 @@ export function AttackTrees({ model, setModel }: { model: Model; setModel: (mode
   </div>
 }
 
-// Una rama Y queda cortada si se mitiga uno de sus pasos; una O, solo si se mitigan todos.
+// An AND branch is cut when one of its steps is mitigated; an OR one, only when all are (as open_paths in methods.py).
 function blocked(node: TreeNode, children: Record<string, TreeNode[]>): boolean {
   const kids = children[node.id] ?? []
   if (node.mitigated) return true
@@ -226,10 +227,11 @@ export function AttackMappings({ model, setModel, catalog }: { model: Model; set
   const label = Object.fromEntries(elements.map(item => [item.id, item.label]))
   const has = (id: string, target: string) => rows.some(row => row.technique === id && (row.element ?? '') === target)
   const add = (id: string, target: string) => { if (id && !has(id, target)) setRows([...rows, { technique: id, element: target, status: 'relevant' }]) }
-  // Sugerencias por tipo de componente, que no se añaden solas.
+  // Suggestions by component kind (a custom one by its base kind); never added on their own.
   const proposals = model.components.flatMap(component => {
-    const keys = [component.kind, ...(component.internet_facing && ['web_app', 'api', 'service', 'function'].includes(component.kind) ? ['internet_process'] : []),
-                  ...(['web_app', 'api', 'service', 'function'].includes(component.kind) ? ['process'] : [])]
+    const kind = baseKind(component)
+    const keys = [kind, ...(component.internet_facing && ['web_app', 'api', 'service', 'function'].includes(kind) ? ['internet_process'] : []),
+                  ...(['web_app', 'api', 'service', 'function'].includes(kind) ? ['process'] : [])]
     return [...new Set(keys.flatMap(key => suggestions[key] ?? []))].filter(id => !has(id, component.id)).map(id => ({ id, component }))
   }).slice(0, 24)
   const byTactic = Object.entries(tactics).map(([key, name]) => ({ key, name, items: Object.entries(techniques).filter(([, item]) => item.tactics[0] === key) })).filter(group => group.items.length)

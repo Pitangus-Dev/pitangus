@@ -283,6 +283,23 @@ def validate(payload: dict, *, elements: set[str]) -> dict:
     return result
 
 
+def open_paths(tree: dict) -> int:
+    """How many of the goal's paths an attacker can still take. An AND step is cut when one of its steps is mitigated;
+    an OR step, only when all of them are. Same rule as the panel's tree editor."""
+    children: dict = {}
+    for node in tree.get("nodes") or []:
+        children.setdefault(node.get("parent"), []).append(node)
+
+    def blocked(node: dict) -> bool:
+        kids = children.get(node["id"], [])
+        if node.get("mitigated"):
+            return True
+        if not kids:
+            return False
+        return any(blocked(kid) for kid in kids) if node.get("gate") == "and" else all(blocked(kid) for kid in kids)
+    return sum(1 for node in children.get(None, []) if not blocked(node))
+
+
 def technique_label(key: str):
     """A technique's name for the reader: MITRE's official English name, or its Spanish interpretation."""
     name, spanish, _ = TECHNIQUES[key]
