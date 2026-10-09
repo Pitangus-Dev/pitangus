@@ -38,23 +38,6 @@
       "portfolio_vex_hint": "OpenVEX · tus decisiones de triage sobre esos mismos activos",
       "portfolio_missing": "Necesita al menos un activo con un análisis completo terminado"
     },
-    "scope": {
-      "legend": "Qué activos",
-      "account": "Una organización",
-      "assets": "Elegir varios",
-      "choose_account": "Elige una organización…",
-      "no_accounts": "Aún no hay repositorios analizados de una organización.",
-      "add": "Añadir un repositorio o una imagen…",
-      "chosen": "Activos elegidos",
-      "remove": "Quitar {{name}}",
-      "images": "Incluir las imágenes construidas desde estos repositorios",
-      "incomplete": "Primero elige una organización o al menos un activo",
-      "add_label": "Activo para añadir",
-      "one": "Uno",
-      "all_one": "Todos · {{count}}",
-      "all_other": "Todos · {{count}}",
-      "nothing": "Nada analizado coincide con este alcance"
-    },
     "origin": {
       "built_from": "Construida desde",
       "label": "según la etiqueta de la imagen",

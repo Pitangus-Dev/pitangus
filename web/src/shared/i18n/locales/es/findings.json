@@ -403,5 +403,39 @@
       "disabled_added": "Reglas integradas desactivadas: {{items}}",
       "disabled_removed": "Reglas integradas reactivadas: {{items}}"
     }
+  },
+  "scope": {
+    "eyebrow_one": "Varios activos · {{value}}", "eyebrow_other": "Varios activos · {{value}}",
+    "chosen_one": "{{count}} activo elegido", "chosen_other": "{{count}} activos elegidos",
+    "everything": "Todo lo analizado",
+    "help": "El estado actual de todos los activos de este alcance en conjunto: escaneos, PR e importaciones. Abre un activo para ver sus ejecuciones y su configuración.",
+    "one_asset_only": "Las rutas excluidas, las reglas de secretos y elegir una ejecución concreta van por activo: elige «Uno» o abre un activo en «Por activo».",
+    "failed": "No se pudieron cargar los hallazgos de este alcance: {{error}}",
+    "open_failed": "No se pudo abrir ese activo: {{error}}",
+    "open_gone": "Ese activo ya no está entre los analizados.",
+    "truncated": "Se muestran los {{shown}} más urgentes de {{total}} hallazgos de esta pestaña. Las cifras cuentan todos; acota el alcance para ver el resto.",
+    "picker_failed": "No se pudieron cargar las organizaciones y los activos para elegir. Recarga la página para intentarlo de nuevo.",
+    "asset_inline": "Activo: {{name}}",
+    "asset": "Activo",
+    "selected_one": "{{value}} seleccionado en {{assets}} activos", "selected_other": "{{value}} seleccionados en {{assets}} activos",
+    "triage_across_one": "Se guarda por separado en cada uno de los {{count}} activos.", "triage_across_other": "Se guarda por separado en cada uno de los {{count}} activos.",
+    "triage_partial_one": "Guardado en {{count}} de {{total}} activos. Fallaron estos:", "triage_partial_other": "Guardado en {{count}} de {{total}} activos. Fallaron estos:",
+    "triage_retry_one": "Reintentar {{count}} activo", "triage_retry_other": "Reintentar {{count}} activos",
+    "audit_assets_open_one": "El activo de este alcance con sus hallazgos abiertos (críticos y altos en detalle) y las excepciones, en un solo documento.",
+    "audit_assets_open_other": "Los {{value}} activos de este alcance con sus hallazgos abiertos (críticos y altos en detalle) y las excepciones, en un solo documento.",
+    "audit_assets_all_one": "El activo de este alcance con todos sus hallazgos (abiertos, remediados y excepciones), en un solo documento.",
+    "audit_assets_all_other": "Los {{value}} activos de este alcance con todos sus hallazgos (abiertos, remediados y excepciones), en un solo documento.",
+    "audit_too_many": "Un informe consolidado abarca hasta {{max}} activos: acota el alcance.",
+    "exports_one": "El PDF, el SARIF, el SBOM y los demás archivos son de un solo activo: ábrelo para descargarlos.",
+    "by_asset": {
+      "title": "Por activo",
+      "hint": "Lo pendiente en cada activo, primero lo más crítico. Abre uno para ver solo sus hallazgos.",
+      "repository": "Repositorio", "image": "Imagen",
+      "open": "ver solo este activo",
+      "pending_one": "{{value}} pendiente", "pending_other": "{{value}} pendientes",
+      "critical_one": "{{value}} crítico", "critical_other": "{{value}} críticos",
+      "all_one": "Ver {{value}}", "all_other": "Ver los {{value}}",
+      "fewer": "Ver menos"
+    }
   }
 }

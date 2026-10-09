@@ -6,7 +6,8 @@ import { mockApi, type Reply } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { JiraExportDialog, JiraFindingAction } from '@/features/integrations/jira-export'
 import { useJiraAvailability } from '@/features/integrations/jira-availability'
-import { RepositoryResult, type RepositoryFinding, type RepositoryRun } from '@/features/findings/repository-result'
+import { RepositoryResult } from '@/features/findings/repository-result'
+import type { RepositoryFinding, RepositoryRun } from '@/features/findings/finding-model'
 
 const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`integrations:${key}`, options)
 const CONNECTED = { configured: true, site: 'https://acme.atlassian.net', email: 'sec@acme.test', last4: 'abcd', destinations: 1, rules: 2, automatic: false }

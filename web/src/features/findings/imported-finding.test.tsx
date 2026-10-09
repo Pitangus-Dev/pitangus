@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
-import { RepositoryResult, type RepositoryFinding, type RepositoryRun } from '@/features/findings/repository-result'
+import { RepositoryResult } from '@/features/findings/repository-result'
+import type { RepositoryFinding, RepositoryRun } from '@/features/findings/finding-model'
 
 const FINDING: RepositoryFinding = { finding_id: 'f1', fingerprint: 'a'.repeat(64), scanner: 'sast', tool: 'Semgrep', rule_id: 'python.lang.eval', title: 'eval on user input',
   path: 'app/views.py', line: 12, severity: 'high', confidence: 6, verdict: 'candidate', cwe: [95], cve: [], ghsa: [], owasp: [], reason: 'Semgrep reported it', remediation: 'Avoid eval',

@@ -54,7 +54,7 @@ def dashboard(days: int = 30, tz: str | None = None, context: Context = Depends(
     return context.render(summary.cached(context.data_dir, days, summary.zone(tz)))
 
 
-MAX_FINGERPRINTS, MAX_ASSETS = 5000, 500
+MAX_FINGERPRINTS, MAX_ASSETS = 5000, provenance.SCOPE_MAX
 SCOPES = ("run_id", "asset", "account", "assets")
 
 

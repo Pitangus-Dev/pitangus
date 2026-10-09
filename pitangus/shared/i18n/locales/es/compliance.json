@@ -54,7 +54,10 @@
     "no_complete_scan_scope": "Ninguno de los activos elegidos tiene aún un análisis completo terminado: el SBOM y el VEX del portafolio necesitan al menos uno."
   },
   "provenance": {
-    "not_an_image": "Ese activo no es una imagen analizada.",
-    "not_a_repository": "Ese activo no es un repositorio analizado."
+    "not_an_image": "Ese activo no es una imagen de la página Imágenes.",
+    "not_a_repository": "Ese activo no es un repositorio analizado.",
+    "image_analyzed": "Esa imagen ya se analizó: conserva su historial, así que no se puede quitar.",
+    "image_not_registered": "Esa imagen no está entre las que se agregaron sin analizar.",
+    "too_many_images": "No puedes tener más de {{max}} imágenes agregadas sin analizar. Analiza o quita algunas primero."
   }
 }

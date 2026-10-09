@@ -7,18 +7,19 @@ import { FrameworkOptions } from '@/features/findings/framework-options'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
+import { formatNumber } from '@/shared/i18n/format'
 import { rememberFrameworkDetails, remembered, useAuditFrameworks, type Framework } from '@/features/findings/audit-frameworks'
 
 type Detail = 'none' | 'high' | 'all'
 type Scope = 'selected' | 'filtered' | 'all'
-export type AuditTarget = { runId: string } | { asset: string; status: 'open' | 'fixed' | 'all' } | { account: string }
+export type AuditTarget = { runId: string } | { asset: string; status: 'open' | 'fixed' | 'all' } | { account: string } | { assets: string[]; status: 'open' | 'all' }
 
 const SCOPES: [Scope, string][] = [['selected', 'audit.scope.selected'], ['filtered', 'audit.scope.filtered'], ['all', 'common:state.all']]
 const field = 'space-y-1.5'
 const label = 'text-xs font-medium text-app-secondary'
 
-// Informe de evidencia para auditoría: formulario corto con valores por defecto y alcance elegido
-// (seleccionados, lo que se ve con los filtros o todo), en un solo documento.
+// Audit evidence: a short form with defaults and the chosen findings (selected, what the filters show, or all), in one
+// document.
 export function AuditReportDialog({ open, onClose, target, name, selected, filtered, total }: {
   open: boolean; onClose: () => void; target: AuditTarget; name: string; selected: string[]; filtered: string[]; total: number
 }) {
@@ -40,15 +41,16 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const counts: Record<Scope, number> = { selected: selected.length, filtered: filtered.length, all: total }
-  // Consolidado de una organización: todos sus repositorios analizados, su cobertura y un solo documento.
-  const portfolio = 'account' in target
+  // An organization or several assets, consolidated: all their findings and coverage in one document.
+  const portfolio = 'account' in target || 'assets' in target
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setBusy(true); setError('')
     rememberFrameworkDetails({ framework, organization, prepared_for: preparedFor, prepared_by: preparedBy })
     const fingerprints = portfolio ? undefined : scope === 'selected' ? selected : scope === 'filtered' ? filtered : undefined
-    const where = 'runId' in target ? { run_id: target.runId } : 'account' in target ? { account: target.account } : { asset: target.asset, status: target.status }
+    const where = 'runId' in target ? { run_id: target.runId } : 'account' in target ? { account: target.account }
+      : 'assets' in target ? { assets: target.assets, status: target.status } : { asset: target.asset, status: target.status }
     const body = { ...where, ...(fingerprints ? { fingerprints } : {}),
       options: { framework, detail, include_exceptions: exceptions, title, organization, prepared_for: preparedFor, prepared_by: preparedBy, scope: scopeText, period_from: from, period_to: to } }
     const file = t('audit.file', { name: name.replace(/[^a-z0-9-]+/gi, '-').slice(0, 40) || t('export.file_fallback'), framework })
@@ -69,7 +71,7 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
         </Select>
         <p className="space-x-1 text-xs text-app-muted">{current && <span>{t('audit.framework_hint', { hint: t(current[2]) })}</span>}{framework !== 'general' && <span>{t('audit.mapping_note')}</span>}</p></div>
 
-      {portfolio ? <p className="rounded-lg border border-app-line bg-inset p-3 text-sm text-app-muted">{t('audit.portfolio_scope')}</p>
+      {portfolio ? <p className="rounded-lg border border-app-line bg-inset p-3 text-sm text-app-muted">{'assets' in target ? t(target.status === 'open' ? 'scope.audit_assets_open' : 'scope.audit_assets_all', { count: target.assets.length, value: formatNumber(target.assets.length) }) : t('audit.portfolio_scope')}</p>
       : <fieldset className="space-y-2"><legend className={label}>{t('audit.findings_legend')}</legend>
         <div className="grid gap-2 sm:grid-cols-3">{SCOPES.map(([id, text]) =>
           <label key={id} className={`flex items-center gap-2 rounded-lg border p-3 text-sm ${counts[id] === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${scope === id ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-inset'}`}>

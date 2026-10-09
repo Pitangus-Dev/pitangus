@@ -1267,6 +1267,93 @@
         }
       }
     },
+    "/api/findings/scope": {
+      "get": {
+        "tags": [
+          "findings"
+        ],
+        "summary": "Scoped Findings",
+        "description": "The findings of every asset in a scope (the same as the portfolio files: everything, one `account`'s\nrepositories or the chosen `assets`, with the images built from them unless `include_images` is false), by tab.\nA scope that matches nothing is an empty view, not an error.",
+        "operationId": "scoped_findings_api_findings_scope_get",
+        "parameters": [
+          {
+            "name": "assets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "maxItems": 500,
+              "default": [],
+              "title": "Assets"
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Account"
+            }
+          },
+          {
+            "name": "include_images",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Images"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "open",
+                "fixed",
+                "excluded",
+                "all"
+              ],
+              "type": "string",
+              "default": "open",
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopedFindings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/findings/triage": {
       "post": {
         "tags": [
@@ -1280,7 +1367,15 @@
               "schema": {
                 "properties": {
                   "run_id": {
-                    "type": "string",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 400
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
                     "title": "Run Id"
                   },
                   "fingerprints": {
@@ -1292,6 +1387,45 @@
                     "maxItems": 500,
                     "minItems": 1,
                     "title": "Fingerprints"
+                  },
+                  "selections": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "properties": {
+                            "run_id": {
+                              "type": "string",
+                              "maxLength": 400,
+                              "title": "Run Id"
+                            },
+                            "fingerprints": {
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              },
+                              "type": "array",
+                              "maxItems": 500,
+                              "minItems": 1,
+                              "title": "Fingerprints"
+                            }
+                          },
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "run_id",
+                            "fingerprints"
+                          ],
+                          "title": "TriageSelectionIn"
+                        },
+                        "type": "array",
+                        "maxItems": 500,
+                        "minItems": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Selections"
                   },
                   "status": {
                     "type": "string",
@@ -1332,12 +1466,10 @@
                 "additionalProperties": false,
                 "type": "object",
                 "required": [
-                  "run_id",
-                  "fingerprints",
                   "status"
                 ],
                 "title": "TriageIn",
-                "description": "`run_id`: a run, or an asset's state (asset:<key>); the triage is the same."
+                "description": "One run (`run_id`: a run, or an asset's state `asset:<key>`) and its `fingerprints`, or several assets at once\n(`selections`, one per asset, up to the same number of findings in all): the decision is the same."
               }
             }
           },
@@ -5169,6 +5301,7 @@
           "runs"
         ],
         "summary": "Run Detail",
+        "description": "The run with its findings' current triage and the Findings tiles (`summary.kpis`).",
         "operationId": "run_detail_api_runs__run_id__get",
         "parameters": [
           {
@@ -5640,7 +5773,7 @@
           "images"
         ],
         "summary": "Analyzed Images",
-        "description": "Analyzed images with where each is built from (OCI label or set by hand), filtered by name, by how it is linked\nor by the repository it is built from.",
+        "description": "Images (analyzed, or added by hand and not scanned yet) with where each is built from (OCI label or set by hand),\nfiltered by name, by how it is linked or by the repository it is built from.",
         "operationId": "analyzed_images_api_images_get",
         "parameters": [
           {
@@ -5723,6 +5856,112 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Register Image",
+        "description": "Adds a container image to the Images page without scanning it, so it can be linked to the repository it is\nbuilt from and scanned later. Adding one already there (`created: false`) only updates the reference of one not\nscanned yet; `name` and `reference` are what the page shows for it.",
+        "operationId": "register_image_api_images_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredImage"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "`repository` (an analyzed repository's asset key) links it right away: administrators only. `scan` also queues\nits scan.",
+                "properties": {
+                  "reference": {
+                    "maxLength": 300,
+                    "title": "Reference",
+                    "type": "string"
+                  },
+                  "repository": {
+                    "anyOf": [
+                      {
+                        "maxLength": 200,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Repository"
+                  },
+                  "scan": {
+                    "default": false,
+                    "title": "Scan",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "reference"
+                ],
+                "title": "ImageRegisterIn",
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/images/remove": {
+      "post": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Remove Image",
+        "description": "Takes an image added by hand off the Images page. Only one never scanned: a scanned image keeps its history.",
+        "operationId": "remove_image_api_images_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "title": "Key"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "key"
+                ],
+                "title": "ImageRemoveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedImage"
                 }
               }
             }
@@ -6560,6 +6799,10 @@
             ],
             "title": "Last Complete"
           },
+          "analyzed": {
+            "type": "boolean",
+            "title": "Analyzed"
+          },
           "built_from": {
             "anyOf": [
               {
@@ -6578,6 +6821,7 @@
           "reference",
           "last_scan",
           "last_complete",
+          "analyzed",
           "built_from"
         ],
         "title": "AnalyzedImage"
@@ -8868,6 +9112,75 @@
         ],
         "title": "ExclusionsSaved"
       },
+      "FindingKpis": {
+        "properties": {
+          "active": {
+            "type": "integer",
+            "title": "Active"
+          },
+          "dismissed": {
+            "type": "integer",
+            "title": "Dismissed"
+          },
+          "only_excluded": {
+            "type": "boolean",
+            "title": "Only Excluded"
+          },
+          "has_sla": {
+            "type": "boolean",
+            "title": "Has Sla"
+          },
+          "overdue": {
+            "type": "integer",
+            "title": "Overdue"
+          },
+          "soon": {
+            "type": "integer",
+            "title": "Soon"
+          },
+          "act": {
+            "type": "integer",
+            "title": "Act"
+          },
+          "attend": {
+            "type": "integer",
+            "title": "Attend"
+          },
+          "critical": {
+            "type": "integer",
+            "title": "Critical"
+          },
+          "high": {
+            "type": "integer",
+            "title": "High"
+          },
+          "kev": {
+            "type": "integer",
+            "title": "Kev"
+          },
+          "fixable": {
+            "type": "integer",
+            "title": "Fixable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active",
+          "dismissed",
+          "only_excluded",
+          "has_sla",
+          "overdue",
+          "soon",
+          "act",
+          "attend",
+          "critical",
+          "high",
+          "kev",
+          "fixable"
+        ],
+        "title": "FindingKpis",
+        "description": "The Findings tiles (`modules/findings/kpis.py`): the pending work, neither fixed nor dismissed, among the findings listed."
+      },
       "FindingOut": {
         "properties": {
           "finding_id": {
@@ -10849,6 +11162,48 @@
         "title": "JiraVariables",
         "description": "What a mapping can use: Pitangus's variables (`source: pitangus`, or `{{key}}` in a template)."
       },
+      "LifecycleCounts": {
+        "properties": {
+          "open": {
+            "type": "integer",
+            "title": "Open"
+          },
+          "fixed": {
+            "type": "integer",
+            "title": "Fixed"
+          },
+          "suppressed": {
+            "type": "integer",
+            "title": "Suppressed"
+          },
+          "excluded": {
+            "type": "integer",
+            "title": "Excluded"
+          },
+          "from_pr": {
+            "type": "integer",
+            "title": "From Pr"
+          },
+          "by_severity": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Severity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "open",
+          "fixed",
+          "suppressed",
+          "excluded",
+          "from_pr",
+          "by_severity"
+        ],
+        "title": "LifecycleCounts",
+        "description": "Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`) and excluded."
+      },
       "LinkInfo": {
         "properties": {
           "username": {
@@ -11579,6 +11934,63 @@
         ],
         "title": "RecentCves"
       },
+      "RegisteredImage": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          },
+          "analyzed": {
+            "type": "boolean",
+            "title": "Analyzed"
+          },
+          "built_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuiltFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "reference",
+          "created",
+          "analyzed",
+          "built_from",
+          "run"
+        ],
+        "title": "RegisteredImage"
+      },
       "Registries": {
         "properties": {
           "registries": {
@@ -11654,6 +12066,19 @@
         ],
         "title": "RegistryRow",
         "description": "A registry's saved credentials: the user and the last four characters of the token, never the token."
+      },
+      "RemovedImage": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "RemovedImage"
       },
       "ReopenIn": {
         "properties": {
@@ -12377,6 +12802,96 @@
         "title": "ScanPlan",
         "description": "What a scan will do, from the repository's real tree and the engines this installation can run."
       },
+      "ScopeAssetCounts": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "repository",
+              "image"
+            ],
+            "title": "Kind"
+          },
+          "open": {
+            "type": "integer",
+            "title": "Open"
+          },
+          "critical": {
+            "type": "integer",
+            "title": "Critical"
+          },
+          "high": {
+            "type": "integer",
+            "title": "High"
+          },
+          "fixed": {
+            "type": "integer",
+            "title": "Fixed"
+          },
+          "suppressed": {
+            "type": "integer",
+            "title": "Suppressed"
+          },
+          "excluded": {
+            "type": "integer",
+            "title": "Excluded"
+          },
+          "shown": {
+            "type": "integer",
+            "title": "Shown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "kind",
+          "open",
+          "critical",
+          "high",
+          "fixed",
+          "suppressed",
+          "excluded",
+          "shown"
+        ],
+        "title": "ScopeAssetCounts",
+        "description": "One asset of the scope: its pending work (open, and of it critical and high), what is no longer pending, and how\nmany of its findings the requested tab holds."
+      },
+      "ScopeAssetRef": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "repository",
+              "image"
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "kind"
+        ],
+        "title": "ScopeAssetRef"
+      },
       "ScopeSummary": {
         "properties": {
           "repositories": {
@@ -12399,6 +12914,493 @@
           "complete"
         ],
         "title": "ScopeSummary"
+      },
+      "ScopedFinding": {
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "title": "Finding Id"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "scanner": {
+            "type": "string",
+            "title": "Scanner"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool"
+          },
+          "cwe": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cwe"
+          },
+          "owasp": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owasp"
+          },
+          "cve": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cve"
+          },
+          "ghsa": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ghsa"
+          },
+          "package": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package"
+          },
+          "advisory": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advisory"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "triage": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triage"
+          },
+          "fix": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
+          "ticket": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket"
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification"
+          },
+          "asset": {
+            "$ref": "#/components/schemas/ScopeAssetRef"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "finding_id",
+          "fingerprint",
+          "scanner",
+          "rule_id",
+          "path",
+          "severity",
+          "asset"
+        ],
+        "title": "ScopedFinding"
+      },
+      "ScopedFindings": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ScopedSummary"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "pull_request": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pull Request"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ScopedFinding"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "title": "Findings",
+            "default": []
+          },
+          "steps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "title": "Steps",
+            "default": []
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "title": "Limitations",
+            "default": []
+          },
+          "owasp_coverage": {
+            "items": {},
+            "type": "array",
+            "maxItems": 10000,
+            "title": "Owasp Coverage",
+            "default": []
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array",
+                "maxItems": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          },
+          "by_asset": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeAssetCounts"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "title": "By Asset"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "status",
+          "created_at",
+          "summary",
+          "total",
+          "truncated",
+          "by_asset"
+        ],
+        "title": "ScopedFindings",
+        "description": "Several assets' findings registries combined (`type` asset_scope), each finding with its `asset`. `total`\nfindings are in the tab; past the cap only the most urgent come (`truncated`), while `summary` and `by_asset`\nalways count them all."
+      },
+      "ScopedSummary": {
+        "properties": {
+          "lifecycle": {
+            "$ref": "#/components/schemas/LifecycleCounts"
+          },
+          "candidates": {
+            "type": "integer",
+            "title": "Candidates"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/FindingKpis"
+          },
+          "sla": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sla"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lifecycle",
+          "candidates",
+          "kpis",
+          "sla"
+        ],
+        "title": "ScopedSummary"
       },
       "SecretAllowlist": {
         "properties": {
@@ -13482,19 +14484,63 @@
         "title": "TotpStep",
         "description": "The password was right; the account has TOTP: send the code with this challenge to /api/auth/totp."
       },
-      "TriageResult": {
+      "TriageOutcome": {
         "properties": {
-          "summary": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Summary"
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
           }
         },
         "type": "object",
         "required": [
-          "summary"
+          "run_id"
         ],
-        "title": "TriageResult"
+        "title": "TriageOutcome"
+      },
+      "TriageResult": {
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "results": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TriageOutcome"
+                },
+                "type": "array",
+                "maxItems": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "title": "TriageResult",
+        "description": "One run: its triage counts (`summary`). Several assets: each one's outcome (`results`); it fails as a whole only\nwhen none landed."
       },
       "UnproductIn": {
         "properties": {

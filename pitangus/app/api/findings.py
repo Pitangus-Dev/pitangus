@@ -1,23 +1,24 @@
-"""Findings: triage, re-verification of one finding, and the due dates (SLA) per severity."""
+"""Findings: several assets at once, triage, re-verification of one finding, and the due dates (SLA) per severity."""
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, WithJsonSchema
 
 from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, guard
 from pitangus.app.api.deps import problem
+from pitangus.app.api.schemas import AS_RETURNED, MANY, FindingKpis, FindingOut, RunDetail
 from pitangus.app.demo import DEMO_SOURCE_ID
+from pitangus.modules.compliance import provenance
 from pitangus.modules.findings import registry as findings_registry
 from pitangus.modules.findings import sla, triage, verifications
 from pitangus.modules.findings.registry import VIEW_PREFIX
 from pitangus.modules.integrations import code_tokens
 from pitangus.modules.integrations.installations import github_installations
-from pitangus.modules.findings.kinds import FINDING_RUNS
 from pitangus.modules.runs import assets as run_assets
-from pitangus.modules.runs import registry as run_registry
+from pitangus.modules.runs import decisions
 from pitangus.modules.runs.store import load_run
 from pitangus.modules.scanning.image import ImageError, parse_reference
 from pitangus.modules.sources.assets import asset_key
@@ -55,6 +56,72 @@ def policy(context: Context = Depends(guard())) -> dict:
     return context.render(sla.policy(context.data_dir))
 
 
+class ScopeAssetRef(BaseModel):
+    key: str
+    name: str
+    kind: Literal["repository", "image"]
+
+
+class ScopedFinding(FindingOut):
+    asset: ScopeAssetRef
+
+
+class ScopeAssetCounts(ScopeAssetRef):
+    """One asset of the scope: its pending work (open, and of it critical and high), what is no longer pending, and how
+    many of its findings the requested tab holds."""
+    open: int
+    critical: int
+    high: int
+    fixed: int
+    suppressed: int
+    excluded: int
+    shown: int
+
+
+class LifecycleCounts(BaseModel):
+    """Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`) and excluded."""
+    open: int
+    fixed: int
+    suppressed: int
+    excluded: int
+    from_pr: int
+    by_severity: dict[str, int]
+
+
+class ScopedSummary(BaseModel):
+    lifecycle: LifecycleCounts
+    candidates: int
+    kpis: FindingKpis
+    sla: dict[str, Any]
+
+
+class ScopedFindings(RunDetail):
+    """Several assets' findings registries combined (`type` asset_scope), each finding with its `asset`. `total`
+    findings are in the tab; past the cap only the most urgent come (`truncated`), while `summary` and `by_asset`
+    always count them all."""
+    findings: list[ScopedFinding] = Field([], max_length=findings_registry.SCOPE_FINDINGS_MAX)  # type: ignore[assignment]
+    summary: ScopedSummary  # type: ignore[assignment]
+    total: int
+    truncated: bool
+    by_asset: list[ScopeAssetCounts] = Field(max_length=MANY)
+
+
+AssetKey = Annotated[str, Field(min_length=1, max_length=200)]
+
+
+@router.get("/api/findings/scope", response_model=ScopedFindings, **AS_RETURNED)
+def scoped_findings(assets: list[AssetKey] = Query([], max_length=provenance.SCOPE_MAX), account: str = Query("", max_length=100),
+                    include_images: bool = True, status: Literal["open", "fixed", "excluded", "all"] = "open",
+                    context: Context = Depends(guard())) -> dict:
+    """The findings of every asset in a scope (the same as the portfolio files: everything, one `account`'s
+    repositories or the chosen `assets`, with the images built from them unless `include_images` is false), by tab.
+    A scope that matches nothing is an empty view, not an error."""
+    if assets and account:
+        raise ApiError(400, msg("api.scope.one_kind"))
+    rows = provenance.scope(context.data_dir, assets=assets or None, account=account.strip() or None, include_images=include_images)
+    return context.render(findings_registry.scoped_view(context.data_dir, rows, status=status))
+
+
 def _checked_later(schema: dict):
     """A field the module checks itself (with its own message): any value here, `schema` in the OpenAPI."""
     return Annotated[Any, WithJsonSchema(schema)]
@@ -88,46 +155,55 @@ def change_policy(context: Context = Depends(guard(Policy(admin=True, action="sl
         raise ApiError(400, problem(exc)) from exc
 
 
-class TriageIn(BaseModel):
-    """`run_id`: a run, or an asset's state (asset:<key>); the triage is the same."""
+class TriageSelectionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    run_id: StrictStr
+    run_id: StrictStr = Field(max_length=400)
     fingerprints: Fingerprints
+
+
+class TriageIn(BaseModel):
+    """One run (`run_id`: a run, or an asset's state `asset:<key>`) and its `fingerprints`, or several assets at once
+    (`selections`, one per asset, up to the same number of findings in all): the decision is the same."""
+    model_config = ConfigDict(extra="forbid")
+    run_id: StrictStr | None = Field(None, max_length=400)
+    fingerprints: Fingerprints = None
+    selections: list[TriageSelectionIn] | None = Field(None, min_length=1, max_length=decisions.MAX_SELECTIONS)
     status: TriageStatus
     reason: Reason = None
     note: Note = None
     expires_at: Expiry = None
 
 
+class TriageOutcome(BaseModel):
+    run_id: str
+    error: str | None = None  # why this asset's part didn't land
+
+
 class TriageResult(BaseModel):
-    summary: dict[str, Any]
+    """One run: its triage counts (`summary`). Several assets: each one's outcome (`results`); it fails as a whole only
+    when none landed."""
+    summary: dict[str, Any] | None = None
+    results: list[TriageOutcome] | None = Field(None, max_length=decisions.MAX_SELECTIONS)
 
 
-@router.post("/api/findings/triage", response_model=TriageResult, openapi_extra=documented(TriageIn))
+@router.post("/api/findings/triage", response_model=TriageResult, openapi_extra=documented(TriageIn), **AS_RETURNED)
 def triage_findings(context: Context = Depends(guard(Policy(action="triage", body=40_000))),
                     data: TriageIn = Depends(body(TriageIn, msg("api.invalid_triage")))) -> dict:
-    try:
-        record = run_registry.resolve(context.data_dir, data.run_id)
-    except (ValueError, OSError):
-        raise ApiError(404, msg("api.run_not_found")) from None
-    if record.get("type") not in (*FINDING_RUNS, "asset_state"):
-        raise ApiError(400, msg("api.triage_scope"))
+    if (data.selections is None) == (data.run_id is None) or (data.selections is not None and data.fingerprints is not None):
+        raise ApiError(400, msg("api.invalid_triage"))
+    selections = [(data.run_id, data.fingerprints)] if data.run_id is not None else [(item.run_id, item.fingerprints) for item in data.selections or []]
     user = context.user
     try:
-        updated = triage.decide(context.data_dir, record, data.fingerprints, data.status, reason=data.reason, note=data.note,
-                                expires_at=data.expires_at, user=user)
-    except PermissionError as exc:
-        raise ApiError(403, problem(exc)) from exc
-    except triage.TriageError as exc:
-        raise ApiError(400, problem(exc)) from exc
-    context.state.log.info("triage", extra={"user": user["username"], "run_id": record["id"], "reason":
-                                            f"{data.status}: {len(data.fingerprints)} hallazgos"})
-    from pitangus.modules.runs import jira_sync
-    key = asset_key(record)
-    expiry = (triage.load_asset(context.data_dir, key).get(data.fingerprints[0]) or {}).get("expires_at") if data.status == "accepted" else None
-    jira_sync.on_triage(context.data_dir, key, data.fingerprints, data.status, by=user.get("display_name") or user["username"],
-                        reason=data.reason, expires_at=expiry)
-    return context.render({"summary": updated["summary"]})
+        outcomes = decisions.decide(context.data_dir, selections, data.status, reason=data.reason, note=data.note,
+                                    expires_at=data.expires_at, user=user)
+    except decisions.TriageRefused as exc:
+        raise ApiError(exc.status, exc.message) from exc
+    for (run_id, prints), outcome in zip(selections, outcomes):
+        if "error" not in outcome:
+            context.state.log.info("triage", extra={"user": user["username"], "run_id": run_id, "reason": f"{data.status}: {len(prints)} hallazgos"})
+    if data.run_id is not None:
+        return context.render({"summary": outcomes[0]["summary"]})
+    return context.render({"results": [{"run_id": item["run_id"], **({"error": item["error"]} if "error" in item else {})} for item in outcomes]})
 
 
 class ReverifyIn(BaseModel):

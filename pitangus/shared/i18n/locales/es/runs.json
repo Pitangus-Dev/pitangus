@@ -66,5 +66,9 @@
       "invalid_scope": "El alcance debe ser full o partial",
       "invalid_commit": "Commit no válido: usa su SHA (de 7 a 64 caracteres hexadecimales)"
     }
+  },
+  "triage": {
+    "not_found": "Ejecución no encontrada",
+    "not_findings": "El triage aplica a revisiones de código e imágenes"
   }
 }

@@ -423,6 +423,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/findings/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Scoped Findings
+         * @description The findings of every asset in a scope (the same as the portfolio files: everything, one `account`'s
+         *     repositories or the chosen `assets`, with the images built from them unless `include_images` is false), by tab.
+         *     A scope that matches nothing is an empty view, not an error.
+         */
+        get: operations["scoped_findings_api_findings_scope_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/findings/triage": {
         parameters: {
             query?: never;
@@ -1676,7 +1698,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Run Detail */
+        /**
+         * Run Detail
+         * @description The run with its findings' current triage and the Findings tiles (`summary.kpis`).
+         */
         get: operations["run_detail_api_runs__run_id__get"];
         put?: never;
         post?: never;
@@ -1799,12 +1824,38 @@ export interface paths {
         };
         /**
          * Analyzed Images
-         * @description Analyzed images with where each is built from (OCI label or set by hand), filtered by name, by how it is linked
-         *     or by the repository it is built from.
+         * @description Images (analyzed, or added by hand and not scanned yet) with where each is built from (OCI label or set by hand),
+         *     filtered by name, by how it is linked or by the repository it is built from.
          */
         get: operations["analyzed_images_api_images_get"];
         put?: never;
-        post?: never;
+        /**
+         * Register Image
+         * @description Adds a container image to the Images page without scanning it, so it can be linked to the repository it is
+         *     built from and scanned later. Adding one already there (`created: false`) only updates the reference of one not
+         *     scanned yet; `name` and `reference` are what the page shows for it.
+         */
+        post: operations["register_image_api_images_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Image
+         * @description Takes an image added by hand off the Images page. Only one never scanned: a scanned image keeps its history.
+         */
+        post: operations["remove_image_api_images_remove_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2008,6 +2059,8 @@ export interface components {
             last_scan: components["schemas"]["ImageLastScan"] | null;
             /** Last Complete */
             last_complete: string | null;
+            /** Analyzed */
+            analyzed: boolean;
             built_from: components["schemas"]["BuiltFrom"] | null;
         };
         /** AssessIn */
@@ -2713,6 +2766,36 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * FindingKpis
+         * @description The Findings tiles (`modules/findings/kpis.py`): the pending work, neither fixed nor dismissed, among the findings listed.
+         */
+        FindingKpis: {
+            /** Active */
+            active: number;
+            /** Dismissed */
+            dismissed: number;
+            /** Only Excluded */
+            only_excluded: boolean;
+            /** Has Sla */
+            has_sla: boolean;
+            /** Overdue */
+            overdue: number;
+            /** Soon */
+            soon: number;
+            /** Act */
+            act: number;
+            /** Attend */
+            attend: number;
+            /** Critical */
+            critical: number;
+            /** High */
+            high: number;
+            /** Kev */
+            kev: number;
+            /** Fixable */
+            fixable: number;
+        };
+        /**
          * FindingOut
          * @description A finding as served: messages rendered in the reader's language, with its triage, fix and lifecycle.
          */
@@ -3407,6 +3490,26 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /**
+         * LifecycleCounts
+         * @description Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`) and excluded.
+         */
+        LifecycleCounts: {
+            /** Open */
+            open: number;
+            /** Fixed */
+            fixed: number;
+            /** Suppressed */
+            suppressed: number;
+            /** Excluded */
+            excluded: number;
+            /** From Pr */
+            from_pr: number;
+            /** By Severity */
+            by_severity: {
+                [key: string]: number;
+            };
+        };
         /** LinkInfo */
         LinkInfo: {
             /** Username */
@@ -3667,6 +3770,24 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** RegisteredImage */
+        RegisteredImage: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Reference */
+            reference: string;
+            /** Created */
+            created: boolean;
+            /** Analyzed */
+            analyzed: boolean;
+            built_from: components["schemas"]["BuiltFrom"] | null;
+            /** Run */
+            run: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** Registries */
         Registries: {
             /** Registries */
@@ -3693,6 +3814,11 @@ export interface components {
             saved_by?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** RemovedImage */
+        RemovedImage: {
+            /** Key */
+            key: string;
         };
         /** ReopenIn */
         ReopenIn: {
@@ -3936,6 +4062,48 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * ScopeAssetCounts
+         * @description One asset of the scope: its pending work (open, and of it critical and high), what is no longer pending, and how
+         *     many of its findings the requested tab holds.
+         */
+        ScopeAssetCounts: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "repository" | "image";
+            /** Open */
+            open: number;
+            /** Critical */
+            critical: number;
+            /** High */
+            high: number;
+            /** Fixed */
+            fixed: number;
+            /** Suppressed */
+            suppressed: number;
+            /** Excluded */
+            excluded: number;
+            /** Shown */
+            shown: number;
+        };
+        /** ScopeAssetRef */
+        ScopeAssetRef: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "repository" | "image";
+        };
         /** ScopeSummary */
         ScopeSummary: {
             /** Repositories */
@@ -3944,6 +4112,160 @@ export interface components {
             images: number;
             /** Complete */
             complete: number;
+        };
+        /** ScopedFinding */
+        ScopedFinding: {
+            /** Finding Id */
+            finding_id: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Scanner */
+            scanner: string;
+            /** Rule Id */
+            rule_id: string;
+            /** Title */
+            title?: string | null;
+            /** Path */
+            path: string;
+            /** Line */
+            line?: number | null;
+            /** Severity */
+            severity: string;
+            /** Confidence */
+            confidence?: number | null;
+            /** Tool */
+            tool?: string | null;
+            /** Cwe */
+            cwe?: number[] | null;
+            /** Owasp */
+            owasp?: string[] | null;
+            /** Cve */
+            cve?: string[] | null;
+            /** Ghsa */
+            ghsa?: string[] | null;
+            /** Package */
+            package?: {
+                [key: string]: unknown;
+            } | null;
+            /** Advisory */
+            advisory?: {
+                [key: string]: unknown;
+            } | null;
+            /** Priority */
+            priority?: {
+                [key: string]: unknown;
+            } | null;
+            /** Reason */
+            reason?: string | null;
+            /** Remediation */
+            remediation?: string | null;
+            /** Triage */
+            triage?: {
+                [key: string]: unknown;
+            } | null;
+            /** Fix */
+            fix?: {
+                [key: string]: unknown;
+            } | null;
+            /** Lifecycle */
+            lifecycle?: {
+                [key: string]: unknown;
+            } | null;
+            /** Ticket */
+            ticket?: {
+                [key: string]: unknown;
+            } | null;
+            /** Verification */
+            verification?: {
+                [key: string]: unknown;
+            } | null;
+            asset: components["schemas"]["ScopeAssetRef"];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ScopedFindings
+         * @description Several assets' findings registries combined (`type` asset_scope), each finding with its `asset`. `total`
+         *     findings are in the tab; past the cap only the most urgent come (`truncated`), while `summary` and `by_asset`
+         *     always count them all.
+         */
+        ScopedFindings: {
+            /** Id */
+            id: string;
+            /** Type */
+            type: string;
+            /** Status */
+            status: string;
+            /** Created At */
+            created_at: string;
+            /** Target */
+            target?: string | null;
+            summary: components["schemas"]["ScopedSummary"];
+            /** Source */
+            source?: {
+                [key: string]: unknown;
+            } | null;
+            /** Variant */
+            variant?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Pull Request */
+            pull_request?: {
+                [key: string]: unknown;
+            } | null;
+            /** Trigger */
+            trigger?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["ScopedFinding"][];
+            /**
+             * Steps
+             * @default []
+             */
+            steps: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Limitations
+             * @default []
+             */
+            limitations: string[];
+            /**
+             * Owasp Coverage
+             * @default []
+             */
+            owasp_coverage: unknown[];
+            /** Progress */
+            progress?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Context */
+            context?: string | null;
+            /** Total */
+            total: number;
+            /** Truncated */
+            truncated: boolean;
+            /** By Asset */
+            by_asset: components["schemas"]["ScopeAssetCounts"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** ScopedSummary */
+        ScopedSummary: {
+            lifecycle: components["schemas"]["LifecycleCounts"];
+            /** Candidates */
+            candidates: number;
+            kpis: components["schemas"]["FindingKpis"];
+            /** Sla */
+            sla: {
+                [key: string]: unknown;
+            };
         };
         /**
          * SecretAllowlist
@@ -4294,12 +4616,25 @@ export interface components {
             /** Challenge */
             challenge: string;
         };
-        /** TriageResult */
+        /** TriageOutcome */
+        TriageOutcome: {
+            /** Run Id */
+            run_id: string;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * TriageResult
+         * @description One run: its triage counts (`summary`). Several assets: each one's outcome (`results`); it fails as a whole only
+         *     when none landed.
+         */
         TriageResult: {
             /** Summary */
-            summary: {
+            summary?: {
                 [key: string]: unknown;
-            };
+            } | null;
+            /** Results */
+            results?: components["schemas"]["TriageOutcome"][] | null;
         };
         /** UnproductIn */
         UnproductIn: {
@@ -5146,6 +5481,40 @@ export interface operations {
             };
         };
     };
+    scoped_findings_api_findings_scope_get: {
+        parameters: {
+            query?: {
+                assets?: string[];
+                account?: string;
+                include_images?: boolean;
+                status?: "open" | "fixed" | "excluded" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopedFindings"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     triage_findings_api_findings_triage_post: {
         parameters: {
             query?: never;
@@ -5157,9 +5526,16 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Run Id */
-                    run_id: string;
+                    run_id?: string | null;
                     /** Fingerprints */
-                    fingerprints: string[];
+                    fingerprints?: string[];
+                    /** Selections */
+                    selections?: {
+                        /** Run Id */
+                        run_id: string;
+                        /** Fingerprints */
+                        fingerprints: string[];
+                    }[] | null;
                     /**
                      * Status
                      * @enum {string}
@@ -7672,6 +8048,67 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    register_image_api_images_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Reference */
+                    reference: string;
+                    /** Repository */
+                    repository?: string | null;
+                    /**
+                     * Scan
+                     * @default false
+                     */
+                    scan?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisteredImage"];
+                };
+            };
+        };
+    };
+    remove_image_api_images_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Key */
+                    key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovedImage"];
                 };
             };
         };

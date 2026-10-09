@@ -6,7 +6,8 @@ import { Button } from '@/shared/ui/button'
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/shared/ui/popover'
 import { assetQuery, jiraBatchesQuery, keys, type JiraQueued } from '@/shared/api/queries'
 import { formatDate } from '@/shared/i18n/format'
-import { byAsset, queueJira, toAnnounce, useJiraSettled } from '@/features/integrations/jira-batches'
+import { queueJira, toAnnounce, useJiraSettled } from '@/features/integrations/jira-batches'
+import { byAsset } from '@/shared/lib/selection'
 
 type Notice = (tone: 'ok' | 'error', text: string) => void
 const doneOf = (batch: JiraQueued) => batch.created + batch.existing + batch.skipped + batch.failed

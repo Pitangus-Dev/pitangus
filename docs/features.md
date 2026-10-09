@@ -72,6 +72,17 @@ Some folders aren't worth looking at: intentionally vulnerable examples (like `f
 
 A repository's identity is its GitHub identity (its numeric ID): a renamed repository is still the same one, and findings from a deleted repository are withdrawn after a 24-hour grace period. You can filter by run, view open, fixed or all findings, and export to PDF, JSON, Markdown, SARIF or Jira. The "Current state" view exports its accumulated register through its own route, so it's never confused with an individual run. The PDF dossiers for SOC 2 Type II and ISO/IEC 27001:2022 are technical evidence for review, not certifications or compliance opinions. Reports are generated in English or Spanish.
 
+**Several assets at once.** Findings has the same scope picker as Compliance: **One** asset (the default, with its runs
+and settings), **An organization** (its repositories), **Choose several** (repositories and images) or **All**; with a
+repository come the images built from it unless you turn that off. The scope stays in the address
+(`#/findings?scope=account&account=acme`), so a reload or a shared link opens the same view. It combines each asset's
+current state: the cards add up the whole scope, **By asset** lists each asset with its pending and critical findings
+(click one to open it alone), and the table gains an **Asset** column. Triage works per finding or on a selection that
+spans assets (saved asset by asset; if one fails, the panel says which and retries only those), and so do Jira issues
+and the consolidated audit evidence. Excluded paths, secret rules, picking a specific run and the per-asset files (PDF,
+SARIF, SBOM…) need one asset. A very large scope lists the 10,000 most urgent findings of the tab and says so; the
+counts always cover everything (`GET /api/findings/scope`).
+
 ### Remediation deadlines
 
 Every pending finding has a due date based on its severity, counted from **first detection** (reopening it doesn't
@@ -103,7 +114,9 @@ policy and overdue findings sorted by delay: what SOC 2 and ISO 27001 ask for as
 - **Images and the repository they're built from (Images view).** Pitangus reads the repository from the image's OCI
   labels (`org.opencontainers.image.source` and `.revision`); when they're missing or wrong, an administrator links it
   by hand, and that link wins. A repository's evidence brings the images built from it, and the reports say "built from
-  org/repo @ commit".
+  org/repo @ commit". **Add image** puts an image on the list without scanning it (optionally linked to its repository,
+  and scanned right away if you tick it); it joins findings and evidence with its first scan. An administrator can
+  remove an image that was never scanned.
 - **CRA kit (Compliance view, opt-in).** Only for manufacturers that sell products with software in the EU: an
   administrator turns it on in **Policies** ("We sell products with software in the EU (CRA)", off by default, with a
   reason kept in the history; turning it off keeps the data). Then an administrator marks which repositories or images
