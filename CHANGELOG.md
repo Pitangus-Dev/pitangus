@@ -17,6 +17,13 @@ between minor versions: anything that changes behaviour is called out below.
   evidence work on the scope. The scope stays in the address, so a reload or a shared link opens the same view. New
   route `GET /api/findings/scope`; a very large scope lists the 10,000 most urgent findings of the tab and says so.
 
+- **Add an image without scanning it** (Scanning → Images → Add image). Type its reference and, if you're an
+  administrator, the repository it's built from; it shows on the list as "Not scanned yet" and is scanned when you
+  choose ("Scan it now" does it right away). Adding one that is already there changes nothing and says so. Its first
+  scan lands on the same asset, keeping the link; until then it has no findings and stays out of the evidence scopes.
+  An administrator can remove an image that was never scanned. API: `POST /api/images` and `POST /api/images/remove`;
+  `GET /api/images` items carry `analyzed`.
+
 ## [0.12.1] - 2026-10-09
 
 ### Added

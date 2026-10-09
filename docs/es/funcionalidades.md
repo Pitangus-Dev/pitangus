@@ -114,7 +114,9 @@ política y los vencidos ordenados por retraso: lo que piden SOC 2 e ISO 27001 c
 - **Imágenes y el repositorio desde el que se construyen (vista Imágenes).** Pitangus lee el repositorio de las
   etiquetas OCI de la imagen (`org.opencontainers.image.source` y `.revision`); si faltan o se equivocan, un
   administrador la vincula a mano y ese vínculo manda. La evidencia de un repositorio incluye las imágenes construidas
-  desde él, y los informes dicen «construida desde org/repo @ commit».
+  desde él, y los informes dicen «construida desde org/repo @ commit». **Agregar imagen** la pone en la lista sin
+  analizarla (si quieres, ya vinculada a su repositorio, y analizada de inmediato si marcas la casilla); entra en
+  hallazgos y evidencia con su primer análisis. Un administrador puede quitar una imagen que nunca se analizó.
 - **Kit CRA (vista Cumplimiento, opcional).** Solo para fabricantes que venden en la UE productos con software: un
   administrador lo activa en **Políticas** («Vendemos productos con software en la UE (CRA)», desactivado por defecto,
   con un motivo que queda en el historial; desactivarlo conserva los datos). Luego un administrador marca qué

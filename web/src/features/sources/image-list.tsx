@@ -1,36 +1,41 @@
 import { useCallback, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Boxes, LoaderCircle, Search, X } from 'lucide-react'
+import { Boxes, LoaderCircle, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Combobox } from '@/shared/ui/combobox'
 import { Input } from '@/shared/ui/input'
 import { SkeletonList } from '@/shared/ui/loading'
 import { api } from '@/shared/api/http'
+import { apiPost } from '@/shared/api/client'
 import { imagesQuery, keys, type ImageLink } from '@/shared/api/queries'
 import { formatDay, formatNumber } from '@/shared/i18n/format'
 import { ImageOrigin } from '@/features/compliance/image-origin'
 import { Pager } from '@/features/sources/source-search'
+import { AddImageDialog, type RegisteredImage } from '@/features/sources/add-image'
 
 const PAGE_SIZE = 25
 export type RepositoryFilter = { key: string; name: string }
 
-// Analyzed images and where each is built from: its OCI label links it on its own, an administrator links (or relinks)
-// it by hand when the label is missing or wrong. Filtered by a repository, it lists the images built from it and lets an
-// administrator link one more.
+// Images and where each is built from: its OCI label links it on its own, an administrator links (or relinks) it by
+// hand when the label is missing or wrong. An image can be added before it is scanned (it has no findings until then).
+// Filtered by a repository, it lists the images built from it and lets an administrator link one more.
 export function ImageList({ admin, repository, onClearRepository, onOpenFindings, onNew }: {
   admin: boolean; repository: RepositoryFilter | null; onClearRepository: () => void; onOpenFindings: (key: string) => void; onNew: () => void
 }) {
   const { t } = useTranslation('sources')
   const queryClient = useQueryClient()
   const searchBox = useRef<HTMLInputElement>(null)
+  const addOpener = useRef<HTMLButtonElement>(null)
   const [link, setLink] = useState<ImageLink>('all')
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const [rescans, setRescans] = useState<Record<string, 'busy' | 'queued' | { error: string }>>({})
   const [announce, setAnnounce] = useState('')
   const [linkError, setLinkError] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [notice, setNotice] = useState('')
   const images = useQuery(imagesQuery({ q, link, repository: repository?.key, offset: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE }))
   const data = images.data
   // With a repository chosen every image listed is linked to it: the "not linked" tab could only ever be empty.
@@ -44,6 +49,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
     return { options, total: found.total - (found.items.length - options.length) }
   }), [queryClient, repository?.key, t])
   const changed = (message: string) => {
+    setNotice('')
     setAnnounce(message)
     void queryClient.invalidateQueries({ queryKey: keys.images })
     void queryClient.invalidateQueries({ queryKey: keys.evidence })
@@ -63,18 +69,43 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
     try {
       await api.post('/api/images/scans', 'scan-image', { reference })
       setRescans(current => ({ ...current, [key]: 'queued' }))
+      setNotice('')
       setAnnounce(t('images.queued_for', { name }))
       void queryClient.invalidateQueries({ queryKey: keys.runs })
+      void queryClient.invalidateQueries({ queryKey: keys.images })
     } catch (caught) { setRescans(current => ({ ...current, [key]: { error: caught instanceof Error ? caught.message : String(caught) } })) }
   }
-  const choose = (next: ImageLink) => { setLink(next); setPage(1) }
+  const added = (image: RegisteredImage) => {
+    const name = image.name
+    const base = image.created ? t(image.run ? 'images.added_queued' : 'images.added', { name })
+      : t(image.analyzed ? 'images.already_analyzed' : 'images.already_added', { name })
+    const extra = [...(!image.created && image.run ? [t('images.scan_queued')] : []),
+      ...(image.built_from?.how === 'manual' ? [t('images.added_built_from', { name: image.built_from.name })] : [])]
+    setNotice([base, ...extra].join(' '))
+  }
+  const removal = useMutation({
+    mutationFn: (image: { key: string; name: string }) => apiPost('/api/images/remove', 'remove-image', { key: image.key }),
+    onSuccess: (_, image) => {
+      setNotice(t('images.removed', { name: image.name }))
+      void queryClient.invalidateQueries({ queryKey: keys.images })
+      void queryClient.invalidateQueries({ queryKey: keys.evidence })
+      searchBox.current?.focus()
+    },
+    onError: (caught, image) => setRescans(current => ({ ...current, [image.key]: { error: caught instanceof Error ? caught.message : String(caught) } })),
+  })
+  const choose = (next: ImageLink) => { setLink(next); setPage(1); setNotice('') }
+  const addButton = (className = '') => <Button size="sm" variant="ghost" className={className} onClick={() => setAdding(true)}>{t('images.add.open')}</Button>
   const empty = !data ? null : repository && !data.counts.all
-    ? <p className="text-sm text-app-muted">{t('images.none_for_repository', { name: repository.name })}{admin ? ` ${t('images.none_for_repository_admin')}` : ''}</p>
-    : !data.counts.all ? <p className="text-sm text-app-muted">{t('images.none')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('images.new_scan')}</button></p>
+    ? <div className="flex flex-wrap items-center gap-2 text-sm text-app-muted"><p>{t('images.none_for_repository', { name: repository.name })}{admin ? ` ${t('images.none_for_repository_admin')}` : ''}</p>{addButton()}</div>
+    : !data.counts.all ? <div className="flex flex-wrap items-center gap-2 text-sm text-app-muted"><p>{t('images.none')}</p>{addButton()}
+      <Button size="sm" variant="ghost" onClick={onNew}>{t('images.new_scan')}</Button></div>
     : !data.items.length ? <p className="p-6 text-center text-sm text-app-muted">{t('images.no_match')}</p> : null
 
   return <Card className="border-app-line bg-panel">
-    <CardHeader><CardTitle className="text-base">{t('images.title')}</CardTitle><CardDescription>{t('images.description')}</CardDescription></CardHeader>
+    <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0 space-y-1.5"><CardTitle className="text-base">{t('images.title')}</CardTitle><CardDescription>{t('images.description')}</CardDescription></div>
+      <Button ref={addOpener} size="sm" onClick={() => setAdding(true)}><Plus aria-hidden />{t('images.add.open')}</Button>
+    </CardHeader>
     <CardContent className="space-y-4">
       {repository && <div className="flex flex-wrap items-center gap-3 rounded-xl border border-app-line bg-inset px-3 py-2 text-sm">
         <span className="flex min-w-0 items-center gap-1 rounded-lg border border-app-line bg-panel py-0.5 pr-1 pl-2">
@@ -92,9 +123,10 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
           {t(`images.tabs.${tab}`)}{data ? ` · ${formatNumber(data.counts[tab])}` : ''}</Button>)}</div>
         <label className="relative w-full max-w-xs"><span className="sr-only">{t('images.search')}</span>
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden />
-          <Input ref={searchBox} value={q} onChange={event => { setQ(event.target.value); setPage(1) }} placeholder={t('images.search_placeholder')} className="border-app-line bg-inset pl-9" /></label>
+          <Input ref={searchBox} value={q} onChange={event => { setQ(event.target.value); setPage(1); setNotice('') }} placeholder={t('images.search_placeholder')} className="border-app-line bg-inset pl-9" /></label>
       </div>
       {link === 'unlinked' && <p className="text-xs text-app-muted">{t('images.unlinked_hint')}</p>}
+      <div role="status">{notice && <p className="rounded-xl border border-success-line bg-success-soft px-3 py-2 text-sm text-success">{notice}</p>}</div>
 
       {images.isError ? <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('images.load_failed')}</p>
       : !data ? <SkeletonList rows={5} label={t('images.loading')} />
@@ -104,15 +136,19 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
           return <li key={image.key} className="space-y-2 px-4 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-0.5">
-                <p className="flex min-w-0 items-center gap-2 text-sm font-medium"><Boxes className="size-4 shrink-0 text-app-muted" aria-hidden /><span className="truncate">{image.name}</span></p>
+                <p className="flex min-w-0 items-center gap-2 text-sm font-medium"><Boxes className="size-4 shrink-0 text-app-muted" aria-hidden /><span className="truncate">{image.name}</span>
+                  {!image.analyzed && <span className="shrink-0 rounded-md border border-info-line bg-info-soft px-1.5 text-[11px] font-normal text-info">{t('images.not_analyzed')}</span>}</p>
                 <p className="text-xs text-app-muted">{image.reference && <span className="font-mono break-all">{image.reference}</span>}
                   {image.last_scan && <span>{image.reference ? ' · ' : ''}{t('images.last_scan', { date: formatDay(image.last_scan.created_at, { dateStyle: 'short' }) })}</span>}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant="outline" className="border-app-line bg-app-soft" aria-label={t('images.findings_for', { name: image.name })} onClick={() => onOpenFindings(image.key)}>{t('images.findings')}</Button>
-                {image.reference && <Button size="sm" variant="ghost" disabled={pending} aria-label={state === 'queued' ? t('images.queued_for', { name: image.name }) : t('images.rescan_for', { name: image.name })}
+                {image.analyzed && <Button size="sm" variant="outline" className="border-app-line bg-app-soft" aria-label={t('images.findings_for', { name: image.name })} onClick={() => onOpenFindings(image.key)}>{t('images.findings')}</Button>}
+                {image.reference && <Button size="sm" variant={image.analyzed ? 'ghost' : 'outline'} className={image.analyzed ? '' : 'border-app-line bg-app-soft'} disabled={pending}
+                  aria-label={state === 'queued' ? t('images.queued_for', { name: image.name }) : image.analyzed ? t('images.rescan_for', { name: image.name }) : t('images.scan_for', { name: image.name })}
                   onClick={() => { if (image.reference) void rescan(image.key, image.name, image.reference) }}>
-                  {state === 'busy' && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{state === 'queued' ? t('images.queued') : t('images.rescan')}</Button>}
+                  {state === 'busy' && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{state === 'queued' ? t('images.queued') : image.analyzed ? t('images.rescan') : t('images.scan')}</Button>}
+                {admin && !image.analyzed && !pending && <Button size="sm" variant="ghost" className="text-danger hover:text-danger" disabled={removal.isPending && removal.variables?.key === image.key}
+                  aria-label={t('images.remove_for', { name: image.name })} onClick={() => removal.mutate({ key: image.key, name: image.name })}>{t('images.remove')}</Button>}
               </div>
             </div>
             <ImageOrigin asset={image} admin={admin} onChanged={builtFrom => changed(builtFrom
@@ -120,8 +156,9 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
             {typeof state === 'object' && <p role="alert" className="text-xs text-danger">{state.error}</p>}
           </li>
         })}</ul>}
-      {data && <Pager page={page} perPage={PAGE_SIZE} total={data.total} onPage={setPage} loading={images.isFetching} />}
+      {data && <Pager page={page} perPage={PAGE_SIZE} total={data.total} onPage={next => { setPage(next); setNotice('') }} loading={images.isFetching} />}
       <span role="status" className="sr-only">{announce}</span>
+      <AddImageDialog open={adding} onOpenChange={setAdding} admin={admin} repository={repository} onAdded={added} returnFocus={addOpener} />
     </CardContent>
   </Card>
 }

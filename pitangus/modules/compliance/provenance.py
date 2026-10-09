@@ -4,6 +4,9 @@ An image says where it comes from in its OCI labels (`org.opencontainers.image.s
 time). When that repository is analyzed too, the image is linked to it on its own. The team can set or override the
 link by hand (images without labels, mirrored registries); a manual link wins over the label.
 
+An image can also be added by hand before it is scanned (`sources.images`): it shows on the Images page and can be
+linked, but it has no findings, so it stays out of the evidence catalog and of every portfolio scope until a scan.
+
 The scope of a portfolio file (SBOM, VEX, consolidated evidence) is every analyzed asset, the repositories of one
 organization, or a chosen set; with a repository come the images built from it unless that is turned off.
 """
@@ -14,7 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from pitangus.modules.compliance import evidence
-from pitangus.shared import documents
+from pitangus.modules.sources import images as registered_images
+from pitangus.shared import db, documents
 from pitangus.shared.i18n import msg
 
 DOCUMENT = "image-links"
@@ -25,6 +29,26 @@ class ProvenanceError(ValueError):
     def __init__(self, message: dict):
         super().__init__(message)
         self.message = message
+
+
+class ImageNotRegistered(ProvenanceError):
+    pass
+
+
+class ImageAnalyzed(ProvenanceError):
+    pass
+
+
+def _pending(data_dir: Path, rows: list[dict]) -> list[dict]:
+    """Images added by hand and never scanned, shaped like catalog rows (`rows`, the catalog, says what was scanned)."""
+    scanned = {row["key"] for row in rows}
+    return [{"key": item["key"], "name": item["name"], "kind": "image", "last_complete": None, "last_status": None,
+             "reference": item["reference"]} for item in registered_images.registered(data_dir) if item["key"] not in scanned]
+
+
+def _scanned(data_dir: Path, key: str) -> bool:
+    from pitangus.modules.runs.store import find_runs
+    return bool(find_runs(data_dir, assets=[key], limit=1))
 
 
 def _labels(data_dir: Path) -> dict[str, dict]:
@@ -80,8 +104,10 @@ def link_for(data_dir: Path, key: str) -> dict | None:
 
 
 def set_link(data_dir: Path, image: str, repository: str | None, *, by: str) -> dict | None:
-    """Links an image to a repository by hand; `repository=None` goes back to what the image's label says."""
+    """Links an image (analyzed, or added by hand) to a repository; `repository=None` goes back to what the image's
+    label says."""
     rows = evidence.catalog(data_dir)
+    rows += _pending(data_dir, rows)
     kinds = {row["key"]: row["kind"] for row in rows}
     if kinds.get(image) != "image":
         raise ProvenanceError(msg("compliance.provenance.not_an_image"))
@@ -95,21 +121,57 @@ def set_link(data_dir: Path, image: str, repository: str | None, *, by: str) -> 
     return links(data_dir, rows).get(image)
 
 
+def register_image(data_dir: Path, image: dict, *, by: str, repository: str | None = None) -> dict:
+    """Adds an image to the Images page without scanning it (`image` as `scanning.image.parse_reference` returns it)
+    and, with `repository`, links it by hand. One already added or already scanned isn't stored twice (the link still
+    applies). Returns {"created": bool, "analyzed": bool, "built_from"}; all or nothing."""
+    key = image["asset"]
+    with db.transaction(data_dir) as connection:
+        db.lock(connection, "image-registry")
+        analyzed, created = _scanned(data_dir, key), False
+        if not analyzed and registered_images.get(data_dir, key) is None:
+            if registered_images.full(data_dir):
+                raise ProvenanceError(msg("compliance.provenance.too_many_images", max=registered_images.LIMIT))
+            created = registered_images.register(data_dir, image, by=by)
+        if repository is not None:
+            built = set_link(data_dir, key, repository, by=by)
+        else:
+            rows = evidence.catalog(data_dir)
+            built = links(data_dir, rows + _pending(data_dir, rows)).get(key)
+    return {"created": created, "analyzed": analyzed, "built_from": built}
+
+
+def remove_image(data_dir: Path, key: str) -> None:
+    """Takes an image added by hand off the Images page, with its manual link. Only one never scanned: a scanned image
+    keeps its history."""
+    with db.transaction(data_dir) as connection:
+        db.lock(connection, "image-registry")
+        if _scanned(data_dir, key):
+            raise ImageAnalyzed(msg("compliance.provenance.image_analyzed"))
+        if not registered_images.forget(data_dir, key):
+            raise ImageNotRegistered(msg("compliance.provenance.image_not_registered"))
+        with documents.edit(data_dir, DOCUMENT, {}) as state:
+            state.pop(key, None)
+
+
 LINK_FILTERS = ("all", "unlinked", "label", "manual")
 
 
 def images(data_dir: Path, *, query: str = "", link: str = "all", repository: str | None = None) -> dict:
-    """The Images page: each analyzed image with its latest scan, the reference to scan it again and where it is built
-    from; filtered by name, by how it is linked (`unlinked`: no analyzed repository) or by the `repository` it is built
-    from. `counts` cover every image, whatever the filters, for the page's tabs."""
+    """The Images page: each image with its latest scan, the reference to scan it (again) and where it is built from;
+    the ones added by hand and not scanned yet come first (`analyzed: False`). Filtered by name, by how it is linked
+    (`unlinked`: no analyzed repository) or by the `repository` it is built from. `counts` cover every image, whatever
+    the filters, for the page's tabs."""
     from pitangus.modules.runs.store import find_runs
     from pitangus.modules.sources.assets import asset_key
     rows = evidence.catalog(data_dir)
-    built = links(data_dir, rows)
+    pending = _pending(data_dir, rows)
+    built = links(data_dir, rows + pending)
     latest: dict[str, dict] = {}
     for row in find_runs(data_dir, types=("image_scan",)):  # most recent first
         latest.setdefault(asset_key(row), row)
-    found = []
+    found = [{"key": row["key"], "name": row["name"], "reference": row["reference"], "last_scan": None, "last_complete": None,
+              "analyzed": False, "built_from": built.get(row["key"])} for row in pending]
     for row in rows:
         if row["kind"] != "image":
             continue
@@ -117,7 +179,7 @@ def images(data_dir: Path, *, query: str = "", link: str = "all", repository: st
         image = (scan.get("source") or {}).get("image") or {}
         found.append({"key": row["key"], "name": row["name"], "reference": image.get("reference") or scan.get("target"),
                       "last_scan": {"run_id": scan["id"], "created_at": scan["created_at"], "status": scan["status"]} if scan else None,
-                      "last_complete": row["last_complete"], "built_from": built.get(row["key"])})
+                      "last_complete": row["last_complete"], "analyzed": True, "built_from": built.get(row["key"])})
     def how(item: dict) -> str:
         return item["built_from"]["how"] if (item["built_from"] or {}).get("repository") else "unlinked"
     built_by: dict[str, int] = {}
