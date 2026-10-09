@@ -134,8 +134,9 @@
     "prepared_by": "Prepared by",
     "reviewed_by": "Reviewed by",
     "approved_by": "Approved by",
-    "page_footer": "Pitangus {{version}}  ·  page {{page}}",
-    "disclaimer": "Technical evidence produced with automated tools and reviewed by the team. It is not an audit opinion, a certification or a statement of compliance."
+    "page_footer": "Pitangus {{version}}  ·  page {{page}} of {{total}}",
+    "disclaimer": "Technical evidence produced with automated tools; it requires review by the team. It is not an audit opinion, a certification or a statement of compliance.",
+    "decimal_separator": "."
   },
   "markdown": {
     "identifiers": "Identifiers: {{list}}",
@@ -175,8 +176,8 @@
     "declared_context": "Declared context",
     "context_note": "Description provided by the team, not a verification of the system.",
     "dismissed": "Dismissed in triage",
-    "dismissed_intro_one": "{{count}} finding marked as false positive or accepted risk, with who decided and why.",
-    "dismissed_intro_other": "{{count}} findings marked as false positive or accepted risk, with who decided and why.",
+    "dismissed_intro_one": "{{count}} finding closed in triage (false positive, accepted risk or fixed by hand), with who decided and why.",
+    "dismissed_intro_other": "{{count}} findings closed in triage (false positive, accepted risk or fixed by hand), with who decided and why.",
     "coverage": "Coverage of this run",
     "no_findings": "The rules and dependencies examined produced no findings. Coverage is detailed below.",
     "pending_intro": "{{pending}}, closed by {{actions}}.",
@@ -187,15 +188,22 @@
     "annex_more": "… and {{count}} more in the JSON and the SARIF",
     "identity_import": "imported from {{tool}} (SARIF)",
     "identity_import_commit": "imported from {{tool}} (SARIF) at commit `{{commit}}`",
-    "title_import": "Imported findings · {{name}}"
+    "title_import": "Imported findings · {{name}}",
+    "run_status": {
+      "queued": "queued",
+      "running": "running",
+      "completed": "completed",
+      "incomplete": "incomplete",
+      "failed": "failed"
+    }
   },
   "asset": {
     "title": "Current state of findings · {{name}}",
-    "asset_line": "Asset: `{{id}}` · UTC cutoff: `{{date}}`",
+    "asset_line": "Asset: `{{id}}` · cutoff: `{{date}}`",
     "scope_text": "Cumulative view of this asset's findings registry. It combines full scans and PR reviews; it isn't an independent test and doesn't show continuous coverage.",
     "included_one": "{{count}} finding included in this view.",
     "included_other": "{{count}} findings included in this view.",
-    "lifecycle_counts": "{{open}} open; {{fixed}} fixed; {{suppressed}} dismissed in triage; {{excluded}} excluded.",
+    "lifecycle_counts": "Open: {{open}} · fixed: {{fixed}} · dismissed in triage: {{suppressed}} · excluded: {{excluded}}.",
     "empty": "The selected view has no findings.",
     "lifecycle_line": "Lifecycle: **{{status}}** · first seen `{{first}}` · last seen `{{last}}`.",
     "limit_tools": "The registry only reflects the tools, paths and repositories analyzed.",
@@ -324,14 +332,14 @@
     "period_range": "{{start}} to {{end}}",
     "period_scan": "Scan of {{date}}",
     "period_state": "State as of {{date}}",
-    "issued_value": "{{date}} · ref. {{ref}}",
     "meta": {
       "organization": "Organization",
       "system": "System / scope",
       "period": "Period",
       "prepared_by": "Prepared by",
       "prepared_for": "Prepared for",
-      "issued": "Issued"
+      "issued": "Issued",
+      "reference": "Reference"
     },
     "kpi": {
       "in_scope": "in scope",
@@ -346,12 +354,12 @@
     },
     "of_total": "{{done}} of {{total}}",
     "summary": "{{findings}} in the scope of this report: {{critical}}, {{high}}, {{medium}} and {{low}}. Open or in progress: {{active}}; fixed: {{fixed}}; with an approved exception: {{excepted}}.",
-    "summary_kev_one": "{{count}} is a vulnerability with known active exploitation (CISA KEV).",
-    "summary_kev_other": "{{count}} are vulnerabilities with known active exploitation (CISA KEV).",
+    "summary_kev_one": "{{count}} of the open findings has known active exploitation (CISA KEV).",
+    "summary_kev_other": "{{count}} of the open findings have known active exploitation (CISA KEV).",
     "summary_grouped": "They group into {{actions}}: advisories on the same dependency are closed by a single update.",
     "method_static": "Static analysis of {{date}}, without running the code or sending it to external services.",
     "method_engines": "Engines: {{list}}.",
-    "method_snapshot": "Analyzed snapshot: SHA-256 {{sha}}…",
+    "method_snapshot": "Analyzed snapshot: SHA-256 {{sha}}.",
     "method_state": "Cumulative state of the repository as of {{date}}: it combines full scans and pull request reviews, with the date each finding was detected and, where relevant, fixed.",
     "method_gaps": "Not fully completed: {{gaps}}. Those areas don't mean “no findings”.",
     "method_complete": "All scan engines completed.",
@@ -375,7 +383,10 @@
     "no_full_scan": "No full scan",
     "open_heading": "Open critical and high ({{count}})",
     "open_truncated": "Showing {{shown}} of {{total}} actions; the full detail is in each repository's report.",
-    "no_open": "No open critical or high findings."
+    "no_open": "No open critical or high findings.",
+    "period_note": "Findings detected up to {{end}} and not fixed before {{start}}. Their status and deadlines are as of {{issued}}.",
+    "method_revision": "Analyzed revision: {{revision}}.",
+    "summary_scan": "{{findings}} in the scope of this report: {{critical}}, {{high}}, {{medium}} and {{low}}. Open or in progress: {{active}}; with an approved exception: {{excepted}}."
   },
   "frameworks": {
     "soc2": {
@@ -404,7 +415,7 @@
         "a8_8": {
           "code": "A.8.8",
           "name": "Management of technical vulnerabilities",
-          "text": "Vulnerabilities identified, assessed and under treatment, with their status and owner."
+          "text": "Vulnerabilities identified, assessed and under treatment, with their status."
         },
         "a8_9": {
           "code": "A.8.9",
@@ -553,9 +564,10 @@
       "asset": "Asset",
       "type": "Type",
       "date": "Date",
-      "revision": "Branch / revision",
+      "revision": "Branch / commit",
       "engines": "Engines",
-      "reference": "Reference"
+      "reference": "Reference",
+      "snapshot": "Snapshot (SHA-256)"
     },
     "kpi": {
       "pending": "pending",
@@ -566,7 +578,7 @@
     "decided_one": "{{count}} team decision (accepted risk or false positive) is left out of the count.",
     "decided_other": "{{count}} team decisions (accepted risk or false positive) are left out of the count.",
     "incomplete": "Incomplete coverage: {{gaps}}. What wasn't analyzed doesn't mean “no findings”.",
-    "first_truncated": "The first 15 of {{total}} actions, by active exploitation, severity and reach. The rest are in the sections below.",
+    "first_truncated": "The first {{shown}} of {{total}} actions, by active exploitation, severity and reach. The rest are in the sections below.",
     "dependencies": "Dependencies ({{packages}} · {{vulnerabilities}})",
     "partial_fix": "some advisory has no fix",
     "no_fixed_version": "no fixed version",
@@ -664,6 +676,7 @@
     "period_reversed": "The period ends before it starts",
     "too_many_findings": "Too many findings for one report: filter or pick fewer (up to 5000)",
     "unsupported_profile": "Unsupported profile or run",
-    "invalid_title": "Invalid title"
+    "invalid_title": "Invalid title",
+    "scan_outside_period": "This scan is from {{date}}, outside the period {{start}} to {{end}}. Choose a scan from the period or the repository's state."
   }
 }

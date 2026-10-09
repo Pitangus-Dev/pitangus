@@ -7,6 +7,19 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The audit report's period is now real.** On a repository's state it keeps the findings detected by the end of the
+  period and not fixed before it starts, and says so; a single scan outside the period is refused instead of being
+  presented as evidence for it. The consolidated report filters the same way.
+- **Figures that add up.** Findings out of scope no longer count as in scope; the critical and high figures are the
+  open ones in both reports; a single scan no longer shows "0 fixed" (it can't know).
+- **Evidence whole.** The revision is the git commit (the snapshot's SHA-256 goes apart, whole), the reference is no
+  longer cut, long paths keep their file name and line, and the closing note no longer claims a review nobody signed.
+- Smaller fixes: "page X of Y", code shown as code instead of backticks, dependency advisories located at their
+  manifest, EPSS with the locale's decimal separator, Spanish agreeing with «hallazgos», and the Markdown export with
+  its states translated and its headings nested properly.
+
 ### Security
 
 - **The panel and the docs site build with pnpm instead of npm**, pinned by hash through corepack, with supply-chain

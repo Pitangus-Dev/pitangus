@@ -167,6 +167,21 @@ def _severity(level, locale: str) -> str:
     return t(f"reports.common.severity.{level}", locale) if level in SEVERITY_ORDER else str(level or "—")
 
 
+def _step_status(status, locale: str) -> str:
+    known = ("completed", "partial", "not_tested", "inconclusive", "failed", "pending", "skipped")
+    return t(f"reports.common.step_status.{status}", locale) if status in known else str(status or "—")
+
+
+def _percent(value: float, locale: str) -> str:
+    text_ = f"{value * 100:.1f}"
+    return (text_.replace(".", ",") if t("reports.design.decimal_separator", locale) == "," else text_) + " %"
+
+
+def _where(finding: dict) -> str:
+    """A dependency advisory points at its manifest (its line says nothing); code at path:line."""
+    return str(finding.get("path")) if finding.get("scanner") == "sca" or not finding.get("line") else f"{finding.get('path')}:{finding.get('line')}"
+
+
 def _action_label(action, locale: str) -> str:
     return t(f"reports.common.action.{action}", locale) if action in ACTION_ORDER else str(action)
 
@@ -183,13 +198,13 @@ def _ordered_findings(record: dict) -> list[dict]:
         SEVERITY_ORDER.get(item.get("severity"), 5), str(item.get("title", ""))))
 
 
-def _finding_block(finding: dict, locale: str) -> list[str]:
+def _finding_block(finding: dict, locale: str, *, level: str = "###") -> list[str]:
     """One finding in Markdown. `finding` is already localized."""
     package = finding.get("package") or {}
     advisory = finding.get("advisory") or {}
     action = (finding.get("priority") or {}).get("action", "track")
-    lines = [f"### {finding['title']}", "",
-             f"**{finding['severity'].upper()}** · {_action_label(action, locale)} · `{finding['scanner']}` · `{finding['rule_id']}`"]
+    lines = [f"{level} {finding['title']}", "",
+             f"**{_severity(finding['severity'], locale)}** · {_action_label(action, locale)} · `{finding['scanner']}` · `{finding['rule_id']}`"]
     identifiers = [*finding.get("cve", []), *[item for item in finding.get("ghsa", []) if item != finding["rule_id"]]]
     if identifiers:
         lines.append(t("reports.markdown.identifiers", locale, list=", ".join(f"`{item}`" for item in identifiers)))
@@ -198,7 +213,7 @@ def _finding_block(finding: dict, locale: str) -> list[str]:
         lines.append(t("reports.markdown.package", locale, name=package["name"], version=package.get("version"), ecosystem=package.get("ecosystem"),
                        path=finding["path"], fix=msg("reports.markdown.fixed_in", version=fixed) if fixed else msg("reports.markdown.no_fixed_version")))
     else:
-        lines.append(t("reports.markdown.location", locale, where=f"{finding['path']}:{finding['line']}"))
+        lines.append(t("reports.markdown.location", locale, where=_where(finding)))
     source = finding.get("source") or {}
     if source.get("name"):
         name = source["name"].replace("[", "(").replace("]", ")")
@@ -211,7 +226,8 @@ def _finding_block(finding: dict, locale: str) -> list[str]:
         kev = finding["kev"]
         lines.append(t("reports.markdown.kev_ransomware" if kev.get("ransomware") else "reports.markdown.kev", locale, date=kev.get("date_added")))
     if finding.get("epss"):
-        lines.append(t("reports.markdown.epss", locale, score=f"{finding['epss']['score']:.1%}", percentile=f"{finding['epss']['percentile']:.0%}"))
+        lines.append(t("reports.markdown.epss", locale, score=_percent(finding["epss"]["score"], locale),
+                       percentile=f"{finding['epss']['percentile']:.0%}"))
     if finding.get("cwe"):
         lines.append("CWE: " + ", ".join(f"CWE-{item}" for item in finding["cwe"]))
     triage = finding.get("triage") or {}
@@ -226,8 +242,10 @@ def _finding_block(finding: dict, locale: str) -> list[str]:
         if triage.get("reason"):
             parts.append(t("reports.markdown.triage_reason", locale, reason=triage["reason"]))
         lines.append(" · ".join(parts))
-    lines += ["", t("reports.markdown.why_priority", locale, factors="; ".join((finding.get("priority") or {}).get("factors", []))),
-              "", t("reports.markdown.remediation", locale, text=finding["remediation"])]
+    factors = (finding.get("priority") or {}).get("factors") or []
+    if factors:
+        lines += ["", t("reports.markdown.why_priority", locale, factors="; ".join(factors))]
+    lines += ["", t("reports.markdown.remediation", locale, text=finding["remediation"])]
     from pitangus.modules.findings.fix_guide import guide
     fix = localize(finding.get("fix") or guide(finding), locale)
     if fix and (fix["commands"] or fix["example"] or len(fix["steps"]) > 1):
@@ -270,7 +288,9 @@ def render_repository_report(record: dict, *, locale: str | None = None) -> str:
     heading = "reports.markdown.title_import" if imported is not None else "reports.markdown.title_image" if image else "reports.markdown.title_code"
     lines = ["# " + t(heading, locale, name=source["name"]), "",
              t("reports.markdown.run_line", locale, id=record["id"], date=record["created_at"], provider=source["provider"], identity=identity),
-             t("reports.markdown.status_line", locale, status=record["status"], files=summary["files"], dependencies=summary["dependencies"]), "",
+             t("reports.markdown.status_line", locale, status=t(f"reports.markdown.run_status.{record['status']}", locale)
+               if record["status"] in ("queued", "running", "completed", "incomplete", "failed") else record["status"],
+               files=summary["files"], dependencies=summary["dependencies"]), "",
              "## " + t("reports.markdown.executive_summary", locale), "",
              *_header(locale, "priority", "count", "", "severity", "count")]
     rows = [(_action_label("act", locale), priorities.get("act", 0), _severity("critical", locale), severities.get("critical", 0)),
@@ -294,15 +314,16 @@ def render_repository_report(record: dict, *, locale: str | None = None) -> str:
                   *_header(locale, "finding", "decision", "reason", "by", "expires")]
         for finding in suppressed:
             triage = finding.get("triage") or {}
-            lines.append(f"| {_md(finding['title'], 100)} | {_md(triage.get('status'), 20)} | {_md(triage.get('reason') or '—', 200)} | "
+            decision = text(TRIAGE_LABELS[triage["status"]], locale) if triage.get("status") in TRIAGE_LABELS else triage.get("status")
+            lines.append(f"| {_md(finding['title'], 100)} | {_md(decision, 30)} | {_md(triage.get('reason') or '—', 200)} | "
                          f"{_md(triage.get('by') or '—', 40)} | {_md(str(triage.get('expires_at') or '—')[:10], 12)} |")
         lines.append("")
     lines += ["## " + t("reports.markdown.coverage", locale), ""]
     for index, step in enumerate(record["steps"], 1):
-        lines += [f"{index}. **{step['name']}** · `{step['status']}`. {step['detail']}"]
+        lines += [f"{index}. **{step['name']}** · {_step_status(step['status'], locale)}." + (f" {step['detail']}" if step.get("detail") else "")]
     lines += ["", "### OWASP Web Top 10:2025", ""]
     for item in record["owasp_coverage"]:
-        lines.append(f"- {item['id']} · {item['title']}: `{item['status']}` · {item['reason']}")
+        lines.append(f"- {item['id']} · {item['title']}: {_step_status(item['status'], locale)} · {item['reason']}")
     lines += ["", "### " + t("reports.common.limitations", locale), "", *[f"- {item}" for item in record["limitations"]], ""]
     return "\n".join(lines + _sources_section(record.get("findings") or [], locale))
 
@@ -341,9 +362,9 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
         item = entry["items"][0]
         what = (f"{entry['name']} {entry['version']} · {t('reports.count.advisories', locale, count=len(entry['items']))}"
                 if entry["kind"] == "package" else item.get("title"))
-        where = entry["path"] if entry["kind"] == "package" else f"{item.get('path')}:{item.get('line')}"
+        where = entry["path"] if entry["kind"] == "package" else _where(item)
         lines.append(f"| {_severity(entry['severity'], locale)}{' · KEV' if entry['kev'] else ''} | {_md(what, 100)} | "
-                     f"`{_md(where, 90)}` | {_md(action(entry, short=True, locale=locale), 160)} |")
+                     f"`{_md(where, 400)}` | {_md(action(entry, short=True, locale=locale), 160)} |")
     packages = [entry for entry in groups if entry["kind"] == "package"]
     if packages:
         lines += ["", "### " + t("reports.markdown.dependencies", locale, packages=msg("reports.count.packages", count=len(packages)),
@@ -361,16 +382,16 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
         rest = [item for item in code if item.get("severity") not in ("critical", "high")]
         lines += ["", "### " + t("reports.common.code_heading", locale, count=len(code)), ""]
         for finding in serious[:MD_DETAIL_LIMIT]:
-            lines += _finding_block(finding, locale)
+            lines += _finding_block(finding, locale, level="####")
         if len(serious) > MD_DETAIL_LIMIT:
             lines += [t("reports.markdown.detail_truncated", locale, shown=MD_DETAIL_LIMIT, total=len(serious)), ""]
         if rest:
             lines += ["#### " + t("reports.common.medium_low", locale, count=len(rest)), "",
                       *_header(locale, "severity", "finding", "location", "fix")]
             for item in rest[:MD_TABLE_LIMIT]:
-                where = f"{item.get('path')}:{item.get('line')}"
+                where = _where(item)
                 lines.append(f"| {_severity(item.get('severity'), locale)} | {_md(item.get('title'), 100)} | "
-                             f"`{_md(where, 90)}` | {_md(item.get('remediation'), 160)} |")
+                             f"`{_md(where, 400)}` | {_md(item.get('remediation'), 160)} |")
             if len(rest) > MD_TABLE_LIMIT:
                 lines.append(f"| | {t('reports.markdown.more_in_panel', locale, count=len(rest) - MD_TABLE_LIMIT)} | | |")
             lines.append("")
@@ -386,7 +407,7 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
             lines.append(f"| {_md(identifier, 40)} | {_md(package.get('name'), 60)} {_md(package.get('version'), 30)} | "
                          f"{_severity(item.get('severity'), locale) if item.get('severity') in SEVERITY_ORDER else '—'} | "
                          f"{advisory['cvss_score'] if isinstance(advisory.get('cvss_score'), (int, float)) else '—'} | "
-                         f"{f'{epss * 100:.1f} %' if isinstance(epss, (int, float)) else '—'} | {t('reports.common.yes', locale) if item.get('kev') else '—'} | "
+                         f"{_percent(epss, locale) if isinstance(epss, (int, float)) else '—'} | {t('reports.common.yes', locale) if item.get('kev') else '—'} | "
                          f"{_md(package.get('fixed_version') or '—', 40)} | {_md((item.get('source') or {}).get('short') or '—', 20)} |")
         if len(advisories) > MD_ANNEX_LIMIT:
             lines.append(f"| {t('reports.markdown.annex_more', locale, count=len(advisories) - MD_ANNEX_LIMIT)} | | | | | | | |")
@@ -421,7 +442,9 @@ def render_asset_report(record: dict, *, locale: str | None = None) -> str:
     for finding in findings:
         lines += _finding_block(finding, locale)
         state = finding.get("lifecycle") or {}
-        lines += [t("reports.asset.lifecycle_line", locale, status=state.get("status") or msg("reports.common.unknown"),
+        status = state.get("status")
+        lines += [t("reports.asset.lifecycle_line", locale, status=t(f"reports.audit.status.{status}", locale) if status in ("open", "fixed", "excluded")
+                    else msg("reports.common.unknown"),
                     first=state.get("first_seen") or "—", last=state.get("last_seen") or "—"), ""]
     lines += ["## " + t("reports.common.limitations", locale), "", "- " + t("reports.asset.limit_tools", locale),
               "- " + t("reports.asset.limit_runs", locale), ""]

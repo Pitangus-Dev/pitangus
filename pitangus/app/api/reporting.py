@@ -116,7 +116,7 @@ def audit_report(context: Context = Depends(guard(Policy(action="audit-report", 
         pdf = render_audit_pdf(record, findings, options, version=RELEASE, locale=context.locale)
     except (ReportError, cra.CraError) as exc:
         raise ApiError(400, problem(exc)) from exc
-    context.state.log.info("audit_report", extra={"user": user["username"], "reason": f"{record['id']}: {len(findings)} hallazgos, {options['framework']}"})
+    context.state.log.info("audit_report", extra={"user": user["username"], "reason": f"{record['id']}: {len(findings)} findings, {options['framework']}"})
     return Response(pdf, headers={"content-type": "application/pdf"})
 
 
@@ -163,5 +163,5 @@ def _portfolio_report(context: Context, data: dict) -> Response:
         pdf = render_portfolio_pdf(items, options, version=RELEASE, scope_label=scope, coverage=coverage, locale=context.locale)
     except (ReportError, cra.CraError) as exc:
         raise ApiError(400, problem(exc)) from exc
-    context.state.log.info("audit_report", extra={"user": user["username"], "reason": f"{scope}: {len(items)} repositorios, {options['framework']}"})
+    context.state.log.info("audit_report", extra={"user": user["username"], "reason": f"{scope}: {len(items)} repositories, {options['framework']}"})
     return Response(pdf, headers={"content-type": "application/pdf"})

@@ -21,7 +21,7 @@ from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
 from pitangus.modules.reporting.design import (DANGER_BG, INK, ORDER, SEVERITY, SOFT, STYLE, SUCCESS, SUCCESS_BG, WIDTH,
                             build, bullets, chip as _chip, count as _count, coverage_gaps, day as _day, disclaimer, grid as _grid, h2, header,
-                            hexval, kpis as _kpis, listing, meta, signoff, t as _t)
+                            hexval, kpis as _kpis, listing, location, meta, path, plain, rich, signoff, t as _t)
 from pitangus.shared import i18n
 from pitangus.shared.i18n import default_locale, localize, msg, text
 
@@ -107,6 +107,32 @@ def status_of(finding: dict) -> str:
     return (finding.get("triage") or {}).get("status") or "open"
 
 
+def in_period(finding: dict, start: str, end: str) -> bool:
+    """Was it part of the period? Detected by its end and not fixed (or excluded) before its start."""
+    lifecycle = finding.get("lifecycle") or {}
+    first = _day(lifecycle.get("first_seen"))
+    if end and first != "—" and first > end:  # without a detection date it stays: never drop evidence silently
+        return False
+    if start:
+        closed = {"fixed": (lifecycle.get("fixed") or {}).get("at"), "excluded": (lifecycle.get("excluded") or {}).get("at")}.get(lifecycle.get("status"))
+        if (finding.get("triage") or {}).get("status") == "fixed":
+            closed = closed or (finding.get("triage") or {}).get("at")
+        if closed and _day(closed) < start:
+            return False
+    return True
+
+
+def _scoped(record: dict, findings: list[dict], options: dict) -> list[dict]:
+    """The findings of the period. A single scan is a moment: it must fall inside the period, it isn't filtered."""
+    start, end = options["period_from"], options["period_to"]
+    if record.get("type") != "asset_state":
+        when = _day(record.get("created_at"))
+        if (start or end) and when != "—" and not ((not start or when >= start) and (not end or when <= end)):
+            raise ReportError(msg("reports.errors.scan_outside_period", date=when, start=start or "—", end=end or "—"))
+        return findings
+    return [item for item in findings if in_period(item, start, end)] if start or end else findings
+
+
 def _risk(finding: dict) -> str:
     """Why it matters. For dependencies, the advisory description: the title already repeats its summary."""
     advisory = finding.get("advisory") or {}
@@ -143,12 +169,11 @@ def _group_cells(entry: dict, fallback_date, locale: str) -> tuple[str, str]:
                          counts=counts_text(entry["counts"], locale=locale))
         text_ = (f"<b>{_t(entry['name'], 60)} {_t(entry['version'], 30)}</b> · {_t(summary, 200)}"
                  f'<br/><font color="#636363">{_t(listing(entry["ids"], 4, locale=locale), 140)}</font>')
-        return text_, _t(entry["path"], 90)
+        return text_, path(entry["path"], 22)
     item = items[0]
     ids = ", ".join((item.get("cve") or [])[:2] or (item.get("ghsa") or [])[:1])
     text_ = _t(item.get("title"), 140) + (f'<br/><font color="#636363">{_t(ids, 60)}</font>' if ids else "")
-    where = item.get("path") if item.get("scanner") == "sca" else f"{item.get('path')}:{item.get('line')}"
-    return text_, _t(where, 90)
+    return text_, path(location(item), 22)
 
 
 SLA_LEVELS = ("critical", "high", "medium", "low")
@@ -169,15 +194,15 @@ def _deadlines(groups: list[dict], summary: dict | None, locale: str) -> list:
         if overdue:
             late.append((min(item["days_left"] for item in overdue), min(item["due"] for item in overdue), entry))
     late.sort(key=lambda row: (row[0], ORDER.get(row[2]["severity"], 9)))
-    # Same units as the panel (advisories) and, alongside, the table's actions: one package can gather several advisories.
+    # Counted as findings (code findings have deadlines too) and, alongside, the table's actions: one package gathers several.
     items = [item for entry in groups for item in entry["items"]]
     state = lambda wanted: sum(1 for item in items if (item.get("sla") or {}).get("state") == wanted)
     running = sum(1 for item in items if item.get("sla"))
     overdue = state("overdue")
-    story = [h2(i18n.t("reports.audit.deadlines_heading", locale, advisories=msg("reports.count.advisories", count=overdue))),
-             Paragraph(_t(i18n.t("reports.audit.deadlines_body", locale, policy=policy, running=msg("reports.count.advisories", count=running),
-                                 overdue=msg("reports.count.advisories", count=overdue), actions=msg("reports.count.actions", count=len(late)),
-                                 soon=msg("reports.count.advisories", count=state("soon"))), 800), STYLE["body"])]
+    story = [h2(i18n.t("reports.audit.deadlines_heading", locale, advisories=msg("reports.count.findings", count=overdue))),
+             Paragraph(_t(i18n.t("reports.audit.deadlines_body", locale, policy=policy, running=msg("reports.count.findings", count=running),
+                                 overdue=msg("reports.count.findings", count=overdue), actions=msg("reports.count.actions", count=len(late)),
+                                 soon=msg("reports.count.findings", count=state("soon"))), 800), STYLE["body"])]
     if not late:
         return story + [Paragraph(_t(i18n.t("reports.audit.none_overdue", locale)), STYLE["body"])]
     rows = [_head(locale, "severity", "finding", "detected", "was_due", "overdue_by")]
@@ -227,13 +252,13 @@ def _detail_block(entry: dict, locale: str) -> list:
         risk = i18n.t("reports.audit.more_advisories", locale, risks=risks, count=len(items) - 3) if len(items) > 3 else risks
     else:
         heading = f"<b>{_t(item.get('title'), 160)}</b>"
-        where = f"{item.get('path')}:{item.get('line')} · {status_label(status_of(item), locale)} · {', '.join((item.get('cve') or [])[:3]) or item.get('rule_id')}"
+        where = f"{location(item)} · {status_label(status_of(item), locale)} · {', '.join((item.get('cve') or [])[:3]) or item.get('rule_id')}"
         risk = _risk(item)
     block = [Table([[_chip(entry["severity"], locale=locale), Paragraph(heading, STYLE["body"])]], colWidths=[18 * mm, WIDTH - 18 * mm],
                    style=[("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]),
              Paragraph(_t(where, 240), STYLE["note"]),
-             Paragraph(f"<b>{_t(i18n.t('reports.common.risk_label', locale))}</b> " + _t(risk, 450), STYLE["body"]),
-             Paragraph(f"<b>{_t(i18n.t('reports.common.fix_label', locale))}</b> " + _t(action(entry, locale=locale), 450), STYLE["body"])]
+             Paragraph(f"<b>{_t(i18n.t('reports.common.risk_label', locale))}</b> " + rich(risk, 450), STYLE["body"]),
+             Paragraph(f"<b>{_t(i18n.t('reports.common.fix_label', locale))}</b> " + rich(action(entry, locale=locale), 450), STYLE["body"])]
     references = [url for url in ((item.get("advisory") or {}).get("references") or [])[:2] if str(url).startswith("https://")]
     if references and len(items) == 1:
         block.append(Paragraph(_t(i18n.t("reports.common.references", locale, list=" · ".join(references)), 200), STYLE["note"]))
@@ -244,6 +269,8 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
     locale = locale or default_locale()
     record, findings = localize(record, locale), localize(findings, locale)
     framework_label, controls = _framework(options["framework"], locale)
+    # «Out of scope» findings are kept by the registry for the record, but they aren't part of the evidence.
+    findings = _scoped(record, [item for item in findings if status_of(item) != "excluded"], options)
     findings = sorted(findings, key=lambda item: (ORDER.get(item.get("severity"), 9), str(item.get("path")), item.get("line") or 0))
     if len(findings) > 5000:
         raise ReportError(msg("reports.errors.too_many_findings"))
@@ -257,8 +284,11 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
     statuses = [status_of(item) for item in findings]
     fixed = statuses.count("fixed")
     excepted = sum(1 for status in statuses if status in ("accepted", "false_positive"))
-    active = sum(1 for status in statuses if status in ("open", "in_progress"))
-    kev = sum(1 for item in findings if item.get("kev"))
+    pending = [item for item, status in zip(findings, statuses) if status in ("open", "in_progress")]
+    active = len(pending)
+    # The key figures are what is still open, as in the technical report; the summary sentence gives every status.
+    open_counts = {level: sum(1 for item in pending if item.get("severity") == level) for level in ORDER}
+    kev = sum(1 for item in pending if item.get("kev"))
     groups = fix_groups(findings)
     evidence = i18n.t("reports.audit.evidence", locale)
 
@@ -267,8 +297,14 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
                        (i18n.t("reports.audit.meta.system", locale), system), (i18n.t("reports.audit.meta.period", locale), period),
                        (i18n.t("reports.audit.meta.prepared_by", locale), options["prepared_by"] or "—"),
                        (i18n.t("reports.audit.meta.prepared_for", locale), options["prepared_for"] or "—"),
-                       (i18n.t("reports.audit.meta.issued", locale), i18n.t("reports.audit.issued_value", locale, date=issued, ref=str(record.get("id", ""))[:24]))]))
-    sentences = [i18n.t("reports.audit.summary", locale, findings=msg("reports.count.findings", count=len(findings)),
+                       (i18n.t("reports.audit.meta.issued", locale), issued),
+                       (i18n.t("reports.audit.meta.reference", locale), str(record.get("id") or "—"), "mono")]))
+    if record.get("type") == "asset_state" and (options["period_from"] or options["period_to"]):
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(_t(i18n.t("reports.audit.period_note", locale, start=options["period_from"] or "—", end=options["period_to"] or issued,
+                                         issued=issued), 400), STYLE["note"]))
+    # A single scan doesn't know what was fixed: its sentence leaves that out, like its key figures.
+    sentences = [i18n.t("reports.audit.summary" if record.get("type") == "asset_state" or fixed else "reports.audit.summary_scan", locale, findings=msg("reports.count.findings", count=len(findings)),
                         critical=msg("reports.count.critical", count=counts["critical"]), high=msg("reports.count.high", count=counts["high"]),
                         medium=msg("reports.count.medium", count=counts["medium"]),
                         low=msg("reports.count.low_info", count=counts["low"] + counts["info"]), active=active, fixed=fixed, excepted=excepted)]
@@ -276,12 +312,14 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
         sentences.append(i18n.t("reports.audit.summary_kev", locale, count=kev))
     if len(groups) < len(findings):
         sentences.append(i18n.t("reports.audit.summary_grouped", locale, actions=msg("reports.count.actions", count=len(groups))))
-    story += [Spacer(1, 10), h2(i18n.t("reports.common.summary", locale)),
-              _kpis([(i18n.t("reports.audit.kpi.in_scope", locale), len(findings), INK, SOFT),
-                     (i18n.t("reports.audit.kpi.critical", locale), counts["critical"], SEVERITY["critical"][1], DANGER_BG),
-                     (i18n.t("reports.audit.kpi.high", locale), counts["high"], SEVERITY["high"][0], SEVERITY["high"][1]),
-                     (i18n.t("reports.audit.kpi.open", locale), active, INK, SOFT), (i18n.t("reports.audit.kpi.fixed", locale), fixed, SUCCESS, SUCCESS_BG),
-                     (i18n.t("reports.audit.kpi.excepted", locale), excepted, INK, SOFT)]),
+    figures = [(i18n.t("reports.audit.kpi.in_scope", locale), len(findings), INK, SOFT),
+               (i18n.t("reports.audit.kpi.open_critical", locale), open_counts["critical"], SEVERITY["critical"][1], DANGER_BG),
+               (i18n.t("reports.audit.kpi.open_high", locale), open_counts["high"], SEVERITY["high"][0], SEVERITY["high"][1]),
+               (i18n.t("reports.audit.kpi.open", locale), active, INK, SOFT)]
+    if record.get("type") == "asset_state" or fixed:  # a single scan doesn't know what was fixed
+        figures.append((i18n.t("reports.audit.kpi.fixed", locale), fixed, SUCCESS, SUCCESS_BG))
+    figures.append((i18n.t("reports.audit.kpi.excepted", locale), excepted, INK, SOFT))
+    story += [Spacer(1, 10), h2(i18n.t("reports.common.summary", locale)), _kpis(figures),
               Spacer(1, 6), Paragraph(_t(" ".join(sentences), 900), STYLE["body"])]
     if controls:
         story += _controls(framework_label, controls, deadlines=bool(((record.get("summary") or {}).get("sla") or {}).get("days")), locale=locale)
@@ -290,8 +328,11 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
     method = [i18n.t("reports.audit.method_static", locale, date=analysed)]
     if engines:
         method.append(i18n.t("reports.audit.method_engines", locale, list=", ".join(f"{step['name']}" for step in engines)))
+    commit = (record.get("pull_request") or {}).get("head_sha") or source.get("commit")
+    if commit:  # whole: evidence is never truncated
+        method.append(i18n.t("reports.audit.method_revision", locale, revision=" @ ".join(value for value in (source.get("branch"), commit) if value)))
     if source.get("sha256"):
-        method.append(i18n.t("reports.audit.method_snapshot", locale, sha=source["sha256"][:16]))
+        method.append(i18n.t("reports.audit.method_snapshot", locale, sha=source["sha256"]))
     gaps = coverage_gaps(record.get("steps") or [], locale=locale)
     if record.get("type") == "asset_state":
         method = [i18n.t("reports.audit.method_state", locale, date=analysed)]
@@ -313,8 +354,8 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
             rows.append([_chip(entry["severity"], locale=locale), Paragraph(text_, STYLE["cell"]), Paragraph(where, STYLE["cellmuted"]),
                          Paragraph(_t(_status_text(entry["items"], locale), 60), STYLE["cell"]),
                          Paragraph(_first_seen(entry["items"], record.get("created_at")), STYLE["cellmuted"]),
-                         Paragraph(_t(action(entry, short=True, locale=locale), 180), STYLE["cell"])])
-        story.append(_grid(rows, [19 * mm, 52 * mm, 34 * mm, 19 * mm, 17 * mm, WIDTH - 141 * mm], zebra=True))
+                         Paragraph(plain(action(entry, short=True, locale=locale), 180), STYLE["cell"])])
+        story.append(_grid(rows, [19 * mm, 48 * mm, 40 * mm, 19 * mm, 17 * mm, WIDTH - 143 * mm], zebra=True))
     else:
         story.append(Paragraph(_t(i18n.t("reports.audit.no_findings", locale)), STYLE["body"]))
     story += _deadlines(groups, (record.get("summary") or {}).get("sla"), locale)
@@ -343,7 +384,8 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
             story.append(Paragraph(_t(i18n.t("reports.audit.detail_truncated", locale, limit=DETAIL_LIMIT, total=len(detailed)), 400), STYLE["note"]))
     story += signoff(options["prepared_by"], locale=locale) + [Spacer(1, 6), Paragraph(_t(disclaimer(locale), 400), STYLE["note"])]
     title = options["title"] or i18n.t("reports.audit.title_with_system", locale, system=system)
-    return build(story, title=title, footer=f"{title[:90]}  ·  {options['organization'][:40] or 'Pitangus'}", version=version,
+    footer = f"{title[:90]}  ·  {options['organization'][:40]}" if options["organization"] else title[:120]
+    return build(story, title=title, footer=footer, version=version,
                  author=options["prepared_by"] or "Pitangus", subject=framework_label, locale=locale)
 
 
@@ -366,7 +408,8 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
     rows, open_items, exceptions = [], [], []
     totals = {"critical": 0, "high": 0, "open": 0, "fixed": 0, "excepted": 0}
     for item in items:
-        findings = [finding for finding in item["findings"] if status_of(finding) != "excluded"]
+        findings = [finding for finding in item["findings"] if status_of(finding) != "excluded"
+                    and in_period(finding, options["period_from"], options["period_to"])]
         states = [status_of(finding) for finding in findings]
         pending = [finding for finding, state in zip(findings, states) if state in active_states]
         counts = {level: sum(1 for finding in pending if finding.get("severity") == level) for level in ORDER}
@@ -379,7 +422,7 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
                              ("fixed", fixed), ("excepted", excepted)):
             totals[name] += amount
     rows.sort(key=lambda row: (-row[1]["critical"], -row[1]["high"], -row[2], row[0]))
-    open_items.sort(key=lambda pair: (not pair[1]["kev"], ORDER.get(pair[1]["severity"], 9), -len(pair[1]["items"]), pair[0]))
+    open_items.sort(key=lambda pair: (not pair[1].get("malicious"), not pair[1]["kev"], ORDER.get(pair[1]["severity"], 9), -len(pair[1]["items"]), pair[0]))
     analysed = sum(1 for row in rows if row[5])
     known_total = coverage.get("total")
     evidence = i18n.t("reports.audit.evidence", locale)
@@ -391,6 +434,9 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
                        (i18n.t("reports.audit.meta.prepared_by", locale), options["prepared_by"] or "—"),
                        (i18n.t("reports.audit.meta.prepared_for", locale), options["prepared_for"] or "—"),
                        (i18n.t("reports.audit.meta.issued", locale), issued)]))
+    if options["period_from"] or options["period_to"]:
+        story += [Spacer(1, 4), Paragraph(_t(i18n.t("reports.audit.period_note", locale, start=options["period_from"] or "—",
+                                                   end=options["period_to"] or issued, issued=issued), 400), STYLE["note"])]
     story += [Spacer(1, 10), h2(i18n.t("reports.common.summary", locale)),
               _kpis([(i18n.t("reports.audit.kpi.analysed", locale),
                       i18n.t("reports.audit.of_total", locale, done=analysed, total=known_total) if known_total else analysed, INK, SOFT),
@@ -448,7 +494,7 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
             text_ += _marks(entry, locale)
             table.append([_chip(entry["severity"], locale=locale), Paragraph(_t(name, 60), STYLE["cellmuted"]), Paragraph(text_, STYLE["cell"]),
                           Paragraph(_first_seen(entry["items"], None), STYLE["cellmuted"]),
-                          Paragraph(_t(action(entry, short=True, locale=locale), 160), STYLE["cell"])])
+                          Paragraph(plain(action(entry, short=True, locale=locale), 160), STYLE["cell"])])
         story.append(_grid(table, [19 * mm, 36 * mm, 57 * mm, 17 * mm, WIDTH - 129 * mm], zebra=True))
         if len(open_items) > 400:
             story.append(Paragraph(_t(i18n.t("reports.audit.open_truncated", locale, shown=400, total=len(open_items)), 400), STYLE["note"]))
