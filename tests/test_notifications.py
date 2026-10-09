@@ -67,8 +67,12 @@ class NotificationTests(unittest.TestCase):
         slack = next(payload for url, payload, _, _ in self.sent if url == SLACK)
         self.assertIn("1 hallazgo nuevo en acme/api", slack["text"])  # the critical-only channel counts only its own
         # The way to the panel is a plain link: a button would need an interactive Slack app.
-        self.assertNotIn("actions", [block["type"] for block in slack["blocks"]])
-        self.assertRegex(slack["blocks"][-1]["elements"][0]["text"], r"^<https?://[^|>]+\|.+ →>$")
+        blocks = slack["attachments"][0]["blocks"]
+        self.assertNotIn("actions", [block["type"] for block in blocks])
+        self.assertRegex(blocks[-1]["elements"][0]["text"], r"^<https?://[^|>]+\|.+ →>$")
+        # Plain words, no emoji; the edge carries the colour of the most severe finding.
+        self.assertEqual(slack["attachments"][0]["color"], notifications.EDGE["critical"])
+        self.assertNotRegex(json.dumps(slack, ensure_ascii=False), "[\U0001F300-\U0001FAFF]")
         self.sent.clear()
         notifications.on_run({**record, "type": "pr_review"}, [_finding("d" * 64, "critical")], sender=self.sender, wait=True)
         self.assertEqual(self.sent, [])  # PRs are notified on the PR itself
@@ -123,3 +127,14 @@ class RouteTests(HttpCase):
                                                                                    "threshold": "high"}, admin)[0], 400)
             _, listing, _ = self.call("GET", "/api/notifications", headers={"Cookie": admin})
             self.assertNotIn("hooks.slack.com/services", json.dumps(listing))
+
+
+class HeadlineTests(unittest.TestCase):
+    def test_dependency_advisories_keep_only_their_summary(self):
+        cases = [({"name": "flatted"}, "flatted 3.3.1: flatted: Flatted: Prototype pollution", "Prototype pollution"),
+                 ({"name": "next"}, "next 14.2.3: nextjs: Authorization Bypass in Next.js Middleware", "Authorization Bypass in Next.js Middleware"),
+                 ({"name": "@scope/pkg"}, "@scope/pkg 1.0: @scope/pkg: thing broken", "thing broken"),
+                 ({"name": "next"}, "next 14.2.3", "next 14.2.3"),
+                 ({}, "Exposed secret: Grafana API token", "Exposed secret: Grafana API token")]
+        for package, title, expected in cases:
+            self.assertEqual(notifications._headline({"package": package}, title), expected)

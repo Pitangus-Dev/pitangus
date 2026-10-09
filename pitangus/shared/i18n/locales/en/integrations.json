@@ -276,7 +276,9 @@
     "more": "… and {{count}} more",
     "open": "Open in Pitangus",
     "test_title": "Pitangus test",
-    "test_text": "If you can see this, the channel is set up correctly."
+    "test_text": "If you can see this, the channel is set up correctly.",
+    "most_urgent": "Most urgent",
+    "dependency": "Dependency"
   },
   "ai": {
     "unsupported": "Unsupported provider",
