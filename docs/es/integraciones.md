@@ -18,6 +18,46 @@ El repositorio incluye una [GitHub Action](../../action.yml) compuesta y oficial
 
 Para sumar al registro de Pitangus los hallazgos de otro motor, importa SARIF 2.1.0 desde el panel. Un pipeline puede enviar SARIF a una instancia mediante `POST /api/ci/sarif` con `PITANGUS_IMPORT_TOKEN`; usa HTTPS y guarda el token en el almacén de secretos de CI. El sitio genera la [referencia de la API de automatización](../../docs-site/README.es.md#referencia-de-api-generada) desde OpenAPI.
 
+### Traer resultados de otros analizadores
+
+Pitangus no corre todos los motores que existen, y lo dice en
+[funcionalidades.md](funcionalidades.md#qué-cubre-pitangus-y-qué-no). Lo que no corre, lo importa: cualquier
+herramienta que escriba SARIF 2.1.0 entra en el mismo registro, con las mismas huellas, triage, plazos, incidencias
+de Jira y avisos que los hallazgos propios, y se marca corregido igual cuando una importación posterior ya no lo
+reporta. Tres caminos: **Nuevo análisis → Importar SARIF** en el panel; `python -m pitangus import-sarif` en el
+servidor; o desde CI, la entrada `import-sarif` de la Action, que envía los archivos a `/api/ci/sarif` con
+`PITANGUS_IMPORT_TOKEN` ([cli.md](cli.md#importar-resultados-de-otras-herramientas-import-sarif)).
+
+Los dos huecos por los que más preguntan:
+
+- **Análisis profundo de flujo de datos.** Las reglas propias de Pitangus siguen los datos dentro de un archivo.
+  CodeQL y Semgrep llegan más lejos. En GitHub Actions, conserva el SARIF de CodeQL en vez de subirlo (o además de
+  subirlo) a code scanning, y envíalo a Pitangus:
+
+  ```yaml
+        - uses: github/codeql-action/init@v4      # fíjala al SHA del commit de la etiqueta, como las demás
+          with:
+            languages: javascript-typescript
+        - uses: github/codeql-action/analyze@v4
+          with:
+            upload: never
+            output: codeql
+        - uses: Pitangus-Dev/pitangus@v0.12.2
+          if: always()
+          with:
+            scan: false
+            import-sarif: codeql/javascript.sarif   # un archivo por lenguaje en esa carpeta
+            server: https://pitangus.example.com
+            token: ${{ secrets.PITANGUS_IMPORT_TOKEN }}
+  ```
+
+  CodeQL es gratis en repositorios públicos y, con GitHub Advanced Security, en los privados; correr su CLI en otro
+  sitio se rige por los términos de CodeQL de GitHub. El mismo paso con Semgrep está en
+  [cli.md](cli.md#resultados-de-otras-herramientas).
+- **Pruebas dinámicas.** Pitangus nunca ejecuta ni ataca tus aplicaciones. Hasta que lo ofrezca, corre ZAP o Nuclei
+  por tu cuenta, contra sistemas tuyos, e importa su SARIF de la misma forma (ZAP lo escribe con la plantilla
+  `sarif-json` de su add-on de informes; Nuclei, con `-se`).
+
 ## Jira Cloud
 
 Pitangus admite sitios de Jira Cloud bajo `https://<sitio>.atlassian.net`. Una persona administradora conecta el sitio, el correo y un token de API de Atlassian; después asigna variables de Pitangus a los campos que Jira ofrece para un proyecto y tipo de incidencia.

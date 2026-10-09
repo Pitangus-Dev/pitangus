@@ -104,6 +104,7 @@ day.
 No manifests ship yet. The pieces map directly: a Deployment for the API (port 8766, `/api/health` as the probe), one
 for the worker image (it needs no Docker socket), the four variables from a Secret, and a PostgreSQL of your choice.
 With `PITANGUS_PERIODIC=external`, a CronJob running `python -m pitangus periodic` replaces the leader worker's clock.
+How many worker replicas, and what to watch to scale them: [scaling.md](scaling.md).
 
 ## Periodic tasks
 

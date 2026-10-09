@@ -65,6 +65,7 @@ export default defineConfig({
             { slug: 'containers' },
             { slug: 'deploy' },
             { slug: 'deploy-vps' },
+            { slug: 'scaling' },
             { slug: 'security' },
             { slug: 'troubleshooting' },
           ],

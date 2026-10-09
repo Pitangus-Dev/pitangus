@@ -39,7 +39,7 @@ internet ──443/80──▶ caddy ──edge network──▶ api (panel + AP
 | Disk | 40 GB SSD | 80 GB SSD |
 | Architecture | amd64 or arm64 (Hetzner CAX, Graviton, Ampere) | |
 
-Where it goes: each scan runs one engine at a time, capped at 2 CPUs and 3 GB of memory; the app and PostgreSQL use about 400 MB at rest. On disk, the engine images take ~2 GB, Trivy's database ~1.3 GB, Grype's ~2.1 GB (only if you scan container images), the local NVD copy ~0.7 GB, and each scan keeps a snapshot of the repository while it runs. Add room for your backups if they stay on the same disk before going offsite.
+Where it goes: each scan runs one engine at a time, capped at 2 CPUs and 3 GB of memory; the app and PostgreSQL use about 400 MB at rest. On disk, the engine images take ~2 GB, Trivy's database ~1.3 GB, Grype's ~2.1 GB (only if you scan container images), the local NVD copy ~0.7 GB, and each scan keeps a snapshot of the repository while it runs. Add room for your backups if they stay on the same disk before going offsite. More repositories than one worker keeps up with: [scaling.md](scaling.md).
 
 Use a **dedicated server** for Pitangus, not one shared with other applications or other people: see [Hardening](#hardening).
 

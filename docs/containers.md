@@ -124,6 +124,6 @@ Engines are launched per scan as ephemeral containers (`--rm`) with the code mou
 
 ## Isolation between scans
 
-Each scan uses its own snapshot of the repository (`data/work/snapshot-…/`, one per scan) and fresh engine containers that are destroyed when it finishes, so two scans never share files or processes. Today they run **one at a time** (a queue with a single worker), which keeps resource use to one engine at a time.
+Each scan uses its own snapshot of the repository (`data/work/snapshot-…/`, one per scan) and fresh engine containers that are destroyed when it finishes, so two scans never share files or processes. Each worker runs them **one at a time**, which keeps its resource use to one engine at a time; more workers run more scans ([scaling.md](scaling.md)).
 
 We evaluated moving to an ephemeral *runner* per scan (a container with every tool, its own network and its own volume, destroyed at the end) and running several in parallel. It's an open line of work. The evaluation concluded that the direction is right, but the tools shouldn't be downloaded on every scan (slow, and a larger supply-chain surface); they should ship in a pinned image instead, and parallelism needs a configurable limit so it doesn't exhaust the machine.

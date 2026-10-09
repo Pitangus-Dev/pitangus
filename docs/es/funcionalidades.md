@@ -6,6 +6,25 @@ Qué hace cada parte del panel y con qué criterio. Para instalarlo, ve a [insta
 
 **Vocabulario.** Pitangus hace **análisis**: lee el código, las dependencias, la configuración y las imágenes sin ejecutarlos ni atacar nada, y sus hallazgos son candidatos que hay que confirmar. No es un *pentest*: un pentest intenta explotar los fallos contra un sistema en marcha y demuestra el impacto. Las futuras **pruebas dinámicas** (DAST) serán escaneos activos, tampoco un pentest; solo cuando un agente intente explotar y confirme el impacto hablaremos de *pentest asistido por IA*. Un informe de Pitangus no sustituye al pentest que piden SOC 2 o ISO 27001.
 
+## Qué cubre Pitangus y qué no
+
+Pitangus no escribe motores propios: corre los mejores de código abierto, fijados por digest, y añade lo que ninguno
+tiene, un solo registro con triage, plazos, evidencia, revisión de pull requests y prueba de que la corrección es
+real. Ahí también termina. Frente a una suite comercial (Snyk, Checkmarx, Veracode…), queda así:
+
+| Área | Qué corre | Dónde se queda corto |
+| --- | --- | --- |
+| Dependencias (SCA) | Trivy, OSV-Scanner y Grype sobre NVD, GHSA y OSV, con KEV y EPSS | Sin análisis de alcanzabilidad: una función vulnerable se reporta la llame tu código o no. |
+| Secretos | Gitleaks, más reglas propias con un paso de verificación para algunos tipos de token | — |
+| Imágenes de contenedor | Trivy y Grype sobre las capas, el historial y la configuración, leídas del registro | — |
+| Infraestructura y pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) y zizmor (GitHub Actions) | — |
+| Tu propio código (SAST) | Opengrep con las 58 reglas de `rules/`, 14 de ellas con seguimiento de datos dentro de un archivo | **Es la capa más fina.** Sin flujo de datos entre archivos ni conocimiento de frameworks más allá de esas reglas. Un motor propietario como Snyk Code encuentra fallos de lógica que estas reglas no ven. Para análisis profundo, corre CodeQL o Semgrep y [trae sus resultados](integraciones.md#traer-resultados-de-otros-analizadores): tienen el mismo ciclo de vida. |
+| Aplicaciones y API en ejecución (DAST) | Nada: Pitangus nunca ejecuta ni ataca lo que analiza | Previsto (abajo). Mientras tanto, corre ZAP o Nuclei por tu cuenta e importa su SARIF. |
+| Escala | Un análisis por worker; tantos workers como necesites, en una máquina o en varias | Sin análisis en paralelo dentro de un worker, sin manifiestos de autoescalado y sin medición publicada. Ver [escalar.md](escalar.md). |
+
+Lo que una suite comercial no puede ofrecer es la otra mitad de la tabla: corre en tu servidor, el código no sale de
+él, no hay precio por desarrollador y el código fuente es abierto.
+
 ## En desarrollo
 
 Se ven en el panel en gris, con la marca **En desarrollo**, para que se sepa que vienen. Hoy no dan resultados y no se pueden usar:
@@ -29,7 +48,7 @@ La matriz de la ejecución se calcula de lo que corrió: cuántas reglas propias
 
 ## Escaneos en segundo plano
 
-Lanzar un escaneo devuelve al instante `202` con su identificador y lo encola; un único trabajador los procesa en orden. Mientras corre, la ejecución existe con estado `queued` o `running` y un registro de progreso pensado para el usuario —qué paso empezó, qué terminó y con qué cuenta— que el panel muestra como consola en vivo y conserva plegado al terminar. El progreso nunca incluye rutas internas, salidas crudas de herramientas ni trazas: si algo falla, se dice en qué fase y que el equipo puede revisar los logs con el identificador. Al terminar, el panel avisa con un aviso flotante (y una notificación del navegador si ya diste permiso).
+Lanzar un escaneo devuelve al instante `202` con su identificador y lo encola; uno o más workers los toman de la cola, cada uno un análisis a la vez ([escalar.md](escalar.md)). Mientras corre, la ejecución existe con estado `queued` o `running` y un registro de progreso pensado para el usuario —qué paso empezó, qué terminó y con qué cuenta— que el panel muestra como consola en vivo y conserva plegado al terminar. El progreso nunca incluye rutas internas, salidas crudas de herramientas ni trazas: si algo falla, se dice en qué fase y que el equipo puede revisar los logs con el identificador. Al terminar, el panel avisa con un aviso flotante (y una notificación del navegador si ya diste permiso).
 
 ## Imágenes de contenedor
 
@@ -223,7 +242,7 @@ La revisión de código corre cinco motores externos, cada uno en su contenedor 
 
 La imagen de Opengrep la construye `make build` (o `make up`): descarga el binario oficial y lo compara con su SHA-256 fijado (la verificación Cosign está documentada en `docker/engines/opengrep/VERIFY.md`).
 
-Las reglas son nuestras porque las del registry de Semgrep no pueden usarse en un producto (licencia de uso interno desde diciembre de 2024). Son 58, orientadas a sumideros concretos con análisis de taint donde el lenguaje lo permite, y se validan contra `fixtures/sast-samples/`: las 58 disparan sobre código vulnerable de los siete lenguajes. Cada paso declara qué lenguajes del repositorio tienen reglas y cuáles no. No hay análisis entre archivos: es una limitación de todo SAST open source y se dice en los límites de cada ejecución.
+Las reglas son nuestras porque las del registry de Semgrep no pueden usarse en un producto (licencia de uso interno desde diciembre de 2024). Son 58, orientadas a sumideros concretos con análisis de taint donde el lenguaje lo permite, y se validan contra `fixtures/sast-samples/`: las 58 disparan sobre código vulnerable de los siete lenguajes. Cada paso declara qué lenguajes del repositorio tienen reglas y cuáles no. Siguen los datos solo dentro de un archivo: el análisis entre archivos es lo que hacen CodeQL, Joern o Psalm, y lo que Pitangus importa en vez de correr ([traer resultados de otros analizadores](integraciones.md#traer-resultados-de-otros-analizadores)); cada ejecución lo dice en sus límites.
 
 ### Varios motores, un solo hallazgo
 

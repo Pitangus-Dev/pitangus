@@ -8,6 +8,7 @@ English · [Español](es/README.md)
 | [Installation](installation.md) | Requirements, first start, upgrades, backups and uninstalling. |
 | [Where to deploy](deploy.md) | Every target: one-file compose (Coolify, Dokploy, Portainer, Hostinger), Render, Railway, Vercel for the API, Kubernetes, and the periodic tasks. |
 | [Deploy on a VPS](deploy-vps.md) | Your own server with a domain: sizing, OS prep, HTTPS with Caddy, published images, backups and restore, upgrades, monitoring, Coolify and Dokploy. |
+| [Scaling](scaling.md) | What one worker does, adding workers on one machine or several, scanning in CI instead, sizing, and what doesn't scale yet. |
 | [Containers and Makefile](containers.md) | What you need, every `make` command, the images, the `docker/` layout and hardening. |
 | [Connect GitHub](github-app.md) | Create your GitHub App step by step, install it and review pull requests. |
 | [Integrations and automation](integrations.md) | GitHub, CI and SARIF, Jira, notifications, webhooks and periodic tasks. |
