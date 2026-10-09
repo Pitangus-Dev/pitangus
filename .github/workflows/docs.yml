@@ -19,20 +19,15 @@ on:
       - 'pitangus/shared/settings.py'
       - 'web/src/shared/api/openapi.json'
   workflow_dispatch:
-    inputs:
-      deploy:
-        description: Publish the validated site to this repository's GitHub Pages project site
-        required: true
-        type: boolean
-        default: false
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   build:
     name: Types, sources, links and build
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -49,14 +44,14 @@ jobs:
         env:
           SITE_URL: https://pitangus-dev.github.io
           BASE_PATH: /pitangus
-      - if: github.event_name == 'workflow_dispatch' && inputs.deploy
+      - if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
           path: docs-site/dist
 
   deploy:
     name: Publish project site
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    if: github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
