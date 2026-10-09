@@ -28,4 +28,4 @@ load them automatically.
   `fetch` for new code.
 - **API.** New routes in FastAPI (`pitangus/app/api/<context>.py`) with Pydantic schemas and `guard(Policy(...))`. After changing a route:
   `make openapi` (the panel uses the generated types in `web/src/shared/api/`; CI checks they are current).
-- **Checks.** `make test` and `make arch` (backend) and `cd web && npx tsc -b && npx oxlint src` (panel).
+- **Checks.** `make test` and `make arch` (backend) and `cd web && pnpm exec tsc -b && pnpm exec oxlint src` (panel).

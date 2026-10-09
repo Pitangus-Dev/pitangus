@@ -7,6 +7,17 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Security
+
+- **The panel and the docs site build with pnpm instead of npm**, pinned by hash through corepack, with supply-chain
+  settings in their `pnpm-workspace.yaml`. A release has to be a week old before it is installed, and a recent version
+  that loses the provenance its predecessors had is refused. Transitive dependencies can't come from git or tarballs,
+  and dependencies' install scripts never run (the way the 2025 npm worms spread). The lockfiles were converted with the
+  same versions; the docs site moved from two releases published that same day to the previous ones (astro 7.3.5,
+  Starlight 0.42.5). `openapi-typescript` is now a pinned dev dependency instead of an `npx` download.
+
+## [0.12.0] - 2026-10-08
+
 ### Changed
 
 - **Tamandua is now Pitangus**: the great kiskadee (*Pitangus sulphuratus*, the bird Colombians call bichofué), made in

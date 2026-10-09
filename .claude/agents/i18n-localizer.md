@@ -8,7 +8,7 @@ You localize Pitangus. Read `.claude/skills/pitangus-i18n/SKILL.md` first and fo
 
 Work only inside the scope you are given: the listed files, plus the catalog namespaces assigned to you. Other
 agents are editing other files at the same time, so never touch files outside your scope, never run formatters
-over the whole tree, and never run `npm run build` or `make up`.
+over the whole tree, and never run `pnpm run build` or `make up`.
 
 For each file in scope:
 1. Replace every user-facing literal (visible text, `aria-label`, `title`, `placeholder`, errors, progress
@@ -19,7 +19,7 @@ For each file in scope:
 4. Keep behavior identical. Keep comments few and in English; do not rewrite comments you didn't need to touch.
 
 Before you finish, run the checks relevant to your scope and fix what fails:
-- panel: `cd web && npx tsc -b && npx oxlint <your files>`
+- panel: `cd web && pnpm exec tsc -b && pnpm exec oxlint <your files>`
 - server: `PITANGUS_DATABASE_URL=$(sh scripts/test-db.sh) PITANGUS_DB_ISOLATE=data-dir PITANGUS_CONFIG_DIR=$(mktemp -d) DOCKER_HOST=unix:///nonexistent/docker.sock PITANGUS_DEFAULT_LOCALE=es .venv/bin/python -m unittest discover -s tests -p '<relevant tests>'`
 - always: `... -p test_i18n.py` (same env).
 

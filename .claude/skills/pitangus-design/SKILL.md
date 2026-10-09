@@ -61,7 +61,7 @@ Every PDF is built with `pitangus/modules/reporting/design.py` (tokens, `header`
 
 ## How to verify before calling it done
 
-1. `make test` (includes `test_ui_tokens`, `test_report_design`, `test_threat_layout_parity`) and `cd web && npx tsc -b && npx oxlint src`.
+1. `make test` (includes `test_ui_tokens`, `test_report_design`, `test_threat_layout_parity`) and `cd web && pnpm exec tsc -b && pnpm exec oxlint src`.
 2. **Look at it**: generate the PDF with real data (`data/runs/*/run.json`) and convert it with `pdftoppm -r 60 -png`; the SVG with `rsvg-convert`; the panel with a temporary preview page (delete it afterwards). Check pages, gaps, clipped text and contrast.
 3. Compare pages before/after whenever you change a report.
 

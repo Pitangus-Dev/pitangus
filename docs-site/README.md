@@ -4,22 +4,22 @@ This directory contains the Astro Starlight application that turns the repositor
 
 ## Run it locally
 
-Use Node.js 22.12 or newer and npm 10.8.2 or newer:
+Use Node.js 22.12 or newer and pnpm through corepack (`corepack enable`; `package.json` pins the version):
 
 ```bash
 cd docs-site
-npm ci
-npm run dev       # http://localhost:4321
-npm run check     # source consistency and Astro type checks
-npm run build     # production build and internal-link validation
-npm run preview   # http://localhost:4322 after a build
+pnpm install --frozen-lockfile
+pnpm run dev       # http://localhost:4321
+pnpm run check     # source consistency and Astro type checks
+pnpm run build     # production build and internal-link validation
+pnpm run preview   # http://localhost:4322 after a build
 ```
 
 The default local base path is `/`. To test the GitHub Pages project path exactly:
 
 ```bash
-SITE_URL=https://pitangus-dev.github.io BASE_PATH=/pitangus npm run build
-SITE_URL=https://pitangus-dev.github.io BASE_PATH=/pitangus npm run preview
+SITE_URL=https://pitangus-dev.github.io BASE_PATH=/pitangus pnpm run build
+SITE_URL=https://pitangus-dev.github.io BASE_PATH=/pitangus pnpm run preview
 ```
 
 On PowerShell:
@@ -27,8 +27,8 @@ On PowerShell:
 ```powershell
 $env:SITE_URL = 'https://pitangus-dev.github.io'
 $env:BASE_PATH = '/pitangus'
-npm run build
-npm run preview
+pnpm run build
+pnpm run preview
 ```
 
 ## Canonical content

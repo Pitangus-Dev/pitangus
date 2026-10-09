@@ -175,7 +175,7 @@ purge: ## DELETES data/ and config/. Requires CONFIRM=delete
 dev-setup: ## Create .venv and install the Python and panel dependencies
 	$(PYTHON) -m venv $(VENV)
 	$(VENV)/bin/pip install -q --disable-pip-version-check --require-hashes --only-binary :all: -r requirements-dev.txt
-	cd web && npm ci --no-audit --no-fund
+	cd web && pnpm install --frozen-lockfile
 
 # In the image's own Python (3.12, pinned by digest) so the lock resolves like the release build.
 lock: ## Regenerate requirements.txt and requirements-dev.txt from the .in files (hashes). Upgrade: ARGS="--upgrade-package fastapi"
@@ -191,7 +191,7 @@ dev: ## Local server without a container on 127.0.0.1:8767 (engines through your
 	PITANGUS_CONFIG_DIR=$(CURDIR)/.dev/config $(VENV)/bin/python -m pitangus --data-dir .dev/data serve --port 8767
 
 web: ## Build the panel into pitangus/app/static/
-	cd web && npm run build
+	cd web && pnpm run build
 
 test: ## Backend tests (starts a throwaway test Postgres if needed)
 	@url=$$(sh scripts/test-db.sh) && config=$$(mktemp -d) && trap 'rm -rf "$$config"; sh scripts/test-db.sh drop "$$url"' EXIT && \
@@ -204,7 +204,7 @@ standalone: ## Regenerate deploy/compose.yaml (one file, published images, no Do
 openapi: ## API OpenAPI schema and the panel's TypeScript types (web/src/shared/api/)
 	@mkdir -p web/src/shared/api
 	$(VENV)/bin/python -c "from pitangus.app.api import openapi_document; print(openapi_document(), end='')" > web/src/shared/api/openapi.json
-	cd web && npx --yes openapi-typescript@7.13.0 src/shared/api/openapi.json -o src/shared/api/schema.d.ts
+	cd web && pnpm exec openapi-typescript src/shared/api/openapi.json -o src/shared/api/schema.d.ts
 
 arch: ## Architecture contracts (import-linter, see pyproject.toml)
 	$(VENV)/bin/lint-imports --cache-dir .cache/import-linter
@@ -214,9 +214,9 @@ lint-py: ## Backend lint (ruff) and types (mypy), see pyproject.toml
 	$(VENV)/bin/mypy
 
 lint: ## Panel lint and types
-	cd web && npx tsc -b && npm run lint
+	cd web && pnpm exec tsc -b && pnpm run lint
 
 test-web: ## Panel tests (vitest: sign-in, triage, launching an analysis)
-	cd web && npm test
+	cd web && pnpm test
 
 check: test arch lint-py lint test-web ## Tests, architecture contracts and lint (required before a PR)

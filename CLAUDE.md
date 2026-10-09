@@ -22,4 +22,7 @@
   `fetch` for new code.
 - **API.** New routes in FastAPI (`pitangus/app/api/<context>.py`) with Pydantic schemas and `guard(Policy(...))`. After changing a route:
   `make openapi` (the panel uses the generated types in `web/src/shared/api/`; CI checks they are current).
-- **Checks.** `make test`, `make arch` and `make lint-py` (backend) and `cd web && npx tsc -b && npm run lint && npm test` (panel; lint fails on warnings).
+- **Dependencies.** The panel (`web/`) and the docs site (`docs-site/`) use pnpm (corepack), never npm: their
+  `pnpm-workspace.yaml` holds the supply-chain settings. Don't loosen them to make an install pass; if a package trips
+  them, find out why first.
+- **Checks.** `make test`, `make arch` and `make lint-py` (backend) and `cd web && pnpm exec tsc -b && pnpm run lint && pnpm test` (panel; lint fails on warnings).
