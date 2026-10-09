@@ -14,7 +14,8 @@ WORKDIR /src/web
 # holds the supply-chain settings: no install scripts, no release younger than a week, no trust downgrades.
 RUN corepack enable
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
-RUN COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile
+# The pnpm store and pip's wheels stay in BuildKit cache mounts between local builds (never in the image).
+RUN --mount=type=cache,id=pitangus-pnpm,target=/root/.local/share/pnpm/store COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile
 COPY web/ ./
 # vite.config writes to ../pitangus/app/static: keep the repository layout.
 RUN mkdir -p /src/pitangus/app && pnpm run build
@@ -43,7 +44,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
  && rm -rf /tmp/docker /tmp/docker.tgz && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --disable-pip-version-check --require-hashes --only-binary :all: -r requirements.txt
+RUN --mount=type=cache,id=pitangus-pip,target=/root/.cache/pip pip install --disable-pip-version-check --require-hashes --only-binary :all: -r requirements.txt
 COPY pitangus/ ./pitangus/
 COPY rules/ ./rules/
 COPY --from=web /src/pitangus/app/static ./pitangus/app/static

@@ -196,7 +196,7 @@ web: ## Build the panel into pitangus/app/static/
 test: ## Backend tests (starts a throwaway test Postgres if needed)
 	@url=$$(sh scripts/test-db.sh) && config=$$(mktemp -d) && trap 'rm -rf "$$config"; sh scripts/test-db.sh drop "$$url"' EXIT && \
 	PITANGUS_DATABASE_URL="$$url" PITANGUS_DB_ISOLATE=data-dir PITANGUS_CONFIG_DIR="$$config" PITANGUS_DEFAULT_LOCALE=es \
-	DOCKER_HOST=unix:///nonexistent/docker.sock $(VENV)/bin/python -m unittest discover -s tests
+	DOCKER_HOST=unix:///nonexistent/docker.sock $(VENV)/bin/python scripts/parallel_tests.py
 
 standalone: ## Regenerate deploy/compose.yaml (one file, published images, no Docker socket)
 	python3 scripts/standalone-compose.py

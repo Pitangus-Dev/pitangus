@@ -68,8 +68,9 @@ jobs:
             exit 1
           fi
       - name: Tests
-        # No Docker daemon for the tests: none of them may start a real engine (they mock what they need).
-        run: DOCKER_HOST=unix:///nonexistent/docker.sock PITANGUS_CONFIG_DIR="$RUNNER_TEMP/config" python -m unittest discover -s tests
+        # No Docker daemon for the tests: none of them may start a real engine (they mock what they need). Four workers
+        # take the modules from a queue; each test already has its own database schema.
+        run: DOCKER_HOST=unix:///nonexistent/docker.sock python scripts/parallel_tests.py
 
   panel:
     name: Panel (types, lint and build)
@@ -123,8 +124,48 @@ jobs:
         with:
           fetch-depth: 0  # history is needed to compare with the base branch
           persist-credentials: false
+      # The same images `make build` makes (app and the verified Opengrep engine), with their layers cached between
+      # runs: a change to the code alone rebuilds only the last layers. Nothing is pushed.
+      - name: Versions
+        id: versions
+        run: |
+          echo "app=$(sed -n 's/^VERSION = "\(.*\)"/\1/p' pitangus/version.py)" >> "$GITHUB_OUTPUT"
+          echo "opengrep=$(sed -n 's|^ *image: localhost/pitangus/opengrep:\(.*\)$|\1|p' compose.yaml)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
       - name: Build Pitangus
-        run: make build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
+        with:
+          context: .
+          file: docker/app/Dockerfile
+          target: app
+          build-args: VERSION=${{ steps.versions.outputs.app }}
+          tags: localhost/pitangus/app:${{ steps.versions.outputs.app }}
+          load: true
+          cache-from: type=gha,scope=pitangus-app
+          cache-to: type=gha,scope=pitangus-app,mode=max
+      - name: Build the Opengrep engine
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
+        with:
+          context: docker/engines/opengrep
+          tags: localhost/pitangus/opengrep:${{ steps.versions.outputs.opengrep }}
+          load: true
+          cache-from: type=gha,scope=pitangus-opengrep
+          cache-to: type=gha,scope=pitangus-opengrep,mode=max
+      # Trivy's and OSV-Scanner's advisory databases, kept for the day: the first run of the day downloads them, the
+      # rest only check for updates. A new day starts from yesterday's copy.
+      - name: Day
+        id: day
+        run: echo "value=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+      # Advisory data, not code, and nothing here is published (the release builds without caches): a PR's cache stays
+      # in its own ref, and only pushes to main (reviewed PRs) write the one PRs start from.
+      - name: Advisory databases
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # zizmor: ignore[cache-poisoning] v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/pitangus-data/trivy-cache
+            ${{ runner.temp }}/pitangus-data/osv-cache
+          key: engine-databases-${{ steps.day.outputs.value }}
+          restore-keys: engine-databases-
       - name: Analyze
         env:
           EVENT: ${{ github.event_name }}
