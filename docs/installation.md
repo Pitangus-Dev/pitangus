@@ -54,9 +54,21 @@ The local NVD copy for the CVE tracker downloads in the background: a few hours 
 
 ## Upgrade
 
+New versions are listed on the [Releases page](https://github.com/Pitangus-Dev/pitangus/releases), with what changed
+and anything to do before upgrading (also in [CHANGELOG.md](../CHANGELOG.md)). To see which one you're running:
+`git describe --tags` in the repository folder, or the version in the panel's top bar (`/api/health` answers it too).
+
+**If you installed a release** (`git clone --branch v0.12.x`, as in the [quickstart](quickstart.md)), the repository
+stays on that version on purpose, and `make update` alone won't move it: it says *On v0.12.x (a fixed version): not
+pulling*. Check out the new one first:
+
 ```bash
+git fetch --tags
+git checkout v0.12.2      # the version you want
 make update
 ```
+
+**If you follow `main`** (you cloned without `--branch`), `make update` is enough: it pulls the latest code.
 
 `make update` takes a backup first (`make backup`), then pulls the code and restarts. `data/`, `config/` and the database are kept. If the new version changes the format of any data, it converts it on startup, once, after saving a copy of what it touches in `data/backups/`: there's nothing to do by hand. Before upgrading, take a backup (see below) and check under **Scans** that nothing is running: a restart marks any running scan as failed.
 

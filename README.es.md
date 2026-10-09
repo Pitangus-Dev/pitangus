@@ -37,7 +37,7 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 Necesitas **Docker** (Engine 24+ con Compose v2.24+), **make** y **git**, 4 GB de memoria y 8 GB de disco. `make doctor` lo comprueba.
 
 ```bash
-git clone --branch v0.12.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.12.2 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up

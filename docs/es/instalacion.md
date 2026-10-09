@@ -54,9 +54,22 @@ La copia local de NVD para el CVE tracker se descarga sola en segundo plano: una
 
 ## Actualizar
 
+Las versiones nuevas están en la [página de Releases](https://github.com/Pitangus-Dev/pitangus/releases), con lo que
+cambia y lo que haya que hacer antes de actualizar (también en [CHANGELOG.md](../../CHANGELOG.md)). Para saber cuál
+tienes: `git describe --tags` en la carpeta del repositorio, o la versión en la barra superior del panel (también la
+responde `/api/health`).
+
+**Si instalaste una versión** (`git clone --branch v0.12.x`, como en el [inicio rápido](inicio-rapido.md)), el
+repositorio se queda en esa versión a propósito y `make update` por sí solo no la cambia: dice *On v0.12.x (a fixed
+version): not pulling*. Primero cambia a la nueva:
+
 ```bash
+git fetch --tags
+git checkout v0.12.2      # la versión que quieras
 make update
 ```
+
+**Si sigues `main`** (clonaste sin `--branch`), basta con `make update`: trae el código más reciente.
 
 `make update` hace antes una copia (`make backup`), trae el código y reinicia. `data/`, `config/` y la base de datos se conservan. Si la versión nueva cambia el formato de algún dato, lo convierte sola al arrancar, una sola vez y tras guardar una copia de lo que toca en `data/backups/`: no hay que hacer nada a mano. Antes de actualizar conviene hacer una copia (ver abajo) y comprobar que no hay análisis en marcha en **Análisis**: un reinicio marca como fallidos los que estuvieran corriendo.
 

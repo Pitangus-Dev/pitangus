@@ -8,7 +8,7 @@ Con un servidor recién creado y un registro DNS que ya apunte a él, son cuatro
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.12.1                                   # la versión que quieras (ver Actualizar)
+git checkout v0.12.2                                   # la versión que quieras (ver Actualizar)
 make setup DOMAIN=pitangus.example.com PREBUILT=1   # HTTPS con Caddy + imágenes publicadas
 make up                                             # muestra https://pitangus.example.com y el código de configuración
 ```
@@ -99,7 +99,7 @@ Con el usuario `pitangus`:
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.12.1
+git checkout v0.12.2
 make setup DOMAIN=pitangus.example.com PREBUILT=1
 make doctor
 ```
@@ -206,7 +206,7 @@ Si se pierde `config/master.key` (o cambia `PITANGUS_MASTER_KEY`), los secretos 
 ## Actualizar
 
 ```bash
-git fetch --tags && git checkout v0.12.1   # o quédate en main y deja que make update lo traiga
+git fetch --tags && git checkout v0.12.2   # o quédate en main y deja que make update lo traiga
 make update
 ```
 
