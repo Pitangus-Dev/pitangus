@@ -61,7 +61,7 @@ class NotificationTests(unittest.TestCase):
         _, payload, headers, body = self.sent[0]
         self.assertEqual(headers["X-Pitangus-Signature"], "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest())
         self.assertEqual((payload["event"], payload["asset"], payload["counts"]["high"]), ("findings", "acme/api", 1))
-        self.assertEqual(payload["link"], f"https://pitangus.example.com/#/hallazgos?run={'r' * 32}")
+        self.assertEqual(payload["link"], f"https://pitangus.example.com/#/findings?run={'r' * 32}")
         self.sent.clear()
         notifications.on_run(record, [_finding("c" * 64, "critical"), *(_finding(str(index) * 64, "low") for index in range(6))], sender=self.sender, wait=True)
         slack = next(payload for url, payload, _, _ in self.sent if url == SLACK)

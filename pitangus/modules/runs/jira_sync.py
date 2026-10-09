@@ -93,7 +93,7 @@ def _asset_link(key: str) -> str | None:
     base = settings.text("PITANGUS_PUBLIC_URL").rstrip("/")
     if not base.startswith(("https://", "http://")):
         return None
-    return f"{base}/#/hallazgos?repo={quote(key, safe='')}"
+    return f"{base}/#/findings?repo={quote(key, safe='')}"
 
 
 def _finding_link(key: str, fingerprint: str) -> str | None:
