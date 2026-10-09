@@ -161,3 +161,12 @@ export const jiraBatchesQuery = () => queryOptions({
   structuralSharing: keepDetail,
   refetchInterval: query => (query.state.data?.items ?? []).some(item => item.pending > 0) ? 3000 : false,
 })
+
+// Findings of every asset in a scope, by tab. `search` is the scope's query string (`scopeQuery`); the prefix is what a
+// triage or a Jira issue invalidates.
+export type ScopedFindings = Response<'/api/findings/scope'>
+export const findingsScopeKey = ['findings', 'scope'] as const
+export const findingsScopeQuery = (search: string, status: 'open' | 'fixed' | 'excluded' | 'all') => queryOptions({
+  queryKey: [...findingsScopeKey, search, status],
+  queryFn: ({ signal }) => api.get<ScopedFindings>(`/api/findings/scope?${[search, `status=${status}`].filter(Boolean).join('&')}`, { signal }),
+})

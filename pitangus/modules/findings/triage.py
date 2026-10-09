@@ -142,8 +142,10 @@ def effective(entry: dict | None, today: date | None = None) -> dict:
     return view
 
 
-def annotate(data_dir: Path, record: RunRecord, decisions: dict | None = None) -> RunRecord:
-    """A copy of the run with each finding's triage status and the counts in the summary."""
+def annotate(data_dir: Path, record: RunRecord, decisions: dict | None = None, *, requested: dict | None = None,
+             entries: dict | None = None) -> RunRecord:
+    """A copy of the run with each finding's triage status and the counts in the summary. `decisions` (every asset's),
+    `requested` (every asset's verifications) and `entries` (this asset's registry) when already loaded."""
     if record.get("type") not in FINDING_RUNS:
         return record
     key = asset_key(record)
@@ -159,7 +161,8 @@ def annotate(data_dir: Path, record: RunRecord, decisions: dict | None = None) -
     # How to fix each finding (command, example, steps) is computed when served, so it improves without rescanning.
     from pitangus.modules.findings.fix_guide import attach
     from pitangus.modules.findings.verifications import annotate as verified
-    return {**record, "findings": verified(data_dir, asset_key(record), attach(findings)), "summary": summary}
+    asked = (requested.get(key) or {}) if requested is not None else None
+    return {**record, "findings": verified(data_dir, key, attach(findings), requested=asked, entries=entries), "summary": summary}
 
 
 def is_active(finding: dict) -> bool:

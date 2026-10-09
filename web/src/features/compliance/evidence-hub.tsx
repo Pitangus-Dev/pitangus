@@ -14,7 +14,7 @@ import { evidenceAssetsQuery, evidenceQuery, evidenceScopeQuery } from '@/shared
 import { formatDate } from '@/shared/i18n/format'
 import { remembered, rememberFramework, rememberedFramework, useAuditFrameworks, type Framework } from '@/features/findings/audit-frameworks'
 import { EvidenceScope } from '@/features/compliance/evidence-scope'
-import { ALL, scopeBody, scopeQuery, scopeReady, type Scope } from '@/features/compliance/scope'
+import { ALL, scopeBody, scopeQuery, scopeReady, type Scope } from '@/shared/lib/scope'
 import { ImageOrigin } from '@/features/compliance/image-origin'
 
 type Asset = Response<'/api/evidence/assets'>['items'][number]
@@ -80,7 +80,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
     <CardContent className="space-y-6">
       {!counts.assets ? <p className="text-sm text-app-muted">{t('evidence.none')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('evidence.new_scan')}</button></p> : <>
         <div className="grid gap-6 xl:grid-cols-2">
-          <EvidenceScope scope={scope} accounts={counts.accounts} total={counts.assets} one={pickOne} onChange={next => { setScope(next); setError('') }} />
+          <EvidenceScope scope={scope} accounts={counts.accounts} total={counts.assets} one={pickOne} step="1" onChange={next => { setScope(next); setError('') }} />
           <div className="min-w-0 space-y-2">
             <label htmlFor="evidence-framework" className="block text-xs text-app-muted"><span aria-hidden>2 · </span>{t('evidence.framework')}</label>
             <div className="max-w-sm"><Select value={framework} onValueChange={choose}>

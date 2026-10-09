@@ -403,5 +403,37 @@
       "disabled_added": "Built-in rules turned off: {{items}}",
       "disabled_removed": "Built-in rules turned back on: {{items}}"
     }
+  },
+  "scope": {
+    "eyebrow_one": "Several assets · {{value}}", "eyebrow_other": "Several assets · {{value}}",
+    "chosen_one": "{{count}} chosen asset", "chosen_other": "{{count}} chosen assets",
+    "everything": "Everything analyzed",
+    "help": "The current state of every asset in this scope, taken together: scans, PRs and imports. Open an asset to see its runs and settings.",
+    "one_asset_only": "Excluded paths, secret rules and picking a specific run work on one asset: choose “One” or open an asset under “By asset”.",
+    "failed": "Couldn't load the findings of this scope: {{error}}",
+    "truncated": "Showing the {{shown}} most urgent of {{total}} findings in this tab. The figures count them all; narrow the scope to list the rest.",
+    "picker_failed": "Couldn't load the organizations and assets to choose from. Reload the page to try again.",
+    "asset_inline": "Asset: {{name}}",
+    "asset": "Asset",
+    "selected_one": "{{value}} selected in {{assets}} assets", "selected_other": "{{value}} selected in {{assets}} assets",
+    "triage_across_one": "Saved separately in each of the {{count}} assets.", "triage_across_other": "Saved separately in each of the {{count}} assets.",
+    "triage_partial_one": "Saved in {{count}} of {{total}} assets. These failed:", "triage_partial_other": "Saved in {{count}} of {{total}} assets. These failed:",
+    "triage_retry_one": "Retry {{count}} asset", "triage_retry_other": "Retry {{count}} assets",
+    "audit_assets_open_one": "The asset in this scope with its open findings (critical and high in detail) and exceptions, in one document.",
+    "audit_assets_open_other": "The {{value}} assets in this scope with their open findings (critical and high in detail) and exceptions, in one document.",
+    "audit_assets_all_one": "The asset in this scope with all its findings (open, fixed and exceptions), in one document.",
+    "audit_assets_all_other": "The {{value}} assets in this scope with all their findings (open, fixed and exceptions), in one document.",
+    "audit_too_many": "A consolidated report covers up to {{max}} assets: narrow the scope.",
+    "exports_one": "PDF, SARIF, SBOM and the other files cover one asset: open it to download them.",
+    "by_asset": {
+      "title": "By asset",
+      "hint": "Pending work in each asset, most critical first. Open one to see only its findings.",
+      "repository": "Repository", "image": "Image",
+      "open": "show only this asset",
+      "pending_one": "{{value}} pending", "pending_other": "{{value}} pending",
+      "critical_one": "{{value}} critical", "critical_other": "{{value}} critical",
+      "all_one": "Show all {{value}}", "all_other": "Show all {{value}}",
+      "fewer": "Show fewer"
+    }
   }
 }

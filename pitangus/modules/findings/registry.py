@@ -313,6 +313,25 @@ def reset(data_dir: Path) -> None:
         connection.execute(delete(registry_assets).where(registry_assets.c.tenant_id == TENANT))
 
 
+LIFECYCLE_FIELDS = ("status", "origin", "first_seen", "last_seen", "first_run", "last_run", "fixed", "reopened_at", "excluded")
+
+
+def _record(key: str, name: str | None, entries: dict) -> dict:
+    """An asset's registry entries shaped like a run."""
+    items = [{**entry["finding"], "lifecycle": {field: entry.get(field) for field in LIFECYCLE_FIELDS}} for entry in entries.values()]
+    return {"id": f"{VIEW_PREFIX}{key}", "type": "repository_scan", "status": "completed",
+            "created_at": max([entry.get("last_seen") or "" for entry in entries.values()] or [""]),
+            "source": {"uid": key if key.startswith("github#") else None, "id": key, "name": name or key},
+            "findings": items, "summary": {}, "steps": [], "owasp_coverage": [], "limitations": []}
+
+
+def _bucket(item: dict) -> str:
+    """The Findings tab an annotated finding falls under: open (including what triage dismissed), fixed or excluded."""
+    if item["lifecycle"]["status"] == "excluded":
+        return "excluded"
+    return "fixed" if item["lifecycle"]["status"] == "fixed" or item["triage"]["status"] == "fixed" else "open"
+
+
 def view(data_dir: Path, key: str, *, status: str = "open") -> dict:
     """The repository's state shaped like a run, so it is viewed, triaged and exported the same way.
 
@@ -320,25 +339,12 @@ def view(data_dir: Path, key: str, *, status: str = "open") -> dict:
     `fixed`: fixed, automatically or by hand; `excluded`: under excluded paths; `all`: everything.
     """
     state = load(data_dir, key)
-    items = [{**entry["finding"], "lifecycle": {name: entry.get(name) for name in
-                                                ("status", "origin", "first_seen", "last_seen", "first_run", "last_run", "fixed", "reopened_at",
-                                                 "excluded")}}
-             for entry in state["findings"].values()]
-    record = {"id": f"{VIEW_PREFIX}{key}", "type": "repository_scan", "status": "completed",
-              "created_at": max([entry.get("last_seen") or "" for entry in state["findings"].values()] or [""]),
-              "source": {"uid": key if key.startswith("github#") else None, "id": key, "name": state.get("name") or key},
-              "findings": items, "summary": {}, "steps": [], "owasp_coverage": [], "limitations": []}
-    annotated = triage.annotate(data_dir, record)
+    annotated = triage.annotate(data_dir, _record(key, state.get("name"), state["findings"]))
     days = sla.policy(data_dir)["days"]
     sla.annotate(annotated["findings"], days)
-
-    def bucket(item: dict) -> str:
-        if item["lifecycle"]["status"] == "excluded":
-            return "excluded"
-        return "fixed" if item["lifecycle"]["status"] == "fixed" or item["triage"]["status"] == "fixed" else "open"
     deadlines = {**sla.counts(annotated["findings"]), "days": days}
     if status != "all":
-        annotated["findings"] = [item for item in annotated["findings"] if bucket(item) == status]
+        annotated["findings"] = [item for item in annotated["findings"] if _bucket(item) == status]
     return {**annotated, "type": "asset_state",
             "summary": {**annotated["summary"], "lifecycle": summarize(data_dir, key), "candidates": len(annotated["findings"]),
                         "sla": deadlines}}
@@ -346,10 +352,12 @@ def view(data_dir: Path, key: str, *, status: str = "open") -> dict:
 
 def summarize(data_dir: Path, key: str) -> dict:
     """Open (really pending), fixed and dismissed, taking triage into account."""
-    state = load(data_dir, key)
-    decisions = triage.load(data_dir).get(key, {})
+    return _summarize(load(data_dir, key)["findings"], triage.load_asset(data_dir, key))
+
+
+def _summarize(entries: dict, decisions: dict) -> dict:
     counts = {"open": 0, "fixed": 0, "suppressed": 0, "excluded": 0, "by_severity": dict.fromkeys(("critical", "high", "medium", "low"), 0), "from_pr": 0}
-    for digest, entry in state["findings"].items():
+    for digest, entry in entries.items():
         manual = (triage.effective(decisions.get(digest)) or {}).get("status", "open")
         if entry["status"] == "excluded":
             counts["excluded"] += 1
@@ -365,6 +373,81 @@ def summarize(data_dir: Path, key: str) -> dict:
             if (entry.get("origin") or {}).get("kind") == "pr":
                 counts["from_pr"] += 1
     return counts
+
+
+# Findings one scoped view serves at most: the most urgent first; the counts always cover the whole scope.
+SCOPE_FINDINGS_MAX = 10_000
+_ACTION_RANK = {"act": 0, "attend": 1, "track": 2}
+_SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
+
+def _kpis(findings: list[dict]) -> dict:
+    """The Findings tiles over every finding of the tab (before truncating): pending work only, as in one asset."""
+    active = [item for item in findings if triage.is_active(item)]
+    def count(predicate) -> int:
+        return sum(1 for item in active if predicate(item))
+    return {"active": len(active), "dismissed": len(findings) - len(active),
+            "only_excluded": bool(findings) and all(item["lifecycle"]["status"] == "excluded" for item in findings),
+            "has_sla": any(item.get("sla") for item in findings),
+            "overdue": count(lambda item: (item.get("sla") or {}).get("state") == "overdue"),
+            "soon": count(lambda item: (item.get("sla") or {}).get("state") == "soon"),
+            "act": count(lambda item: (item.get("priority") or {}).get("action") == "act"),
+            "attend": count(lambda item: (item.get("priority") or {}).get("action") == "attend"),
+            "critical": count(lambda item: item.get("severity") == "critical"),
+            "high": count(lambda item: item.get("severity") == "high"),
+            "kev": count(lambda item: bool(item.get("kev"))),
+            "fixable": count(lambda item: bool((item.get("package") or {}).get("fixed_version")))}
+
+
+def scoped_view(data_dir: Path, assets: list[dict], *, status: str = "open", limit: int = SCOPE_FINDINGS_MAX) -> dict:
+    """Several assets' states in one view (`assets`: [{"key", "name", "kind"}], e.g. a portfolio scope), each finding
+    tagged with its `asset`. Like `view`, plus `by_asset` (each asset's counts) and, past `limit`, only the most urgent
+    findings with `truncated` set: the counts (`summary.lifecycle`, `summary.kpis`, `by_asset`, `total`) always cover
+    everything. The registry, triage, verifications and Jira links are read once for the whole scope."""
+    from pitangus.modules.findings import tickets, verifications
+    keys = list(dict.fromkeys(row["key"] for row in assets))
+    entries: dict[str, dict] = {key: {} for key in keys}
+    names: dict[str, str] = {}
+    if keys:
+        with db.transaction(data_dir) as connection:
+            names = dict(connection.execute(select(registry_assets.c.asset_key, registry_assets.c.name)
+                                            .where(registry_assets.c.tenant_id == TENANT, registry_assets.c.asset_key.in_(keys))).all())
+            for key, digest, entry in connection.execute(
+                    select(registry_findings.c.asset_key, registry_findings.c.fingerprint, registry_findings.c.entry)
+                    .where(registry_findings.c.tenant_id == TENANT, registry_findings.c.asset_key.in_(keys))):
+                entries[key][digest] = entry
+    decisions, requested, links = triage.load(data_dir), verifications.load(data_dir), tickets.load_links(data_dir)
+    days = sla.policy(data_dir)["days"]
+    rows = {row["key"]: row for row in assets}
+    lifecycle = {"open": 0, "fixed": 0, "suppressed": 0, "excluded": 0, "by_severity": dict.fromkeys(("critical", "high", "medium", "low"), 0), "from_pr": 0}
+    every: list[dict] = []
+    by_asset: list[dict] = []
+    for key in keys:
+        name = rows[key].get("name") or names.get(key) or key
+        kind = rows[key].get("kind") or ("image" if key.startswith("image:") else "repository")
+        annotated = triage.annotate(data_dir, _record(key, name, entries[key]), decisions, requested=requested, entries=entries[key])
+        found = sla.annotate(annotated["findings"], days)
+        ticketed = links.get(key) or {}
+        shown = [{**item, "asset": {"key": key, "name": name, "kind": kind},
+                  **({"ticket": ticketed[item["fingerprint"]]} if item["fingerprint"] in ticketed else {})}
+                 for item in found if status == "all" or _bucket(item) == status]
+        every.extend(shown)
+        counts = _summarize(entries[key], decisions.get(key) or {})
+        for field in ("open", "fixed", "suppressed", "excluded", "from_pr"):
+            lifecycle[field] += counts[field]
+        for level, value in counts["by_severity"].items():
+            lifecycle["by_severity"][level] += value
+        by_asset.append({"key": key, "name": name, "kind": kind, "open": counts["open"], "critical": counts["by_severity"]["critical"],
+                         "high": counts["by_severity"]["high"], "fixed": counts["fixed"], "suppressed": counts["suppressed"],
+                         "excluded": counts["excluded"], "shown": len(shown)})
+    by_asset.sort(key=lambda row: (-row["critical"], -row["open"], str(row["name"]).casefold()))
+    every.sort(key=lambda item: (_ACTION_RANK.get((item.get("priority") or {}).get("action"), 3), _SEVERITY_RANK.get(item.get("severity"), 5),
+                                 str(item["asset"]["name"]).casefold(), item["fingerprint"]))
+    return {"id": "scope", "type": "asset_scope", "status": "completed",
+            "created_at": max([str(item["lifecycle"].get("last_seen") or "") for item in every] or [""]),
+            "findings": every[:limit], "total": len(every), "truncated": len(every) > limit, "by_asset": by_asset,
+            "summary": {"lifecycle": lifecycle, "candidates": len(every), "kpis": _kpis(every), "sla": {**sla.counts(every), "days": days}},
+            "steps": [], "owasp_coverage": [], "limitations": []}
 
 
 PACKAGES_SHOWN = 5  # per affected repository in the CVE tracker

@@ -70,14 +70,16 @@ def _run_rows(data_dir: Path, ids: list[str]) -> list[dict]:
     return _runs(data_dir, ids)
 
 
-def annotate(data_dir: Path, key: str, findings: list[Finding]) -> list[Finding]:
-    """Adds `verification` to the findings that have a verification requested."""
-    requested = load(data_dir).get(key) or {}
+def annotate(data_dir: Path, key: str, findings: list[Finding], *, requested: dict | None = None,
+             entries: dict | None = None) -> list[Finding]:
+    """Adds `verification` to the findings that have a verification requested. `requested` (this asset's requests)
+    and `entries` (its registry) when the caller has already loaded them."""
+    requested = (load(data_dir).get(key) or {}) if requested is None else requested
     if not requested or not any(item.get("fingerprint") in requested for item in findings):
         return findings
     from pitangus.modules.findings.registry import load as registry
     runs = {row["id"]: row for row in _run_rows(data_dir, [entry["run_id"] for entry in requested.values() if entry.get("run_id")])}
-    entries = registry(data_dir, key).get("findings", {})
+    entries = registry(data_dir, key).get("findings", {}) if entries is None else entries
     for finding in findings:
         asked = requested.get(finding.get("fingerprint"))
         if not asked:

@@ -70,6 +70,18 @@ Hay carpetas que no conviene mirar: ejemplos vulnerables a propósito (como `fix
 
 La identidad del repositorio es la de GitHub (su id numérico): un repositorio renombrado sigue siendo el mismo, y los hallazgos de uno eliminado se retiran tras 24 horas de gracia. Se puede filtrar por ejecución, ver abiertos, remediados o todos, y exportar a PDF, JSON, Markdown, SARIF o Jira. La vista «Estado actual» exporta su registro acumulado por una ruta propia; no se confunde con una ejecución individual. Los dosieres PDF para SOC 2 Tipo II e ISO/IEC 27001:2022 son evidencia técnica para revisión, no certificaciones ni opiniones de cumplimiento.
 
+**Varios activos a la vez.** Hallazgos tiene el mismo selector de alcance que Cumplimiento: **Uno** (lo predeterminado,
+con sus ejecuciones y su configuración), **Una organización** (sus repositorios), **Elegir varios** (repositorios e
+imágenes) o **Todos**; con un repositorio vienen las imágenes construidas desde él, salvo que lo desactives. El alcance
+queda en la dirección (`#/findings?scope=account&account=acme`), así que al recargar o compartir el enlace se abre la
+misma vista. Junta el estado actual de cada activo: las tarjetas suman todo el alcance, **Por activo** muestra cada uno
+con sus pendientes y críticos (al pulsarlo se abre solo ese) y la tabla gana la columna **Activo**. El triage funciona
+por hallazgo o sobre una selección de varios activos (se guarda activo por activo; si alguno falla, el panel dice cuál y
+reintenta solo esos), igual que las incidencias de Jira y la evidencia de auditoría consolidada. Las rutas excluidas,
+las reglas de secretos, elegir una ejecución concreta y los archivos de un activo (PDF, SARIF, SBOM…) van por activo. Un
+alcance muy grande lista los 10 000 hallazgos más urgentes de la pestaña y lo avisa; las cifras siempre cuentan todo
+(`GET /api/findings/scope`).
+
 ### Plazos de corrección
 
 Cada hallazgo pendiente tiene una fecha límite según su severidad, contada desde la **primera detección** (reabrirlo

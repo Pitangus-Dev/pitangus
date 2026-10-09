@@ -5,14 +5,14 @@ import { ExternalLink, LoaderCircle, Ticket } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { apiPost, type PostBody, type PostResponse } from '@/shared/api/client'
-import { queueJira } from '@/features/integrations/jira-batches'
+import { byAsset, queueJira } from '@/features/integrations/jira-batches'
 import { ForceConfirm } from '@/features/integrations/jira-background'
 import type { JiraAvailability } from '@/features/integrations/jira-availability'
 
 export type TicketLink = { key: string; url: string; by?: string; linked_at?: string; project?: string | null; destination?: string | null }
-// Which findings to send: from a run, or from an asset's current state.
-export type JiraSelection = { runId: string } | { asset: string }
-export type JiraFindingRef = { fingerprint: string; label: string }
+// Which findings to send: from a run, from an asset's current state, or from several assets (each ref names its own).
+export type JiraSelection = { runId: string } | { asset: string } | { byAsset: true }
+export type JiraFindingRef = { fingerprint: string; label: string; asset?: string }
 type ExportResult = PostResponse<'/api/integrations/jira/issues'>
 type ExportItem = ExportResult['created'][number]
 // Up to this many findings are created while the dialog waits; more go through the queue, in the background.
@@ -46,19 +46,23 @@ export function JiraExportDialog({ selection, findings, target, onClose, onDone 
   const [confirming, setConfirming] = useState(false)
   const queryClient = useQueryClient()
   if (!findings) return null
-  const fingerprints = findings.map(item => item.fingerprint)
   const large = findings.length > JIRA_SYNC_MAX
-  const selectionOf = (prints: string[]) => 'runId' in selection ? { run_id: selection.runId, fingerprints: prints } : { asset: selection.asset, fingerprints: prints }
+  const selectionsOf = (refs: { fingerprint: string; asset?: string | null }[]) => 'byAsset' in selection ? byAsset(refs)
+    : [{ ...('runId' in selection ? { run_id: selection.runId } : { asset: selection.asset }), fingerprints: refs.map(item => item.fingerprint) }]
   // A large selection goes to the queue and the dialog closes: the shell follows it in the background.
-  const run = async (prints = fingerprints, force = false) => {
+  const run = async (refs: { fingerprint: string; asset?: string | null }[] = findings, force = false) => {
     setBusy(true); setError('')
     try {
-      if (large && !force) { await queueJira(queryClient, [selectionOf(prints)]); onClose(); return }
-      const body: PostBody<'/api/integrations/jira/issues'> = force ? { ...selectionOf(prints), force: true } : selectionOf(prints)
+      const selections = selectionsOf(refs)
+      if (large && !force) { await queueJira(queryClient, selections); onClose(); return }
+      const chosen: PostBody<'/api/integrations/jira/issues'> = 'byAsset' in selection ? { selections } : selections[0]
+      const body: PostBody<'/api/integrations/jira/issues'> = force ? { ...chosen, force: true } : chosen
       setResult(await apiPost('/api/integrations/jira/issues', 'export-jira', body)); setConfirming(false); onDone()
     } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
   }
-  const label = (fingerprint: string) => findings.find(item => item.fingerprint === fingerprint)?.label ?? fingerprint.slice(0, 12)
+  // The same fingerprint can be in two assets: the asset (when the server says it) picks the right one.
+  const label = (fingerprint: string, asset?: string | null) => (findings.find(item => item.fingerprint === fingerprint && (!asset || !item.asset || item.asset === asset))
+    ?? findings.find(item => item.fingerprint === fingerprint))?.label ?? fingerprint.slice(0, 12)
 
   // Advisories of one package share an issue: each issue is listed once, with the findings it covers.
   const issues = new Map<string, ExportItem & { state: 'created' | 'existing'; covered: string[] }>()
@@ -66,7 +70,7 @@ export function JiraExportDialog({ selection, findings, target, onClose, onDone 
     for (const item of items) {
       const key = item.key ?? item.fingerprint
       const entry = issues.get(key)
-      if (entry) entry.covered.push(label(item.fingerprint)); else issues.set(key, { ...item, state, covered: [label(item.fingerprint)] })
+      if (entry) entry.covered.push(label(item.fingerprint, item.asset)); else issues.set(key, { ...item, state, covered: [label(item.fingerprint, item.asset)] })
     }
   const links = [...issues.values()]
   const created = links.filter(item => item.state === 'created').length
@@ -85,10 +89,10 @@ export function JiraExportDialog({ selection, findings, target, onClose, onDone 
       <p className="mt-0.5 truncate text-xs text-app-muted">{item.covered.length > 1 ? t('jira.export.covers', { count: item.covered.length - 1, first: item.covered[0] }) : item.covered[0]}</p>
     </li>)}</ul>}
     {result && result.existing.length > 0 && <ForceConfirm count={result.existing.length} confirming={confirming} busy={busy} onAsk={() => setConfirming(true)} onCancel={() => setConfirming(false)}
-      onConfirm={() => void run(result.existing.map(item => item.fingerprint), true)} />}
+      onConfirm={() => void run(result.existing, true)} />}
     {result?.failed.length ? <div role="alert" className="space-y-1"><p className="text-xs font-medium text-danger">{t('jira.export.failed_title')}</p>
-      <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">{result.failed.map(item => <li key={item.fingerprint} className="rounded-lg border border-danger-line bg-danger-soft px-3 py-1.5 text-danger">
-        <span className="font-medium">{label(item.fingerprint)}</span> · {item.error}</li>)}</ul></div> : null}
+      <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">{result.failed.map(item => <li key={`${item.asset ?? ''}:${item.fingerprint}`} className="rounded-lg border border-danger-line bg-danger-soft px-3 py-1.5 text-danger">
+        <span className="font-medium">{label(item.fingerprint, item.asset)}</span> · {item.error}</li>)}</ul></div> : null}
     {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
     <DialogFooter>{result ? <Button variant={confirming ? 'outline' : 'default'} onClick={onClose}>{t('jira.export.done')}</Button> : <><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
       <Button disabled={busy} onClick={() => void run()}>{busy ? <LoaderCircle className="motion-safe:animate-spin" /> : <Ticket />}{t('jira.export.submit', { count: findings.length })}</Button></>}</DialogFooter>

@@ -1,15 +1,17 @@
-"""Findings: triage, re-verification of one finding, and the due dates (SLA) per severity."""
+"""Findings: several assets at once, triage, re-verification of one finding, and the due dates (SLA) per severity."""
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, WithJsonSchema
 
 from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, guard
 from pitangus.app.api.deps import problem
+from pitangus.app.api.schemas import AS_RETURNED, MANY, FindingOut, RunDetail
 from pitangus.app.demo import DEMO_SOURCE_ID
+from pitangus.modules.compliance import provenance
 from pitangus.modules.findings import registry as findings_registry
 from pitangus.modules.findings import sla, triage, verifications
 from pitangus.modules.findings.registry import VIEW_PREFIX
@@ -53,6 +55,54 @@ class SlaPolicy(BaseModel):
 def policy(context: Context = Depends(guard())) -> dict:
     """Anyone can read them (they explain due dates); an administrator changes them."""
     return context.render(sla.policy(context.data_dir))
+
+
+class ScopeAssetRef(BaseModel):
+    key: str
+    name: str
+    kind: Literal["repository", "image"]
+
+
+class ScopedFinding(FindingOut):
+    asset: ScopeAssetRef
+
+
+class ScopeAssetCounts(ScopeAssetRef):
+    """One asset of the scope: its pending work (open, and of it critical and high), what is no longer pending, and how
+    many of its findings the requested tab holds."""
+    open: int
+    critical: int
+    high: int
+    fixed: int
+    suppressed: int
+    excluded: int
+    shown: int
+
+
+class ScopedFindings(RunDetail):
+    """Several assets' findings registries combined (`type` asset_scope), each finding with its `asset`. `total`
+    findings are in the tab; past the cap only the most urgent come (`truncated`), while `summary` and `by_asset`
+    always count them all."""
+    findings: list[ScopedFinding] = Field([], max_length=findings_registry.SCOPE_FINDINGS_MAX)  # type: ignore[assignment]
+    total: int
+    truncated: bool
+    by_asset: list[ScopeAssetCounts] = Field(max_length=MANY)
+
+
+AssetKey = Annotated[str, Field(min_length=1, max_length=200)]
+
+
+@router.get("/api/findings/scope", response_model=ScopedFindings, **AS_RETURNED)
+def scoped_findings(assets: list[AssetKey] = Query([], max_length=provenance.SCOPE_MAX), account: str = Query("", max_length=100),
+                    include_images: bool = True, status: Literal["open", "fixed", "excluded", "all"] = "open",
+                    context: Context = Depends(guard())) -> dict:
+    """The findings of every asset in a scope (the same as the portfolio files: everything, one `account`'s
+    repositories or the chosen `assets`, with the images built from them unless `include_images` is false), by tab.
+    A scope that matches nothing is an empty view, not an error."""
+    if assets and account:
+        raise ApiError(400, msg("api.scope.one_kind"))
+    rows = provenance.scope(context.data_dir, assets=assets or None, account=account.strip() or None, include_images=include_images)
+    return context.render(findings_registry.scoped_view(context.data_dir, rows, status=status))
 
 
 def _checked_later(schema: dict):

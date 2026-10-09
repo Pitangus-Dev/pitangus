@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/se
 import { JIRA_QUEUE_MAX, JiraExportDialog, JiraFindingAction, type TicketLink } from '@/features/integrations/jira-export'
 import { useJiraAvailability } from '@/features/integrations/jira-availability'
 import { useJiraSettled } from '@/features/integrations/jira-batches'
-import { TriageActions, TriageBadge, TriageDialog, TriageHistory } from '@/features/findings/triage'
+import { TriageActions, TriageBadge, TriageDialog, TriageHistory, type TriageTarget } from '@/features/findings/triage'
 import { SUPPRESSED, TRIAGE_LABEL, type TriageState, type TriageStatus } from '@/features/findings/triage-status'
 import { api, query as buildQuery } from '@/shared/api/http'
 import {} from '@/shared/i18n'
@@ -26,13 +26,17 @@ import type { RunTrigger } from '@/shared/lib/types'
 export type Priority = { action: 'act' | 'attend' | 'track'; factors: string[] }
 export type Package = { ecosystem: string; name: string; version: string; fixed_version: string | null; introduced: string | null; dev?: boolean; direct?: boolean | null }
 export type Advisory = { id: string; aliases: string[]; summary: string; details: string; cvss_vector: string | null; cvss_score: number | null; published: string | null; modified: string | null; references: string[] }
-export type RepositoryFinding = { finding_id: string; fingerprint: string; scanner: string; tool?: string; also_detected_by?: string[]; related_rules?: string[]; framework?: string; rule_id: string; title: string; path: string; line: number; severity: string; confidence: number; verdict: string; cwe: number[]; cve: string[]; ghsa: string[]; owasp: string[]; reason: string; remediation: string; package?: Package | null; advisory?: Advisory | null; kev?: { date_added: string | null; due_date: string | null; ransomware: boolean; name: string | null } | null; epss?: { score: number; percentile: number } | null; priority?: Priority; triage?: TriageState; ticket?: TicketLink; lifecycle?: Lifecycle; source?: AdvisorySource | null; fix?: FixGuide | null; verification?: Verification | null; sla?: Sla | null; malicious?: boolean }
+export type RepositoryFinding = { finding_id: string; fingerprint: string; scanner: string; tool?: string; also_detected_by?: string[]; related_rules?: string[]; framework?: string; rule_id: string; title: string; path: string; line: number; severity: string; confidence: number; verdict: string; cwe: number[]; cve: string[]; ghsa: string[]; owasp: string[]; reason: string; remediation: string; package?: Package | null; advisory?: Advisory | null; kev?: { date_added: string | null; due_date: string | null; ransomware: boolean; name: string | null } | null; epss?: { score: number; percentile: number } | null; priority?: Priority; triage?: TriageState; ticket?: TicketLink; lifecycle?: Lifecycle; source?: AdvisorySource | null; fix?: FixGuide | null; verification?: Verification | null; sla?: Sla | null; malicious?: boolean; asset?: ScopeAssetRef }
 // Base de la que sale el aviso y su licencia (pitangus/modules/intel/data_sources.py): se atribuye donde se muestra.
 export type AdvisorySource = { id: string; name: string; short?: string; url: string; license: string; terms: 'open' | 'attribution' | 'share-alike' | 'non-commercial' | 'unclear' }
+// Findings of several assets (`asset_scope`): each finding names its asset, and the scope counts each asset's work.
+export type ScopeAssetRef = { key: string; name: string; kind: 'repository' | 'image' }
+export type ScopeAsset = ScopeAssetRef & { open: number; critical: number; high: number; fixed: number; suppressed: number; excluded: number; shown: number }
+export type ScopeKpis = { active: number; dismissed: number; only_excluded: boolean; has_sla: boolean; overdue: number; soon: number; act: number; attend: number; critical: number; high: number; kev: number; fixable: number }
 export type Lifecycle = { status: 'open' | 'fixed' | 'excluded'; excluded?: { pattern: string | null; reason?: string; at: string } | null; origin?: { kind: 'scan' | 'pr' | 'advisory' | 'import'; pr?: number; branch?: string; merged?: boolean; tool?: string | null }; first_seen?: string; last_seen?: string; fixed?: { at: string; how: string; auto: boolean } | null; reopened_at?: string | null }
 export type ScanStep = { id: string; name: string; status: string; detail: string }
 export type PullReview = { baseline_run: string | null; gate: string; verdict: { state: 'success' | 'failure'; description: string; blocking: number }; delivery: { comment?: string; status?: string } }
-export type RepositoryRun = { id: string; type?: string; trigger?: RunTrigger; pull_request?: { number: number; title: string; url: string; author: string; head_sha: string; head_ref: string; base_ref: string }; review?: PullReview; status: string; created_at: string; context?: string; progress?: { at: string; level: string; message: string }[]; started_at?: string; finished_at?: string; source?: { name: string; provider: string; sha256?: string; files?: number; branch?: string; commit?: string; image?: { reference: string; resolved_digest?: string | null; os?: string | null; user?: string } }; summary: { agreement?: { both: number; only_trivy: number; only_grype: number }; files?: number; dependencies?: number; candidates?: number; sast?: number; secrets?: number; sca?: number; severities?: Record<string, number>; priorities?: Record<string, number>; kev?: number; fixable?: number; triage?: Record<TriageStatus, number>; actionable?: number; preexisting?: number; changed_files?: number; lifecycle?: { open: number; fixed: number; suppressed: number; from_pr: number; excluded?: number } }; steps?: ScanStep[]; findings?: RepositoryFinding[] }
+export type RepositoryRun = { id: string; type?: string; trigger?: RunTrigger; pull_request?: { number: number; title: string; url: string; author: string; head_sha: string; head_ref: string; base_ref: string }; review?: PullReview; status: string; created_at: string; context?: string; progress?: { at: string; level: string; message: string }[]; started_at?: string; finished_at?: string; source?: { name: string; provider: string; sha256?: string; files?: number; branch?: string; commit?: string; image?: { reference: string; resolved_digest?: string | null; os?: string | null; user?: string } }; summary: { agreement?: { both: number; only_trivy: number; only_grype: number }; files?: number; dependencies?: number; candidates?: number; sast?: number; secrets?: number; sca?: number; severities?: Record<string, number>; priorities?: Record<string, number>; kev?: number; fixable?: number; triage?: Record<TriageStatus, number>; actionable?: number; preexisting?: number; changed_files?: number; lifecycle?: { open: number; fixed: number; suppressed: number; from_pr: number; excluded?: number }; kpis?: ScopeKpis }; steps?: ScanStep[]; findings?: RepositoryFinding[]; by_asset?: ScopeAsset[]; total?: number; truncated?: boolean }
 
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
 const ACTION_ORDER: Record<string, number> = { act: 0, attend: 1, track: 2 }
@@ -69,7 +73,7 @@ type Group = { key: string; label: string; meta: string; scanner: string; findin
 function groupFindings(findings: RepositoryFinding[], t: TFunction): Group[] {
   const groups = new Map<string, RepositoryFinding[]>()
   for (const finding of findings) {
-    const key = finding.package ? `${finding.package.ecosystem}:${finding.package.name}@${finding.package.version}` : `${finding.scanner}:${finding.finding_id}`
+    const key = `${finding.asset ? `${finding.asset.key}|` : ''}${finding.package ? `${finding.package.ecosystem}:${finding.package.name}@${finding.package.version}` : `${finding.scanner}:${finding.finding_id}`}`
     groups.set(key, [...(groups.get(key) ?? []), finding])
   }
   return Array.from(groups.entries()).map(([key, items]) => {
@@ -85,6 +89,11 @@ function groupFindings(findings: RepositoryFinding[], t: TFunction): Group[] {
   }).sort((left, right) => (ACTION_ORDER[left.action] - ACTION_ORDER[right.action]) || (SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity]) || left.label.localeCompare(right.label))
 }
 
+// A finding's identity in the table: its fingerprint, and with several assets also its asset (the same fingerprint can
+// be in two of them).
+const idOf = (finding: RepositoryFinding) => finding.asset ? `${finding.asset.key}|${finding.fingerprint}` : finding.fingerprint
+const ASSETS_SHOWN = 12
+const PORTFOLIO_MAX = 500  // assets in one consolidated audit report (/api/reports/audit)
 // Remediado automáticamente (el registro ya no lo ve) cuenta igual que remediado a mano.
 const statusOf = (finding: RepositoryFinding): TriageStatus => finding.lifecycle?.status === 'fixed' ? 'fixed' : finding.triage?.status ?? 'open'
 const PAGE = 50
@@ -94,14 +103,17 @@ const inView = (finding: RepositoryFinding, view: string) => view === 'all' || (
 const isPending = (finding: RepositoryFinding) => finding.lifecycle?.status !== 'excluded' && !SUPPRESSED.includes(statusOf(finding))
 
 // `focus`: a finding to open and scroll to (links from Jira issues carry its fingerprint).
-export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage = canAccept, initialView = 'active', exportStatus = 'open', focus = null }: { run: RepositoryRun; onNew: () => void; onChanged: () => void; canAccept: boolean; canManage?: boolean; initialView?: string; exportStatus?: 'open' | 'fixed' | 'excluded' | 'all'; focus?: string | null }) {
+// `scopeName` and `onOpenAsset`: for several assets at once (`asset_scope`), what the scope is called and how to open one.
+export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage = canAccept, initialView = 'active', exportStatus = 'open', focus = null, scopeName = '', onOpenAsset }: { run: RepositoryRun; onNew: () => void; onChanged: () => void; canAccept: boolean; canManage?: boolean; initialView?: string; exportStatus?: 'open' | 'fixed' | 'excluded' | 'all'; focus?: string | null; scopeName?: string; onOpenAsset?: (key: string) => void }) {
   const { t } = useTranslation('findings')
+  const multi = run.type === 'asset_scope'
   const [query, setQuery] = useState('')
   const [severity, setSeverity] = useState('all')
   const [action, setAction] = useState('all')
   const [scanner, setScanner] = useState('all')
   const [deadline, setDeadline] = useState('all')
   const findings = useMemo(() => run.findings ?? [], [run.findings])
+  const byId = useMemo(() => new Map(findings.map(item => [idOf(item), item])), [findings])
   // A linked finding opens in its group and page, with the status view that shows it (computed once, on arrival).
   const [arrival] = useState(() => {
     const target = focus ? findings.find(item => item.fingerprint === focus) : undefined
@@ -118,7 +130,8 @@ export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage =
   const hiddenActive = Number(triageView !== initialView) + Number(action !== 'all') + Number(scanner !== 'all') + Number(deadline !== 'all')
   const [moreFilters, setMoreFilters] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [decision, setDecision] = useState<{ status: TriageStatus; fingerprints: string[] } | null>(null)
+  const [decision, setDecision] = useState<{ status: TriageStatus; ids: string[] } | null>(null)
+  const [allAssets, setAllAssets] = useState(false)
   const [exporting, setExporting] = useState<string[] | null>(null)
   // The asset as the server routes it (key and name), for where its Jira issues go.
   const source = run.source as { id?: string; uid?: string | null; name?: string } | undefined
@@ -130,30 +143,51 @@ export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage =
   const [downloadError, setDownloadError] = useState('')
   const [downloading, setDownloading] = useState<string | null>(null)
   // Los plazos solo existen en el estado del registro (lo pendiente con fecha de detección), no en una ejecución suelta.
-  const hasSla = useMemo(() => findings.some(item => item.sla), [findings])
+  const hasSla = useMemo(() => run.summary.kpis?.has_sla ?? findings.some(item => item.sla), [run.summary.kpis, findings])
   // El SBOM sale de un análisis completo terminado (o del último, en el estado del activo); una revisión de PR no lo tiene.
   const sbomAvailable = run.type === 'asset_state' || ((run.type === 'repository_scan' || run.type === 'image_scan') && run.status === 'completed')
   // Las cifras de arriba cuentan solo lo pendiente: lo descartado en triage no es trabajo.
   const active = useMemo(() => findings.filter(item => !SUPPRESSED.includes(statusOf(item))), [findings])
   const count = (predicate: (item: RepositoryFinding) => boolean) => active.filter(predicate).length
   const discarded = findings.length - active.length
+  // The tiles: with several assets the server counts the whole scope (the list may be capped); one asset, from its list.
+  const figures: ScopeKpis = run.summary.kpis ?? { active: active.length, dismissed: discarded, has_sla: hasSla,
+    only_excluded: findings.length > 0 && findings.every(item => item.lifecycle?.status === 'excluded'),
+    overdue: count(item => item.sla?.state === 'overdue'), soon: count(item => item.sla?.state === 'soon'), act: count(item => item.priority?.action === 'act'),
+    attend: count(item => item.priority?.action === 'attend'), critical: count(item => item.severity === 'critical'), high: count(item => item.severity === 'high'),
+    kev: count(item => !!item.kev), fixable: count(item => !!item.package?.fixed_version) }
   const groups = useMemo(() => groupFindings(findings.filter(item =>
     inView(item, triageView)
     && (severity === 'all' || item.severity === severity) && (action === 'all' || item.priority?.action === action) && (scanner === 'all' || item.scanner === scanner)
     && (deadline === 'all' || (deadline === 'overdue' ? item.sla?.state === 'overdue' : item.sla?.state === 'overdue' || item.sla?.state === 'soon'))
-    && (!query.trim() || `${item.title} ${item.package?.name ?? ''} ${item.path} ${item.cve.join(' ')} ${item.ghsa.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()))), t), [findings, triageView, severity, action, scanner, deadline, query, t])
+    && (!query.trim() || `${item.title} ${item.package?.name ?? ''} ${item.path} ${item.cve.join(' ')} ${item.ghsa.join(' ')} ${item.asset?.name ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))), t), [findings, triageView, severity, action, scanner, deadline, query, t])
   const page = groups.slice(offset, offset + PAGE)
   useEffect(() => {
     if (!arrival) return
     const element = document.getElementById(`finding-${arrival.fingerprint}`)
     element?.scrollIntoView?.({ block: 'center' }); element?.focus({ preventScroll: true })
   }, [arrival])
-  const pageFingerprints = page.flatMap(group => group.findings.map(item => item.fingerprint))
+  const pageIds = page.flatMap(group => group.findings.map(idOf))
   const toggle = (fingerprints: string[], on: boolean) => setSelected(previous => { const next = new Set(previous); for (const item of fingerprints) { if (on) next.add(item); else next.delete(item) } return next })
   // Why the selection can't go to Jira, said next to the button (a title alone reaches neither keyboard nor touch).
   const jiraBlocked = jira.blocked ?? (selected.size > JIRA_QUEUE_MAX ? t('selection.jira_max', { max: formatNumber(JIRA_QUEUE_MAX) })
-    : findings.some(item => selected.has(item.fingerprint) && !isPending(item)) ? t('selection.jira_dismissed') : null)
-  const allOnPage = pageFingerprints.length > 0 && pageFingerprints.every(item => selected.has(item))
+    : findings.some(item => selected.has(idOf(item)) && !isPending(item)) ? t('selection.jira_dismissed') : null)
+  const allOnPage = pageIds.length > 0 && pageIds.every(item => selected.has(item))
+  const selectedAssets = new Set([...selected].map(id => byId.get(id)?.asset?.key).filter(Boolean)).size
+  // Several assets: one triage request per asset, against its state.
+  const targetsOf = (ids: string[]): TriageTarget[] | undefined => {
+    if (!multi) return undefined
+    const groups = new Map<string, TriageTarget>()
+    for (const id of ids) {
+      const asset = byId.get(id)?.asset
+      if (!asset) continue
+      const entry = groups.get(asset.key) ?? { runId: `asset:${asset.key}`, name: asset.name, fingerprints: [] }
+      entry.fingerprints.push(byId.get(id)!.fingerprint)
+      groups.set(asset.key, entry)
+    }
+    return [...groups.values()]
+  }
+  const scopeKeys = (run.by_asset ?? []).map(asset => asset.key)
   const decided = () => { setDecision(null); setSelected(new Set()); onChanged() }
   // Mientras alguna verificación está en curso, se refresca la vista (una sola vez para todos los hallazgos).
   const verifying = findings.some(item => item.verification?.state === 'running')
@@ -173,7 +207,12 @@ export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage =
   }
 
   return <div className="space-y-6">
-    {run.type === 'asset_state' ? <div className="space-y-2 rounded-2xl border border-app-line bg-panel p-5">
+    {multi ? <div className="space-y-2 rounded-2xl border border-app-line bg-panel p-5">
+      <div className="text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('scope.eyebrow', { count: run.by_asset?.length ?? 0, value: formatNumber(run.by_asset?.length ?? 0) })}</div>
+      <h2 className="truncate text-xl font-semibold">{scopeName}</h2>
+      {run.summary.lifecycle && <p className="text-sm text-app-muted"><Trans t={t} i18nKey="state.pending" count={run.summary.lifecycle.open} components={{ strong: <strong className="text-app-fg" /> }} />{run.summary.lifecycle.from_pr ? ` ${t('state.from_pr', { count: run.summary.lifecycle.from_pr })}` : ''} · <Trans t={t} i18nKey="state.fixed" count={run.summary.lifecycle.fixed} components={{ strong: <strong className="text-success" /> }} /> · {t('state.suppressed', { count: run.summary.lifecycle.suppressed })}{run.summary.lifecycle.excluded ? ` · ${t('state.excluded', { count: run.summary.lifecycle.excluded })}` : ''}</p>}
+      <p className="text-xs text-app-subtle">{t('scope.help')}</p>
+    </div> : run.type === 'asset_state' ? <div className="space-y-2 rounded-2xl border border-app-line bg-panel p-5">
       <div className="text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('state.eyebrow', { provider: ({ github: 'GitHub', registry: t('state.provider.registry'), local: t('state.provider.local'), gitlab: 'GitLab' } as Record<string, string>)[run.source?.provider ?? ''] ?? t('state.provider.repository') })}</div>
       <h2 className="truncate text-xl font-semibold">{run.source?.name ?? t('scan.repository')}</h2>
       {run.summary.lifecycle && <p className="text-sm text-app-muted"><Trans t={t} i18nKey="state.pending" count={run.summary.lifecycle.open} components={{ strong: <strong className="text-app-fg" /> }} />{run.summary.lifecycle.from_pr ? ` ${t('state.from_pr', { count: run.summary.lifecycle.from_pr })}` : ''} · <Trans t={t} i18nKey="state.fixed" count={run.summary.lifecycle.fixed} components={{ strong: <strong className="text-success" /> }} /> · {t('state.suppressed', { count: run.summary.lifecycle.suppressed })}{run.summary.lifecycle.excluded ? ` · ${t('state.excluded', { count: run.summary.lifecycle.excluded })}` : ''}</p>}
@@ -191,15 +230,26 @@ export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage =
           : <Trans t={t} i18nKey="scan.branch" values={{ branch: run.source.branch }} components={{ code: <span className="font-mono" /> }} />} · </>}{t('scan.snapshot')} <span className="font-mono">{run.source?.sha256?.slice(0, 12) ?? '—'}</span> · {t('scan.files', { count: run.summary.files ?? 0 })} · {t('scan.dependencies', { count: run.summary.dependencies ?? 0 })}</>}</p>{run.context && <p className="mt-2 text-sm text-app-muted">{run.context}</p>}</div><Button variant="outline" onClick={onNew} className="shrink-0 border-app-line bg-app-soft">{t('scan.new')} <ArrowRight /></Button></div>}
 
     <div className={`grid gap-3 ${hasSla ? 'grid-cols-2 sm:grid-cols-4 xl:grid-cols-7' : 'sm:grid-cols-3 xl:grid-cols-6'}`}>
-      {hasSla && <Tile label={t('tiles.overdue')} value={count(item => item.sla?.state === 'overdue')} tone={count(item => item.sla?.state === 'overdue') ? 'rose' : 'muted'}
-        hint={t('tiles.due_soon', { count: count(item => item.sla?.state === 'soon') })} icon={Clock3} />}
-      <Tile label={t('common:priority.act')} value={count(item => item.priority?.action === 'act')} tone={count(item => item.priority?.action === 'act') ? 'rose' : 'muted'} icon={Flame} />
-      <Tile label={t('common:priority.attend')} value={count(item => item.priority?.action === 'attend')} tone={count(item => item.priority?.action === 'attend') ? 'amber' : 'muted'} />
-      <Tile label={t('tiles.critical')} value={count(item => item.severity === 'critical')} tone={count(item => item.severity === 'critical') ? 'rose' : 'muted'} />
-      <Tile label={t('tiles.high')} value={count(item => item.severity === 'high')} tone={count(item => item.severity === 'high') ? 'orange' : 'muted'} />
-      <Tile label={t('tiles.kev')} value={count(item => !!item.kev)} tone={count(item => !!item.kev) ? 'rose' : 'muted'} hint={t('tiles.kev_hint')} />
-      <Tile label={t('tiles.fixable')} value={count(item => !!item.package?.fixed_version)} tone="teal" hint={`${findings.length > 0 && findings.every(item => item.lifecycle?.status === 'excluded') ? t('tiles.of_excluded', { count: active.length }) : t('tiles.of_pending', { count: active.length })}${discarded ? ` · ${t('tiles.dismissed', { count: discarded })}` : ''}`} icon={Wrench} />
+      {hasSla && <Tile label={t('tiles.overdue')} value={figures.overdue} tone={figures.overdue ? 'rose' : 'muted'}
+        hint={t('tiles.due_soon', { count: figures.soon })} icon={Clock3} />}
+      <Tile label={t('common:priority.act')} value={figures.act} tone={figures.act ? 'rose' : 'muted'} icon={Flame} />
+      <Tile label={t('common:priority.attend')} value={figures.attend} tone={figures.attend ? 'amber' : 'muted'} />
+      <Tile label={t('tiles.critical')} value={figures.critical} tone={figures.critical ? 'rose' : 'muted'} />
+      <Tile label={t('tiles.high')} value={figures.high} tone={figures.high ? 'orange' : 'muted'} />
+      <Tile label={t('tiles.kev')} value={figures.kev} tone={figures.kev ? 'rose' : 'muted'} hint={t('tiles.kev_hint')} />
+      <Tile label={t('tiles.fixable')} value={figures.fixable} tone="teal" hint={`${figures.only_excluded ? t('tiles.of_excluded', { count: figures.active }) : t('tiles.of_pending', { count: figures.active })}${figures.dismissed ? ` · ${t('tiles.dismissed', { count: figures.dismissed })}` : ''}`} icon={Wrench} />
     </div>
+
+    {multi && run.truncated && <p role="status" className="rounded-xl border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning">{t('scope.truncated', { shown: formatNumber(findings.length), total: formatNumber(run.total ?? findings.length) })}</p>}
+    {multi && (run.by_asset?.length ?? 0) > 0 && <section aria-labelledby="scope-by-asset" className="space-y-3 rounded-2xl border border-app-line bg-panel p-5">
+      <div><h3 id="scope-by-asset" className="text-sm font-semibold">{t('scope.by_asset.title')}</h3><p className="text-xs text-app-subtle">{t('scope.by_asset.hint')}</p></div>
+      <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{(allAssets ? run.by_asset ?? [] : (run.by_asset ?? []).slice(0, ASSETS_SHOWN)).map(asset => <li key={asset.key} className="min-w-0">
+        <button type="button" onClick={() => onOpenAsset?.(asset.key)} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-app-line bg-inset px-3 py-2 text-left transition hover:bg-app-soft">
+          <span className="min-w-0"><span className="block truncate text-sm font-medium">{asset.name}</span><span className="block text-xs text-app-subtle">{asset.kind === 'image' ? t('scope.by_asset.image') : t('scope.by_asset.repository')}<span className="sr-only"> · {t('scope.by_asset.open')}</span></span></span>
+          <span className="shrink-0 text-right text-xs"><span className="block text-app-secondary tabular-nums">{t('scope.by_asset.pending', { count: asset.open, value: formatNumber(asset.open) })}</span>{asset.critical > 0 && <span className="block text-danger tabular-nums">{t('scope.by_asset.critical', { count: asset.critical, value: formatNumber(asset.critical) })}</span>}</span>
+        </button></li>)}</ul>
+      {(run.by_asset?.length ?? 0) > ASSETS_SHOWN && <Button type="button" variant="ghost" size="sm" aria-expanded={allAssets} onClick={() => setAllAssets(!allAssets)}>{allAssets ? t('scope.by_asset.fewer') : t('scope.by_asset.all', { count: run.by_asset?.length ?? 0, value: formatNumber(run.by_asset?.length ?? 0) })}</Button>}
+    </section>}
 
     <Card className="border-app-line bg-panel"><CardContent className="space-y-4 p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -215,56 +265,61 @@ export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage =
         {hasSla && <Filter label={t('filters.deadline')} value={deadline} onChange={value => { setDeadline(value); setOffset(0) }} all={t('filters.any_deadline')} options={[['overdue', t('filters.deadline_options.overdue')], ['soon', t('filters.deadline_options.soon')]]} />}
       </div>}
       {selected.size > 0 && <div className="sticky top-16 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-brand/30 bg-panel px-4 py-2.5 shadow-lg">
-        <span className="text-sm font-medium">{t('selection.count', { count: selected.size })}</span>
-        <TriageActions canAccept={canAccept} onPick={status => setDecision({ status, fingerprints: [...selected] })} />
+        <span className="text-sm font-medium">{selectedAssets > 1 ? t('scope.selected', { count: selected.size, value: formatNumber(selected.size), assets: formatNumber(selectedAssets) }) : t('selection.count', { count: selected.size })}</span>
+        <TriageActions canAccept={canAccept} onPick={status => setDecision({ status, ids: [...selected] })} />
         {jira.configured && <span className="inline-flex flex-wrap items-center gap-1.5"><Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={!!jiraBlocked} aria-describedby={jiraBlocked ? 'jira-bulk-blocked' : undefined} onClick={() => setExporting([...selected])}><Ticket />{t('selection.jira')}</Button>
           {jiraBlocked && <span id="jira-bulk-blocked" className="text-xs text-app-subtle">{jiraBlocked}</span>}</span>}
-        <Button size="sm" variant="outline" className="border-app-line bg-app-soft" onClick={() => setAuditOpen(true)}><FileCheck2 />{t('selection.report')}</Button>
+        {!multi && <Button size="sm" variant="outline" className="border-app-line bg-app-soft" onClick={() => setAuditOpen(true)}><FileCheck2 />{t('selection.report')}</Button>}
         <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="ml-auto">{t('selection.clear')}</Button>
       </div>}
       {findings.length === 0
         ? <div className="flex flex-col items-center gap-2 py-14 text-center"><ShieldCheck className="size-7 text-brand" /><p className="font-medium">{t('empty.title')}</p><p className="max-w-md text-sm text-app-muted">{t('empty.body')}</p></div>
         : <div className="overflow-hidden rounded-xl border border-app-line">
-          <div className="hidden grid-cols-[20px_120px_90px_minmax(0,1fr)_110px_110px] gap-3 border-b border-app-line px-4 py-2.5 text-xs text-app-subtle md:grid"><input type="checkbox" aria-label={t('table.select_page')} checked={allOnPage} onChange={event => toggle(pageFingerprints, event.target.checked)} className="size-4 accent-brand" /><span>{t('filters.priority')}</span><span>{t('filters.severity')}</span><span>{t('table.finding')}</span><span>EPSS</span><span>{t('filters.source')}</span></div>
+          <div className={`hidden gap-3 border-b border-app-line px-4 py-2.5 text-xs text-app-subtle md:grid ${multi ? 'grid-cols-[20px_120px_90px_minmax(0,1fr)_minmax(0,0.5fr)_80px_110px]' : 'grid-cols-[20px_120px_90px_minmax(0,1fr)_110px_110px]'}`}><input type="checkbox" aria-label={t('table.select_page')} checked={allOnPage} onChange={event => toggle(pageIds, event.target.checked)} className="size-4 accent-brand" /><span>{t('filters.priority')}</span><span>{t('filters.severity')}</span><span>{t('table.finding')}</span>{multi && <span>{t('scope.asset')}</span>}<span>EPSS</span><span>{t('filters.source')}</span></div>
           {page.length === 0 && <div className="px-4 py-10 text-center text-sm text-app-subtle">{triageView === 'active' && discarded ? t('table.no_match_dismissed', { count: discarded }) : t('table.no_match')}</div>}
           {page.map(group => { const expanded = open === group.key
-            const prints = group.findings.map(item => item.fingerprint)
+            const prints = group.findings.map(idOf)
             const statuses = new Set(group.findings.map(statusOf))
             const groupState = statuses.size === 1 ? group.findings[0].triage : undefined
             return <div key={group.key} className={`flex items-start border-b border-app-line last:border-b-0 ${SUPPRESSED.includes(statusOf(group.findings[0])) && statuses.size === 1 ? 'opacity-70' : ''}`}>
-              <input type="checkbox" aria-label={t('table.select_item', { name: group.label })} checked={prints.every(item => selected.has(item))} onChange={event => toggle(prints, event.target.checked)} className="mt-4 ml-4 size-4 shrink-0 accent-brand" />
+              <input type="checkbox" aria-label={t('table.select_item', { name: multi ? `${group.label} · ${group.findings[0].asset?.name ?? ''}` : group.label })} checked={prints.every(item => selected.has(item))} onChange={event => toggle(prints, event.target.checked)} className="mt-4 ml-4 size-4 shrink-0 accent-brand" />
               <div className="min-w-0 flex-1">
-              <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : group.key)} className="grid w-full gap-2 py-3 pr-4 pl-3 text-left transition hover:bg-app-soft md:grid-cols-[120px_90px_minmax(0,1fr)_110px_110px] md:items-center">
+              <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : group.key)} className={`grid w-full gap-2 py-3 pr-4 pl-3 text-left transition hover:bg-app-soft md:items-center ${multi ? 'md:grid-cols-[120px_90px_minmax(0,1fr)_minmax(0,0.5fr)_80px_110px]' : 'md:grid-cols-[120px_90px_minmax(0,1fr)_110px_110px]'}`}>
                 <Badge variant="outline" className={`w-fit ${actionClass(group.action)}`}>{labelOf(t, ACTION_LABEL, group.action)}</Badge>
                 <Badge variant="outline" className={`w-fit ${severityClass(group.severity)}`}>{labelOf(t, SEVERITY_LABEL, group.severity)}</Badge>
                 <span className="flex min-w-0 items-start gap-2"><ChevronRight className={`mt-1 size-3.5 shrink-0 text-app-subtle transition ${expanded ? 'rotate-90' : ''}`} /><span className="min-w-0"><span className="block truncate text-sm font-medium">{group.label}</span><span className="block truncate text-xs text-app-subtle">{group.meta}{group.kev ? ' · CISA KEV' : ''}{group.findings.some(item => item.ticket) ? ` · ${[...new Set(group.findings.flatMap(item => item.ticket ? [item.ticket.key] : []))].join(', ')}` : ''}</span>{group.findings[0].lifecycle?.origin?.kind === 'pr' && <span className="mt-1 mr-1 inline-block rounded border border-info-line px-1.5 text-[11px] text-info">{group.findings[0].lifecycle.origin.merged ? t('group.pr_merged', { number: group.findings[0].lifecycle.origin.pr }) : t('group.pr', { number: group.findings[0].lifecycle.origin.pr })}</span>}{group.findings[0].lifecycle?.origin?.kind === 'import' && <span className="mt-1 mr-1 inline-block rounded border border-app-line px-1.5 text-[11px] text-app-muted">{t('group.imported')}</span>}<SlaPill sla={group.sla} />{group.findings.some(item => item.malicious) && <span className="mt-1 mr-1 inline-block rounded bg-danger-solid px-1.5 text-[11px] font-semibold text-on-solid" title={t('group.malicious_hint')}>{t('group.malicious')}</span>}{statuses.size > 1 ? <span className="mt-1 block text-[11px] text-app-subtle">{t('group.mixed', { statuses: [...statuses].map(item => t(TRIAGE_LABEL[item])).join(', ') })}</span> : <span className="mt-1 block"><TriageBadge state={groupState} /></span>}</span></span>
+                {multi && <span className="min-w-0 truncate text-xs text-app-secondary"><span className="md:hidden">{t('scope.asset_inline', { name: group.findings[0].asset?.name ?? '' })}</span><span className="hidden md:inline">{group.findings[0].asset?.name}</span></span>}
                 <span className="font-mono text-xs text-app-muted">{group.epss !== null ? formatNumber(group.epss, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'}</span>
                 <span className="text-xs text-app-muted">{labelOf(t, SCANNER_LABEL, group.scanner)}{group.findings[0].tool ? <span className="block text-[11px] text-app-subtle">{toolsOf(t, group.findings[0])}</span> : null}</span>
               </button>
-              {expanded && <div className="space-y-3 border-t border-app-line bg-inset py-4 pr-4 pl-3">{group.findings.map(finding => <FindingDetail key={finding.finding_id} finding={finding} runId={run.id} demo={(run.source as { id?: string } | undefined)?.id === 'local:demo-ejemplos'} canAccept={canAccept} onChanged={onChanged} onPick={status => setDecision({ status, fingerprints: [finding.fingerprint] })}
-                jira={<JiraFindingAction ticket={finding.ticket} pending={isPending(finding)} availability={jira} name={finding.advisory?.summary || finding.title} onCreate={() => setExporting([finding.fingerprint])} />} />)}</div>}
+              {expanded && <div className="space-y-3 border-t border-app-line bg-inset py-4 pr-4 pl-3">{group.findings.map(finding => <FindingDetail key={finding.finding_id} finding={finding} runId={finding.asset ? `asset:${finding.asset.key}` : run.id} demo={(finding.asset?.key ?? (run.source as { id?: string } | undefined)?.id) === 'local:demo-ejemplos'} canAccept={canAccept} onChanged={onChanged} onPick={status => setDecision({ status, ids: [idOf(finding)] })}
+                jira={<JiraFindingAction ticket={finding.ticket} pending={isPending(finding)} availability={jira} name={finding.advisory?.summary || finding.title} onCreate={() => setExporting([idOf(finding)])} />} />)}</div>}
               </div>
             </div> })}
           <Pagination total={groups.length} limit={PAGE} offset={Math.min(offset, Math.max(0, groups.length - 1))} onPrev={() => setOffset(current => Math.max(0, current - PAGE))} onNext={() => setOffset(current => current + PAGE)} noun={t('table.pagination', { count: findings.length })} />
         </div>}
     </CardContent></Card>
 
-    {/* Ley de Hick: el informe habitual a mano y los demás formatos agrupados en un menú. */}
-    <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={downloading !== null} className="border-app-line bg-app-soft" onClick={() => void exportFile('report.pdf')}><ArrowDownToLine />{downloading === 'report.pdf' ? t('export.preparing') : t('export.pdf')}</Button>
+    {/* Ley de Hick: el informe habitual a mano y los demás formatos agrupados en un menú. Several assets: only the
+        consolidated audit evidence; the files of one asset (PDF, SARIF, SBOM…) come from that asset. */}
+    {multi ? <div className="flex flex-wrap items-center gap-x-3 gap-y-2"><Button variant="outline" size="sm" disabled={scopeKeys.length === 0 || scopeKeys.length > PORTFOLIO_MAX} aria-describedby="scope-exports" className="border-app-line bg-app-soft" onClick={() => setAuditOpen(true)}><FileCheck2 />{t('export.audit')}</Button>
+      <p id="scope-exports" className="text-xs text-app-subtle">{scopeKeys.length > PORTFOLIO_MAX ? t('scope.audit_too_many', { max: formatNumber(PORTFOLIO_MAX) }) : t('scope.exports_one')}</p></div>
+    : <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={downloading !== null} className="border-app-line bg-app-soft" onClick={() => void exportFile('report.pdf')}><ArrowDownToLine />{downloading === 'report.pdf' ? t('export.preparing') : t('export.pdf')}</Button>
       <Menu><MenuTrigger render={<Button variant="outline" size="sm" disabled={downloading !== null} className="border-app-line bg-app-soft" />}>{downloading && downloading !== 'report.pdf' ? t('export.preparing') : t('export.more')}<ChevronDown className="size-3.5" /></MenuTrigger>
-        <MenuContent align="start"><MenuGroup label={t('export.audit_group')}><MenuItem onClick={() => setAuditOpen(true)}><FileCheck2 />{t('export.audit')}</MenuItem></MenuGroup>{RUN_EXPORTS.map(group => <MenuGroup key={group.label} label={t(group.label)}>{group.items.filter(([, artifact]) => artifact !== 'sbom.cdx.json' || sbomAvailable).map(([label, artifact]) => <MenuItem key={artifact} onClick={() => void exportFile(artifact)}>{t(label)}</MenuItem>)}</MenuGroup>)}</MenuContent></Menu></div>
+        <MenuContent align="start"><MenuGroup label={t('export.audit_group')}><MenuItem onClick={() => setAuditOpen(true)}><FileCheck2 />{t('export.audit')}</MenuItem></MenuGroup>{RUN_EXPORTS.map(group => <MenuGroup key={group.label} label={t(group.label)}>{group.items.filter(([, artifact]) => artifact !== 'sbom.cdx.json' || sbomAvailable).map(([label, artifact]) => <MenuItem key={artifact} onClick={() => void exportFile(artifact)}>{t(label)}</MenuItem>)}</MenuGroup>)}</MenuContent></Menu></div>}
     {downloadError && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('export.error', { error: downloadError })}</div>}
 
-    {auditOpen && <AuditReportDialog open onClose={() => setAuditOpen(false)} name={(run.source as { name?: string } | undefined)?.name ?? t('export.file_fallback')}
-      target={run.type === 'asset_state' ? { asset: (run.source as { id?: string } | undefined)?.id ?? '', status: exportStatus === 'fixed' || exportStatus === 'all' ? exportStatus : 'open' } : { runId: run.id }}
+    {auditOpen && <AuditReportDialog open onClose={() => setAuditOpen(false)} name={multi ? scopeName : (run.source as { name?: string } | undefined)?.name ?? t('export.file_fallback')}
+      target={multi ? { assets: scopeKeys, status: exportStatus === 'open' ? 'open' : 'all' } : run.type === 'asset_state' ? { asset: (run.source as { id?: string } | undefined)?.id ?? '', status: exportStatus === 'fixed' || exportStatus === 'all' ? exportStatus : 'open' } : { runId: run.id }}
       selected={[...selected]} filtered={groups.flatMap(group => group.findings.map(item => item.fingerprint))} total={findings.length} />}
-    <JiraExportDialog key={exporting?.join(',') ?? 'none'} selection={run.type === 'asset_state' && source?.id ? { asset: source.id } : { runId: run.id }} target={jira.target}
-      findings={exporting && exporting.map(fingerprint => { const item = findings.find(entry => entry.fingerprint === fingerprint); return { fingerprint, label: item ? item.advisory?.summary || item.title : fingerprint.slice(0, 12) } })}
+    <JiraExportDialog key={exporting?.join(',') ?? 'none'} selection={multi ? { byAsset: true } : run.type === 'asset_state' && source?.id ? { asset: source.id } : { runId: run.id }} target={jira.target}
+      findings={exporting && exporting.map(id => { const item = byId.get(id); const fingerprint = item?.fingerprint ?? id; return { fingerprint, label: item ? item.advisory?.summary || item.title : fingerprint.slice(0, 12), asset: item?.asset?.key } })}
       onClose={() => { setExporting(null); setSelected(new Set()) }} onDone={onChanged} />
-    <TriageDialog key={decision ? `${decision.status}:${decision.fingerprints.length}` : 'none'} runId={run.id} status={decision?.status ?? null} fingerprints={decision?.fingerprints ?? []} onClose={() => setDecision(null)} onDone={decided} />
+    <TriageDialog key={decision ? `${decision.status}:${decision.ids.length}` : 'none'} runId={run.id} status={decision?.status ?? null} fingerprints={decision?.ids ?? []} targets={decision ? targetsOf(decision.ids) : undefined}
+      onClose={() => setDecision(null)} onDone={decided} onPartial={() => { setSelected(new Set()); onChanged() }} />
 
     {run.progress?.length ? <details className="group rounded-2xl border border-app-line bg-panel"><summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium"><ChevronRight className="size-4 text-app-subtle transition group-open:rotate-90" />{t('log.title')}<span className="ml-2 text-xs font-normal text-app-subtle">{t('log.events', { count: run.progress.length })}{run.started_at && run.finished_at ? ` · ${t('log.seconds', { seconds: Math.round((Date.parse(run.finished_at) - Date.parse(run.started_at)) / 1000) })}` : ''}</span></summary><div className="space-y-1 px-5 pb-5 font-mono text-xs leading-6">{run.progress.map((event, index) => <div key={index} className="flex gap-3"><span className="shrink-0 text-app-subtle">{formatTime(event.at)}</span><span className={event.level === 'ok' ? 'text-brand' : event.level === 'warn' ? 'text-warning' : event.level === 'error' ? 'text-danger' : 'text-app-secondary'}>{event.message}</span></div>)}</div></details> : null}
-    <details className="group rounded-2xl border border-app-line bg-panel"><summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium"><ChevronRight className="size-4 text-app-subtle transition group-open:rotate-90" />{t('coverage.title')}<span className="ml-2 text-xs font-normal text-app-subtle">{t('coverage.steps', { done: run.steps?.filter(step => step.status === 'completed' || step.status === 'partial').length ?? 0, total: run.steps?.length ?? 0 })}</span></summary><div className="space-y-2 px-5 pb-5">{run.steps?.map(step => <div key={step.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-app-line bg-inset p-3 text-sm"><span className="min-w-0"><span className="font-medium">{step.name}</span><span className="mt-0.5 block text-xs leading-5 text-app-muted">{step.detail}</span></span><Badge variant="outline" className={`shrink-0 text-[11px] ${step.status === 'completed' ? 'border-brand/30 text-brand' : step.status === 'partial' ? 'border-warning-line text-warning' : 'border-app-line text-app-subtle'}`}>{labelOf(t, STEP_LABEL, step.status)}</Badge></div>)}</div></details>
+    {!multi && <details className="group rounded-2xl border border-app-line bg-panel"><summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium"><ChevronRight className="size-4 text-app-subtle transition group-open:rotate-90" />{t('coverage.title')}<span className="ml-2 text-xs font-normal text-app-subtle">{t('coverage.steps', { done: run.steps?.filter(step => step.status === 'completed' || step.status === 'partial').length ?? 0, total: run.steps?.length ?? 0 })}</span></summary><div className="space-y-2 px-5 pb-5">{run.steps?.map(step => <div key={step.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-app-line bg-inset p-3 text-sm"><span className="min-w-0"><span className="font-medium">{step.name}</span><span className="mt-0.5 block text-xs leading-5 text-app-muted">{step.detail}</span></span><Badge variant="outline" className={`shrink-0 text-[11px] ${step.status === 'completed' ? 'border-brand/30 text-brand' : step.status === 'partial' ? 'border-warning-line text-warning' : 'border-app-line text-app-subtle'}`}>{labelOf(t, STEP_LABEL, step.status)}</Badge></div>)}</div></details>}
   </div>
 }
 
@@ -272,7 +327,7 @@ function FindingDetail({ finding, runId, demo, canAccept, onPick, onChanged, jir
   const { t } = useTranslation('findings')
   const advisory = finding.advisory
   const pkg = finding.package
-  return <div id={`finding-${finding.fingerprint}`} tabIndex={-1} className="rounded-xl border border-app-line bg-panel p-4">
+  return <div id={`finding-${idOf(finding)}`} tabIndex={-1} className="rounded-xl border border-app-line bg-panel p-4">
     <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="text-sm font-medium">{advisory?.summary || finding.title}</p><p className="mt-1 flex flex-wrap gap-x-2 font-mono text-xs text-app-subtle"><span className="text-app-secondary">{finding.rule_id}</span>{finding.cve.filter(id => id !== finding.rule_id).map(id => <a key={id} href={`https://www.cve.org/CVERecord?id=${id}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">{id}</a>)}{finding.ghsa.filter(id => id !== finding.rule_id).map(id => <a key={id} href={`https://github.com/advisories/${id}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">{id}</a>)}{finding.cwe.map(id => <a key={id} href={`https://cwe.mitre.org/data/definitions/${id}.html`} target="_blank" rel="noreferrer" className="hover:underline">CWE-{id}</a>)}</p></div><Badge variant="outline" className={severityClass(finding.severity)}>{labelOf(t, SEVERITY_LABEL, finding.severity)}{advisory?.cvss_score !== null && advisory?.cvss_score !== undefined ? ` · ${advisory.cvss_score}` : ''}</Badge></div>
     <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
       {pkg?.dev && <Fact label={t('detail.type')}><span className="rounded border border-app-line px-1.5 py-0.5 text-xs">{t('detail.dev_dependency')}</span> <span className="text-xs text-app-subtle">{t('detail.dev_hint')}</span></Fact>}

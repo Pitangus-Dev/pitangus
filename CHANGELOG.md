@@ -7,6 +7,16 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Added
+
+- **Findings of several assets at once.** Findings has the same scope picker as Compliance: one asset (as before, with
+  its runs and settings), an organization, a chosen set of repositories and images, or everything, with the images
+  built from the chosen repositories. The cards add up the whole scope, a "By asset" block shows each asset's pending
+  and critical findings and opens it on its own, and the table gains an Asset column. Triage (one finding or a
+  selection across assets, saved asset by asset with any failure named), Jira issues and the consolidated audit
+  evidence work on the scope. The scope stays in the address, so a reload or a shared link opens the same view. New
+  route `GET /api/findings/scope`; a very large scope lists the 10,000 most urgent findings of the tab and says so.
+
 ## [0.12.1] - 2026-10-09
 
 ### Added

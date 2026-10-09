@@ -5,11 +5,12 @@ import { X } from 'lucide-react'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
 import { evidenceAssetsQuery } from '@/shared/api/queries'
-import type { Scope } from '@/features/compliance/scope'
+import type { Scope } from '@/shared/lib/scope'
 
-// The scope picker: one asset (its picker comes in `one`, the hub holds it), one organization's repositories, chosen
+// The scope picker: one asset (its picker comes in `one`, the caller holds it), one organization's repositories, chosen
 // repositories and images, or everything; with a repository come the images built from it unless that is turned off.
-export function EvidenceScope({ scope, accounts, total, one, onChange }: { scope: Scope; accounts: string[]; total: number; one: ReactNode; onChange: (scope: Scope) => void }) {
+// Shared by the evidence hub (its step 1) and Findings.
+export function EvidenceScope({ scope, accounts, total, one, step, onChange }: { scope: Scope; accounts: string[]; total: number; one: ReactNode; step?: string; onChange: (scope: Scope) => void }) {
   const { t } = useTranslation('compliance')
   const queryClient = useQueryClient()
   const name = useId()
@@ -20,7 +21,7 @@ export function EvidenceScope({ scope, accounts, total, one, onChange }: { scope
   const kinds: [Scope['kind'], string][] = [['one', t('evidence.scope.one')], ['account', t('evidence.scope.account')], ['assets', t('evidence.scope.assets')],
     ['all', t('evidence.scope.all', { count: total })]]
   return <fieldset className="min-w-0 space-y-3">
-    <legend className="mb-3 text-xs text-app-muted"><span aria-hidden>1 · </span>{t('evidence.scope.legend')}</legend>
+    <legend className="mb-3 text-xs text-app-muted">{step && <span aria-hidden>{step} · </span>}{t('evidence.scope.legend')}</legend>
     <div className="grid w-full grid-cols-2 gap-1 rounded-xl sm:flex sm:w-fit sm:max-w-full sm:flex-wrap border border-app-line bg-inset p-1">{kinds.map(([kind, label]) =>
       <label key={kind} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm whitespace-nowrap has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${scope.kind === kind ? 'border-brand bg-brand/10 text-brand' : 'border-transparent text-app-muted hover:text-app-fg'}`}>
         <input type="radio" name={name} value={kind} checked={scope.kind === kind} onChange={() => onChange({ ...scope, kind })} className="sr-only" />{label}</label>)}</div>

@@ -53,28 +53,45 @@ export function TriageActions({ current, canAccept, onPick, size = 'sm' }: { cur
   </div>
 }
 
-// Diálogo común a la decisión individual y a la masiva: pide motivo cuando el hallazgo deja de contar.
-export function TriageDialog({ runId, status, fingerprints, onClose, onDone }: { runId: string; status: TriageStatus | null; fingerprints: string[]; onClose: () => void; onDone: () => void }) {
+// One request per asset: the findings of several assets go each to their own asset's state (`asset:<key>`).
+export type TriageTarget = { runId: string; name: string; fingerprints: string[] }
+
+// Diálogo común a la decisión individual y a la masiva: pide motivo cuando el hallazgo deja de contar. With `targets`
+// (findings of several assets) it saves asset by asset and says which ones failed; a retry sends only those.
+export function TriageDialog({ runId = '', status, fingerprints = [], targets, onClose, onDone, onPartial }: {
+  runId?: string; status: TriageStatus | null; fingerprints?: string[]; targets?: TriageTarget[]; onClose: () => void; onDone: () => void; onPartial?: () => void
+}) {
   const { t } = useTranslation('findings')
   const [reason, setReason] = useState('')
   const [note, setNote] = useState('')
   const [expires, setExpires] = useState(inDays(90))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [failed, setFailed] = useState<(TriageTarget & { error: string })[]>([])
+  const [remaining, setRemaining] = useState<TriageTarget[] | null>(null)
   if (!status) return null
-  const count = fingerprints.length
+  const all = targets ?? [{ runId, name: '', fingerprints }]
+  const pending = remaining ?? all
+  const count = all.reduce((sum, item) => sum + item.fingerprints.length, 0)
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (busy) return
-    setBusy(true); setError('')
-    try {
-      await api.post('/api/findings/triage', 'triage', { run_id: runId, fingerprints, status, reason: reason.trim() || undefined, note: note.trim() || undefined, expires_at: status === 'accepted' ? expires : undefined })
-      onDone()
-    } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
+    setBusy(true); setError(''); setFailed([])
+    const missed: (TriageTarget & { error: string })[] = []
+    for (const target of pending) {
+      try {
+        await api.post('/api/findings/triage', 'triage', { run_id: target.runId, fingerprints: target.fingerprints, status, reason: reason.trim() || undefined, note: note.trim() || undefined, expires_at: status === 'accepted' ? expires : undefined })
+      } catch (caught) { missed.push({ ...target, error: caught instanceof Error ? caught.message : String(caught) }) }
+    }
+    setBusy(false)
+    if (!missed.length) { onDone(); return }
+    if (!targets) { setError(missed[0].error); return }
+    if (missed.length < pending.length) onPartial?.()
+    setFailed(missed); setRemaining(missed)
   }
   const placeholder = PLACEHOLDER[status]
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-lg">
-    <DialogHeader><DialogTitle>{t('triage.dialog_title', { action: t(VERB[status]), count })}</DialogTitle><DialogDescription>{t(DESCRIPTION[status])}</DialogDescription></DialogHeader>
+    <DialogHeader><DialogTitle>{t('triage.dialog_title', { action: t(VERB[status]), count })}</DialogTitle><DialogDescription>{t(DESCRIPTION[status])}{all.length > 1 ? ` ${t('scope.triage_across', { count: all.length })}` : ''}</DialogDescription></DialogHeader>
     <form className="space-y-4" onSubmit={submit}>
       <div className="space-y-1.5"><label htmlFor="triage-reason" className="text-xs text-app-muted">{needsReason(status) ? t('triage.reason') : t('triage.reason_optional')}</label>
         <textarea id="triage-reason" required={needsReason(status)} minLength={needsReason(status) ? 10 : undefined} maxLength={500} rows={3} value={reason} onChange={event => setReason(event.target.value)}
@@ -83,7 +100,10 @@ export function TriageDialog({ runId, status, fingerprints, onClose, onDone }: {
       {status === 'accepted' && <div className="space-y-1.5"><label htmlFor="triage-expires" className="text-xs text-app-muted">{t('triage.expires')}</label><Input id="triage-expires" type="date" required min={inDays(1)} max={inDays(365)} value={expires} onChange={event => setExpires(event.target.value)} className="w-48 border-app-line bg-app-soft" /></div>}
       <div className="space-y-1.5"><label htmlFor="triage-note" className="text-xs text-app-muted">{t('triage.note')}</label><Input id="triage-note" maxLength={1000} value={note} onChange={event => setNote(event.target.value)} className="border-app-line bg-app-soft" /></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || (needsReason(status) && reason.trim().length < 10)} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="animate-spin" />}{t('common:actions.save')}</Button></DialogFooter>
+      {failed.length > 0 && <div role="alert" className="space-y-1 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">
+        <p className="font-medium">{t('scope.triage_partial', { count: all.length - failed.length, total: all.length })}</p>
+        <ul className="max-h-32 space-y-0.5 overflow-y-auto">{failed.map(item => <li key={item.runId}><span className="font-medium">{item.name}</span> · {item.error}</li>)}</ul></div>}
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || (needsReason(status) && reason.trim().length < 10)} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="motion-safe:animate-spin" />}{remaining ? t('scope.triage_retry', { count: remaining.length }) : t('common:actions.save')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
