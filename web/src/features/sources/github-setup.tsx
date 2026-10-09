@@ -1,11 +1,12 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Check, CircleCheck, Copy, ExternalLink, FileKey2, LoaderCircle, RefreshCw, ShieldCheck, TriangleAlert, Upload } from 'lucide-react'
+import { Check, ChevronRight, CircleCheck, Copy, ExternalLink, FileKey2, LoaderCircle, RefreshCw, ShieldCheck, TriangleAlert, Upload } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
 import { BRAND } from '@/shared/lib/brand'
+import { GitHubAppCreate } from '@/features/sources/github-create'
 
 export type PermissionReview = { required: Record<string, string>; declared: Record<string, string>; granted: Record<string, string>; excess: string[]; missing: string[]; pending_acceptance: string[] }
 export type GitHubStatus = {
@@ -40,7 +41,7 @@ function Step({ number, title, children }: { number: number; title: string; chil
   </li>
 }
 
-// Guía para crear la GitHub App a mano en GitHub y formulario para conectarla aquí.
+// Creating the GitHub App: automatically (manifest flow) or, folded below, by hand with its form.
 export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubStatus; canManage: boolean; onSaved: (next: GitHubStatus) => void }) {
   const { t } = useTranslation('sources')
   const [org, setOrg] = useState('')
@@ -73,7 +74,7 @@ export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubS
     } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
   }
 
-  return <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+  const manual = <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
     <ol className="rounded-xl border border-app-line bg-panel p-4">
       <Step number={1} title={t('github.steps.open.title')}>
         <p>{t('github.steps.open.body')}</p>
@@ -119,9 +120,18 @@ export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubS
             placeholder="-----BEGIN RSA PRIVATE KEY-----" className="mt-2 w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 font-mono text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50" /></details>
       </div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-      <Button type="submit" disabled={!canManage || busy || !appId || !pem} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}{t('github.form.submit')}</Button>
+      <Button type="submit" disabled={!canManage || busy || !appId || !pem} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="motion-safe:animate-spin" /> : <ShieldCheck />}{t('github.form.submit')}</Button>
       <p className="flex items-start gap-2 text-[11px] leading-4 text-app-subtle"><ShieldCheck className="mt-0.5 size-3 shrink-0" />{t('github.form.key_note')}</p>
     </form>
+  </div>
+  // With the App mounted from the environment only the missing values can be fixed, by hand.
+  if (status.source === 'environment') return <div className="mt-4">{manual}</div>
+  return <div className="mt-4 space-y-4">
+    <GitHubAppCreate canManage={canManage} />
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-sm font-medium"><ChevronRight className="size-4 text-app-subtle motion-safe:transition group-open:rotate-90" />{t('github.create.manual')}</summary>
+      <div className="pt-2">{manual}</div>
+    </details>
   </div>
 }
 

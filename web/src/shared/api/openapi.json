@@ -3498,6 +3498,120 @@
         }
       }
     },
+    "/api/integrations/github/manifest": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Github Manifest Start",
+        "description": "Starts creating the App on GitHub. GitHub sends the browser back to the origin the panel is open on (already\nchecked against the allowed origins by the CSRF check).",
+        "operationId": "github_manifest_start_api_integrations_github_manifest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 34,
+                    "minLength": 1,
+                    "title": "Name"
+                  },
+                  "organization": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 39
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Organization"
+                  },
+                  "any_account": {
+                    "type": "boolean",
+                    "title": "Any Account",
+                    "default": false
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "title": "GitHubManifestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubManifest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/github/app-created": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Github Manifest Return",
+        "operationId": "github_manifest_return_github_app_created_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {}
+            }
+          },
+          "303": {
+            "description": "See Other"
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/oauth/callback": {
       "get": {
         "tags": [
@@ -9442,6 +9556,26 @@
         ],
         "title": "FindingOut",
         "description": "A finding as served: messages rendered in the reader's language, with its triage, fix and lifecycle."
+      },
+      "GitHubManifest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "manifest": {
+            "type": "string",
+            "title": "Manifest"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "url",
+          "manifest"
+        ],
+        "title": "GitHubManifest",
+        "description": "Where the panel posts the manifest (`url`, with the state) and the manifest itself, as JSON text."
       },
       "GitHubStatus": {
         "properties": {

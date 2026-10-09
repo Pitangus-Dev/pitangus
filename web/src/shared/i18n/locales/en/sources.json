@@ -183,6 +183,20 @@
       "show": "Show permissions",
       "missing": "Missing permissions: {{permissions}}. Without them, pull requests aren't reviewed.",
       "missing_pending": "Missing permissions: {{permissions}} (a permission update is waiting to be accepted on the installation). Without them, pull requests aren't reviewed."
+    },
+    "create": {
+      "title": "Create the GitHub App automatically (recommended)",
+      "description": "GitHub opens with everything filled in: the name, the four permissions and the return to this panel (no webhook). You confirm there and come back connected; the App and its key belong to your account.",
+      "organization": "Organization (optional)",
+      "name": "App name",
+      "any_account": "<b>Several organizations:</b> let the App be installed on any account (otherwise only on the one that owns it).",
+      "submit": "Create on GitHub",
+      "note": "The private key goes from GitHub straight to this server, encrypted; it never passes through your browser.",
+      "manual": "Prefer to create it by hand?",
+      "organization_help": "Leave it empty to create the App on your personal account.",
+      "name_help": "It must be unique on GitHub; if it's taken, GitHub lets you change it on its page.",
+      "name_for": "{{brand}} {{organization}}",
+      "opening": "Opening GitHub…"
     }
   },
   "registries": {
