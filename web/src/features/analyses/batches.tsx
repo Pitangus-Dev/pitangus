@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Layers3, LoaderCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { useConfirm } from '@/shared/ui/confirm'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { api, query } from '@/shared/api/http'
 import type { BatchSummary } from '@/features/analyses/use-batches'
@@ -14,13 +15,14 @@ export function BatchPanel({ active, last, onChanged, viewer }: { active: BatchS
   const { t } = useTranslation('analyses')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const confirm = useConfirm()
   if (!active && !last) return null
   if (!active && last) return <p className="text-xs text-app-muted">{t('batch.last', { label: last.label, count: last.done, failed: last.failed ? t('batch.failed', { count: last.failed }) : '', cancelled: last.status === 'cancelled' ? t('batch.cancelled') : '', critical: last.critical ? t('batch.critical', { count: last.critical }) : '' })}</p>
   const batch = active!
   const finished = batch.done + batch.failed
   const percent = batch.total ? Math.round((finished / batch.total) * 100) : 0
   const cancel = async () => {
-    if (!window.confirm(t('batch.confirm_cancel'))) return
+    if (!await confirm({ title: t('batch.cancel_title'), description: t('batch.confirm_cancel'), confirmLabel: t('batch.cancel'), cancelLabel: t('batch.keep_running'), destructive: true })) return
     setBusy(true); setError('')
     try { await api.post('/api/repositories/batches/cancel', 'cancel-batch', { id: batch.id }); onChanged() }
     catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }

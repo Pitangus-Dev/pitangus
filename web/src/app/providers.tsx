@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { ApiError } from '@/shared/api/http'
 import i18n from '@/shared/i18n'
+import { ConfirmProvider } from '@/shared/ui/confirm-dialog'
 
 // Estado del servidor con TanStack Query: caché compartida entre vistas, reintentos acotados y sondeo solo mientras
 // haga falta (refetchInterval). Un 4xx no se reintenta: es una respuesta, no un fallo de red.
@@ -19,5 +20,5 @@ const queryClient = new QueryClient({
 i18n.on('languageChanged', () => { void queryClient.invalidateQueries() })
 
 export function Providers({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  return <QueryClientProvider client={queryClient}><ConfirmProvider>{children}</ConfirmProvider></QueryClientProvider>
 }

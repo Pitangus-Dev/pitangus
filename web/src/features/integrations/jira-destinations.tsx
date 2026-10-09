@@ -13,6 +13,7 @@ import { jiraFieldValuesQuery, jiraFieldsQuery, jiraIssueTypesQuery, jiraProject
 import { MappingTable } from '@/features/integrations/jira-mapping'
 import { buildMapping, initialDraft, type Draft, type FieldSnapshot } from '@/features/integrations/jira-mapping-model'
 import { destinationTarget, errorMap, type JiraDestination, type JiraRef } from '@/features/integrations/jira-routing'
+import { SelectField } from '@/shared/ui/select-field'
 
 type Project = { id: string; key: string; name: string }
 type Warning = { field: string; error: string }
@@ -117,9 +118,8 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
       {project && <div className="space-y-1.5 sm:w-1/2 sm:pr-1.5"><label htmlFor={`${id}-type`} className="text-xs text-app-muted">{t('jira.destinations.issue_type')}</label>
         {types.isPending ? <SkeletonList rows={1} dense label={t('jira.destinations.loading_types')} />
           : types.isError ? <p role="alert" className="text-xs text-danger">{types.error.message}</p>
-          : <select id={`${id}-type`} value={issueType} onChange={event => { setIssueType(event.target.value); setDraft(null); setErrors({}) }} {...invalid('issue_type')}
-            className="h-8 w-full rounded-lg border border-app-line bg-app-soft px-2 text-sm text-app-fg aria-invalid:border-danger">
-            <option value="">{t('jira.destinations.pick_type')}</option>{available.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}
+          : <SelectField id={`${id}-type`} value={issueType} onValueChange={value => { setIssueType(value); setDraft(null); setErrors({}) }} {...invalid('issue_type')}
+            className="aria-invalid:border-danger" placeholder={t('jira.destinations.pick_type')} options={available.map(item => ({ value: item.id, label: item.name }))} />}
         {fieldError('issue_type')}</div>}
       {project && issueType && <div className="space-y-2"><div><h5 className="text-sm font-medium">{t('jira.mapping.title')}</h5><p className="text-xs text-app-subtle">{t('jira.mapping.help')}</p></div>
         {fields.isError ? <p role="alert" className="text-xs text-danger">{fields.error.message}</p>

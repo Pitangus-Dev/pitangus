@@ -362,6 +362,7 @@
       "submit": "Add image",
       "clear_repository_for": "Clear the repository {{name}}"
     },
-    "confirm_remove": "Remove {{name}} from the list? It was never scanned, so no findings are lost; you can add it again."
+    "remove_title": "Remove {{name}} from the list?",
+    "confirm_remove": "It was never scanned, so no findings are lost; you can add it again."
   }
 }

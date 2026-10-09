@@ -4,9 +4,11 @@ import { Trans, useTranslation } from 'react-i18next'
 import type { SessionUser } from '@/features/auth/session'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
+import { useConfirm } from '@/shared/ui/confirm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
+import { SelectField } from '@/shared/ui/select-field'
 import { Menu, MenuContent, MenuGroup, MenuItem, MenuTrigger } from '@/shared/ui/menu'
 import { Skeleton, SkeletonCard, SkeletonList, SkeletonTiles } from '@/shared/ui/loading'
 import { SourceSearch } from '@/features/sources/source-search'
@@ -29,7 +31,7 @@ const LIKELIHOOD = { low: 'threat.likelihood.low', medium: 'threat.likelihood.me
 const IMPACT = { low: 'threat.impact.low', medium: 'threat.impact.medium', high: 'threat.impact.high' } as const
 const DECISION_HINT = { mitigated: 'decision.mitigated', accepted: 'decision.accepted', not_applicable: 'decision.not_applicable' } as const
 const isMethodology = (value?: string): value is Methodology => METHOD_ORDER.includes(value as Methodology)
-const select = 'h-8 rounded-lg border border-app-line bg-app-soft px-2 text-xs text-app-fg'
+const select = 'w-fit text-xs'
 
 export function ThreatModels({ user, onOpenRun }: { user: SessionUser; onOpenRun: (id: string) => void }) {
   const { t } = useTranslation('threats')
@@ -96,6 +98,7 @@ function CreateDialog({ open, assets, onClose, onCreated }: { open: boolean; ass
 
 function Editor({ id, catalog: base, user, onBack, onOpenRun }: { id: string; catalog: Catalog; user: SessionUser; onBack: () => void; onOpenRun: (id: string) => void }) {
   const { t } = useTranslation('threats')
+  const confirm = useConfirm()
   const [view, setView] = useState<View | null>(null)
   const [draft, setDraft] = useState<Model | null>(null)
   const [tab, setTab] = useState<string>('')
@@ -124,7 +127,7 @@ function Editor({ id, catalog: base, user, onBack, onOpenRun }: { id: string; ca
     catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
   }
   const remove = async () => {
-    if (!window.confirm(t('editor.confirm_delete'))) return
+    if (!await confirm({ title: t('editor.delete_title'), description: t('editor.confirm_delete'), confirmLabel: t('editor.delete'), destructive: true })) return
     try { await api.post('/api/threat-models/delete', 'delete-threat-model', { id }); onBack() } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) }
   }
   if (!view || !draft) return error ? <div role="alert" className="text-sm text-danger">{error}</div>
@@ -258,6 +261,7 @@ function payloadOf(model: Model) {
 
 function Threats({ view, draft, methodology, busy, onChanged, onOpenRun, onSaveModel }: { view: View; draft: Model; methodology: Methodology; busy: boolean; onChanged: (view: View) => void; onOpenRun: (id: string) => void; onSaveModel: (model: Model) => Promise<boolean> }) {
   const { t } = useTranslation('threats')
+  const confirm = useConfirm()
   const [editing, setEditing] = useState<ManualThreat | 'new' | null>(null)
   const categoryKey = (row: Threat) => methodology === 'custom' ? `${row.framework ?? 'manual'}:${row.stride}` : row.stride
   const codes = [...new Set(view.threats.map(categoryKey).filter(Boolean))]
@@ -268,7 +272,7 @@ function Threats({ view, draft, methodology, busy, onChanged, onOpenRun, onSaveM
     if (await onSaveModel({ ...draft, manual_threats: next })) setEditing(null)
   }
   const removeManual = async (manualId: string) => {
-    if (!window.confirm(t('threat.confirm_remove'))) return
+    if (!await confirm({ title: t('threat.confirm_remove'), confirmLabel: t('common:actions.remove'), destructive: true })) return
     await onSaveModel({ ...draft, manual_threats: (draft.manual_threats ?? []).filter(item => item.id !== manualId) })
   }
   const [stride, setStride] = useState('all')
@@ -281,7 +285,8 @@ function Threats({ view, draft, methodology, busy, onChanged, onOpenRun, onSaveM
     <div className="flex flex-wrap gap-2">
       {['all', ...codes].map(letter => { const category = categoryRow(letter); return <button key={letter} onClick={() => setStride(letter)} title={category && category.framework !== 'manual' ? categoryHelp((category.framework ?? methodology) as Methodology, category.stride) : undefined} className={`rounded-lg border px-2.5 py-1 text-xs ${stride === letter ? 'border-brand/50 bg-brand/10 text-brand' : 'border-app-line bg-app-soft text-app-muted'}`}>{letter === 'all' ? t('filter.all') : `${methodology === 'custom' ? `${category?.framework?.toUpperCase() ?? t('filter.manual')} · ` : category?.stride && category.stride.length <= 2 ? `${category.stride} · ` : ''}${category?.category ?? letter} (${view.threats.filter(row => categoryKey(row) === letter).length})`}</button> })}
       <Button size="sm" variant="outline" className="border-app-line bg-app-soft" onClick={() => setEditing('new')}><Plus />{t('filter.add_threat')}</Button>
-      <select aria-label={t('filter.status')} value={status} onChange={event => setStatus(event.target.value)} className={`${select} ml-auto`}><option value="pending">{t('filter.pending')}</option><option value="all">{t('filter.all_statuses')}</option>{Object.entries(statusLabel).map(([key, label]) => <option key={key} value={key}>{t(label)}</option>)}</select>
+      <SelectField aria-label={t('filter.status')} value={status} onValueChange={setStatus} className={`${select} ml-auto`} align="end"
+        options={[{ value: 'pending', label: t('filter.pending') }, { value: 'all', label: t('filter.all_statuses') }, ...Object.entries(statusLabel).map(([key, label]) => ({ value: key, label: t(label) }))]} />
     </div>
     {rows.length === 0 ? <p className="py-8 text-center text-sm text-app-subtle">{view.threats.length ? t('filter.no_match') : t('filter.empty')}</p>
       : <div className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line">{rows.map(row => { const expanded = open === row.id
@@ -351,9 +356,12 @@ function Elements({ draft, setDraft, catalog }: { draft: Model; setDraft: (model
       <CardContent className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead><tr className="text-left text-xs text-app-subtle"><th scope="col" className={cell}>{t('elements.name_technology')}</th><th scope="col" className={cell}>{t('inspector.kind')}</th><th scope="col" className={cell}>{t('canvas.boundary')}</th><th scope="col" className={cell}>{t('elements.asset')}</th><th scope="col" className={cell}>{t('inspector.data')}</th><th scope="col" className={cell}>{t('elements.properties')}</th><th scope="col"><span className="sr-only">{t('elements.actions')}</span></th></tr></thead>
         <tbody className="divide-y divide-app-line">{draft.components.map(item => <tr key={item.id}>
           <td className={cell}><Input aria-label={t('inspector.name')} value={item.name} maxLength={80} onChange={event => updateComponent(item.id, { name: event.target.value })} className="h-8 border-app-line bg-app-soft" /><Input aria-label={t('inspector.technology')} value={item.technology ?? ''} maxLength={80} placeholder={t('inspector.technology')} onChange={event => updateComponent(item.id, { technology: event.target.value })} className="mt-1 h-7 border-app-line bg-app-soft text-xs" />{item.origin === 'suggested' && <span className="mt-1 block max-w-64 text-[11px] leading-4 text-brand" title={item.description}>{item.description || t('elements.suggested')}</span>}</td>
-          <td className={cell}><select aria-label={t('inspector.kind')} value={item.kind} onChange={event => updateComponent(item.id, { kind: event.target.value as Kind, custom_kind: event.target.value === 'custom' ? item.custom_kind || t('canvas.custom_kind_default') : '', custom_base: event.target.value === 'custom' ? item.custom_base || 'service' : undefined })} className={select}>{Object.entries(catalog.kinds).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>{item.kind === 'custom' && <><Input aria-label={t('inspector.custom_kind')} value={item.custom_kind ?? ''} maxLength={80} onChange={event => updateComponent(item.id, { custom_kind: event.target.value })} className="mt-1 h-7 border-app-line bg-app-soft text-xs" /><select aria-label={t('inspector.custom_base')} value={item.custom_base || 'service'} onChange={event => updateComponent(item.id, { custom_base: event.target.value as Exclude<Kind, 'custom'> })} className={`${select} mt-1`}>{Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></>}</td>
-          <td className={cell}><select aria-label={t('canvas.boundary')} value={boundaryOf(item.id)} onChange={event => moveTo(item.id, event.target.value)} className={select}><option value="">{t('elements.no_boundary')}</option>{draft.boundaries.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></td>
-          <td className={cell}><select aria-label={t('elements.linked_asset')} value={item.asset ?? ''} onChange={event => updateComponent(item.id, { asset: event.target.value || null, asset_ref: event.target.value ? '' : item.asset_ref })} className={`${select} max-w-48`}><option value="">{t('inspector.not_linked')}</option>{assetGroups(catalog, draft).map(group => <optgroup key={group.label} label={group.label}>{group.items.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</optgroup>)}</select>{item.asset_ref && !item.asset && <span className="mt-1 block text-[11px] text-warning">{t('elements.pending_ref', { ref: item.asset_ref })}</span>}</td>
+          <td className={cell}><SelectField aria-label={t('inspector.kind')} value={item.kind} onValueChange={kind => updateComponent(item.id, { kind: kind as Kind, custom_kind: kind === 'custom' ? item.custom_kind || t('canvas.custom_kind_default') : '', custom_base: kind === 'custom' ? item.custom_base || 'service' : undefined })} className={select}
+            options={Object.entries(catalog.kinds).map(([key, label]) => ({ value: key, label }))} />{item.kind === 'custom' && <><Input aria-label={t('inspector.custom_kind')} value={item.custom_kind ?? ''} maxLength={80} onChange={event => updateComponent(item.id, { custom_kind: event.target.value })} className="mt-1 h-7 border-app-line bg-app-soft text-xs" /><SelectField aria-label={t('inspector.custom_base')} value={item.custom_base || 'service'} onValueChange={base => updateComponent(item.id, { custom_base: base as Exclude<Kind, 'custom'> })} className={`${select} mt-1`}
+            options={Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, label]) => ({ value: key, label }))} /></>}</td>
+          <td className={cell}><SelectField aria-label={t('canvas.boundary')} value={boundaryOf(item.id)} onValueChange={boundary => moveTo(item.id, boundary)} className={select} placeholder={t('elements.no_boundary')} options={draft.boundaries.map(entry => ({ value: entry.id, label: entry.name }))} /></td>
+          <td className={cell}><SelectField aria-label={t('elements.linked_asset')} value={item.asset ?? ''} onValueChange={asset => updateComponent(item.id, { asset: asset || null, asset_ref: asset ? '' : item.asset_ref })} className={`${select} max-w-48`} placeholder={t('inspector.not_linked')}
+            groups={assetGroups(catalog, draft).map(group => ({ label: group.label, options: group.items.map(asset => ({ value: asset.id, label: asset.name })) }))} />{item.asset_ref && !item.asset && <span className="mt-1 block text-[11px] text-warning">{t('elements.pending_ref', { ref: item.asset_ref })}</span>}</td>
           <td className={cell}><Chips value={item.data} options={catalog.classifications} onChange={data => updateComponent(item.id, { data })} /></td>
           <td className={`${cell} space-y-1 text-xs`}>{([['internet_facing', 'canvas.internet_facing'], ['authenticates', 'inspector.authenticates'], ['encrypted_at_rest', 'canvas.encrypted_at_rest']] as const).map(([key, label]) => <label key={key} className="flex items-center gap-1.5 whitespace-nowrap"><input type="checkbox" className="size-3.5 accent-brand" checked={item[key]} onChange={event => updateComponent(item.id, { [key]: event.target.checked })} />{t(label)}</label>)}</td>
           <td className={cell}><Button size="xs" variant="ghost" aria-label={t('repos.remove', { name: item.name })} onClick={() => removeComponent(item.id)}><Trash2 /></Button></td>
@@ -361,8 +369,8 @@ function Elements({ draft, setDraft, catalog }: { draft: Model; setDraft: (model
     <Card className="border-app-line bg-panel"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-base">{t('elements.flows')}</CardTitle><Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={draft.components.length < 2} onClick={addFlow}><Plus />{t('elements.flow')}</Button></CardHeader>
       <CardContent className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead><tr className="text-left text-xs text-app-subtle"><th scope="col" className={cell}>{t('elements.source_target')}</th><th scope="col" className={cell}>{t('elements.name_protocol')}</th><th scope="col" className={cell}>{t('inspector.data')}</th><th scope="col" className={cell}>{t('elements.properties')}</th><th scope="col"><span className="sr-only">{t('elements.actions')}</span></th></tr></thead>
         <tbody className="divide-y divide-app-line">{draft.flows.map(flow => <tr key={flow.id}>
-          <td className={cell}><div className="flex items-center gap-1"><select aria-label={t('elements.source')} value={flow.source} onChange={event => updateFlow(flow.id, { source: event.target.value })} className={select}>{draft.components.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>→<select aria-label={t('elements.target')} value={flow.target} onChange={event => updateFlow(flow.id, { target: event.target.value })} className={select}>{draft.components.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div></td>
-          <td className={cell}><Input aria-label={t('elements.flow_name')} value={flow.name ?? ''} maxLength={80} placeholder={t('inspector.flow_name')} onChange={event => updateFlow(flow.id, { name: event.target.value })} className="h-8 border-app-line bg-app-soft" /><select aria-label={t('inspector.protocol')} value={flow.protocol} onChange={event => updateFlow(flow.id, { protocol: event.target.value })} className={`${select} mt-1`}>{catalog.protocols.map(item => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select></td>
+          <td className={cell}><div className="flex items-center gap-1"><SelectField aria-label={t('elements.source')} value={flow.source} onValueChange={source => updateFlow(flow.id, { source })} className={select} options={draft.components.map(item => ({ value: item.id, label: item.name }))} />→<SelectField aria-label={t('elements.target')} value={flow.target} onValueChange={target => updateFlow(flow.id, { target })} className={select} options={draft.components.map(item => ({ value: item.id, label: item.name }))} /></div></td>
+          <td className={cell}><Input aria-label={t('elements.flow_name')} value={flow.name ?? ''} maxLength={80} placeholder={t('inspector.flow_name')} onChange={event => updateFlow(flow.id, { name: event.target.value })} className="h-8 border-app-line bg-app-soft" /><SelectField aria-label={t('inspector.protocol')} value={flow.protocol} onValueChange={protocol => updateFlow(flow.id, { protocol })} className={`${select} mt-1`} options={catalog.protocols.map(item => ({ value: item, label: item.toUpperCase() }))} /></td>
           <td className={cell}><Chips value={flow.data} options={catalog.classifications} onChange={data => updateFlow(flow.id, { data })} /></td>
           <td className={`${cell} space-y-1 text-xs`}><label className="flex items-center gap-1.5"><input type="checkbox" className="size-3.5 accent-brand" checked={flow.authenticated} onChange={event => updateFlow(flow.id, { authenticated: event.target.checked })} />{t('inspector.authenticated')}</label><label className="flex items-center gap-1.5"><input type="checkbox" className="size-3.5 accent-brand" checked={flow.encrypted} onChange={event => updateFlow(flow.id, { encrypted: event.target.checked })} />{t('elements.encrypted')}</label></td>
           <td className={cell}><Button size="xs" variant="ghost" aria-label={t('elements.remove_flow')} onClick={() => setDraft({ ...draft, flows: draft.flows.filter(item => item.id !== flow.id) })}><Trash2 /></Button></td>

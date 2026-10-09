@@ -338,7 +338,9 @@
       "webhook": "Cualquier servicio que acepte un POST con JSON. Cada aviso lleva la cabecera X-Pitangus-Signature (HMAC-SHA256 del cuerpo)."
     },
     "saved": "Canal «{{name}}» guardado. Envía una prueba para comprobarlo.",
-    "confirm_remove": "¿Quitar «{{name}}»? Para volver a añadirlo necesitarás la URL del webhook otra vez.",
+    "remove_title": "¿Quitar «{{name}}»?",
+    "remove_channel": "Quitar canal",
+    "confirm_remove": "Para volver a añadirlo necesitarás la URL del webhook otra vez.",
     "test_ok": "Prueba entregada a «{{name}}» ({{detail}}).",
     "test_failed": "La prueba a «{{name}}» falló: {{detail}}. Revisa la URL o crea el webhook de nuevo.",
     "loading": "Cargando canales",

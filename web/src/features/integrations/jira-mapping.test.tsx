@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { mockApi, type Call } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
+import { choose, optionsOf } from '@/shared/test/select'
 import { DestinationEditor } from '@/features/integrations/jira-destinations'
 import { MappingTable, ValueSearch } from '@/features/integrations/jira-mapping'
 import { initialDraft, type Entry, type JiraField, type JiraVariables } from '@/features/integrations/jira-mapping-model'
@@ -45,7 +46,6 @@ function editor(save: (call: Call) => { status?: number; body?: unknown } | unde
   return { calls, saved, user: userEvent.setup() }
 }
 const posts = (calls: Call[]) => calls.filter(call => call.path === '/api/integrations/jira/destinations')
-const optionsOf = (select: HTMLElement) => within(select).getAllByRole('option').map(option => option.textContent)
 
 describe('destination field mapping', () => {
   it('offers only the Pitangus variables that fit each field type', async () => {
@@ -55,13 +55,13 @@ describe('destination field mapping', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: tr('jira.mapping.more', { count: 1 }) }))
     // An option field takes no variable (fits is empty): the source list has no "Pitangus data".
-    expect(optionsOf(screen.getByLabelText(tr('jira.mapping.source_label', { field: 'Team' })))).not.toContain(tr('jira.mapping.source.pitangus'))
+    expect(await optionsOf(user, screen.getByLabelText(tr('jira.mapping.source_label', { field: 'Team' })))).not.toContain(tr('jira.mapping.source.pitangus'))
     // A required field can't be left empty.
-    expect(optionsOf(screen.getByLabelText(tr('jira.mapping.source_label', { field: 'Summary' })))).not.toContain(tr('jira.mapping.source.none'))
+    expect(await optionsOf(user, screen.getByLabelText(tr('jira.mapping.source_label', { field: 'Summary' })))).not.toContain(tr('jira.mapping.source.none'))
 
     const points: Entry = { source: 'pitangus', key: '', value: '', values: [], text: '', names: {} }
     rerender(<MappingTable fields={FIELDS} variables={VARIABLES} draft={{ ...draft, customfield_2: points }} errors={{}} onChange={change} searchValues={vi.fn()} />)
-    expect(optionsOf(screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Story points' }))).slice(1)).toEqual(['Line'])
+    expect((await optionsOf(user, screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Story points' })))).slice(1)).toEqual(['Line'])
     // Fields Pitangus can't fill are listed, never offered.
     expect(screen.queryByLabelText(tr('jira.mapping.source_label', { field: 'Assignee' }))).toBeNull()
     expect(screen.getByText(tr('jira.mapping.unsupported_summary', { count: 1 }))).toBeTruthy()
@@ -76,8 +76,8 @@ describe('destination field mapping', () => {
     expect(screen.getByText(tr('jira.mapping.required'))).toBeTruthy()
     expect(team.closest('tr')?.textContent).toContain(tr('jira.mapping.required'))
 
-    await user.selectOptions(team, 'fixed')
-    await user.selectOptions(screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Team' })), '10')
+    await choose(user, team, tr('jira.mapping.source.fixed'))
+    await choose(user, screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Team' })), 'Payments')
     await user.click(screen.getByRole('button', { name: tr('jira.destinations.save') }))
 
     await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce())
@@ -89,8 +89,8 @@ describe('destination field mapping', () => {
   it('shows each server error next to its field', async () => {
     const { user } = editor(() => ({ status: 400, body: { error: 'Check the highlighted fields', errors: [
       { field: 'mapping.customfield_2', error: 'Story points needs a number' }, { field: 'name', error: 'That name is already in use' }] } }))
-    await user.selectOptions(await screen.findByLabelText(tr('jira.mapping.source_label', { field: 'Team' })), 'fixed')
-    await user.selectOptions(screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Team' })), '11')
+    await choose(user, await screen.findByLabelText(tr('jira.mapping.source_label', { field: 'Team' })), tr('jira.mapping.source.fixed'))
+    await choose(user, screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Team' })), 'Identity')
     await user.click(screen.getByRole('button', { name: tr('jira.destinations.save') }))
 
     const name = screen.getByLabelText(tr('jira.destinations.name'))

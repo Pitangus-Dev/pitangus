@@ -16,6 +16,7 @@ import { fetchSource, type Source, type SourcePage } from '@/features/sources/so
 import { SkeletonCard, SkeletonList } from '@/shared/ui/loading'
 import { useBatches } from '@/features/analyses/use-batches'
 import { SarifImport } from '@/features/analyses/sarif-import'
+import { SelectField } from '@/shared/ui/select-field'
 
 type ScanPlan = { languages: { name: string; files: number; rules: number }[]; runs: string[]; skips: string[]; osv_needed: boolean; files: number | null; manifests: string[]; iac: string[]; pipelines?: string[] }
 type Kind = 'code' | 'web' | 'image' | 'import'
@@ -159,7 +160,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
           </div>}
           {codeMode === 'org'
             ? <div className="space-y-2"><label htmlFor="scan-organization" className="text-sm text-app-secondary">{t('org.label')}</label>
-                <select id="scan-organization" value={organization} onChange={event => setOrganization(event.target.value)} className="h-9 w-full rounded-lg border border-app-line bg-app-soft px-2 text-sm"><option value="">{t('org.choose')}</option>{accounts.map(account => <option key={account} value={account}>{account}</option>)}</select>
+                <SelectField id="scan-organization" value={organization} onValueChange={setOrganization} placeholder={t('org.choose')} options={accounts.map(account => ({ value: account, label: account }))} />
                 {organization && orgResult === 'error' && <p role="alert" className="text-xs text-danger">{t('org.count_error', { name: organization })}</p>}
                 {organization && orgResult !== 'error' && <p role="status" className="text-xs text-app-muted">{orgTotal === null ? t('org.counting') : orgTotal ? <Trans t={t} i18nKey="org.estimate" count={orgTotal} values={{ duration: duration(t, orgTotal * 60) }} components={{ strong: <span /> }} /> : t('org.none')}</p>}</div>
             : chosenSources.length

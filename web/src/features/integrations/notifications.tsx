@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BellRing, LoaderCircle, Plus, Send, ShieldCheck, Trash2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { useConfirm } from '@/shared/ui/confirm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
@@ -9,6 +10,7 @@ import { intlLocale } from '@/shared/i18n'
 import { formatDate } from '@/shared/lib/types'
 import { SkeletonList } from '@/shared/ui/loading'
 import { CodeBlock } from '@/features/findings/fix-guide'
+import { SelectField } from '@/shared/ui/select-field'
 
 type Kind = 'slack' | 'teams' | 'webhook'
 type Channel = { id: string; kind: Kind; name: string; host: string; events: string[]; threshold: string; signed: boolean
@@ -21,6 +23,7 @@ const HINT = { slack: 'notifications.hint.slack', teams: 'notifications.hint.tea
 // Avisos a Slack, Teams o un webhook cuando aparece algo que importa, sin tener que abrir el panel.
 export function NotificationsCard() {
   const { t } = useTranslation('integrations')
+  const confirm = useConfirm()
   const [data, setData] = useState<Listing | null>(null)
   const [adding, setAdding] = useState(false)
   const [kind, setKind] = useState<Kind>('slack')
@@ -48,7 +51,7 @@ export function NotificationsCard() {
   }
   const act = async (op: 'remove' | 'test', channel: Channel) => {
     // La URL no vuelve al navegador: quitar un canal obliga a pedirla de nuevo en Slack o Teams.
-    if (op === 'remove' && !window.confirm(t('notifications.confirm_remove', { name: channel.name }))) return
+    if (op === 'remove' && !await confirm({ title: t('notifications.remove_title', { name: channel.name }), description: t('notifications.confirm_remove'), confirmLabel: t('notifications.remove_channel'), destructive: true })) return
     setBusy(`${op}:${channel.id}`); setError(''); setNotice('')
     try {
       const result = await api.post<{ channels: Channel[]; ok?: boolean; detail?: string }>('/api/notifications', 'notifications', { op, id: channel.id })
@@ -90,7 +93,7 @@ export function NotificationsCard() {
           <fieldset className="space-y-1.5"><legend className="text-xs text-app-muted">{t('notifications.events')}</legend>{Object.entries(data.events).map(([id, label]) => <label key={id} className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={events.includes(id)} onChange={event => setEvents(previous => event.target.checked ? [...previous, id] : previous.filter(item => item !== id))} className="size-4 accent-brand" />{label}</label>)}</fieldset>
           <div className="space-y-1.5"><label htmlFor="notify-threshold" className="text-xs text-app-muted">{t('notifications.threshold_label')}</label>
-            <select id="notify-threshold" value={threshold} disabled={!events.includes('findings')} onChange={event => setThreshold(event.target.value)} className="h-9 w-full rounded-lg border border-app-line bg-app-soft px-2 text-sm">{data.thresholds.map(item => <option key={item} value={item}>{thresholdLabel(item)}</option>)}</select></div>
+            <SelectField id="notify-threshold" value={threshold} disabled={!events.includes('findings')} onValueChange={setThreshold} options={data.thresholds.map(item => ({ value: item, label: thresholdLabel(item) }))} /></div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={!!busy || !events.length} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy === 'save' ? <LoaderCircle className="animate-spin" /> : <BellRing />}{t('notifications.save')}</Button>

@@ -362,6 +362,7 @@
       "submit": "Agregar imagen",
       "clear_repository_for": "Quitar el repositorio {{name}}"
     },
-    "confirm_remove": "¿Quitar {{name}} de la lista? Nunca se analizó, así que no se pierde ningún hallazgo; puedes volver a agregarla."
+    "remove_title": "¿Quitar {{name}} de la lista?",
+    "confirm_remove": "Nunca se analizó, así que no se pierde ningún hallazgo; puedes volver a agregarla."
   }
 }

@@ -12,6 +12,7 @@ import { fetchSource, type SourcePage } from '@/features/sources/sources'
 import { TargetBranches } from '@/features/pulls/target-branches'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
+import { useConfirm } from '@/shared/ui/confirm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
 import { api, query as toQuery } from '@/shared/api/http'
@@ -178,6 +179,7 @@ const WATCH_PAGE = 25
 // Vigilancia de PRs por repositorio, paginada en el servidor: interruptor individual y acciones en bloque.
 function WatchPanel({ admin, onChanged, onSelect, selected }: { admin: boolean; onChanged: () => void; onSelect: (row: { id: string; name: string }) => void; selected: string | null }) {
   const { t } = useTranslation('pulls')
+  const confirm = useConfirm()
   const [data, setData] = useState<WatchPage | null>(null)
   const [filter, setFilter] = useState('')
   const [onlyEnabled, setOnlyEnabled] = useState(false)
@@ -205,7 +207,7 @@ function WatchPanel({ admin, onChanged, onSelect, selected }: { admin: boolean; 
     try { await api.post('/api/pull-requests/settings', 'pr-settings', { ...body, enabled }); setPicked(new Set()); setNonce(value => value + 1); onChanged() }
     catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
   }
-  const enableAll = () => { if (data && window.confirm(t('watch.confirm_all'))) void apply({ all: true }, true) }
+  const enableAll = async () => { if (data && await confirm({ title: t('watch.confirm_all_title'), description: t('watch.confirm_all'), confirmLabel: t('watch.watch_all') })) void apply({ all: true }, true) }
   if (!data) return error ? <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div> : <Card className="border-app-line bg-panel"><CardContent className="p-0"><SkeletonList rows={8} dense label={t('loading.watched')} /></CardContent></Card>
   const rows = data.repositories
   const allPicked = rows.length > 0 && rows.every(row => picked.has(row.id))
@@ -215,7 +217,7 @@ function WatchPanel({ admin, onChanged, onSelect, selected }: { admin: boolean; 
   ].join(' · ')
   return <Card className="border-app-line bg-panel"><CardHeader className="gap-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>{t('watch.title', { total: data.enabled })}</CardTitle><CardDescription className="mt-1">{t('watch.description', { minutes: Math.round(data.interval / 60) })}{admin ? '' : ` ${t('watch.member_hint')}`}</CardDescription></div>
     {admin && <Menu><MenuTrigger render={<Button size="sm" variant="outline" disabled={busy} className="border-app-line bg-app-soft" />}>{t('watch.bulk')}<ChevronDown className="size-3.5" /></MenuTrigger>
-      <MenuContent><MenuItem onClick={enableAll}>{t('watch.watch_all')}</MenuItem><MenuItem disabled={data.enabled === 0} onClick={() => void apply({ all: true }, false)}>{t('watch.unwatch_all')}</MenuItem></MenuContent></Menu>}</div>
+      <MenuContent><MenuItem onClick={() => void enableAll()}>{t('watch.watch_all')}</MenuItem><MenuItem disabled={data.enabled === 0} onClick={() => void apply({ all: true }, false)}>{t('watch.unwatch_all')}</MenuItem></MenuContent></Menu>}</div>
     <div className="flex flex-wrap items-center gap-2"><div className="relative"><Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-app-subtle" /><Input aria-label={t('watch.search')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} placeholder={t('watch.search_placeholder')} className="h-8 w-56 border-app-line bg-app-soft pl-8 text-xs" /></div>
       <label className="flex items-center gap-2 text-xs text-app-muted"><input type="checkbox" className="size-4 accent-brand" checked={onlyEnabled} onChange={event => { setOnlyEnabled(event.target.checked); setPage(1) }} />{t('watch.only_watched')}</label>
       {admin && picked.size > 0 && <><span className="text-xs text-app-muted">{t('watch.selected', { count: picked.size })}</span><Button size="sm" disabled={busy} onClick={() => void apply({ source_ids: [...picked] }, true)} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('watch.enable')}</Button><Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={busy} onClick={() => void apply({ source_ids: [...picked] }, false)}>{t('watch.disable')}</Button><Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>{t('watch.clear_selection')}</Button></>}</div>
