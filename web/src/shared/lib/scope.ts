@@ -17,9 +17,11 @@ export function scopeQuery(scope: Scope): string {
 // A single asset is ready once picked, which the hub knows (it holds the asset); here only the portfolio kinds.
 export const scopeReady = (scope: Scope) => scope.kind === 'all' || (scope.kind === 'account' ? Boolean(scope.account) : scope.kind === 'assets' && scope.assets.length > 0)
 
+// Assets one scope (and one consolidated report) takes: provenance.SCOPE_MAX on the server.
+export const SCOPE_MAX = 500
+
 // The scope in the address (#/findings?scope=account&account=org): a reload or a shared link lands on the same view.
-// Only keys travel; names come back with the data (until then a chip shows its key).
-const SCOPE_MAX = 500
+// Only keys travel; names come back with the data (`withNames`; until then a chip shows its key).
 export function scopeFromParams(params: URLSearchParams): Scope | null {
   const kind = params.get('scope')
   if (kind !== 'account' && kind !== 'assets' && kind !== 'all') return null
@@ -32,4 +34,12 @@ export function scopeParams(scope: Scope): Record<'scope' | 'account' | 'assets'
   return { scope: scope.kind === 'one' ? null : scope.kind, account: scope.kind === 'account' && scope.account ? scope.account : null,
     assets: scope.kind === 'assets' && scope.assets.length ? scope.assets.map(item => encodeURIComponent(item.key)).join(',') : null,
     images: chosen && !scope.images ? '0' : null }
+}
+// The chosen assets named after `rows` (the assets a scoped view returned), for those still known only by their key.
+export function withNames(scope: Scope, rows: { key: string; name: string; kind: string }[] | undefined): Scope {
+  if (scope.kind !== 'assets' || !rows) return scope
+  return { ...scope, assets: scope.assets.map(item => {
+    const row = item.name === item.key ? rows.find(entry => entry.key === item.key) : undefined
+    return row ? { ...item, name: row.name, image: row.kind === 'image' } : item
+  }) }
 }

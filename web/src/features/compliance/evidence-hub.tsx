@@ -13,7 +13,7 @@ import type { Response } from '@/shared/api/client'
 import { evidenceAssetsQuery, evidenceQuery, evidenceScopeQuery } from '@/shared/api/queries'
 import { formatDate } from '@/shared/i18n/format'
 import { remembered, rememberFramework, rememberedFramework, useAuditFrameworks, type Framework } from '@/features/findings/audit-frameworks'
-import { EvidenceScope } from '@/features/compliance/evidence-scope'
+import { ScopePicker } from '@/features/scope/scope-picker'
 import { ALL, scopeBody, scopeQuery, scopeReady, type Scope } from '@/shared/lib/scope'
 import { ImageOrigin } from '@/features/compliance/image-origin'
 
@@ -73,14 +73,14 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
       onSelect={option => { setPicked(option as ComboOption & { asset: Asset }); setError('') }} />
     {picked?.asset.kind === 'image' && <ImageOrigin key={picked.asset.key} asset={picked.asset} admin={admin} onChanged={builtFrom => setPicked(current => current && { ...current, asset: { ...current.asset, built_from: builtFrom } })} />}
   </div>
-  const unready = !ready ? t('evidence.scope.incomplete') : summary.isError ? t('evidence.summary.failed') : !covered ? t('evidence.summary.counting')
-    : empty ? t('evidence.scope.nothing') : ''
+  const unready = !ready ? t('scope:incomplete') : summary.isError ? t('evidence.summary.failed') : !covered ? t('evidence.summary.counting')
+    : empty ? t('scope:nothing') : ''
   return <Card className="border-app-line bg-panel">
     <CardHeader><CardTitle className="text-base">{t('evidence.title')}</CardTitle><CardDescription>{t('evidence.description')}</CardDescription></CardHeader>
     <CardContent className="space-y-6">
       {!counts.assets ? <p className="text-sm text-app-muted">{t('evidence.none')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('evidence.new_scan')}</button></p> : <>
         <div className="grid gap-6 xl:grid-cols-2">
-          <EvidenceScope scope={scope} accounts={counts.accounts} total={counts.assets} one={pickOne} step="1" onChange={next => { setScope(next); setError('') }} />
+          <ScopePicker scope={scope} accounts={counts.accounts} total={counts.assets} one={pickOne} step="1" onChange={next => { setScope(next); setError('') }} />
           <div className="min-w-0 space-y-2">
             <label htmlFor="evidence-framework" className="block text-xs text-app-muted"><span aria-hidden>2 · </span>{t('evidence.framework')}</label>
             <div className="max-w-sm"><Select value={framework} onValueChange={choose}>
@@ -92,7 +92,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
               {asset ? <><p className="font-medium">{asset.name}</p>
                   <p className="text-app-muted">{asset.kind === 'image' ? t('evidence.image') : t('evidence.repository')} · {asset.last_complete ? t('evidence.summary.last_complete', { date: formatDate(asset.last_complete) }) : t('evidence.summary.no_complete')}</p></>
                 : !many ? <p className="text-app-muted">{t('evidence.summary.pick')}</p>
-                : !ready ? <p className="text-app-muted">{t('evidence.scope.incomplete')}</p>
+                : !ready ? <p className="text-app-muted">{t('scope:incomplete')}</p>
                 : summary.isError ? <p className="text-danger">{t('evidence.summary.failed')}</p>
                 : !covered ? <p className="text-app-muted">{t('evidence.summary.counting')}</p>
                 : <><p className="font-medium">{t('evidence.summary.assets', { count: covered.repositories + covered.images })}</p>

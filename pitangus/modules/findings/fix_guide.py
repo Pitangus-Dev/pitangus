@@ -174,13 +174,15 @@ def guide(finding: Finding, *, target: str | None = None) -> dict | None:
     return None
 
 
-def attach(findings: list[Finding]) -> list[Finding]:
-    """Adds `fix` to each finding. For dependencies, the version that closes every advisory for the same package."""
+def attach(findings: list[Finding], *, among: list[Finding] | None = None) -> list[Finding]:
+    """Adds `fix` to each finding. For dependencies, the version that closes every advisory for the same package
+    (among `among`, every finding of the asset, when `findings` is only part of it)."""
+    every = findings if among is None else among
     targets: dict[tuple, str] = {}
     # A malicious package is not upgraded: its other advisories must not suggest "upgrade to…" either.
     hostile = {(item.get("path"), (item.get("package") or {}).get("name"), (item.get("package") or {}).get("version"))
-               for item in findings if item.get("malicious")}
-    for finding in findings:
+               for item in every if item.get("malicious")}
+    for finding in every:
         package = finding.get("package") or {}
         fixed = package.get("fixed_version")
         if finding.get("scanner") == "sca" and fixed and (finding.get("path"), package.get("name"), package.get("version")) not in hostile:

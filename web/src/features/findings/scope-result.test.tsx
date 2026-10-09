@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
-import { RepositoryResult, type RepositoryFinding, type RepositoryRun } from '@/features/findings/repository-result'
+import type { ScopedFindings } from '@/shared/api/queries'
+import { ScopeResult } from '@/features/findings/scope-result'
+import type { RepositoryFinding } from '@/features/findings/finding-model'
 
 const PRINT = 'a'.repeat(64)
 const finding = (asset: { key: string; name: string }, severity: string, title: string): RepositoryFinding => ({
@@ -15,17 +17,17 @@ const finding = (asset: { key: string; name: string }, severity: string, title: 
 const API = { key: 'github#1', name: 'org/api' }
 const WEB = { key: 'github#2', name: 'org/web' }
 // The same fingerprint in two repositories: two findings, one row each.
-const RUN: RepositoryRun = { id: 'scope', type: 'asset_scope', status: 'completed', created_at: '2026-10-01T00:00:00Z', total: 2, truncated: false,
-  summary: { lifecycle: { open: 2, fixed: 0, suppressed: 0, from_pr: 0, excluded: 0 },
+const SCOPE = { id: 'scope', type: 'asset_scope', status: 'completed', created_at: '2026-10-01T00:00:00Z', total: 2, truncated: false, steps: [], limitations: [], owasp_coverage: [],
+  summary: { lifecycle: { open: 2, fixed: 0, suppressed: 0, from_pr: 0, excluded: 0, by_severity: { critical: 1, high: 1, medium: 0, low: 0 } }, candidates: 2, sla: {},
     kpis: { active: 2, dismissed: 0, only_excluded: false, has_sla: false, overdue: 0, soon: 0, act: 0, attend: 2, critical: 1, high: 1, kev: 0, fixable: 0 } },
   by_asset: [{ ...API, kind: 'repository', open: 1, critical: 1, high: 0, fixed: 0, suppressed: 0, excluded: 0, shown: 1 },
     { ...WEB, kind: 'repository', open: 1, critical: 0, high: 1, fixed: 0, suppressed: 0, excluded: 0, shown: 1 }],
-  findings: [finding(API, 'critical', 'eval in api'), finding(WEB, 'high', 'eval in web')] }
+  findings: [finding(API, 'critical', 'eval in api'), finding(WEB, 'high', 'eval in web')] } as ScopedFindings
 const tf = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
 const JIRA = { configured: true, site: 'https://acme.atlassian.net', email: 'sec@acme.test', last4: 'abcd', destinations: 1, rules: 1, automatic: false }
 
 function render(onOpenAsset = vi.fn()) {
-  renderWithQueries(<RepositoryResult run={RUN} onNew={() => {}} onChanged={() => {}} canAccept={false} scopeName="org" onOpenAsset={onOpenAsset} />)
+  renderWithQueries(<ScopeResult scope={SCOPE} name="org" tab="open" onChanged={() => {}} canAccept={false} onOpenAsset={onOpenAsset} opening={{ pending: false, error: '' }} />)
   return onOpenAsset
 }
 async function selectBoth() {
@@ -50,9 +52,10 @@ describe('findings of several assets', () => {
     expect(opened).toHaveBeenCalledWith('github#2')
   })
 
-  it('triages a selection across assets with one request per asset, and says which failed', async () => {
-    const calls = mockApi(call => call.path === '/api/findings/triage' && (call.body as { run_id: string }).run_id === 'asset:github#2'
-      ? { status: 400, body: { error: 'Some fingerprints are not in this run.' } } : undefined)
+  it('triages a selection across assets in one request, and says which assets failed', async () => {
+    const calls = mockApi(call => call.path === '/api/findings/triage'
+      ? { body: { results: (call.body as { selections: { run_id: string }[] }).selections.map(part => part.run_id === 'asset:github#2' ? { run_id: part.run_id, error: 'Some fingerprints are not in this run.' } : { run_id: part.run_id }) } }
+      : undefined)
     render()
     const user = await selectBoth()
     expect(screen.getByText(tf('scope.selected', { count: 2, value: '2', assets: '2' }))).toBeTruthy()
@@ -60,15 +63,16 @@ describe('findings of several assets', () => {
     await user.type(screen.getByLabelText(tf('triage.reason')), 'Patched in both services')
     await user.click(screen.getByRole('button', { name: i18n.t('common:actions.save') }))
 
-    const sent = calls.filter(call => call.path === '/api/findings/triage').map(call => call.body)
-    expect(sent).toEqual([
-      { run_id: 'asset:github#1', fingerprints: [PRINT], status: 'fixed', reason: 'Patched in both services' },
-      { run_id: 'asset:github#2', fingerprints: [PRINT], status: 'fixed', reason: 'Patched in both services' }])
+    const sent = () => calls.filter(call => call.path === '/api/findings/triage').map(call => call.body)
+    await vi.waitFor(() => expect(sent()).toHaveLength(1))
+    expect(sent()[0]).toEqual({ selections: [{ run_id: 'asset:github#1', fingerprints: [PRINT] }, { run_id: 'asset:github#2', fingerprints: [PRINT] }],
+      status: 'fixed', reason: 'Patched in both services' })
     const alert = await screen.findByText(tf('scope.triage_partial', { count: 1, total: 2 }))
     expect(alert.parentElement?.textContent).toContain('org/web · Some fingerprints are not in this run.')
     // A retry sends only what failed.
     await user.click(screen.getByRole('button', { name: tf('scope.triage_retry', { count: 1 }) }))
-    expect(calls.filter(call => call.path === '/api/findings/triage').map(call => (call.body as { run_id: string }).run_id).slice(2)).toEqual(['asset:github#2'])
+    await vi.waitFor(() => expect(sent()).toHaveLength(2))
+    expect((sent()[1] as { selections: unknown[] }).selections).toEqual([{ run_id: 'asset:github#2', fingerprints: [PRINT] }])
   })
 
   it('sends a Jira selection per asset', async () => {

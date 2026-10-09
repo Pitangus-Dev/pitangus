@@ -80,4 +80,15 @@ describe('images page', () => {
     expect(screen.queryByRole('button', { name: tr('images.remove_for', { name: SCANNED.name }) })).toBeNull()
     expect(screen.getByRole('button', { name: tr('images.findings_for', { name: SCANNED.name }) })).toBeTruthy()
   })
+
+  it('says why a removal failed next to that image, and the scan button stays', async () => {
+    mockApi(call => call.method === 'GET' ? { body: page([PENDING]) } : { status: 409, body: { error: 'That image has been analyzed.' } })
+    const user = userEvent.setup()
+    renderWithQueries(list(true))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await user.click(await screen.findByRole('button', { name: tr('images.remove_for', { name: PENDING.name }) }))
+    confirm.mockRestore()
+    expect((await screen.findByRole('alert')).textContent).toBe('That image has been analyzed.')
+    expect(screen.getByRole('button', { name: tr('images.scan_for', { name: PENDING.name }) }).hasAttribute('disabled')).toBe(false)
+  })
 })

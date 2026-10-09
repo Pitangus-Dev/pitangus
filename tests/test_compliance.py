@@ -732,16 +732,19 @@ class ImageRegistrationTests(HttpCase):
         self.assertEqual({key: body[key] for key in ("key", "name", "reference", "created", "analyzed", "built_from", "run")},
                          {"key": "image:ghcr.io/org/app", "name": "ghcr.io/org/app", "reference": "ghcr.io/org/app:1.4.2",
                           "created": True, "analyzed": False, "built_from": None, "run": None})
-        status, again, _ = self.register(self.member, reference="ghcr.io/org/app:2.0")  # same image, another tag
-        self.assertEqual((status, again["created"], again["analyzed"]), (200, False, False))
-        status, scanned, _ = self.register(self.member, reference="docker.io/org/web:1")  # already analyzed
-        self.assertEqual((status, scanned["key"], scanned["created"], scanned["analyzed"]), (200, "image:docker.io/org/web", False, True))
+        # Same image, another tag, before its first scan: one entry, which now scans the new tag.
+        status, again, _ = self.register(self.member, reference="ghcr.io/org/app:2.0")
+        self.assertEqual((status, again["created"], again["analyzed"], again["reference"]), (200, False, False, "ghcr.io/org/app:2.0"))
+        # Already analyzed: nothing is stored, and the answer says what its page shows (the reference it was scanned from).
+        status, scanned, _ = self.register(self.member, reference="docker.io/org/web:2")
+        self.assertEqual((status, scanned["key"], scanned["created"], scanned["analyzed"], scanned["reference"]),
+                         (200, "image:docker.io/org/web", False, True, "docker.io/org/web:1"))
 
         page = self.page()
         self.assertEqual((page["total"], page["counts"]), (2, {"all": 2, "unlinked": 2, "label": 0, "manual": 0}))
         first = page["items"][0]  # not scanned yet: first
         self.assertEqual((first["key"], first["reference"], first["last_scan"], first["last_complete"], first["analyzed"]),
-                         ("image:ghcr.io/org/app", "ghcr.io/org/app:1.4.2", None, None, False))
+                         ("image:ghcr.io/org/app", "ghcr.io/org/app:2.0", None, None, False))
         self.assertTrue(page["items"][1]["analyzed"])
         self.assertEqual([item["key"] for item in self.page("q=APP")["items"]], ["image:ghcr.io/org/app"])
 
@@ -773,6 +776,18 @@ class ImageRegistrationTests(HttpCase):
 
         for bad in ({"reference": "http://x"}, {"reference": "ghcr.io/org/api:1", "extra": 1}, {"reference": "ghcr.io/org/api:1", "scan": "yes"}):
             self.assertEqual(self.register(self.member, **bad)[0], 400, bad)
+
+    def test_the_cap_counts_only_images_not_scanned_yet(self):
+        from pitangus.modules.sources import images as registered_images
+        with patch.object(registered_images, "LIMIT", 1):
+            self.assertEqual(self.register(self.member, reference="ghcr.io/org/app:1")[0], 200)
+            status, body, _ = self.register(self.member, reference="ghcr.io/org/api:1")
+            self.assertEqual(status, 400)
+            self.assertIn("1", body["error"])
+            self.assertEqual(self.register(self.member, reference="ghcr.io/org/app:2")[0], 200)  # already on the list
+            stamp = datetime.now(timezone.utc).isoformat()
+            save_repository_scan(self.data_dir, _image("ghcr.io/org/app", stamp), created_at=stamp)  # its first scan frees the slot
+            self.assertEqual(self.register(self.member, reference="ghcr.io/org/api:1")[0], 200)
 
     def test_scanning_it_merges_into_the_same_asset(self):
         from pitangus.modules.compliance import provenance

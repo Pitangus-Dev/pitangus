@@ -66,5 +66,9 @@
       "invalid_scope": "The scope must be full or partial",
       "invalid_commit": "Invalid commit: use its SHA (7 to 64 hexadecimal characters)"
     }
+  },
+  "triage": {
+    "not_found": "Run not found",
+    "not_findings": "Triage applies to code reviews and images"
   }
 }

@@ -1,0 +1,20 @@
+{
+  "legend": "Qué activos",
+  "account": "Una organización",
+  "assets": "Elegir varios",
+  "choose_account": "Elige una organización…",
+  "no_accounts": "Aún no hay repositorios analizados de una organización.",
+  "add": "Añadir un repositorio o una imagen…",
+  "chosen": "Activos elegidos",
+  "remove": "Quitar {{name}}",
+  "images": "Incluir las imágenes construidas desde estos repositorios",
+  "incomplete": "Primero elige una organización o al menos un activo",
+  "add_label": "Activo para añadir",
+  "one": "Uno",
+  "all_one": "Todos · {{count}}",
+  "all_other": "Todos · {{count}}",
+  "nothing": "Nada analizado coincide con este alcance",
+  "image": "Imagen",
+  "repository": "Repositorio",
+  "no_match": "Ningún repositorio o imagen analizado con ese nombre"
+}

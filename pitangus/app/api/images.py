@@ -22,6 +22,17 @@ from pitangus.shared.i18n import msg, text
 router = APIRouter(tags=["images"])
 
 
+def _image(reference: str, *, in_batch: bool = False) -> dict:
+    """The image a reference names, once its registry is checked (a public address unless private ones are allowed).
+    `in_batch`: the error names the reference, one of several."""
+    try:
+        image = parse_reference(reference)
+        check_registry_address(image["registry"])
+    except ImageError as exc:
+        raise ApiError(400, msg("api.image_error", reference=reference[:120], detail=problem(exc)) if in_batch else problem(exc)) from exc
+    return image
+
+
 class ImageLastScan(BaseModel):
     run_id: str
     created_at: str
@@ -86,14 +97,11 @@ class RegisteredImage(BaseModel):
 def register_image(context: Context = Depends(guard(Policy(action="register-image", body=1024))),
                    data: ImageRegisterIn = Depends(body(ImageRegisterIn, msg("api.invalid_image")))) -> dict:
     """Adds a container image to the Images page without scanning it, so it can be linked to the repository it is
-    built from and scanned later. Adding one already there changes nothing (`created: false`)."""
+    built from and scanned later. Adding one already there (`created: false`) only updates the reference of one not
+    scanned yet; `name` and `reference` are what the page shows for it."""
     if data.repository is not None and (context.user or {}).get("role") != "admin":
         raise ApiError(403, msg("api.admin_only"))
-    try:
-        image = parse_reference(data.reference)
-        check_registry_address(image["registry"])
-    except ImageError as exc:
-        raise ApiError(400, problem(exc)) from exc
+    image = _image(data.reference)
     if data.scan and context.state.jobs.pending() >= QUEUE_LIMIT:
         raise ApiError(429, msg("api.queue_full"))
     user = context.user["username"]
@@ -103,7 +111,7 @@ def register_image(context: Context = Depends(guard(Policy(action="register-imag
         raise ApiError(400, exc.message) from exc
     run = context.state.jobs.enqueue_image_scan(image=image, context="", requested_by=user) if data.scan else None
     context.state.log.info("image_registered", extra={"user": user, "reason": f"{image['asset']}{' -> ' + data.repository if data.repository else ''}"})
-    return context.render({"key": image["asset"], "name": image["name"], "reference": image["reference"], **result, "run": run})
+    return context.render({"key": image["asset"], **result, "run": run})
 
 
 class ImageRemoveIn(BaseModel):
@@ -144,11 +152,7 @@ class QueuedImageScan(BaseModel):
 def image_scan(context: Context = Depends(guard(Policy(action="scan-image", body=1024))),
                data: ImageScanIn = Depends(body(ImageScanIn, msg("api.invalid_image")))) -> dict:
     """Queues the scan of a container image, pulled from its registry."""
-    try:
-        image = parse_reference(data.reference)
-        check_registry_address(image["registry"])
-    except ImageError as exc:
-        raise ApiError(400, problem(exc)) from exc
+    image = _image(data.reference)
     if context.state.jobs.pending() >= QUEUE_LIMIT:
         raise ApiError(429, msg("api.queue_full"))
     queued = context.state.jobs.enqueue_image_scan(image=image, context=data.context, requested_by=context.user["username"])
@@ -174,14 +178,7 @@ def image_batch(context: Context = Depends(guard(Policy(action="scan-image-batch
     references = list(dict.fromkeys(item.strip() for item in data["references"] if item.strip()))
     if not 1 <= len(references) <= batches.MAX_SELECTED:
         raise ApiError(400, msg("api.choose_images", max=batches.MAX_SELECTED))
-    items = []
-    for reference in references:
-        try:
-            image = parse_reference(reference)
-            check_registry_address(image["registry"])
-        except ImageError as exc:
-            raise ApiError(400, msg("api.image_error", reference=reference[:120], detail=problem(exc))) from exc
-        items.append({"kind": "image", "image": image})
+    items = [{"kind": "image", "image": _image(reference, in_batch=True)} for reference in references]
     user = context.user
     label = text(msg("api.scope.images", count=len(items)), context.locale)
     try:

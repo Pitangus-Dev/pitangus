@@ -13,15 +13,20 @@ between minor versions: anything that changes behaviour is called out below.
   its runs and settings), an organization, a chosen set of repositories and images, or everything, with the images
   built from the chosen repositories. The cards add up the whole scope, a "By asset" block shows each asset's pending
   and critical findings and opens it on its own, and the table gains an Asset column. Triage (one finding or a
-  selection across assets, saved asset by asset with any failure named), Jira issues and the consolidated audit
-  evidence work on the scope. The scope stays in the address, so a reload or a shared link opens the same view. New
-  route `GET /api/findings/scope`; a very large scope lists the 10,000 most urgent findings of the tab and says so.
+  selection across assets in one request, applied asset by asset with any failure named), Jira issues and the
+  consolidated audit evidence work on the scope. The scope stays in the address, so a reload or a shared link opens the
+  same view. New route `GET /api/findings/scope`; a very large scope lists the 10,000 most urgent findings of the tab
+  and says so. `POST /api/findings/triage` also takes `selections` (`[{run_id, fingerprints}]`, one per asset, up to 500
+  findings in all) instead of `run_id` and `fingerprints`, and answers each one's outcome in `results`; it fails as a
+  whole only when none landed. The cards are counted by the server in every view: `summary.kpis` in an asset's state,
+  a run (`GET /api/runs/{id}`) and a scope, with what was fixed (by a scan or by hand) never counted as pending.
 
 - **Add an image without scanning it** (Scanning → Images → Add image). Type its reference and, if you're an
   administrator, the repository it's built from; it shows on the list as "Not scanned yet" and is scanned when you
-  choose ("Scan it now" does it right away). Adding one that is already there changes nothing and says so. Its first
-  scan lands on the same asset, keeping the link; until then it has no findings and stays out of the evidence scopes.
-  An administrator can remove an image that was never scanned. API: `POST /api/images` and `POST /api/images/remove`;
+  choose ("Scan it now" does it right away). Adding one that is already there says so; if it isn't scanned yet, it now
+  scans the reference you just typed. Its first scan lands on the same asset, keeping the link; until then it has no
+  findings and stays out of the evidence scopes. At most 5,000 images wait unscanned at a time (scanned ones don't
+  count). An administrator can remove an image that was never scanned. API: `POST /api/images` and `POST /api/images/remove`;
   `GET /api/images` items carry `analyzed`.
 
 ## [0.12.1] - 2026-10-09

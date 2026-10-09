@@ -19,8 +19,10 @@ Every change is kept in the finding's history with who, when and why.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -143,9 +145,10 @@ def effective(entry: dict | None, today: date | None = None) -> dict:
 
 
 def annotate(data_dir: Path, record: RunRecord, decisions: dict | None = None, *, requested: dict | None = None,
-             entries: dict | None = None) -> RunRecord:
+             entries: dict | None = None, guides: bool = True) -> RunRecord:
     """A copy of the run with each finding's triage status and the counts in the summary. `decisions` (every asset's),
-    `requested` (every asset's verifications) and `entries` (this asset's registry) when already loaded."""
+    `requested` (every asset's verifications) and `entries` (this asset's registry) when already loaded. Without
+    `guides`, only the triage: `enrich` adds the fix guides and verifications later (to the findings actually served)."""
     if record.get("type") not in FINDING_RUNS:
         return record
     key = asset_key(record)
@@ -158,14 +161,23 @@ def annotate(data_dir: Path, record: RunRecord, decisions: dict | None = None, *
         findings.append({**finding, "triage": state})
     summary = {**record.get("summary", {}), "triage": counts,
                "actionable": counts["open"] + counts["in_progress"]}
-    # How to fix each finding (command, example, steps) is computed when served, so it improves without rescanning.
+    if guides:
+        asked = (requested.get(key) or {}) if requested is not None else None
+        findings = enrich(data_dir, key, findings, requested=asked, entries=entries)
+    return {**record, "findings": findings, "summary": summary}
+
+
+def enrich(data_dir: Path, key: str, findings: list[Finding], *, among: list[Finding] | None = None,
+           requested: dict | None = None, entries: dict | None = None) -> list[Finding]:
+    """Adds how to fix each finding and its requested verification. `among`: every finding of the asset, when
+    `findings` is only part of it (the fix that closes a package's advisories looks at all of them)."""
+    # Computed when served, so it improves without rescanning.
     from pitangus.modules.findings.fix_guide import attach
     from pitangus.modules.findings.verifications import annotate as verified
-    asked = (requested.get(key) or {}) if requested is not None else None
-    return {**record, "findings": verified(data_dir, key, attach(findings), requested=asked, entries=entries), "summary": summary}
+    return verified(data_dir, key, attach(findings, among=among), requested=requested, entries=entries)
 
 
-def is_active(finding: dict) -> bool:
+def is_active(finding: Mapping[str, Any]) -> bool:
     return (finding.get("triage") or {}).get("status", "open") not in SUPPRESSED
 
 

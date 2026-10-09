@@ -18,8 +18,8 @@ const SCOPES: [Scope, string][] = [['selected', 'audit.scope.selected'], ['filte
 const field = 'space-y-1.5'
 const label = 'text-xs font-medium text-app-secondary'
 
-// Informe de evidencia para auditoría: formulario corto con valores por defecto y alcance elegido
-// (seleccionados, lo que se ve con los filtros o todo), en un solo documento.
+// Audit evidence: a short form with defaults and the chosen findings (selected, what the filters show, or all), in one
+// document.
 export function AuditReportDialog({ open, onClose, target, name, selected, filtered, total }: {
   open: boolean; onClose: () => void; target: AuditTarget; name: string; selected: string[]; filtered: string[]; total: number
 }) {
@@ -41,7 +41,7 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const counts: Record<Scope, number> = { selected: selected.length, filtered: filtered.length, all: total }
-  // Consolidado de una organización o de varios activos: todos sus hallazgos, su cobertura y un solo documento.
+  // An organization or several assets, consolidated: all their findings and coverage in one document.
   const portfolio = 'account' in target || 'assets' in target
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {

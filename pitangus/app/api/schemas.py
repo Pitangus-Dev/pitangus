@@ -55,6 +55,22 @@ class FindingOut(Open):
     verification: dict[str, Any] | None = None
 
 
+class FindingKpis(BaseModel):
+    """The Findings tiles (`modules/findings/kpis.py`): the pending work, neither fixed nor dismissed, among the findings listed."""
+    active: int
+    dismissed: int
+    only_excluded: bool
+    has_sla: bool
+    overdue: int
+    soon: int
+    act: int
+    attend: int
+    critical: int
+    high: int
+    kev: int
+    fixable: int
+
+
 class RunRow(Open):
     """A run's list row (no findings)."""
     id: str

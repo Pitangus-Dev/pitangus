@@ -1698,7 +1698,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Run Detail */
+        /**
+         * Run Detail
+         * @description The run with its findings' current triage and the Findings tiles (`summary.kpis`).
+         */
         get: operations["run_detail_api_runs__run_id__get"];
         put?: never;
         post?: never;
@@ -1829,7 +1832,8 @@ export interface paths {
         /**
          * Register Image
          * @description Adds a container image to the Images page without scanning it, so it can be linked to the repository it is
-         *     built from and scanned later. Adding one already there changes nothing (`created: false`).
+         *     built from and scanned later. Adding one already there (`created: false`) only updates the reference of one not
+         *     scanned yet; `name` and `reference` are what the page shows for it.
          */
         post: operations["register_image_api_images_post"];
         delete?: never;
@@ -2762,6 +2766,36 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * FindingKpis
+         * @description The Findings tiles (`modules/findings/kpis.py`): the pending work, neither fixed nor dismissed, among the findings listed.
+         */
+        FindingKpis: {
+            /** Active */
+            active: number;
+            /** Dismissed */
+            dismissed: number;
+            /** Only Excluded */
+            only_excluded: boolean;
+            /** Has Sla */
+            has_sla: boolean;
+            /** Overdue */
+            overdue: number;
+            /** Soon */
+            soon: number;
+            /** Act */
+            act: number;
+            /** Attend */
+            attend: number;
+            /** Critical */
+            critical: number;
+            /** High */
+            high: number;
+            /** Kev */
+            kev: number;
+            /** Fixable */
+            fixable: number;
+        };
+        /**
          * FindingOut
          * @description A finding as served: messages rendered in the reader's language, with its triage, fix and lifecycle.
          */
@@ -3456,6 +3490,26 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /**
+         * LifecycleCounts
+         * @description Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`) and excluded.
+         */
+        LifecycleCounts: {
+            /** Open */
+            open: number;
+            /** Fixed */
+            fixed: number;
+            /** Suppressed */
+            suppressed: number;
+            /** Excluded */
+            excluded: number;
+            /** From Pr */
+            from_pr: number;
+            /** By Severity */
+            by_severity: {
+                [key: string]: number;
+            };
+        };
         /** LinkInfo */
         LinkInfo: {
             /** Username */
@@ -4146,10 +4200,7 @@ export interface components {
             created_at: string;
             /** Target */
             target?: string | null;
-            /** Summary */
-            summary?: {
-                [key: string]: unknown;
-            } | null;
+            summary: components["schemas"]["ScopedSummary"];
             /** Source */
             source?: {
                 [key: string]: unknown;
@@ -4204,6 +4255,17 @@ export interface components {
             by_asset: components["schemas"]["ScopeAssetCounts"][];
         } & {
             [key: string]: unknown;
+        };
+        /** ScopedSummary */
+        ScopedSummary: {
+            lifecycle: components["schemas"]["LifecycleCounts"];
+            /** Candidates */
+            candidates: number;
+            kpis: components["schemas"]["FindingKpis"];
+            /** Sla */
+            sla: {
+                [key: string]: unknown;
+            };
         };
         /**
          * SecretAllowlist
@@ -4554,12 +4616,25 @@ export interface components {
             /** Challenge */
             challenge: string;
         };
-        /** TriageResult */
+        /** TriageOutcome */
+        TriageOutcome: {
+            /** Run Id */
+            run_id: string;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * TriageResult
+         * @description One run: its triage counts (`summary`). Several assets: each one's outcome (`results`); it fails as a whole only
+         *     when none landed.
+         */
         TriageResult: {
             /** Summary */
-            summary: {
+            summary?: {
                 [key: string]: unknown;
-            };
+            } | null;
+            /** Results */
+            results?: components["schemas"]["TriageOutcome"][] | null;
         };
         /** UnproductIn */
         UnproductIn: {
@@ -5451,9 +5526,16 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Run Id */
-                    run_id: string;
+                    run_id?: string | null;
                     /** Fingerprints */
-                    fingerprints: string[];
+                    fingerprints?: string[];
+                    /** Selections */
+                    selections?: {
+                        /** Run Id */
+                        run_id: string;
+                        /** Fingerprints */
+                        fingerprints: string[];
+                    }[] | null;
                     /**
                      * Status
                      * @enum {string}

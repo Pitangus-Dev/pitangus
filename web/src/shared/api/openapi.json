@@ -1367,7 +1367,15 @@
               "schema": {
                 "properties": {
                   "run_id": {
-                    "type": "string",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 400
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
                     "title": "Run Id"
                   },
                   "fingerprints": {
@@ -1379,6 +1387,45 @@
                     "maxItems": 500,
                     "minItems": 1,
                     "title": "Fingerprints"
+                  },
+                  "selections": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "properties": {
+                            "run_id": {
+                              "type": "string",
+                              "maxLength": 400,
+                              "title": "Run Id"
+                            },
+                            "fingerprints": {
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              },
+                              "type": "array",
+                              "maxItems": 500,
+                              "minItems": 1,
+                              "title": "Fingerprints"
+                            }
+                          },
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "run_id",
+                            "fingerprints"
+                          ],
+                          "title": "TriageSelectionIn"
+                        },
+                        "type": "array",
+                        "maxItems": 500,
+                        "minItems": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Selections"
                   },
                   "status": {
                     "type": "string",
@@ -1419,12 +1466,10 @@
                 "additionalProperties": false,
                 "type": "object",
                 "required": [
-                  "run_id",
-                  "fingerprints",
                   "status"
                 ],
                 "title": "TriageIn",
-                "description": "`run_id`: a run, or an asset's state (asset:<key>); the triage is the same."
+                "description": "One run (`run_id`: a run, or an asset's state `asset:<key>`) and its `fingerprints`, or several assets at once\n(`selections`, one per asset, up to the same number of findings in all): the decision is the same."
               }
             }
           },
@@ -5256,6 +5301,7 @@
           "runs"
         ],
         "summary": "Run Detail",
+        "description": "The run with its findings' current triage and the Findings tiles (`summary.kpis`).",
         "operationId": "run_detail_api_runs__run_id__get",
         "parameters": [
           {
@@ -5821,7 +5867,7 @@
           "images"
         ],
         "summary": "Register Image",
-        "description": "Adds a container image to the Images page without scanning it, so it can be linked to the repository it is\nbuilt from and scanned later. Adding one already there changes nothing (`created: false`).",
+        "description": "Adds a container image to the Images page without scanning it, so it can be linked to the repository it is\nbuilt from and scanned later. Adding one already there (`created: false`) only updates the reference of one not\nscanned yet; `name` and `reference` are what the page shows for it.",
         "operationId": "register_image_api_images_post",
         "responses": {
           "200": {
@@ -9066,6 +9112,75 @@
         ],
         "title": "ExclusionsSaved"
       },
+      "FindingKpis": {
+        "properties": {
+          "active": {
+            "type": "integer",
+            "title": "Active"
+          },
+          "dismissed": {
+            "type": "integer",
+            "title": "Dismissed"
+          },
+          "only_excluded": {
+            "type": "boolean",
+            "title": "Only Excluded"
+          },
+          "has_sla": {
+            "type": "boolean",
+            "title": "Has Sla"
+          },
+          "overdue": {
+            "type": "integer",
+            "title": "Overdue"
+          },
+          "soon": {
+            "type": "integer",
+            "title": "Soon"
+          },
+          "act": {
+            "type": "integer",
+            "title": "Act"
+          },
+          "attend": {
+            "type": "integer",
+            "title": "Attend"
+          },
+          "critical": {
+            "type": "integer",
+            "title": "Critical"
+          },
+          "high": {
+            "type": "integer",
+            "title": "High"
+          },
+          "kev": {
+            "type": "integer",
+            "title": "Kev"
+          },
+          "fixable": {
+            "type": "integer",
+            "title": "Fixable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active",
+          "dismissed",
+          "only_excluded",
+          "has_sla",
+          "overdue",
+          "soon",
+          "act",
+          "attend",
+          "critical",
+          "high",
+          "kev",
+          "fixable"
+        ],
+        "title": "FindingKpis",
+        "description": "The Findings tiles (`modules/findings/kpis.py`): the pending work, neither fixed nor dismissed, among the findings listed."
+      },
       "FindingOut": {
         "properties": {
           "finding_id": {
@@ -11046,6 +11161,48 @@
         ],
         "title": "JiraVariables",
         "description": "What a mapping can use: Pitangus's variables (`source: pitangus`, or `{{key}}` in a template)."
+      },
+      "LifecycleCounts": {
+        "properties": {
+          "open": {
+            "type": "integer",
+            "title": "Open"
+          },
+          "fixed": {
+            "type": "integer",
+            "title": "Fixed"
+          },
+          "suppressed": {
+            "type": "integer",
+            "title": "Suppressed"
+          },
+          "excluded": {
+            "type": "integer",
+            "title": "Excluded"
+          },
+          "from_pr": {
+            "type": "integer",
+            "title": "From Pr"
+          },
+          "by_severity": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Severity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "open",
+          "fixed",
+          "suppressed",
+          "excluded",
+          "from_pr",
+          "by_severity"
+        ],
+        "title": "LifecycleCounts",
+        "description": "Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`) and excluded."
       },
       "LinkInfo": {
         "properties": {
@@ -13053,16 +13210,7 @@
             "title": "Target"
           },
           "summary": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary"
+            "$ref": "#/components/schemas/ScopedSummary"
           },
           "source": {
             "anyOf": [
@@ -13219,12 +13367,40 @@
           "type",
           "status",
           "created_at",
+          "summary",
           "total",
           "truncated",
           "by_asset"
         ],
         "title": "ScopedFindings",
         "description": "Several assets' findings registries combined (`type` asset_scope), each finding with its `asset`. `total`\nfindings are in the tab; past the cap only the most urgent come (`truncated`), while `summary` and `by_asset`\nalways count them all."
+      },
+      "ScopedSummary": {
+        "properties": {
+          "lifecycle": {
+            "$ref": "#/components/schemas/LifecycleCounts"
+          },
+          "candidates": {
+            "type": "integer",
+            "title": "Candidates"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/FindingKpis"
+          },
+          "sla": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sla"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lifecycle",
+          "candidates",
+          "kpis",
+          "sla"
+        ],
+        "title": "ScopedSummary"
       },
       "SecretAllowlist": {
         "properties": {
@@ -14308,19 +14484,63 @@
         "title": "TotpStep",
         "description": "The password was right; the account has TOTP: send the code with this challenge to /api/auth/totp."
       },
-      "TriageResult": {
+      "TriageOutcome": {
         "properties": {
-          "summary": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Summary"
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
           }
         },
         "type": "object",
         "required": [
-          "summary"
+          "run_id"
         ],
-        "title": "TriageResult"
+        "title": "TriageOutcome"
+      },
+      "TriageResult": {
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "results": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TriageOutcome"
+                },
+                "type": "array",
+                "maxItems": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "title": "TriageResult",
+        "description": "One run: its triage counts (`summary`). Several assets: each one's outcome (`results`); it fails as a whole only\nwhen none landed."
       },
       "UnproductIn": {
         "properties": {

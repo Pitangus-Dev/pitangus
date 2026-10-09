@@ -411,6 +411,8 @@
     "help": "The current state of every asset in this scope, taken together: scans, PRs and imports. Open an asset to see its runs and settings.",
     "one_asset_only": "Excluded paths, secret rules and picking a specific run work on one asset: choose “One” or open an asset under “By asset”.",
     "failed": "Couldn't load the findings of this scope: {{error}}",
+    "open_failed": "Couldn't open that asset: {{error}}",
+    "open_gone": "That asset is no longer among the analyzed ones.",
     "truncated": "Showing the {{shown}} most urgent of {{total}} findings in this tab. The figures count them all; narrow the scope to list the rest.",
     "picker_failed": "Couldn't load the organizations and assets to choose from. Reload the page to try again.",
     "asset_inline": "Asset: {{name}}",

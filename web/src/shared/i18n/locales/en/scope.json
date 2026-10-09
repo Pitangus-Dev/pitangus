@@ -1,0 +1,20 @@
+{
+  "legend": "Which assets",
+  "account": "An organization",
+  "assets": "Choose several",
+  "choose_account": "Choose an organization…",
+  "no_accounts": "No analyzed repository belongs to an organization yet.",
+  "add": "Add a repository or image…",
+  "chosen": "Chosen assets",
+  "remove": "Remove {{name}}",
+  "images": "Include the images built from these repositories",
+  "incomplete": "Choose an organization or at least one asset first",
+  "add_label": "Asset to add",
+  "one": "One",
+  "all_one": "All · {{count}}",
+  "all_other": "All · {{count}}",
+  "nothing": "Nothing analyzed matches this scope",
+  "image": "Image",
+  "repository": "Repository",
+  "no_match": "No analyzed repository or image with that name"
+}

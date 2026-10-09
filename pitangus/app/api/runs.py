@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from pitangus.app.api.deps import ApiError, Context, guard
 from pitangus.app.api.schemas import AS_RETURNED, MANY, RunDetail, RunRow
 from pitangus.modules.compliance import sbom, vex
-from pitangus.modules.findings import triage
+from pitangus.modules.findings import kpis, triage
 from pitangus.modules.findings import tickets
 from pitangus.modules.reporting.pdf import render_pdf
 from pitangus.modules.reporting.technical import render_technical_pdf
@@ -117,8 +117,9 @@ def _record(context: Context, run_id: str) -> dict:
 
 @router.get("/api/runs/{run_id}", response_model=RunDetail, **AS_RETURNED)
 def run_detail(run_id: str, context: Context = Depends(guard())) -> dict[str, Any]:
+    """The run with its findings' current triage and the Findings tiles (`summary.kpis`)."""
     try:
-        return context.render(_record(context, run_id))
+        return context.render(kpis.summarized(_record(context, run_id)))
     except (ValueError, OSError, json.JSONDecodeError):
         raise ApiError(404, msg("api.run_not_found")) from None
 

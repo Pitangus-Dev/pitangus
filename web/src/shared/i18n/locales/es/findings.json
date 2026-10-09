@@ -411,6 +411,8 @@
     "help": "El estado actual de todos los activos de este alcance en conjunto: escaneos, PR e importaciones. Abre un activo para ver sus ejecuciones y su configuración.",
     "one_asset_only": "Las rutas excluidas, las reglas de secretos y elegir una ejecución concreta van por activo: elige «Uno» o abre un activo en «Por activo».",
     "failed": "No se pudieron cargar los hallazgos de este alcance: {{error}}",
+    "open_failed": "No se pudo abrir ese activo: {{error}}",
+    "open_gone": "Ese activo ya no está entre los analizados.",
     "truncated": "Se muestran los {{shown}} más urgentes de {{total}} hallazgos de esta pestaña. Las cifras cuentan todos; acota el alcance para ver el resto.",
     "picker_failed": "No se pudieron cargar las organizaciones y los activos para elegir. Recarga la página para intentarlo de nuevo.",
     "asset_inline": "Activo: {{name}}",

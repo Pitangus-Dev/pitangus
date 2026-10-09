@@ -91,7 +91,6 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
       void queryClient.invalidateQueries({ queryKey: keys.evidence })
       searchBox.current?.focus()
     },
-    onError: (caught, image) => setRescans(current => ({ ...current, [image.key]: { error: caught instanceof Error ? caught.message : String(caught) } })),
   })
   const choose = (next: ImageLink) => { setLink(next); setPage(1); setNotice('') }
   const addButton = (className = '') => <Button size="sm" variant="ghost" className={className} onClick={() => setAdding(true)}>{t('images.add.open')}</Button>
@@ -133,6 +132,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
       : empty ?? <ul aria-busy={images.isFetching || undefined} className={`divide-y divide-app-line overflow-hidden rounded-xl border border-app-line motion-safe:transition-opacity ${images.isFetching ? 'opacity-60' : ''}`}>{data.items.map(image => {
           const state = rescans[image.key]
           const pending = state === 'busy' || state === 'queued'
+          const removeError = removal.isError && removal.variables?.key === image.key ? removal.error.message : ''
           return <li key={image.key} className="space-y-2 px-4 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-0.5">
@@ -154,6 +154,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
             <ImageOrigin asset={image} admin={admin} onChanged={builtFrom => changed(builtFrom
               ? t('images.relinked', { image: image.name, name: builtFrom.name }) : t('images.unlinked', { image: image.name }))} />
             {typeof state === 'object' && <p role="alert" className="text-xs text-danger">{state.error}</p>}
+            {removeError && <p role="alert" className="text-xs text-danger">{removeError}</p>}
           </li>
         })}</ul>}
       {data && <Pager page={page} perPage={PAGE_SIZE} total={data.total} onPage={next => { setPage(next); setNotice('') }} loading={images.isFetching} />}

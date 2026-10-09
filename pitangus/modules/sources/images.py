@@ -2,21 +2,21 @@
 
 The key is the asset key a scan of the reference produces (`image:<registry>/<repository>`, see
 `scanning.image.parse_reference`), so the first scan lands on the same asset. A registration stays after the image is
-scanned; the Images page then shows the scanned asset.
+scanned (the Images page then shows the scanned asset) but no longer counts toward `LIMIT`.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 
 from pitangus.modules.sources.tables import image_registry
 from pitangus.shared import db
 from pitangus.shared.db import TENANT
 
-LIMIT = 5000  # registered images per workspace: the Images page reads them all
+LIMIT = 5000  # images added and not scanned yet, per workspace
 
 
 def _row(row) -> dict:
@@ -38,17 +38,12 @@ def get(data_dir: Path, key: str) -> dict | None:
     return _row(row) if row else None
 
 
-def full(data_dir: Path) -> bool:
-    with db.transaction(data_dir) as connection:
-        return connection.execute(select(func.count()).select_from(image_registry).where(image_registry.c.tenant_id == TENANT)).scalar_one() >= LIMIT
-
-
-def register(data_dir: Path, image: dict, *, by: str) -> bool:
-    """`image` as `parse_reference` returns it. Returns False when it was already registered (nothing changes)."""
+def register(data_dir: Path, image: dict, *, by: str) -> None:
+    """`image` as `parse_reference` returns it. Registered already: its reference (and name) become this one's."""
     statement = insert(image_registry).values(tenant_id=TENANT, asset_key=image["asset"], reference=image["reference"], name=image["name"], added_by=by)
     with db.transaction(data_dir) as connection:
-        added = statement.on_conflict_do_nothing(index_elements=[image_registry.c.tenant_id, image_registry.c.asset_key]).returning(image_registry.c.asset_key)
-        return connection.execute(added).first() is not None
+        connection.execute(statement.on_conflict_do_update(index_elements=[image_registry.c.tenant_id, image_registry.c.asset_key],
+                                                           set_={"reference": statement.excluded.reference, "name": statement.excluded.name}))
 
 
 def forget(data_dir: Path, key: str) -> bool:

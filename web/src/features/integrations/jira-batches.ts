@@ -21,13 +21,6 @@ export async function queueJira(client: QueryClient, selections: JiraSelectionBo
   return queued
 }
 
-// Findings already linked, grouped by asset: the selections of a "create anyway".
-export function byAsset(items: { fingerprint: string; asset?: string | null }[]): JiraSelectionBody[] {
-  const groups = new Map<string, string[]>()
-  for (const item of items) if (item.asset) groups.set(item.asset, [...(groups.get(item.asset) ?? []), item.fingerprint])
-  return [...groups.entries()].map(([asset, fingerprints]) => ({ asset, fingerprints }))
-}
-
 // Calls `onSettled` each time one of my queued batches finishes (not for those already finished when it mounts).
 export function useJiraSettled(onSettled: (batch: JiraQueued) => void) {
   const items = useQuery(jiraBatchesQuery()).data?.items

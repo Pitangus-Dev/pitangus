@@ -46,9 +46,14 @@ def _pending(data_dir: Path, rows: list[dict]) -> list[dict]:
              "reference": item["reference"]} for item in registered_images.registered(data_dir) if item["key"] not in scanned]
 
 
-def _scanned(data_dir: Path, key: str) -> bool:
+def _latest_scan(data_dir: Path, key: str) -> dict | None:
     from pitangus.modules.runs.store import find_runs
-    return bool(find_runs(data_dir, assets=[key], limit=1))
+    return next(iter(find_runs(data_dir, assets=[key], limit=1)), None)
+
+
+def _reference(scan: dict) -> str | None:
+    """The reference an image scan pulled: the one to scan it again."""
+    return ((scan.get("source") or {}).get("image") or {}).get("reference") or scan.get("target")
 
 
 def _labels(data_dir: Path) -> dict[str, dict]:
@@ -123,22 +128,25 @@ def set_link(data_dir: Path, image: str, repository: str | None, *, by: str) -> 
 
 def register_image(data_dir: Path, image: dict, *, by: str, repository: str | None = None) -> dict:
     """Adds an image to the Images page without scanning it (`image` as `scanning.image.parse_reference` returns it)
-    and, with `repository`, links it by hand. One already added or already scanned isn't stored twice (the link still
-    applies). Returns {"created": bool, "analyzed": bool, "built_from"}; all or nothing."""
+    and, with `repository`, links it by hand. Added again before its first scan, it keeps the new reference; once
+    scanned, only the link applies. Returns {"name", "reference", "created", "analyzed", "built_from"}, the name and
+    reference being what the Images page shows for it; all or nothing."""
     key = image["asset"]
     with db.transaction(data_dir) as connection:
         db.lock(connection, "image-registry")
-        analyzed, created = _scanned(data_dir, key), False
-        if not analyzed and registered_images.get(data_dir, key) is None:
-            if registered_images.full(data_dir):
-                raise ProvenanceError(msg("compliance.provenance.too_many_images", max=registered_images.LIMIT))
-            created = registered_images.register(data_dir, image, by=by)
-        if repository is not None:
-            built = set_link(data_dir, key, repository, by=by)
+        rows = evidence.catalog(data_dir)
+        scan = _latest_scan(data_dir, key)
+        created = scan is None and registered_images.get(data_dir, key) is None
+        if created and len(_pending(data_dir, rows)) >= registered_images.LIMIT:
+            raise ProvenanceError(msg("compliance.provenance.too_many_images", max=registered_images.LIMIT))
+        if scan is None:
+            registered_images.register(data_dir, image, by=by)
+            name, reference = image["name"], image["reference"]
         else:
-            rows = evidence.catalog(data_dir)
-            built = links(data_dir, rows + _pending(data_dir, rows)).get(key)
-    return {"created": created, "analyzed": analyzed, "built_from": built}
+            name, reference = next((row["name"] for row in rows if row["key"] == key), image["name"]), _reference(scan)
+        built = set_link(data_dir, key, repository, by=by) if repository is not None \
+            else links(data_dir, rows + _pending(data_dir, rows)).get(key)
+    return {"name": name, "reference": reference, "created": created, "analyzed": scan is not None, "built_from": built}
 
 
 def remove_image(data_dir: Path, key: str) -> None:
@@ -146,7 +154,7 @@ def remove_image(data_dir: Path, key: str) -> None:
     keeps its history."""
     with db.transaction(data_dir) as connection:
         db.lock(connection, "image-registry")
-        if _scanned(data_dir, key):
+        if _latest_scan(data_dir, key) is not None:
             raise ImageAnalyzed(msg("compliance.provenance.image_analyzed"))
         if not registered_images.forget(data_dir, key):
             raise ImageNotRegistered(msg("compliance.provenance.image_not_registered"))
@@ -176,8 +184,7 @@ def images(data_dir: Path, *, query: str = "", link: str = "all", repository: st
         if row["kind"] != "image":
             continue
         scan = latest.get(row["key"]) or {}
-        image = (scan.get("source") or {}).get("image") or {}
-        found.append({"key": row["key"], "name": row["name"], "reference": image.get("reference") or scan.get("target"),
+        found.append({"key": row["key"], "name": row["name"], "reference": _reference(scan),
                       "last_scan": {"run_id": scan["id"], "created_at": scan["created_at"], "status": scan["status"]} if scan else None,
                       "last_complete": row["last_complete"], "analyzed": True, "built_from": built.get(row["key"])})
     def how(item: dict) -> str:

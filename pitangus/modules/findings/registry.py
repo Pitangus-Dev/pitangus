@@ -46,7 +46,7 @@ from pitangus.modules.findings.kinds import FINDING_RUNS, FULL_SCANS, IMPORT_RUN
 from pitangus.shared import log as logging_setup
 from pitangus.shared.i18n import msg, text
 from pitangus.modules.findings import sla
-from pitangus.modules.findings import triage
+from pitangus.modules.findings import kpis, triage
 from pitangus.modules.sources.assets import asset_key
 from pitangus.shared.model import Finding, RunRecord
 
@@ -347,7 +347,7 @@ def view(data_dir: Path, key: str, *, status: str = "open") -> dict:
         annotated["findings"] = [item for item in annotated["findings"] if _bucket(item) == status]
     return {**annotated, "type": "asset_state",
             "summary": {**annotated["summary"], "lifecycle": summarize(data_dir, key), "candidates": len(annotated["findings"]),
-                        "sla": deadlines}}
+                        "kpis": kpis.count(annotated["findings"]), "sla": deadlines}}
 
 
 def summarize(data_dir: Path, key: str) -> dict:
@@ -381,29 +381,12 @@ _ACTION_RANK = {"act": 0, "attend": 1, "track": 2}
 _SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
 
-def _kpis(findings: list[dict]) -> dict:
-    """The Findings tiles over every finding of the tab (before truncating): pending work only, as in one asset."""
-    active = [item for item in findings if triage.is_active(item)]
-    def count(predicate) -> int:
-        return sum(1 for item in active if predicate(item))
-    return {"active": len(active), "dismissed": len(findings) - len(active),
-            "only_excluded": bool(findings) and all(item["lifecycle"]["status"] == "excluded" for item in findings),
-            "has_sla": any(item.get("sla") for item in findings),
-            "overdue": count(lambda item: (item.get("sla") or {}).get("state") == "overdue"),
-            "soon": count(lambda item: (item.get("sla") or {}).get("state") == "soon"),
-            "act": count(lambda item: (item.get("priority") or {}).get("action") == "act"),
-            "attend": count(lambda item: (item.get("priority") or {}).get("action") == "attend"),
-            "critical": count(lambda item: item.get("severity") == "critical"),
-            "high": count(lambda item: item.get("severity") == "high"),
-            "kev": count(lambda item: bool(item.get("kev"))),
-            "fixable": count(lambda item: bool((item.get("package") or {}).get("fixed_version")))}
-
-
 def scoped_view(data_dir: Path, assets: list[dict], *, status: str = "open", limit: int = SCOPE_FINDINGS_MAX) -> dict:
     """Several assets' states in one view (`assets`: [{"key", "name", "kind"}], e.g. a portfolio scope), each finding
     tagged with its `asset`. Like `view`, plus `by_asset` (each asset's counts) and, past `limit`, only the most urgent
     findings with `truncated` set: the counts (`summary.lifecycle`, `summary.kpis`, `by_asset`, `total`) always cover
-    everything. The registry, triage, verifications and Jira links are read once for the whole scope."""
+    everything. The registry, triage, verifications and Jira links are read once for the whole scope, and only the
+    findings served get their fix guides and verifications."""
     from pitangus.modules.findings import tickets, verifications
     keys = list(dict.fromkeys(row["key"] for row in assets))
     entries: dict[str, dict] = {key: {} for key in keys}
@@ -416,17 +399,18 @@ def scoped_view(data_dir: Path, assets: list[dict], *, status: str = "open", lim
                     select(registry_findings.c.asset_key, registry_findings.c.fingerprint, registry_findings.c.entry)
                     .where(registry_findings.c.tenant_id == TENANT, registry_findings.c.asset_key.in_(keys))):
                 entries[key][digest] = entry
-    decisions, requested, links = triage.load(data_dir), verifications.load(data_dir), tickets.load_links(data_dir)
+    decisions, links = triage.load(data_dir), tickets.load_links(data_dir)
     days = sla.policy(data_dir)["days"]
     rows = {row["key"]: row for row in assets}
     lifecycle = {"open": 0, "fixed": 0, "suppressed": 0, "excluded": 0, "by_severity": dict.fromkeys(("critical", "high", "medium", "low"), 0), "from_pr": 0}
     every: list[dict] = []
     by_asset: list[dict] = []
+    whole: dict[str, list[dict]] = {}  # each asset's findings, every tab: what its fix guides look at
     for key in keys:
         name = rows[key].get("name") or names.get(key) or key
         kind = rows[key].get("kind") or ("image" if key.startswith("image:") else "repository")
-        annotated = triage.annotate(data_dir, _record(key, name, entries[key]), decisions, requested=requested, entries=entries[key])
-        found = sla.annotate(annotated["findings"], days)
+        found = sla.annotate(triage.annotate(data_dir, _record(key, name, entries[key]), decisions, guides=False)["findings"], days)
+        whole[key] = found
         ticketed = links.get(key) or {}
         shown = [{**item, "asset": {"key": key, "name": name, "kind": kind},
                   **({"ticket": ticketed[item["fingerprint"]]} if item["fingerprint"] in ticketed else {})}
@@ -443,10 +427,15 @@ def scoped_view(data_dir: Path, assets: list[dict], *, status: str = "open", lim
     by_asset.sort(key=lambda row: (-row["critical"], -row["open"], str(row["name"]).casefold()))
     every.sort(key=lambda item: (_ACTION_RANK.get((item.get("priority") or {}).get("action"), 3), _SEVERITY_RANK.get(item.get("severity"), 5),
                                  str(item["asset"]["name"]).casefold(), item["fingerprint"]))
+    served = every[:limit]
+    requested: dict = verifications.load(data_dir) if served else {}
+    for key in dict.fromkeys(item["asset"]["key"] for item in served):  # in place: `served` keeps its order
+        triage.enrich(data_dir, key, [item for item in served if item["asset"]["key"] == key], among=whole[key],
+                      requested=requested.get(key) or {}, entries=entries[key])
     return {"id": "scope", "type": "asset_scope", "status": "completed",
             "created_at": max([str(item["lifecycle"].get("last_seen") or "") for item in every] or [""]),
-            "findings": every[:limit], "total": len(every), "truncated": len(every) > limit, "by_asset": by_asset,
-            "summary": {"lifecycle": lifecycle, "candidates": len(every), "kpis": _kpis(every), "sla": {**sla.counts(every), "days": days}},
+            "findings": served, "total": len(every), "truncated": len(every) > limit, "by_asset": by_asset,
+            "summary": {"lifecycle": lifecycle, "candidates": len(every), "kpis": kpis.count(every), "sla": {**sla.counts(every), "days": days}},
             "steps": [], "owasp_coverage": [], "limitations": []}
 
 

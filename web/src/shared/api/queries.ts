@@ -1,5 +1,5 @@
-// Consultas compartidas (TanStack Query): una clave y una forma de pedir cada recurso, para que dos vistas que
-// muestran lo mismo compartan caché y una mutación sepa qué invalidar.
+// Shared queries (TanStack Query): one key and one way to ask for each resource, so two views showing the same thing
+// share the cache and a mutation knows what to invalidate.
 import { infiniteQueryOptions, keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { api, query } from '@/shared/api/http'
 import { apiGet, type Response } from '@/shared/api/client'
@@ -42,7 +42,7 @@ const active = (status?: string) => status === 'queued' || status === 'running'
 export const runsQuery = () => queryOptions({
   queryKey: keys.runs,
   queryFn: ({ signal }) => api.get<RunRow[]>('/api/runs', { signal }),
-  // Mientras algo esté en cola o corriendo, se sondea; si no, no (antes: un setInterval fijo por vista).
+  // Polled only while something is queued or running.
   refetchInterval: query => (query.state.data ?? []).some(row => active(row.status)) ? 3000 : false,
 })
 
@@ -101,11 +101,11 @@ export const dashboardQuery = (days: number, tz?: string) => queryOptions({
   queryFn: ({ signal }) => api.get<Dashboard>(`/api/dashboard?${query({ days, tz })}`, { signal }),
 })
 
-// One asset by key (its name for pickers and summaries that only store keys).
+// One asset by key (its name for pickers and summaries that only store keys; `T`, the whole row a view needs).
 export type AssetSummary = { key: string; name: string; removed_at: string | null }
-export const assetQuery = (key: string) => queryOptions({
+export const assetQuery = <T extends AssetSummary = AssetSummary>(key: string) => queryOptions({
   queryKey: keys.asset(key), staleTime: 5 * 60_000,
-  queryFn: async ({ signal }) => (await api.get<Page<AssetSummary>>(`/api/assets?${query({ key, limit: 1 })}`, { signal })).items[0] ?? null,
+  queryFn: async ({ signal }) => (await api.get<Page<T>>(`/api/assets?${query({ key, limit: 1 })}`, { signal })).items[0] ?? null,
 })
 
 // Jira: the credential's status is anyone's; routing and discovery are for administrators.
