@@ -148,7 +148,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
                   onClick={() => { if (image.reference) void rescan(image.key, image.name, image.reference) }}>
                   {state === 'busy' && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{state === 'queued' ? t('images.queued') : image.analyzed ? t('images.rescan') : t('images.scan')}</Button>}
                 {admin && !image.analyzed && !pending && <Button size="sm" variant="ghost" className="text-danger hover:text-danger" disabled={removal.isPending && removal.variables?.key === image.key}
-                  aria-label={t('images.remove_for', { name: image.name })} onClick={() => removal.mutate({ key: image.key, name: image.name })}>{t('images.remove')}</Button>}
+                  aria-label={t('images.remove_for', { name: image.name })} onClick={() => { if (window.confirm(t('images.confirm_remove', { name: image.name }))) removal.mutate({ key: image.key, name: image.name }) }}>{t('images.remove')}</Button>}
               </div>
             </div>
             <ImageOrigin asset={image} admin={admin} onChanged={builtFrom => changed(builtFrom

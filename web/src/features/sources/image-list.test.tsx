@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
@@ -67,7 +67,13 @@ describe('images page', () => {
     })
     const user = userEvent.setup()
     renderWithQueries(list(true))
+    // Asks first; declining sends nothing.
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
     await user.click(await screen.findByRole('button', { name: tr('images.remove_for', { name: PENDING.name }) }))
+    expect(calls.some(call => call.method === 'POST')).toBe(false)
+    await user.click(screen.getByRole('button', { name: tr('images.remove_for', { name: PENDING.name }) }))
+    expect(confirm).toHaveBeenCalledTimes(2)
+    confirm.mockRestore()
     expect(calls.find(call => call.method === 'POST')).toEqual({ method: 'POST', path: '/api/images/remove', action: 'remove-image', body: { key: PENDING.key } })
     expect(await screen.findByText(tr('images.removed', { name: PENDING.name }))).toBeTruthy()
     // A scanned image keeps its history: no remove button, and its findings are one click away.

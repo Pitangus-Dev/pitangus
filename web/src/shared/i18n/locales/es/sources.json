@@ -361,6 +361,7 @@
       "scan_now_hint": "Pone el análisis en cola de inmediato. Déjalo sin marcar para analizarla después.",
       "submit": "Agregar imagen",
       "clear_repository_for": "Quitar el repositorio {{name}}"
-    }
+    },
+    "confirm_remove": "¿Quitar {{name}} de la lista? Nunca se analizó, así que no se pierde ningún hallazgo; puedes volver a agregarla."
   }
 }
