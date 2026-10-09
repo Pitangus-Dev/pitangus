@@ -1,11 +1,9 @@
 """Reports and diagram on the design system: concise, grouped by action and in palette colours."""
 
-import base64
 import json
 import re
 import unittest
 import xml.etree.ElementTree as ET
-import zlib
 from pathlib import Path
 
 from pitangus.modules.threats import diagram as threat_diagram
@@ -35,17 +33,32 @@ def pages(pdf: bytes) -> int:
     return len(re.findall(rb"/Type\s*/Page[^s]", pdf))
 
 
-def text(pdf: bytes) -> str:
-    """Approximate text of a ReportLab PDF (compressed streams), to check what it says."""
-    chunks = []
-    for stream in re.findall(rb"stream\r?\n(.*?)endstream", pdf, re.S):
-        stream = stream.strip()
-        try:
-            raw = base64.a85decode(stream.removesuffix(b"~>")) if stream.endswith(b"~>") else stream
-            chunks.append(zlib.decompress(raw).decode("latin-1"))
-        except (ValueError, zlib.error):
-            continue
-    return "".join(chunks)
+def rendered(render) -> tuple[bytes, str]:
+    """The PDF and the text it says: the story is read as it goes to the page (the embedded fonts store glyph ids, not
+    characters, so the PDF bytes can't be searched). Markup stays escaped: «<b>» from the data reads «&lt;b&gt;»."""
+    from unittest.mock import patch
+    from pitangus.modules.reporting import design
+    seen: list = []
+    original = design._guard_headings
+
+    def spy(story):
+        seen.extend(story)
+        return original(story)
+
+    def walk(item) -> list[str]:
+        if isinstance(item, (list, tuple)):
+            return [part for child in item for part in walk(child)]
+        if hasattr(item, "_cellvalues"):
+            return walk(item._cellvalues)
+        if hasattr(item, "_content"):
+            return walk(item._content)
+        if hasattr(item, "frags") and hasattr(item, "text"):
+            return [re.sub(r"<[^>]+>", " ", item.text)]
+        return [item] if isinstance(item, str) else []
+
+    with patch.object(design, "_guard_headings", spy):
+        pdf = render()
+    return pdf, " ".join(" ".join(walk(seen)).replace("&nbsp;", " ").split())
 
 
 class RemediationTests(unittest.TestCase):
@@ -80,16 +93,17 @@ class ReportTests(unittest.TestCase):
         many = [advisory(f"CVE-2026-{index:04d}", "high", f"12.{index}.0") for index in range(120)]
         pdf = render_audit_pdf(self.record(many), many, validate_options({"framework": "soc2", "detail": "all"}, default_by="ana"), version="t")
         self.assertLessEqual(pages(pdf), 4)  # previously one row and one block per advisory: dozens of pages
-        self.assertIn("120 vulnerabilidades", text(pdf))
+        self.assertIn("120 vulnerabilidades", rendered(lambda: render_audit_pdf(
+            self.record(many), many, validate_options({"framework": "soc2", "detail": "all"}, default_by="ana"), version="t"))[1])
 
     def test_technical_report_puts_actions_first_and_says_what_was_not_analysed(self):
         findings = [*(advisory(f"CVE-{index}", "high", "12.0.0") for index in range(40)), code("a", "critical"), code("b", "medium")]
-        pdf = render_technical_pdf(self.record(findings), version="t")
-        content = text(pdf)
+        pdf, content = rendered(lambda: render_technical_pdf(self.record(findings), version="t"))
         self.assertTrue(pdf.startswith(b"%PDF-"))
-        for expected in ("Qu\\351 hacer primero", "Actualizar pillow a 12.0.0 \\(cierra los 40\\)", "Cobertura incompleta", "Anexo"):
+        for expected in ("Qué hacer primero", "Actualizar pillow a 12.0.0 (cierra los 40)", "Cobertura incompleta", "Anexo", "PIT-001",
+                         "Resumen ejecutivo", "Cómo verificarlo", "Sobre este informe"):
             self.assertIn(expected, content)
-        self.assertIn("(org/) Tj (<) Tj (b) Tj (>) Tj (app)", content)  # the name is data: shown as is, not interpreted
+        self.assertIn("org/&lt;b&gt;app&lt;/b&gt;", content)  # the name is data: shown as is, not interpreted
         self.assertLessEqual(pages(pdf), 5)
 
     def test_markdown_report_renders_in_the_requested_language(self):
@@ -117,7 +131,7 @@ class FormattingTests(unittest.TestCase):
 
     def test_code_between_backticks_is_monospaced_and_still_escaped(self):
         from pitangus.modules.reporting.design import rich
-        self.assertEqual(rich("Set `acl = \"private\"` and <b>"), 'Set <font name="Courier">acl = "private"</font> and &lt;b&gt;')
+        self.assertEqual(rich("Set `acl = \"private\"` and <b>"), 'Set <font name="PMono">acl = "private"</font> and &lt;b&gt;')
 
     def test_a_dependency_advisory_points_at_its_manifest(self):
         from pitangus.modules.reporting.design import location
@@ -170,9 +184,9 @@ class ThreatReportTests(unittest.TestCase):
         markdown = threat_report.to_markdown(current, rows)
         self.assertLess(markdown.index("## Resumen"), markdown.index("## Amenazas por patrón"))
         self.assertIn("## Anexo A · Flujos del diagrama", markdown)
-        pdf = threat_report.render_pdf(current, rows, version="t")
+        pdf, content = rendered(lambda: threat_report.render_pdf(current, rows, version="t"))
         self.assertTrue(pdf.startswith(b"%PDF-"))
-        self.assertIn("Patrones de las reglas", text(pdf))
+        self.assertIn("Patrones de las reglas", content)
 
 
 if __name__ == "__main__":

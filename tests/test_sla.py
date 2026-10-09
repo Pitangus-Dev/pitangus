@@ -18,7 +18,7 @@ from pitangus.modules.identity.auth import Users
 from pitangus.modules.runs.store import save_repository_scan
 from test_auth import PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
-from test_report_design import text as pdf_text
+from test_report_design import rendered
 
 ADMIN = {"username": "ana", "role": "admin"}
 
@@ -97,10 +97,10 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(findings_registry.view(self.data_dir, self.key)["summary"]["sla"]["overdue"], 1)
         options = validate_options({}, default_by="ana")
         state = findings_registry.view(self.data_dir, self.key, status="all")
-        content = pdf_text(render_audit_pdf(state, state["findings"], options, version="0.9"))
-        self.assertIn("\\(1 hallazgo fuera de plazo\\)", content)  # PDF text: accents and parentheses escaped
-        self.assertIn("cr\\355tica 7 d\\355as", content)
-        self.assertIn("(33 d\\355as)", content)  # delay: detected 40 days ago with a 7-day deadline
+        content = rendered(lambda: render_audit_pdf(state, state["findings"], options, version="0.9"))[1]
+        self.assertIn("(1 hallazgo fuera de plazo)", content)
+        self.assertIn("crítica 7 días", content)
+        self.assertIn("33 días", content)  # delay: detected 40 days ago with a 7-day deadline
 
     def test_changing_the_policy_moves_the_deadlines(self):
         sla.save(self.data_dir, {"critical": 60, "high": 60, "medium": 90, "low": 180}, user=ADMIN)

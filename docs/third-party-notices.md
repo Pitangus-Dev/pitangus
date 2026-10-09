@@ -122,6 +122,10 @@ Full review of the `web/node_modules` tree (411 packages): MIT, ISC, BSD, Apache
 Python-2.0, CC-BY-4.0 and OFL-1.1. The only exception is **lightningcss** (MPL-2.0), which is used only to build
 the CSS and is not distributed.
 
+**PDF reports** (`pitangus/modules/reporting/assets`): the **Source Serif 4** (Adobe) and **IBM Plex Sans** and
+**IBM Plex Mono** (IBM) fonts, under the SIL OFL-1.1, embedded in every PDF. Their license texts sit next to the
+font files; like Geist, they can be embedded and redistributed but not sold on their own.
+
 ## When offering Pitangus as a managed service
 
 - **Pitangus's AGPL-3.0** requires offering the source code of the running version to anyone who uses it over a
