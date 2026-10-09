@@ -488,7 +488,8 @@
     "submit": "Create project"
   },
   "editor": {
-    "confirm_delete": "Delete this threat model? This can't be undone.",
+    "delete_title": "Delete this threat model?",
+    "confirm_delete": "This can't be undone.",
     "loading_model": "Loading the model",
     "loading_summary": "Loading the threat summary",
     "loading_threats": "Loading threats",

@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, LoaderCircle, MoreHorizontal, Plus, X } from 'lucid
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
+import { SelectField } from '@/shared/ui/select-field'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/shared/ui/menu'
 import { ApiError, api, query } from '@/shared/api/http'
@@ -200,7 +201,7 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
   }
   const fieldError = (key: string) => errors[key] ? <p id={`${id}-${key}-error`} role="alert" className="text-xs text-danger">{errors[key]}</p> : null
   const invalid = (key: string) => ({ 'aria-invalid': !!errors[key] || undefined, 'aria-describedby': errors[key] ? `${id}-${key}-error` : undefined })
-  const control = 'h-8 w-full rounded-lg border border-app-line bg-app-soft px-2 text-sm text-app-fg aria-invalid:border-danger'
+  const control = 'aria-invalid:border-danger'
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-2xl">
     <DialogHeader><DialogTitle>{rule ? t('jira.rules.edit_title', { name: rule.name }) : t('jira.rules.new_title')}</DialogTitle><DialogDescription>{isDefault ? t('jira.rules.default_help') : t('jira.rules.editor_help')}</DialogDescription></DialogHeader>
     <form onSubmit={save} className="space-y-4" noValidate>
@@ -215,8 +216,8 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
       </>}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5"><label htmlFor={`${id}-destination`} className="text-xs text-app-muted">{t('jira.rules.destination')}</label>
-          <select id={`${id}-destination`} value={draft.destination} onChange={event => set({ destination: event.target.value })} className={control} {...invalid('destination')}>
-            <option value="">{t('jira.rules.pick_destination')}</option>{routing.destinations.map(item => <option key={item.id} value={item.id}>{item.name} · {destinationTarget(item)}</option>)}</select>{fieldError('destination')}</div>
+          <SelectField id={`${id}-destination`} value={draft.destination} onValueChange={destination => set({ destination })} className={control} {...invalid('destination')}
+            placeholder={t('jira.rules.pick_destination')} options={routing.destinations.map(item => ({ value: item.id, label: `${item.name} · ${destinationTarget(item)}` }))} />{fieldError('destination')}</div>
         <div className="flex items-end pb-1.5"><label className="inline-flex min-h-6 items-center gap-2 text-sm"><input type="checkbox" checked={draft.enabled} onChange={event => set({ enabled: event.target.checked })} className="size-4 accent-brand" />{t('jira.rules.enabled')}</label></div>
       </div>
       <fieldset className="space-y-2"><legend className="text-xs text-app-muted">{t('jira.rules.mode')}</legend>
@@ -227,8 +228,8 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
             <span className="block text-xs text-app-muted">{mode === 'auto' ? t('jira.rules.mode_auto_help') : t('jira.rules.mode_manual_help')}</span></span></label>)}</div></fieldset>
       {draft.mode === 'auto' && <div className="space-y-3 rounded-lg border border-app-line bg-inset p-3">
         <div className="space-y-1.5 sm:w-1/2"><label htmlFor={`${id}-severity`} className="text-xs text-app-muted">{t('jira.rules.min_severity')}</label>
-          <select id={`${id}-severity`} value={draft.min_severity} onChange={event => set({ min_severity: event.target.value as Severity })} className={control} {...invalid('min_severity')}>
-            {(Object.keys(SEVERITIES) as Severity[]).map(level => <option key={level} value={level}>{t('jira.rules.at_least', { severity: t(SEVERITIES[level]) })}</option>)}</select>{fieldError('min_severity')}</div>
+          <SelectField id={`${id}-severity`} value={draft.min_severity} onValueChange={level => set({ min_severity: level as Severity })} className={control} {...invalid('min_severity')}
+            options={(Object.keys(SEVERITIES) as Severity[]).map(level => ({ value: level, label: t('jira.rules.at_least', { severity: t(SEVERITIES[level]) }) }))} />{fieldError('min_severity')}</div>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={draft.backfill} onChange={event => set({ backfill: event.target.checked })} className="mt-0.5 size-4 accent-brand" />
           <span>{t('jira.rules.backfill')}<span className="block text-xs text-app-subtle">{t('jira.rules.backfill_help')}</span></span></label>
         {wantsBackfill && <div role="status" className="rounded-lg border border-app-line bg-panel px-3 py-2 text-xs">

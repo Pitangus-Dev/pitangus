@@ -488,7 +488,8 @@
     "submit": "Crear proyecto"
   },
   "editor": {
-    "confirm_delete": "¿Borrar este modelo de amenazas? No se puede deshacer.",
+    "delete_title": "¿Borrar este modelo de amenazas?",
+    "confirm_delete": "No se puede deshacer.",
     "loading_model": "Cargando el modelo",
     "loading_summary": "Cargando el resumen de amenazas",
     "loading_threats": "Cargando amenazas",

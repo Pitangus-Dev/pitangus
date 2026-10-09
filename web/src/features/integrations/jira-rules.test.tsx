@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
+import { choose } from '@/shared/test/select'
 import type { JiraRouting } from '@/shared/api/queries'
 import { RuleEditor, RulesSection } from '@/features/integrations/jira-rules'
 import { globMatch, resolveRule, type JiraRule } from '@/features/integrations/jira-routing'
@@ -65,7 +66,7 @@ describe('routing rules', () => {
     await user.type(screen.getByLabelText(tr('jira.rules.name')), 'Web')
     await user.type(screen.getByLabelText(tr('jira.rules.patterns')), 'org/web-*')
     await user.click(screen.getByRole('radio', { name: new RegExp(tr('jira.rules.mode_auto_help').slice(0, 20)) }))
-    await user.selectOptions(screen.getByLabelText(tr('jira.rules.min_severity')), 'critical')
+    await choose(user, screen.getByLabelText(tr('jira.rules.min_severity')), tr('jira.rules.at_least', { severity: i18n.t('common:severity.critical') }))
     await user.click(screen.getByLabelText(new RegExp(tr('jira.rules.backfill'))))
     expect(screen.getByText(tr('jira.preview.needed'))).toBeTruthy()
 
@@ -87,7 +88,7 @@ describe('routing rules', () => {
     renderWithQueries(<RuleEditor rule={rule('a1', 'Payments', { patterns: ['org/payments-*'], mode: 'auto', backfill: true })} routing={ROUTING} onClose={() => {}} onSaved={() => {}} />)
     await user.click(screen.getAllByRole('button', { name: tr('jira.preview.run') })[0])
     expect(await screen.findByText(tr('jira.preview.nothing', { linked: '4' }))).toBeTruthy()
-    await user.selectOptions(screen.getByLabelText(tr('jira.rules.min_severity')), 'low')
+    await choose(user, screen.getByLabelText(tr('jira.rules.min_severity')), tr('jira.rules.at_least', { severity: i18n.t('common:severity.low') }))
     expect(screen.getByText(tr('jira.preview.outdated'))).toBeTruthy()
   })
 })

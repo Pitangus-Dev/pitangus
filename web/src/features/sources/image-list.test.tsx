@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { mockApi } from '@/shared/test/api'
@@ -68,12 +68,14 @@ describe('images page', () => {
     const user = userEvent.setup()
     renderWithQueries(list(true))
     // Asks first; declining sends nothing.
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
     await user.click(await screen.findByRole('button', { name: tr('images.remove_for', { name: PENDING.name }) }))
+    let question = await screen.findByRole('alertdialog', { name: tr('images.remove_title', { name: PENDING.name }) })
+    await user.click(within(question).getByRole('button', { name: i18n.t('common:actions.cancel') }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(calls.some(call => call.method === 'POST')).toBe(false)
     await user.click(screen.getByRole('button', { name: tr('images.remove_for', { name: PENDING.name }) }))
-    expect(confirm).toHaveBeenCalledTimes(2)
-    confirm.mockRestore()
+    question = await screen.findByRole('alertdialog')
+    await user.click(within(question).getByRole('button', { name: tr('images.remove') }))
     expect(calls.find(call => call.method === 'POST')).toEqual({ method: 'POST', path: '/api/images/remove', action: 'remove-image', body: { key: PENDING.key } })
     expect(await screen.findByText(tr('images.removed', { name: PENDING.name }))).toBeTruthy()
     // A scanned image keeps its history: no remove button, and its findings are one click away.
@@ -85,9 +87,8 @@ describe('images page', () => {
     mockApi(call => call.method === 'GET' ? { body: page([PENDING]) } : { status: 409, body: { error: 'That image has been analyzed.' } })
     const user = userEvent.setup()
     renderWithQueries(list(true))
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     await user.click(await screen.findByRole('button', { name: tr('images.remove_for', { name: PENDING.name }) }))
-    confirm.mockRestore()
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: tr('images.remove') }))
     expect((await screen.findByRole('alert')).textContent).toBe('That image has been analyzed.')
     expect(screen.getByRole('button', { name: tr('images.scan_for', { name: PENDING.name }) }).hasAttribute('disabled')).toBe(false)
   })

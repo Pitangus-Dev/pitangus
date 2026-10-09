@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Boxes, LoaderCircle, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { useConfirm } from '@/shared/ui/confirm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Combobox } from '@/shared/ui/combobox'
 import { Input } from '@/shared/ui/input'
@@ -25,6 +26,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
   admin: boolean; repository: RepositoryFilter | null; onClearRepository: () => void; onOpenFindings: (key: string) => void; onNew: () => void
 }) {
   const { t } = useTranslation('sources')
+  const confirm = useConfirm()
   const queryClient = useQueryClient()
   const searchBox = useRef<HTMLInputElement>(null)
   const addOpener = useRef<HTMLButtonElement>(null)
@@ -148,7 +150,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
                   onClick={() => { if (image.reference) void rescan(image.key, image.name, image.reference) }}>
                   {state === 'busy' && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{state === 'queued' ? t('images.queued') : image.analyzed ? t('images.rescan') : t('images.scan')}</Button>}
                 {admin && !image.analyzed && !pending && <Button size="sm" variant="ghost" className="text-danger hover:text-danger" disabled={removal.isPending && removal.variables?.key === image.key}
-                  aria-label={t('images.remove_for', { name: image.name })} onClick={() => { if (window.confirm(t('images.confirm_remove', { name: image.name }))) removal.mutate({ key: image.key, name: image.name }) }}>{t('images.remove')}</Button>}
+                  aria-label={t('images.remove_for', { name: image.name })} onClick={() => void confirm({ title: t('images.remove_title', { name: image.name }), description: t('images.confirm_remove'), confirmLabel: t('images.remove'), destructive: true }).then(ok => { if (ok) removal.mutate({ key: image.key, name: image.name }) })}>{t('images.remove')}</Button>}
               </div>
             </div>
             <ImageOrigin asset={image} admin={admin} onChanged={builtFrom => changed(builtFrom

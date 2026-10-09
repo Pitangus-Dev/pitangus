@@ -338,7 +338,9 @@
       "webhook": "Any service that accepts a JSON POST. Every notification carries the X-Pitangus-Signature header (HMAC-SHA256 of the body)."
     },
     "saved": "Channel \"{{name}}\" saved. Send a test to check it.",
-    "confirm_remove": "Remove \"{{name}}\"? To add it back you'll need the webhook URL again.",
+    "remove_title": "Remove \"{{name}}\"?",
+    "remove_channel": "Remove channel",
+    "confirm_remove": "To add it back you'll need the webhook URL again.",
     "test_ok": "Test delivered to \"{{name}}\" ({{detail}}).",
     "test_failed": "The test to \"{{name}}\" failed: {{detail}}. Check the URL or create the webhook again.",
     "loading": "Loading channels",

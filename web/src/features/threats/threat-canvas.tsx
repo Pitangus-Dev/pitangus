@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
+import { SelectField } from '@/shared/ui/select-field'
 import { autoLayout, baseKind, bezierPath, curvePoint, drawnRect, fitBox, labelSpots, NODE_H, NODE_W, ports, routes, shift, sizeOf, type Side } from '@/features/threats/threat-layout'
 import { BOUNDARY_TONE, boundaryTone, isManual, kindTone, LEGEND, legendTones, NODE_BASE, NODE_TONE, NODE_WASH, TEXT_TONE, toneOf, TONE_NAMES, TONES, withLegendLabel, type Tone } from '@/features/threats/threat-colors'
 import { assetGroups, newId, PROCESSES, STORES, type Catalog, type Component, type Flow, type Kind, type Model, type Point, type Threat } from '@/features/threats/threat-model-types'
@@ -19,7 +20,7 @@ import { assetGroups, newId, PROCESSES, STORES, type Catalog, type Component, ty
 // cada componente: se dibuja, no se elige en un desplegable. Todo se guarda en el mismo modelo.
 
 const SENSITIVE = ['pii', 'credentials', 'payment']
-const select = 'h-8 w-full rounded-lg border border-app-line bg-app-soft px-2 text-xs text-app-fg'
+const select = 'text-xs'
 
 type ComponentData = { component: Component; kindLabel: string; flagged: boolean }
 type BoundaryData = { name: string; tone: Tone }
@@ -357,7 +358,7 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
     return <aside className="space-y-4 rounded-2xl border border-app-line bg-panel p-4">
       <div><p className="text-xs text-app-subtle">{t('inspector.flow')}</p><p className="text-sm font-semibold">{names[item.source]} → {names[item.target]}</p></div>
       <label className={field}><span className={label}>{t('inspector.flow_name')}</span><Input value={item.name ?? ''} maxLength={80} placeholder={t('inspector.flow_name_placeholder')} onChange={event => update({ name: event.target.value })} className="h-8 border-app-line bg-app-soft" /></label>
-      <label className={field}><span className={label}>{t('inspector.protocol')}</span><select value={item.protocol} onChange={event => update({ protocol: event.target.value })} className={select}>{catalog.protocols.map(protocol => <option key={protocol} value={protocol}>{protocol.toUpperCase()}</option>)}</select></label>
+      <label className={field}><span className={label}>{t('inspector.protocol')}</span><SelectField value={item.protocol} onValueChange={protocol => update({ protocol })} className={select} options={catalog.protocols.map(protocol => ({ value: protocol, label: protocol.toUpperCase() }))} /></label>
       <div className={field} role="group" aria-label={t('inspector.data')}><span aria-hidden className={label}>{t('inspector.data')}</span><Chips value={item.data} options={catalog.classifications} onChange={data => update({ data })} /></div>
       <div className="space-y-1.5"><Check checked={item.authenticated} onChange={authenticated => update({ authenticated })}>{t('inspector.authenticated')}</Check><Check checked={item.encrypted} onChange={encrypted => update({ encrypted })}>{t('inspector.encrypted_in_transit')}</Check></div>
       <div className="flex gap-2"><Button size="sm" variant="outline" className="border-app-line bg-app-soft" onClick={() => update({ source: item.target, target: item.source })}><Undo2 />{t('inspector.reverse')}</Button>
@@ -391,7 +392,8 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
       {isManual(item) && <LegendLabelField model={model} setModel={setModel} tone={toneOf(item)} />}
       {!isManual(item) && item.color && <p className="-mt-2 text-[11px] text-app-subtle">{t('inspector.legend_same_as_kind', { category: t(LEGEND.find(([tone]) => tone === kindTone(item))?.[1] ?? 'legend.actors') })}</p>}
       <label className={field}><span className={label}>{t('inspector.description')}</span><textarea value={item.description ?? ''} maxLength={400} rows={2} onChange={event => update({ description: event.target.value })} placeholder={t('inspector.description_placeholder')} className="w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 text-xs text-app-fg" /></label>
-      <label className={field}><span className={label}>{t('inspector.code')}</span><select value={item.asset ?? ''} onChange={event => update({ asset: event.target.value || null, asset_ref: event.target.value ? '' : item.asset_ref })} className={select}><option value="">{t('inspector.not_linked')}</option>{assetGroups(catalog, model).map(group => <optgroup key={group.label} label={group.label}>{group.items.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</optgroup>)}</select>{item.asset_ref && !item.asset && <p className="mt-1 text-xs text-warning">{t('inspector.imported_ref', { ref: item.asset_ref })}</p>}</label>
+      <label className={field}><span className={label}>{t('inspector.code')}</span><SelectField value={item.asset ?? ''} onValueChange={asset => update({ asset: asset || null, asset_ref: asset ? '' : item.asset_ref })} className={select} placeholder={t('inspector.not_linked')}
+        groups={assetGroups(catalog, model).map(group => ({ label: group.label, options: group.items.map(asset => ({ value: asset.id, label: asset.name })) }))} />{item.asset_ref && !item.asset && <p className="mt-1 text-xs text-warning">{t('inspector.imported_ref', { ref: item.asset_ref })}</p>}</label>
       {item.asset && <div className={field}><label htmlFor="tm-component-path" className={label}>{t('inspector.path')}</label><Input id="tm-component-path" aria-describedby="tm-component-path-hint" value={item.path ?? ''} maxLength={200} placeholder={t('inspector.path_placeholder')} onChange={event => update({ path: event.target.value })} className="h-8 border-app-line bg-app-soft font-mono text-xs" />
         <p id="tm-component-path-hint" className="text-[11px] leading-4 text-app-subtle">{t('inspector.path_hint')}</p></div>}
       <div className={field} role="group" aria-label={t('inspector.component_data')}><span aria-hidden className={label}>{t('inspector.component_data')}</span><Chips value={item.data} options={catalog.classifications} onChange={data => update({ data })} /></div>

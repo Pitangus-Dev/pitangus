@@ -9,6 +9,7 @@ import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
 import { formatNumber } from '@/shared/i18n/format'
 import { rememberFrameworkDetails, remembered, useAuditFrameworks, type Framework } from '@/features/findings/audit-frameworks'
+import { SelectField } from '@/shared/ui/select-field'
 
 type Detail = 'none' | 'high' | 'all'
 type Scope = 'selected' | 'filtered' | 'all'
@@ -90,8 +91,8 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <div className={field}><label htmlFor="ar-title" className={label}>{t('audit.report_title')}</label><Input id="ar-title" maxLength={120} value={title} onChange={event => setTitle(event.target.value)} placeholder={t('audit.report_title_placeholder')} className="border-app-line bg-app-soft" /></div>
           {!portfolio && <div className={field}><label htmlFor="ar-detail" className={label}>{t('audit.detail')}</label>
-            <select id="ar-detail" value={detail} onChange={event => setDetail(event.target.value as Detail)} className="h-9 w-full rounded-lg border border-app-line bg-app-soft px-2 text-sm">
-              <option value="high">{t('audit.detail_high')}</option><option value="all">{t('common:state.all')}</option><option value="none">{t('audit.detail_none')}</option></select></div>}
+            <SelectField id="ar-detail" value={detail} onValueChange={value => setDetail(value as Detail)}
+              options={[{ value: 'high', label: t('audit.detail_high') }, { value: 'all', label: t('common:state.all') }, { value: 'none', label: t('audit.detail_none') }]} /></div>}
           <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={exceptions} onChange={event => setExceptions(event.target.checked)} className="size-4 accent-brand" />{t('audit.exceptions')}</label>
         </div></details>
 
