@@ -661,6 +661,8 @@ class DeletedInJiraTests(QueuedExportTests):
         record = triage.annotate(self.data_dir, self.scan("org/api", [_finding(FP_A), _finding(FP_C, package="left-pad")]))
         jira_sync.export(self.data_dir, [(record, [FP_A, FP_C])], by="ana")
         self.fake.deleted |= set(self.fake.issues)  # someone cleans up the project in Jira
+        # The preview already counts them as to be created (it asks Jira, and forgets nothing).
+        self.assertEqual({key: jira_sync.preview(self.data_dir, values)[key] for key in ("findings", "linked")}, {"findings": 2, "linked": 0})
         saved, started = jira_sync.save_rule(self.data_dir, values, by="admin")
         self.assertEqual((started["queued"], started["findings"]), (2, 2))  # the stale links no longer keep them out
         self.drain()
