@@ -38,9 +38,12 @@ between minor versions: anything that changes behaviour is called out below.
   so far) pins 1.0.6, which it uses to evaluate the Terraform expressions of the scanned repository; 1.0.9 fixed two
   sandbox escapes (GHSA-89v8-rhwq-hf77, GHSA-9w56-46f6-3qhx). It is installed by hash over the lock, from
   `docker/checkov/overrides.txt`; Checkov's results don't change.
-- The Python base image moves to the current `python:3.12-slim-bookworm` digest (still Python 3.12.15). The engines and
-  the Docker CLI stay where they were: they are already the newest releases at least a week old, and the Go standard
-  library fixes their remaining findings need (Go 1.26.9 and 1.27.2) came out on 2026-10-08.
+- **The Docker client in the image goes to 29.9.0**, built with Go 1.26.9: the 13 Go standard library vulnerabilities
+  of 29.8.2 (two high: CVE-2026-78667, CVE-2026-97031) are gone. It came out on 2026-10-09, so it goes in as an
+  exception to the week-old rule, checked against its SHA-256 like before.
+- The Python base image moves to the current `python:3.12-slim-bookworm` digest (still Python 3.12.15). The engines stay
+  where they were: they are already the newest releases at least a week old, and the Go standard library fixes their
+  remaining findings need (Go 1.26.9 and 1.27.2) came out on 2026-10-08.
 
 ## [0.12.1] - 2026-10-09
 

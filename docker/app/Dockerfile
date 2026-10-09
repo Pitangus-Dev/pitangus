@@ -23,9 +23,11 @@ RUN mkdir -p /src/pitangus/app && pnpm run build
 # ---------- 2. runtime ----------
 FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258 AS app
 ARG VERSION=dev
-ARG DOCKER_CLI_VERSION=29.8.2
-ARG DOCKER_CLI_SHA_AMD64=995d1ef289677f74fd58d8d2c35727b6a4ee389c69db8638a3e42d0487aa5b0f
-ARG DOCKER_CLI_SHA_ARM64=76a624e4a8e5da654d1150e808175125efb5a6f1b6aa1cbd9caee18f51047a50
+# 29.9.0 came out on 2026-10-09: a security exception to the week-old rule (Go 1.26.9's standard library fixes,
+# CVE-2026-78667 and CVE-2026-97031 among them). The exception stops mattering on 2026-10-16.
+ARG DOCKER_CLI_VERSION=29.9.0
+ARG DOCKER_CLI_SHA_AMD64=33e1ab8b63d14bca449f7a3d30d7f6aa669daa544e60a86b17fec87f61afe2b4
+ARG DOCKER_CLI_SHA_ARM64=811f6eee271678fc98dbe5c4d896c00fc5fe2daa4f7a37069c17abc036eab85b
 LABEL org.opencontainers.image.title="Pitangus" \
       org.opencontainers.image.description="Self-hosted application security: SAST, secrets, dependencies, PRs and CVE tracker" \
       org.opencontainers.image.source="https://github.com/Pitangus-Dev/pitangus" \
