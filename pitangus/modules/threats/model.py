@@ -189,6 +189,8 @@ def validate(payload: dict, *, known_assets: set[str]) -> dict:
         identifier = raw.get("id")
         if not isinstance(identifier, str) or not ID.fullmatch(identifier) or identifier in flow_ids:
             raise ModelError(msg("threats.errors.flow_id"))
+        if identifier in ids:  # threats, tree steps and techniques point at an element by its id alone
+            raise ModelError(msg("threats.errors.flow_id_taken", id=identifier))
         if raw.get("source") not in ids or raw.get("target") not in ids or raw["source"] == raw["target"]:
             raise ModelError(msg("threats.errors.flow_ends", id=identifier))
         if raw.get("protocol") not in PROTOCOLS:
@@ -572,7 +574,7 @@ def suggest(name: str, repositories: list[dict], *, locale: str | None = None) -
         elif component["kind"] in ("external", "identity"):
             for server in servers[:1]:
                 flows.append({"source": server, "target": component["id"], "protocol": "https", "data": component["data"] or ["internal"], "authenticated": True})
-    flow_ids: set[str] = set()
+    flow_ids: set[str] = {component["id"] for component in components}
     for flow in flows:
         flow["id"] = _slug(f"{flow['source']}-{flow['target']}", flow_ids)
         flow["name"] = ""
@@ -616,7 +618,7 @@ def merge_proposal(model: dict, proposal: dict) -> tuple[dict, dict]:
         components.append(new)
         added.append(new["id"])
     pairs = {(flow["source"], flow["target"]) for flow in flows}
-    flow_ids = {flow["id"] for flow in flows}
+    flow_ids = {flow["id"] for flow in flows} | {item["id"] for item in components}
     new_flows = 0
     for flow in proposal.get("flows", []):
         source, target = same.get(flow["source"]), same.get(flow["target"])
@@ -820,6 +822,11 @@ def threats(model: dict, findings_by_asset: dict[str, list[dict]] | None = None,
                                      "location": f"{finding.get('path')}:{finding.get('line')}", "cwe": finding.get("cwe")})
         decision = decisions.get(threat_id)
         status = decision["status"] if decision else "evidenced" if evidence else "open"
+        # Marked mitigated or not applicable, yet the scans still find it: it goes back to «with evidence» until they
+        # don't (the decision is kept, and returns by itself once the evidence is gone).
+        contradicted = bool(decision and evidence and decision["status"] in ("mitigated", "not_applicable"))
+        if contradicted:
+            status = "evidenced"
         severity = _severity(model, rule, component, flow)
         if evidence:
             worst = min((SEVERITY_ORDER.index(item["severity"]) for item in evidence if item["severity"] in SEVERITY_ORDER), default=3)
@@ -829,7 +836,7 @@ def threats(model: dict, findings_by_asset: dict[str, list[dict]] | None = None,
         rows.append({"id": threat_id, "rule": rule["id"], "stride": rule["stride"], "category": categories[rule["stride"]], "framework": family,
                      "title": rule["title"], "why": rule["why"], "mitigations": rule["mitigations"], "cwe": rule["cwe"],
                      "element": element, "element_type": "flow" if flow else "component", "element_name": label,
-                     "severity": severity, "status": status, "decision": decision,
+                     "severity": severity, "status": status, "decision": decision, "contradicted": contradicted,
                      "evidence": evidence[:20], "evidence_count": len(evidence),
                      "evidence_scope": [{"asset": asset, "path": folder or None} for asset, folder in scopes]})
     if method != "custom" or "manual" in model.get("custom_modules", ["manual", "elements"]):
@@ -853,12 +860,12 @@ def _manual_rows(model: dict, decisions: dict) -> list[dict]:
         name = (f"{components[flow['source']]['name']} → {components[flow['target']]['name']}" if flow
                 else components[element]["name"] if element in components else msg("threats.threat.whole_system"))
         decision = decisions.get(threat_id)
-        rows.append({"id": threat_id, "rule": "PROPIA", "stride": item.get("category") or "", "category": names.get(item.get("category") or "", item.get("category") or msg("threats.threat.no_category")),
+        rows.append({"id": threat_id, "rule": "TEAM", "stride": item.get("category") or "", "category": names.get(item.get("category") or "", item.get("category") or msg("threats.threat.no_category")),
                      "framework": "manual", "manual_id": item["id"], "title": item["title"], "why": item.get("scenario") or "",
                      "mitigations": [item["mitigation"]] if item.get("mitigation") else [], "cwe": [],
                      "element": element, "element_type": "flow" if flow else "component" if element in components else "system",
                      "element_name": name, "severity": item["severity"], "status": decision["status"] if decision else "open",
-                     "decision": decision, "evidence": [], "evidence_count": 0, "evidence_scope": [],
+                     "decision": decision, "contradicted": False, "evidence": [], "evidence_count": 0, "evidence_scope": [],
                      "likelihood": item.get("likelihood"), "impact": item.get("impact"), "owner": item.get("owner") or ""})
     return rows
 
@@ -884,11 +891,16 @@ def evidence_index(data_dir: Path, assets: set[str]) -> dict[str, list[dict]]:
     return result
 
 
+def _category_key(row: dict) -> str:
+    return f"{row.get('framework') or 'stride'}:{row['stride']}"
+
+
 def summary(rows: list[dict]) -> dict:
     return {"total": len(rows),
             "by_status": {status: sum(1 for row in rows if row["status"] == status)
                           for status in ("evidenced", "open", "accepted", "mitigated", "not_applicable")},
-            "by_stride": {code: sum(1 for row in rows if row["stride"] == code) for code in dict.fromkeys(row["stride"] for row in rows)},
+            # By approach and category: LINDDUN's D and I are not STRIDE's.
+            "by_stride": {key: sum(1 for row in rows if _category_key(row) == key) for key in dict.fromkeys(_category_key(row) for row in rows)},
             "by_severity": {level: sum(1 for row in rows if row["severity"] == level and row["status"] in ("evidenced", "open"))
                             for level in SEVERITY_ORDER}}
 
@@ -904,11 +916,13 @@ def to_threat_dragon(model: dict, rows: list[dict], *, locale: str | None = None
     status = {"evidenced": "Open", "open": "Open", "accepted": "Open", "mitigated": "Mitigated", "not_applicable": "NA"}
     by_element: dict[str, list[dict]] = {}
     for number, row in enumerate(rows, 1):
+        privacy = row.get("framework") == "linddun" or (row.get("framework") == "manual" and model.get("methodology") == "linddun")
         by_element.setdefault(row["element"], []).append({
-            "id": row["id"], "number": number, "title": row["title"], "type": STRIDE_EN.get(row["stride"], row["category"]),
+            "id": row["id"], "number": number, "title": row["title"],
+            "type": (LINDDUN_EN if privacy else STRIDE_EN).get(row["stride"], row["category"]),
             "status": status[row["status"]], "severity": {"critical": "High", "high": "High", "medium": "Medium", "low": "Low"}[row["severity"]],
             "description": row["why"] + (" " + t("threats.exports.evidence", locale, count=row["evidence_count"]) if row["evidence_count"] else ""),
-            "mitigation": "; ".join(row["mitigations"]), "modelType": "STRIDE", "score": ""})
+            "mitigation": "; ".join(row["mitigations"]), "modelType": "LINDDUN" if privacy else "STRIDE", "score": ""})
     layout = _layout(model)
     cells = []
     for boundary in model.get("boundaries", []):
@@ -940,12 +954,15 @@ def to_threat_dragon(model: dict, rows: list[dict], *, locale: str | None = None
     return {"version": "2.2.0", "summary": {"title": model["name"], "owner": model.get("updated_by", ""),
                                             "description": model.get("description", ""), "id": 0},
             "detail": {"contributors": [], "reviewer": "", "threatTop": len(rows), "threatMax": len(rows),
-                       "diagrams": [{"id": 0, "title": model["name"], "diagramType": "STRIDE", "placeholder": "", "thumbnail": "",
+                       "diagrams": [{"id": 0, "title": model["name"], "diagramType": "LINDDUN" if model.get("methodology") == "linddun" else "STRIDE",
+                                     "placeholder": "", "thumbnail": "",
                                      "version": "2.2.0", "cells": cells}]}}
 
 
 STRIDE_EN = {"S": "Spoofing", "T": "Tampering", "R": "Repudiation", "I": "Information disclosure",
              "D": "Denial of service", "E": "Elevation of privilege"}
+LINDDUN_EN = {"L": "Linking", "I": "Identifying", "Nr": "Non-repudiation", "D": "Detecting", "Dd": "Data disclosure",
+              "U": "Unawareness", "Nc": "Non-compliance"}
 
 
 def _layout(model: dict) -> dict:

@@ -172,9 +172,13 @@ class ModelTests(unittest.TestCase):
                         pasta={"objectives": "Que nadie pague por otro"})
         self.assertEqual(len(current["attack_mappings"]), 1)
         report = tm.to_markdown({**current, "updated_at": "", "updated_by": "x"}, tm.threats(current))
-        for text in ("Enfoque: **MITRE ATT&CK**", "T1110 Brute Force", "Acceso a credenciales", "attack.mitre.org",
-                     "Entrar en la cuenta de otro usuario", "  - Phishing", "mitigado", "Que nadie pague por otro"):
+        for text in ("Enfoque: **MITRE ATT&CK**", "T1110 Fuerza bruta", "Acceso a credenciales", "attack.mitre.org",
+                     "Entrar en la cuenta de otro usuario", "  - Phishing", "mitigado", "Que nadie pague por otro",
+                     # The techniques are the body of an ATT&CK model, not an appendix; the summary counts them.
+                     "## Técnicas de MITRE ATT&CK (1)", "1 técnica de ATT&CK asignada al modelo",
+                     "Aún alcanzable: 1 de 2 caminos", "## Anexo A · Flujos del diagrama", "## Anexo D · Árboles de ataque (1)"):
             self.assertIn(text, report)
+        self.assertNotIn("Anexo E", report)  # no appendix for the techniques: they are in the body
         for bad in ({**tree, "nodes": [{"id": "a", "parent": "b", "text": "x"}, {"id": "b", "parent": "a", "text": "y"}]},
                     {**tree, "nodes": [{"id": "a", "parent": "zz", "text": "x"}]}):
             with self.assertRaises(tm.ModelError):
@@ -428,6 +432,34 @@ class ModelTests(unittest.TestCase):
             tm.from_portable({**complete, "custom_modules": ["manual", "attack", "pasta"]})
 
 
+class ConsistencyTests(unittest.TestCase):
+    def test_a_flow_cannot_reuse_a_component_id(self):
+        current = model()
+        flows = [{**current["flows"][0], "id": current["components"][0]["id"]}, *current["flows"][1:]]
+        with self.assertRaises(tm.ModelError):
+            tm.validate({**current, "flows": flows}, known_assets={REPO})
+
+    def test_linddun_categories_are_not_counted_as_stride(self):
+        rows = [{"framework": "stride", "stride": "D", "status": "open", "severity": "high"},
+                {"framework": "linddun", "stride": "D", "status": "open", "severity": "high"}]
+        self.assertEqual(tm.summary(rows)["by_stride"], {"stride:D": 1, "linddun:D": 1})
+
+    def test_attack_tree_paths_follow_and_or_gates(self):
+        from pitangus.modules.threats.methods import open_paths
+        nodes = [{"id": "a", "parent": None, "gate": "and"}, {"id": "a1", "parent": "a"}, {"id": "a2", "parent": "a", "mitigated": True},
+                 {"id": "b", "parent": None, "gate": "or"}, {"id": "b1", "parent": "b", "mitigated": True}, {"id": "b2", "parent": "b"}]
+        self.assertEqual(open_paths({"nodes": nodes}), 1)  # AND cut by one mitigated step; OR open while one step is
+        self.assertEqual(open_paths({"nodes": [*nodes[:4], {**nodes[5], "mitigated": True}]}), 0)
+
+
+class EmptyTreeTests(unittest.TestCase):
+    def test_a_tree_without_steps_is_not_reported_as_cut(self):
+        current = model(methodology="attack_trees", attack_trees=[{"id": "vacio", "goal": "Robar pagos", "nodes": []}])
+        report = tm.to_markdown({**current, "updated_at": "", "updated_by": "x"}, tm.threats(current))
+        self.assertIn("Aún sin desglosar en pasos", report)
+        self.assertIn("aún alcanzables: 0; cortados por mitigaciones: 0", report)
+
+
 class RouteTests(HttpCase):
     def test_suggest_edit_decide_and_export(self):
         with patch.dict(os.environ, {"PITANGUS_REQUIRE_TOTP": "none"}):
@@ -451,7 +483,9 @@ class RouteTests(HttpCase):
             model_id, threat = created["model"]["id"], evidenced[0]["id"]
             status, decided, _ = self.post("/api/threat-models/decide", "threat-decision",
                                            {"id": model_id, "threat": threat, "status": "mitigated", "reason": "Consultas parametrizadas desde el ORM"}, cookie)
-            self.assertEqual(next(row for row in decided["threats"] if row["id"] == threat)["status"], "mitigated")
+            # Marked mitigated while the scan still finds it: it stays «with evidence», flagged, and keeps the decision.
+            row = next(row for row in decided["threats"] if row["id"] == threat)
+            self.assertEqual((row["status"], row["contradicted"], row["decision"]["status"]), ("evidenced", True, "mitigated"))
             painted = [{**item, "color": "danger"} if index == 0 else item for index, item in enumerate(decided["model"]["components"])]
             status, saved, _ = self.post("/api/threat-models", "save-threat-model", {"id": model_id, "model": {
                 **decided["model"], "name": "Tienda v2", "components": painted, "legend": {"danger": "Alcance PCI"}}}, cookie)

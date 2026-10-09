@@ -9,6 +9,19 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Fixed
 
+- **A threat marked mitigated or not applicable while the scans still find it** goes back to "with evidence", with a
+  note saying who decided and asking to review the decision. The decision is kept and applies again once the
+  evidence is gone.
+- **Threat model reports for MITRE ATT&CK and attack trees** now open with their own figures (techniques by status;
+  goals still reachable or cut), with the techniques or the trees in the body instead of an appendix after "0
+  threats". An attack tree with no steps yet is no longer counted as cut.
+- **LINDDUN is no longer mixed with STRIDE**: its "D" and "I" are counted apart, and the OWASP Threat Dragon export
+  names its threats (Detecting, Identifying…) as LINDDUN instead of Denial of service or Information disclosure.
+- "What to address first" no longer repeats a component already listed with evidence, and shows the high patterns
+  when there are no critical ones. A flow can't take a component's ID. Smaller fixes: appendix letters in order,
+  decision dates, plurals in Spanish, ATT&CK names in the report's language, linked repositories counted apart from
+  pending ones, and the closing note no longer left alone on the last page.
+
 - **The audit report's period is now real.** On a repository's state it keeps the findings detected by the end of the
   period and not fixed before it starts, and says so; a single scan outside the period is refused instead of being
   presented as evidence for it. The consolidated report filters the same way.
