@@ -473,7 +473,7 @@ def on_triage(data_dir: Path, key: str, fingerprints: list[str], status: str, *,
 
 # ------------------------------------------------------------------ backfill
 
-def _plan(data_dir: Path, state: dict, rule: dict) -> dict:
+def _plan(data_dir: Path, state: dict, rule: dict, gone: set[str] | frozenset[str] = frozenset()) -> dict:
     """The open findings a backfill of `rule` would queue: in assets this rule wins, active in triage, at or above its
     minimum severity and with no issue yet. Grouped by asset and remediation job."""
     from pitangus.modules.findings.tables import registry_assets
@@ -495,7 +495,7 @@ def _plan(data_dir: Path, state: dict, rule: dict) -> dict:
                 continue
             if not _reaches(finding.get("severity"), rule["min_severity"]):
                 continue
-            if digest in linked:
+            if digest in linked and not (isinstance(linked[digest], dict) and linked[digest].get("key") in gone):
                 plan["linked"] += 1
                 if isinstance(linked[digest], dict) and linked[digest].get("key"):
                     plan["keys"].add(linked[digest]["key"])
@@ -518,10 +518,19 @@ def _plan(data_dir: Path, state: dict, rule: dict) -> dict:
 
 
 def preview(data_dir: Path, payload: dict) -> dict:
-    """How many open findings a rule (saved or not) would backfill now. Nothing is queued."""
+    """How many open findings a rule (saved or not) would backfill now. Nothing is queued or forgotten, but Jira is asked
+    which linked issues still exist, so findings whose issues were deleted count as to be created (as the backfill
+    will do). Without Jira at hand, the count trusts the links."""
     state, candidate = routing.preview_state(data_dir, payload)
     plan = _plan(data_dir, state, candidate)
-    return {key: plan[key] for key in ("assets", "findings", "issues", "linked", "truncated")}  # Jira isn't asked here: may count deleted issues
+    if plan["keys"]:
+        try:
+            gone = jira.missing_issues(sorted(plan["keys"]))
+        except jira.JiraError:
+            gone = set()
+        if gone:
+            plan = _plan(data_dir, state, candidate, gone)
+    return {key: plan[key] for key in ("assets", "findings", "issues", "linked", "truncated")}
 
 
 def backfill(data_dir: Path, rule_id: str, *, by: str) -> dict:

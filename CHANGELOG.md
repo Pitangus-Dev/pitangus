@@ -21,7 +21,8 @@ between minor versions: anything that changes behaviour is called out below.
 
 - **A Jira rule's backfill no longer skips findings whose issues were deleted in Jira.** Like a manual export, it now
   asks Jira which linked issues still exist and creates again the ones that are gone; before, a cleanup in Jira left
-  those findings out of every backfill.
+  those findings out of every backfill. The backfill dialog's count asks Jira too, so it no longer offers "0 issues"
+  when the linked ones were deleted.
 
 ### Fixed
 
