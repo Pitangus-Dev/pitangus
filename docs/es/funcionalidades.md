@@ -19,7 +19,7 @@ real. Ahí también termina. Frente a una suite comercial (Snyk, Checkmarx, Vera
 | Imágenes de contenedor | Trivy y Grype sobre las capas, el historial y la configuración, leídas del registro | — |
 | Infraestructura y pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) y zizmor (GitHub Actions) | — |
 | Tu propio código (SAST) | Opengrep con las 58 reglas de `rules/`, 14 de ellas con seguimiento de datos dentro de un archivo | **Es la capa más fina.** Sin flujo de datos entre archivos ni conocimiento de frameworks más allá de esas reglas. Un motor propietario como Snyk Code encuentra fallos de lógica que estas reglas no ven. Para análisis profundo, corre CodeQL o Semgrep y [trae sus resultados](integraciones.md#traer-resultados-de-otros-analizadores): tienen el mismo ciclo de vida. |
-| Aplicaciones y API en ejecución (DAST) | Nada: Pitangus nunca ejecuta ni ataca lo que analiza | Previsto (abajo). Mientras tanto, corre ZAP o Nuclei por tu cuenta e importa su SARIF. |
+| Aplicaciones y API en ejecución (DAST) | Sin motor propio: Pitangus nunca ejecuta ni ataca lo que analiza. Los resultados de ZAP o Nuclei se importan sobre un dominio verificado ([trae tu propio DAST](integraciones.md#trae-tu-propio-dast)) | Está previsto un motor propio (abajo); mientras tanto, el escáner lo corres tú. |
 | Escala | Un análisis por worker; tantos workers como necesites, en una máquina o en varias | Sin análisis en paralelo dentro de un worker, sin manifiestos de autoescalado y sin medición publicada. Ver [escalar.md](escalar.md). |
 
 Lo que una suite comercial no puede ofrecer es la otra mitad de la tabla: corre en tu servidor, el código no sale de

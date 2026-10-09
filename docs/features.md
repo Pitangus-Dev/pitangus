@@ -21,7 +21,7 @@ also where it stops. Compared with a commercial suite (Snyk, Checkmarx, Veracode
 | Container images | Trivy and Grype on the layers, history and configuration, read from the registry | — |
 | Infrastructure and pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) and zizmor (GitHub Actions) | — |
 | Your own code (SAST) | Opengrep with the 58 rules in `rules/`, 14 of them with taint tracking inside one file | **This is the thinnest layer.** No cross-file data flow, and no framework-specific knowledge beyond what those rules cover. A proprietary engine like Snyk Code finds logic flaws these rules can't. For deep analysis, run CodeQL or Semgrep and [bring their results in](integrations.md#bringing-results-from-other-scanners): they get the same lifecycle. |
-| Running applications and APIs (DAST) | Nothing: Pitangus never runs or attacks what it scans | Planned (below). Until then, run ZAP or Nuclei yourself and import their SARIF. |
+| Running applications and APIs (DAST) | No engine of its own: Pitangus never runs or attacks what it scans. ZAP or Nuclei results import against a verified domain ([bring your own DAST](integrations.md#bring-your-own-dast)) | A native engine is planned (below); until then, you run the scanner. |
 | Scale | One scan per worker; as many workers as you need, on one machine or several | No parallel scans inside a worker, no autoscaling manifests, no published benchmark. See [scaling.md](scaling.md). |
 
 What a commercial suite can't offer is the other half of the table: it runs on your server, the code never leaves it,
