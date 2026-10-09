@@ -21,6 +21,13 @@ between minor versions: anything that changes behaviour is called out below.
   whole only when none landed. The cards are counted by the server in every view: `summary.kpis` in an asset's state,
   a run (`GET /api/runs/{id}`) and a scope, with what was fixed (by a scan or by hand) never counted as pending.
 
+- **Create the GitHub App from the panel** (Integrations → GitHub → Create on GitHub). GitHub's form opens with
+  everything filled in (name, the four permissions, no webhook or OAuth, the return to this panel); you confirm there
+  and come back with the App connected, instead of copying values and uploading the `.pem`. The App is still yours and
+  its private key goes from GitHub straight to the server, encrypted; the link is single-use and lasts an hour. The
+  manual guide stays, folded underneath. API: `POST /api/integrations/github/manifest` and the return at
+  `/github/app-created`.
+
 - **Add an image without scanning it** (Scanning → Images → Add image). Type its reference and, if you're an
   administrator, the repository it's built from; it shows on the list as "Not scanned yet" and is scanned when you
   choose ("Scan it now" does it right away). Adding one that is already there says so; if it isn't scanned yet, it now

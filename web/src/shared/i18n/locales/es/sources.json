@@ -183,6 +183,20 @@
       "show": "Ver permisos",
       "missing": "Faltan permisos: {{permissions}}. Sin ellos no se revisan pull requests.",
       "missing_pending": "Faltan permisos: {{permissions}} (hay una actualización de permisos pendiente de aceptar en la instalación). Sin ellos no se revisan pull requests."
+    },
+    "create": {
+      "title": "Crear la GitHub App automáticamente (recomendado)",
+      "description": "GitHub se abre con todo ya completado: el nombre, los cuatro permisos y la vuelta a este panel (sin webhook). Confirmas ahí y vuelves con todo conectado; la App y su clave son de tu cuenta.",
+      "organization": "Organización (opcional)",
+      "name": "Nombre de la App",
+      "any_account": "<b>Varias organizaciones:</b> permite instalar la App en cualquier cuenta (si no, solo en la cuenta dueña).",
+      "submit": "Crear en GitHub",
+      "note": "La clave privada va de GitHub directo a este servidor, cifrada; nunca pasa por tu navegador.",
+      "manual": "¿Prefieres crearla a mano?",
+      "organization_help": "Déjalo vacío para crear la App en tu cuenta personal.",
+      "name_help": "Debe ser único en GitHub; si ya existe, GitHub te deja cambiarlo en su página.",
+      "name_for": "{{brand}} {{organization}}",
+      "opening": "Abriendo GitHub…"
     }
   },
   "registries": {

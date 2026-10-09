@@ -1124,6 +1124,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/github/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Github Manifest Start
+         * @description Starts creating the App on GitHub. GitHub sends the browser back to the origin the panel is open on (already
+         *     checked against the allowed origins by the CSRF check).
+         */
+        post: operations["github_manifest_start_api_integrations_github_manifest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/github/app-created": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Github Manifest Return */
+        get: operations["github_manifest_return_github_app_created_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/oauth/callback": {
         parameters: {
             query?: never;
@@ -2864,6 +2902,18 @@ export interface components {
             verification?: {
                 [key: string]: unknown;
             } | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GitHubManifest
+         * @description Where the panel posts the manifest (`url`, with the state) and the manifest itself, as JSON text.
+         */
+        GitHubManifest: {
+            /** Url */
+            url: string;
+            /** Manifest */
+            manifest: string;
         } & {
             [key: string]: unknown;
         };
@@ -6745,6 +6795,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GitHubStatus"];
+                };
+            };
+        };
+    };
+    github_manifest_start_api_integrations_github_manifest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Name */
+                    name: string;
+                    /** Organization */
+                    organization?: string | null;
+                    /**
+                     * Any Account
+                     * @default false
+                     */
+                    any_account?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubManifest"];
+                };
+            };
+        };
+    };
+    github_manifest_return_github_app_created_get: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": unknown;
+                };
+            };
+            /** @description See Other */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

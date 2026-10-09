@@ -6,7 +6,7 @@ import html
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, guard
@@ -18,6 +18,7 @@ from pitangus.modules.integrations.ai_providers import PROVIDERS, ProviderError,
 from pitangus.modules.integrations.github import (REQUIRED_PERMISSIONS, GitHubAppError, app_installations, app_permissions,
                                                   config as github_config, forget as forget_installation, forget_app, forget_catalog,
                                                   install_url, installation_details, permission_review, save_credentials, verify_app)
+from pitangus.modules.integrations import github_manifest
 from pitangus.modules.integrations.installations import clear_github, github_connections, github_installations, save_github
 from pitangus.modules.sources.assets import with_scan_branches
 from pitangus.modules.sources.repositories import SourceError, find_source, list_repositories, source_page, unavailable
@@ -306,6 +307,58 @@ def github_app_credentials(context: Context = Depends(guard(Policy(admin=True, a
         clear_github(context.data_dir)
     logging_setup.get("github").info("github_app_saved", extra={"user": context.user["username"], "reason": f"{verified['owner']}/{verified['slug']}"})
     return context.render({**github_status(context.data_dir, port, live=True), "events": verified["events"]})
+
+
+class GitHubManifestIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=github_manifest.NAME_MAX)
+    organization: str | None = Field(None, max_length=39)
+    any_account: bool = False
+
+
+class GitHubManifest(Open):
+    """Where the panel posts the manifest (`url`, with the state) and the manifest itself, as JSON text."""
+    url: str
+    manifest: str
+
+
+@router.post("/api/integrations/github/manifest", openapi_extra=documented(GitHubManifestIn), response_model=GitHubManifest, **AS_RETURNED)
+def github_manifest_start(request: Request, context: Context = Depends(guard(Policy(admin=True, action="create-github-app", body=512))),
+                          data: GitHubManifestIn = Depends(body(GitHubManifestIn, msg("api.invalid_request")))) -> Any:
+    """Starts creating the App on GitHub. GitHub sends the browser back to the origin the panel is open on (already
+    checked against the allowed origins by the CSRF check)."""
+    if github_config()["source"] == "environment":
+        raise ApiError(409, msg("integrations.github.env_managed_change"))
+    try:
+        return github_manifest.start(context.data_dir, base_url=request.headers["origin"], user=context.user["username"],
+                                     name=data.name, organization=data.organization, any_account=data.any_account)
+    except GitHubAppError as exc:
+        raise ApiError(400, problem(exc)) from exc
+
+
+# GitHub's return after creating the App. Like /oauth/callback, it carries no session (SameSite=Strict cookie): the
+# single-use state, created by an administrator, is what authorizes it.
+@router.get(github_manifest.RETURN_PATH, response_class=Response, responses={200: {"content": {"text/html": {}}}, 303: {}})
+def github_manifest_return(request: Request, code: str = "", state: str = "", context: Context = Depends(guard(Policy(public=True))),
+                           port: int = Depends(server_port)) -> Response:
+    locale = context.locale
+    throttle = context.state.auth.throttle
+    scope = f"github-manifest:{request.client.host if request.client else ''}"
+    if throttle.reserve(scope):
+        return _landing(locale, port, msg("integrations.github.landing.too_many"), msg("integrations.github.manifest.retry_later"))
+    if github_config()["source"] == "environment":
+        return _landing(locale, port, msg("integrations.github.manifest.not_created"), msg("integrations.github.env_managed_change"))
+    previous_app = github_config().get("app_id")
+    try:
+        verified, user = github_manifest.finish(context.data_dir, code, state)
+    except GitHubAppError as exc:
+        return _landing(locale, port, msg("integrations.github.manifest.not_created"), problem(exc))
+    throttle.succeeded(scope)
+    save_credentials(verified)
+    if previous_app != verified["app_id"]:
+        clear_github(context.data_dir)
+    logging_setup.get("github").info("github_app_created", extra={"user": user, "reason": f"{verified['owner']}/{verified['slug']}"})
+    return RedirectResponse("/#/integrations", status_code=303)
 
 
 class GitHubActionIn(BaseModel):

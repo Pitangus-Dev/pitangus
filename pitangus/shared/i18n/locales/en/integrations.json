@@ -71,7 +71,16 @@
       "available_detail": "Go back to the panel, click \"Find installations\" and choose the account you want to connect."
     },
     "branch_not_found": "Branch {{branch}} doesn't exist in this repository",
-    "invalid_branch_name": "\"{{branch}}\" isn't a valid branch name: use letters, digits and . _ / - (up to 200 characters)"
+    "invalid_branch_name": "\"{{branch}}\" isn't a valid branch name: use letters, digits and . _ / - (up to 200 characters)",
+    "manifest": {
+      "invalid_name": "The App name must be 1 to {{max}} characters",
+      "invalid_organization": "That isn't a valid GitHub organization name",
+      "invalid_return": "GitHub's return is incomplete: start again from Integrations",
+      "expired": "This App creation link has expired or was already used: start again from Integrations",
+      "code_rejected": "GitHub no longer accepts this code (it lasts an hour and works once): start again from Integrations",
+      "not_created": "The GitHub App wasn't connected",
+      "retry_later": "Wait a few minutes and start again from Integrations."
+    }
   },
   "jira": {
     "invalid_site": "Invalid Jira site",

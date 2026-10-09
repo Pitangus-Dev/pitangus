@@ -2,7 +2,25 @@
 
 # Conectar GitHub
 
-Cada instalación de Pitangus usa **su propia** GitHub App: la creas tú, en tu cuenta o en una organización que administres. Si necesitas varias organizaciones, configúrala para que pueda instalarse en cualquier cuenta. GitHub no permite crear Apps por API, así que se hace en su formulario. El panel (**Integraciones**) muestra esta misma guía con los valores ya rellenos para tu instalación y botones para copiarlos.
+Cada instalación de Pitangus usa **su propia** GitHub App: la creas tú, en tu cuenta o en una organización que administres. Si necesitas varias organizaciones, configúrala para que pueda instalarse en cualquier cuenta. El panel (**Integraciones**) puede crearla por ti en dos clics; los pasos manuales de abajo son la alternativa.
+
+## La forma rápida: crearla desde el panel
+
+En **Integraciones → GitHub**, **Crear en GitHub** abre el formulario de GitHub con todo ya completado (el flujo de
+*manifiesto* de GitHub): el nombre, los cuatro permisos de abajo, sin webhook ni OAuth, y la dirección de vuelta a tu
+panel. Si quieres, escribe la organización que será su dueña y marca **Varias organizaciones** si la vas a instalar en
+más de una cuenta. Confirmas en GitHub y vuelves al panel con la App conectada; después la instalas en tus repositorios
+(paso 4).
+
+- La App es tuya: se crea en tu cuenta y GitHub le entrega su clave privada directamente a tu servidor, que la guarda
+  cifrada. Nunca pasa por tu navegador, y los secretos de cliente y de webhook que GitHub también devuelve se descartan.
+- La vuelta funciona también en `127.0.0.1`: quien vuelve es tu navegador, no GitHub llamando a tu servidor, así que el
+  panel no necesita ser accesible desde internet.
+- El enlace sirve una sola vez y dura una hora; si caduca, empieza de nuevo. El nombre de la App debe ser único en
+  GitHub: si ya existe, GitHub te deja cambiarlo en esa misma página.
+
+Si prefieres hacerlo a mano, o el panel no llega a GitHub, sigue los pasos de abajo (el panel también los muestra,
+plegados en **¿Prefieres crearla a mano?**).
 
 ## 1. Crear la App
 
@@ -82,4 +100,5 @@ El entorno manda sobre el almacén. Monta el `.pem` en solo lectura.
 | *La clave privada debe ser RSA de al menos 2048 bits* | Has subido otro fichero; usa el `.pem` que descarga GitHub. |
 | *La App todavía no está instalada en ninguna cuenta* | Falta el paso 4, o lo cancelaste en GitHub. |
 | *Faltan permisos* | Cambiaste permisos en la App y la instalación no ha aceptado la actualización: acéptala en GitHub (*Settings → Applications → Installed GitHub Apps*). |
+| *Este enlace para crear la App caducó o ya se usó* | El enlace de **Crear en GitHub** dura una hora y sirve una sola vez: empieza de nuevo desde Integraciones. |
 | GitHub rechaza la Setup URL | Déjala vacía y usa **Buscar instalaciones**; funciona igual. |

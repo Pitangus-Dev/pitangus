@@ -71,7 +71,16 @@
       "available_detail": "Vuelve al panel, haz clic en «Buscar instalaciones» y elige la cuenta que quieres conectar."
     },
     "branch_not_found": "La rama {{branch}} no existe en este repositorio",
-    "invalid_branch_name": "\"{{branch}}\" no es un nombre de rama válido: usa letras, números y . _ / - (hasta 200 caracteres)"
+    "invalid_branch_name": "\"{{branch}}\" no es un nombre de rama válido: usa letras, números y . _ / - (hasta 200 caracteres)",
+    "manifest": {
+      "invalid_name": "El nombre de la App debe tener entre 1 y {{max}} caracteres",
+      "invalid_organization": "Ese no es un nombre de organización de GitHub válido",
+      "invalid_return": "La vuelta desde GitHub llegó incompleta: empieza de nuevo desde Integraciones",
+      "expired": "Este enlace para crear la App caducó o ya se usó: empieza de nuevo desde Integraciones",
+      "code_rejected": "GitHub ya no acepta este código (dura una hora y sirve una sola vez): empieza de nuevo desde Integraciones",
+      "not_created": "No se conectó la GitHub App",
+      "retry_later": "Espera unos minutos y empieza de nuevo desde Integraciones."
+    }
   },
   "jira": {
     "invalid_site": "Sitio de Jira inválido",
