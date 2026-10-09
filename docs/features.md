@@ -103,7 +103,9 @@ policy and overdue findings sorted by delay: what SOC 2 and ISO 27001 ask for as
 - **Images and the repository they're built from (Images view).** Pitangus reads the repository from the image's OCI
   labels (`org.opencontainers.image.source` and `.revision`); when they're missing or wrong, an administrator links it
   by hand, and that link wins. A repository's evidence brings the images built from it, and the reports say "built from
-  org/repo @ commit".
+  org/repo @ commit". **Add image** puts an image on the list without scanning it (optionally linked to its repository,
+  and scanned right away if you tick it); it joins findings and evidence with its first scan. An administrator can
+  remove an image that was never scanned.
 - **CRA kit (Compliance view, opt-in).** Only for manufacturers that sell products with software in the EU: an
   administrator turns it on in **Policies** ("We sell products with software in the EU (CRA)", off by default, with a
   reason kept in the history; turning it off keeps the data). Then an administrator marks which repositories or images

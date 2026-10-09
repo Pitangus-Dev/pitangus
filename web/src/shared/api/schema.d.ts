@@ -1799,12 +1799,37 @@ export interface paths {
         };
         /**
          * Analyzed Images
-         * @description Analyzed images with where each is built from (OCI label or set by hand), filtered by name, by how it is linked
-         *     or by the repository it is built from.
+         * @description Images (analyzed, or added by hand and not scanned yet) with where each is built from (OCI label or set by hand),
+         *     filtered by name, by how it is linked or by the repository it is built from.
          */
         get: operations["analyzed_images_api_images_get"];
         put?: never;
-        post?: never;
+        /**
+         * Register Image
+         * @description Adds a container image to the Images page without scanning it, so it can be linked to the repository it is
+         *     built from and scanned later. Adding one already there changes nothing (`created: false`).
+         */
+        post: operations["register_image_api_images_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Image
+         * @description Takes an image added by hand off the Images page. Only one never scanned: a scanned image keeps its history.
+         */
+        post: operations["remove_image_api_images_remove_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2008,6 +2033,8 @@ export interface components {
             last_scan: components["schemas"]["ImageLastScan"] | null;
             /** Last Complete */
             last_complete: string | null;
+            /** Analyzed */
+            analyzed: boolean;
             built_from: components["schemas"]["BuiltFrom"] | null;
         };
         /** AssessIn */
@@ -3667,6 +3694,24 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** RegisteredImage */
+        RegisteredImage: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Reference */
+            reference: string;
+            /** Created */
+            created: boolean;
+            /** Analyzed */
+            analyzed: boolean;
+            built_from: components["schemas"]["BuiltFrom"] | null;
+            /** Run */
+            run: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** Registries */
         Registries: {
             /** Registries */
@@ -3693,6 +3738,11 @@ export interface components {
             saved_by?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** RemovedImage */
+        RemovedImage: {
+            /** Key */
+            key: string;
         };
         /** ReopenIn */
         ReopenIn: {
@@ -7672,6 +7722,67 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    register_image_api_images_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Reference */
+                    reference: string;
+                    /** Repository */
+                    repository?: string | null;
+                    /**
+                     * Scan
+                     * @default false
+                     */
+                    scan?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisteredImage"];
+                };
+            };
+        };
+    };
+    remove_image_api_images_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Key */
+                    key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovedImage"];
                 };
             };
         };

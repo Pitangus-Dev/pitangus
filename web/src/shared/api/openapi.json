@@ -5640,7 +5640,7 @@
           "images"
         ],
         "summary": "Analyzed Images",
-        "description": "Analyzed images with where each is built from (OCI label or set by hand), filtered by name, by how it is linked\nor by the repository it is built from.",
+        "description": "Images (analyzed, or added by hand and not scanned yet) with where each is built from (OCI label or set by hand),\nfiltered by name, by how it is linked or by the repository it is built from.",
         "operationId": "analyzed_images_api_images_get",
         "parameters": [
           {
@@ -5723,6 +5723,112 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Register Image",
+        "description": "Adds a container image to the Images page without scanning it, so it can be linked to the repository it is\nbuilt from and scanned later. Adding one already there changes nothing (`created: false`).",
+        "operationId": "register_image_api_images_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredImage"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "`repository` (an analyzed repository's asset key) links it right away: administrators only. `scan` also queues\nits scan.",
+                "properties": {
+                  "reference": {
+                    "maxLength": 300,
+                    "title": "Reference",
+                    "type": "string"
+                  },
+                  "repository": {
+                    "anyOf": [
+                      {
+                        "maxLength": 200,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Repository"
+                  },
+                  "scan": {
+                    "default": false,
+                    "title": "Scan",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "reference"
+                ],
+                "title": "ImageRegisterIn",
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/images/remove": {
+      "post": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Remove Image",
+        "description": "Takes an image added by hand off the Images page. Only one never scanned: a scanned image keeps its history.",
+        "operationId": "remove_image_api_images_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "title": "Key"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "key"
+                ],
+                "title": "ImageRemoveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedImage"
                 }
               }
             }
@@ -6560,6 +6666,10 @@
             ],
             "title": "Last Complete"
           },
+          "analyzed": {
+            "type": "boolean",
+            "title": "Analyzed"
+          },
           "built_from": {
             "anyOf": [
               {
@@ -6578,6 +6688,7 @@
           "reference",
           "last_scan",
           "last_complete",
+          "analyzed",
           "built_from"
         ],
         "title": "AnalyzedImage"
@@ -11579,6 +11690,63 @@
         ],
         "title": "RecentCves"
       },
+      "RegisteredImage": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          },
+          "analyzed": {
+            "type": "boolean",
+            "title": "Analyzed"
+          },
+          "built_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuiltFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "reference",
+          "created",
+          "analyzed",
+          "built_from",
+          "run"
+        ],
+        "title": "RegisteredImage"
+      },
       "Registries": {
         "properties": {
           "registries": {
@@ -11654,6 +11822,19 @@
         ],
         "title": "RegistryRow",
         "description": "A registry's saved credentials: the user and the last four characters of the token, never the token."
+      },
+      "RemovedImage": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "RemovedImage"
       },
       "ReopenIn": {
         "properties": {

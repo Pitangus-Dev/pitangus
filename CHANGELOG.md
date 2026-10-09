@@ -7,6 +7,15 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Added
+
+- **Add an image without scanning it** (Scanning → Images → Add image). Type its reference and, if you're an
+  administrator, the repository it's built from; it shows on the list as "Not scanned yet" and is scanned when you
+  choose ("Scan it now" does it right away). Adding one that is already there changes nothing and says so. Its first
+  scan lands on the same asset, keeping the link; until then it has no findings and stays out of the evidence scopes.
+  An administrator can remove an image that was never scanned. API: `POST /api/images` and `POST /api/images/remove`;
+  `GET /api/images` items carry `analyzed`.
+
 ## [0.12.1] - 2026-10-09
 
 ### Added

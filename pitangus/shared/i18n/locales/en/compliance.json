@@ -54,7 +54,10 @@
     "no_complete_scan_scope": "None of the chosen assets has a completed full scan yet: the portfolio SBOM and VEX need at least one."
   },
   "provenance": {
-    "not_an_image": "That asset isn't an analyzed image.",
-    "not_a_repository": "That asset isn't an analyzed repository."
+    "not_an_image": "That asset isn't an image on the Images page.",
+    "not_a_repository": "That asset isn't an analyzed repository.",
+    "image_analyzed": "That image has been analyzed: it keeps its history, so it can't be removed.",
+    "image_not_registered": "That image isn't on the list of images added without a scan.",
+    "too_many_images": "You can't add more than {{max}} images without scanning them. Scan or remove some first."
   }
 }

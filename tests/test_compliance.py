@@ -706,6 +706,99 @@ class ImageProvenanceTests(HttpCase):
             self.assertEqual(self.call("GET", f"/api/images?{bad}", headers={"Cookie": member})[0], 400, bad)
 
 
+class ImageRegistrationTests(HttpCase):
+    """An image added by hand shows on the Images page before any scan, can be linked, and its first scan merges into it."""
+
+    def setUp(self):
+        super().setUp()
+        resolve = patch("pitangus.app.api.images.check_registry_address", return_value={})
+        resolve.start()
+        self.addCleanup(resolve.stop)
+        self.member, self.admin = _login(self, "miembro"), _login(self, "jefa", role="admin")
+        stamp = datetime.now(timezone.utc).isoformat()
+        for name in ("org/app", "org/web"):
+            save_repository_scan(self.data_dir, _scan(name, [], stamp), created_at=stamp)
+        save_repository_scan(self.data_dir, _image("docker.io/org/web", stamp), created_at=stamp)
+
+    def register(self, cookie, **body):
+        return _send(self, "/api/images", "register-image", body, cookie)
+
+    def page(self, query=""):
+        return self.call("GET", f"/api/images?{query}", headers={"Cookie": self.member})[1]
+
+    def test_register_list_link_and_remove(self):
+        status, body, _ = self.register(self.member, reference="ghcr.io/org/app:1.4.2")
+        self.assertEqual(status, 200)
+        self.assertEqual({key: body[key] for key in ("key", "name", "reference", "created", "analyzed", "built_from", "run")},
+                         {"key": "image:ghcr.io/org/app", "name": "ghcr.io/org/app", "reference": "ghcr.io/org/app:1.4.2",
+                          "created": True, "analyzed": False, "built_from": None, "run": None})
+        status, again, _ = self.register(self.member, reference="ghcr.io/org/app:2.0")  # same image, another tag
+        self.assertEqual((status, again["created"], again["analyzed"]), (200, False, False))
+        status, scanned, _ = self.register(self.member, reference="docker.io/org/web:1")  # already analyzed
+        self.assertEqual((status, scanned["key"], scanned["created"], scanned["analyzed"]), (200, "image:docker.io/org/web", False, True))
+
+        page = self.page()
+        self.assertEqual((page["total"], page["counts"]), (2, {"all": 2, "unlinked": 2, "label": 0, "manual": 0}))
+        first = page["items"][0]  # not scanned yet: first
+        self.assertEqual((first["key"], first["reference"], first["last_scan"], first["last_complete"], first["analyzed"]),
+                         ("image:ghcr.io/org/app", "ghcr.io/org/app:1.4.2", None, None, False))
+        self.assertTrue(page["items"][1]["analyzed"])
+        self.assertEqual([item["key"] for item in self.page("q=APP")["items"]], ["image:ghcr.io/org/app"])
+
+        # It has no findings: it stays out of the evidence catalog (and every portfolio scope) until scanned.
+        _, assets, _ = self.call("GET", "/api/evidence/assets?kind=image", headers={"Cookie": self.member})
+        self.assertEqual([item["key"] for item in assets["items"]], ["image:docker.io/org/web"])
+
+        # Linking: administrators only, at registration or later; the manual link counts on the page.
+        self.assertEqual(self.register(self.member, reference="ghcr.io/org/api:1", repository="github:org/app")[0], 403)
+        self.assertEqual(self.register(self.admin, reference="ghcr.io/org/api:1", repository="github:nope")[0], 400)
+        status, linked, _ = self.register(self.admin, reference="ghcr.io/org/api:1", repository="github:org/app")
+        self.assertEqual((status, linked["created"], linked["built_from"]["repository"], linked["built_from"]["how"]), (200, True, "github:org/app", "manual"))
+        status, body, _ = _send(self, "/api/evidence/image-link", "image-link", {"image": "image:ghcr.io/org/app", "repository": "github:org/app"}, self.admin)
+        self.assertEqual((status, body["built_from"]["repository"]), (200, "github:org/app"))
+        page = self.page()
+        self.assertEqual((page["counts"], page["repositories"]), ({"all": 3, "unlinked": 1, "label": 0, "manual": 2}, {"github:org/app": 2}))
+        self.assertEqual(self.page("repository=github:org/app")["counts"], {"all": 2, "unlinked": 0, "label": 0, "manual": 2})
+        self.assertEqual(sorted(item["key"] for item in self.page("link=manual")["items"]), ["image:ghcr.io/org/api", "image:ghcr.io/org/app"])
+
+        # Removing: administrators only, and only an image never scanned (a scanned one keeps its history).
+        remove = lambda key, cookie: _send(self, "/api/images/remove", "remove-image", {"key": key}, cookie)  # noqa: E731
+        self.assertEqual(remove("image:ghcr.io/org/api", self.member)[0], 403)
+        self.assertEqual(remove("image:docker.io/org/web", self.admin)[0], 409)
+        self.assertEqual(remove("image:ghcr.io/nope", self.admin)[0], 404)
+        self.assertEqual(remove("image:ghcr.io/org/api", self.admin), (200, {"key": "image:ghcr.io/org/api"}, []))
+        self.assertEqual(self.page()["counts"]["all"], 2)
+        status, again, _ = self.register(self.member, reference="ghcr.io/org/api:1")  # its manual link went with it
+        self.assertEqual((status, again["created"], again["built_from"]), (200, True, None))
+
+        for bad in ({"reference": "http://x"}, {"reference": "ghcr.io/org/api:1", "extra": 1}, {"reference": "ghcr.io/org/api:1", "scan": "yes"}):
+            self.assertEqual(self.register(self.member, **bad)[0], 400, bad)
+
+    def test_scanning_it_merges_into_the_same_asset(self):
+        from pitangus.modules.compliance import provenance
+        from pitangus.modules.scanning.image import parse_reference
+        self.register(self.admin, reference="ghcr.io/org/app:1.4.2", repository="github:org/app")
+        with patch("pitangus.app.api.images.QUEUE_LIMIT", 0):
+            self.assertEqual(self.register(self.member, reference="ghcr.io/org/new:1", scan=True)[0], 429)
+        self.assertNotIn("image:ghcr.io/org/new", [item["key"] for item in self.page()["items"]])  # nothing half-done
+        with patch.object(self.state.jobs, "enqueue_image_scan", return_value={"id": "r1", "status": "queued"}) as enqueue:
+            status, body, _ = self.register(self.member, reference="ghcr.io/org/app:1.4.2", scan=True)
+        self.assertEqual((status, body["run"], enqueue.call_args.kwargs["image"]["asset"]), (200, {"id": "r1", "status": "queued"}, "image:ghcr.io/org/app"))
+
+        image = parse_reference("ghcr.io/org/app:1.4.2")
+        stamp = datetime.now(timezone.utc).isoformat()
+        save_repository_scan(self.data_dir, {**_image("ghcr.io/org/app", stamp), "source": {"id": image["asset"], "uid": None, "name": image["name"],
+                                                                                              "provider": "registry", "image": {**image, "built_from": None}}},
+                             created_at=stamp)
+        rows = [item for item in self.page()["items"] if item["key"] == "image:ghcr.io/org/app"]
+        self.assertEqual(len(rows), 1)  # one asset, not a registered copy next to the scanned one
+        self.assertTrue(rows[0]["analyzed"])
+        self.assertEqual(rows[0]["last_scan"]["status"], "completed")
+        self.assertEqual(rows[0]["built_from"]["repository"], "github:org/app")  # the link set before the scan stays
+        self.assertIn("image:ghcr.io/org/app", [row["key"] for row in provenance.scope(self.data_dir, assets=["github:org/app"])])
+        self.assertEqual(_send(self, "/api/images/remove", "remove-image", {"key": "image:ghcr.io/org/app"}, self.admin)[0], 409)
+
+
 class CraFrameworkGateTests(HttpCase):
     """The CRA mapping of the audit evidence only exists while the CRA policy is on."""
 
