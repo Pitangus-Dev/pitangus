@@ -44,8 +44,8 @@ jobs:
       - run: pnpm run build
         working-directory: docs-site
         env:
-          SITE_URL: https://pitangus-dev.github.io
-          BASE_PATH: /pitangus
+          SITE_URL: https://docs.pitangus.dev
+          BASE_PATH: /
       - if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:

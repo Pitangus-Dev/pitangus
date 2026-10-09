@@ -15,11 +15,11 @@ pnpm run build     # build de producción y validación de enlaces internos
 pnpm run preview   # http://localhost:4322 después del build
 ```
 
-La ruta base local es `/`. Para probar exactamente la ruta de proyecto en GitHub Pages desde PowerShell:
+La ruta base local es `/`. Para probar exactamente la URL de producción desde PowerShell:
 
 ```powershell
-$env:SITE_URL = 'https://pitangus-dev.github.io'
-$env:BASE_PATH = '/pitangus'
+$env:SITE_URL = 'https://docs.pitangus.dev'
+$env:BASE_PATH = '/'
 pnpm run build
 pnpm run preview
 ```
@@ -50,10 +50,13 @@ El esquema completo solo se usa como entrada del build y no se copia al sitio p�
 
 ## Decisión de despliegue
 
-La landing pública se despliega desde el repositorio separado `Pitangus-Dev/pitangus-dev.github.io`. Su workflow sube un único artefacto `dist` que ocupa la raíz de Pages de la organización. Otro despliegue de Pages no puede añadir `/docs/` de forma segura sin sustituir o coordinar ese artefacto.
+La landing pública sigue siendo un despliegue independiente en `https://pitangus.dev/`. La documentación usa el subdominio dedicado `https://docs.pitangus.dev/` para que ninguno de los despliegues tenga que controlar una ruta dentro del artefacto del otro.
 
-Por eso, `.github/workflows/docs.yml` valida el sitio en pull requests y pushes, pero la publicación es manual. Cuando se apruebe y se active **Settings → Pages → GitHub Actions**, publica el sitio de proyecto de este repositorio en:
+`.github/workflows/docs.yml` valida el sitio en pull requests y pushes, mientras que la publicación sigue siendo manual mediante `workflow_dispatch`. Para activar el dominio personalizado:
 
-`https://pitangus-dev.github.io/pitangus/`
+1. En este repositorio, selecciona **Settings → Pages → GitHub Actions** y establece `docs.pitangus.dev` como dominio personalizado.
+2. En el DNS de Cloudflare, crea un registro `CNAME` llamado `docs` que apunte a `pitangus-dev.github.io`. Déjalo inicialmente como **Solo DNS** mientras GitHub valida el dominio y aprovisiona HTTPS.
+3. Ejecuta manualmente el workflow **Documentation** y activa **Enforce HTTPS** cuando GitHub habilite la opción.
+4. Actualiza el enlace **Read the docs** de la landing a `https://docs.pitangus.dev/` desde su propio repositorio.
 
-La landing no se modifica ni se sobrescribe. Para usar más adelante la dirección preferida `https://pitangus-dev.github.io/docs/`, el build de la landing debe copiar la salida de este sitio a `dist/docs/` antes de subir su único artefacto de Pages. Ese cambio entre repositorios queda deliberadamente fuera de esta implementación.
+Los despliegues mediante GitHub Actions no necesitan un archivo `CNAME` versionado; el dominio personalizado se guarda en la configuración de Pages del repositorio.
