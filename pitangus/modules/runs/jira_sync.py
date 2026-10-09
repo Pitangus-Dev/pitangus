@@ -481,7 +481,7 @@ def _plan(data_dir: Path, state: dict, rule: dict) -> dict:
         assets = connection.execute(select(registry_assets.c.asset_key, registry_assets.c.name)
                                     .where(registry_assets.c.tenant_id == db.TENANT).order_by(registry_assets.c.asset_key)).all()
     links = tickets.load_links(data_dir)
-    plan: dict = {"assets": 0, "findings": 0, "issues": 0, "linked": 0, "truncated": False, "work": []}
+    plan: dict = {"assets": 0, "findings": 0, "issues": 0, "linked": 0, "truncated": False, "work": [], "keys": set()}
     for key, name in assets:
         winner = routing.resolve(state, key, name)
         if winner is None or winner["id"] != rule["id"]:
@@ -497,6 +497,8 @@ def _plan(data_dir: Path, state: dict, rule: dict) -> dict:
                 continue
             if digest in linked:
                 plan["linked"] += 1
+                if isinstance(linked[digest], dict) and linked[digest].get("key"):
+                    plan["keys"].add(linked[digest]["key"])
                 continue
             candidates.append({**finding, "fingerprint": digest})
         if not candidates:
@@ -519,7 +521,7 @@ def preview(data_dir: Path, payload: dict) -> dict:
     """How many open findings a rule (saved or not) would backfill now. Nothing is queued."""
     state, candidate = routing.preview_state(data_dir, payload)
     plan = _plan(data_dir, state, candidate)
-    return {key: plan[key] for key in ("assets", "findings", "issues", "linked", "truncated")}
+    return {key: plan[key] for key in ("assets", "findings", "issues", "linked", "truncated")}  # Jira isn't asked here: may count deleted issues
 
 
 def backfill(data_dir: Path, rule_id: str, *, by: str) -> dict:
@@ -532,6 +534,12 @@ def backfill(data_dir: Path, rule_id: str, *, by: str) -> dict:
         raise routing.RoutingError(msg("integrations.jira.routing.backfill_not_auto"))
     jira.credentials()
     plan = _plan(data_dir, state, rule)
+    # As a manual export does: before trusting «it already has an issue», ask Jira which of those issues still exist.
+    # Issues deleted in Jira (a cleanup, a test project) would otherwise keep their findings out of every backfill.
+    gone = jira.missing_issues(sorted(plan["keys"])) if plan["keys"] else set()
+    if gone and tickets.forget_issues(data_dir, gone):
+        _log.info("jira_links_pruned", extra={"reason": f"{len(gone)} issues gone from Jira before backfilling {rule['id']}"})
+        plan = _plan(data_dir, state, rule)
     queued = _queued_creates(data_dir)
     work = [(key, [item for item in prints if (key, item) not in queued]) for key, prints in plan["work"]]
     work = [(key, prints) for key, prints in work if prints]

@@ -655,6 +655,17 @@ class DeletedInJiraTests(QueuedExportTests):
         queued = jira_sync.queue_export(self.data_dir, [(record, prints)], by="ana", user="ana")
         self.assertEqual((queued["queued"], queued["linked"], queued["relinked"]), (60, 0, 2))
 
+    def test_a_backfill_creates_again_what_was_deleted_in_jira(self):
+        values = {"name": "API", "assets": ["github:org/api"], "destination": self.sec["id"], "mode": "auto", "min_severity": "low",
+                  "backfill": True}
+        record = triage.annotate(self.data_dir, self.scan("org/api", [_finding(FP_A), _finding(FP_C, package="left-pad")]))
+        jira_sync.export(self.data_dir, [(record, [FP_A, FP_C])], by="ana")
+        self.fake.deleted |= set(self.fake.issues)  # someone cleans up the project in Jira
+        saved, started = jira_sync.save_rule(self.data_dir, values, by="admin")
+        self.assertEqual((started["queued"], started["findings"]), (2, 2))  # the stale links no longer keep them out
+        self.drain()
+        self.assertEqual({item["rule"]: item for item in jira_sync.backfill_status(self.data_dir)}[saved["id"]]["created"], 2)
+
     def test_a_comment_on_a_deleted_issue_forgets_the_link(self):
         record = triage.annotate(self.data_dir, self.scan("org/api", [_finding(FP_A)]))
         jira_sync.export(self.data_dir, [(record, [FP_A])], by="ana")
