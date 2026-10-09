@@ -4,15 +4,15 @@ Este directorio contiene la aplicación Astro Starlight que convierte la documen
 
 ## Ejecución local
 
-Usa Node.js 22.12 o posterior y npm 10.8.2 o posterior:
+Usa Node.js 22.12 o posterior y pnpm con corepack (`corepack enable`; `package.json` fija la versión):
 
 ```bash
 cd docs-site
-npm ci
-npm run dev       # http://localhost:4321
-npm run check     # consistencia de fuentes y tipos de Astro
-npm run build     # build de producción y validación de enlaces internos
-npm run preview   # http://localhost:4322 después del build
+pnpm install --frozen-lockfile
+pnpm run dev       # http://localhost:4321
+pnpm run check     # consistencia de fuentes y tipos de Astro
+pnpm run build     # build de producción y validación de enlaces internos
+pnpm run preview   # http://localhost:4322 después del build
 ```
 
 La ruta base local es `/`. Para probar exactamente la ruta de proyecto en GitHub Pages desde PowerShell:
@@ -20,8 +20,8 @@ La ruta base local es `/`. Para probar exactamente la ruta de proyecto en GitHub
 ```powershell
 $env:SITE_URL = 'https://pitangus-dev.github.io'
 $env:BASE_PATH = '/pitangus'
-npm run build
-npm run preview
+pnpm run build
+pnpm run preview
 ```
 
 ## Contenido canónico

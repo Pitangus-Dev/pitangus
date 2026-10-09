@@ -7,6 +7,20 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Security
+
+- **The panel and the docs site build with pnpm instead of npm**, pinned by hash through corepack, with supply-chain
+  settings in their `pnpm-workspace.yaml`. A release has to be a week old before it is installed, and a recent version
+  that loses the provenance its predecessors had is refused. Transitive dependencies can't come from git or tarballs,
+  and dependencies' install scripts never run (the way the 2025 npm worms spread). The lockfiles keep npm's versions,
+  except that the docs site goes back to astro 7.3.5 and Starlight 0.42.5 (the newer ones came out that same day). A
+  security fix younger than a week goes in as an exception for that exact version. `openapi-typescript` is now a pinned
+  dev dependency instead of an `npx` download.
+- **Vite 8.3.3 in the panel's development server** (GHSA-9jrq-w75r-8gcw, GHSA-vfpm-58rq-9qcg, GHSA-rq7h-c2jc-7f22).
+  The built panel doesn't contain Vite.
+
+## [0.12.0] - 2026-10-08
+
 ### Changed
 
 - **Tamandua is now Pitangus**: the great kiskadee (*Pitangus sulphuratus*, the bird Colombians call bichofué), made in

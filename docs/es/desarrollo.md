@@ -15,7 +15,7 @@ make dev         # servidor en http://127.0.0.1:8767 con datos en .dev/ (no toca
 make check       # pruebas y contratos de arquitectura del backend + tipos y lint del panel
 ```
 
-`make dev` usa el puerto 8767 y la carpeta `.dev/` para que puedas tenerlo a la vez que la instancia de Docker. Para recarga en caliente del panel, `cd web && npm run dev` (Vite reenvía `/api` al backend).
+`make dev` usa el puerto 8767 y la carpeta `.dev/` para que puedas tenerlo a la vez que la instancia de Docker. Para recarga en caliente del panel, `cd web && pnpm run dev` (Vite reenvía `/api` al backend).
 
 La CLI usa el mismo almacén que el panel (en Docker: `make cli ARGS="…"`):
 
@@ -38,16 +38,19 @@ Los registros salen por la salida de errores, legibles por defecto o como un obj
 El frontend React/TypeScript usa [shadcn/ui](https://ui.shadcn.com/docs/installation/vite), Tailwind y Lucide. El selector de tema es un componente shadcn; soporta sistema, claro y oscuro (oscuro por defecto).
 
 ```bash
+corepack enable   # una vez: pnpm en la versión que fija web/package.json
 cd web
-npm ci
-npm run build
-npm run lint
-npm test
+pnpm install --frozen-lockfile
+pnpm run build
+pnpm run lint
+pnpm test
 cd ..
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Las pruebas del panel (`npm test`, vitest con Testing Library) van junto a lo que prueban (`*.test.tsx`) y cubren el inicio de sesión, el triage y el lanzamiento de un análisis. Sustituyen `fetch` por `mockApi` (`web/src/shared/test/`) y buscan los elementos por el texto del catálogo, así que cambiar un texto no las rompe.
+El panel y el sitio de documentación usan pnpm, no npm. Su `pnpm-workspace.yaml` tiene los ajustes de cadena de suministro: una versión debe tener una semana antes de instalarse, se rechaza una versión reciente que pierde la procedencia que tenían las anteriores, las dependencias transitivas no pueden venir de git ni de tarballs, y los scripts de instalación de las dependencias nunca se ejecutan (uno nuevo hace fallar la instalación hasta que se lista a propósito). Si un arreglo de seguridad necesita una versión con menos de una semana, entra como excepción para esa versión exacta (`minimumReleaseAgeExclude`), con el aviso y la fecha en que deja de hacer falta.
+
+Las pruebas del panel (`pnpm test`, vitest con Testing Library) van junto a lo que prueban (`*.test.tsx`) y cubren el inicio de sesión, el triage y el lanzamiento de un análisis. Sustituyen `fetch` por `mockApi` (`web/src/shared/test/`) y buscan los elementos por el texto del catálogo, así que cambiar un texto no las rompe.
 
 Las pruebas necesitan PostgreSQL: `make test` arranca uno efímero en Docker (datos en memoria) y da a cada prueba su propio esquema (`PITANGUS_DB_ISOLATE=data-dir`). Para correr una sola: `PITANGUS_DATABASE_URL=$(sh scripts/test-db.sh) PITANGUS_DB_ISOLATE=data-dir PITANGUS_CONFIG_DIR=$(mktemp -d) .venv/bin/python -m unittest discover -s tests -p 'test_x.py'` (la carpeta de configuración temporal evita que las pruebas creen una clave maestra en la tuya). Cada `make test` usa su propia base de datos, que se borra al terminar, y apunta Docker a un socket que no existe: ninguna prueba puede lanzar un motor real, simulan lo que necesitan. `make lint-py` pasa ruff y mypy, y `make arch` los contratos de arquitectura; la CI corre los tres. mypy se salta los módulos listados en `pyproject.toml`, que tenían errores de tipos cuando llegó: arreglar uno es sacarlo de la lista.
 
@@ -116,7 +119,7 @@ Quien actualiza Pitangus ya tiene datos: una versión nueva nunca debe romperlos
 
 Si el cambio solo añade un campo que puede faltar, basta con el punto 1: no hace falta migración.
 
-`npm run build` actualiza los activos servidos por Python. Para recarga en desarrollo usa `npm run dev`; Vite reenvía `/api` al backend en 8766.
+`pnpm run build` actualiza los activos servidos por Python. Para recarga en desarrollo usa `pnpm run dev`; Vite reenvía `/api` al backend en 8766.
 
 ## Textos e idiomas
 

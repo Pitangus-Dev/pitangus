@@ -84,21 +84,26 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: "22"
+      # pnpm at the exact version (and hash) of web/package.json's packageManager, through Node's corepack.
+      - name: pnpm
+        run: corepack enable
       - name: Dependencies
         working-directory: web
-        run: npm ci --no-audit --no-fund
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+        run: pnpm install --frozen-lockfile
       - name: Types
         working-directory: web
-        run: npx tsc -b
+        run: pnpm exec tsc -b
       - name: Lint
         working-directory: web
-        run: npm run lint
+        run: pnpm run lint
       - name: Tests
         working-directory: web
-        run: npm test
+        run: pnpm test
       - name: The served panel is rebuilt
         run: |
-          (cd web && npm run build)
+          (cd web && pnpm run build)
           if [ -n "$(git status --porcelain -- pitangus/app/static)" ]; then
             git status --short -- pitangus/app/static
             echo "::error::pitangus/app/static does not match web/src: run 'make web' and commit the result."

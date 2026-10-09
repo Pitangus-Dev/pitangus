@@ -92,5 +92,5 @@ user-facing is hard-coded, and nothing we store is frozen in one language.
 
 - `make test` runs `tests/test_i18n.py`: en/es parity (keys and params) on both sides, and every literal key
   used in code exists.
-- `cd web && npx tsc -b && npx oxlint src`.
+- `cd web && pnpm exec tsc -b && pnpm exec oxlint src`.
 - Tests run with `PITANGUS_DEFAULT_LOCALE=es`; assert English explicitly with `Accept-Language: en`.

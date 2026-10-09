@@ -10,11 +10,14 @@
 # Static files are the same on every architecture: build them natively (no emulation in multi-arch builds).
 FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS web
 WORKDIR /src/web
-COPY web/package.json web/package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# pnpm at the exact version (and hash) of package.json's packageManager, through Node's corepack. pnpm-workspace.yaml
+# holds the supply-chain settings: no install scripts, no release younger than a week, no trust downgrades.
+RUN corepack enable
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+RUN COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile
 COPY web/ ./
 # vite.config writes to ../pitangus/app/static: keep the repository layout.
-RUN mkdir -p /src/pitangus/app && npm run build
+RUN mkdir -p /src/pitangus/app && pnpm run build
 
 # ---------- 2. runtime ----------
 FROM python:3.12-slim-bookworm@sha256:54c85f3c47607a77f32adec749d3c81d1348bf25833671f512b26a9b6d778cb3 AS app
