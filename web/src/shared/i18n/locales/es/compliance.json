@@ -4,7 +4,7 @@
   "loading_events": "Cargando eventos",
   "evidence": {
     "title": "Evidencias",
-    "description": "Elige qué cubre y con qué marco; los archivos de abajo se generan para eso.",
+    "description": "Elige los activos y el marco; los archivos de abajo se generan para esa selección.",
     "load_failed": "No se pudieron cargar las evidencias. Vuelve a intentarlo en un momento.",
     "framework": "Marco para la evidencia de auditoría",
     "asset": "Repositorio o imagen",
@@ -41,7 +41,7 @@
     "scope": {
       "legend": "Qué activos",
       "account": "Una organización",
-      "assets": "Varios",
+      "assets": "Elegir varios",
       "choose_account": "Elige una organización…",
       "no_accounts": "Aún no hay repositorios analizados de una organización.",
       "add": "Añadir un repositorio o una imagen…",
@@ -69,8 +69,8 @@
     },
     "downloads": "Descargas",
     "downloads_one": "Descargas de {{name}}",
-    "downloads_many_one": "Descargas para {{count}} activo",
-    "downloads_many_other": "Descargas para estos {{count}} activos",
+    "downloads_many_one": "Descargas de {{count}} activo",
+    "downloads_many_other": "Descargas de estos {{count}} activos",
     "summary": {
       "pick": "Elige un repositorio o una imagen.",
       "counting": "Contando los activos del alcance…",
@@ -82,7 +82,9 @@
       "images_one": "{{count}} imagen",
       "images_other": "{{count}} imágenes",
       "complete_one": "{{count}} con un análisis completo terminado",
-      "complete_other": "{{count}} con un análisis completo terminado"
+      "complete_other": "{{count}} con un análisis completo terminado",
+      "failed": "No se pudieron contar los activos de este alcance. Vuelve a intentarlo en un momento.",
+      "no_complete": "aún sin análisis completo terminado"
     }
   },
   "cra": {

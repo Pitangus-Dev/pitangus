@@ -4,7 +4,7 @@
   "loading_events": "Loading events",
   "evidence": {
     "title": "Evidence",
-    "description": "Choose what it covers and the framework; the files below are built for that.",
+    "description": "Choose the assets and the framework; the files below are built for that selection.",
     "load_failed": "Couldn't load the evidence. Try again in a moment.",
     "framework": "Framework for audit evidence",
     "asset": "Repository or image",
@@ -41,7 +41,7 @@
     "scope": {
       "legend": "Which assets",
       "account": "An organization",
-      "assets": "Several",
+      "assets": "Choose several",
       "choose_account": "Choose an organization…",
       "no_accounts": "No analyzed repository belongs to an organization yet.",
       "add": "Add a repository or image…",
@@ -82,7 +82,9 @@
       "images_one": "{{count}} image",
       "images_other": "{{count}} images",
       "complete_one": "{{count}} with a completed full scan",
-      "complete_other": "{{count}} with a completed full scan"
+      "complete_other": "{{count}} with a completed full scan",
+      "failed": "Couldn't count the assets in this scope. Try again in a moment.",
+      "no_complete": "no completed full scan yet"
     }
   },
   "cra": {

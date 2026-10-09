@@ -315,6 +315,7 @@
       "general": { "name": "General", "hint": "No framework: vulnerability management" }
     },
     "mapping_note": "The mapping to each control is indicative.",
+    "framework_hint": "{{hint}}.",
     "title": "Audit evidence report",
     "title_portfolio": "Consolidated report · {{name}}",
     "description": "A concise PDF with scope, method, findings and their status, approved exceptions and sign-offs. Everything is optional: leave it as is to use the defaults.",

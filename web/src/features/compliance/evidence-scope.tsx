@@ -21,8 +21,8 @@ export function EvidenceScope({ scope, accounts, total, one, onChange }: { scope
     ['all', t('evidence.scope.all', { count: total })]]
   return <fieldset className="min-w-0 space-y-3">
     <legend className="mb-3 text-xs text-app-muted"><span aria-hidden>1 · </span>{t('evidence.scope.legend')}</legend>
-    <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-app-line bg-inset p-1">{kinds.map(([kind, label]) =>
-      <label key={kind} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm whitespace-nowrap has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand/60 ${scope.kind === kind ? 'border-brand/50 bg-brand/10 text-brand' : 'border-transparent text-app-muted hover:text-app-fg'}`}>
+    <div className="grid w-full grid-cols-2 gap-1 rounded-xl sm:flex sm:w-fit sm:max-w-full sm:flex-wrap border border-app-line bg-inset p-1">{kinds.map(([kind, label]) =>
+      <label key={kind} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm whitespace-nowrap has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${scope.kind === kind ? 'border-brand bg-brand/10 text-brand' : 'border-transparent text-app-muted hover:text-app-fg'}`}>
         <input type="radio" name={name} value={kind} checked={scope.kind === kind} onChange={() => onChange({ ...scope, kind })} className="sr-only" />{label}</label>)}</div>
     {scope.kind === 'one' && one}
     {scope.kind === 'account' && (accounts.length

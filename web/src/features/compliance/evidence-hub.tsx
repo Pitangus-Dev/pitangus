@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode, useId } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ArrowDownToLine, LoaderCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
@@ -40,7 +40,8 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
   const [picked, setPicked] = useState<(ComboOption & { asset: Asset }) | null>(null)
   const [busy, setBusy] = useState<Item | null>(null)
   const [scope, setScope] = useState<Scope>(ALL)
-  const summary = useQuery({ ...evidenceScopeQuery(scopeQuery(scope)), enabled: scope.kind !== 'one' && scopeReady(scope) })
+  // The previous count stays while the next one loads, so each scope change is announced once.
+  const summary = useQuery({ ...evidenceScopeQuery(scopeQuery(scope)), enabled: scope.kind !== 'one' && scopeReady(scope), placeholderData: keepPreviousData })
   const [error, setError] = useState('')
 
   const search = useCallback((q: string) => queryClient.fetchQuery(evidenceAssetsQuery(q)).then(page => ({
@@ -66,13 +67,14 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
   const many = scope.kind !== 'one'
   const ready = many && scopeReady(scope)
   const covered = summary.data
-  const empty = !covered || covered.repositories + covered.images === 0
+  const empty = covered ? covered.repositories + covered.images === 0 : false
   const pickOne = <div className="max-w-xl space-y-2">
     <Combobox className="max-w-sm" label={t('evidence.asset')} placeholder={t('evidence.choose')} emptyText={t('evidence.no_match')} value={picked} search={search}
       onSelect={option => { setPicked(option as ComboOption & { asset: Asset }); setError('') }} />
     {picked?.asset.kind === 'image' && <ImageOrigin key={picked.asset.key} asset={picked.asset} admin={admin} onChanged={next => setPicked(current => current && { ...current, asset: next })} />}
   </div>
-  const unready = !ready ? t('evidence.scope.incomplete') : empty ? t('evidence.scope.nothing') : ''
+  const unready = !ready ? t('evidence.scope.incomplete') : summary.isError ? t('evidence.summary.failed') : !covered ? t('evidence.summary.counting')
+    : empty ? t('evidence.scope.nothing') : ''
   return <Card className="border-app-line bg-panel">
     <CardHeader><CardTitle className="text-base">{t('evidence.title')}</CardTitle><CardDescription>{t('evidence.description')}</CardDescription></CardHeader>
     <CardContent className="space-y-6">
@@ -85,12 +87,13 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
               <SelectTrigger id="evidence-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{frameworkName}</span></SelectTrigger>
               <FrameworkOptions frameworks={frameworks} />
             </Select></div>
-            {current && <p className="max-w-sm text-xs text-app-subtle">{tf(current[2])}.{framework === 'general' ? '' : ` ${tf('audit.mapping_note')}`}</p>}
-            <div role="status" className="mt-4 max-w-xl space-y-1 rounded-xl border border-dashed border-app-line px-4 py-3 text-sm">
+            {current && <p className="max-w-sm space-x-1 text-xs text-app-subtle"><span>{tf('audit.framework_hint', { hint: tf(current[2]) })}</span>{framework !== 'general' && <span>{tf('audit.mapping_note')}</span>}</p>}
+            <div role="status" aria-atomic="true" className="mt-4 max-w-xl space-y-1 rounded-xl border border-dashed border-app-line px-4 py-3 text-sm">
               {asset ? <><p className="font-medium">{asset.name}</p>
-                  <p className="text-app-muted">{asset.kind === 'image' ? t('evidence.image') : t('evidence.repository')} · {asset.last_complete ? t('evidence.summary.last_complete', { date: formatDate(asset.last_complete) }) : t('evidence.items.sbom_missing')}</p></>
+                  <p className="text-app-muted">{asset.kind === 'image' ? t('evidence.image') : t('evidence.repository')} · {asset.last_complete ? t('evidence.summary.last_complete', { date: formatDate(asset.last_complete) }) : t('evidence.summary.no_complete')}</p></>
                 : !many ? <p className="text-app-muted">{t('evidence.summary.pick')}</p>
                 : !ready ? <p className="text-app-muted">{t('evidence.scope.incomplete')}</p>
+                : summary.isError ? <p className="text-danger">{t('evidence.summary.failed')}</p>
                 : !covered ? <p className="text-app-muted">{t('evidence.summary.counting')}</p>
                 : <><p className="font-medium">{t('evidence.summary.assets', { count: covered.repositories + covered.images })}</p>
                   <p className="text-app-muted">{[t('evidence.summary.repositories', { count: covered.repositories }), t('evidence.summary.images', { count: covered.images }),
@@ -111,7 +114,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
               onClick={() => void exportFile('sbom', asset, 'sbom.cdx.json', 'all')} />
             <Row name={t('evidence.items.vex')} hint={t('evidence.items.vex_hint')} busy={busy === 'vex'} waiting={busy !== null}
               onClick={() => void exportFile('vex', asset, 'vex.openvex.json', 'all')} />
-          </ul> : <p className="text-xs text-app-subtle">{t('evidence.summary.pick')}</p>)
+          </ul> : null)
           : <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line">
             <Row name={t('evidence.items.portfolio')} hint={unready || t('evidence.items.portfolio_hint', { framework: frameworkName })} busy={busy === 'portfolio'} waiting={busy !== null}
               unavailable={Boolean(unready)}
