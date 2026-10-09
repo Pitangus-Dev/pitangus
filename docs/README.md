@@ -10,6 +10,7 @@ English · [Español](es/README.md)
 | [Deploy on a VPS](deploy-vps.md) | Your own server with a domain: sizing, OS prep, HTTPS with Caddy, published images, backups and restore, upgrades, monitoring, Coolify and Dokploy. |
 | [Containers and Makefile](containers.md) | What you need, every `make` command, the images, the `docker/` layout and hardening. |
 | [Connect GitHub](github-app.md) | Create your GitHub App step by step, install it and review pull requests. |
+| [Integrations and automation](integrations.md) | GitHub, CI and SARIF, Jira, notifications, webhooks and periodic tasks. |
 | [Configuration](configuration.md) | Every `.env` variable. |
 | [Security](security.md) | How secrets are stored, what leaves your machine and known trade-offs. |
 | [Features](features.md) | Panel, findings and their lifecycle, CVE tracker, PRs, threats, Jira and engines. |

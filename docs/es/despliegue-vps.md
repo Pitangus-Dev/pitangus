@@ -157,7 +157,7 @@ Una instancia son tres cosas: la **base de datos** (ejecuciones, hallazgos, tria
 
 **Con cron, desde el host.** `make backup` hace lo mismo, pero detiene la API unos segundos para que `data/` también sea coherente; se niega si hay análisis en curso (cron lo reintenta al día siguiente):
 
-```cron
+```text
 30 3 * * * cd /home/pitangus/pitangus && make backup >> backups/cron.log 2>&1
 ```
 
@@ -174,7 +174,7 @@ Cada copia queda con `database.dump.age`, `data.tgz.age` y `config.tgz.age`. Si 
 
 **Fuera del servidor, siempre.** Una copia en el mismo disco no sobrevive al servidor. Cifradas con age, sirve cualquier copia (`rsync`, `rclone`, un bucket). Sin age, la copia externa la tiene que cifrar la herramienta que la envía, por ejemplo [restic](https://restic.net) a cualquier bucket compatible con S3 (Backblaze B2, Hetzner Object Storage, R2…):
 
-```cron
+```text
 0 4 * * * cd /home/pitangus/pitangus && restic backup backups/ --tag pitangus && restic forget --keep-daily 14 --keep-weekly 8 --prune
 ```
 

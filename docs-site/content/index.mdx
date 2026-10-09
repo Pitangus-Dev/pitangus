@@ -1,0 +1,49 @@
+---
+title: Pitangus documentation
+description: Install, configure, operate, integrate, and contribute to Pitangus using documentation grounded in the source code.
+template: splash
+editUrl: https://github.com/Pitangus-Dev/pitangus/edit/main/docs-site/content/index.mdx
+hero:
+  title: Watch every change. Prove every fix.
+  tagline: Technical documentation for Pitangus, the self-hosted, open-source application security platform for small teams.
+  actions:
+    - text: Start in five minutes
+      link: ./quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/Pitangus-Dev/pitangus
+      icon: external
+      variant: secondary
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components'
+
+Pitangus analyzes repositories and container images without running their code. It combines open-source engines, prioritizes findings with exploit intelligence, explains the fix, verifies remediation, and keeps evidence for your team.
+
+<CardGrid>
+  <Card title="Install and run" icon="rocket">
+    Check the prerequisites, start the Docker Compose stack, create the first administrator, and run the included demonstration.
+
+    [Follow the quickstart](./quickstart/)
+  </Card>
+  <Card title="Connect your workflow" icon="seti:github">
+    Connect a GitHub App, review pull requests, import SARIF from CI, route findings to Jira, and send notifications.
+
+    [Explore integrations](./integrations/)
+  </Card>
+  <Card title="Operate it safely" icon="shield-check">
+    Configure HTTPS, PostgreSQL, backups, workers, periodic jobs, metrics, and secret storage for a production deployment.
+
+    [Plan a deployment](./deploy/)
+  </Card>
+  <Card title="Understand the system" icon="puzzle">
+    Read how the FastAPI API, React panel, workers, PostgreSQL, scan engines, and modular-monolith boundaries fit together.
+
+    [Read the architecture](./architecture/)
+  </Card>
+</CardGrid>
+
+:::note[Beta software]
+Pitangus is currently beta software. The stable public automation surface is intentionally small; panel routes and stored formats may change between releases.
+:::

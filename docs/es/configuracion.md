@@ -17,7 +17,10 @@ Todas las variables son opcionales y se ponen en `.env` (copia de `.env.example`
 | `PITANGUS_NVD_API_KEY` | — | API key de NVD: descarga de CVE más rápida. Va en cabecera y nunca se registra. |
 | `PITANGUS_DB_PASSWORD` | (generada) | Contraseña de PostgreSQL; `make setup` la crea en `.env`. |
 | `PITANGUS_DATABASE_URL` | (compose) | Conexión a PostgreSQL. `compose.yaml` la arma con la contraseña; fuera de compose, p. ej. `postgresql://pitangus:…@localhost:5432/pitangus` (las URL `postgres://` que dan las bases gestionadas valen tal cual). |
+| `PITANGUS_DATA_DIR` | `data` (CLI) o una carpeta temporal (ASGI) | Cachés reconstruibles, carpetas de trabajo y logs opcionales en archivo. Compose la fija en `/data`; el estado de la aplicación sigue en PostgreSQL. |
+| `PITANGUS_CONFIG_DIR` | la carpeta de configuración del usuario en la plataforma | Carpeta de `master.key` cuando no defines `PITANGUS_MASTER_KEY`. Compose la fija en `/config`. |
 | `PITANGUS_EMBEDDED_WORKER` | `1` | `1`: el servidor también ejecuta los análisis (un solo proceso). En compose el API usa `0` y el servicio `worker` los ejecuta. |
+| `PITANGUS_BIND` | `127.0.0.1` | Interfaz que usa `pitangus serve`. Compose la cambia dentro del contenedor; usa `PITANGUS_HOST_BIND` para controlar la publicación en el host. |
 | `PITANGUS_CVE_SYNC` | `on` | `off` desactiva la copia local de NVD. |
 | `PITANGUS_EUVD` | `on` | `off` no consulta EUVD (ENISA) cuando NVD no puntúa un CVE. Solo sale el identificador del CVE. |
 | `PITANGUS_PR_POLL_SECONDS` | `300` | Cada cuánto se consultan los PRs vigilados. |
@@ -25,18 +28,22 @@ Todas las variables son opcionales y se ponen en `.env` (copia de `.env.example`
 | `PITANGUS_ADVISORY_WATCH_HOURS` | `24` | Cada cuántas horas se contrastan las dependencias ya analizadas con los avisos nuevos (sin conexión). `0` lo apaga. |
 | `PITANGUS_ALLOW_PRIVATE_WEBHOOKS` | vacío | `1` permite avisos a webhooks de la red interna (por defecto se bloquean: SSRF). |
 | `PITANGUS_ALLOW_PRIVATE_REGISTRIES` | — | `1` permite analizar imágenes de registros con IP privada (tu red interna). Por defecto se bloquean para evitar SSRF. |
-| `PITANGUS_TLS_CERT` / `_KEY` | — | TLS sin proxy. |
+| `PITANGUS_TLS_CERT` / `PITANGUS_TLS_KEY` | — | Archivos de certificado y clave privada para TLS sin proxy. Debes definir los dos. |
 | `PITANGUS_ALLOW_INSECURE_HTTP` | vacío (apagado) | `1` deja arrancar el servidor cuando `PITANGUS_PUBLIC_URL` es `http://` en claro en una dirección que no sea `127.0.0.1`/`localhost`, algo que si no rechaza. Contraseñas, cookies de sesión y tokens viajan entonces sin cifrar por la red: solo en una red de confianza y bajo tu responsabilidad. Mejor usa HTTPS. |
 | `PITANGUS_DOWNLOAD_TIMEOUT` | `900` | Segundos que puede tardar la descarga del archivo de un repositorio desde GitHub antes de que el análisis se rinda (mínimo 60). Súbelo para repositorios muy grandes o conexiones lentas. |
 | `PITANGUS_API_MEMORY`, `PITANGUS_WORKER_MEMORY` | `1g`, `2g` (`4g` para el worker en `deploy/compose.yaml`, donde los motores corren dentro) | Topes de memoria de los contenedores de la API y del worker en Compose, para que un proceso desbocado no deje sin memoria al host ni a Postgres. Los contenedores de los motores tienen los suyos (3 GB, 2 CPU). |
 | `DOCKER_SOCKET_GID` | lo detecta `make` | Grupo dueño del socket de Docker en Linux y en WSL con Docker nativo (`stat -Lc %g /var/run/docker.sock`), para que el worker pueda arrancar los motores. Lo lee Compose, no la app; ponlo solo si arrancas directamente con `docker compose`. No hace falta en Docker Desktop ni OrbStack (grupo `0`, que siempre se añade). |
 | `GITHUB_APP_ID` + `GITHUB_APP_SLUG` + `GITHUB_APP_PRIVATE_KEY_FILE` | — | Alternativa al formulario: montar la App como secreto del despliegue. Manda sobre el almacén. |
+| `GITHUB_TOKEN` / `GITLAB_TOKEN` | — | Tokens entregados por el despliegue para fuentes de código. La conexión por token de GitHub funciona; el proveedor de GitLab está declarado pero desactivado a propósito hasta que se pruebe, así que `GITLAB_TOKEN` no habilita GitLab hoy. Para GitHub, prefiere la GitHub App. |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | — | Claves que quien opera puede listar y validar con la CLI. El análisis con IA no está implementado y estas claves no reciben código ni hallazgos. |
 | `PITANGUS_HOST_CONFIG_DIR` | `./config` | Carpeta del host para la clave maestra, cuando no se define `PITANGUS_MASTER_KEY`. |
+| `PITANGUS_HOST_DATA_DIR` / `PITANGUS_HOST_RULES_DIR` | las detecta Compose | Rutas absolutas del host que se montan en los contenedores hermanos de los motores. Defínelas solo cuando la detección automática no pueda resolver los bind mounts. |
 | `PITANGUS_FORWARDED_ALLOW_IPS` | vacío | Detrás de un proxy inverso que sea el único camino hasta la API: las direcciones del proxy cuyo `X-Forwarded-For` se cree (`*` = cualquiera). Sin ella, el límite de intentos de inicio de sesión y los logs ven la dirección del proxy para todo el mundo. `compose.prod.yaml` la pone para Caddy. |
 | `PITANGUS_ENGINE_RUNNER` | `auto` | `docker`: cada motor en un contenedor hermano a través del socket de Docker. `local`: los motores instalados en la imagen del worker (`pitangus-worker`), sin socket. `auto`: Docker si responde; si no, los motores instalados. |
 | `PITANGUS_PERIODIC` | `leader` | `leader`: un worker ejecuta las tareas periódicas con su propio reloj. `external`: las dispara un programador con `pitangus periodic` o `GET /api/cron` ([despliegue.md](despliegue.md#tareas-periódicas)). |
 | `PITANGUS_CRON_TOKEN` / `CRON_SECRET` | vacío (apagado) | Token bearer para `GET /api/cron`, solo con `PITANGUS_PERIODIC=external`. Mínimo 32 caracteres. `CRON_SECRET` es el que envía Vercel Cron. |
 | `PITANGUS_LOG_FORMAT` | `text` | `json`: un objeto JSON por línea en la salida del proceso. |
+| `PITANGUS_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING` o `ERROR`. Los logs de depuración también pasan por el filtro de secretos. |
 | `PITANGUS_LOG_FILE` | vacío (Compose: `logs/app.log`) | Escribe además los registros en JSON en este archivo, rotado a 10 MB × 5; una ruta relativa va dentro de la carpeta de datos. |
 | `PITANGUS_METRICS_TOKEN` | vacío (apagado) | Activa `/api/metrics` (Prometheus) para peticiones con `Authorization: Bearer <token>`. Mínimo 32 caracteres: `openssl rand -hex 32`. |
 | `PITANGUS_IMPORT_TOKEN` | vacío (apagado) | Activa `POST /api/ci/sarif`, con el que la CI importa el SARIF 2.1.0 de otra herramienta en un activo existente usando `Authorization: Bearer <token>` (sin sesión). Mínimo 32 caracteres: `openssl rand -hex 32`. También es lo que envía `pitangus import-sarif --server`, leído del entorno. |

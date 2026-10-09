@@ -1,0 +1,45 @@
+---
+const home = import.meta.env.BASE_URL
+const favicon = `${home}favicon.svg`
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href={favicon} type="image/svg+xml" />
+    <title>Page not found | Pitangus Docs</title>
+  </head>
+  <body>
+    <main>
+      <img src={favicon} width="72" height="72" alt="" />
+      <p class="kicker">404 · Pitangus Docs</p>
+      <h1>Nothing to catch here.</h1>
+      <p>This page may have moved while the beta documentation evolves.</p>
+      <p lang="es">Es posible que esta página haya cambiado de lugar mientras evoluciona la documentación de la beta.</p>
+      <a href={home}>Return to the documentation · Volver a la documentación</a>
+    </main>
+  </body>
+</html>
+
+<style>
+  :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #fbf5e6; color: #1c1a16; }
+  body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 1.5rem; box-sizing: border-box; }
+  main { width: min(36rem, 100%); }
+  img { display: block; margin-bottom: 2rem; }
+  .kicker { color: #9c4a1e; font: 600 0.78rem/1.4 ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; }
+  h1 { margin: 0.5rem 0 1rem; font-size: clamp(2.5rem, 8vw, 5rem); line-height: 0.98; letter-spacing: -0.045em; }
+  p { max-width: 34rem; line-height: 1.65; }
+  a { display: inline-block; margin-top: 1rem; border-radius: 999px; padding: 0.8rem 1.2rem; background: #f2c230; color: #1c1a16; font-weight: 700; text-decoration: none; }
+  a:hover { background: #1c1a16; color: #f2c230; }
+  :focus-visible { outline: 2px solid #9c4a1e; outline-offset: 3px; }
+  @media (prefers-color-scheme: dark) {
+    :root { background: #16140f; color: #fff8e8; }
+    .kicker { color: #f5cd4a; }
+    a:hover { background: #fff8e8; color: #1c1a16; }
+    :focus-visible { outline-color: #f5cd4a; }
+  }
+</style>

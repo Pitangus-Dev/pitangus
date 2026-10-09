@@ -157,7 +157,7 @@ Three things make up an instance: the **database** (runs, findings, triage, user
 
 **With cron, from the host.** `make backup` does the same, stopping the API for a few seconds so `data/` is consistent too; it refuses to run while scans are in progress (and then cron retries the next day):
 
-```cron
+```text
 30 3 * * * cd /home/pitangus/pitangus && make backup >> backups/cron.log 2>&1
 ```
 
@@ -174,7 +174,7 @@ Each backup then holds `database.dump.age`, `data.tgz.age` and `config.tgz.age`.
 
 **Offsite, always.** A backup on the same disk doesn't survive the server. Encrypted with age, any copy will do (`rsync`, `rclone`, a bucket). Without age, the offsite copy must be encrypted by the tool that sends it, e.g. [restic](https://restic.net) to any S3-compatible bucket (Backblaze B2, Hetzner Object Storage, R2…):
 
-```cron
+```text
 0 4 * * * cd /home/pitangus/pitangus && restic backup backups/ --tag pitangus && restic forget --keep-daily 14 --keep-weekly 8 --prune
 ```
 
