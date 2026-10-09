@@ -150,6 +150,9 @@ class WorkerTests(unittest.TestCase):
             while time.monotonic() < deadline and batches.load(data, batch["id"])["status"] == "running":
                 time.sleep(0.1)
             state = batches.summary(data, batches.load(data, batch["id"]))
+            # The worker thread must not outlive this test's database (its connections would be cut under the next test).
+            jobs.stop()
+            jobs._thread.join(10)
         self.assertEqual((state["status"], state["done"], state["failed"], state["high"]), ("done", 3, 0, 3))
 
 
