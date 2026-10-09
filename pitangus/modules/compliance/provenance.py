@@ -1,0 +1,120 @@
+"""Which repository each image is built from, and the scope of portfolio evidence.
+
+An image says where it comes from in its OCI labels (`org.opencontainers.image.source` and `.revision`, read at scan
+time). When that repository is analyzed too, the image is linked to it on its own. The team can set or override the
+link by hand (images without labels, mirrored registries); a manual link wins over the label.
+
+The scope of a portfolio file (SBOM, VEX, consolidated evidence) is every analyzed asset, the repositories of one
+organization, or a chosen set; with a repository come the images built from it unless that is turned off.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from pathlib import Path
+
+from pitangus.modules.compliance import evidence
+from pitangus.shared import documents
+from pitangus.shared.i18n import msg
+
+DOCUMENT = "image-links"
+SCOPE_MAX = 500
+
+
+class ProvenanceError(ValueError):
+    def __init__(self, message: dict):
+        super().__init__(message)
+        self.message = message
+
+
+def _labels(data_dir: Path) -> dict[str, dict]:
+    """The OCI label of each image's latest scan: {image key: {"host", "repository", "revision"}}."""
+    from pitangus.modules.runs.store import find_runs
+    from pitangus.modules.sources.assets import asset_key
+    found: dict[str, dict] = {}
+    for row in find_runs(data_dir, types=("image_scan",)):  # most recent first
+        key = asset_key(row)
+        if key not in found:
+            found[key] = ((row.get("source") or {}).get("image") or {}).get("built_from") or {}
+    return found
+
+
+def links(data_dir: Path, rows: list[dict] | None = None) -> dict[str, dict]:
+    """{image key: {"repository": repo key or None, "name", "revision", "how": "label" | "manual"}}.
+
+    `repository` is None when the label names a repository Pitangus hasn't analyzed (shown, but it can't bring it
+    into a scope)."""
+    rows = rows if rows is not None else evidence.catalog(data_dir)
+    repos = {row["key"]: row for row in rows if row["kind"] == "repository"}
+    by_name: dict[str, list[dict]] = {}
+    for row in repos.values():
+        by_name.setdefault(str(row["name"]).casefold(), []).append(row)
+    labels, manual = _labels(data_dir), documents.load(data_dir, DOCUMENT, {}) or {}
+    result: dict[str, dict] = {}
+    for row in rows:
+        if row["kind"] != "image":
+            continue
+        label = labels.get(row["key"]) or {}
+        chosen = manual.get(row["key"])
+        if isinstance(chosen, dict) and chosen.get("repository") in repos:
+            repo = repos[chosen["repository"]]
+            same = label.get("repository") and str(label["repository"]).casefold() == str(repo["name"]).casefold()
+            result[row["key"]] = {"repository": repo["key"], "name": repo["name"], "revision": label.get("revision") if same else None,
+                                  "how": "manual", "by": chosen.get("by"), "at": chosen.get("at")}
+        elif label.get("repository"):
+            # Same name on the same forge, and only one: never a guess between two repositories.
+            candidates = [repo for repo in by_name.get(str(label["repository"]).casefold(), []) if _host(repo["key"]) in (None, label.get("host"))]
+            match = candidates[0] if len(candidates) == 1 else None
+            result[row["key"]] = {"repository": match["key"] if match else None, "name": match["name"] if match else label["repository"],
+                                  "revision": label.get("revision"), "how": "label"}
+    return result
+
+
+def _host(key: str) -> str | None:
+    """The forge of a repository asset, from its key (`github#123`, `github:org/repo`, `gitlab:…`); None if unknown."""
+    return next((host for prefix, host in (("github", "github.com"), ("gitlab", "gitlab.com")) if key.startswith(prefix)), None)
+
+
+def link_for(data_dir: Path, key: str) -> dict | None:
+    return links(data_dir).get(key)
+
+
+def set_link(data_dir: Path, image: str, repository: str | None, *, by: str) -> dict | None:
+    """Links an image to a repository by hand; `repository=None` goes back to what the image's label says."""
+    rows = evidence.catalog(data_dir)
+    kinds = {row["key"]: row["kind"] for row in rows}
+    if kinds.get(image) != "image":
+        raise ProvenanceError(msg("compliance.provenance.not_an_image"))
+    if repository is not None and kinds.get(repository) != "repository":
+        raise ProvenanceError(msg("compliance.provenance.not_a_repository"))
+    with documents.edit(data_dir, DOCUMENT, {}) as state:
+        if repository is None:
+            state.pop(image, None)
+        else:
+            state[image] = {"repository": repository, "by": by, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    return links(data_dir, rows).get(image)
+
+
+def accounts(rows: list[dict]) -> list[str]:
+    """Organizations (owners) of the analyzed repositories, for the scope picker."""
+    return sorted({str(row["name"]).split("/", 1)[0] for row in rows if row["kind"] == "repository" and "/" in str(row["name"])},
+                  key=str.casefold)
+
+
+def scope(data_dir: Path, *, assets: list[str] | None = None, account: str | None = None, include_images: bool = True) -> list[dict]:
+    """The catalog rows a portfolio file covers: all; the repositories of `account`; or the chosen `assets`. With
+    `include_images`, the images built from a chosen repository come along."""
+    rows = evidence.catalog(data_dir)
+    if not assets and not account:
+        return rows
+    if account:
+        prefix = f"{account.casefold()}/"
+        chosen = [row for row in rows if row["kind"] == "repository" and str(row["name"]).casefold().startswith(prefix)]
+    else:
+        wanted = set((assets or [])[:SCOPE_MAX])
+        chosen = [row for row in rows if row["key"] in wanted]
+    if include_images:
+        keys = {row["key"] for row in chosen}
+        built = {image for image, link in links(data_dir, rows).items() if link.get("repository") in keys}
+        chosen += [row for row in rows if row["key"] in built and row["key"] not in keys]
+    return chosen

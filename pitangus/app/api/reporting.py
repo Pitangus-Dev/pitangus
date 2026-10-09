@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from pitangus.app.api.deps import ApiError, Context, Policy, documented, guard, json_body
 from pitangus.app.api.deps import problem
-from pitangus.modules.compliance import cra, evidence
+from pitangus.modules.compliance import cra, evidence, provenance
 from pitangus.modules.findings import registry as findings_registry
 from pitangus.modules.findings import triage
 from pitangus.modules.integrations.github import GitHubAppError
@@ -103,6 +103,8 @@ def audit_report(context: Context = Depends(guard(Policy(action="audit-report", 
             if not any(row["key"] == key for row in assets_overview(context.data_dir)):
                 raise ApiError(404, msg("api.asset_not_found"))
             record = findings_registry.view(context.data_dir, key, status=status)
+            if key.startswith("image:"):
+                record = {**record, "source": {**(record.get("source") or {}), "built_from": provenance.link_for(context.data_dir, key)}}
     except (FileNotFoundError, ValueError):
         raise ApiError(404, msg("api.run_not_found")) from None
     findings = record.get("findings") or []

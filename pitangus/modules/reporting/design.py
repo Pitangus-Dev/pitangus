@@ -137,6 +137,20 @@ def path(value, width: int = 30, lines: int = 3) -> str:
     return "<br/>".join(html.escape(row, quote=False) for row in rows if row)
 
 
+def built_from(record: dict, locale: str | None = None) -> str:
+    """«owner/repo @ 9f3c2a1b7d4e (from the image's label)» for an image: the repository it is built from, the commit
+    when known, and who says so — the image's own label is a claim, a manual link names who set it. "" otherwise."""
+    source = record.get("source") or {}
+    link = source.get("built_from") or (source.get("image") or {}).get("built_from") or {}
+    name = link.get("name") or link.get("repository")
+    if not name:
+        return ""
+    where = " @ ".join(value for value in (str(name), str(link.get("revision") or "")[:12]) if value)
+    origin = (i18n.t("reports.design.built_from_manual", locale, by=link.get("by") or "—") if link.get("how") == "manual"
+              else i18n.t("reports.design.built_from_label", locale))
+    return f"{where} ({origin})"
+
+
 def location(finding: dict) -> str:
     """Where a finding is: a dependency advisory points at its manifest (its line says nothing), code at path:line."""
     if finding.get("scanner") == "sca" or not finding.get("line"):

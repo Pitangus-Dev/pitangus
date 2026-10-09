@@ -14,7 +14,7 @@
     "repository": "Repositorio",
     "image": "Imagen",
     "pick_hint": "Elige uno para descargar sus archivos.",
-    "portfolio_title": "Todo el portafolio",
+    "portfolio_title": "Portafolio",
     "portfolio_summary_one": "{{count}} activo analizado · {{complete}} con un análisis completo terminado",
     "portfolio_summary_other": "{{count}} activos analizados · {{complete}} con un análisis completo terminado",
     "none": "Aún no hay nada analizado: analiza primero un repositorio o una imagen.",
@@ -45,7 +45,33 @@
     },
     "portfolio_sbom_hint": "CycloneDX · componentes y versiones de cada activo con un análisis completo terminado",
     "portfolio_vex_hint": "OpenVEX · tu triage de cada activo con un análisis completo terminado",
-    "portfolio_missing": "Necesita un análisis completo terminado"
+    "portfolio_missing": "Necesita un análisis completo terminado",
+    "scope": {
+      "legend": "Qué activos",
+      "all": "Todos los activos analizados",
+      "account": "Una organización",
+      "assets": "Elegir repositorios e imágenes",
+      "choose_account": "Elige una organización…",
+      "no_accounts": "Aún no hay repositorios analizados de una organización.",
+      "add": "Añadir un repositorio o una imagen…",
+      "chosen": "Activos elegidos",
+      "remove": "Quitar {{name}}",
+      "images": "Incluir las imágenes construidas desde estos repositorios",
+      "incomplete": "Primero elige una organización o al menos un activo",
+      "add_label": "Activo para añadir"
+    },
+    "origin": {
+      "built_from": "Construida desde",
+      "label": "según la etiqueta de la imagen",
+      "label_unknown": "según la etiqueta de la imagen (repositorio sin analizar)",
+      "manual": "asignado por {{by}} el {{date}}",
+      "none": "Sin repositorio vinculado: las etiquetas de la imagen no indican un repositorio de GitHub o GitLab que Pitangus reconozca.",
+      "change": "Cambiar",
+      "link": "Vincular un repositorio",
+      "use_label": "Quitar el vínculo manual",
+      "pick": "Repositorio desde el que se construye…",
+      "pick_label": "Repositorio"
+    }
   },
   "cra": {
     "title": "Reglamento de Ciberresiliencia de la UE (CRA) · notificación de vulnerabilidades",

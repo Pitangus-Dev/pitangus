@@ -2,6 +2,7 @@
 .venv
 data
 web/node_modules
+web/tools/openapi/node_modules
 web/dist
 config
 backups

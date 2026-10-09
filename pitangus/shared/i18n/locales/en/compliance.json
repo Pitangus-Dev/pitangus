@@ -50,6 +50,11 @@
     "components_truncated": "Partial: a portfolio SBOM holds at most {{max_components}} components. Every asset is listed, but those marked pitangus:truncated are incomplete: export their SBOM individually."
   },
   "evidence": {
-    "no_complete_scan": "No asset has a completed full scan yet: the portfolio SBOM and VEX need at least one."
+    "no_complete_scan": "No asset has a completed full scan yet: the portfolio SBOM and VEX need at least one.",
+    "no_complete_scan_scope": "None of the chosen assets has a completed full scan yet: the portfolio SBOM and VEX need at least one."
+  },
+  "provenance": {
+    "not_an_image": "That asset isn't an analyzed image.",
+    "not_a_repository": "That asset isn't an analyzed repository."
   }
 }

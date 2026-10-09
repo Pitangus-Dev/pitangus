@@ -7,10 +7,10 @@ export type ComboOption = { id: string; label: string; hint?: string; badge?: Re
 // Buscador con autocompletado. Busca en el servidor mientras se escribe (con pausa de 200 ms),
 // así escala a miles de repositorios o ejecuciones sin cargarlos todos en el navegador.
 // `minChars`: nothing is searched until that many characters are typed (for lists too long to browse).
-export function Combobox({ value, placeholder, search, onSelect, label, emptyText, className = '', delay = 200, minChars = 0, invalid = false, describedBy }: {
+export function Combobox({ value, placeholder, search, onSelect, label, emptyText, className = '', delay = 200, minChars = 0, invalid = false, describedBy, autoFocus = false }: {
   value: ComboOption | null; placeholder: string; label: string; emptyText?: string; className?: string
   search: (query: string) => Promise<{ options: ComboOption[]; total: number }>; onSelect: (option: ComboOption) => void
-  delay?: number; minChars?: number; invalid?: boolean; describedBy?: string
+  delay?: number; minChars?: number; invalid?: boolean; describedBy?: string; autoFocus?: boolean
 }) {
   const { t } = useTranslation('ui')
   const [open, setOpen] = useState(false)
@@ -24,6 +24,8 @@ export function Combobox({ value, placeholder, search, onSelect, label, emptyTex
   const input = useRef<HTMLInputElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const listId = useId()
+  // Shown in place of the button that opened it (an inline edit): the keyboard focus moves along with the user.
+  useEffect(() => { if (autoFocus) trigger.current?.focus() }, [autoFocus])
 
   useEffect(() => {
     if (!open) return

@@ -589,11 +589,32 @@ export interface paths {
         };
         /**
          * Evidence Assets
-         * @description The asset picker: analyzed assets by name, with whether each has what an SBOM needs.
+         * @description The asset picker: analyzed assets by name (and kind), with whether each has what an SBOM needs and, for an
+         *     image, the repository it is built from.
          */
         get: operations["evidence_assets_api_evidence_assets_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/evidence/image-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Image Link
+         * @description Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label.
+         */
+        post: operations["set_image_link_api_evidence_image_link_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -611,7 +632,7 @@ export interface paths {
         put?: never;
         /**
          * Portfolio Evidence
-         * @description Consolidated audit evidence of every analyzed asset (open, fixed and exceptions), for one framework.
+         * @description Consolidated audit evidence of the scope's assets (open, fixed and exceptions), for one framework.
          */
         post: operations["portfolio_evidence_api_evidence_portfolio_post"];
         delete?: never;
@@ -629,7 +650,8 @@ export interface paths {
         };
         /**
          * Portfolio Sbom
-         * @description One CycloneDX document: each asset a top-level component with its packages. `organization` names the portfolio.
+         * @description One CycloneDX document: each asset of the scope a top-level component with its packages. `organization` names
+         *     the portfolio.
          */
         get: operations["portfolio_sbom_api_evidence_portfolio_sbom_get"];
         put?: never;
@@ -649,7 +671,7 @@ export interface paths {
         };
         /**
          * Portfolio Vex
-         * @description One OpenVEX document with the statements of the same assets as the portfolio SBOM.
+         * @description One OpenVEX document with the statements of the same assets as the portfolio SBOM (same scope).
          */
         get: operations["portfolio_vex_api_evidence_portfolio_vex_get"];
         put?: never;
@@ -2041,6 +2063,28 @@ export interface components {
             /** Recent */
             recent: components["schemas"]["BatchSummary"][];
         };
+        /**
+         * BuiltFrom
+         * @description The repository an image is built from: from its OCI label or set by hand. `repository` is None when the label
+         *     names a repository Pitangus hasn't analyzed.
+         */
+        BuiltFrom: {
+            /** Repository */
+            repository: string | null;
+            /** Name */
+            name: string;
+            /** Revision */
+            revision: string | null;
+            /**
+             * How
+             * @enum {string}
+             */
+            how: "label" | "manual";
+            /** By */
+            by?: string | null;
+            /** At */
+            at?: string | null;
+        };
         /** BuiltinRule */
         BuiltinRule: {
             /** Id */
@@ -2538,6 +2582,7 @@ export interface components {
             last_complete: string | null;
             /** Sbom */
             sbom: boolean;
+            built_from?: components["schemas"]["BuiltFrom"] | null;
         };
         /** EvidenceAssetPage */
         EvidenceAssetPage: {
@@ -2556,6 +2601,8 @@ export interface components {
             assets: number;
             /** Complete */
             complete: number;
+            /** Accounts */
+            accounts: string[];
         };
         /** ExclusionChange */
         ExclusionChange: {
@@ -2745,6 +2792,19 @@ export interface components {
             workers?: number | null;
             /** Queued */
             queued?: number | null;
+        };
+        /** ImageLink */
+        ImageLink: {
+            /** Image */
+            image: string;
+            built_from: components["schemas"]["BuiltFrom"] | null;
+        };
+        /** ImageLinkIn */
+        ImageLinkIn: {
+            /** Image */
+            image: string;
+            /** Repository */
+            repository: string | null;
         };
         /**
          * ImportCheck
@@ -3317,6 +3377,18 @@ export interface components {
         };
         /** PortfolioEvidenceIn */
         PortfolioEvidenceIn: {
+            /** Assets */
+            assets?: string[];
+            /**
+             * Account
+             * @default
+             */
+            account: string;
+            /**
+             * Include Images
+             * @default true
+             */
+            include_images: boolean;
             /**
              * Framework
              * @enum {string}
@@ -5274,6 +5346,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
+                kind?: "" | "repository" | "image";
                 limit?: number;
                 offset?: number;
             };
@@ -5290,6 +5363,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvidenceAssetPage"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    set_image_link_api_evidence_image_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageLink"];
                 };
             };
             /** @description Invalid parameters */
@@ -5340,6 +5446,9 @@ export interface operations {
         parameters: {
             query?: {
                 organization?: string;
+                assets?: string[];
+                account?: string;
+                include_images?: boolean;
             };
             header?: never;
             path?: never;
@@ -5369,7 +5478,11 @@ export interface operations {
     };
     portfolio_vex_api_evidence_portfolio_vex_get: {
         parameters: {
-            query?: never;
+            query?: {
+                assets?: string[];
+                account?: string;
+                include_images?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5383,6 +5496,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

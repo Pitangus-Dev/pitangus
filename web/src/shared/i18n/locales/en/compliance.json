@@ -14,7 +14,7 @@
     "repository": "Repository",
     "image": "Image",
     "pick_hint": "Choose one to download its files.",
-    "portfolio_title": "Whole portfolio",
+    "portfolio_title": "Portfolio",
     "portfolio_summary_one": "{{count}} analyzed asset · {{complete}} with a completed full scan",
     "portfolio_summary_other": "{{count}} analyzed assets · {{complete}} with a completed full scan",
     "none": "Nothing analyzed yet: scan a repository or an image first.",
@@ -45,7 +45,33 @@
     },
     "portfolio_sbom_hint": "CycloneDX · components and versions of every asset with a completed full scan",
     "portfolio_vex_hint": "OpenVEX · your triage of every asset with a completed full scan",
-    "portfolio_missing": "Needs a completed full scan"
+    "portfolio_missing": "Needs a completed full scan",
+    "scope": {
+      "legend": "Which assets",
+      "all": "All analyzed assets",
+      "account": "One organization",
+      "assets": "Choose repositories and images",
+      "choose_account": "Choose an organization…",
+      "no_accounts": "No analyzed repository belongs to an organization yet.",
+      "add": "Add a repository or image…",
+      "chosen": "Chosen assets",
+      "remove": "Remove {{name}}",
+      "images": "Include the images built from these repositories",
+      "incomplete": "Choose an organization or at least one asset first",
+      "add_label": "Asset to add"
+    },
+    "origin": {
+      "built_from": "Built from",
+      "label": "from the image's label",
+      "label_unknown": "from the image's label (repository not analyzed)",
+      "manual": "set by {{by}} on {{date}}",
+      "none": "No linked repository: the image's labels don't name a GitHub or GitLab repository Pitangus recognizes.",
+      "change": "Change",
+      "link": "Link a repository",
+      "use_label": "Remove the manual link",
+      "pick": "Repository it is built from…",
+      "pick_label": "Repository"
+    }
   },
   "cra": {
     "title": "EU Cyber Resilience Act (CRA) · vulnerability reporting",

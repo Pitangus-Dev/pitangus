@@ -46,22 +46,24 @@ def portfolio(data_dir: Path, chosen: list[dict], *, status: str = "all") -> lis
     """Each chosen asset ({"key", "name"}) with its registry findings and latest full scan, for the consolidated report."""
     from pitangus.modules.findings import registry as findings_registry
     scans = {row["key"]: row for row in catalog(data_dir)}
-    return [{"name": row.get("name") or row["key"], "findings": findings_registry.view(data_dir, row["key"], status=status)["findings"],
+    return [{"name": row.get("name") or row["key"], "built_from": row.get("built_from"),
+             "findings": findings_registry.view(data_dir, row["key"], status=status)["findings"],
              "last_complete": (scans.get(row["key"]) or {}).get("last_complete"),
              "last_status": (scans.get(row["key"]) or {}).get("last_status")}
             for row in chosen]
 
 
-def complete_scans(data_dir: Path) -> tuple[list[dict], int]:
-    """The latest completed full scan of each asset, most recent first and at most `sbom.PORTFOLIO_ASSETS`, as
-    `{"key", "ref", "scan"}` with a ref unique in the portfolio; and how many assets have one."""
+def complete_scans(data_dir: Path, keys: set[str] | None = None) -> tuple[list[dict], int]:
+    """The latest completed full scan of each asset (of `keys` when given), most recent first and at most
+    `sbom.PORTFOLIO_ASSETS`, as `{"key", "ref", "scan"}` with a ref unique in the portfolio; and how many have one."""
     from pitangus.modules.compliance import sbom
     from pitangus.modules.findings.kinds import FULL_SCANS
     from pitangus.modules.runs.store import find_runs, load_run
     from pitangus.modules.sources.assets import asset_key
     latest: dict[str, dict] = {}
     for row in find_runs(data_dir, types=FULL_SCANS, statuses=("completed",)):  # most recent first
-        latest.setdefault(asset_key(row), row)
+        if keys is None or asset_key(row) in keys:
+            latest.setdefault(asset_key(row), row)
     chosen, used = [], {"urn:pitangus:portfolio"}
     for key, row in list(latest.items())[:sbom.PORTFOLIO_ASSETS]:
         try:
@@ -75,18 +77,18 @@ def complete_scans(data_dir: Path) -> tuple[list[dict], int]:
     return chosen, len(latest)
 
 
-def portfolio_sbom(data_dir: Path, *, name: str, version: str, locale: str) -> dict | None:
-    """CycloneDX of every asset with a completed full scan; None when there is none."""
+def portfolio_sbom(data_dir: Path, *, name: str, version: str, locale: str, keys: set[str] | None = None) -> dict | None:
+    """CycloneDX of every asset (of `keys`) with a completed full scan; None when there is none."""
     from pitangus.modules.compliance import sbom
-    chosen, total = complete_scans(data_dir)
+    chosen, total = complete_scans(data_dir, keys)
     return sbom.portfolio(chosen, total=total, name=name, version=version, locale=locale) if total else None
 
 
-def portfolio_vex(data_dir: Path, *, version: str, locale: str) -> dict | None:
+def portfolio_vex(data_dir: Path, *, version: str, locale: str, keys: set[str] | None = None) -> dict | None:
     """OpenVEX of the same assets as the portfolio SBOM (same product refs), from every triage decision."""
     from pitangus.modules.compliance import vex
     from pitangus.modules.findings import registry as findings_registry
-    chosen, total = complete_scans(data_dir)
+    chosen, total = complete_scans(data_dir, keys)
     if not total:
         return None
     records = [(item["ref"], findings_registry.view(data_dir, item["key"], status="all")) for item in chosen]

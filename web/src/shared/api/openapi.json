@@ -1767,7 +1767,7 @@
           "compliance"
         ],
         "summary": "Evidence Assets",
-        "description": "The asset picker: analyzed assets by name, with whether each has what an SBOM needs.",
+        "description": "The asset picker: analyzed assets by name (and kind), with whether each has what an SBOM needs and, for an\nimage, the repository it is built from.",
         "operationId": "evidence_assets_api_evidence_assets_get",
         "parameters": [
           {
@@ -1779,6 +1779,21 @@
               "maxLength": 100,
               "default": "",
               "title": "Q"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "",
+                "repository",
+                "image"
+              ],
+              "type": "string",
+              "default": "",
+              "title": "Kind"
             }
           },
           {
@@ -1830,13 +1845,55 @@
         }
       }
     },
+    "/api/evidence/image-link": {
+      "post": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "Set Image Link",
+        "description": "Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label.",
+        "operationId": "set_image_link_api_evidence_image_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageLinkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/evidence/portfolio": {
       "post": {
         "tags": [
           "compliance"
         ],
         "summary": "Portfolio Evidence",
-        "description": "Consolidated audit evidence of every analyzed asset (open, fixed and exceptions), for one framework.",
+        "description": "Consolidated audit evidence of the scope's assets (open, fixed and exceptions), for one framework.",
         "operationId": "portfolio_evidence_api_evidence_portfolio_post",
         "requestBody": {
           "content": {
@@ -1880,7 +1937,7 @@
           "compliance"
         ],
         "summary": "Portfolio Sbom",
-        "description": "One CycloneDX document: each asset a top-level component with its packages. `organization` names the portfolio.",
+        "description": "One CycloneDX document: each asset of the scope a top-level component with its packages. `organization` names\nthe portfolio.",
         "operationId": "portfolio_sbom_api_evidence_portfolio_sbom_get",
         "parameters": [
           {
@@ -1892,6 +1949,43 @@
               "maxLength": 120,
               "default": "",
               "title": "Organization"
+            }
+          },
+          {
+            "name": "assets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "maxItems": 500,
+              "default": [],
+              "title": "Assets"
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Account"
+            }
+          },
+          {
+            "name": "include_images",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Images"
             }
           }
         ],
@@ -1927,8 +2021,47 @@
           "compliance"
         ],
         "summary": "Portfolio Vex",
-        "description": "One OpenVEX document with the statements of the same assets as the portfolio SBOM.",
+        "description": "One OpenVEX document with the statements of the same assets as the portfolio SBOM (same scope).",
         "operationId": "portfolio_vex_api_evidence_portfolio_vex_get",
+        "parameters": [
+          {
+            "name": "assets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "maxItems": 500,
+              "default": [],
+              "title": "Assets"
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Account"
+            }
+          },
+          {
+            "name": "include_images",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Images"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OpenVEX statements of every asset with a completed full scan",
@@ -1936,8 +2069,18 @@
               "application/json": {
                 "schema": {
                   "type": "string",
-                  "maxLength": 100000000,
-                  "format": "binary"
+                  "format": "binary",
+                  "maxLength": 100000000
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -6541,6 +6684,75 @@
         ],
         "title": "Batches"
       },
+      "BuiltFrom": {
+        "properties": {
+          "repository": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "how": {
+            "type": "string",
+            "enum": [
+              "label",
+              "manual"
+            ],
+            "title": "How"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "repository",
+          "name",
+          "revision",
+          "how"
+        ],
+        "title": "BuiltFrom",
+        "description": "The repository an image is built from: from its OCI label or set by hand. `repository` is None when the label\nnames a repository Pitangus hasn't analyzed."
+      },
       "BuiltinRule": {
         "properties": {
           "id": {
@@ -8150,6 +8362,16 @@
           "sbom": {
             "type": "boolean",
             "title": "Sbom"
+          },
+          "built_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuiltFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -8203,12 +8425,21 @@
           "complete": {
             "type": "integer",
             "title": "Complete"
+          },
+          "accounts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Accounts"
           }
         },
         "type": "object",
         "required": [
           "assets",
-          "complete"
+          "complete",
+          "accounts"
         ],
         "title": "EvidenceOverview"
       },
@@ -8892,6 +9123,60 @@
           "version"
         ],
         "title": "Health"
+      },
+      "ImageLink": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "title": "Image"
+          },
+          "built_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuiltFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "image",
+          "built_from"
+        ],
+        "title": "ImageLink"
+      },
+      "ImageLinkIn": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Image"
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "image",
+          "repository"
+        ],
+        "title": "ImageLinkIn"
       },
       "ImportCheck": {
         "properties": {
@@ -10373,6 +10658,27 @@
       },
       "PortfolioEvidenceIn": {
         "properties": {
+          "assets": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Assets"
+          },
+          "account": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Account",
+            "default": ""
+          },
+          "include_images": {
+            "type": "boolean",
+            "title": "Include Images",
+            "default": true
+          },
           "framework": {
             "type": "string",
             "enum": [

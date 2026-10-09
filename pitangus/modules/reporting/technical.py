@@ -21,7 +21,7 @@ from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.fix_guide import guide
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
 from pitangus.modules.reporting.design import (ATTENTION, BRAND, CODE_BG, DANGER, INK, LINE, MONO, MUTED, ORDER, SEVERITY_INK, STYLE, SUCCESS,
-                            WIDTH, GAP_STATES, build, bullets, chip, count, cover, coverage_gaps, day, disclaimer, h2,
+                            WIDTH, GAP_STATES, build, built_from, bullets, chip, count, cover, coverage_gaps, day, disclaimer, h2,
                             hexval, kpis, listing, location, path, percent, plain, rich, severity_label, step_status,
                             t as _t, table)
 from pitangus.shared import i18n
@@ -150,6 +150,8 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
               (t("reports.technical.meta.reference"), str(record.get("id") or "—"), "mono")]
     if source.get("sha256"):
         fields.append((t("reports.technical.meta.snapshot"), str(source["sha256"]), "mono"))
+    if built_from(record):
+        fields.append((t("reports.technical.meta.built_from"), built_from(record, locale), "mono"))
     story = cover(t("reports.technical.cover_kind"), name,
                   t("reports.technical.subtitle_state" if record.get("type") == "asset_state" else "reports.technical.subtitle_scan", date=when),
                   fields, note=t("reports.design.cover_note", version=version))
