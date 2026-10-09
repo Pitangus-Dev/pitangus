@@ -2,7 +2,7 @@
 import { defineConfig } from 'astro/config'
 import starlight from '@astrojs/starlight'
 
-const site = process.env.SITE_URL ?? 'https://pitangus-dev.github.io'
+const site = process.env.SITE_URL ?? 'https://docs.pitangus.dev'
 const base = process.env.BASE_PATH ?? '/'
 
 const translations = (es) => ({ es })

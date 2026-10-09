@@ -15,18 +15,18 @@ pnpm run build     # production build and internal-link validation
 pnpm run preview   # http://localhost:4322 after a build
 ```
 
-The default local base path is `/`. To test the GitHub Pages project path exactly:
+The default local base path is `/`. To test the production URL exactly:
 
 ```bash
-SITE_URL=https://pitangus-dev.github.io BASE_PATH=/pitangus pnpm run build
-SITE_URL=https://pitangus-dev.github.io BASE_PATH=/pitangus pnpm run preview
+SITE_URL=https://docs.pitangus.dev BASE_PATH=/ pnpm run build
+SITE_URL=https://docs.pitangus.dev BASE_PATH=/ pnpm run preview
 ```
 
 On PowerShell:
 
 ```powershell
-$env:SITE_URL = 'https://pitangus-dev.github.io'
-$env:BASE_PATH = '/pitangus'
+$env:SITE_URL = 'https://docs.pitangus.dev'
+$env:BASE_PATH = '/'
 pnpm run build
 pnpm run preview
 ```
@@ -57,10 +57,13 @@ The complete schema is used only as a build input and is not copied into the pub
 
 ## Deployment decision
 
-The public landing is deployed from the separate `Pitangus-Dev/pitangus-dev.github.io` repository. Its workflow uploads one `dist` artifact that owns the organization Pages root. A second Pages deployment cannot safely add `/docs/` without replacing or coordinating that artifact.
+The public landing remains an independent deployment at `https://pitangus.dev/`. Documentation uses the dedicated `https://docs.pitangus.dev/` subdomain so neither deployment needs to own a path in the other's artifact.
 
-For that reason, `.github/workflows/docs.yml` validates the site on pull requests and pushes, but publication is manual. When approved and enabled under **Settings → Pages → GitHub Actions**, it publishes this repository's project site at:
+`.github/workflows/docs.yml` validates the site on pull requests and pushes, while publication remains manual through `workflow_dispatch`. To activate the custom domain:
 
-`https://pitangus-dev.github.io/pitangus/`
+1. In this repository, select **Settings → Pages → GitHub Actions** and set the custom domain to `docs.pitangus.dev`.
+2. In Cloudflare DNS, create a `CNAME` record named `docs` pointing to `pitangus-dev.github.io`. Start with the record set to **DNS only** while GitHub validates the domain and provisions HTTPS.
+3. Run the **Documentation** workflow manually and enable **Enforce HTTPS** when GitHub makes the option available.
+4. Update the landing's **Read the docs** link to `https://docs.pitangus.dev/` in its own repository.
 
-This does not modify or overwrite the landing. To use the preferred `https://pitangus-dev.github.io/docs/` address later, update the landing repository's build to copy this site's output into `dist/docs/` before its single Pages artifact is uploaded. That cross-repository change is deliberately outside this implementation.
+GitHub Actions deployments do not require a checked-in `CNAME` file; the custom domain is stored in the repository's Pages settings.
