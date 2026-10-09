@@ -97,9 +97,13 @@ policy and overdue findings sorted by delay: what SOC 2 and ISO 27001 ask for as
   NIST SSDF, NIST CSF 2.0, NIST SP 800-53 and the HIPAA Security Rule (US); Brazil (CMN Res. 4.893/5.274), Chile
   (Law 21.663), Colombia (SFC, CE 007/2018) and Mexico (CNBV for banks and crowdfunding, IFPE, LFPDPPP Art. 18). The
   mapping to each control is indicative: the report is evidence for an audit, not a certification.
-- **Evidence hub (Compliance view).** Pick a repository or image and download its SBOM, VEX, technical report or
-  audit evidence for the chosen framework in one click; or the consolidated audit evidence of every analyzed asset.
-  The files are the same exports as in Findings.
+- **Evidence hub (Compliance view).** Choose the scope (one asset, an organization, several or all) and the framework,
+  and download the SBOM, VEX, technical report or audit evidence (consolidated when there's more than one asset). A
+  single asset's files are the same exports as in Findings.
+- **Images and the repository they're built from (Images view).** Pitangus reads the repository from the image's OCI
+  labels (`org.opencontainers.image.source` and `.revision`); when they're missing or wrong, an administrator links it
+  by hand, and that link wins. A repository's evidence brings the images built from it, and the reports say "built from
+  org/repo @ commit".
 - **CRA kit (Compliance view, opt-in).** Only for manufacturers that sell products with software in the EU: an
   administrator turns it on in **Policies** ("We sell products with software in the EU (CRA)", off by default, with a
   reason kept in the history; turning it off keeps the data). Then an administrator marks which repositories or images

@@ -71,7 +71,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
   const pickOne = <div className="max-w-xl space-y-2">
     <Combobox className="max-w-sm" label={t('evidence.asset')} placeholder={t('evidence.choose')} emptyText={t('evidence.no_match')} value={picked} search={search}
       onSelect={option => { setPicked(option as ComboOption & { asset: Asset }); setError('') }} />
-    {picked?.asset.kind === 'image' && <ImageOrigin key={picked.asset.key} asset={picked.asset} admin={admin} onChanged={next => setPicked(current => current && { ...current, asset: next })} />}
+    {picked?.asset.kind === 'image' && <ImageOrigin key={picked.asset.key} asset={picked.asset} admin={admin} onChanged={builtFrom => setPicked(current => current && { ...current, asset: { ...current.asset, built_from: builtFrom } })} />}
   </div>
   const unready = !ready ? t('evidence.scope.incomplete') : summary.isError ? t('evidence.summary.failed') : !covered ? t('evidence.summary.counting')
     : empty ? t('evidence.scope.nothing') : ''

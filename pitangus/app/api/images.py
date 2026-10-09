@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
 from pitangus.shared import settings
@@ -12,11 +12,54 @@ from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, g
 from pitangus.app.api.schemas import AS_RETURNED, MANY, Open
 from pitangus.app.api.repositories import QUEUE_LIMIT, BatchSummary
 from pitangus.app.api.deps import problem
+from pitangus.app.api.compliance import BuiltFrom
+from pitangus.app.api.paging import Paging, paging
+from pitangus.modules.compliance import provenance
 from pitangus.modules.runs import batches
 from pitangus.modules.scanning.image import ImageError, check_registry_address, forget_registry, parse_reference, registries, save_registry
 from pitangus.shared.i18n import msg, text
 
 router = APIRouter(tags=["images"])
+
+
+class ImageLastScan(BaseModel):
+    run_id: str
+    created_at: str
+    status: str
+
+
+class AnalyzedImage(BaseModel):
+    key: str
+    name: str
+    reference: str | None  # to scan it again
+    last_scan: ImageLastScan | None
+    last_complete: str | None
+    built_from: BuiltFrom | None
+
+
+class ImageCounts(BaseModel):
+    all: int
+    unlinked: int
+    label: int
+    manual: int
+
+
+class ImagePage(BaseModel):
+    items: list[AnalyzedImage] = Field(max_length=100)
+    total: int
+    limit: int
+    offset: int
+    counts: ImageCounts
+    repositories: dict[str, int] = Field(max_length=10_000)  # images built from each repository (its asset key)
+
+
+@router.get("/api/images", response_model=ImagePage)
+def analyzed_images(q: str = Query("", max_length=100), link: Literal["all", "unlinked", "label", "manual"] = "all",
+                    repository: str = Query("", max_length=200), page: Paging = Depends(paging()), context: Context = Depends(guard())) -> dict:
+    """Analyzed images with where each is built from (OCI label or set by hand), filtered by name, by how it is linked
+    or by the repository it is built from."""
+    found = provenance.images(context.data_dir, query=q, link=link, repository=repository or None)
+    return context.render({**page.slice(found["items"]), "counts": found["counts"], "repositories": found["repositories"]})
 
 
 class ImageScanIn(BaseModel):
