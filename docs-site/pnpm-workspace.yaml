@@ -22,3 +22,9 @@ minimumReleaseAgeExclude:
   # GHSA-ch52-4w7c-c8xp covers up to 4.2.0 (the maintainer disputes it); npm's lockfile already had 4.3.0. Over on
   # 2026-10-11.
   - http-cache-semantics@4.3.0
+
+# Fixed versions that a dependency's range doesn't reach yet.
+overrides:
+  # GHSA-rj75-hqrm-r3gf (quadratic parse of flat selectors), fixed only in 7.1.6; postcss-nested 6 (via Expressive Code)
+  # still asks for ^6. Build time only, on our own CSS. Remove once Expressive Code moves to postcss-nested 7.
+  'postcss-selector-parser@<7.1.6': 7.1.6
