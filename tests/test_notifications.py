@@ -66,6 +66,9 @@ class NotificationTests(unittest.TestCase):
         notifications.on_run(record, [_finding("c" * 64, "critical"), *(_finding(str(index) * 64, "low") for index in range(6))], sender=self.sender, wait=True)
         slack = next(payload for url, payload, _, _ in self.sent if url == SLACK)
         self.assertIn("1 hallazgo nuevo en acme/api", slack["text"])  # the critical-only channel counts only its own
+        # The way to the panel is a plain link: a button would need an interactive Slack app.
+        self.assertNotIn("actions", [block["type"] for block in slack["blocks"]])
+        self.assertRegex(slack["blocks"][-1]["elements"][0]["text"], r"^<https?://[^|>]+\|.+ →>$")
         self.sent.clear()
         notifications.on_run({**record, "type": "pr_review"}, [_finding("d" * 64, "critical")], sender=self.sender, wait=True)
         self.assertEqual(self.sent, [])  # PRs are notified on the PR itself

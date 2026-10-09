@@ -228,9 +228,10 @@ def render(kind: str, message: dict, locale: str | None = None) -> dict:
                   {"type": "section", "text": {"type": "mrkdwn", "text": _slack_escape(message["text"])}}]
         if lines:
             blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)[:2900]}})
-        if message["link"]:
-            blocks.append({"type": "actions", "elements": [{"type": "button", "text": {"type": "plain_text", "text": open_label},
-                                                            "url": message["link"]}]})
+        # A link, not a button: Slack treats every button as interactive and, with an incoming webhook (no
+        # interactivity URL), marks it with a warning.
+        if message["link"] and not re.search(r"[\s<>|]", message["link"]):
+            blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": f"<{message['link']}|{_slack_escape(open_label)} →>"}]})
         return {"text": f"{message['title']}: {message['text']}", "blocks": blocks}
     if kind == "teams":
         body = [{"type": "TextBlock", "text": _teams_escape(message["title"]), "weight": "Bolder", "size": "Medium", "wrap": True},
