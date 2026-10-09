@@ -18,7 +18,8 @@ make up
 
 `make setup PREBUILT=1` uses the published, signed images instead of building them (leave it out to build from the
 code). The first run pulls them and the engines, about 800 MB: under a minute on a fast connection, some 2 minutes at
-50 Mbps. When it's done it prints the URL (<http://127.0.0.1:8766>) and a
+50 Mbps (measured from scratch: about 1 minute at 150 Mbps, 3 on a laptop with WSL2). Behind a corporate VPN or
+proxy the first download can take much longer: see [troubleshooting.md](troubleshooting.md). When it's done it prints the URL (<http://127.0.0.1:8766>) and a
 single-use **setup code**: you use it to create the admin account in the panel. If you lose it, `make setup-code`
 prints it again.
 
