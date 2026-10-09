@@ -1,0 +1,73 @@
+name: Documentation
+
+on:
+  pull_request:
+    paths:
+      - '.github/CONTRIBUTING*.md'
+      - '.github/workflows/docs.yml'
+      - 'docs/**'
+      - 'docs-site/**'
+      - 'pitangus/shared/settings.py'
+      - 'web/src/shared/api/openapi.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/CONTRIBUTING*.md'
+      - '.github/workflows/docs.yml'
+      - 'docs/**'
+      - 'docs-site/**'
+      - 'pitangus/shared/settings.py'
+      - 'web/src/shared/api/openapi.json'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish the validated site to this repository's GitHub Pages project site
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Types, sources, links and build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: docs-site
+      - run: npm run build
+        working-directory: docs-site
+        env:
+          SITE_URL: https://pitangus-dev.github.io
+          BASE_PATH: /pitangus
+      - if: github.event_name == 'workflow_dispatch' && inputs.deploy
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
+        with:
+          path: docs-site/dist
+
+  deploy:
+    name: Publish project site
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

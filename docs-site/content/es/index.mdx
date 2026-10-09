@@ -1,0 +1,49 @@
+---
+title: Documentación de Pitangus
+description: Instala, configura, opera, integra y contribuye a Pitangus con documentación fundamentada en el código fuente.
+template: splash
+editUrl: https://github.com/Pitangus-Dev/pitangus/edit/main/docs-site/content/es/index.mdx
+hero:
+  title: Vigila cada cambio. Demuestra cada corrección.
+  tagline: Documentación técnica de Pitangus, la plataforma de seguridad de aplicaciones autoalojada y de código abierto para equipos pequeños.
+  actions:
+    - text: Empieza en cinco minutos
+      link: ./quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: Ver en GitHub
+      link: https://github.com/Pitangus-Dev/pitangus
+      icon: external
+      variant: secondary
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components'
+
+Pitangus analiza repositorios e imágenes de contenedor sin ejecutar su código. Combina motores de código abierto, prioriza los hallazgos con inteligencia de explotación, explica cómo corregirlos, verifica la corrección y conserva evidencia para tu equipo.
+
+<CardGrid>
+  <Card title="Instala y ejecuta" icon="rocket">
+    Revisa los requisitos, inicia el stack de Docker Compose, crea la primera cuenta administradora y ejecuta la demostración incluida.
+
+    [Sigue el inicio rápido](./quickstart/)
+  </Card>
+  <Card title="Conecta tu flujo de trabajo" icon="seti:github">
+    Conecta una GitHub App, revisa pull requests, importa SARIF desde CI, envía hallazgos a Jira y configura avisos.
+
+    [Explora las integraciones](./integrations/)
+  </Card>
+  <Card title="Opéralo de forma segura" icon="shield-check">
+    Configura HTTPS, PostgreSQL, copias de seguridad, workers, tareas periódicas, métricas y secretos para producción.
+
+    [Planea un despliegue](./deploy/)
+  </Card>
+  <Card title="Entiende el sistema" icon="puzzle">
+    Conoce cómo encajan la API en FastAPI, el panel en React, los workers, PostgreSQL, los motores y los límites del monolito modular.
+
+    [Lee la arquitectura](./architecture/)
+  </Card>
+</CardGrid>
+
+:::note[Software beta]
+Pitangus todavía está en beta. La superficie pública y estable para automatización es pequeña a propósito; las rutas internas del panel y los formatos almacenados pueden cambiar entre versiones.
+:::

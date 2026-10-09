@@ -10,6 +10,7 @@
 | [Desplegar en un VPS](despliegue-vps.md) | Tu propio servidor con dominio: dimensionado, preparar el sistema, HTTPS con Caddy, imágenes publicadas, copias y restauración, actualizaciones, monitorización, Coolify y Dokploy. |
 | [Contenedores y Makefile](contenedores.md) | Qué necesitas, todos los comandos `make`, imágenes, estructura de `docker/` y endurecimiento. |
 | [Conectar GitHub](github-app.md) | Crear tu GitHub App paso a paso, instalarla y revisar pull requests. |
+| [Integraciones y automatización](integraciones.md) | GitHub, CI y SARIF, Jira, notificaciones, webhooks y tareas periódicas. |
 | [Configuración](configuracion.md) | Todas las variables de `.env`. |
 | [Seguridad](seguridad.md) | Cómo se guardan los secretos, qué sale de tu máquina y concesiones conocidas. |
 | [Funcionalidades](funcionalidades.md) | Panel, hallazgos y su ciclo de vida, CVE tracker, PRs, amenazas, Jira y motores. |

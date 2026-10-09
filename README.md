@@ -62,6 +62,7 @@ The panel follows your browser's language and has a language switch in the sideb
 | [Where to deploy](docs/deploy.md) | One compose file for any server or Docker panel; Render, Railway, Vercel for the API and Kubernetes (untested) |
 | [Deploy on a VPS](docs/deploy-vps.md) | Your own server with a domain: HTTPS, backups, upgrades, monitoring, Coolify and Dokploy |
 | [Connect GitHub](docs/github-app.md) | Create the GitHub App step by step and review PRs |
+| [Integrations and automation](docs/integrations.md) | GitHub, CI and SARIF, Jira, notifications, webhooks and periodic tasks |
 | [Terminal and CI](docs/cli.md) | `scan`: check a folder or just what a change introduces, with SARIF output and exit codes; in CI, one step with the GitHub Action |
 | [Skills for coding assistants](skills/README.md) | Claude Code, Cursor or Codex fix what Pitangus finds and verify it, or wire it into your CI |
 | [Features](docs/features.md) | What each part does and the reasoning behind it |
