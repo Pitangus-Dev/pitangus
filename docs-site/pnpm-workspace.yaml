@@ -13,3 +13,12 @@ strictDepBuilds: true
 ignoredBuiltDependencies:
   - esbuild   # its binary comes from an optional platform package; the script only checks it
   - fsevents  # macOS only, optional
+
+# Exceptions: one exact version each, for a security fix still inside its week. Each stops mattering once the week is
+# over (the date next to it); remove it then.
+minimumReleaseAgeExclude:
+  # GHSA-9jrq-w75r-8gcw, GHSA-vfpm-58rq-9qcg and GHSA-rq7h-c2jc-7f22, in the dev server. Over on 2026-10-13.
+  - vite@8.3.3
+  # GHSA-ch52-4w7c-c8xp covers up to 4.2.0 (the maintainer disputes it); npm's lockfile already had 4.3.0. Over on
+  # 2026-10-11.
+  - http-cache-semantics@4.3.0

@@ -48,7 +48,7 @@ cd ..
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-El panel y el sitio de documentación usan pnpm, no npm. Su `pnpm-workspace.yaml` tiene los ajustes de cadena de suministro: una versión debe tener una semana antes de instalarse, se rechaza una versión reciente que pierde la procedencia que tenían las anteriores, las dependencias transitivas no pueden venir de git ni de tarballs, y los scripts de instalación de las dependencias nunca se ejecutan (uno nuevo hace fallar la instalación hasta que se lista a propósito).
+El panel y el sitio de documentación usan pnpm, no npm. Su `pnpm-workspace.yaml` tiene los ajustes de cadena de suministro: una versión debe tener una semana antes de instalarse, se rechaza una versión reciente que pierde la procedencia que tenían las anteriores, las dependencias transitivas no pueden venir de git ni de tarballs, y los scripts de instalación de las dependencias nunca se ejecutan (uno nuevo hace fallar la instalación hasta que se lista a propósito). Si un arreglo de seguridad necesita una versión con menos de una semana, entra como excepción para esa versión exacta (`minimumReleaseAgeExclude`), con el aviso y la fecha en que deja de hacer falta.
 
 Las pruebas del panel (`pnpm test`, vitest con Testing Library) van junto a lo que prueban (`*.test.tsx`) y cubren el inicio de sesión, el triage y el lanzamiento de un análisis. Sustituyen `fetch` por `mockApi` (`web/src/shared/test/`) y buscan los elementos por el texto del catálogo, así que cambiar un texto no las rompe.
 

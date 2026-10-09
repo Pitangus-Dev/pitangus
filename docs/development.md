@@ -48,7 +48,7 @@ cd ..
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The panel and the docs site use pnpm, not npm. Their `pnpm-workspace.yaml` holds the supply-chain settings: a release has to be a week old before it is installed, a version that loses the provenance its predecessors had is refused while it is recent, transitive dependencies can't come from git or tarballs, and dependencies' install scripts never run (a new one fails the install until it is listed on purpose).
+The panel and the docs site use pnpm, not npm. Their `pnpm-workspace.yaml` holds the supply-chain settings: a release has to be a week old before it is installed, a version that loses the provenance its predecessors had is refused while it is recent, transitive dependencies can't come from git or tarballs, and dependencies' install scripts never run (a new one fails the install until it is listed on purpose). When a security fix needs a release younger than a week, it goes in as an exception for that exact version (`minimumReleaseAgeExclude`), with the advisory and the date it stops mattering.
 
 The panel tests (`pnpm test`, vitest with Testing Library) sit next to what they test (`*.test.tsx`) and cover sign-in, triage and launching an analysis. They replace `fetch` with `mockApi` (`web/src/shared/test/`) and look elements up by the catalog's text, so a copy change doesn't break them.
 

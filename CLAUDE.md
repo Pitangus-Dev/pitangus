@@ -24,5 +24,6 @@
   `make openapi` (the panel uses the generated types in `web/src/shared/api/`; CI checks they are current).
 - **Dependencies.** The panel (`web/`) and the docs site (`docs-site/`) use pnpm (corepack), never npm: their
   `pnpm-workspace.yaml` holds the supply-chain settings. Don't loosen them to make an install pass; if a package trips
-  them, find out why first.
+  them, find out why first. The only exceptions are security fixes younger than a week: one exact version in
+  `minimumReleaseAgeExclude`, with the advisory and the date it stops mattering.
 - **Checks.** `make test`, `make arch` and `make lint-py` (backend) and `cd web && pnpm exec tsc -b && pnpm run lint && pnpm test` (panel; lint fails on warnings).
