@@ -89,11 +89,11 @@
     /* Los tokens propios del panel salen de los de shadcn: un solo sistema de color. */
     --app-bg: var(--background);
     --app-panel: var(--card);
-    --app-inset: oklch(0.955 0.024 88);
-    --app-console: oklch(0.985 0.008 88);
-    --app-console-top: oklch(0.965 0.012 88);
+    --app-inset: oklch(0.962 0.012 88);
+    --app-console: oklch(0.99 0.004 88);
+    --app-console-top: oklch(0.972 0.007 88);
     --app-line: var(--border);
-    --app-soft: oklch(0.965 0.014 88);
+    --app-soft: oklch(0.972 0.008 88);
     --app-fg: var(--foreground);
     --app-primary: oklch(0.219 0.008 85);
     --app-secondary: oklch(0.34 0.012 88);
@@ -121,24 +121,24 @@
     --on-solid: oklch(1 0 0);
     --overlay: oklch(0 0 0 / 40%);
     --knob: oklch(1 0 0);
-    --skeleton: oklch(0.92 0.015 88);
-    --background: oklch(0.971 0.021 88.7);   /* cream #FBF5E6 */
+    --skeleton: oklch(0.925 0.008 88);
+    --background: oklch(0.985 0.007 88);   /* paper white #FCFAF5, a hint of warmth */
     --foreground: oklch(0.219 0.008 84.6);   /* ink #1C1A16 */
-    --card: oklch(0.995 0.005 88);
+    --card: oklch(0.998 0.002 88);
     --card-foreground: oklch(0.219 0.008 84.6);
-    --popover: oklch(0.995 0.005 88);
+    --popover: oklch(0.998 0.002 88);
     --popover-foreground: oklch(0.219 0.008 84.6);
     --primary: oklch(0.834 0.158 89);   /* sulphur #F2C230, with ink text (10.4:1) */
     --primary-foreground: oklch(0.219 0.008 84.6);
-    --secondary: oklch(0.965 0.014 88);
+    --secondary: oklch(0.972 0.008 88);
     --secondary-foreground: oklch(0.219 0.008 84.6);
-    --muted: oklch(0.965 0.014 88);
+    --muted: oklch(0.972 0.008 88);
     --muted-foreground: oklch(0.49 0.015 80);   /* ≥ 5:1 on the soft background and the sidebar too */
-    --accent: oklch(0.965 0.014 88);
+    --accent: oklch(0.972 0.008 88);
     --accent-foreground: oklch(0.219 0.008 84.6);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.905 0.02 88);
-    --input: oklch(0.905 0.02 88);
+    --border: oklch(0.91 0.01 88);
+    --input: oklch(0.91 0.01 88);
     --ring: var(--brand);   /* un solo color de foco en todo el panel */
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
@@ -146,13 +146,13 @@
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --radius: 0.625rem;
-    --sidebar: oklch(0.955 0.024 88);
+    --sidebar: oklch(0.968 0.01 88);
     --sidebar-foreground: oklch(0.219 0.008 84.6);
     --sidebar-primary: oklch(0.219 0.008 84.6);
-    --sidebar-primary-foreground: oklch(0.995 0.005 88);
-    --sidebar-accent: oklch(0.965 0.014 88);
+    --sidebar-primary-foreground: oklch(0.998 0.002 88);
+    --sidebar-accent: oklch(0.972 0.008 88);
     --sidebar-accent-foreground: oklch(0.219 0.008 84.6);
-    --sidebar-border: oklch(0.905 0.02 88);
+    --sidebar-border: oklch(0.91 0.01 88);
     --sidebar-ring: oklch(0.708 0 0);
 }
 
@@ -265,6 +265,13 @@ body { min-width: 320px; }
 
 /* 2.4.7 / 2.4.13: foco visible y con contraste ≥ 3:1 en ambos temas (marca: 5,4:1 claro, 9,2:1 oscuro). */
 :focus-visible { outline: 2px solid var(--brand) !important; outline-offset: 2px !important; }
+/* One focus mark, not three: the components' focus rings (a 50 % halo) are dropped in favour of the outline above. */
+:focus-visible { --tw-ring-shadow: 0 0 #0000 !important; }
+/* Text fields draw it inside (a 2 px border in the brand colour): an outline outside gets clipped by scrolling lists
+   and dialogs. Same 5.4:1 / 9.2:1 contrast. */
+:is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color]), textarea, [data-slot=select-trigger]):focus-visible {
+    outline: none !important; border-color: var(--brand) !important; box-shadow: inset 0 0 0 1px var(--brand) !important;
+}
 /* Interruptores hechos con un checkbox oculto: el foco se dibuja en la pista visible. */
 .peer:focus-visible + .switch-track { outline: 2px solid var(--brand); outline-offset: 2px; }
 
