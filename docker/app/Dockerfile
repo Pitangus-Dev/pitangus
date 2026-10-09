@@ -21,7 +21,7 @@ COPY web/ ./
 RUN mkdir -p /src/pitangus/app && pnpm run build
 
 # ---------- 2. runtime ----------
-FROM python:3.12-slim-bookworm@sha256:54c85f3c47607a77f32adec749d3c81d1348bf25833671f512b26a9b6d778cb3 AS app
+FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258 AS app
 ARG VERSION=dev
 ARG DOCKER_CLI_VERSION=29.8.2
 ARG DOCKER_CLI_SHA_AMD64=995d1ef289677f74fd58d8d2c35727b6a4ee389c69db8638a3e42d0487aa5b0f
@@ -44,7 +44,10 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
  && rm -rf /tmp/docker /tmp/docker.tgz && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements.txt ./
-RUN --mount=type=cache,id=pitangus-pip,target=/root/.cache/pip pip install --disable-pip-version-check --require-hashes --only-binary :all: -r requirements.txt
+# pip itself leaves the image once it has installed them: nothing runs it, and it carries known vulnerabilities (its own
+# and its vendored packages').
+RUN --mount=type=cache,id=pitangus-pip,target=/root/.cache/pip pip install --disable-pip-version-check --require-hashes --only-binary :all: -r requirements.txt \
+ && pip uninstall --disable-pip-version-check -y pip
 COPY pitangus/ ./pitangus/
 COPY rules/ ./rules/
 COPY --from=web /src/pitangus/app/static ./pitangus/app/static
@@ -93,6 +96,7 @@ FROM app AS worker-standalone
 ARG CHECKOV_VERSION=3.3.19
 USER root
 COPY docker/checkov/requirements.txt /tmp/checkov-requirements.txt
+COPY docker/checkov/overrides.txt /tmp/checkov-overrides.txt
 COPY --from=trivy --chmod=0755 /usr/local/bin/trivy /usr/local/bin/trivy
 COPY --from=osv-scanner --chmod=0755 /osv-scanner /usr/local/bin/osv-scanner
 COPY --from=gitleaks --chmod=0755 /usr/bin/gitleaks /usr/local/bin/gitleaks
@@ -101,11 +105,15 @@ COPY --from=zizmor --chmod=0755 /usr/bin/zizmor /usr/local/bin/zizmor
 COPY --from=opengrep --chmod=0755 /opengrep /usr/local/bin/opengrep
 # Checkov is Python: its image's interpreter (3.11, Debian 13) can't be copied here, so it gets its own virtual
 # environment. It and every dependency are pinned with their hashes (docker/checkov/requirements.txt), wheels only:
-# nothing is built from source.
+# nothing is built from source. overrides.txt then replaces the dependencies Checkov pins to a vulnerable version, and
+# the environment's pip goes too, as in the app stage.
 RUN python -m venv /opt/checkov \
  && /opt/checkov/bin/pip install --no-cache-dir --disable-pip-version-check --require-hashes --no-deps --only-binary :all: \
       -r /tmp/checkov-requirements.txt \
- && rm /tmp/checkov-requirements.txt \
+ && /opt/checkov/bin/pip install --no-cache-dir --disable-pip-version-check --require-hashes --no-deps --only-binary :all: \
+      -r /tmp/checkov-overrides.txt \
+ && /opt/checkov/bin/pip uninstall --disable-pip-version-check -y pip \
+ && rm /tmp/checkov-requirements.txt /tmp/checkov-overrides.txt \
  && /opt/checkov/bin/checkov --version | grep -qx "${CHECKOV_VERSION}" \
  && ln -s /opt/checkov/bin/checkov /usr/local/bin/checkov \
  && trivy --version >/dev/null && osv-scanner --version >/dev/null && gitleaks version >/dev/null && grype version >/dev/null \

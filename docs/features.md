@@ -215,7 +215,7 @@ Code review runs five external engines, each in its own container pinned by dige
 
 | Engine | Coverage | Network | Image |
 | --- | --- | --- | --- |
-| **Trivy 0.75.0** | dependencies from any ecosystem, infrastructure configuration (Dockerfile, Kubernetes, Terraform) and secrets | only to download its vulnerability database, cached in `data/trivy-cache/`; sends nothing from the repository | `aquasec/trivy@sha256:62b1e65e…` |
+| **Trivy 0.75.0** | dependencies from any ecosystem, infrastructure configuration (Dockerfile, Kubernetes, Terraform) and secrets | only to download its vulnerability database, cached in `data/trivy-cache/`; sends nothing from the repository | `aquasec/trivy@sha256:af6acf9a…` |
 | **Gitleaks 8.30.1** | secrets, high precision, values redacted | none | `ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0…` |
 | **Opengrep 1.30.0** | SAST with **Pitangus rules** (`rules/`, MIT) for JavaScript, TypeScript, Python, Java, Go, PHP, Ruby and C# | none | `localhost/pitangus/opengrep:1.30.0`, built locally |
 | **Checkov 3.3.19** | infrastructure as code (Terraform, CloudFormation, Kubernetes, Helm, Kustomize, ARM, Bicep, Serverless, OpenAPI, Ansible, Dockerfile) and pipelines (GitHub Actions, GitLab CI, Bitbucket, Azure Pipelines, CircleCI, Argo) | none (`--skip-download`, no external modules) | `bridgecrew/checkov@sha256:d3e96ada…` |

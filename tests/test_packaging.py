@@ -256,6 +256,10 @@ class StandaloneWorkerImageTests(unittest.TestCase):
         self.assertIn(f"checkov=={IMAGES['checkov']['version']}", (root / "docker" / "checkov" / "requirements.in").read_text(encoding="utf-8"))
         packages = re.findall(r"^([A-Za-z0-9_.-]+)==\S+ \\\n((?:\s+--hash=sha256:[0-9a-f]{64}(?: \\)?\n)+)", lock, re.M)
         self.assertEqual(len(packages), len(re.findall(r"^[A-Za-z0-9_.-]+==", lock, re.M)))
+        overrides = (root / "docker" / "checkov" / "overrides.txt").read_text(encoding="utf-8")
+        pinned = re.findall(r"^([A-Za-z0-9_.-]+)==\S+ \\\n((?:\s+--hash=sha256:[0-9a-f]{64}(?: \\)?\n)+)", overrides, re.M)
+        self.assertEqual(len(pinned), len(re.findall(r"^[A-Za-z0-9_.-]+==", overrides, re.M)))
+        self.assertIn("-r /tmp/checkov-overrides.txt", app)
         self.assertIn("--require-hashes", app)
         self.assertEqual(re.search(r"^ARG OPENGREP_VERSION=(\S+)$", app, re.M).group(1), IMAGES["opengrep"]["version"])
 

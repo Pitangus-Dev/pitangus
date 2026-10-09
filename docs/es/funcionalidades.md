@@ -215,7 +215,7 @@ La revisión de código corre cinco motores externos, cada uno en su contenedor 
 
 | Motor | Frente | Red | Imagen |
 | --- | --- | --- | --- |
-| **Trivy 0.75.0** | dependencias de cualquier ecosistema, configuración de infraestructura (Dockerfile, Kubernetes, Terraform) y secretos | solo para bajar su base de vulnerabilidades, cacheada en `data/trivy-cache/`; no envía nada del repositorio | `aquasec/trivy@sha256:62b1e65e…` |
+| **Trivy 0.75.0** | dependencias de cualquier ecosistema, configuración de infraestructura (Dockerfile, Kubernetes, Terraform) y secretos | solo para bajar su base de vulnerabilidades, cacheada en `data/trivy-cache/`; no envía nada del repositorio | `aquasec/trivy@sha256:af6acf9a…` |
 | **Gitleaks 8.30.1** | secretos, alta precisión, valores redactados | ninguna | `ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0…` |
 | **Opengrep 1.30.0** | SAST con **reglas propias** (`rules/`, MIT) para JavaScript, TypeScript, Python, Java, Go, PHP, Ruby y C# | ninguna | `localhost/pitangus/opengrep:1.30.0`, construida localmente |
 | **Checkov 3.3.19** | infraestructura como código (Terraform, CloudFormation, Kubernetes, Helm, Kustomize, ARM, Bicep, Serverless, OpenAPI, Ansible, Dockerfile) y pipelines (GitHub Actions, GitLab CI, Bitbucket, Azure Pipelines, CircleCI, Argo) | ninguna (`--skip-download`, sin módulos externos) | `bridgecrew/checkov@sha256:d3e96ada…` |
