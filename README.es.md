@@ -1,6 +1,6 @@
 [English](README.md) · Español
 
-<p align="center"><img src="docs/assets/pitangus.svg" width="112" alt="Pitangus: la cabeza de un bichofué de perfil"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pitangus-dark.svg"><img src="docs/assets/pitangus.svg" width="112" alt="Pitangus: la cabeza de un bichofué de perfil"></picture></p>
 
 <h1 align="center">Pitangus</h1>
 

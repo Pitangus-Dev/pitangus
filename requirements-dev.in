@@ -3,7 +3,7 @@
 -c requirements.txt
 -r requirements.in
 import-linter==2.15
-ruff==0.16.9
-mypy==2.3.1
+ruff==0.16.10
+mypy==2.4.0
 # HTTP client for the tests (Starlette's TestClient).
 httpx==0.28.1
