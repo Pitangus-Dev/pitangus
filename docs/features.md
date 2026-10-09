@@ -242,7 +242,7 @@ Code review runs five external engines, each in its own container pinned by dige
 
 The Opengrep image is built by `make build` (or `make up`): it downloads the official binary and checks it against its pinned SHA-256 (Cosign verification is documented in `docker/engines/opengrep/VERIFY.md`).
 
-Pitangus writes its own rules because the Semgrep registry rules can't be used in a product (internal-use-only license since December 2024). There are 58 of them, aimed at specific sinks with taint analysis where the language allows it, and they're validated against `fixtures/sast-samples/`: all 58 fire on vulnerable code across the seven languages. Each step states which of the repository's languages have rules and which don't. There's no cross-file analysis: that's a limitation of every open source SAST tool, and each run says so in its limitations.
+Pitangus writes its own rules because the Semgrep registry rules can't be used in a product (internal-use-only license since December 2024). There are 58 of them, aimed at specific sinks with taint analysis where the language allows it, and they're validated against `fixtures/sast-samples/`: all 58 fire on vulnerable code across the seven languages. Each step states which of the repository's languages have rules and which don't. They follow data inside one file only: cross-file analysis is what CodeQL, Joern or Psalm do, and what Pitangus imports rather than runs ([bringing results from other scanners](integrations.md#bringing-results-from-other-scanners)); each run says so in its limitations.
 
 ### Several engines, one finding
 

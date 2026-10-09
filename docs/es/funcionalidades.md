@@ -242,7 +242,7 @@ La revisión de código corre cinco motores externos, cada uno en su contenedor 
 
 La imagen de Opengrep la construye `make build` (o `make up`): descarga el binario oficial y lo compara con su SHA-256 fijado (la verificación Cosign está documentada en `docker/engines/opengrep/VERIFY.md`).
 
-Las reglas son nuestras porque las del registry de Semgrep no pueden usarse en un producto (licencia de uso interno desde diciembre de 2024). Son 58, orientadas a sumideros concretos con análisis de taint donde el lenguaje lo permite, y se validan contra `fixtures/sast-samples/`: las 58 disparan sobre código vulnerable de los siete lenguajes. Cada paso declara qué lenguajes del repositorio tienen reglas y cuáles no. No hay análisis entre archivos: es una limitación de todo SAST open source y se dice en los límites de cada ejecución.
+Las reglas son nuestras porque las del registry de Semgrep no pueden usarse en un producto (licencia de uso interno desde diciembre de 2024). Son 58, orientadas a sumideros concretos con análisis de taint donde el lenguaje lo permite, y se validan contra `fixtures/sast-samples/`: las 58 disparan sobre código vulnerable de los siete lenguajes. Cada paso declara qué lenguajes del repositorio tienen reglas y cuáles no. Siguen los datos solo dentro de un archivo: el análisis entre archivos es lo que hacen CodeQL, Joern o Psalm, y lo que Pitangus importa en vez de correr ([traer resultados de otros analizadores](integraciones.md#traer-resultados-de-otros-analizadores)); cada ejecución lo dice en sus límites.
 
 ### Varios motores, un solo hallazgo
 
