@@ -7,6 +7,8 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-10-09
+
 ### Added
 
 - **Images page** (Scanning → Images): every analyzed image, the repository it's built from and how it was linked
@@ -28,11 +30,6 @@ between minor versions: anything that changes behaviour is called out below.
   e-money institutions (IFPE) and LFPDPPP Art. 18. Each control says what the evidence covers and what stays out
   (infrastructure scanning, external pentests, dynamic testing): it supports an audit, it doesn't certify compliance.
 
-### Fixed
-
-- `make openapi` works again: `openapi-typescript` runs from `web/tools/openapi` with the TypeScript 5 its compiler API
-  needs (the panel moved to TypeScript 7).
-
 ### Changed
 
 - **The panel's paths are English** (`#/findings`, `#/compliance`, `#/images`…) whatever its language, so a shared link
@@ -48,12 +45,13 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Fixed
 
+- `make openapi` works again: `openapi-typescript` runs from `web/tools/openapi` with the TypeScript 5 its compiler API
+  needs (the panel moved to TypeScript 7).
+
 - **A Jira rule's backfill no longer skips findings whose issues were deleted in Jira.** Like a manual export, it now
   asks Jira which linked issues still exist and creates again the ones that are gone; before, a cleanup in Jira left
   those findings out of every backfill. The backfill dialog's count asks Jira too, so it no longer offers "0 issues"
   when the linked ones were deleted.
-
-### Fixed
 
 - **Threat diagram arrows no longer run behind other components.** Each flow picks the sides and the curve that go
   around what is in between, and flows leaving the same side of a component spread along it instead of starting at one
@@ -96,6 +94,11 @@ between minor versions: anything that changes behaviour is called out below.
   dev dependency instead of an `npx` download.
 - **Vite 8.3.3 in the panel's development server** (GHSA-9jrq-w75r-8gcw, GHSA-vfpm-58rq-9qcg, GHSA-rq7h-c2jc-7f22).
   The built panel doesn't contain Vite.
+
+### Upgrading from 0.12.0
+
+- `make update` (or `git pull` and `make up`): the published `0.12` images move to 0.12.1. No migration to run by hand.
+- The panel's addresses are now English; bookmarks and links with the Spanish ones keep working.
 
 ## [0.12.0] - 2026-10-08
 
