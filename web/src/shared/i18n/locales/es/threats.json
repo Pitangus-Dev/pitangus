@@ -46,7 +46,8 @@
   "level": {
     "low": "Baja",
     "medium": "Media",
-    "high": "Alta"
+    "high": "Alta",
+    "unset": "Sin definir"
   },
   "status": {
     "evidenced": "Con indicios",

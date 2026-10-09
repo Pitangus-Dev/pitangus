@@ -46,7 +46,8 @@
   "level": {
     "low": "Low",
     "medium": "Medium",
-    "high": "High"
+    "high": "High",
+    "unset": "Not set"
   },
   "status": {
     "evidenced": "Evidenced",

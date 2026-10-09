@@ -108,7 +108,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function LevelSelect({ value, onChange }: { value: Level | null; onChange: (next: Level | null) => void }) {
   const { t } = useTranslation('threats')
-  return <SelectField value={value ?? ''} onValueChange={next => onChange((next || null) as Level | null)} className={select} placeholder="—" options={Object.entries(LEVELS).map(([key, text]) => ({ value: key, label: t(text) }))} />
+  return <SelectField value={value ?? ''} onValueChange={next => onChange((next || null) as Level | null)} className={select} placeholder={t('level.unset')} options={Object.entries(LEVELS).map(([key, text]) => ({ value: key, label: t(text) }))} />
 }
 
 // ------------------------------------------------------------------ PASTA
