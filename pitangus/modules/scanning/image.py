@@ -70,6 +70,24 @@ class ImageError(ValueError):
 
 # --- references ---------------------------------------------------------------------------
 
+SOURCE_LABEL, REVISION_LABEL = "org.opencontainers.image.source", "org.opencontainers.image.revision"
+_FORGE = re.compile(r"^(?:https?://|git@)?(?:www\.)?(github\.com|gitlab\.com)[/:]([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+?)(?:\.git)?/?$")
+_REVISION = re.compile(r"^[0-9a-f]{7,64}$")
+
+
+def built_from(labels) -> dict | None:
+    """Where the image says it was built: the repository and commit of its OCI labels (docker/build-push-action and
+    GHCR set them). Data from the image itself, so it is only a claim: it's shown as «from the label»."""
+    if not isinstance(labels, dict):
+        return None
+    match = _FORGE.match(str(labels.get(SOURCE_LABEL) or "").strip()[:300])
+    if not match:
+        return None
+    revision = str(labels.get(REVISION_LABEL) or "").strip().lower()
+    repository = match.group(2).removesuffix(".git")
+    return {"host": match.group(1), "repository": repository, "revision": revision if _REVISION.match(revision) else None}
+
+
 def parse_reference(text: str) -> dict:
     """Normalizes an image reference. Docker Hub is written out in full (`docker.io/library/nginx`)."""
     raw = str(text or "").strip()
@@ -455,7 +473,8 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None)
     os_info = metadata.get("OS") or {}
     config = (metadata.get("ImageConfig") or {}).get("config") or {}
     image_meta = {**image, "resolved_digest": resolved, "os": " ".join(str(os_info.get(key) or "") for key in ("Family", "Name")).strip() or None,
-                  "user": config.get("User") or "root", "architecture": (metadata.get("ImageConfig") or {}).get("architecture")}
+                  "user": config.get("User") or "root", "architecture": (metadata.get("ImageConfig") or {}).get("architecture"),
+                  "built_from": built_from(config.get("Labels"))}
     engines_ok = [tool for tool in (trivy, grype) if tool["status"] == "completed"]
     sca_count = sum(1 for item in findings if item["scanner"] == "sca")
     iac_count = sum(1 for item in findings if item["scanner"] == "iac")

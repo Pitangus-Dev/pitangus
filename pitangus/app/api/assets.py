@@ -68,6 +68,9 @@ def asset_export(key: str = "", status: str = "open", artifact: str = "", title:
         raise ApiError(404, msg("api.asset_not_found"))
     # The VEX describes every decision (also what was fixed or dismissed), whatever the tab.
     record = tickets.annotate(context.data_dir, findings_registry.view(context.data_dir, key, status="all" if artifact == VEX_FILE else status))
+    if key.startswith("image:"):
+        from pitangus.modules.compliance import provenance
+        record = {**record, "source": {**(record.get("source") or {}), "built_from": provenance.link_for(context.data_dir, key)}}
     if artifact == "record.json":
         return JSONResponse(context.render(record))
     try:

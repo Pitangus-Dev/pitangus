@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from pitangus.app.api.deps import ApiError, Context, Policy, guard
 from pitangus.app.api.paging import Page, Paging, paging
-from pitangus.modules.compliance import cra, evidence
+from pitangus.modules.compliance import cra, evidence, provenance
 from pitangus.modules.reporting.audit import FRAMEWORKS, ReportError, render_portfolio_pdf, validate_options
 from pitangus.modules.runs.assets import overview as assets_overview
 from pitangus.shared.i18n import msg, text
@@ -254,6 +254,18 @@ def assets(q: str = Query("", max_length=100), page: Paging = Depends(paging()),
 class EvidenceOverview(BaseModel):
     assets: int  # analyzed repositories and images
     complete: int  # with a completed full scan (what an SBOM needs)
+    accounts: list[str] = Field(max_length=1000)  # owners of the analyzed repositories, for the scope picker
+
+
+class BuiltFrom(BaseModel):
+    """The repository an image is built from: from its OCI label or set by hand. `repository` is None when the label
+    names a repository Pitangus hasn't analyzed."""
+    repository: str | None
+    name: str
+    revision: str | None
+    how: Literal["label", "manual"]
+    by: str | None = None
+    at: str | None = None
 
 
 class EvidenceAsset(BaseModel):
@@ -262,39 +274,88 @@ class EvidenceAsset(BaseModel):
     kind: Literal["repository", "image"]
     last_complete: str | None
     sbom: bool
+    built_from: BuiltFrom | None = None
 
 
 class EvidenceAssetPage(Page[EvidenceAsset]):
     pass
 
 
-class PortfolioEvidenceIn(BaseModel):
+AssetKey = Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class EvidenceScope(BaseModel):
+    """What a portfolio file covers: every analyzed asset (nothing set), the repositories of one `account`, or the
+    chosen `assets`; with `include_images`, the images built from those repositories too."""
     model_config = ConfigDict(extra="forbid")
+    assets: list[AssetKey] = Field(default_factory=list, max_length=provenance.SCOPE_MAX)
+    account: Annotated[str, Field(max_length=100)] = ""
+    include_images: StrictBool = True
+
+
+class PortfolioEvidenceIn(EvidenceScope):
     framework: Literal[tuple(FRAMEWORKS)]  # type: ignore[valid-type]
+
+
+class ImageLinkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    image: AssetKey
+    repository: AssetKey | None  # None: back to what the image's label says
+
+
+class ImageLink(BaseModel):
+    image: str
+    built_from: BuiltFrom | None
+
+
+def _scoped(context: Context, scope: EvidenceScope) -> list[dict]:
+    if scope.assets and scope.account:
+        raise ApiError(400, msg("api.scope.one_kind"))
+    chosen = provenance.scope(context.data_dir, assets=scope.assets or None, account=scope.account.strip() or None,
+                              include_images=scope.include_images)
+    if not chosen:
+        raise ApiError(404, msg("api.no_analyzed_in_scope"))
+    return chosen
 
 
 @router.get("/api/evidence", response_model=EvidenceOverview)
 def evidence_overview(context: Context = Depends(guard())) -> dict:
-    return evidence.overview(context.data_dir)
+    return {**evidence.overview(context.data_dir), "accounts": provenance.accounts(evidence.catalog(context.data_dir))}
 
 
 @router.get("/api/evidence/assets", response_model=EvidenceAssetPage)
-def evidence_assets(q: str = Query("", max_length=100), page: Paging = Depends(paging(20)), context: Context = Depends(guard())) -> dict:
-    """The asset picker: analyzed assets by name, with whether each has what an SBOM needs."""
-    return page.slice(evidence.assets(context.data_dir, query=q))
+def evidence_assets(q: str = Query("", max_length=100), kind: Literal["", "repository", "image"] = "", page: Paging = Depends(paging(20)),
+                    context: Context = Depends(guard())) -> dict:
+    """The asset picker: analyzed assets by name (and kind), with whether each has what an SBOM needs and, for an
+    image, the repository it is built from."""
+    built = provenance.links(context.data_dir)
+    rows = [{**row, "built_from": built.get(row["key"])} for row in evidence.assets(context.data_dir, query=q) if not kind or row["kind"] == kind]
+    return page.slice(rows)
+
+
+@router.post("/api/evidence/image-link", response_model=ImageLink)
+def set_image_link(body: ImageLinkIn, context: Context = Depends(guard(Policy(admin=True, action="image-link", body=1024)))) -> dict:
+    """Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label."""
+    try:
+        linked = provenance.set_link(context.data_dir, body.image, body.repository, by=context.user["username"])
+    except provenance.ProvenanceError as exc:
+        raise ApiError(400, exc.message) from exc
+    context.state.log.info("image_link", extra={"user": context.user["username"], "reason": f"{body.image} -> {body.repository or 'label'}"})
+    return {"image": body.image, "built_from": linked}
 
 
 @router.post("/api/evidence/portfolio", response_class=Response,
              responses={200: {"description": "Audit evidence (PDF) of every analyzed asset",
                               "content": {"application/pdf": {"schema": {"type": "string", "format": "binary", "maxLength": 50_000_000}}}}})
 def portfolio_evidence(body: PortfolioEvidenceIn,
-                       context: Context = Depends(guard(Policy(action="audit-report", body=256)))) -> Response:
-    """Consolidated audit evidence of every analyzed asset (open, fixed and exceptions), for one framework."""
-    chosen = evidence.catalog(context.data_dir)
-    if not chosen:
-        raise ApiError(404, msg("api.no_analyzed_in_scope"))
+                       context: Context = Depends(guard(Policy(action="audit-report", body=120_000)))) -> Response:
+    """Consolidated audit evidence of the scope's assets (open, fixed and exceptions), for one framework."""
+    chosen = _scoped(context, body)
+    built = provenance.links(context.data_dir)
+    chosen = [{**row, "built_from": built.get(row["key"])} for row in chosen]
     user = context.user
-    scope = text(msg("api.scope.repositories", count=len(chosen)), context.locale)
+    scope = text(msg("api.scope.organization", account=body.account.strip()) if body.account.strip()
+                 else msg("api.scope.assets", count=len(chosen)), context.locale)
     try:
         cra.check_framework(context.data_dir, body.framework)
         options = validate_options({"framework": body.framework}, default_by=user.get("display_name") or user["username"])
@@ -312,23 +373,28 @@ def _file(schema_type: str, what: str) -> dict:
 
 @router.get("/api/evidence/portfolio/sbom", response_class=Response,
             responses=_file("application/vnd.cyclonedx+json", "CycloneDX SBOM of every asset with a completed full scan"))
-def portfolio_sbom(organization: str = Query("", max_length=120), context: Context = Depends(guard())) -> Response:
-    """One CycloneDX document: each asset a top-level component with its packages. `organization` names the portfolio."""
+def portfolio_sbom(organization: str = Query("", max_length=120), assets: list[AssetKey] = Query([], max_length=provenance.SCOPE_MAX),
+                   account: str = Query("", max_length=100), include_images: bool = True, context: Context = Depends(guard())) -> Response:
+    """One CycloneDX document: each asset of the scope a top-level component with its packages. `organization` names
+    the portfolio."""
     name = " ".join(organization.split()) if organization.isprintable() else ""
+    keys = {row["key"] for row in _scoped(context, EvidenceScope(assets=assets, account=account, include_images=include_images))}
     document = evidence.portfolio_sbom(context.data_dir, name=name or PORTFOLIO_NAME,
-                                       version=RELEASE, locale=context.locale)
+                                       version=RELEASE, locale=context.locale, keys=keys)
     if document is None:
-        raise ApiError(404, msg("compliance.evidence.no_complete_scan"))
+        raise ApiError(404, msg("compliance.evidence.no_complete_scan_scope" if assets or account else "compliance.evidence.no_complete_scan"))
     return _json_download(document, "application/vnd.cyclonedx+json", "portfolio.cdx.json")
 
 
 @router.get("/api/evidence/portfolio/vex", response_class=Response,
             responses=_file("application/json", "OpenVEX statements of every asset with a completed full scan"))
-def portfolio_vex(context: Context = Depends(guard())) -> Response:
-    """One OpenVEX document with the statements of the same assets as the portfolio SBOM."""
-    document = evidence.portfolio_vex(context.data_dir, version=RELEASE, locale=context.locale)
+def portfolio_vex(assets: list[AssetKey] = Query([], max_length=provenance.SCOPE_MAX), account: str = Query("", max_length=100),
+                  include_images: bool = True, context: Context = Depends(guard())) -> Response:
+    """One OpenVEX document with the statements of the same assets as the portfolio SBOM (same scope)."""
+    keys = {row["key"] for row in _scoped(context, EvidenceScope(assets=assets, account=account, include_images=include_images))}
+    document = evidence.portfolio_vex(context.data_dir, version=RELEASE, locale=context.locale, keys=keys)
     if document is None:
-        raise ApiError(404, msg("compliance.evidence.no_complete_scan"))
+        raise ApiError(404, msg("compliance.evidence.no_complete_scan_scope" if assets or account else "compliance.evidence.no_complete_scan"))
     return _json_download(document, "application/json", "portfolio.openvex.json")
 
 

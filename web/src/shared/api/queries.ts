@@ -63,9 +63,9 @@ export const craAssetsQuery = (q: string) => queryOptions({
 export const craPolicyQuery = () => queryOptions({ queryKey: keys.craPolicy, queryFn: ({ signal }) => apiGet('/api/policies/cra', undefined, { signal }), staleTime: 60_000 })
 export const evidenceQuery = () => queryOptions({ queryKey: keys.evidence, queryFn: ({ signal }) => apiGet('/api/evidence', undefined, { signal }) })
 // Analyzed assets for the evidence hub's picker, searched by name on the server.
-export const evidenceAssetsQuery = (q: string) => queryOptions({
-  queryKey: [...keys.evidenceAssets, q], staleTime: 30_000,
-  queryFn: ({ signal }) => apiGet('/api/evidence/assets', { q: q || undefined, limit: 20 }, { signal }),
+export const evidenceAssetsQuery = (q: string, kind: '' | 'repository' | 'image' = '') => queryOptions({
+  queryKey: [...keys.evidenceAssets, q, kind], staleTime: 30_000,
+  queryFn: ({ signal }) => apiGet('/api/evidence/assets', { q: q || undefined, kind: kind || undefined, limit: 20 }, { signal }),
 })
 export const secretRulesQuery = () => queryOptions({ queryKey: keys.secretRules, queryFn: ({ signal }) => apiGet('/api/secrets/config', undefined, { signal }) })
 // The built-in rule list only changes with the pinned Gitleaks image.

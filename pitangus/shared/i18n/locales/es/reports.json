@@ -139,7 +139,9 @@
     "disclaimer": "Evidencia técnica generada con herramientas automatizadas; requiere revisión del equipo. No constituye una opinión de auditoría, una certificación ni una declaración de cumplimiento.",
     "decimal_separator": ",",
     "confidential": "CONFIDENCIAL",
-    "cover_note": "Generado con Pitangus {{version}}. Pendiente de revisión por el equipo antes de actuar."
+    "cover_note": "Generado con Pitangus {{version}}. Pendiente de revisión por el equipo antes de actuar.",
+    "built_from_label": "según la etiqueta de la imagen",
+    "built_from_manual": "vinculada por {{by}}"
   },
   "markdown": {
     "identifiers": "Identificadores: {{list}}",
@@ -342,7 +344,8 @@
       "prepared_by": "Preparado por",
       "prepared_for": "Preparado para",
       "issued": "Emitido",
-      "reference": "Referencia"
+      "reference": "Referencia",
+      "built_from": "Construida desde"
     },
     "kpi": {
       "in_scope": "en el alcance",
@@ -389,7 +392,8 @@
     "no_open": "No hay hallazgos críticos ni altos abiertos.",
     "period_note": "Hallazgos detectados hasta el {{end}} y no remediados antes del {{start}}. Su estado y sus plazos son a {{issued}}.",
     "method_revision": "Revisión analizada: {{revision}}.",
-    "summary_scan": "{{findings}} en el alcance de este informe: {{critical}}, {{high}}, {{medium}} y {{low}}. Abiertos o en curso: {{active}}; con excepción aprobada: {{excepted}}."
+    "summary_scan": "{{findings}} en el alcance de este informe: {{critical}}, {{high}}, {{medium}} y {{low}}. Abiertos o en curso: {{active}}; con excepción aprobada: {{excepted}}.",
+    "built_from": "construida desde {{origin}}"
   },
   "frameworks": {
     "soc2": {
@@ -569,7 +573,8 @@
       "revision": "Rama / commit",
       "engines": "Motores",
       "reference": "Referencia",
-      "snapshot": "Instantánea (SHA-256)"
+      "snapshot": "Instantánea (SHA-256)",
+      "built_from": "Construida desde"
     },
     "kpi": {
       "pending": "pendientes",

@@ -65,6 +65,21 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
+  # openapi-typescript with its own TypeScript 5 (its compiler API): only `make openapi` uses it.
+  - package-ecosystem: npm
+    directory: /web/tools/openapi
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+    groups:
+      openapi:
+        patterns: ["*"]
+
   - package-ecosystem: npm
     directory: /web
     schedule:

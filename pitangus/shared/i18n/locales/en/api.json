@@ -66,7 +66,10 @@
     "selected_one": "1 selected repository",
     "selected_other": "{{count}} selected repositories",
     "images_one": "1 image",
-    "images_other": "{{count}} images"
+    "images_other": "{{count}} images",
+    "one_kind": "Choose either an organization or a set of assets, not both.",
+    "assets_one": "1 asset",
+    "assets_other": "{{count}} assets"
   },
   "cron_token_required": "Send the cron token as a bearer token (Authorization: Bearer …)",
   "import_token_required": "Send the import token as a bearer token (Authorization: Bearer …)",

@@ -204,7 +204,7 @@ standalone: ## Regenerate deploy/compose.yaml (one file, published images, no Do
 openapi: ## API OpenAPI schema and the panel's TypeScript types (web/src/shared/api/)
 	@mkdir -p web/src/shared/api
 	$(VENV)/bin/python -c "from pitangus.app.api import openapi_document; print(openapi_document(), end='')" > web/src/shared/api/openapi.json
-	cd web && pnpm exec openapi-typescript src/shared/api/openapi.json -o src/shared/api/schema.d.ts
+	cd web/tools/openapi && pnpm install --frozen-lockfile --silent && pnpm exec openapi-typescript ../../src/shared/api/openapi.json -o ../../src/shared/api/schema.d.ts
 
 arch: ## Architecture contracts (import-linter, see pyproject.toml)
 	$(VENV)/bin/lint-imports --cache-dir .cache/import-linter

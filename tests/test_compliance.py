@@ -517,7 +517,7 @@ class EvidenceHubTests(HttpCase):
         save_repository_scan(self.data_dir, incomplete, created_at=stamp)
 
         self.assertEqual(self.call("GET", "/api/evidence")[0], 401)
-        self.assertEqual(self.call("GET", "/api/evidence", headers=cookie)[1], {"assets": 2, "complete": 1})
+        self.assertEqual(self.call("GET", "/api/evidence", headers=cookie)[1], {"assets": 2, "complete": 1, "accounts": ["org"]})
         status, page, _ = self.call("GET", "/api/evidence/assets", headers=cookie)
         self.assertEqual((status, page["total"], {item["name"]: item["sbom"] for item in page["items"]}), (200, 2, {"org/api": True, "org/web": False}))
         self.assertEqual({item["kind"] for item in page["items"]}, {"repository"})
@@ -588,6 +588,85 @@ class EvidenceHubTests(HttpCase):
         self.assertEqual({(item["products"][0]["@id"], item["status"]) for item in statements},
                          {("pkg:github/org/api", "not_affected"), ("pkg:github/org/ui", "under_investigation")})
         self.assertEqual({item["products"][0]["@id"] for item in statements}, {component["bom-ref"] for component in document["components"]})
+
+
+def _image(name, stamp, *, labels=None):
+    """An image scan whose config carries `labels` (the OCI ones say which repository it is built from)."""
+    from pitangus.modules.scanning.image import built_from
+    return {**_scan(name, [], stamp), "type": "image_scan", "variant": "image", "target": f"{name}:1",
+            "source": {"id": f"image:{name}", "uid": None, "name": name, "provider": "registry",
+                       "image": {"reference": f"{name}:1", "resolved_digest": "sha256:" + "d" * 64, "built_from": built_from(labels or {})}}}
+
+
+class ImageProvenanceTests(HttpCase):
+    """An image is linked to the repository it is built from (its OCI label, or by hand), and a scope brings it along."""
+
+    def test_the_label_links_an_image_and_a_manual_link_wins(self):
+        from pitangus.modules.compliance import provenance
+        from pitangus.modules.scanning.image import built_from
+        self.assertEqual(built_from({"org.opencontainers.image.source": "https://github.com/Org/API.git", "org.opencontainers.image.revision": "ABC1234"}),
+                         {"host": "github.com", "repository": "Org/API", "revision": "abc1234"})
+        for labels in ({}, {"org.opencontainers.image.source": "https://evil.example/org/api"}, {"org.opencontainers.image.source": "javascript:x"}, None):
+            self.assertIsNone(built_from(labels), labels)
+        stamp = datetime.now(timezone.utc).isoformat()
+        for name in ("org/api", "org/web", "other/lib"):
+            save_repository_scan(self.data_dir, _scan(name, [], stamp), created_at=stamp)
+        save_repository_scan(self.data_dir, _image("ghcr.io/org/api", stamp, labels={"org.opencontainers.image.source": "https://github.com/org/api",
+                                                                                     "org.opencontainers.image.revision": "9f3c2a1b7d4e"}), created_at=stamp)
+        save_repository_scan(self.data_dir, _image("docker.io/org/web", stamp), created_at=stamp)  # no label
+        links = provenance.links(self.data_dir)
+        self.assertEqual((links["image:ghcr.io/org/api"]["repository"], links["image:ghcr.io/org/api"]["how"], links["image:ghcr.io/org/api"]["revision"]),
+                         ("github:org/api", "label", "9f3c2a1b7d4e"))
+        self.assertNotIn("image:docker.io/org/web", links)
+        provenance.set_link(self.data_dir, "image:docker.io/org/web", "github:org/web", by="ana")
+        provenance.set_link(self.data_dir, "image:ghcr.io/org/api", "github:org/web", by="ana")  # by hand over the label
+        links = provenance.links(self.data_dir)
+        self.assertEqual({key: (value["repository"], value["how"]) for key, value in links.items()},
+                         {"image:ghcr.io/org/api": ("github:org/web", "manual"), "image:docker.io/org/web": ("github:org/web", "manual")})
+        self.assertIsNone(links["image:ghcr.io/org/api"]["revision"])  # the label's commit belongs to another repository
+        provenance.set_link(self.data_dir, "image:ghcr.io/org/api", None, by="ana")  # back to the label
+        self.assertEqual(provenance.links(self.data_dir)["image:ghcr.io/org/api"]["repository"], "github:org/api")
+        for image, repository in (("github:org/api", "github:org/web"), ("image:docker.io/org/web", "image:ghcr.io/org/api"), ("image:nope", None)):
+            with self.assertRaises(provenance.ProvenanceError):
+                provenance.set_link(self.data_dir, image, repository, by="ana")
+
+        # Scope: one organization brings its repositories and the images built from them; a selection, the same unless
+        # images are left out.
+        keys = lambda **scope: sorted(row["key"] for row in provenance.scope(self.data_dir, **scope))  # noqa: E731
+        self.assertEqual(keys(account="ORG"), ["github:org/api", "github:org/web", "image:docker.io/org/web", "image:ghcr.io/org/api"])
+        self.assertEqual(keys(assets=["github:org/api"]), ["github:org/api", "image:ghcr.io/org/api"])
+        self.assertEqual(keys(assets=["github:org/api"], include_images=False), ["github:org/api"])
+        self.assertEqual(len(keys()), 5)
+        self.assertEqual(provenance.accounts(provenance.scope(self.data_dir)), ["org", "other"])
+
+    def test_scope_and_links_through_the_api(self):
+        member, admin = _login(self, "miembro"), _login(self, "jefa", role="admin")
+        stamp = datetime.now(timezone.utc).isoformat()
+        for name in ("org/api", "other/lib"):
+            save_repository_scan(self.data_dir, {**_scan(name, [_finding("a" * 64, "high", package="lodash")], stamp),
+                                                 "dependencies": [dependency("lodash", "1.0.0", direct=True)]}, created_at=stamp)
+        save_repository_scan(self.data_dir, {**_image("ghcr.io/org/api", stamp), "dependencies": [dependency("openssl", "3.0.0")]}, created_at=stamp)
+        _, page, _ = self.call("GET", "/api/evidence/assets?kind=image", headers={"Cookie": member})
+        self.assertEqual([(item["key"], item["built_from"]) for item in page["items"]], [("image:ghcr.io/org/api", None)])
+        link = {"image": "image:ghcr.io/org/api", "repository": "github:org/api"}
+        self.assertEqual(_send(self, "/api/evidence/image-link", "image-link", link, member)[0], 403)  # administrators only
+        status, body, _ = _send(self, "/api/evidence/image-link", "image-link", link, admin)
+        self.assertEqual((status, body["built_from"]["name"], body["built_from"]["how"]), (200, "org/api", "manual"))
+        self.assertEqual(_send(self, "/api/evidence/image-link", "image-link", {**link, "repository": "github:nope"}, admin)[0], 400)
+
+        sbom = lambda query: self.call("GET", f"/api/evidence/portfolio/sbom?{query}", headers={"Cookie": member})  # noqa: E731
+        names = lambda query: sorted(component["name"] for component in sbom(query)[1]["components"])  # noqa: E731
+        self.assertEqual(names("account=org"), ["ghcr.io/org/api", "org/api"])
+        self.assertEqual(names("assets=github:org/api&include_images=false"), ["org/api"])
+        self.assertEqual(names(""), ["ghcr.io/org/api", "org/api", "other/lib"])
+        self.assertEqual(sbom("account=nobody")[0], 404)
+        self.assertEqual(sbom("account=org&assets=github:org/api")[0], 400)
+        status, vex, _ = self.call("GET", "/api/evidence/portfolio/vex?assets=github:other/lib", headers={"Cookie": member})
+        self.assertEqual({item["products"][0]["@id"] for item in vex["statements"]}, {"pkg:github/other/lib"})
+        status, pdf, _ = _send(self, "/api/evidence/portfolio", "audit-report", {"framework": "soc2", "account": "org"}, member)
+        self.assertEqual((status, pdf[:5]), (200, b"%PDF-"))
+        status, pdf, _ = self.call("GET", "/api/assets/export?key=image:ghcr.io/org/api&status=open&artifact=report.pdf", headers={"Cookie": member})
+        self.assertEqual((status, pdf[:5]), (200, b"%PDF-"))
 
 
 class CraFrameworkGateTests(HttpCase):

@@ -139,7 +139,9 @@
     "disclaimer": "Technical evidence produced with automated tools; it requires review by the team. It is not an audit opinion, a certification or a statement of compliance.",
     "decimal_separator": ".",
     "confidential": "CONFIDENTIAL",
-    "cover_note": "Produced with Pitangus {{version}}. To be reviewed by the team before acting on it."
+    "cover_note": "Produced with Pitangus {{version}}. To be reviewed by the team before acting on it.",
+    "built_from_label": "from the image's label",
+    "built_from_manual": "linked by {{by}}"
   },
   "markdown": {
     "identifiers": "Identifiers: {{list}}",
@@ -342,7 +344,8 @@
       "prepared_by": "Prepared by",
       "prepared_for": "Prepared for",
       "issued": "Issued",
-      "reference": "Reference"
+      "reference": "Reference",
+      "built_from": "Built from"
     },
     "kpi": {
       "in_scope": "in scope",
@@ -389,7 +392,8 @@
     "no_open": "No open critical or high findings.",
     "period_note": "Findings detected up to {{end}} and not fixed before {{start}}. Their status and deadlines are as of {{issued}}.",
     "method_revision": "Analyzed revision: {{revision}}.",
-    "summary_scan": "{{findings}} in the scope of this report: {{critical}}, {{high}}, {{medium}} and {{low}}. Open or in progress: {{active}}; with an approved exception: {{excepted}}."
+    "summary_scan": "{{findings}} in the scope of this report: {{critical}}, {{high}}, {{medium}} and {{low}}. Open or in progress: {{active}}; with an approved exception: {{excepted}}.",
+    "built_from": "built from {{origin}}"
   },
   "frameworks": {
     "soc2": {
@@ -569,7 +573,8 @@
       "revision": "Branch / commit",
       "engines": "Engines",
       "reference": "Reference",
-      "snapshot": "Snapshot (SHA-256)"
+      "snapshot": "Snapshot (SHA-256)",
+      "built_from": "Built from"
     },
     "kpi": {
       "pending": "pending",

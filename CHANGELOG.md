@@ -7,6 +7,20 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Added
+
+- **An image knows which repository it is built from.** Pitangus reads its OCI labels (`org.opencontainers.image.source`
+  and `.revision`, set by `docker/build-push-action` and GHCR) and links it to that repository when it is analyzed too;
+  an administrator can set or change the link by hand in Compliance. The reports say "built from org/repo @ commit".
+- **Portfolio evidence for the scope you choose**: every analyzed asset, the repositories of one organization, or a
+  chosen set of repositories and images; with a repository come the images built from it (it can be turned off). It
+  applies to the portfolio SBOM, VEX and consolidated audit evidence.
+
+### Fixed
+
+- `make openapi` works again: `openapi-typescript` runs from `web/tools/openapi` with the TypeScript 5 its compiler API
+  needs (the panel moved to TypeScript 7).
+
 ### Changed
 
 - **New look for every PDF report** (technical, audit evidence, consolidated, threat model): a cover with the system,

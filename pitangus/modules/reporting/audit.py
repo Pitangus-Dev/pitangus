@@ -19,8 +19,8 @@ from reportlab.platypus import CondPageBreak, KeepTogether, Paragraph, Spacer, T
 
 from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
-from pitangus.modules.reporting.design import (DANGER_BG, INK, ORDER, SEVERITY, SOFT, STYLE, SUCCESS, SUCCESS_BG, WIDTH,
-                            build, bullets, chip as _chip, count as _count, cover, coverage_gaps, day as _day, disclaimer, grid as _grid, h2, hexval, kpis as _kpis, listing, location, path, plain, rich, signoff, t as _t)
+from pitangus.modules.reporting.design import (DANGER_BG, INK, MUTED, ORDER, SEVERITY, SOFT, STYLE, SUCCESS, SUCCESS_BG, WIDTH,
+                            build, built_from, bullets, chip as _chip, count as _count, cover, coverage_gaps, day as _day, disclaimer, grid as _grid, h2, hexval, kpis as _kpis, listing, location, path, plain, rich, signoff, t as _t)
 from pitangus.shared import i18n
 from pitangus.shared.i18n import default_locale, localize, msg, text
 
@@ -297,7 +297,8 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
                    (i18n.t("reports.audit.meta.period", locale), period),
                    (i18n.t("reports.audit.meta.prepared_by", locale), options["prepared_by"] or "—"),
                    (i18n.t("reports.audit.meta.issued", locale), issued),
-                   (i18n.t("reports.audit.meta.reference", locale), str(record.get("id") or "—"), "mono")],
+                   (i18n.t("reports.audit.meta.reference", locale), str(record.get("id") or "—"), "mono"),
+                   *([(i18n.t("reports.audit.meta.built_from", locale), built_from(record, locale), "mono")] if built_from(record) else [])],
                   note=i18n.t("reports.design.cover_note", locale, version=version))
     if record.get("type") == "asset_state" and (options["period_from"] or options["period_to"]):
         story.append(Spacer(1, 4))
@@ -414,7 +415,8 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
         pending = [finding for finding, state in zip(findings, states) if state in active_states]
         counts = {level: sum(1 for finding in pending if finding.get("severity") == level) for level in ORDER}
         fixed, excepted = states.count("fixed"), sum(1 for state in states if state in ("accepted", "false_positive"))
-        rows.append((item["name"], counts, len(pending), fixed, excepted, item.get("last_complete"), item.get("last_status")))
+        rows.append((item["name"], counts, len(pending), fixed, excepted, item.get("last_complete"), item.get("last_status"),
+                     built_from({"source": {"built_from": item.get("built_from")}}, locale)))
         # What to handle first, grouped by fix within each repository.
         open_items += [(item["name"], entry) for entry in fix_groups([finding for finding in pending if finding.get("severity") in ("critical", "high")])]
         exceptions += [(item["name"], finding) for finding, state in zip(findings, states) if state in ("accepted", "false_positive")]
@@ -478,8 +480,9 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
     story.append(h2(i18n.t("reports.audit.by_repository", locale, count=len(rows))))
     table = [_head(locale, "repository", "critical_short", "high_plural", "medium_plural", "low_plural", "open_plural", "fixed_short",
                    "exceptions_short", "last_complete")]
-    for name, counts, pending, fixed, excepted, last, _ in rows[:1000]:
-        table.append([Paragraph(_t(name, 80), STYLE["cell"]),
+    for name, counts, pending, fixed, excepted, last, _, origin in rows[:1000]:
+        table.append([Paragraph(_t(name, 80) + (f'<br/><font color="{hexval(MUTED)}">{_t(i18n.t("reports.audit.built_from", locale, origin=origin), 120)}</font>'
+                                                if origin else ""), STYLE["cell"]),
                       *[Paragraph(f'<font color="{hexval(SEVERITY[level][1 if level == "critical" else 0])}"><b>{counts[level]}</b></font>' if counts[level] else "0",
                                   STYLE["cell"]) for level in ("critical", "high", "medium", "low")],
                       Paragraph(str(pending), STYLE["cell"]), Paragraph(str(fixed), STYLE["cellmuted"]), Paragraph(str(excepted), STYLE["cellmuted"]),
