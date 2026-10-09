@@ -36,6 +36,11 @@ between minor versions: anything that changes behaviour is called out below.
   count). An administrator can remove an image that was never scanned. API: `POST /api/images` and `POST /api/images/remove`;
   `GET /api/images` items carry `analyzed`.
 
+- **Connecting an installation takes one click.** Coming back from installing the App on GitHub (its Setup URL) no
+  longer stops at a page that says to go back and look for it: it opens Integrations, which offers that account with
+  **Connect** (only to administrators; the server still checks it belongs to the App). `/oauth/callback` no longer calls
+  GitHub: it only hands the installation to the panel.
+
 ### Fixed
 
 - **Slack messages no longer show a warning next to "Open in Pitangus".** It was a button, and Slack treats every

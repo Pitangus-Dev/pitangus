@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Check, ChevronRight, CircleCheck, Copy, ExternalLink, FileKey2, LoaderCircle, RefreshCw, ShieldCheck, TriangleAlert, Upload } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
@@ -6,6 +6,7 @@ import { buttonVariants } from '@/shared/ui/button-variants'
 import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
 import { BRAND } from '@/shared/lib/brand'
+import { readRoute, setRouteParam } from '@/shared/lib/route'
 import { GitHubAppCreate } from '@/features/sources/github-create'
 
 export type PermissionReview = { required: Record<string, string>; declared: Record<string, string>; granted: Record<string, string>; excess: string[]; missing: string[]; pending_acceptance: string[] }
@@ -155,8 +156,47 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
       const next = await api.post<GitHubStatus>('/api/integrations/github', 'connect-github', { action: 'connect', installation_id: installationId })
       setAvailable(current => current.map(item => item.installation_id === installationId ? { ...item, connected: true } : item))
       onChanged(next)
-    } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
+      return true
+    } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)); return false } finally { setBusy(false) }
   }
+  // Coming back from installing on GitHub (Setup URL): the installation arrives in the address, to confirm with one click.
+  const [returned, setReturned] = useState(() => {
+    const id = Number(readRoute().params.get('installation'))
+    return Number.isSafeInteger(id) && id > 0 ? id : null
+  })
+  const [looked, setLooked] = useState(false)
+  const [unknown, setUnknown] = useState(false)
+  // The parent passes a new callback on every render: read it from a ref so finding the installation runs once.
+  const changedRef = useRef(onChanged)
+  useEffect(() => { changedRef.current = onChanged })
+  const settle = () => { setReturned(null); setRouteParam('installation', null) }
+  useEffect(() => {
+    if (!returned || !canManage) return
+    let live = true
+    api.post<GitHubStatus>('/api/integrations/github', 'connect-github', { action: 'detect' })
+      .then(next => {
+        if (!live) return
+        const rows = next.available_installations ?? []
+        setAvailable(rows); changedRef.current(next)
+        const row = rows.find(item => item.installation_id === returned)
+        // Nothing to offer (not this App's, or already connected): clean the address so a reload doesn't ask again.
+        if (!row || next.installations.some(item => item.installation_id === returned)) {
+          setUnknown(!row); setReturned(null); setRouteParam('installation', null)
+        }
+      })
+      .catch(caught => { if (live) setError(caught instanceof Error ? caught.message : String(caught)) })
+      .finally(() => { if (live) setLooked(true) })
+    return () => { live = false }
+  }, [returned, canManage])
+  const looking = !!returned && canManage && !looked
+  const offered = returned ? available.find(item => item.installation_id === returned) : undefined
+  const alreadyConnected = offered ? status.installations.some(item => item.installation_id === offered.installation_id) : false
+  const offer = returned && canManage && offered && !alreadyConnected ? offered : null
+  // While the returned installation is offered above, the list doesn't offer it a second time.
+  const listed = offer ? available.filter(item => item.installation_id !== offer.installation_id) : available
+  const offerText = offer ? t('github.install.returned_plain', { account: offer.account ?? t('github.install.installation', { id: offer.installation_id }),
+    kind: offer.account_type === 'Organization' ? t('github.install.organization') : t('github.install.personal'),
+    scope: offer.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories') }) : ''
   const review = status.permissions
   const bold = { b: <strong className="font-medium" /> }
   return <div className="mt-4 space-y-3">
@@ -164,6 +204,18 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
       <span>{status.owner
         ? <Trans t={t} i18nKey="github.install.verified_owner" values={{ name: status.name ?? status.slug, owner: status.owner }} components={bold} />
         : <Trans t={t} i18nKey="github.install.verified" values={{ name: status.name ?? status.slug }} components={bold} />} {status.connected ? t('github.install.next_connected') : t('github.install.next_first')}</span></div>
+    <p role="status" className="sr-only">{offerText}</p>
+    {offer && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand/40 bg-brand/5 px-3 py-2.5 text-sm">
+      <span className="flex items-start gap-2"><CircleCheck className="mt-0.5 size-4 shrink-0 text-brand" /><Trans t={t} i18nKey="github.install.returned" values={{ account: offer.account ?? t('github.install.installation', { id: offer.installation_id }),
+        kind: offer.account_type === 'Organization' ? t('github.install.organization') : t('github.install.personal'),
+        scope: offer.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories') }} components={bold} /></span>
+      <span className="flex gap-2">
+        <Button size="sm" variant="ghost" disabled={busy || looking} onClick={settle}>{t('github.install.not_now')}</Button>
+        <Button size="sm" disabled={busy || looking} onClick={() => void connect(offer.installation_id).then(ok => { if (ok) settle() })}>{t('github.install.connect')}</Button>
+      </span>
+    </div>}
+    {unknown && <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning"><span>{t('github.install.returned_unknown')}</span>
+      <button type="button" onClick={() => setUnknown(false)} className="shrink-0 font-medium underline-offset-2 hover:underline">{t('github.install.dismiss')}</button></div>}
     {review && (review.excess.length > 0 || review.missing.length > 0) && <PermissionWarning review={review} />}
     <ol className="ml-4 list-decimal space-y-1 text-xs leading-5 text-app-muted">
       <li><Trans t={t} i18nKey="github.install.step_install" components={{ b: STRONG }} /></li>
@@ -171,13 +223,13 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
     </ol>
     {error && <div role="alert" className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning">{error}</div>}
     <div className="flex flex-wrap gap-2">
-      {canManage ? <a href={`https://github.com/apps/${status.slug}/installations/new`} target="_blank" rel="noopener noreferrer" className={buttonVariants({ className: 'bg-primary text-primary-foreground hover:bg-primary/90' })}>{t('github.install.install')} <ExternalLink /><span className="sr-only">{t('new_tab')}</span></a>
+      {canManage ? <a href={`https://github.com/apps/${status.slug}/installations/new`} target="_blank" rel="noopener noreferrer" className={buttonVariants(offer ? { variant: 'outline', className: 'border-app-line bg-app-soft' } : { className: 'bg-primary text-primary-foreground hover:bg-primary/90' })}>{t('github.install.install')} <ExternalLink /><span className="sr-only">{t('new_tab')}</span></a>
         : <Button disabled className="bg-primary text-primary-foreground">{t('github.install.install')} <ExternalLink /></Button>}
-      <Button variant="outline" disabled={!canManage || busy} onClick={() => void detect()} className="border-app-line bg-app-soft">{busy ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}{t('github.install.detect')}</Button>
+      <Button variant="outline" disabled={!canManage || busy || looking} onClick={() => void detect()} className="border-app-line bg-app-soft">{busy || looking ? <LoaderCircle className="motion-safe:animate-spin" /> : <RefreshCw />}{t('github.install.detect')}</Button>
     </div>
-    {available.length > 0 && <div className="space-y-2 rounded-lg border border-app-line bg-app-soft p-3">
+    {listed.length > 0 && <div className="space-y-2 rounded-lg border border-app-line bg-app-soft p-3">
       <p className="text-xs font-medium text-app-secondary">{t('github.install.installed_on')}</p>
-      {available.map(item => {
+      {listed.map(item => {
         const connected = status.installations.some(current => current.installation_id === item.installation_id)
         return <div key={item.installation_id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-app-line bg-panel px-3 py-2 text-sm">
           <div><p className="font-medium">{item.account ?? t('github.install.installation', { id: item.installation_id })}</p>

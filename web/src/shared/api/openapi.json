@@ -3638,6 +3638,9 @@
               "text/html": {}
             }
           },
+          "303": {
+            "description": "See Other"
+          },
           "400": {
             "description": "Invalid parameters",
             "content": {

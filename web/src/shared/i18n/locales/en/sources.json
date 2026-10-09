@@ -174,7 +174,12 @@
       "selected_repositories": "Selected repositories",
       "all_repositories": "All repositories",
       "connected": "Connected",
-      "connect": "Connect account"
+      "connect": "Connect account",
+      "returned": "GitHub installed the App on <b>{{account}}</b> ({{kind}} · {{scope}}). Connect it?",
+      "not_now": "Not now",
+      "returned_unknown": "That installation doesn't belong to the GitHub App configured here, or it was removed. Install it again or use “Find installations”.",
+      "returned_plain": "GitHub installed the App on {{account}} ({{kind}} · {{scope}}). Connect it?",
+      "dismiss": "Dismiss"
     },
     "permission_warning": {
       "excess_one": "The App requests {{count}} extra permission.",

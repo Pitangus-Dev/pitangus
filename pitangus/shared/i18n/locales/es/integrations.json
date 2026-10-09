@@ -62,13 +62,7 @@
       "back": "Volver al panel",
       "no_installation": "GitHub no devolvió una instalación",
       "no_installation_detail": "Si cancelaste la instalación no hay nada que guardar.",
-      "too_many": "Demasiados intentos",
-      "too_many_detail": "Espera unos minutos y vuelve a hacer clic en «Buscar instalaciones» en Integraciones.",
-      "unknown": "Instalación desconocida",
-      "unknown_detail": "Esa instalación no pertenece a la GitHub App configurada en este panel.",
-      "failed": "La conexión con GitHub falló",
-      "available": "Instalación disponible",
-      "available_detail": "Vuelve al panel, haz clic en «Buscar instalaciones» y elige la cuenta que quieres conectar."
+      "too_many": "Demasiados intentos"
     },
     "branch_not_found": "La rama {{branch}} no existe en este repositorio",
     "invalid_branch_name": "\"{{branch}}\" no es un nombre de rama válido: usa letras, números y . _ / - (hasta 200 caracteres)",

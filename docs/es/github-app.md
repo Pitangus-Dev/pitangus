@@ -37,7 +37,7 @@ Rellena solo esto:
 | **Homepage URL** | Cualquier URL tuya; p. ej. tu perfil de GitHub o la URL de tu panel. |
 | **Callback URL** | Vacío. |
 | **Request user authorization (OAuth) during installation** | Sin marcar. |
-| **Setup URL** (opcional) | `http://127.0.0.1:8766/oauth/callback` (o tu URL pública + `/oauth/callback`) y marca **Redirect on update**. Abre una página que te indica cómo seleccionar la instalación en el panel. |
+| **Setup URL** (opcional) | `http://127.0.0.1:8766/oauth/callback` (o tu URL pública + `/oauth/callback`) y marca **Redirect on update**. Tras instalarla, GitHub te devuelve al panel, que te pregunta si conectas esa cuenta: un clic. |
 | **Webhook → Active** | Desmarcado. El panel consulta los PRs por su cuenta. |
 
 **Repository permissions**, solo estos cuatro:
@@ -68,7 +68,7 @@ La clave no vuelve a salir del servidor. **Borra el `.pem` de tu carpeta de desc
 
 ## 4. Instalarla en tus repositorios
 
-Pulsa **Instalar en GitHub**, elige una cuenta y **Only select repositories**, y marca los repositorios que quieras analizar. Repite la instalación en cada organización. En el panel pulsa **Buscar instalaciones** y **Conectar cuenta** en cada organización que quieras usar. Instalar la App no incorpora automáticamente las cuentas a este workspace. Los repositorios de las cuentas conectadas aparecen en **Repositorios** y en **Nuevo análisis**; allí puedes filtrar por organización.
+Pulsa **Instalar en GitHub**, elige una cuenta y **Only select repositories**, y marca los repositorios que quieras analizar. Repite la instalación en cada organización. De vuelta en el panel (con la Setup URL, que la App creada desde el panel ya trae, GitHub te lleva allí), pulsa **Conectar** en la cuenta que te ofrece, o **Buscar instalaciones** y **Conectar cuenta** en cada organización que quieras usar. Instalar la App no incorpora automáticamente las cuentas a este workspace. Los repositorios de las cuentas conectadas aparecen en **Repositorios** y en **Nuevo análisis**; allí puedes filtrar por organización.
 
 Para añadir o quitar repositorios más tarde: **Integraciones → Cambiar repositorios** en la cuenta correspondiente. Para dejar de usar una organización aquí, pulsa **Desconectar cuenta**.
 

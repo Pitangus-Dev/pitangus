@@ -174,7 +174,12 @@
       "selected_repositories": "Repositorios seleccionados",
       "all_repositories": "Todos los repositorios",
       "connected": "Conectada",
-      "connect": "Conectar cuenta"
+      "connect": "Conectar cuenta",
+      "returned": "GitHub instaló la App en <b>{{account}}</b> ({{kind}} · {{scope}}). ¿La conectas?",
+      "not_now": "Ahora no",
+      "returned_unknown": "Esa instalación no es de la GitHub App configurada aquí, o se eliminó. Vuelve a instalarla o usa «Buscar instalaciones».",
+      "returned_plain": "GitHub instaló la App en {{account}} ({{kind}} · {{scope}}). ¿La conectas?",
+      "dismiss": "Cerrar"
     },
     "permission_warning": {
       "excess_one": "La App pide {{count}} permiso adicional.",

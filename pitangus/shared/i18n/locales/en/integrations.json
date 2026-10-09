@@ -62,13 +62,7 @@
       "back": "Back to the panel",
       "no_installation": "GitHub didn't return an installation",
       "no_installation_detail": "If you canceled the installation, there's nothing to save.",
-      "too_many": "Too many attempts",
-      "too_many_detail": "Wait a few minutes and click \"Find installations\" in Integrations again.",
-      "unknown": "Unknown installation",
-      "unknown_detail": "That installation doesn't belong to the GitHub App configured in this panel.",
-      "failed": "The connection with GitHub failed",
-      "available": "Installation available",
-      "available_detail": "Go back to the panel, click \"Find installations\" and choose the account you want to connect."
+      "too_many": "Too many attempts"
     },
     "branch_not_found": "Branch {{branch}} doesn't exist in this repository",
     "invalid_branch_name": "\"{{branch}}\" isn't a valid branch name: use letters, digits and . _ / - (up to 200 characters)",

@@ -39,19 +39,21 @@ class GitHubRoutesTests(HttpCase):
         self.assertEqual((status, answer["error"]), (400, "GitHub no reconoce ese App ID"))
 
     def test_installation_is_accepted_only_if_it_belongs_to_our_app(self):
+        with patch("pitangus.app.api.sources.app_installations", side_effect=AssertionError("public route called GitHub")):
+            # GitHub's return only hands the installation to the panel: nothing is stored without an admin's session.
+            status, _, _ = self.call("GET", "/oauth/callback?installation_id=77&setup_action=install")
+            self.assertEqual(status, 303)
+            self.assertIsNone(github_installation(self.data_dir))
+            for query in ("", "?installation_id=abc", "?installation_id=0", "?installation_id=" + "9" * 20):
+                self.assertEqual(self.call("GET", "/oauth/callback" + query)[0], 200)  # notice page
         with patch("pitangus.app.api.sources.app_installations", return_value=[{"installation_id": 77, "account": "acme"}]), \
                 patch("pitangus.app.api.sources.installation_details", return_value={"account": "acme", "permissions": {}}):
-            status, _, _ = self.call("GET", "/oauth/callback?installation_id=999&setup_action=install")
-            self.assertEqual(status, 200)  # notice page, nothing is stored
-            self.assertIsNone(github_installation(self.data_dir))
-            status, _, _ = self.call("GET", "/oauth/callback?installation_id=77&setup_action=install")
-            self.assertEqual(status, 200)
-            self.assertIsNone(github_installation(self.data_dir))
+            status, _, _ = self.post("/api/integrations/github", "connect-github", {"action": "connect", "installation_id": 999}, self.admin)
+            self.assertEqual(status, 404)
+            self.assertEqual(self.post("/api/integrations/github", "connect-github", {"action": "connect", "installation_id": 77}, self.member)[0], 403)
             status, _, _ = self.post("/api/integrations/github", "connect-github", {"action": "connect", "installation_id": 77}, self.admin)
             self.assertEqual(status, 200)
             self.assertEqual(github_installation(self.data_dir), 77)
-            statuses = [self.call("GET", "/oauth/callback?installation_id=999")[1] for _ in range(6)]
-            self.assertIn(b"Demasiados intentos", statuses[-1])
 
     def test_detect_explains_when_the_app_is_not_installed_yet(self):
         with patch("pitangus.app.api.sources.app_installations", return_value=[]):
