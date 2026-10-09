@@ -16,8 +16,8 @@ from reportlab.platypus import KeepTogether, Paragraph, Spacer
 
 from pitangus.modules.threats import diagram as threat_diagram
 from pitangus.modules.threats import methods as threat_methods
-from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, DANGER, DANGER_BG, INK, MUTED, SEVERITY, SOFT, STYLE, SUCCESS,
-                            SUCCESS_BG, WIDTH, build, bullets, chip, disclaimer, h2, header, kpis, listing, meta, severity_label,
+from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, DANGER, DANGER_BG, INK, MUTED, cover, SEVERITY, SOFT, STYLE, SUCCESS,
+                            SUCCESS_BG, WIDTH, build, bullets, chip, disclaimer, h2, kpis, listing, severity_label,
                             table, wide_page, wide_size)
 from pitangus.modules.reporting.design import t as esc
 from pitangus.shared.i18n import default_locale, localize, t, text
@@ -203,12 +203,6 @@ def _summary(data: dict) -> tuple[str, list]:
                       (r("kpi_team"), team_open, INK, SOFT), (r("kpi_decided"), len(data["decided"]), SUCCESS, SUCCESS_BG)]
 
 
-def _how_to_read(data: dict) -> str:
-    method = data["method"]
-    key = f"how_to_read_{method}" if method in ("attack", "attack_trees") else "how_to_read" if data["first"] else "how_to_read_no_first"
-    return t(f"threats.report.{key}", data["locale"])
-
-
 def _contradiction(row: dict, locale: str) -> str:
     decision = row.get("decision") or {}
     return t("threats.report.contradicted_note", locale, status=_status(decision.get("status", ""), locale).lower(), by=decision.get("by") or "—") \
@@ -242,17 +236,18 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
     locale, rows = data["locale"], data["rows"]
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
     appendix = _letters()
-    story = header(r("title"), model["name"], model.get("description") or "")
     linked, refs = len(model.get("repositories") or []), len(model.get("repository_refs") or [])
-    story.append(meta([(r("meta_method"), data["method_label"]),
-                       (r("meta_updated"), f"{str(model.get('updated_at') or '')[:10] or '—'} · {model.get('updated_by') or '—'}"),
-                       (r("meta_scope"), r("scope", components=len(data["components"]), flows=len(data["flows"]),
-                                          boundaries=len(model.get("boundaries") or []))),
-                       (r("meta_repositories"), r("repositories_value", linked=linked, pending=refs) if refs else str(linked) if linked else r("none")),
-                       (r("meta_team"), str(len(data["team"]))), (r("meta_reference"), str(model.get("id") or "—"), "mono")]))
+    story = cover(r("title"), model["name"], model.get("description") or "",
+                  [(r("meta_method"), data["method_label"]),
+                   (r("meta_updated"), f"{str(model.get('updated_at') or '')[:10] or '—'} · {model.get('updated_by') or '—'}"),
+                   (r("meta_scope"), r("scope", components=len(data["components"]), flows=len(data["flows"]),
+                                      boundaries=len(model.get("boundaries") or []))),
+                   (r("meta_repositories"), r("repositories_value", linked=linked, pending=refs) if refs else str(linked) if linked else r("none")),
+                   (r("meta_team"), str(len(data["team"]))), (r("meta_reference"), str(model.get("id") or "—"), "mono")],
+                  note=t("reports.design.cover_note", locale, version=version))
     sentence, figures = _summary(data)
-    story += [Spacer(1, 10), h2(r("summary")), kpis(figures), Spacer(1, 6),
-              Paragraph(esc(sentence, 900), STYLE["body"]), Paragraph(esc(_how_to_read(data), 400), STYLE["note"])]
+    story += [h2(r("summary")), kpis(figures), Spacer(1, 6),
+              Paragraph(esc(sentence, 900), STYLE["body"])]
     if data["first"]:
         story.append(h2(r("first")))
         body = []
@@ -325,15 +320,19 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
                  esc(str((row.get("decision") or {}).get("at") or "")[:10] or "—", 10)]
                 for row in data["decided"][:400]]
         story.append(table([r("col_threat"), r("col_where"), r("col_decision"), r("col_reason"), r("col_by"), r("col_date")], body,
-                           [46 * mm, 32 * mm, 20 * mm, WIDTH - 136 * mm, 20 * mm, 18 * mm]))
+                           [44 * mm, 30 * mm, 20 * mm, WIDTH - 136 * mm, 21 * mm, 21 * mm]))
         if len(data["decided"]) > 400:
             story.append(Paragraph(esc(r("decisions_truncated", shown=400, count=len(data["decided"]))), STYLE["note"]))
     else:
         story.append(Paragraph(esc(r("no_decisions"), 400), STYLE["body"]))
+    # The method and the closing note stay together: a lone line on the last page reads as a mistake.
+    story += [h2(r("method_heading")),
+              KeepTogether([*bullets([esc(line, 600) for line in coverage(model, data)]), Spacer(1, 8),
+                            Paragraph(esc(r("note"), 400) + " " + esc(disclaimer(locale), 400), STYLE["note"])])]
     # Annexes
     no = '<font color="#b71824">{}</font>'
     if data["flows"]:
-        story.append(h2(appendix(r("appendix_flows"), locale)))
+        story.append(h2(appendix(r("appendix_flows"), locale), number=False))
         body = [[str(data["number"][flow["id"]]), esc(f"{data['components'][flow['source']]['name']} → {data['components'][flow['target']]['name']}", 140),
                  flow["protocol"].upper(), esc(flow.get("name") or "—", 160) + (f'<br/><font color="#636363">{esc(", ".join(data["labels"][item] for item in flow["data"]), 80)}</font>' if flow.get("data") else ""),
                  esc(_yes(True, locale)) if flow.get("authenticated") else no.format(esc(_yes(False, locale))),
@@ -341,7 +340,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
                 for flow in data["flows"]]
         story.append(table([r("col_number"), r("col_source_target"), r("col_protocol"), r("col_carries"), r("col_auth_short"), r("col_encrypted")], body,
                            [10 * mm, 62 * mm, 18 * mm, WIDTH - 124 * mm, 17 * mm, 17 * mm]))
-    story.append(h2(appendix(r("appendix_components"), locale)))
+    story.append(h2(appendix(r("appendix_components"), locale), number=False))
     body = []
     for entry in data["by_component"]:
         component = entry["component"]
@@ -356,15 +355,12 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
                         r("col_medium_short"), r("col_low_short")], body,
                        [54 * mm, 36 * mm, WIDTH - 146 * mm, 14 * mm, 14 * mm, 14 * mm, 14 * mm]))
     story += _methods_pdf(model, data, appendix)
-    # The method and the closing note stay together: a lone line on the last page reads as a mistake.
-    story += [h2(r("method_heading")),
-              KeepTogether([*bullets([esc(line, 600) for line in coverage(model, data)]), Spacer(1, 8),
-                            Paragraph(esc(r("note"), 400) + " " + esc(disclaimer(locale), 400), STYLE["note"])])]
     return build(story, title=r("document_title", name=model["name"]), footer=r("document_title", name=model["name"][:80]), version=version,
+                 reference=str(model.get("id") or ""),
                  author=str(model.get("updated_by") or "Pitangus"), subject=r("title"), locale=locale)
 
 
-def _attack_pdf(model: dict, data: dict, heading: str) -> list:
+def _attack_pdf(model: dict, data: dict, heading: str, numbered: bool = True) -> list:
     locale = data["locale"]
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
     body = []
@@ -374,16 +370,16 @@ def _attack_pdf(model: dict, data: dict, heading: str) -> list:
                      esc(", ".join(text(threat_methods.TACTICS[tactic], locale) for tactic in tactics), 80),
                      esc(_element_name(model, data, item["element"]) if item.get("element") else r("whole_system"), 100),
                      esc(r(f"mapping_status.{item['status']}")), esc(item.get("note") or "—", 200)])
-    return [h2(heading), table([r("col_technique"), r("col_tactic"), r("col_element"), r("col_status"), r("col_note")], body,
+    return [h2(heading, number=numbered), table([r("col_technique"), r("col_tactic"), r("col_element"), r("col_status"), r("col_note")], body,
                                [46 * mm, 30 * mm, 38 * mm, 18 * mm, WIDTH - 132 * mm]),
             Paragraph(html.escape(r("attack_trademark")), STYLE["note"])]
 
 
-def _trees_pdf(model: dict, data: dict, title, heading: str) -> list:
+def _trees_pdf(model: dict, data: dict, title, heading: str, numbered: bool = True) -> list:
     """Each tree with its steps and whether the goal is still reachable, under `heading`; `title(goal)` names each tree."""
     locale = data["locale"]
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
-    story = [h2(heading)]
+    story = [h2(heading, number=numbered)]
     for tree, paths in zip(data["trees"], data["open_paths"]):
         story.append(Paragraph(esc(title(tree["goal"]), 120), STYLE["h3"]))
         state, colour = _tree_state(tree, paths, locale)
@@ -405,14 +401,15 @@ def _methods_pdf(model: dict, data: dict, appendix) -> list:
     story = []
     notes = model.get("pasta") or {}
     if any(notes.values()):
-        story.append(h2(appendix(r("appendix_pasta"), locale)))
+        story.append(h2(appendix(r("appendix_pasta"), locale), number=False))
         for key, title in threat_methods.PASTA_STAGES:
             if notes.get(key):
                 story += [Paragraph(esc(text(title, locale), 80), STYLE["h3"]), Paragraph(esc(notes[key], 3000), STYLE["body"])]
     if data["trees"] and data["method"] != "attack_trees":
-        story += _trees_pdf(model, data, lambda goal: r("tree_heading", goal=goal), appendix(r("trees_heading", count=len(data["trees"])), locale))
+        story += _trees_pdf(model, data, lambda goal: r("tree_heading", goal=goal), appendix(r("trees_heading", count=len(data["trees"])), locale),
+                            numbered=False)
     if data["mappings"] and data["method"] != "attack":
-        story += _attack_pdf(model, data, appendix(r("appendix_attack"), locale))
+        story += _attack_pdf(model, data, appendix(r("appendix_attack"), locale), numbered=False)
     return story
 
 

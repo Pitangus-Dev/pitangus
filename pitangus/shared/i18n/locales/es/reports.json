@@ -91,7 +91,8 @@
     "vulnerabilities": "Vulnerabilidades",
     "role": "Rol",
     "name": "Nombre",
-    "signature": "Firma"
+    "signature": "Firma",
+    "id": "ID"
   },
   "count": {
     "findings_one": "{{count}} hallazgo",
@@ -134,9 +135,11 @@
     "prepared_by": "Preparado por",
     "reviewed_by": "Revisado por",
     "approved_by": "Aprobado por",
-    "page_footer": "Pitangus {{version}}  ·  página {{page}} de {{total}}",
+    "page_footer": "página {{page}} de {{total}}",
     "disclaimer": "Evidencia técnica generada con herramientas automatizadas; requiere revisión del equipo. No constituye una opinión de auditoría, una certificación ni una declaración de cumplimiento.",
-    "decimal_separator": ","
+    "decimal_separator": ",",
+    "confidential": "CONFIDENCIAL",
+    "cover_note": "Generado con Pitangus {{version}}. Pendiente de revisión por el equipo antes de actuar."
   },
   "markdown": {
     "identifiers": "Identificadores: {{list}}",
@@ -557,7 +560,6 @@
       "default": "Análisis",
       "sarif_import": "Importación SARIF"
     },
-    "eyebrow": "Informe técnico de hallazgos · {{kind}}",
     "subtitle_state": "Estado acumulado al {{date}}",
     "subtitle_scan": "Análisis del {{date}}",
     "meta": {
@@ -572,7 +574,8 @@
     "kpi": {
       "pending": "pendientes",
       "kev": "con explotación activa (KEV)",
-      "actions": "acciones para cerrarlas"
+      "actions": "acciones para cerrarlas",
+      "medium_low": "medios y bajos"
     },
     "summary": "{{pending}} ({{counts}}) que se cierran con {{actions}}: {{packages}} ({{fixable}} con versión corregida) y {{code}} de código, secretos o infraestructura.",
     "decided_one": "{{count}} decisión del equipo (riesgo aceptado o falso positivo) fuera de la cuenta.",
@@ -583,7 +586,6 @@
     "partial_fix": "algún aviso sin corrección",
     "no_fixed_version": "sin versión corregida",
     "update_note": "«Actualizar a» es la versión más alta entre las que corrigen cada aviso: la que los cierra todos. Después regenera el lockfile y vuelve a analizar.",
-    "what_label": "Qué:",
     "fallback_fix": "Revisar según la guía del hallazgo",
     "detail_truncated": "Se detallan {{shown}} de {{total}} críticos y altos; el resto está en el JSON, el SARIF y el panel.",
     "table_truncated": "Se muestran {{shown}} de {{total}}; el resto está en el JSON, el SARIF y el panel.",
@@ -592,9 +594,26 @@
     "state_note": "Estado acumulado: reúne los análisis completos y las revisiones de pull requests; un hallazgo queda remediado cuando deja de aparecer en un análisis completo, nunca por uno incompleto.",
     "no_engines": "Sin detalle de motores en este registro.",
     "annex_truncated": "Se muestran {{shown}} de {{total}}; el resto está en el JSON y el SARIF del análisis.",
-    "closing": "Evidencia técnica generada con herramientas automatizadas: revísala antes de actuar. Los avisos de dependencias no prueban explotación en esta aplicación.",
+    "closing": "Los avisos de dependencias no prueban que el código vulnerable sea alcanzable en esta aplicación.",
     "title": "Informe técnico · {{name}}",
-    "footer": "Informe técnico · {{name}} · emitido {{date}}"
+    "footer": "Informe técnico · {{name}} · emitido {{date}}",
+    "cover_kind": "Informe técnico de hallazgos",
+    "exec_heading": "Resumen ejecutivo",
+    "exec_urgent_one": "{{first}} pide atención inmediata: explotación activa, un paquete malicioso o severidad crítica.",
+    "exec_urgent_other": "{{count}} acciones piden atención inmediata ({{first}} a {{last}}): explotación activa, paquetes maliciosos o severidad crítica.",
+    "about_heading": "Sobre este informe",
+    "sheet": {
+      "status": "Estado",
+      "location": "Ubicación",
+      "classification": "Clasificación",
+      "rule": "Detectado por",
+      "what_happens": "Qué ocurre",
+      "how_to_fix": "Cómo corregirlo",
+      "before": "Antes",
+      "after": "Después",
+      "how_to_verify": "Cómo verificarlo",
+      "verify_text": "Tras el cambio, «Verificar de nuevo» en Pitangus (o el siguiente análisis completo) lo marca como remediado cuando la regla deja de encontrarlo."
+    }
   },
   "pdf": {
     "footer": "Pitangus  ·  Evidencia técnica; revisión humana requerida"

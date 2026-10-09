@@ -122,6 +122,10 @@ Revisión completa del árbol de `web/node_modules` (411 paquetes): MIT, ISC, BS
 Python-2.0, CC-BY-4.0 y OFL-1.1. La única excepción es **lightningcss** (MPL-2.0), que solo se usa al compilar
 el CSS y no se distribuye.
 
+**Informes PDF** (`pitangus/modules/reporting/assets`): las fuentes **Source Serif 4** (Adobe) e **IBM Plex Sans** e
+**IBM Plex Mono** (IBM), bajo la SIL OFL-1.1, incrustadas en cada PDF. Sus licencias están junto a los archivos de
+fuente; como Geist, se pueden incrustar y redistribuir, pero no vender por separado.
+
 ## Al ofrecer Pitangus como servicio gestionado
 
 - **La AGPL-3.0 de Pitangus** obliga a ofrecer el código fuente de la versión que se ejecuta a quien la usa por

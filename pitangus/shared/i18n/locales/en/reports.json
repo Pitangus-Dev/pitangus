@@ -91,7 +91,8 @@
     "vulnerabilities": "Vulnerabilities",
     "role": "Role",
     "name": "Name",
-    "signature": "Signature"
+    "signature": "Signature",
+    "id": "ID"
   },
   "count": {
     "findings_one": "{{count}} finding",
@@ -134,9 +135,11 @@
     "prepared_by": "Prepared by",
     "reviewed_by": "Reviewed by",
     "approved_by": "Approved by",
-    "page_footer": "Pitangus {{version}}  ·  page {{page}} of {{total}}",
+    "page_footer": "page {{page}} of {{total}}",
     "disclaimer": "Technical evidence produced with automated tools; it requires review by the team. It is not an audit opinion, a certification or a statement of compliance.",
-    "decimal_separator": "."
+    "decimal_separator": ".",
+    "confidential": "CONFIDENTIAL",
+    "cover_note": "Produced with Pitangus {{version}}. To be reviewed by the team before acting on it."
   },
   "markdown": {
     "identifiers": "Identifiers: {{list}}",
@@ -557,7 +560,6 @@
       "default": "Scan",
       "sarif_import": "SARIF import"
     },
-    "eyebrow": "Technical findings report · {{kind}}",
     "subtitle_state": "Cumulative state as of {{date}}",
     "subtitle_scan": "Scan of {{date}}",
     "meta": {
@@ -572,7 +574,8 @@
     "kpi": {
       "pending": "pending",
       "kev": "with active exploitation (KEV)",
-      "actions": "actions to close them"
+      "actions": "actions to close them",
+      "medium_low": "medium and low"
     },
     "summary": "{{pending}} ({{counts}}), closed by {{actions}}: {{packages}} ({{fixable}} with a fixed version) and {{code}} in code, secrets or infrastructure.",
     "decided_one": "{{count}} team decision (accepted risk or false positive) is left out of the count.",
@@ -583,7 +586,6 @@
     "partial_fix": "some advisory has no fix",
     "no_fixed_version": "no fixed version",
     "update_note": "“Update to” is the highest of the versions that fix each advisory: the one that closes them all. Then regenerate the lockfile and scan again.",
-    "what_label": "What:",
     "fallback_fix": "Review it following the finding's guide",
     "detail_truncated": "Detailing {{shown}} of {{total}} critical and high; the rest are in the JSON, the SARIF and the panel.",
     "table_truncated": "Showing {{shown}} of {{total}}; the rest are in the JSON, the SARIF and the panel.",
@@ -592,9 +594,26 @@
     "state_note": "Cumulative state: it combines full scans and pull request reviews; a finding is marked fixed when it stops appearing in a full scan, never because of an incomplete one.",
     "no_engines": "No engine detail in this record.",
     "annex_truncated": "Showing {{shown}} of {{total}}; the rest are in the scan's JSON and SARIF.",
-    "closing": "Technical evidence produced with automated tools: review it before acting. Dependency advisories don't prove exploitation in this application.",
+    "closing": "Dependency advisories don't prove that the vulnerable code is reachable in this application.",
     "title": "Technical report · {{name}}",
-    "footer": "Technical report · {{name}} · issued {{date}}"
+    "footer": "Technical report · {{name}} · issued {{date}}",
+    "cover_kind": "Technical findings report",
+    "exec_heading": "Executive summary",
+    "exec_urgent_one": "{{first}} needs attention right away: active exploitation, a malicious package or critical severity.",
+    "exec_urgent_other": "{{count}} actions need attention right away ({{first}} to {{last}}): active exploitation, malicious packages or critical severity.",
+    "about_heading": "About this report",
+    "sheet": {
+      "status": "Status",
+      "location": "Location",
+      "classification": "Classification",
+      "rule": "Detected by",
+      "what_happens": "What happens",
+      "how_to_fix": "How to fix it",
+      "before": "Before",
+      "after": "After",
+      "how_to_verify": "How to verify it",
+      "verify_text": "After the change, \"Verify again\" in Pitangus (or the next full scan) marks it fixed once the rule no longer finds it."
+    }
   },
   "pdf": {
     "footer": "Pitangus  ·  Technical evidence; human review required"
