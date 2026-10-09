@@ -36,6 +36,12 @@ between minor versions: anything that changes behaviour is called out below.
   count). An administrator can remove an image that was never scanned. API: `POST /api/images` and `POST /api/images/remove`;
   `GET /api/images` items carry `analyzed`.
 
+### Fixed
+
+- **Slack messages no longer show a warning next to "Open in Pitangus".** It was a button, and Slack treats every
+  button as interactive: with an incoming webhook (no interactivity URL) it marked it with a warning. It is now a plain
+  link that opens the same page.
+
 ### Security
 
 - **The images no longer carry pip.** It installs the pinned dependencies and is then removed, from the app image and
