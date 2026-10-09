@@ -12,7 +12,7 @@ The brand is written **Pitangus**. The technical name is also `pitangus`: packag
 
 <img src="assets/pitangus.svg" width="96" alt="Pitangus logo: the head of a great kiskadee in profile">
 
-The kiskadee's head in profile: the black mask with the white brow, the black bill and a sulphur-yellow breast. The source files are [`assets/pitangus.svg`](assets/pitangus.svg) (the head alone, for light backgrounds) and `web/public/assets/pitangus-icon.svg` (the head on a cream tile: the favicon and the mark on dark backgrounds, where the black would merge with the background). In the panel they're drawn by `web/src/shared/ui/brand-mark.tsx`.
+The kiskadee's head in profile: the black mask with the white brow, the black bill and a sulphur-yellow breast. The source files are [`assets/pitangus.svg`](assets/pitangus.svg) (the head alone, for light backgrounds) and `web/public/assets/pitangus-icon.svg` (the head on a cream tile: the favicon and the mark on dark backgrounds, where the black would merge with the background; the README shows its copy, [`assets/pitangus-dark.svg`](assets/pitangus-dark.svg), in dark mode). In the panel they're drawn by `web/src/shared/ui/brand-mark.tsx`.
 
 - Minimum size: 16 px (favicon). Below 24 px the brow is no longer legible, but the silhouette is still recognizable.
 - Don't stretch it, rotate it or change its colors; on dark backgrounds always use the cream tile.

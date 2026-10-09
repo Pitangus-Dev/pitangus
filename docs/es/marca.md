@@ -12,7 +12,7 @@ La marca se escribe **Pitangus**; en texto en español también se puede decir �
 
 <img src="../assets/pitangus.svg" width="96" alt="Logo de Pitangus: la cabeza de un bichofué de perfil">
 
-La cabeza del bichofué de perfil: el antifaz negro con la ceja blanca, el pico negro y el pecho amarillo azufre. Los archivos fuente son [`assets/pitangus.svg`](../assets/pitangus.svg) (la cabeza sola, para fondos claros) y `web/public/assets/pitangus-icon.svg` (la cabeza sobre una placa crema: el favicon y la marca en fondos oscuros, donde el negro se confundiría con el fondo). En el panel los dibuja `web/src/shared/ui/brand-mark.tsx`.
+La cabeza del bichofué de perfil: el antifaz negro con la ceja blanca, el pico negro y el pecho amarillo azufre. Los archivos fuente son [`assets/pitangus.svg`](../assets/pitangus.svg) (la cabeza sola, para fondos claros) y `web/public/assets/pitangus-icon.svg` (la cabeza sobre una placa crema: el favicon y la marca en fondos oscuros, donde el negro se confundiría con el fondo; el README muestra su copia, [`assets/pitangus-dark.svg`](../assets/pitangus-dark.svg), en modo oscuro). En el panel los dibuja `web/src/shared/ui/brand-mark.tsx`.
 
 - Tamaño mínimo: 16 px (favicon). Por debajo de 24 px la ceja deja de leerse, pero la silueta se sigue reconociendo.
 - No lo estires, no lo rotes ni le cambies los colores; en fondos oscuros usa siempre la placa crema.
