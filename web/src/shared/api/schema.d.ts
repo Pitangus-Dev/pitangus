@@ -6892,6 +6892,13 @@ export interface operations {
                     "text/html": unknown;
                 };
             };
+            /** @description See Other */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Invalid parameters */
             400: {
                 headers: {

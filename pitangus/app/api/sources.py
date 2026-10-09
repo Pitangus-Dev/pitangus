@@ -412,23 +412,12 @@ def github_action(context: Context = Depends(guard(Policy(admin=True, action="co
         raise ApiError(400, problem(exc)) from exc
 
 
-# Optional return after installing (the App's Setup URL). The SameSite=Strict cookie does not travel from github.com:
-# nothing is connected here; the administrator picks the account in the panel.
-@router.get("/oauth/callback", response_class=Response, responses={200: {"content": {"text/html": {}}}})
-def github_callback(request: Request, installation_id: str = "", context: Context = Depends(guard(Policy(public=True))),
+# Optional return after installing (the App's Setup URL). The SameSite=Strict cookie does not travel from github.com,
+# so nothing is connected here: it hands the installation to the panel, where the administrator's session confirms it
+# with one click and the server checks it belongs to our App (`connect`). No GitHub call from this public route.
+@router.get("/oauth/callback", response_class=Response, responses={200: {"content": {"text/html": {}}}, 303: {}})
+def github_callback(installation_id: str = "", context: Context = Depends(guard(Policy(public=True))),
                     port: int = Depends(server_port)) -> Response:
-    locale = context.locale
-    if not installation_id.isdigit() or len(installation_id) > 19:
-        return _landing(locale, port, msg("integrations.github.landing.no_installation"), msg("integrations.github.landing.no_installation_detail"))
-    # Public and backed by a GitHub call: throttled, so it cannot be used to drain the App's quota.
-    throttle = context.state.auth.throttle
-    scope = f"oauth-callback:{request.client.host if request.client else ''}"
-    if throttle.reserve(scope):
-        return _landing(locale, port, msg("integrations.github.landing.too_many"), msg("integrations.github.landing.too_many_detail"))
-    try:
-        if not any(row["installation_id"] == int(installation_id) for row in app_installations()):
-            return _landing(locale, port, msg("integrations.github.landing.unknown"), msg("integrations.github.landing.unknown_detail"))
-    except (GitHubAppError, ValueError) as exc:
-        return _landing(locale, port, msg("integrations.github.landing.failed"), problem(exc))
-    throttle.succeeded(scope)
-    return _landing(locale, port, msg("integrations.github.landing.available"), msg("integrations.github.landing.available_detail"))
+    if not installation_id.isdigit() or len(installation_id) > 19 or int(installation_id) == 0:
+        return _landing(context.locale, port, msg("integrations.github.landing.no_installation"), msg("integrations.github.landing.no_installation_detail"))
+    return RedirectResponse(f"/#/integrations?installation={int(installation_id)}", status_code=303)

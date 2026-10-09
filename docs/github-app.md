@@ -38,7 +38,7 @@ Fill in only these fields:
 | **Homepage URL** | Any URL of yours, e.g. your GitHub profile or your panel's URL. |
 | **Callback URL** | Leave empty. |
 | **Request user authorization (OAuth) during installation** | Unchecked. |
-| **Setup URL** (optional) | `http://127.0.0.1:8766/oauth/callback` (or your public URL + `/oauth/callback`), and check **Redirect on update**. It opens a page that tells you how to pick the installation in the panel. |
+| **Setup URL** (optional) | `http://127.0.0.1:8766/oauth/callback` (or your public URL + `/oauth/callback`), and check **Redirect on update**. After installing, GitHub brings you back to the panel, which asks whether to connect that account: one click. |
 | **Webhook → Active** | Unchecked. The panel polls pull requests on its own. |
 
 **Repository permissions**, only these four:
@@ -69,7 +69,7 @@ The key never leaves the server again. **Delete the `.pem` from your downloads f
 
 ## 4. Install it on your repositories
 
-Click **Install on GitHub**, choose an account and **Only select repositories**, and tick the repositories you want to scan. Repeat the installation for each organization. Back in the panel, click **Find installations** and then **Connect account** for each organization you want to use: installing the App doesn't add those accounts to this workspace by itself. Repositories from connected accounts appear in **Repositories** and **New scan**, where you can filter by organization.
+Click **Install on GitHub**, choose an account and **Only select repositories**, and tick the repositories you want to scan. Repeat the installation for each organization. Back in the panel (with the Setup URL, which the panel-created App already has, GitHub brings you there), click **Connect** on the account it offers, or **Find installations** and **Connect account** for each organization you want to use: installing the App doesn't add those accounts to this workspace by itself. Repositories from connected accounts appear in **Repositories** and **New scan**, where you can filter by organization.
 
 To add or remove repositories later: **Integrations → Change repositories** on the relevant account. To stop using an organization here, click **Disconnect account**.
 
