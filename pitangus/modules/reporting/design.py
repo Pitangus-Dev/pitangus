@@ -15,11 +15,14 @@ import html
 import io
 import re
 from collections.abc import Sequence
+from pathlib import Path
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A3, A4, landscape
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, NextPageTemplate, PageBreak, PageTemplate,
                                 Paragraph, Spacer, Table, TableStyle)
@@ -34,7 +37,7 @@ SUCCESS, SUCCESS_BG = colors.HexColor("#006e42"), colors.HexColor("#e9f8ef")
 DANGER, DANGER_BG = colors.HexColor("#b71824"), colors.HexColor("#ffefed")
 ATTENTION, ATTENTION_BG = colors.HexColor("#a34100"), colors.HexColor("#fff0e4")
 SEVERITY = {  # text, background
-    "critical": (colors.HexColor("#ffffff"), colors.HexColor("#c21725")),
+    "critical": (colors.HexColor("#ffffff"), colors.HexColor("#b71824")),
     "high": (ATTENTION, ATTENTION_BG),
     "medium": (colors.HexColor("#8a4c00"), colors.HexColor("#fef4df")),
     "low": (colors.HexColor("#00649e"), colors.HexColor("#ebf5fd")),
@@ -42,25 +45,55 @@ SEVERITY = {  # text, background
 }
 ORDER = {level: index for index, level in enumerate(("critical", "high", "medium", "low", "info"))}
 
+# Type: Source Serif 4 for titles and prose, IBM Plex Sans for labels and tables, IBM Plex Mono for code and identifiers
+# (SIL OFL-1.1, embedded in every PDF; see assets/ and docs/third-party-notices.md).
+ASSETS = Path(__file__).with_name("assets")
+SERIF, SERIF_SEMIBOLD, SERIF_ITALIC = "PSerif", "PSerif-Semibold", "PSerif-Italic"
+SANS, SANS_MEDIUM, SANS_SEMIBOLD = "PSans", "PSans-Medium", "PSans-SemiBold"
+MONO, MONO_MEDIUM = "PMono", "PMono-Medium"
+for name, file in ((SERIF, "SourceSerif4-Regular"), (SERIF_SEMIBOLD, "SourceSerif4-Semibold"), (SERIF_ITALIC, "SourceSerif4-It"),
+                   (SANS, "IBMPlexSans-Regular"), (SANS_MEDIUM, "IBMPlexSans-Medium"), (SANS_SEMIBOLD, "IBMPlexSans-SemiBold"),
+                   (MONO, "IBMPlexMono-Regular"), (MONO_MEDIUM, "IBMPlexMono-Medium")):
+    if name not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(name, str(ASSETS / f"{file}.ttf")))
+# <b> and <i> inside a paragraph map to the family's own weights (Plex Sans has no italic here: it stays upright).
+pdfmetrics.registerFontFamily(SERIF, normal=SERIF, bold=SERIF_SEMIBOLD, italic=SERIF_ITALIC, boldItalic=SERIF_SEMIBOLD)
+pdfmetrics.registerFontFamily(SANS, normal=SANS, bold=SANS_SEMIBOLD, italic=SANS, boldItalic=SANS_SEMIBOLD)
+pdfmetrics.registerFontFamily(MONO, normal=MONO, bold=MONO_MEDIUM, italic=MONO, boldItalic=MONO_MEDIUM)
+
+# Severity as coloured text (no filled chips): each colour ≥ 4.5:1 on white.
+SEVERITY_INK = {"critical": DANGER, "high": ATTENTION, "medium": colors.HexColor("#8a4c00"), "low": colors.HexColor("#00649e"), "info": MUTED}
+RULE = INK  # the strong rule above tables and figure rows
+BODY_INK, SUBTLE_INK, LABEL_INK = colors.HexColor("#262626"), colors.HexColor("#333333"), colors.HexColor("#4d4d4d")  # greys of INK
+CODE_BG = SOFT  # behind code samples
+
 STYLE = {
-    "eyebrow": ParagraphStyle("eyebrow", fontName="Helvetica-Bold", fontSize=8, leading=11, textColor=BRAND, spaceAfter=6),
-    "title": ParagraphStyle("title", fontName="Helvetica-Bold", fontSize=20, leading=24, textColor=INK, spaceAfter=4),
-    "subtitle": ParagraphStyle("subtitle", fontName="Helvetica", fontSize=9.5, leading=14, textColor=MUTED, spaceAfter=10),
+    "eyebrow": ParagraphStyle("eyebrow", fontName=SANS, fontSize=9, leading=12, textColor=MUTED, spaceAfter=6),
+    "title": ParagraphStyle("title", fontName=SERIF_SEMIBOLD, fontSize=24, leading=28, textColor=INK, spaceAfter=6),
+    "subtitle": ParagraphStyle("subtitle", fontName=SERIF, fontSize=11, leading=16, textColor=MUTED, spaceAfter=12),
+    "cover_kind": ParagraphStyle("cover_kind", fontName=SANS, fontSize=10.5, leading=14, textColor=MUTED, spaceAfter=10),
+    "cover_title": ParagraphStyle("cover_title", fontName=SERIF_SEMIBOLD, fontSize=38, leading=42, textColor=INK, spaceAfter=14),
+    "cover_subtitle": ParagraphStyle("cover_subtitle", fontName=SERIF, fontSize=14, leading=21, textColor=SUBTLE_INK),
     # No keepWithNext: it would tie the heading to the whole table and push all of it to the next page.
     # Each heading is preceded by a conditional break (CondPageBreak) that prevents orphan headings.
-    "h2": ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=11.5, leading=15, textColor=INK, spaceBefore=12, spaceAfter=6),
-    "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=9.5, leading=13, textColor=INK, spaceBefore=8, spaceAfter=3),
-    "body": ParagraphStyle("body", fontName="Helvetica", fontSize=8.8, leading=13, textColor=INK, spaceAfter=4),
-    "note": ParagraphStyle("note", fontName="Helvetica", fontSize=7.8, leading=11, textColor=MUTED, spaceAfter=4),
-    "cell": ParagraphStyle("cell", fontName="Helvetica", fontSize=7.8, leading=10.5, textColor=INK),
-    "cellmuted": ParagraphStyle("cellmuted", fontName="Helvetica", fontSize=7.3, leading=10, textColor=MUTED),
-    "head": ParagraphStyle("head", fontName="Helvetica-Bold", fontSize=7.3, leading=10, textColor=MUTED),
-    "label": ParagraphStyle("label", fontName="Helvetica", fontSize=7, leading=9, textColor=MUTED),
-    "value": ParagraphStyle("value", fontName="Helvetica-Bold", fontSize=8.8, leading=11.5, textColor=INK),
-    "kpi": ParagraphStyle("kpi", fontName="Helvetica-Bold", fontSize=17, leading=20),
-    "kpilabel": ParagraphStyle("kpilabel", fontName="Helvetica", fontSize=7.3, leading=9.5, textColor=MUTED),
-    "mono": ParagraphStyle("mono", fontName="Courier", fontSize=7.3, leading=10, textColor=INK),
-    "chip": ParagraphStyle("chip", fontName="Helvetica-Bold", fontSize=7, leading=9, alignment=1),
+    "h2": ParagraphStyle("h2", fontName=SERIF_SEMIBOLD, fontSize=17, leading=21, textColor=INK, spaceBefore=16, spaceAfter=8),
+    "h3": ParagraphStyle("h3", fontName=SANS_SEMIBOLD, fontSize=9.5, leading=13, textColor=INK, spaceBefore=10, spaceAfter=4),
+    "body": ParagraphStyle("body", fontName=SERIF, fontSize=10.2, leading=15, textColor=BODY_INK, spaceAfter=5),
+    "text": ParagraphStyle("text", fontName=SANS, fontSize=9, leading=13, textColor=INK, spaceAfter=4),
+    "note": ParagraphStyle("note", fontName=SANS, fontSize=8, leading=11.5, textColor=MUTED, spaceAfter=4),
+    "cell": ParagraphStyle("cell", fontName=SANS, fontSize=8.2, leading=11.2, textColor=INK),
+    "cellmuted": ParagraphStyle("cellmuted", fontName=SANS, fontSize=7.8, leading=10.8, textColor=MUTED),
+    "head": ParagraphStyle("head", fontName=SANS_MEDIUM, fontSize=7.8, leading=10.5, textColor=MUTED),
+    "label": ParagraphStyle("label", fontName=SANS, fontSize=7.8, leading=10, textColor=MUTED),
+    "value": ParagraphStyle("value", fontName=SANS_MEDIUM, fontSize=9.5, leading=12.5, textColor=INK),
+    "kpi": ParagraphStyle("kpi", fontName=SERIF_SEMIBOLD, fontSize=24, leading=27),
+    "kpilabel": ParagraphStyle("kpilabel", fontName=SANS, fontSize=8.2, leading=10.5, textColor=LABEL_INK),
+    "mono": ParagraphStyle("mono", fontName=MONO, fontSize=8, leading=11, textColor=INK),
+    "id": ParagraphStyle("id", fontName=MONO, fontSize=8.5, leading=11.5, textColor=BRAND),
+    "chip": ParagraphStyle("chip", fontName=SANS_SEMIBOLD, fontSize=8, leading=10.5),
+    "code": ParagraphStyle("code", fontName=MONO, fontSize=7.8, leading=11, textColor=INK),
+    "sheet_title": ParagraphStyle("sheet_title", fontName=SERIF_SEMIBOLD, fontSize=14, leading=18, textColor=INK, spaceBefore=3, spaceAfter=8),
+    "h4": ParagraphStyle("h4", fontName=SANS_SEMIBOLD, fontSize=8.8, leading=12, textColor=INK, spaceBefore=9, spaceAfter=2),
 }
 MARGIN = 18 * mm
 WIDTH = A4[0] - 2 * MARGIN
@@ -80,7 +113,7 @@ def t(value, limit: int = 400) -> str:
 
 def rich(value, limit: int = 400) -> str:
     """Like t(), and `code` written between backticks is shown in a monospaced font instead of the raw marks."""
-    return re.sub(r"`([^`<>]+)`", r'<font name="Courier">\1</font>', t(value, limit))
+    return re.sub(r"`([^`<>]+)`", rf'<font name="{MONO}">\1</font>', t(value, limit))
 
 
 def plain(value, limit: int = 400) -> str:
@@ -146,43 +179,37 @@ def listing(items: list[str], limit: int = 6, *, locale: str | None = None) -> s
 
 
 def grid(rows, widths, *, header=True, zebra=False) -> Table:
+    """A ruled table: a strong rule on top, hairlines between rows, no fills (zebra is kept for callers, unused)."""
     table = Table(rows, colWidths=widths, hAlign="LEFT", repeatRows=1 if header else 0)
-    style = [("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 5), ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-             ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("LINEBELOW", (0, 0), (-1, -1), 0.3, LINE)]
+    style = [("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+             ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
+             ("LINEABOVE", (0, 0), (-1, 0), 1.2, RULE)]
     if header:
-        style += [("BACKGROUND", (0, 0), (-1, 0), SOFT), ("LINEBELOW", (0, 0), (-1, 0), 0.8, BRAND)]
-    if zebra:
-        style += [("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")])]
+        style += [("LINEBELOW", (0, 0), (-1, 0), 0.6, RULE)]
     table.setStyle(TableStyle(style))
     return table
 
 
-def table(headers: list[str], rows: list[list], widths: list[float], *, zebra=True) -> Table:
+def table(headers: list[str], rows: list[list], widths: list[float], *, zebra=False) -> Table:
     """Table with a header row: text cells already marked up (str) are wrapped in paragraphs."""
     body = [[cell if not isinstance(cell, str) else Paragraph(cell, STYLE["cell"]) for cell in row] for row in rows]
-    return grid([[Paragraph(label, STYLE["head"]) for label in headers], *body], widths, zebra=zebra)
+    return grid([[Paragraph(label, STYLE["head"]) for label in headers], *body], widths)
 
 
-def chip(severity: str, label: str | None = None, *, locale: str | None = None) -> Table:
-    ink, fill = SEVERITY.get(severity, SEVERITY["info"])
-    cell = Table([[Paragraph(f'<font color="{hexval(ink)}">{label or severity_label(severity, locale)}</font>', STYLE["chip"])]],
-                 colWidths=[15 * mm], rowHeights=[4.6 * mm])
-    cell.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), fill), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                              ("LEFTPADDING", (0, 0), (-1, -1), 1), ("RIGHTPADDING", (0, 0), (-1, -1), 1),
-                              ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
-    return cell
+def chip(severity: str, label: str | None = None, *, locale: str | None = None) -> Paragraph:
+    """The severity, as coloured text."""
+    ink = SEVERITY_INK.get(severity, MUTED)
+    return Paragraph(f'<font color="{hexval(ink)}">{label or severity_label(severity, locale)}</font>', STYLE["chip"])
 
 
 def kpis(items: Sequence[tuple[str, object, colors.Color, colors.Color]], width: float = WIDTH) -> Table:
-    """Key-figure cards: (label, value, value color, background). Six at most: more can't be read."""
+    """Key figures in one ruled row: (label, value, value colour, unused fill). Four reads best; six at most."""
     cells = [[Paragraph(f'<font color="{hexval(ink)}">{value}</font>', STYLE["kpi"]), Paragraph(label, STYLE["kpilabel"])]
              for label, value, ink, _ in items]
     result = Table([cells], colWidths=[width / len(items)] * len(items), hAlign="LEFT")
-    style = [("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-             ("LEFTPADDING", (0, 0), (-1, -1), 8)]
-    for index, (_, _, _, fill) in enumerate(items):
-        style += [("BACKGROUND", (index, 0), (index, 0), fill), ("LINEAFTER", (index, 0), (index, 0), 2, colors.white)]
-    result.setStyle(TableStyle(style))
+    result.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 8),
+                                ("BOTTOMPADDING", (0, 0), (-1, -1), 10), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                                ("LINEABOVE", (0, 0), (-1, 0), 1.5, RULE), ("LINEBELOW", (0, 0), (-1, 0), 0.4, LINE)]))
     return result
 
 
@@ -194,18 +221,48 @@ def meta(pairs: list[tuple]) -> Table:
         chunk = pairs[start:start + 3] + [("", "")] * (3 - len(pairs[start:start + 3]))
         rows += [[Paragraph(t(pair[0]), STYLE["label"]) for pair in chunk],
                  [Paragraph(t(pair[1], 160), STYLE["mono" if pair[2:] == ("mono",) else "value"]) for pair in chunk]]
-    return grid(rows, [WIDTH / 3] * 3, header=False)
+    table = Table(rows, colWidths=[WIDTH / 3] * 3, hAlign="LEFT")
+    table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                               ("RIGHTPADDING", (0, 0), (-1, -1), 10), ("TOPPADDING", (0, 0), (-1, -1), 1),
+                               ("BOTTOMPADDING", (0, 0), (-1, -1), 1), ("LINEABOVE", (0, 0), (-1, 0), 0.6, LINE),
+                               *[("BOTTOMPADDING", (0, row), (-1, row), 9) for row in range(1, len(rows), 2)],
+                               *[("TOPPADDING", (0, row), (-1, row), 8) for row in range(0, len(rows), 2)]]))
+    return table
 
 
 def header(eyebrow: str, title: str, subtitle: str = "") -> list:
-    story = [Paragraph(html.escape(eyebrow.upper()), STYLE["eyebrow"]), Paragraph(t(title, 160), STYLE["title"])]
+    story = [Paragraph(html.escape(eyebrow), STYLE["eyebrow"]), Paragraph(t(title, 160), STYLE["title"])]
     if subtitle:
         story.append(Paragraph(t(subtitle, 400), STYLE["subtitle"]))
     return story
 
 
-def h2(text: str) -> Paragraph:
-    return Paragraph(html.escape(text), STYLE["h2"])
+def cover(kind: str, title: str, subtitle: str, fields: list[tuple], *, note: str = "") -> list:
+    """The first page: what this is, about what, for whom and when, and nothing else. `fields` as in meta(); the
+    page itself (logo, «Confidential», `note`) is drawn by the cover template."""
+    rule = Table([[""]], colWidths=[22 * mm], rowHeights=[1.2 * mm], hAlign="LEFT")
+    rule.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), BRAND)]))
+    story = [_CoverStart(note), Spacer(1, 62 * mm), Paragraph(t(kind, 120), STYLE["cover_kind"]),
+             Paragraph(t(title, 160), STYLE["cover_title"]), rule, Spacer(1, 10)]
+    if subtitle:
+        story.append(Paragraph(t(subtitle, 400), STYLE["cover_subtitle"]))
+    story += [Spacer(1, 48 * mm), meta(fields)]
+    return story + [NextPageTemplate("normal"), PageBreak()]
+
+
+class _CoverStart(Spacer):
+    """Marks a story that opens with a cover, and carries the note the cover template prints at its foot."""
+
+    def __init__(self, note: str):
+        super().__init__(1, 0)
+        self.note = note
+
+
+def h2(text: str, *, number: bool = True) -> Paragraph:
+    """A section heading; build() numbers it (1., 2.…) unless `number` is False (appendices, sign-off)."""
+    heading = Paragraph(html.escape(text), STYLE["h2"])
+    heading.numbered = number  # type: ignore[attr-defined]
+    return heading
 
 
 def bullets(items: list[str], style: str = "body") -> list:
@@ -217,11 +274,12 @@ def signoff(prepared_by: str = "", *, locale: str | None = None) -> list:
     columns = [i18n.t(f"reports.columns.{name}", locale) for name in ("role", "name", "signature", "date")]
     roles = [(i18n.t("reports.design.prepared_by", locale), prepared_by), (i18n.t("reports.design.reviewed_by", locale), ""),
              (i18n.t("reports.design.approved_by", locale), "")]
-    return [Spacer(1, 8), h2(i18n.t("reports.design.signoff", locale)),
-            grid([[Paragraph(html.escape(label), STYLE["head"]) for label in columns]]
-                 + [[Paragraph(html.escape(role), STYLE["cell"]), Paragraph(t(name, 60), STYLE["cell"]), Paragraph("", STYLE["cell"]), Paragraph("", STYLE["cell"])]
-                    for role, name in roles],
-                 [32 * mm, 50 * mm, WIDTH - 112 * mm, 30 * mm])]
+    rows = [[Paragraph(html.escape(label), STYLE["head"]) for label in columns]]
+    rows += [[Paragraph(html.escape(role), STYLE["cell"]), Paragraph(t(name, 60), STYLE["cell"]), Paragraph("", STYLE["cell"]),
+              Paragraph("", STYLE["cell"])] for role, name in roles]
+    table = grid(rows, [32 * mm, 50 * mm, WIDTH - 112 * mm, 30 * mm])
+    table.setStyle(TableStyle([("TOPPADDING", (0, 1), (-1, -1), 12), ("BOTTOMPADDING", (0, 1), (-1, -1), 12)]))
+    return [Spacer(1, 8), h2(i18n.t("reports.design.signoff", locale), number=False), table]
 
 
 def wide_page(flowables: list, *, size=None) -> list:
@@ -231,26 +289,62 @@ def wide_page(flowables: list, *, size=None) -> list:
 
 def _guard_headings(story: list) -> list:
     # A heading never sits alone at the bottom: if a few rows don't fit below it, it moves to the next page.
-    room = {"h2": 32 * mm, "h3": 22 * mm}
-    return [part for flowable in story for part in ((CondPageBreak(room[flowable.style.name]), flowable)
-                                                    if isinstance(flowable, Paragraph) and flowable.style.name in room else (flowable,))]
+    # Section headings get their number here, in reading order.
+    room = {"h2": 32 * mm, "h3": 22 * mm, "h4": 20 * mm}
+    result, number = [], 0
+    for flowable in story:
+        if isinstance(flowable, Paragraph) and flowable.style.name in room:
+            if flowable.style.name == "h2" and getattr(flowable, "numbered", False):
+                number += 1
+                flowable = Paragraph(f"{number}.&nbsp;&nbsp;{flowable.text}", flowable.style)
+            result += [CondPageBreak(room[flowable.style.name]), flowable]
+        else:
+            result.append(flowable)
+    return result
 
 
 def build(story: list, *, title: str, footer: str, version: str, author: str = "Pitangus", subject: str = "",
-          locale: str | None = None) -> bytes:
-    """A4 PDF with the brand bar, a footer with title and page number, and landscape pages when requested."""
+          locale: str | None = None, reference: str = "") -> bytes:
+    """A4 PDF: a cover when the story starts with cover(), a running header (`footer`: what the document is about, and
+    «Confidential»), a footer with the version, the reference and «page N of M», and landscape pages when requested."""
     output = io.BytesIO()
+    confidential = i18n.t("reports.design.confidential", locale)
+    note = story[0].note if story and isinstance(story[0], _CoverStart) else ""
+    left_foot = " · ".join(value for value in (f"Pitangus {version}", reference[:60]) if value)
 
-    def frame(canvas, document):
+    def running(canvas, document):
+        canvas._is_cover = False
         canvas.saveState()
         width, height = canvas._pagesize
-        canvas.setFillColor(BRAND)
-        canvas.rect(0, height - 4, width, 4, stroke=0, fill=1)
         canvas.setStrokeColor(LINE)
+        canvas.setLineWidth(0.5)
+        canvas.line(MARGIN, height - 11 * mm, width - MARGIN, height - 11 * mm)
         canvas.line(MARGIN, 13 * mm, width - MARGIN, 13 * mm)
-        canvas.setFont("Helvetica", 7)
+        canvas.setFont(SANS, 7.5)
         canvas.setFillColor(MUTED)
-        canvas.drawString(MARGIN, 8.5 * mm, footer[:120])
+        canvas.drawString(MARGIN, height - 9 * mm, footer[:110])
+        canvas.drawString(MARGIN, 8.5 * mm, left_foot)
+        canvas.setFont(SANS_MEDIUM, 7.5)
+        canvas.setFillColor(BRAND)
+        canvas.drawRightString(width - MARGIN, height - 9 * mm, confidential)
+        canvas.restoreState()
+
+    def front(canvas, document):
+        canvas.saveState()
+        width, height = canvas._pagesize
+        top = height - 22 * mm
+        logo = ASSETS / "logo.png"
+        canvas.drawImage(str(logo), MARGIN, top - 4 * mm, width=11 * mm, height=11 * mm, mask="auto")
+        canvas.setFont(SANS_SEMIBOLD, 12)
+        canvas.setFillColor(INK)
+        canvas.drawString(MARGIN + 14 * mm, top, "Pitangus")
+        canvas.setFont(SANS_MEDIUM, 8.5)
+        canvas.setFillColor(BRAND)
+        canvas.drawRightString(width - MARGIN, top, confidential)
+        canvas.setFont(SANS, 7.5)
+        canvas.setFillColor(MUTED)
+        canvas.drawString(MARGIN, 14 * mm, note[:140])
+        canvas.drawRightString(width - MARGIN, 14 * mm, "Arodium")
         canvas.restoreState()
 
     class Numbered(Canvas):
@@ -267,21 +361,31 @@ def build(story: list, *, title: str, footer: str, version: str, author: str = "
         def save(self):
             for number, state in enumerate(self._pages, 1):
                 self.__dict__.update(state)
-                self.setFont("Helvetica", 7)
-                self.setFillColor(MUTED)
-                self.drawRightString(self._pagesize[0] - MARGIN, 8.5 * mm,
-                                     i18n.t("reports.design.page_footer", locale, version=version, page=number, total=len(self._pages)))
+                if not getattr(self, "_is_cover", False):
+                    self.setFont(SANS, 7.5)
+                    self.setFillColor(MUTED)
+                    self.drawRightString(self._pagesize[0] - MARGIN, 8.5 * mm,
+                                         i18n.t("reports.design.page_footer", locale, page=number, total=len(self._pages)))
                 super().showPage()
             super().save()
 
     def template(name: str, size) -> PageTemplate:
         body = Frame(MARGIN, 18 * mm, size[0] - 2 * MARGIN, size[1] - 34 * mm, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
-        return PageTemplate(id=name, frames=[body], onPage=frame, pagesize=size)
+        return PageTemplate(id=name, frames=[body], onPage=running, pagesize=size)
 
+    def cover_page(canvas, document):
+        canvas._is_cover = True
+        front(canvas, document)
+
+    cover_template = PageTemplate(id="cover", frames=[Frame(MARGIN, 24 * mm, A4[0] - 2 * MARGIN, A4[1] - 50 * mm, leftPadding=0,
+                                                            rightPadding=0, topPadding=0, bottomPadding=0)],
+                                  onPage=cover_page, pagesize=A4)
     document = BaseDocTemplate(output, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=16 * mm, bottomMargin=18 * mm,
                                title=title[:120], author=author[:80] or "Pitangus", subject=subject[:120], creator=f"Pitangus {version}")
-    document.addPageTemplates([template("normal", A4), template("wide", landscape(A4)), template("wide-a3", landscape(A3))])
-    document.build(_guard_headings(story), canvasmaker=Numbered)
+    templates = [template("normal", A4), template("wide", landscape(A4)), template("wide-a3", landscape(A3)), cover_template]
+    starts_with_cover = bool(story) and isinstance(story[0], _CoverStart)
+    document.addPageTemplates([templates[3], *templates[:3]] if starts_with_cover else templates)
+    document.build(_guard_headings(story[1:] if starts_with_cover else story), canvasmaker=Numbered)
     return output.getvalue()
 
 

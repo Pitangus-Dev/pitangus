@@ -7,6 +7,16 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Changed
+
+- **New look for every PDF report** (technical, audit evidence, consolidated, threat model): a cover with the system,
+  date, revision and reference; «Confidential» on every page and «page N of M» in the footer; Source Serif 4 and IBM
+  Plex (embedded, SIL OFL) instead of Helvetica; ruled tables and key figures without fills; severity as coloured text.
+- **The technical report reads like one a person would write**: a short executive summary, each action with an ID
+  (PIT-001…) used throughout the report, and one sheet per critical or high code finding with what happens, how to
+  fix it (before and after) and how to verify it. Method, coverage, sources and the closing notice are together in
+  "About this report".
+
 ### Fixed
 
 - **A Jira rule's backfill no longer skips findings whose issues were deleted in Jira.** Like a manual export, it now

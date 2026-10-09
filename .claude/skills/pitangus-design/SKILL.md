@@ -24,25 +24,41 @@ If a rule conflicts with what the user asks for, ask; never break it silently.
 
 ## 2. Reports (PDF and Markdown)
 
-Every PDF is built with `pitangus/modules/reporting/design.py` (tokens, `header`, `meta`, `kpis`, `chip`, `table`, `h2`, `build`, `wide_page`). Do not create your own styles or colors.
+Every PDF is built with `pitangus/modules/reporting/design.py` (tokens, fonts, `cover`, `meta`, `kpis`, `chip`, `table`,
+`h2`, `build`, `wide_page`). Do not create your own styles, colors or fonts.
+
+**Look** (the "consultancy dossier" direction the user chose): Source Serif 4 for titles and prose, IBM Plex Sans for
+labels and tables, IBM Plex Mono for IDs, paths and code, embedded from `reporting/assets/` (SIL OFL, licenses next to the
+files). White page, one accent (rufous `BRAND`), ruled tables (a strong rule on top, hairlines between rows, no fills or
+zebra), key figures in one ruled row (no cards), severity as coloured text. Named greys and `CODE_BG` live in
+`design.py`: no hex values in a report module.
 
 **Structure, in this order:**
-1. Header: kicker (which kind of report), title (the system), subtitle (period or description) and `meta` (who, what, when, reference).
-2. **Key figures** (`kpis`, at most 6) and one summary sentence with the numbers.
-3. **What to do first**: a short table (≤ 15 rows) with severity, what, where and the action in one sentence.
+1. **Cover** with `cover(kind, title, subtitle, fields, note)`: what the report is, about which system, and `fields`
+   (date, revision, reference — identifiers whole, in mono). Every page after it has the running header (subject and
+   «Confidential») and the footer (version · reference · «page N of M»).
+2. **Executive summary**: two or three sentences a person would write (what needs attention now, how much there is,
+   what wasn't analyzed), then the key figures (`kpis`, four reads best, at most six).
+3. **What to do first** (≤ 15 rows): ID, severity and the action in one sentence, with what and where underneath.
+   Every action gets a per-report ID, `PIT-001`…, reused in every table and sheet of the document.
 4. The body grouped **by action**, not by advisory:
    - dependencies: one row per package (manifest + version) with the version that closes all its advisories → `remediation.fix_groups` and `remediation.action`;
    - rule-based threats: one row per pattern with the affected components (`threat_report.digest`);
-   - code: full detail only for critical and high; medium and low in a table.
-5. Method and **coverage: say what was not analyzed** ("this is not the same as 'no findings'"). Never present an incomplete analysis as clean.
-6. Compact appendices (one row per item, no long descriptions), with a cap; the full data stays in JSON/SARIF/the panel.
-7. Closing notice: technical evidence, human review required, not a certification. Signatures only on audit reports.
+   - code: one **sheet** per critical or high finding (ID and severity, title, facts table, what happens, how to fix it
+     with before over after at full width, how to verify it, references); medium and low in a table.
+5. **About this report** (a numbered section, before the appendices): method and **coverage — say what was not
+   analyzed** ("this is not the same as 'no findings'"), limitations, data sources and the closing notice (automated
+   technical evidence, human review required, not a certification). Never present an incomplete analysis as clean.
+6. Compact appendices (`h2(…, number=False)`; one row per item, no long descriptions), with a cap; the full data stays
+   in JSON/SARIF/the panel. Signatures (`signoff`) only on audit reports.
 
 **Form rules:**
-- Severity always with `chip` (fixed colors). KEV flagged in red next to the finding.
+- Severity with `chip` (coloured text, `SEVERITY_INK`, each ≥ 4.5:1 on white). KEV and malicious packages flagged in red next to the finding.
 - Short cells: action with `action(entry, short=True)`; lists with `listing(items, n)` ("a, b and 4 more").
 - All text coming from a repository, a model or a form goes through `t()` (escapes and truncates). In Markdown, escape `|` inside cells.
-- Section titles with `h2()` (its conditional page break avoids orphans). No `keepWithNext` on large tables.
+- Section titles with `h2()`: `build()` numbers them in reading order (appendices and sign-off pass `number=False`) and
+  keeps `h2`, `h3` and `h4` from being orphaned. No `keepWithNext` on large tables. Code samples keep hard spaces and are
+  broken into lines that fit the block (`technical._code`).
 - Tone: concrete, no overstatement (never "exploitable" without proof; an indicator is a signal, not a confirmation). Wording in the reader's language through the i18n catalogs, English and Spanish.
 - Rough budget: a single-repository technical report ≤ 15 pages without appendix; a threat model ≤ 15. If you exceed it, group more or move content to an appendix.
 - **Exception: audit evidence** (SOC 2, ISO, consolidated). The reader is an auditor: scope, controls and method come before the

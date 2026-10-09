@@ -20,8 +20,7 @@ from reportlab.platypus import CondPageBreak, KeepTogether, Paragraph, Spacer, T
 from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
 from pitangus.modules.reporting.design import (DANGER_BG, INK, ORDER, SEVERITY, SOFT, STYLE, SUCCESS, SUCCESS_BG, WIDTH,
-                            build, bullets, chip as _chip, count as _count, coverage_gaps, day as _day, disclaimer, grid as _grid, h2, header,
-                            hexval, kpis as _kpis, listing, location, meta, path, plain, rich, signoff, t as _t)
+                            build, bullets, chip as _chip, count as _count, cover, coverage_gaps, day as _day, disclaimer, grid as _grid, h2, hexval, kpis as _kpis, listing, location, path, plain, rich, signoff, t as _t)
 from pitangus.shared import i18n
 from pitangus.shared.i18n import default_locale, localize, msg, text
 
@@ -292,13 +291,14 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
     groups = fix_groups(findings)
     evidence = i18n.t("reports.audit.evidence", locale)
 
-    story = header(evidence + (f"  ·  {framework_label}" if controls else ""), options["title"] or evidence, system)
-    story.append(meta([(i18n.t("reports.audit.meta.organization", locale), options["organization"] or "—"),
-                       (i18n.t("reports.audit.meta.system", locale), system), (i18n.t("reports.audit.meta.period", locale), period),
-                       (i18n.t("reports.audit.meta.prepared_by", locale), options["prepared_by"] or "—"),
-                       (i18n.t("reports.audit.meta.prepared_for", locale), options["prepared_for"] or "—"),
-                       (i18n.t("reports.audit.meta.issued", locale), issued),
-                       (i18n.t("reports.audit.meta.reference", locale), str(record.get("id") or "—"), "mono")]))
+    story = cover(evidence + (f" · {framework_label}" if controls else ""), options["title"] or evidence, system,
+                  [(i18n.t("reports.audit.meta.organization", locale), options["organization"] or "—"),
+                   (i18n.t("reports.audit.meta.prepared_for", locale), options["prepared_for"] or "—"),
+                   (i18n.t("reports.audit.meta.period", locale), period),
+                   (i18n.t("reports.audit.meta.prepared_by", locale), options["prepared_by"] or "—"),
+                   (i18n.t("reports.audit.meta.issued", locale), issued),
+                   (i18n.t("reports.audit.meta.reference", locale), str(record.get("id") or "—"), "mono")],
+                  note=i18n.t("reports.design.cover_note", locale, version=version))
     if record.get("type") == "asset_state" and (options["period_from"] or options["period_to"]):
         story.append(Spacer(1, 4))
         story.append(Paragraph(_t(i18n.t("reports.audit.period_note", locale, start=options["period_from"] or "—", end=options["period_to"] or issued,
@@ -355,7 +355,7 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
                          Paragraph(_t(_status_text(entry["items"], locale), 60), STYLE["cell"]),
                          Paragraph(_first_seen(entry["items"], record.get("created_at")), STYLE["cellmuted"]),
                          Paragraph(plain(action(entry, short=True, locale=locale), 180), STYLE["cell"])])
-        story.append(_grid(rows, [19 * mm, 48 * mm, 40 * mm, 19 * mm, 17 * mm, WIDTH - 143 * mm], zebra=True))
+        story.append(_grid(rows, [19 * mm, 46 * mm, 40 * mm, 19 * mm, 20 * mm, WIDTH - 144 * mm], zebra=True))
     else:
         story.append(Paragraph(_t(i18n.t("reports.audit.no_findings", locale)), STYLE["body"]))
     story += _deadlines(groups, (record.get("summary") or {}).get("sla"), locale)
@@ -370,7 +370,7 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
                 rows.append([Paragraph(_t(item.get("title"), 110), STYLE["cell"]), Paragraph(_t(status_label(status_of(item), locale)), STYLE["cell"]),
                              Paragraph(_t(decision.get("reason") or "—", 220), STYLE["cell"]), Paragraph(_t(decision.get("by") or "—", 40), STYLE["cellmuted"]),
                              Paragraph(_day(decision.get("at")), STYLE["cellmuted"]), Paragraph(_day(decision.get("expires_at")), STYLE["cellmuted"])])
-            story.append(_grid(rows, [48 * mm, 22 * mm, WIDTH - 126 * mm, 22 * mm, 17 * mm, 17 * mm]))
+            story.append(_grid(rows, [44 * mm, 22 * mm, WIDTH - 128 * mm, 22 * mm, 20 * mm, 20 * mm]))
         else:
             story.append(Paragraph(_t(i18n.t("reports.audit.no_exceptions_scope", locale)), STYLE["body"]))
     # Detail: only what was asked (by default, critical and high), also grouped.
@@ -385,7 +385,7 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
     story += signoff(options["prepared_by"], locale=locale) + [Spacer(1, 6), Paragraph(_t(disclaimer(locale), 400), STYLE["note"])]
     title = options["title"] or i18n.t("reports.audit.title_with_system", locale, system=system)
     footer = f"{title[:90]}  ·  {options['organization'][:40]}" if options["organization"] else title[:120]
-    return build(story, title=title, footer=footer, version=version,
+    return build(story, title=title, footer=footer, version=version, reference=str(record.get("id") or ""),
                  author=options["prepared_by"] or "Pitangus", subject=framework_label, locale=locale)
 
 
@@ -427,13 +427,14 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
     known_total = coverage.get("total")
     evidence = i18n.t("reports.audit.evidence", locale)
 
-    story = header(i18n.t("reports.audit.evidence_consolidated", locale) + (f"  ·  {framework_label}" if controls else ""),
-                   options["title"] or evidence, options["scope"] or scope_label)
-    story.append(meta([(i18n.t("reports.audit.meta.organization", locale), options["organization"] or "—"),
-                       (i18n.t("reports.common.scope", locale), options["scope"] or scope_label), (i18n.t("reports.audit.meta.period", locale), period),
-                       (i18n.t("reports.audit.meta.prepared_by", locale), options["prepared_by"] or "—"),
-                       (i18n.t("reports.audit.meta.prepared_for", locale), options["prepared_for"] or "—"),
-                       (i18n.t("reports.audit.meta.issued", locale), issued)]))
+    story = cover(i18n.t("reports.audit.evidence_consolidated", locale) + (f" · {framework_label}" if controls else ""),
+                  options["title"] or evidence, options["scope"] or scope_label,
+                  [(i18n.t("reports.audit.meta.organization", locale), options["organization"] or "—"),
+                   (i18n.t("reports.audit.meta.prepared_for", locale), options["prepared_for"] or "—"),
+                   (i18n.t("reports.audit.meta.period", locale), period),
+                   (i18n.t("reports.audit.meta.prepared_by", locale), options["prepared_by"] or "—"),
+                   (i18n.t("reports.audit.meta.issued", locale), issued)],
+                  note=i18n.t("reports.design.cover_note", locale, version=version))
     if options["period_from"] or options["period_to"]:
         story += [Spacer(1, 4), Paragraph(_t(i18n.t("reports.audit.period_note", locale, start=options["period_from"] or "—",
                                                    end=options["period_to"] or issued, issued=issued), 400), STYLE["note"])]
@@ -495,7 +496,7 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
             table.append([_chip(entry["severity"], locale=locale), Paragraph(_t(name, 60), STYLE["cellmuted"]), Paragraph(text_, STYLE["cell"]),
                           Paragraph(_first_seen(entry["items"], None), STYLE["cellmuted"]),
                           Paragraph(plain(action(entry, short=True, locale=locale), 160), STYLE["cell"])])
-        story.append(_grid(table, [19 * mm, 36 * mm, 57 * mm, 17 * mm, WIDTH - 129 * mm], zebra=True))
+        story.append(_grid(table, [19 * mm, 34 * mm, 56 * mm, 20 * mm, WIDTH - 129 * mm], zebra=True))
         if len(open_items) > 400:
             story.append(Paragraph(_t(i18n.t("reports.audit.open_truncated", locale, shown=400, total=len(open_items)), 400), STYLE["note"]))
     else:
@@ -509,7 +510,7 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
                 table.append([Paragraph(_t(name, 60), STYLE["cellmuted"]), Paragraph(_t(finding.get("title"), 100), STYLE["cell"]),
                               Paragraph(_t(status_label(status_of(finding), locale)), STYLE["cell"]), Paragraph(_t(decision.get("reason") or "—", 200), STYLE["cell"]),
                               Paragraph(_t(decision.get("by") or "—", 40), STYLE["cellmuted"]), Paragraph(_day(decision.get("expires_at")), STYLE["cellmuted"])])
-            story.append(_grid(table, [32 * mm, 42 * mm, 20 * mm, WIDTH - 132 * mm, 21 * mm, 17 * mm]))
+            story.append(_grid(table, [30 * mm, 40 * mm, 20 * mm, WIDTH - 133 * mm, 23 * mm, 20 * mm]))
         else:
             story.append(Paragraph(_t(i18n.t("reports.audit.no_exceptions", locale)), STYLE["body"]))
     story += signoff(options["prepared_by"], locale=locale) + [Spacer(1, 6), Paragraph(_t(disclaimer(locale), 400), STYLE["note"])]

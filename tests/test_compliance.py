@@ -614,10 +614,10 @@ class CraFrameworkGateTests(HttpCase):
 
 class FrameworkTests(unittest.TestCase):
     def test_controls_that_rely_on_deadlines_say_whether_the_report_has_them(self):
-        from test_report_design import text as pdf_text
+        from test_report_design import rendered
         findings = [{**_finding("a" * 64, "critical"), "triage": {"status": "open"}}]
         record = {"id": "r", "type": "repository_scan", "created_at": "2026-09-25", "source": {"name": "acme/api"}}
-        content = pdf_text(render_audit_pdf(record, findings, validate_options({"framework": "pci"}, default_by="ana"), version="0.9"))
+        content = rendered(lambda: render_audit_pdf(record, findings, validate_options({"framework": "pci"}, default_by="ana"), version="0.9"))[1]
         self.assertIn("no incluye los plazos", content)
 
     def test_every_framework_renders(self):
