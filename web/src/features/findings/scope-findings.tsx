@@ -5,7 +5,7 @@ import type { SessionUser } from '@/features/auth/session'
 import type { Asset } from '@/features/sources/asset-option'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Skeleton } from '@/shared/ui/loading'
-import { assetQuery, findingsScopeKey, type ScopedFindings } from '@/shared/api/queries'
+import { assetQuery, invalidateFindings, type ScopedFindings } from '@/shared/api/queries'
 import { scopeQuery, scopeReady, type Scope } from '@/shared/lib/scope'
 import { FindingTabs } from '@/features/findings/finding-tabs'
 import { ScopeResult } from '@/features/findings/scope-result'
@@ -20,7 +20,7 @@ export function ScopeFindings({ scope, tab, onTab, result, user, onOpenAsset }: 
 }) {
   const { t } = useTranslation('findings')
   const queryClient = useQueryClient()
-  const reload = useCallback(() => { void queryClient.invalidateQueries({ queryKey: findingsScopeKey }) }, [queryClient])
+  const reload = useCallback(() => { void invalidateFindings(queryClient) }, [queryClient])
   const opening = useMutation({
     mutationFn: async (key: string) => {
       const found = await queryClient.fetchQuery(assetQuery<Asset>(key))

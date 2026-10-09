@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Bone } from '@/shared/ui/loading'
 import { api } from '@/shared/api/http'
 import { apiPost } from '@/shared/api/client'
-import { assetSecretsQuery, exclusionsQuery, keys, type Exclusions } from '@/shared/api/queries'
+import { assetSecretsQuery, exclusionsQuery, invalidateFindings, keys, type Exclusions } from '@/shared/api/queries'
 import { SecretRulesDialog } from '@/features/findings/secret-rules'
 import { entryCount, secretCounts, secretSummary } from '@/features/findings/secret-summary'
 import { formatDate } from '@/shared/lib/types'
@@ -19,8 +19,8 @@ const SHOWN = 2
 
 // A repository's own settings in one strip: excluded paths and its secret detection entries (on top of the defaults).
 // Deadlines are global: only a link to the policy.
-export function RepositorySettings({ assetKey, name, secrets, canEdit, onChanged, onOpenPolicies }: {
-  assetKey: string; name: string; secrets: boolean; canEdit: boolean; onChanged: () => void; onOpenPolicies: () => void
+export function RepositorySettings({ assetKey, name, secrets, canEdit, onOpenPolicies }: {
+  assetKey: string; name: string; secrets: boolean; canEdit: boolean; onOpenPolicies: () => void
 }) {
   const { t } = useTranslation('findings')
   const id = useId()
@@ -32,7 +32,7 @@ export function RepositorySettings({ assetKey, name, secrets, canEdit, onChanged
   return <section aria-labelledby={id} className="rounded-xl border border-app-line bg-inset px-4 py-2.5 text-sm">
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
       <h2 id={id} className="text-xs font-medium text-app-subtle">{t('repo_settings.title')}</h2>
-      <ExcludedPaths assetKey={assetKey} canEdit={canEdit} onSaved={message => { setNotice(message); onChanged() }} />
+      <ExcludedPaths assetKey={assetKey} canEdit={canEdit} onSaved={setNotice} />
       {secrets && <RepositorySecrets assetKey={assetKey} name={name} canEdit={canEdit} onSaved={setNotice} />}
       <Button size="xs" variant="link" className="ml-auto px-0 text-app-muted" onClick={onOpenPolicies}>{t('repo_settings.deadlines')}</Button>
     </div>
@@ -78,6 +78,8 @@ function ExcludedPaths({ assetKey, canEdit, onSaved }: { assetKey: string; canEd
       const patterns = text.split('\n').map(line => line.trim()).filter(Boolean)
       const saved = await api.post<Saved>('/api/assets/exclusions', 'save-exclusions', { key: assetKey, patterns, reason: reason.trim() })
       queryClient.setQueryData(keys.exclusions(assetKey), saved)
+      // Saving moves findings in and out of Excluded.
+      void invalidateFindings(queryClient)
       setOpen(false)
       const excluded = saved.moved.excluded ? t('exclusions.moved_excluded', { count: saved.moved.excluded }) : ''
       const reopened = saved.moved.reopened ? t('exclusions.moved_reopened', { count: saved.moved.reopened }) : ''

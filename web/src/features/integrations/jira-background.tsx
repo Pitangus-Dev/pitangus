@@ -36,7 +36,7 @@ export function JiraBackgroundWork({ onNotice }: { onNotice: Notice }) {
       ? t('jira.background.finished_failed', { count: batch.created, failed: batch.failed })
       : t('jira.background.finished', { count: batch.created }))
     void queryClient.invalidateQueries({ queryKey: keys.runs })
-    void queryClient.invalidateQueries({ queryKey: ['assets'] })
+    void queryClient.invalidateQueries({ queryKey: keys.assets })
   })
   const running = items.filter(item => item.pending > 0)
   // Date.now() only decides whether a finished batch is still worth showing; it doesn't need to re-render on its own.
