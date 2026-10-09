@@ -43,6 +43,11 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Fixed
 
+- **Slack and Teams notices read better.** No more emoji: each finding shows its severity in words and what it is,
+  with where it is on the line below ("Dependency `next 14.2.3`" or the file and line), under "Most urgent". In Slack
+  the edge of the message takes the colour of the most severe finding. Dependency advisories drop the repeated package
+  prefix ("flatted 3.3.1: flatted: Flatted: Prototype pollution…" becomes "Prototype pollution…"); the signed webhook
+  gets the same cleaner `title` and a new `dependency` flag per item.
 - **Slack messages no longer show a warning next to "Open in Pitangus".** It was a button, and Slack treats every
   button as interactive: with an incoming webhook (no interactivity URL) it marked it with a warning. It is now a plain
   link that opens the same page.

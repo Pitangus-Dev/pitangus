@@ -276,7 +276,9 @@
     "more": "… y {{count}} más",
     "open": "Abrir en Pitangus",
     "test_title": "Prueba de Pitangus",
-    "test_text": "Si ves esto, el canal está bien configurado."
+    "test_text": "Si ves esto, el canal está bien configurado.",
+    "most_urgent": "Lo más urgente",
+    "dependency": "Dependencia"
   },
   "ai": {
     "unsupported": "Proveedor no admitido",

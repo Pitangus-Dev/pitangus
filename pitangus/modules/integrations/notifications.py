@@ -168,6 +168,16 @@ def _where(finding: dict) -> str:
     return f"{finding.get('path')}:{finding.get('line')}"
 
 
+def _headline(finding: dict, title: str) -> str:
+    """Dependency advisories arrive as "pkg 1.2: pkg: Pkg: summary"; a notice only needs the summary."""
+    name = str((finding.get("package") or {}).get("name") or "").lower()
+    names = (name, name.split("/")[-1]) if name else ()
+    parts = [part.strip() for part in title.split(":")]
+    while names and len(parts) > 1 and parts[0].lower().startswith(names):
+        parts.pop(0)
+    return ": ".join(parts)
+
+
 def findings_message(record: dict, opened: list[dict], locale: str | None = None) -> dict:
     """What a findings notice says; each channel draws it its own way. A channel is read by a team, not by someone
     who asked in person, so it speaks PITANGUS_DEFAULT_LOCALE."""
@@ -187,8 +197,9 @@ def findings_message(record: dict, opened: list[dict], locale: str | None = None
             "text": t("integrations.notifications.findings_text", locale, summary=summary, origin=origin)
             + (t("integrations.notifications.kev_suffix", locale, count=kev) if kev else ""),
             "asset": name, "run_id": record.get("id"), "link": panel_link(record.get("id")), "counts": counts,
-            "items": [{"severity": item.get("severity"), "title": text(item.get("title"), locale)[:140], "where": _where(item)[:120],
-                       "kev": bool(item.get("kev")), "fingerprint": item.get("fingerprint")} for item in top],
+            "items": [{"severity": item.get("severity"), "title": _headline(item, text(item.get("title"), locale))[:140], "where": _where(item)[:120],
+                       "dependency": bool((item.get("package") or {}).get("name")), "kev": bool(item.get("kev")),
+                       "fingerprint": item.get("fingerprint")} for item in top],
             "more": max(0, len(opened) - len(top))}
 
 
@@ -213,33 +224,48 @@ def _teams_escape(value: str) -> str:
     return re.sub(r"([\\`*_\[\]()#>])", r"\\\1", str(value))
 
 
+# The colour of the notice's edge in Slack: its most severe finding.
+EDGE = {"critical": "#B42318", "high": "#C4320A", "medium": "#B54708", "low": "#175CD3", "info": "#667085"}
+
+
 def render(kind: str, message: dict, locale: str | None = None) -> dict:
+    """Plain words, no emoji: each finding as its severity and what it is, with where on the line below."""
     locale = locale or default_locale()
-    label = lambda severity: text(LABEL.get(severity, severity), locale)
+    label = lambda severity: text(LABEL.get(severity, severity), locale).capitalize()
     more = t("integrations.notifications.more", locale, count=message["more"])
     open_label = t("integrations.notifications.open", locale)
-    icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵", "info": "⚪"}
-    lines = [f"{icon.get(item['severity'], '•')} *{_slack_escape(label(item['severity']))}* "
-             f"{_slack_escape(item['title'])} · `{_slack_escape(item['where'])}`" + (" · KEV" if item["kev"] else "") for item in message["items"]]
-    if message["more"]:
-        lines.append(more)
+    urgent = t("integrations.notifications.most_urgent", locale)
+    dependency = t("integrations.notifications.dependency", locale)
+    worst = next((level for level in ORDER if (message.get("counts") or {}).get(level)), None)
     if kind == "slack":
-        blocks = [{"type": "header", "text": {"type": "plain_text", "text": message["title"][:150]}},
-                  {"type": "section", "text": {"type": "mrkdwn", "text": _slack_escape(message["text"])}}]
-        if lines:
-            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)[:2900]}})
+        blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": f"*{_slack_escape(message['title'])}*\n{_slack_escape(message['text'])}"}}]
+        if message["items"]:
+            lines = [f"*{_slack_escape(label(item['severity']))}* · {_slack_escape(item['title'])}" + (" · *KEV*" if item["kev"] else "")
+                     + "\n" + (f"{_slack_escape(dependency)} " if item.get("dependency") else "") + f"`{_slack_escape(item['where'])}`"
+                     for item in message["items"]]
+            if message["more"]:
+                lines.append(f"_{_slack_escape(more)}_")
+            blocks += [{"type": "divider"}, {"type": "section", "text": {"type": "mrkdwn", "text": (f"*{_slack_escape(urgent)}*\n\n" + "\n\n".join(lines))[:2900]}}]
         # A link, not a button: Slack treats every button as interactive and, with an incoming webhook (no
         # interactivity URL), marks it with a warning.
         if message["link"] and not re.search(r"[\s<>|]", message["link"]):
             blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": f"<{message['link']}|{_slack_escape(open_label)} →>"}]})
-        return {"text": f"{message['title']}: {message['text']}", "blocks": blocks}
+        fallback = f"{message['title']}: {message['text']}"
+        if worst:
+            return {"text": fallback, "attachments": [{"color": EDGE[worst], "blocks": blocks, "fallback": fallback}]}
+        return {"text": fallback, "blocks": blocks}
     if kind == "teams":
         body = [{"type": "TextBlock", "text": _teams_escape(message["title"]), "weight": "Bolder", "size": "Medium", "wrap": True},
-                {"type": "TextBlock", "text": _teams_escape(message["text"]), "wrap": True, "isSubtle": True}]
-        body += [{"type": "TextBlock", "wrap": True, "text": f"**{label(item['severity'])}** · {_teams_escape(item['title'])} · {_teams_escape(item['where'])}"
-                                                             + (" · KEV" if item["kev"] else "")} for item in message["items"]]
-        if message["more"]:
-            body.append({"type": "TextBlock", "text": more, "isSubtle": True})
+                {"type": "TextBlock", "text": _teams_escape(message["text"]), "wrap": True, "isSubtle": True, "spacing": "Small"}]
+        if message["items"]:
+            body.append({"type": "TextBlock", "text": urgent, "weight": "Bolder", "spacing": "Large", "separator": True})
+            for item in message["items"]:
+                body.append({"type": "Container", "spacing": "Medium", "items": [
+                    {"type": "TextBlock", "wrap": True, "text": f"**{_teams_escape(label(item['severity']))}** · {_teams_escape(item['title'])}" + (" · **KEV**" if item["kev"] else ""),
+                     "color": "Attention" if item["severity"] in ("critical", "high") else "Default"},
+                    {"type": "TextBlock", "wrap": True, "text": (f"{dependency} " if item.get("dependency") else "") + _teams_escape(item["where"]), "isSubtle": True, "spacing": "None", "size": "Small"}]})
+            if message["more"]:
+                body.append({"type": "TextBlock", "text": more, "isSubtle": True, "spacing": "Medium"})
         card = {"type": "AdaptiveCard", "$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "version": "1.4", "body": body}
         if message["link"]:
             card["actions"] = [{"type": "Action.OpenUrl", "title": open_label, "url": message["link"]}]
