@@ -18,13 +18,13 @@ analizar sin servidor y qué no escala todavía.
   muere, deja de renovarse y a los 5 minutos se marca como fallido, con un mensaje claro, en vez de quedarse colgado.
   Los análisis nunca se reintentan solos.
 - **Un líder.** El worker que tiene el candado de líder en PostgreSQL corre además las tareas periódicas (la vigilancia
-  de avisos, la copia de NVD, los lotes). Los demás solo analizan. Si el líder muere, otro toma el candado.
+  de avisos, la copia de NVD, los lotes). Los demás solo analizan. Si el líder muere, otro toma el candado. El líder mantiene además alimentado el lote de una
+  organización: tantos repositorios como workers sin nada esperando, así que un lote se reparte entre todos los
+  workers, y los análisis lanzados a mano siguen teniendo preferencia.
 - **Cachés, no estado.** Cada worker guarda las bases de los motores en su carpeta de datos (Trivy ~1,3 GB, Grype
   ~2,1 GB si analizas imágenes). En un worker nuevo se vuelven a descargar y pueden vivir en disco efímero.
 
-Un worker es, por tanto, una unidad de **4 GB de memoria y 2 CPU**, y el rendimiento crece con el número de workers
-para los análisis que se encolan de uno en uno: revisiones de PR, análisis que lanzas, importaciones desde CI. Los
-lotes de una organización son la excepción (abajo).
+Un worker es, por tanto, una unidad de **4 GB de memoria y 2 CPU**, y el rendimiento crece con el número de workers.
 
 ## Añadir workers
 
@@ -93,9 +93,6 @@ cero workers significa que nada se analiza.
 
 - **Varios análisis a la vez en un mismo worker.** Hoy es un análisis por worker. Está previsto correr varios con un
   presupuesto de memoria compartido, y dar prioridad a las revisiones de PR sobre los análisis completos.
-- **Lotes de una organización.** Un lote («analizar toda esta organización») lo alimenta el líder de un repositorio
-  en uno, y solo mientras la cola está vacía, así que avanza más o menos al ritmo de un solo worker por muchos que
-  añadas. Los análisis encolados de uno en uno sí se reparten. Está previsto alimentar tantos como workers libres haya.
 - **Manifiestos de autoescalado.** Las métricas están; los ejemplos de Kubernetes/KEDA, no.
 - **Una medición publicada.** La tabla de dimensionado es derivada, no medida.
 - **Pruebas dinámicas.** Los análisis nunca ejecutan ni atacan tus aplicaciones; ver

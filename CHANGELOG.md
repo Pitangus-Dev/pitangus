@@ -7,6 +7,13 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Fixed
+
+- **An organization batch now uses every worker.** The leader fed the batch one repository at a time, and only while
+  the queue was empty, so with several workers a batch advanced at the pace of one. It now keeps as many of its
+  repositories queued as there are workers with nothing waiting, also while the leader itself is scanning; scans
+  launched by hand keep precedence.
+
 ## [0.12.2] - 2026-10-09
 
 ### Added
