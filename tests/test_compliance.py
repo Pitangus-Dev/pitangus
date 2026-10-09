@@ -522,6 +522,13 @@ class EvidenceHubTests(HttpCase):
         self.assertEqual((status, page["total"], {item["name"]: item["sbom"] for item in page["items"]}), (200, 2, {"org/api": True, "org/web": False}))
         self.assertEqual({item["kind"] for item in page["items"]}, {"repository"})
         self.assertEqual(self.call("GET", "/api/evidence/assets?q=API", headers=cookie)[1]["total"], 1)
+        # The scope summary previews what a portfolio file covers; nothing matching is zero, not an error.
+        self.assertEqual(self.call("GET", "/api/evidence/scope")[0], 401)
+        self.assertEqual(self.call("GET", "/api/evidence/scope", headers=cookie)[1], {"repositories": 2, "images": 0, "complete": 1})
+        self.assertEqual(self.call("GET", "/api/evidence/scope?account=ORG", headers=cookie)[1], {"repositories": 2, "images": 0, "complete": 1})
+        self.assertEqual(self.call("GET", "/api/evidence/scope?assets=github:org/web", headers=cookie)[1], {"repositories": 1, "images": 0, "complete": 0})
+        self.assertEqual(self.call("GET", "/api/evidence/scope?account=other", headers=cookie)[1], {"repositories": 0, "images": 0, "complete": 0})
+        self.assertEqual(self.call("GET", "/api/evidence/scope?account=org&assets=github:org/web", headers=cookie)[0], 400)
         for bad in ("limit=0", "limit=101", "q=" + "a" * 101):
             self.assertEqual(self.call("GET", f"/api/evidence/assets?{bad}", headers=cookie)[0], 400, bad)
 

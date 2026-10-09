@@ -9,6 +9,9 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Added
 
+- **One scope picker for the evidence in Compliance.** Three steps: which assets (one, an organization, several or all),
+  which framework, and the downloads for that scope, with a preview of what it covers (repositories, images, how many
+  with a complete scan) before downloading anything. The separate "one asset" and "portfolio" blocks are gone.
 - **An image knows which repository it is built from.** Pitangus reads its OCI labels (`org.opencontainers.image.source`
   and `.revision`, set by `docker/build-push-action` and GHCR) and links it to that repository when it is analyzed too;
   an administrator can set or change the link by hand in Compliance. The reports say "built from org/repo @ commit".

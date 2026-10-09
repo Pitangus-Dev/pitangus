@@ -1845,6 +1845,77 @@
         }
       }
     },
+    "/api/evidence/scope": {
+      "get": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "Evidence Scope",
+        "description": "What a scope covers, before downloading anything: zero when nothing matches (not an error, it's a preview).",
+        "operationId": "evidence_scope_api_evidence_scope_get",
+        "parameters": [
+          {
+            "name": "assets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "maxItems": 500,
+              "default": [],
+              "title": "Assets"
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Account"
+            }
+          },
+          {
+            "name": "include_images",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Images"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/evidence/image-link": {
       "post": {
         "tags": [
@@ -12049,6 +12120,29 @@
         ],
         "title": "ScanPlan",
         "description": "What a scan will do, from the repository's real tree and the engines this installation can run."
+      },
+      "ScopeSummary": {
+        "properties": {
+          "repositories": {
+            "type": "integer",
+            "title": "Repositories"
+          },
+          "images": {
+            "type": "integer",
+            "title": "Images"
+          },
+          "complete": {
+            "type": "integer",
+            "title": "Complete"
+          }
+        },
+        "type": "object",
+        "required": [
+          "repositories",
+          "images",
+          "complete"
+        ],
+        "title": "ScopeSummary"
       },
       "SecretAllowlist": {
         "properties": {

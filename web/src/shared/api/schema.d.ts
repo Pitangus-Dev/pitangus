@@ -601,6 +601,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/evidence/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Evidence Scope
+         * @description What a scope covers, before downloading anything: zero when nothing matches (not an error, it's a preview).
+         */
+        get: operations["evidence_scope_api_evidence_scope_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/evidence/image-link": {
         parameters: {
             query?: never;
@@ -3846,6 +3866,15 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ScopeSummary */
+        ScopeSummary: {
+            /** Repositories */
+            repositories: number;
+            /** Images */
+            images: number;
+            /** Complete */
+            complete: number;
+        };
         /**
          * SecretAllowlist
          * @description Regexes are matched against the detected secret; paths are globs relative to the repository root.
@@ -5363,6 +5392,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvidenceAssetPage"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    evidence_scope_api_evidence_scope_get: {
+        parameters: {
+            query?: {
+                assets?: string[];
+                account?: string;
+                include_images?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeSummary"];
                 };
             };
             /** @description Invalid parameters */
