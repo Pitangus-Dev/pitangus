@@ -48,7 +48,7 @@ La matriz de la ejecución se calcula de lo que corrió: cuántas reglas propias
 
 ## Escaneos en segundo plano
 
-Lanzar un escaneo devuelve al instante `202` con su identificador y lo encola; un único trabajador los procesa en orden. Mientras corre, la ejecución existe con estado `queued` o `running` y un registro de progreso pensado para el usuario —qué paso empezó, qué terminó y con qué cuenta— que el panel muestra como consola en vivo y conserva plegado al terminar. El progreso nunca incluye rutas internas, salidas crudas de herramientas ni trazas: si algo falla, se dice en qué fase y que el equipo puede revisar los logs con el identificador. Al terminar, el panel avisa con un aviso flotante (y una notificación del navegador si ya diste permiso).
+Lanzar un escaneo devuelve al instante `202` con su identificador y lo encola; uno o más workers los toman de la cola, cada uno un análisis a la vez ([escalar.md](escalar.md)). Mientras corre, la ejecución existe con estado `queued` o `running` y un registro de progreso pensado para el usuario —qué paso empezó, qué terminó y con qué cuenta— que el panel muestra como consola en vivo y conserva plegado al terminar. El progreso nunca incluye rutas internas, salidas crudas de herramientas ni trazas: si algo falla, se dice en qué fase y que el equipo puede revisar los logs con el identificador. Al terminar, el panel avisa con un aviso flotante (y una notificación del navegador si ya diste permiso).
 
 ## Imágenes de contenedor
 

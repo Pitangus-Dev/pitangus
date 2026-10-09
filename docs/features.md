@@ -50,7 +50,7 @@ A run's matrix is computed from what actually ran: how many Pitangus rules targe
 
 ## Background scans
 
-Starting a scan returns `202` immediately with its ID and queues it; a single worker processes scans in order. While it runs, the run exists with status `queued` or `running` and a progress log written for people (which step started, which finished and with what count), which the panel shows as a live console and keeps collapsed once done. Progress never includes internal paths, raw tool output or stack traces: if something fails, it says in which phase and that the team can check the logs with the ID. When it finishes, the panel shows a toast (and a browser notification if you've already granted permission).
+Starting a scan returns `202` immediately with its ID and queues it; one or more workers take them from the queue, each one scan at a time ([scaling.md](scaling.md)). While it runs, the run exists with status `queued` or `running` and a progress log written for people (which step started, which finished and with what count), which the panel shows as a live console and keeps collapsed once done. Progress never includes internal paths, raw tool output or stack traces: if something fails, it says in which phase and that the team can check the logs with the ID. When it finishes, the panel shows a toast (and a browser notification if you've already granted permission).
 
 ## Container images
 

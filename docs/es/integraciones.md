@@ -55,7 +55,8 @@ Los dos huecos por los que más preguntan:
   sitio se rige por los términos de CodeQL de GitHub. El mismo paso con Semgrep está en
   [cli.md](cli.md#resultados-de-otras-herramientas).
 - **Pruebas dinámicas.** Pitangus nunca ejecuta ni ataca tus aplicaciones. Hasta que lo ofrezca, corre ZAP o Nuclei
-  por tu cuenta, contra sistemas tuyos, e importa su SARIF de la misma forma.
+  por tu cuenta, contra sistemas tuyos, e importa su SARIF de la misma forma (ZAP lo escribe con la plantilla
+  `sarif-json` de su add-on de informes; Nuclei, con `-se`).
 
 ## Jira Cloud
 

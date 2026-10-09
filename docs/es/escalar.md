@@ -22,7 +22,9 @@ analizar sin servidor y qué no escala todavía.
 - **Cachés, no estado.** Cada worker guarda las bases de los motores en su carpeta de datos (Trivy ~1,3 GB, Grype
   ~2,1 GB si analizas imágenes). En un worker nuevo se vuelven a descargar y pueden vivir en disco efímero.
 
-Un worker es, por tanto, una unidad de **4 GB de memoria y 2 CPU**, y el rendimiento crece con el número de workers.
+Un worker es, por tanto, una unidad de **4 GB de memoria y 2 CPU**, y el rendimiento crece con el número de workers
+para los análisis que se encolan de uno en uno: revisiones de PR, análisis que lanzas, importaciones desde CI. Los
+lotes de una organización son la excepción (abajo).
 
 ## Añadir workers
 
@@ -91,6 +93,9 @@ cero workers significa que nada se analiza.
 
 - **Varios análisis a la vez en un mismo worker.** Hoy es un análisis por worker. Está previsto correr varios con un
   presupuesto de memoria compartido, y dar prioridad a las revisiones de PR sobre los análisis completos.
+- **Lotes de una organización.** Un lote («analizar toda esta organización») lo alimenta el líder de un repositorio
+  en uno, y solo mientras la cola está vacía, así que avanza más o menos al ritmo de un solo worker por muchos que
+  añadas. Los análisis encolados de uno en uno sí se reparten. Está previsto alimentar tantos como workers libres haya.
 - **Manifiestos de autoescalado.** Las métricas están; los ejemplos de Kubernetes/KEDA, no.
 - **Una medición publicada.** La tabla de dimensionado es derivada, no medida.
 - **Pruebas dinámicas.** Los análisis nunca ejecutan ni atacan tus aplicaciones; ver

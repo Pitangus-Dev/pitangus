@@ -53,7 +53,8 @@ The two gaps people ask about most:
   elsewhere is governed by the GitHub CodeQL Terms. The same step with Semgrep is in
   [cli.md](cli.md#other-tools-results).
 - **Dynamic testing.** Pitangus never runs or attacks your applications. Until it offers that, run ZAP or Nuclei
-  yourself, against systems you own, and import their SARIF the same way.
+  yourself, against systems you own, and import their SARIF the same way (ZAP writes it with the `sarif-json`
+  template of its reports add-on; Nuclei with `-se`).
 
 ## Jira Cloud
 

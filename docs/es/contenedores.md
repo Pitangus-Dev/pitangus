@@ -124,6 +124,6 @@ Los motores se lanzan por cada análisis como contenedores efímeros (`--rm`) co
 
 ## Aislamiento entre análisis
 
-Cada análisis usa su propia instantánea del repositorio (`data/work/snapshot-…/`, una por análisis) y contenedores de motor nuevos que se destruyen al terminar, así que dos análisis no comparten ficheros ni procesos. Hoy se ejecutan **de uno en uno** (cola con un trabajador), lo que limita el consumo a un motor a la vez.
+Cada análisis usa su propia instantánea del repositorio (`data/work/snapshot-…/`, una por análisis) y contenedores de motor nuevos que se destruyen al terminar, así que dos análisis no comparten ficheros ni procesos. Cada worker los ejecuta **de uno en uno**, lo que limita su consumo a un motor a la vez; más workers corren más análisis ([escalar.md](escalar.md)).
 
 Evaluamos pasar a un *runner* efímero por análisis (un contenedor con todas las herramientas, su propia red y su propio volumen, destruido al terminar) y ejecutar varios en paralelo. Es una línea de trabajo abierta y la conclusión de la evaluación es que la dirección es buena, pero las herramientas no deben descargarse en cada análisis (lento y más superficie de cadena de suministro), sino venir en una imagen fijada, y el paralelismo necesita un límite configurable para no agotar la máquina.

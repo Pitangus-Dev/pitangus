@@ -22,7 +22,8 @@ without a server at all, and what doesn't scale yet.
 - **Caches, not state.** Each worker keeps its engine databases under its data folder (Trivy ~1.3 GB, Grype ~2.1 GB
   if you scan container images). They download again on a fresh worker and can live on ephemeral disk.
 
-So a worker is a unit of **4 GB of memory and 2 CPUs**, and throughput grows with the number of workers.
+So a worker is a unit of **4 GB of memory and 2 CPUs**, and throughput grows with the number of workers for scans
+queued one by one: PR reviews, scans you launch, CI imports. Organization batches are the exception (below).
 
 ## Adding workers
 
@@ -88,6 +89,9 @@ of zero means nothing gets scanned.
 
 - **Parallel scans inside one worker.** Today it is one scan per worker. Running several with a shared memory budget
   is planned, as is giving pull request reviews priority over full scans.
+- **Organization batches.** A batch ("scan this whole organization") is fed by the leader one repository at a
+  time, and only while the queue is empty, so it advances at roughly one worker's pace however many you add. Scans
+  queued one by one do spread across workers. Feeding as many as there are free workers is planned.
 - **Autoscaling manifests.** The metrics are there; the Kubernetes/KEDA examples aren't.
 - **A measured benchmark.** The sizing table is derived, not measured.
 - **Dynamic testing.** Scans never run or attack your applications; see [features.md](features.md#what-pitangus-covers-and-what-it-doesnt).
