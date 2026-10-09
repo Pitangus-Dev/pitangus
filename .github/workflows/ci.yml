@@ -156,8 +156,10 @@ jobs:
       - name: Day
         id: day
         run: echo "value=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+      # Advisory data, not code, and nothing here is published (the release builds without caches): a PR's cache stays
+      # in its own ref, and only pushes to main (reviewed PRs) write the one PRs start from.
       - name: Advisory databases
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0  zizmor: ignore[cache-poisoning]
         with:
           path: |
             ${{ runner.temp }}/pitangus-data/trivy-cache
