@@ -32,7 +32,7 @@ export function ImageOrigin({ asset, admin, onChanged }: { asset: Asset; admin: 
       const result = await api.post<Link>('/api/evidence/image-link', 'image-link', { image: asset.key, repository })
       onChanged({ ...asset, built_from: result.built_from })
       setEditing(false)
-      void queryClient.invalidateQueries({ queryKey: keys.evidenceAssets })
+      void queryClient.invalidateQueries({ queryKey: keys.evidence })
     } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) }
   }
   const origin = built ? (built.how === 'manual'

@@ -67,7 +67,7 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
           <SelectTrigger id="audit-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{current && t(current[1])}</span></SelectTrigger>
           <FrameworkOptions frameworks={frameworks} />
         </Select>
-        <p className="text-xs text-app-muted">{current && t(current[2])}.{framework === 'general' ? '' : ` ${t('audit.mapping_note')}`}</p></div>
+        <p className="space-x-1 text-xs text-app-muted">{current && <span>{t('audit.framework_hint', { hint: t(current[2]) })}</span>}{framework !== 'general' && <span>{t('audit.mapping_note')}</span>}</p></div>
 
       {portfolio ? <p className="rounded-lg border border-app-line bg-inset p-3 text-sm text-app-muted">{t('audit.portfolio_scope')}</p>
       : <fieldset className="space-y-2"><legend className={label}>{t('audit.findings_legend')}</legend>

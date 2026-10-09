@@ -297,6 +297,12 @@ class PortfolioEvidenceIn(EvidenceScope):
     framework: Literal[tuple(FRAMEWORKS)]  # type: ignore[valid-type]
 
 
+class ScopeSummary(BaseModel):
+    repositories: int
+    images: int
+    complete: int  # with a completed full scan (what an SBOM needs)
+
+
 class ImageLinkIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     image: AssetKey
@@ -331,6 +337,17 @@ def evidence_assets(q: str = Query("", max_length=100), kind: Literal["", "repos
     built = provenance.links(context.data_dir)
     rows = [{**row, "built_from": built.get(row["key"])} for row in evidence.assets(context.data_dir, query=q) if not kind or row["kind"] == kind]
     return page.slice(rows)
+
+
+@router.get("/api/evidence/scope", response_model=ScopeSummary)
+def evidence_scope(assets: list[AssetKey] = Query([], max_length=provenance.SCOPE_MAX), account: str = Query("", max_length=100),
+                   include_images: bool = True, context: Context = Depends(guard())) -> dict:
+    """What a scope covers, before downloading anything: zero when nothing matches (not an error, it's a preview)."""
+    if assets and account:
+        raise ApiError(400, msg("api.scope.one_kind"))
+    rows = provenance.scope(context.data_dir, assets=assets or None, account=account.strip() or None, include_images=include_images)
+    return {"repositories": sum(1 for row in rows if row["kind"] == "repository"), "images": sum(1 for row in rows if row["kind"] == "image"),
+            "complete": sum(1 for row in rows if row["last_complete"])}
 
 
 @router.post("/api/evidence/image-link", response_model=ImageLink)

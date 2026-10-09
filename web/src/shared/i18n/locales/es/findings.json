@@ -315,6 +315,7 @@
       "general": { "name": "General", "hint": "Sin marco: gestión de vulnerabilidades" }
     },
     "mapping_note": "La relación con cada control es orientativa.",
+    "framework_hint": "{{hint}}.",
     "title": "Informe de evidencia para auditoría",
     "title_portfolio": "Informe consolidado · {{name}}",
     "description": "Un PDF conciso con alcance, método, hallazgos con su estado, excepciones aprobadas y firmas. Todo es opcional: sin tocar nada se genera con valores por defecto.",

@@ -17,6 +17,7 @@ export const keys = {
   craPolicy: ['cra-policy'] as const,
   evidence: ['evidence'] as const,
   evidenceAssets: ['evidence', 'assets'] as const,
+  evidenceScope: ['evidence', 'scope'] as const,
   secretRules: ['secret-rules'] as const,
   secretBuiltinRules: ['secret-rules', 'builtin'] as const,
   assetSecretsAll: ['secret-rules', 'asset'] as const,
@@ -62,6 +63,12 @@ export const craAssetsQuery = (q: string) => queryOptions({
 // Whether the workspace sells products in the EU: without it, no CRA UI anywhere.
 export const craPolicyQuery = () => queryOptions({ queryKey: keys.craPolicy, queryFn: ({ signal }) => apiGet('/api/policies/cra', undefined, { signal }), staleTime: 60_000 })
 export const evidenceQuery = () => queryOptions({ queryKey: keys.evidence, queryFn: ({ signal }) => apiGet('/api/evidence', undefined, { signal }) })
+// What a portfolio scope covers (repositories, images, with a complete scan), previewed before any download. `search` is
+// the scope's query string (repeated `assets=`), which the generic query helper can't build.
+export const evidenceScopeQuery = (search: string) => queryOptions({
+  queryKey: [...keys.evidenceScope, search], staleTime: 30_000,
+  queryFn: ({ signal }) => api.get<Response<'/api/evidence/scope'>>(search ? `/api/evidence/scope?${search}` : '/api/evidence/scope', { signal }),
+})
 // Analyzed assets for the evidence hub's picker, searched by name on the server.
 export const evidenceAssetsQuery = (q: string, kind: '' | 'repository' | 'image' = '') => queryOptions({
   queryKey: [...keys.evidenceAssets, q, kind], staleTime: 30_000,

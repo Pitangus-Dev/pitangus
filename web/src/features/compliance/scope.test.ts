@@ -16,5 +16,6 @@ describe('portfolio scope', () => {
     expect(scopeReady({ ...ALL, kind: 'account' })).toBe(false)
     expect(scopeReady({ ...chosen, assets: [] })).toBe(false)
     expect(scopeReady(chosen)).toBe(true)
+    expect(scopeReady({ ...chosen, kind: 'one' })).toBe(false)
   })
 })

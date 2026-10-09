@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode, useId } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ArrowDownToLine, LoaderCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
@@ -10,7 +10,8 @@ import { FrameworkOptions } from '@/features/findings/framework-options'
 import { SkeletonCard } from '@/shared/ui/loading'
 import { api, query } from '@/shared/api/http'
 import type { Response } from '@/shared/api/client'
-import { evidenceAssetsQuery, evidenceQuery } from '@/shared/api/queries'
+import { evidenceAssetsQuery, evidenceQuery, evidenceScopeQuery } from '@/shared/api/queries'
+import { formatDate } from '@/shared/i18n/format'
 import { remembered, rememberFramework, rememberedFramework, useAuditFrameworks, type Framework } from '@/features/findings/audit-frameworks'
 import { EvidenceScope } from '@/features/compliance/evidence-scope'
 import { ALL, scopeBody, scopeQuery, scopeReady, type Scope } from '@/features/compliance/scope'
@@ -24,8 +25,8 @@ const withQuery = (url: string, extra: string) => {
 }
 const slug = (name: string, fallback: string) => name.replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 50) || fallback
 
-// Evidence hub: the files auditors and customers ask for, per asset and for the whole portfolio. Every file is built on
-// the server; the per-asset ones are the same exports as in Findings.
+// Evidence hub, in three steps: which assets (one, an organization, several or all), which framework, and the files for
+// that scope. Every file is built on the server; a single asset's are the same exports as in Findings.
 export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin?: boolean }) {
   const { t } = useTranslation('compliance')
   const { t: tf } = useTranslation('findings')
@@ -39,6 +40,8 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
   const [picked, setPicked] = useState<(ComboOption & { asset: Asset }) | null>(null)
   const [busy, setBusy] = useState<Item | null>(null)
   const [scope, setScope] = useState<Scope>(ALL)
+  // The previous count stays while the next one loads, so each scope change is announced once.
+  const summary = useQuery({ ...evidenceScopeQuery(scopeQuery(scope)), enabled: scope.kind !== 'one' && scopeReady(scope), placeholderData: keepPreviousData })
   const [error, setError] = useState('')
 
   const search = useCallback((q: string) => queryClient.fetchQuery(evidenceAssetsQuery(q)).then(page => ({
@@ -60,47 +63,69 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
     ? <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('evidence.load_failed')}</p>
     : <SkeletonCard lines={4} label={t('loading')} />
   const counts = overview.data
-  const asset = picked?.asset
+  const asset = scope.kind === 'one' ? picked?.asset : undefined
+  const many = scope.kind !== 'one'
+  const ready = many && scopeReady(scope)
+  const covered = summary.data
+  const empty = covered ? covered.repositories + covered.images === 0 : false
+  const pickOne = <div className="max-w-xl space-y-2">
+    <Combobox className="max-w-sm" label={t('evidence.asset')} placeholder={t('evidence.choose')} emptyText={t('evidence.no_match')} value={picked} search={search}
+      onSelect={option => { setPicked(option as ComboOption & { asset: Asset }); setError('') }} />
+    {picked?.asset.kind === 'image' && <ImageOrigin key={picked.asset.key} asset={picked.asset} admin={admin} onChanged={next => setPicked(current => current && { ...current, asset: next })} />}
+  </div>
+  const unready = !ready ? t('evidence.scope.incomplete') : summary.isError ? t('evidence.summary.failed') : !covered ? t('evidence.summary.counting')
+    : empty ? t('evidence.scope.nothing') : ''
   return <Card className="border-app-line bg-panel">
     <CardHeader><CardTitle className="text-base">{t('evidence.title')}</CardTitle><CardDescription>{t('evidence.description')}</CardDescription></CardHeader>
-    <CardContent className="space-y-5">
+    <CardContent className="space-y-6">
       {!counts.assets ? <p className="text-sm text-app-muted">{t('evidence.none')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('evidence.new_scan')}</button></p> : <>
-        <div className="max-w-sm space-y-1"><label htmlFor="evidence-framework" className="text-xs text-app-muted">{t('evidence.framework')}</label>
-          <Select value={framework} onValueChange={choose}>
-            <SelectTrigger id="evidence-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{frameworkName}</span></SelectTrigger>
-            <FrameworkOptions frameworks={frameworks} />
-          </Select></div>
+        <div className="grid gap-6 xl:grid-cols-2">
+          <EvidenceScope scope={scope} accounts={counts.accounts} total={counts.assets} one={pickOne} onChange={next => { setScope(next); setError('') }} />
+          <div className="min-w-0 space-y-2">
+            <label htmlFor="evidence-framework" className="block text-xs text-app-muted"><span aria-hidden>2 · </span>{t('evidence.framework')}</label>
+            <div className="max-w-sm"><Select value={framework} onValueChange={choose}>
+              <SelectTrigger id="evidence-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{frameworkName}</span></SelectTrigger>
+              <FrameworkOptions frameworks={frameworks} />
+            </Select></div>
+            {current && <p className="max-w-sm space-x-1 text-xs text-app-subtle"><span>{tf('audit.framework_hint', { hint: tf(current[2]) })}</span>{framework !== 'general' && <span>{tf('audit.mapping_note')}</span>}</p>}
+            <div role="status" aria-atomic="true" className="mt-4 max-w-xl space-y-1 rounded-xl border border-dashed border-app-line px-4 py-3 text-sm">
+              {asset ? <><p className="font-medium">{asset.name}</p>
+                  <p className="text-app-muted">{asset.kind === 'image' ? t('evidence.image') : t('evidence.repository')} · {asset.last_complete ? t('evidence.summary.last_complete', { date: formatDate(asset.last_complete) }) : t('evidence.summary.no_complete')}</p></>
+                : !many ? <p className="text-app-muted">{t('evidence.summary.pick')}</p>
+                : !ready ? <p className="text-app-muted">{t('evidence.scope.incomplete')}</p>
+                : summary.isError ? <p className="text-danger">{t('evidence.summary.failed')}</p>
+                : !covered ? <p className="text-app-muted">{t('evidence.summary.counting')}</p>
+                : <><p className="font-medium">{t('evidence.summary.assets', { count: covered.repositories + covered.images })}</p>
+                  <p className="text-app-muted">{[t('evidence.summary.repositories', { count: covered.repositories }), t('evidence.summary.images', { count: covered.images }),
+                    t('evidence.summary.complete', { count: covered.complete })].join(' · ')}</p></>}
+            </div>
+          </div>
+        </div>
 
-        <section aria-labelledby="evidence-asset" className="space-y-2">
-          <h3 id="evidence-asset" className="text-sm font-medium">{t('evidence.asset_title')}</h3>
-          <Combobox className="max-w-sm" label={t('evidence.asset')} placeholder={t('evidence.choose')} emptyText={t('evidence.no_match')} value={picked} search={search}
-            onSelect={option => { setPicked(option as ComboOption & { asset: Asset }); setError('') }} />
-          {asset?.kind === 'image' && <ImageOrigin key={asset.key} asset={asset} admin={admin} onChanged={next => setPicked(current => current && { ...current, asset: next })} />}
-          {asset ? <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line">
+        <section aria-labelledby="evidence-downloads" className="space-y-2">
+          <h3 id="evidence-downloads" className="text-xs font-normal text-app-muted"><span aria-hidden>3 · </span>{asset ? t('evidence.downloads_one', { name: asset.name })
+            : ready && covered && !empty ? t('evidence.downloads_many', { count: covered.repositories + covered.images }) : t('evidence.downloads')}</h3>
+          {!many ? (asset ? <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line">
+            <Row name={t('evidence.items.audit')} hint={t('evidence.items.audit_hint', { framework: frameworkName })} busy={busy === 'audit'} waiting={busy !== null}
+              onClick={() => void download('audit', () => api.downloadPost('/api/reports/audit', 'audit-report', { asset: asset.key, status: 'all', options: { framework } }, auditFile(asset.name)))} />
+            <Row name={t('evidence.items.technical')} hint={t('evidence.items.technical_hint')} busy={busy === 'technical'} waiting={busy !== null}
+              onClick={() => void exportFile('technical', asset, 'report.pdf', 'open')} />
             <Row name={t('evidence.items.sbom')} hint={asset.sbom ? t('evidence.items.sbom_hint') : t('evidence.items.sbom_missing')} busy={busy === 'sbom'} waiting={busy !== null} unavailable={!asset.sbom}
               onClick={() => void exportFile('sbom', asset, 'sbom.cdx.json', 'all')} />
             <Row name={t('evidence.items.vex')} hint={t('evidence.items.vex_hint')} busy={busy === 'vex'} waiting={busy !== null}
               onClick={() => void exportFile('vex', asset, 'vex.openvex.json', 'all')} />
-            <Row name={t('evidence.items.technical')} hint={t('evidence.items.technical_hint')} busy={busy === 'technical'} waiting={busy !== null}
-              onClick={() => void exportFile('technical', asset, 'report.pdf', 'open')} />
-            <Row name={t('evidence.items.audit')} hint={t('evidence.items.audit_hint', { framework: frameworkName })} busy={busy === 'audit'} waiting={busy !== null}
-              onClick={() => void download('audit', () => api.downloadPost('/api/reports/audit', 'audit-report', { asset: asset.key, status: 'all', options: { framework } }, auditFile(asset.name)))} />
-          </ul> : <p className="text-xs text-app-subtle">{t('evidence.pick_hint')}</p>}
-        </section>
-
-        <section aria-labelledby="evidence-portfolio" className="space-y-2">
-          <h3 id="evidence-portfolio" className="text-sm font-medium">{t('evidence.portfolio_title')}</h3>
-          <p className="text-xs text-app-muted">{t('evidence.portfolio_summary', { count: counts.assets, complete: counts.complete })}</p>
-          <EvidenceScope scope={scope} accounts={counts.accounts} onChange={next => { setScope(next); setError('') }} />
-          <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line">
-            <Row name={t('evidence.items.portfolio_sbom')} hint={!scopeReady(scope) ? t('evidence.scope.incomplete') : counts.complete ? t('evidence.items.portfolio_sbom_hint') : t('evidence.items.portfolio_missing')} busy={busy === 'portfolio_sbom'} waiting={busy !== null} unavailable={!counts.complete || !scopeReady(scope)}
-              onClick={() => void portfolioFile('portfolio_sbom', `/api/evidence/portfolio/sbom?${query({ organization: remembered().organization })}`, 'sbom.cdx.json')} />
-            <Row name={t('evidence.items.portfolio_vex')} hint={!scopeReady(scope) ? t('evidence.scope.incomplete') : counts.complete ? t('evidence.items.portfolio_vex_hint') : t('evidence.items.portfolio_missing')} busy={busy === 'portfolio_vex'} waiting={busy !== null} unavailable={!counts.complete || !scopeReady(scope)}
-              onClick={() => void portfolioFile('portfolio_vex', '/api/evidence/portfolio/vex', 'vex.openvex.json')} />
-            <Row name={t('evidence.items.portfolio')} hint={scopeReady(scope) ? t('evidence.items.portfolio_hint', { framework: frameworkName }) : t('evidence.scope.incomplete')} busy={busy === 'portfolio'} waiting={busy !== null}
-              unavailable={!scopeReady(scope)}
+          </ul> : null)
+          : <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line">
+            <Row name={t('evidence.items.portfolio')} hint={unready || t('evidence.items.portfolio_hint', { framework: frameworkName })} busy={busy === 'portfolio'} waiting={busy !== null}
+              unavailable={Boolean(unready)}
               onClick={() => void download('portfolio', () => api.downloadPost('/api/evidence/portfolio', 'audit-report', { framework, ...scopeBody(scope) }, auditFile(t('evidence.file_portfolio'))))} />
-          </ul>
+            <Row name={t('evidence.items.portfolio_sbom')} hint={unready || (covered?.complete ? t('evidence.items.portfolio_sbom_hint') : t('evidence.items.portfolio_missing'))} busy={busy === 'portfolio_sbom'} waiting={busy !== null}
+              unavailable={Boolean(unready) || !covered?.complete}
+              onClick={() => void portfolioFile('portfolio_sbom', `/api/evidence/portfolio/sbom?${query({ organization: remembered().organization })}`, 'sbom.cdx.json')} />
+            <Row name={t('evidence.items.portfolio_vex')} hint={unready || (covered?.complete ? t('evidence.items.portfolio_vex_hint') : t('evidence.items.portfolio_missing'))} busy={busy === 'portfolio_vex'} waiting={busy !== null}
+              unavailable={Boolean(unready) || !covered?.complete}
+              onClick={() => void portfolioFile('portfolio_vex', '/api/evidence/portfolio/vex', 'vex.openvex.json')} />
+          </ul>}
         </section>
         {error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
         <span role="status" className="sr-only">{busy ? t('evidence.preparing') : ''}</span>
