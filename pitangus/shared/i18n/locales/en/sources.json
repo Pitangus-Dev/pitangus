@@ -48,6 +48,7 @@
       "unreachable": "No HTTPS response on port 443.",
       "reachable": "HTTPS response {{code}} from {{address}}."
     },
-    "invalid_request": "Invalid domain request"
+    "invalid_request": "Invalid domain request",
+    "too_many_attempts": "Too many attempts for this domain; try again in {{seconds}} s"
   }
 }

@@ -35,8 +35,8 @@ class RoundTests(unittest.TestCase):
 
     def test_an_api_runs_the_light_tasks_and_queues_the_heavy_ones(self):
         outcome = periodic.run_round(self.data_dir, self.jobs, here_only=True, now=NOW)
-        self.assertEqual((sorted(outcome["ran"]), sorted(outcome["queued"])), (["outbox", "pull_requests"], ["advisories", "nvd"]))
-        self.assertEqual(sorted(self.calls), ["outbox", "pull_requests"])
+        self.assertEqual((sorted(outcome["ran"]), sorted(outcome["queued"])), (["domains", "outbox", "pull_requests"], ["advisories", "nvd"]))
+        self.assertEqual(sorted(self.calls), ["domains", "outbox", "pull_requests"])
         self.assertEqual(queue.pending(self.data_dir), 2)
         job = queue.claim(self.data_dir, "w")
         self.jobs._execute({**job["payload"], "kind": job["kind"], "run_id": job["run_id"]})  # the worker runs it

@@ -64,7 +64,9 @@
       "unknown_asset": "No hay ningún activo llamado {{asset}}: analízalo o conecta su repositorio primero",
       "ambiguous_asset": "Varios activos se llaman {{asset}}: usa la clave del activo",
       "invalid_scope": "El alcance debe ser full o partial",
-      "invalid_commit": "Commit no válido: usa su SHA (de 7 a 64 caracteres hexadecimales)"
+      "invalid_commit": "Commit no válido: usa su SHA (de 7 a 64 caracteres hexadecimales)",
+      "domain_unverified": "{{host}} no está verificado: publica su registro DNS TXT y verifícalo en Dominios antes de importar hallazgos sobre él",
+      "unknown_domain": "No hay ningún dominio registrado llamado {{host}}: una persona administradora lo añade en Dominios y lo verifica primero"
     }
   },
   "triage": {

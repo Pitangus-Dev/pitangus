@@ -59,7 +59,7 @@ def policy(context: Context = Depends(guard())) -> dict:
 class ScopeAssetRef(BaseModel):
     key: str
     name: str
-    kind: Literal["repository", "image"]
+    kind: Literal["repository", "image", "domain"]
 
 
 class ScopedFinding(FindingOut):

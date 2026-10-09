@@ -21,7 +21,11 @@ from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
 
 FIXTURE = Path(__file__).resolve().parent / "engine-outputs" / "import.sarif"
+ZAP = Path(__file__).resolve().parent / "engine-outputs" / "zap.sarif"
+NUCLEI = Path(__file__).resolve().parent / "engine-outputs" / "nuclei.sarif"
 KEY = "github#7"
+HOST = "app.example.com"
+DOMAIN_KEY = f"domain:{HOST}"
 A = "a" * 64
 USER = {"username": "ana", "role": "member"}
 TOKEN = "i" * 40
@@ -29,6 +33,24 @@ TOKEN = "i" * 40
 
 def fixture() -> dict:
     return json.loads(FIXTURE.read_text())
+
+
+def zap() -> dict:
+    return json.loads(ZAP.read_text())
+
+
+def nuclei() -> dict:
+    return json.loads(NUCLEI.read_text())
+
+
+def verified_domain(data_dir: Path, host: str = HOST, *, verified: bool = True) -> dict:
+    """A registered domain whose TXT proof was seen (without asking DNS)."""
+    from pitangus.modules.sources import domains
+    record = domains.register_domain(data_dir, f"https://{host}/", by="ana")
+    if not verified:
+        return record
+    now = datetime.now(timezone.utc)
+    return domains._mark(data_dir, record["id"], verified_at=now, verified_until=now + timedelta(days=domains.VERIFY_DAYS), checked_at=now)
 
 
 def sarif(tool: str, results: list[dict], rules: list[dict] | None = None) -> dict:
@@ -43,6 +65,10 @@ def result(rule="rule.one", path="src/app.py", line=10, snippet="eval(x)", **ext
 
 def only(document: dict, **options) -> list[dict]:
     return parse(document, **options)[0]["findings"]
+
+
+def result_with_message(message: str) -> dict:
+    return {**result(), "message": {"text": message}}
 
 
 class ParserTests(unittest.TestCase):
@@ -146,6 +172,77 @@ class ParserTests(unittest.TestCase):
         self.assertEqual((len(long["tool"]), len(long["path"]), len(long["rule_id"]), len(long["title"])), (100, 1000, 200, 300))
         garbage = {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "X"}}, "results": [None, 3, {"locations": "x", "message": 5}]}]}
         self.assertEqual(only(garbage)[0]["path"], "")
+
+
+class DastParserTests(unittest.TestCase):
+    """Web scanners' SARIF: findings at URLs, classified as dast, keyed without the values a scan varies."""
+
+    def test_zap_report_findings_are_dast_at_urls_without_query_strings(self):
+        run = parse(zap())[0]
+        self.assertEqual((run["tool"], run["version"], run["results"], run["skipped"]), ("ZAP", "2.16.1", 4, 0))
+        xss, csp_root, csp_hello, cookie = run["findings"]
+        self.assertEqual({item["scanner"] for item in run["findings"]}, {"dast"})
+        self.assertEqual((xss["path"], xss["severity"], xss["cwe"], xss["confidence"], xss["title"], xss["line"]),
+                         ("https://app.example.com/greeting", "high", [79], 6, "Cross Site Scripting (Reflected)", 10))
+        self.assertEqual((csp_root["path"], csp_root["severity"], csp_root["cwe"], csp_root["confidence"]), ("https://app.example.com/", "medium", [693], 8))
+        self.assertEqual(csp_hello["path"], "https://app.example.com/hello")  # ?lang=en#top dropped
+        self.assertEqual((cookie["path"], cookie["severity"], cookie["web"]), ("https://app.example.com/login", "low",
+                                                                              {"method": "POST", "parameter": "session", "evidence": "Set-Cookie: session"}))
+        # ZAP keeps the fix under `solution`; the request and response it attached (cookies, bearer, body) never land.
+        self.assertIn("vetted library", text(xss["remediation"], "en"))
+        self.assertEqual(xss["web"], {"method": "GET", "parameter": "name", "evidence": "</p><script>alert(1);</script><p>"})
+        self.assertNotIn("JSESSIONID", json.dumps(run["findings"]))
+        self.assertNotIn("hunter2", json.dumps(run["findings"]))
+        self.assertEqual(len({item["fingerprint"] for item in run["findings"]}), 4)
+
+    def test_nuclei_export_reads_the_url_from_its_properties_not_the_template_path(self):
+        run = parse(nuclei())[0]
+        self.assertEqual((run["tool"], run["version"], len(run["findings"])), ("Nuclei", "v3.3.5", 3))
+        hsts, csp, git = run["findings"]
+        self.assertEqual({item["scanner"] for item in run["findings"]}, {"dast"})
+        self.assertEqual((hsts["path"], hsts["rule_id"], hsts["web"]["parameter"]), ("https://app.example.com/", "http-missing-security-headers", "strict-transport-security"))
+        self.assertEqual(csp["web"]["parameter"], "content-security-policy")
+        self.assertNotEqual(hsts["fingerprint"], csp["fingerprint"])  # same template and URL, told apart by the matcher
+        self.assertEqual((git["path"], git["severity"], git["cwe"], git["title"]), ("https://app.example.com/.git/config", "medium", [538], "Git Configuration File - Detect"))
+        self.assertIn("Restrict access", text(git["remediation"], "en"))
+
+    def test_fingerprints_survive_query_strings_fragments_and_evidence(self):
+        def zap_result(uri, snippet="<script>", param="name", **extra):
+            return {"ruleId": "40012", "message": {"text": "XSS"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": uri},
+                    "region": {"snippet": {"text": snippet}}}, "properties": {"param": param}}], **extra}
+        before = only(sarif("ZAP", [zap_result("https://app.example.com/search?q=1&t=1728489601")]))[0]["fingerprint"]
+        self.assertEqual(only(sarif("ZAP", [zap_result("https://app.example.com/search?q=2#x", snippet="<img onerror>")]))[0]["fingerprint"], before)
+        self.assertEqual(only(sarif("ZAP", [zap_result("HTTPS://APP.example.com:443/search")]))[0]["fingerprint"], before)
+        self.assertNotEqual(only(sarif("ZAP", [zap_result("https://app.example.com/search", param="page")]))[0]["fingerprint"], before)
+        self.assertNotEqual(only(sarif("ZAP", [zap_result("https://app.example.com/other")]))[0]["fingerprint"], before)
+        self.assertNotEqual(only(sarif("ZAP", [zap_result("http://app.example.com/search")]))[0]["fingerprint"], before)
+        nuclei_a = only(nuclei())[2]["fingerprint"]
+        changed = nuclei()
+        changed["runs"][0]["results"][2]["properties"]["matched-at"] = "https://app.example.com/.git/config?nonce=7"
+        changed["runs"][0]["results"][2]["message"]["text"] = "something else"
+        self.assertEqual(only(changed)[2]["fingerprint"], nuclei_a)
+
+    def test_credentials_echoed_by_the_scanner_never_land(self):
+        document = nuclei()
+        result = document["runs"][0]["results"][2]
+        result["message"]["text"] += "\n\nReproduce:\n```bash\ncurl -X 'GET' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.secret' -H \"Cookie: session=4f3c9a1b\" 'https://app.example.com/.git/config'\n```"
+        result["locations"][0]["physicalLocation"]["region"] = {"snippet": {"text": "HTTP/1.1 200\nSet-Cookie: session=4f3c9a1b; Secure\nX-Api-Key=abc"}}
+        finding = only(document)[2]
+        reason, evidence = text(finding["reason"], "en"), finding["web"]["evidence"]
+        for secret in ("eyJhbGciOiJIUzI1NiJ9.secret", "4f3c9a1b", "abc"):
+            self.assertNotIn(secret, reason + evidence)
+        self.assertIn("Authorization: [redacted]", reason)
+        self.assertIn("Cookie: session=[redacted]", reason)  # the cookie's name stays: a finding is often about one cookie
+        self.assertEqual(evidence, "HTTP/1.1 200 Set-Cookie: session=[redacted]; Secure X-Api-Key: [redacted]")
+        # Nothing of that in a code scanner's message: the tool chose what to print.
+        self.assertIn("Cookie: x", text(only(sarif("Semgrep", [result_with_message("Cookie: x")]))[0]["reason"], "en"))
+
+    def test_any_tool_reporting_at_a_url_is_dynamic(self):
+        finding = only(sarif("Some Web Scanner", [result(path="https://api.example.com/v1/users?id=3", snippet="x")]))[0]
+        self.assertEqual((finding["scanner"], finding["path"], finding["web"]), ("dast", "https://api.example.com/v1/users", {"evidence": "x"}))
+        self.assertEqual(only(sarif("Semgrep", [result(path="file:///src/app.py")]))[0]["scanner"], "sast")
+        self.assertEqual(only(sarif("Nuclei", [result(path="http/cves/2021/CVE-2021-44228.yaml")]))[0]["path"], "http/cves/2021/CVE-2021-44228.yaml")
+        self.assertEqual(only(sarif("ZAP", [result(path="https://app.example.com/" + "a" * 2000)]))[0]["path"][:24], "https://app.example.com/")
 
 
 class RegistryTests(unittest.TestCase):
@@ -273,6 +370,49 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(len(store.find_runs(self.data_dir)), before)
         self.assertEqual(set(self.status()), {A})
 
+    def test_a_verified_domain_is_an_asset_and_an_unverified_one_is_refused(self):
+        pending = verified_domain(self.data_dir, verified=False)
+        for wanted in (DOMAIN_KEY, HOST, pending["id"]):
+            with self.assertRaises(ImportRefused) as caught:
+                self.import_(zap(), asset=wanted)
+            self.assertEqual(caught.exception.status, 409, wanted)
+            self.assertIn(HOST, text(caught.exception.message, "en"))
+        with self.assertRaises(ImportRefused) as caught:
+            self.import_(zap(), asset="domain:nobody.example.com")
+        self.assertEqual(caught.exception.status, 404)
+        self.assertEqual(self.status(), {A: "open"})  # nothing landed
+        from pitangus.modules.sources import domains
+        now = datetime.now(timezone.utc)
+        domains._mark(self.data_dir, pending["id"], verified_at=now, verified_until=now + timedelta(days=domains.VERIFY_DAYS))
+        outcome = self.import_(zap(), asset=DOMAIN_KEY)
+        self.assertEqual((outcome["asset"], outcome["name"], outcome["runs"][0]["tool"], outcome["runs"][0]["opened"]), (DOMAIN_KEY, HOST, "ZAP", 4))
+        record = load_run(self.data_dir, outcome["runs"][0]["id"])
+        self.assertEqual((record["source"]["id"], record["source"]["provider"], record["source"]["domain"]["host"], record["summary"]["dast"]),
+                         (DOMAIN_KEY, "domain", HOST, 4))
+        self.assertEqual(self.import_(nuclei(), asset=HOST)["asset"], DOMAIN_KEY)  # by host and by id too
+        self.assertEqual(self.import_(nuclei(), asset=pending["id"])["asset"], DOMAIN_KEY)
+        self.assertEqual({entry["finding"]["scanner"] for entry in registry.load(self.data_dir, DOMAIN_KEY)["findings"].values()}, {"dast"})
+        # The proof ran out: the domain is no longer an asset until someone verifies it again.
+        domains._mark(self.data_dir, pending["id"], verified_until=now - timedelta(seconds=1))
+        with self.assertRaises(ImportRefused) as caught:
+            self.import_(zap(), asset=DOMAIN_KEY)
+        self.assertEqual(caught.exception.status, 409)
+
+    def test_a_later_full_import_against_the_domain_fixes_what_the_scanner_no_longer_reports(self):
+        verified_domain(self.data_dir)
+        self.import_(zap(), asset=DOMAIN_KEY)
+        states = lambda: {digest: entry["status"] for digest, entry in registry.load(self.data_dir, DOMAIN_KEY)["findings"].items()}  # noqa: E731
+        self.assertEqual(sorted(states().values()), ["open"] * 4)
+        later = zap()
+        later["runs"][0]["results"] = [item for item in later["runs"][0]["results"] if item["ruleId"] != "40012"]
+        # The same alerts at the same URLs with other query strings and other evidence: still the same findings.
+        later["runs"][0]["results"][1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] = "https://app.example.com/hello?lang=es"
+        outcome = self.import_(later, asset=DOMAIN_KEY)
+        self.assertEqual((outcome["runs"][0]["opened"], outcome["runs"][0]["fixed"]), (0, 1))
+        self.assertEqual(sorted(states().values()), ["fixed", "open", "open", "open"])
+        self.assertEqual(self.import_(nuclei(), asset=DOMAIN_KEY)["runs"][0]["fixed"], 0)  # another tool vouches for nothing of ZAP's
+        self.assertEqual(self.import_(zap(), asset=DOMAIN_KEY)["runs"][0]["opened"], 1)   # it came back: it reopens
+
     def test_the_dashboard_counts_imported_findings(self):
         from pitangus.modules.reporting import dashboard
         self.import_(fixture())
@@ -339,6 +479,16 @@ class ApiTests(HttpCase):
             status, body, _ = self.ci(fixture(), query="?asset=org/api&tool=Strix&scope=partial")  # bare SARIF, options in the query
             self.assertEqual((status, [(run["tool"], run["scope"]) for run in body["runs"]]), (200, [("Strix", "partial")]))
             self.assertEqual(self.ci({**envelope, "asset": "org/nope"})[0], 404)
+            # A pipeline's ZAP results land on a verified domain, and on nothing nobody vouches for.
+            self.assertEqual(self.ci(zap(), query=f"?asset={DOMAIN_KEY}")[0], 404)
+            verified_domain(self.data_dir, verified=False)
+            status, body, _ = self.ci(zap(), query=f"?asset={DOMAIN_KEY}", headers={"Accept-Language": "en"})
+            self.assertEqual((status, "verified" in body["error"]), (409, True))
+            from pitangus.modules.sources import domains
+            now = datetime.now(timezone.utc)
+            domains._mark(self.data_dir, domains.find_domain(self.data_dir, HOST)["id"], verified_at=now, verified_until=now + timedelta(days=1))
+            status, body, _ = self.ci(zap(), query=f"?asset={DOMAIN_KEY}")
+            self.assertEqual((status, body["asset"], body["runs"][0]["findings"]), (200, DOMAIN_KEY, 4))
             self.assertEqual(self.ci(None, raw="[" * 100_000 + "]" * 100_000)[0], 400)  # nested too deep
             self.assertEqual(self.ci(None, raw="{not json")[0], 400)
 
@@ -383,6 +533,14 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(len([line for line in out.splitlines() if "CodeQL" in line]), 1)
         self.assertEqual(self.cli(str(FIXTURE), "--asset", "org/unknown")[0], 2)
+        verified_domain(self.data_dir)
+        code, out, _ = self.cli(str(ZAP), str(NUCLEI), "--asset", DOMAIN_KEY)
+        self.assertEqual(code, 0)
+        self.assertIn(DOMAIN_KEY, out)
+        self.assertEqual(len([line for line in out.splitlines() if "ZAP" in line or "Nuclei" in line]), 2)
+        code, _, err = self.cli(str(ZAP), "--asset", "domain:nobody.example.com")
+        self.assertEqual(code, 2)
+        self.assertIn("nobody.example.com", err)
         bad = self.data_dir / "bad.sarif"
         bad.write_text("{nope")
         code, _, err = self.cli(str(bad), "--asset", "org/api")

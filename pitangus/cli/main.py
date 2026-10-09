@@ -101,12 +101,13 @@ def build_parser() -> argparse.ArgumentParser:
     local.add_argument("--summary", type=Path, metavar="FILE",
                        help="Also write a Markdown summary (what the change introduces and fixes), e.g. $GITHUB_STEP_SUMMARY")
     imported = commands.add_parser("import-sarif", help="Import another tool's SARIF 2.1.0 findings into an existing asset",
-                                   description="Imports the findings of any tool (Semgrep, CodeQL, Snyk, Trivy…) into the registry of an "
-                                               "asset Pitangus already knows. Several files are one import. A full import (the default) "
+                                   description="Imports the findings of any tool (Semgrep, CodeQL, Snyk, Trivy, ZAP, Nuclei…) into the registry "
+                                               "of an asset Pitangus already knows: a repository, an image or a verified domain. Several files "
+                                               "are one import. A full import (the default) "
                                                "marks fixed what the same tool no longer reports. Exit codes: 0 imported · 2 usage, "
                                                "document or server error.")
     imported.add_argument("files", nargs="+", type=Path, metavar="FILE", help="SARIF 2.1.0 file(s)")
-    imported.add_argument("--asset", required=True, help="Asset key or name, e.g. owner/repo")
+    imported.add_argument("--asset", required=True, help="Asset key or name, e.g. owner/repo, or a verified domain: domain:app.example.com")
     imported.add_argument("--tool", help="Tool name to record (default: each run's tool.driver.name)")
     imported.add_argument("--partial", action="store_true",
                           help="The tool looked at part of the asset: open and update, never mark anything fixed")

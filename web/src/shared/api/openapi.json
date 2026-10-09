@@ -3256,6 +3256,230 @@
         }
       }
     },
+    "/api/domains": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain List",
+        "description": "The registered domains (at most `limit`), with whether each one's TXT proof is current.",
+        "operationId": "domain_list_api_domains_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainPage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Register",
+        "description": "Registers an HTTPS domain and answers the TXT record that proves control of it. Nothing is tested.",
+        "operationId": "domain_register_api_domains_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "title": "Url"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "web",
+                      "api",
+                      "surface"
+                    ],
+                    "title": "Kind",
+                    "default": "web"
+                  },
+                  "context": {
+                    "type": "string",
+                    "maxLength": 400,
+                    "title": "Context",
+                    "default": ""
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "title": "DomainIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainRow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domains/verify": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Verify",
+        "description": "Looks the domain's TXT record up once. Seen, the domain is an asset for 90 days; a daily re-check extends or\nwithdraws the proof.",
+        "operationId": "domain_verify_api_domains_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id"
+                ],
+                "title": "DomainIdIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainRow"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "429": {
+            "description": "Too many attempts"
+          }
+        }
+      }
+    },
+    "/api/domains/check": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Check",
+        "description": "Whether the domain answers over HTTPS: one HEAD to its already-resolved public address, no redirects. Only a\nhint before registering; a domain that doesn't answer can still be registered.",
+        "operationId": "domain_check_api_domains_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "title": "Url"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "title": "DomainCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainCheck"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many attempts"
+          }
+        }
+      }
+    },
+    "/api/domains/remove": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Remove",
+        "description": "Removes a domain. What was imported against it (runs, findings, their triage and tickets) goes with it, like a\nrepository that left the installation: the panel says so before asking.",
+        "operationId": "domain_remove_api_domains_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id"
+                ],
+                "title": "DomainIdIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainRemoved"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          }
+        }
+      }
+    },
     "/api/providers": {
       "get": {
         "tags": [
@@ -8825,6 +9049,235 @@
         ],
         "title": "Deleted"
       },
+      "DomainCheck": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "reachable": {
+            "type": "boolean",
+            "title": "Reachable"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "host",
+          "reachable",
+          "status",
+          "detail"
+        ],
+        "title": "DomainCheck"
+      },
+      "DomainPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DomainRow"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit"
+        ],
+        "title": "DomainPage"
+      },
+      "DomainRemoved": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "runs_deleted": {
+            "type": "integer",
+            "title": "Runs Deleted"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "host",
+          "runs_deleted"
+        ],
+        "title": "DomainRemoved"
+      },
+      "DomainRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "context": {
+            "type": "string",
+            "title": "Context"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified"
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired"
+          },
+          "registered_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registered At"
+          },
+          "registered_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registered By"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "verified_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified Until"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "txt_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Txt Name"
+          },
+          "txt_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Txt Value"
+          },
+          "runs": {
+            "type": "integer",
+            "title": "Runs",
+            "default": 0
+          },
+          "open": {
+            "type": "integer",
+            "title": "Open",
+            "default": 0
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "host",
+          "url",
+          "kind",
+          "context",
+          "key",
+          "verified",
+          "expired"
+        ],
+        "title": "DomainRow",
+        "description": "A registered domain. `verified` means its TXT proof is current (`verified_until` lies ahead); the TXT record\nitself (`txt_name`, `txt_value`) is only answered to administrators. `runs` and `open` say what was imported\nagainst it."
+      },
       "Euvd": {
         "properties": {
           "id": {
@@ -8936,7 +9389,8 @@
             "type": "string",
             "enum": [
               "repository",
-              "image"
+              "image",
+              "domain"
             ],
             "title": "Kind"
           },
@@ -12372,7 +12826,7 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 4,
+            "maxItems": 5,
             "title": "Ran"
           },
           "queued": {
@@ -12380,7 +12834,7 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 4,
+            "maxItems": 5,
             "title": "Queued"
           },
           "failed": {
@@ -12388,7 +12842,7 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 4,
+            "maxItems": 5,
             "title": "Failed"
           }
         },
@@ -12953,7 +13407,8 @@
             "type": "string",
             "enum": [
               "repository",
-              "image"
+              "image",
+              "domain"
             ],
             "title": "Kind"
           },
@@ -13016,7 +13471,8 @@
             "type": "string",
             "enum": [
               "repository",
-              "image"
+              "image",
+              "domain"
             ],
             "title": "Kind"
           }

@@ -6,11 +6,17 @@ are merged, because an import of a tool is what later proves that tool's finding
 * **Severity.** `properties["security-severity"]` (0-10, the GitHub/CodeQL convention) on the result or its rule:
   critical ≥ 9, high ≥ 7, medium ≥ 4, low > 0, info at 0. Without it, the SARIF `level` (result, else the rule's
   default): error → high, warning → medium, note → low, none → info; absent means warning.
-* **Scanner.** secrets when the tool or a tag says so; sca when the rule names a CVE or GHSA or the tool is a
-  dependency scanner; iac and cicd for configuration scanners; sast otherwise.
+* **Scanner.** dast when a web scanner wrote it (ZAP, Nuclei…: `DAST_TOOLS`) or the location is a URL; secrets
+  when the tool or a tag says so; sca when the rule names a CVE or GHSA or the tool is a dependency scanner; iac and
+  cicd for configuration scanners; sast otherwise.
 * **Fingerprint.** sha256 over ("sarif", tool, key): never equal to one of Pitangus's own engines. The key is the
   result's `fingerprints`, else rule + path + its `partialFingerprints`, else rule + path + snippet (or message).
   Never the line: adding lines above a finding must not make it look fixed. Equal keys are told apart by order.
+* **Web findings.** The location is the URL without its query string or fragment (volatile values would make the
+  same alert look new on every run), and the key is rule + URL + parameter name: never the evidence or the message,
+  which carry request-specific values. Nuclei puts the template path where the URI belongs and the URL in its
+  properties; both are read. Only the method, the parameter and a bounded evidence are kept (`web`): never the
+  request or response the tool attached, which carry cookies and authorization headers.
 * Text written by the tool (titles, messages, help) is kept as published and only shown inside our own sentences.
 """
 
@@ -18,7 +24,7 @@ from __future__ import annotations
 
 import re
 from typing import Any, TypedDict
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 from pitangus.modules.scanning.engines import SEVERITY_NAME, _base, _stable
 from pitangus.shared.i18n import msg
@@ -28,11 +34,21 @@ MAX_BYTES = 10_000_000
 MAX_RUNS = 20
 MAX_RESULTS = 5000
 TITLE_MAX, MESSAGE_MAX, PATH_MAX, RULE_MAX, TOOL_MAX, VERSION_MAX = 300, 2000, 1000, 200, 100, 50
+EVIDENCE_MAX, PARAMETER_MAX = 2000, 200
 
 SECRET_TOOLS = ("gitleaks", "trufflehog", "detect-secrets", "ggshield", "gitguardian", "secretlint", "talisman")
 SCA_TOOLS = ("trivy", "grype", "osv-scanner", "dependabot", "dependency-check", "npm audit", "pip-audit", "retire")
 IAC_TOOLS = ("checkov", "kics", "tfsec", "terrascan", "tflint", "kube-linter", "hadolint")
 CICD_TOOLS = ("zizmor", "poutine", "actionlint")
+# Web scanners (ZAP's `sarif-json` report, Nuclei's `-se`…): their findings live at URLs, not in files.
+DAST_TOOLS = ("zap", "nuclei", "burp", "nikto", "wapiti", "dastardly")
+URL = re.compile(r"^https?://", re.IGNORECASE)
+# A credential a scan was run with, echoed in a message or an evidence (Nuclei's "Reproduce" curl line carries every
+# `-H` header given): the header name stays, the value never lands. Cookies keep their names (a finding is often
+# about one cookie) and lose their values.
+CREDENTIAL_HEADER = re.compile(r"(?i)\b(authorization|proxy-authorization|x-api-key|x-auth-token)\s*[:=]\s*[^\r\n'\"]+")
+COOKIE_HEADER = re.compile(r"(?i)\b((?:set-)?cookie\s*:\s*)([^\r\n'\"]+)")
+COOKIE_VALUE = re.compile(r"=[^;\s'\"]+")
 IAC_TAGS = frozenset(("misconfiguration", "iac", "infrastructure-as-code", "terraform", "kubernetes", "dockerfile", "cloudformation"))
 LEVELS = {"error": "high", "warning": "medium", "note": "low", "none": "info"}
 PRECISION = {"very-high": 9, "high": 8, "medium": 6, "low": 4, "very-low": 3}
@@ -87,8 +103,36 @@ def _path(uri: Any) -> str:
     return "".join(ch for ch in path if ch.isprintable())[:PATH_MAX]
 
 
-def _location(result: dict, artifacts: list) -> tuple[str, int, str]:
-    """(path, line, normalized snippet) of the result's first physical location."""
+def _url(value: Any) -> str:
+    """An absolute http(s) URL as scheme, host and path: the query string and the fragment carry the values a scan
+    varies between runs, and a location must not change with them."""
+    if not isinstance(value, str) or not URL.match(value.strip()):
+        return ""
+    try:
+        parts = urlsplit(value.strip())
+        host = (parts.hostname or "").lower()
+        port = parts.port
+    except ValueError:
+        return ""
+    if not host:
+        return ""
+    origin = f"{parts.scheme.lower()}://{host}" + (f":{port}" if port and port != (443 if parts.scheme.lower() == "https" else 80) else "")
+    path = "".join(ch for ch in unquote(parts.path or "/") if ch.isprintable() and not ch.isspace())
+    return (origin + (path if path.startswith("/") else "/" + path))[:PATH_MAX]
+
+
+def _web_location(result: dict, uri: Any) -> str:
+    """The URL a web finding is at: the location's URI when it is one, else what the tool put in its properties
+    (Nuclei: `matched-at`, `target`) or in the request it attached."""
+    properties = _dict(result.get("properties"))
+    for candidate in (uri, properties.get("matched-at"), properties.get("target"), _dict(result.get("webRequest")).get("target")):
+        if url := _url(candidate):
+            return url
+    return ""
+
+
+def _location(result: dict, artifacts: list, *, web: bool = False) -> tuple[str, int, str]:
+    """(path, line, normalized snippet) of the result's first physical location; a web finding's path is its URL."""
     physical = _dict(_dict((_list(result.get("locations")) or [{}])[0]).get("physicalLocation"))
     artifact = _dict(physical.get("artifactLocation"))
     uri = artifact.get("uri")
@@ -98,7 +142,31 @@ def _location(result: dict, artifacts: list) -> tuple[str, int, str]:
     region = _dict(physical.get("region"))
     line = region.get("startLine")
     snippet = _text(_dict(region.get("snippet")).get("text"), MESSAGE_MAX) or _text(_dict(physical.get("contextRegion")).get("snippet"), MESSAGE_MAX)
-    return _path(uri), line if isinstance(line, int) and not isinstance(line, bool) and 0 < line < 10_000_000 else 1, " ".join(snippet.split())
+    path = (_web_location(result, uri) if web else "") or _url(uri) or _path(uri)
+    return path, line if isinstance(line, int) and not isinstance(line, bool) and 0 < line < 10_000_000 else 1, " ".join(snippet.split())
+
+
+def _parameter(result: dict) -> str:
+    """The parameter a web finding is about (ZAP: `param` on the result or its location), as a name only."""
+    for properties in (_dict(result.get("properties")), *(_dict(_dict(item).get("properties")) for item in _list(result.get("locations"))[:1])):
+        for name in ("param", "parameter", "matcher"):
+            value = properties.get(name)
+            if isinstance(value, str) and value.strip():
+                return clean_name(value, PARAMETER_MAX)
+    return ""
+
+
+def redact(value: str) -> str:
+    value = COOKIE_HEADER.sub(lambda match: match.group(1) + COOKIE_VALUE.sub("=[redacted]", match.group(2)), value)
+    return CREDENTIAL_HEADER.sub(lambda match: f"{match.group(1)}: [redacted]", value)
+
+
+def _web(result: dict, snippet: str) -> dict[str, Any]:
+    """What is kept of the request that proved a web finding: method, parameter and bounded evidence. The request
+    and response the tool attached are dropped whole: they carry cookies and authorization headers."""
+    method = clean_name(_dict(result.get("webRequest")).get("method"), 10).upper()
+    return {**({"method": method} if method else {}), **({"parameter": _parameter(result)} if _parameter(result) else {}),
+            **({"evidence": redact(snippet)[:EVIDENCE_MAX]} if snippet else {})}
 
 
 def _severity(result: dict, rule: dict) -> str:
@@ -131,8 +199,14 @@ def _cwes(result: dict, rule: dict, tags: list[str]) -> list[int]:
     return sorted({item for item in found if 0 < item < 100_000})[:20]
 
 
-def _scanner(tool: str, tags: list[str], cves: list[str], ghsas: list[str]) -> str:
+def is_dast_tool(tool: str) -> bool:
+    return any(item in tool.lower() for item in DAST_TOOLS)
+
+
+def _scanner(tool: str, tags: list[str], cves: list[str], ghsas: list[str], *, web: bool = False) -> str:
     name, lowered = tool.lower(), {tag.lower() for tag in tags}
+    if web or is_dast_tool(name):
+        return "dast"
     if any(item in name for item in SECRET_TOOLS) or any("secret" in tag for tag in lowered):
         return "secrets"
     if cves or ghsas:
@@ -166,34 +240,41 @@ def _suppressed(result: dict) -> bool:
     return any(_dict(item).get("status", "accepted") == "accepted" for item in _list(result.get("suppressions")))
 
 
-def _key(result: dict, rule_id: str, path: str, snippet: str, message: str) -> str:
+def _key(result: dict, rule_id: str, path: str, snippet: str, message: str, *, web: bool = False) -> str:
     full = {name: value for name, value in _dict(result.get("fingerprints")).items() if isinstance(value, str) and value}
     if full:
         return "\x1f".join(f"{name}={full[name]}" for name in sorted(full))
     partial = {name: value for name, value in _dict(result.get("partialFingerprints")).items() if isinstance(value, str) and value}
     evidence = ("\x1f".join(f"{name}={partial[name]}" for name in sorted(partial)) if partial
-                else snippet or " ".join(message.split()))
+                else _parameter(result) if web else snippet or " ".join(message.split()))
     return "\x1f".join((rule_id, path, evidence))
 
 
-def _finding(result: dict, rule: dict, rule_id: str, tool: str, location: tuple[str, int, str], digest: str) -> Finding:
-    path, line, _ = location
+def _finding(result: dict, rule: dict, rule_id: str, tool: str, location: tuple[str, int, str], digest: str, *, web: bool = False) -> Finding:
+    path, line, snippet = location
     message = _text(result.get("message"), MESSAGE_MAX)
-    title = _text(rule.get("shortDescription"), TITLE_MAX) or (message.splitlines() or [""])[0][:TITLE_MAX] or rule_id
+    if web:
+        message = redact(message)
+    title = _text(rule.get("shortDescription"), TITLE_MAX) or clean_name(rule.get("name"), TITLE_MAX) \
+        or (message.splitlines() or [""])[0][:TITLE_MAX] or rule_id
     tags = _tags(result, rule)
     identifiers = [rule_id, *tags]
     cves = sorted({match.upper() for item in identifiers for match in CVE.findall(item)})[:20]
     ghsas = sorted({match[:4].upper() + match[4:].lower() for item in identifiers for match in GHSA.findall(item)})[:20]
-    scanner = _scanner(tool, tags, cves, ghsas)
+    scanner = _scanner(tool, tags, cves, ghsas, web=web)
     severity = _severity(result, rule)
-    help_text = _text(rule.get("help"), MESSAGE_MAX) or _text(rule.get("fullDescription"), MESSAGE_MAX)
-    precision = str(_dict(rule.get("properties")).get("precision") or "").lower()
+    properties = _dict(rule.get("properties"))
+    # ZAP keeps the fix under `properties.solution`; `help` and `fullDescription` describe the problem.
+    help_text = _text(rule.get("help"), MESSAGE_MAX) or _text(properties.get("solution"), MESSAGE_MAX) or _text(rule.get("fullDescription"), MESSAGE_MAX)
+    precision = str(properties.get("precision") or properties.get("confidence") or "").lower()
     finding = _base(scanner, rule_id, title, path, line, severity, tool=tool,
                     reason=msg("scanning.sarif.reason", tool=tool, message=message or title),
                     remediation=msg("scanning.sarif.remediation_help", tool=tool, help=help_text) if help_text
                     else msg("scanning.sarif.remediation", tool=tool),
                     cwe=_cwes(result, rule, tags), owasp="", confidence=PRECISION.get(precision, 6), digest=digest)
     finding["title"], finding["cve"], finding["ghsa"] = title, cves, ghsas
+    if scanner == "dast":
+        finding["web"] = _web(result, snippet)
     finding["owasp"] = sorted({f"A{number}:{year}" for tag in tags for number, year in OWASP.findall(tag)})[:10]
     finding["priority"]["factors"] = [msg("scanning.sarif.priority", tool=tool, severity=SEVERITY_NAME.get(finding["severity"], severity)),
                                       msg("scanning.priority.confirm_reachability")]
@@ -228,6 +309,7 @@ def parse(document: Any, *, tool: str | None = None) -> list[ParsedRun]:
         rules = {str(_dict(item).get("id")): _dict(item) for component in reversed(components) for item in _list(component.get("rules"))
                  if _dict(item).get("id")}
         artifacts = _list(_dict(run).get("artifacts"))
+        dast = is_dast_tool(name)
         for result in _list(_dict(run).get("results")):
             if not isinstance(result, dict):
                 continue
@@ -236,10 +318,11 @@ def parse(document: Any, *, tool: str | None = None) -> list[ParsedRun]:
                 group["skipped"] += 1
                 continue
             rule_id, rule = _rule(result, rules, components)
-            location = _location(result, artifacts)
-            key = _key(result, rule_id, location[0], location[2], _text(result.get("message"), MESSAGE_MAX))
+            location = _location(result, artifacts, web=dast)
+            web = dast or URL.match(location[0]) is not None
+            key = _key(result, rule_id, location[0], location[2], _text(result.get("message"), MESSAGE_MAX), web=web)
             seen = occurrences.get((name.lower(), key), 0)
             occurrences[(name.lower(), key)] = seen + 1
             digest = _stable("sarif", name.lower(), key if not seen else f"{key}\x1f#{seen + 1}")
-            group["findings"].append(_finding(result, rule, rule_id, group["tool"], location, digest))
+            group["findings"].append(_finding(result, rule, rule_id, group["tool"], location, digest, web=web))
     return list(grouped.values())

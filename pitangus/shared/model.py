@@ -44,7 +44,7 @@ class Finding(TypedDict, total=False):
     finding_id: Required[str]
     fingerprint: Required[str]
     previous_fingerprint: str  # the former formula's, so the registry carries state over (findings/registry.py)
-    scanner: Required[str]     # sast · secrets · sca · iac · cicd · image-config
+    scanner: Required[str]     # sast · secrets · sca · iac · cicd · image-config · dast (imported from a web scanner)
     tool: str
     rule_id: Required[str]
     title: Message
@@ -62,6 +62,7 @@ class Finding(TypedDict, total=False):
     kev: dict[str, Any] | None
     epss: dict[str, Any] | None
     source: dict[str, Any] | None
+    web: dict[str, Any]       # a dynamic finding's method, parameter and bounded evidence; never headers or cookies
     priority: Priority
     reason: Message
     remediation: Message

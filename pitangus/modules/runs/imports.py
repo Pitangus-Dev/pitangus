@@ -1,8 +1,9 @@
 """Findings from other tools (SARIF) into an asset's findings registry, one `sarif_import` run per tool.
 
-The asset must already be known (a scanned asset, or a repository the GitHub App covers): an import never creates
-one. Every run of one document is saved together, or none is. What a full import of a tool no longer reports is
-fixed by the registry (`findings/registry.py`); a partial one only opens and updates.
+The asset must already be known (a scanned asset, a repository the GitHub App covers, or a registered domain whose
+TXT proof is current: `domain:<host>`): an import never creates one. Every run of one document is saved together,
+or none is. What a full import of a tool no longer reports is fixed by the registry (`findings/registry.py`); a
+partial one only opens and updates.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from pitangus.modules.integrations.github import valid_branch
 from pitangus.modules.runs.store import find_runs, save_and_apply
 from pitangus.modules.scanning.sarif_import import ParsedRun, SarifError, parse
 from pitangus.modules.sources import assets as source_assets
+from pitangus.modules.sources import domains
 from pitangus.shared import db
 from pitangus.shared import log as logging_setup
 from pitangus.shared.i18n import msg
@@ -26,7 +28,7 @@ SCOPES = ("full", "partial")
 ASSET_MAX = 200
 COMMIT = re.compile(r"[0-9a-fA-F]{7,64}")
 SEVERITIES = ("critical", "high", "medium", "low", "info")
-SCANNERS = ("sast", "secrets", "sca", "iac", "cicd")
+SCANNERS = ("sast", "secrets", "sca", "iac", "cicd", "dast")
 _log = logging_setup.get("imports")
 
 
@@ -43,6 +45,14 @@ def resolve_source(data_dir: Path, wanted: str) -> dict:
     wanted = wanted.strip() if isinstance(wanted, str) else ""
     if not wanted or len(wanted) > ASSET_MAX:
         raise ImportRefused(400, msg("runs.imports.errors.invalid_asset"))
+    # A domain is an asset only while its TXT proof is current: findings against one nobody vouches for are refused.
+    domain = domains.find_domain(data_dir, wanted)
+    if domain is not None:
+        if not domain["verified"]:
+            raise ImportRefused(409, msg("runs.imports.errors.domain_unverified", host=domain["host"]))
+        return domains.source_for(domain)
+    if wanted.lower().startswith(domains.KEY_PREFIX):
+        raise ImportRefused(404, msg("runs.imports.errors.unknown_domain", host=wanted[len(domains.KEY_PREFIX):][:253]))
     found = registry.find_assets(data_dir, wanted)
     if len(found) > 1:
         raise ImportRefused(409, msg("runs.imports.errors.ambiguous_asset", asset=wanted))

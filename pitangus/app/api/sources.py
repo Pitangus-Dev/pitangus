@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse, Response
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, model_validator
 
 from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, guard
 from pitangus.app.api.deps import problem
@@ -20,7 +20,10 @@ from pitangus.modules.integrations.github import (REQUIRED_PERMISSIONS, GitHubAp
                                                   install_url, installation_details, permission_review, save_credentials, verify_app)
 from pitangus.modules.integrations import github_manifest
 from pitangus.modules.integrations.installations import clear_github, github_connections, github_installations, save_github
+from pitangus.modules.sources import assets as source_assets
+from pitangus.modules.sources import domains
 from pitangus.modules.sources.assets import with_scan_branches
+from pitangus.modules.sources.domains import DomainError
 from pitangus.modules.sources.repositories import SourceError, find_source, list_repositories, source_page, unavailable
 from pitangus.shared import log as logging_setup
 from pitangus.shared.i18n import msg, t, text
@@ -178,8 +181,165 @@ def connect_code(context: Context = Depends(guard(Policy(admin=True, action="con
 
 
 # --- Domains --------------------------------------------------------------------------------------------------------
-# No routes until DAST exists: registering, verifying and probing domains would be outgoing requests and attack
-# surface with nothing that uses them. pitangus.modules.sources.domains keeps the logic for when it does.
+# A registered domain whose DNS TXT proof is current is the asset `domain:<host>` that `import-sarif` accepts for
+# findings of web scanners (ZAP, Nuclei…). Nothing here scans anything: the only outgoing traffic is one DNS TXT
+# lookup when verifying and one single-hop HTTPS HEAD when an administrator probes a domain before adding it, both
+# behind the administrator role and the progressive lock-out.
+
+class DomainRow(Open):
+    """A registered domain. `verified` means its TXT proof is current (`verified_until` lies ahead); the TXT record
+    itself (`txt_name`, `txt_value`) is only answered to administrators. `runs` and `open` say what was imported
+    against it."""
+    id: str
+    host: str
+    url: str
+    kind: str
+    context: str
+    key: str
+    verified: bool
+    expired: bool
+    registered_at: str | None = None
+    registered_by: str | None = None
+    verified_at: str | None = None
+    verified_until: str | None = None
+    checked_at: str | None = None
+    txt_name: str | None = None
+    txt_value: str | None = None
+    runs: int = 0
+    open: int = 0
+
+
+class DomainPage(Open):
+    items: list[DomainRow] = Field(max_length=domains.LIMIT)
+    total: int
+    limit: int
+
+
+class DomainCheck(Open):
+    host: str
+    reachable: bool
+    status: str
+    detail: str
+    http_status: int | None = None
+
+
+class DomainRemoved(Open):
+    id: str
+    host: str
+    runs_deleted: int
+
+
+def _domain_rows(context: Context, records: list[dict]) -> list[dict]:
+    """Rows for the reader: what was imported against each domain, and the TXT record for administrators only."""
+    from pitangus.modules.findings import registry as findings_registry
+    from pitangus.modules.runs.store import find_runs
+    admin = (context.user or {}).get("role") == "admin"
+    counted: dict[str, int] = {}
+    for row in find_runs(context.data_dir, assets=[record["key"] for record in records]):
+        counted[row.get("asset_key") or source_assets.asset_key(row)] = counted.get(row.get("asset_key") or source_assets.asset_key(row), 0) + 1
+    rows = []
+    for record in records:
+        runs = counted.get(record["key"], 0)
+        shown = {name: value for name, value in record.items() if admin or name not in ("txt_name", "txt_value")}
+        rows.append({**shown, "runs": runs, "open": findings_registry.summarize(context.data_dir, record["key"])["open"] if runs else 0})
+    return rows
+
+
+@router.get("/api/domains", response_model=DomainPage, **AS_RETURNED)
+def domain_list(context: Context = Depends(guard())) -> Any:
+    """The registered domains (at most `limit`), with whether each one's TXT proof is current."""
+    records = domains.list_domains(context.data_dir)
+    return context.render({"items": _domain_rows(context, records), "total": len(records), "limit": domains.LIMIT})
+
+
+class DomainIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: StrictStr = Field(max_length=300)
+    kind: Literal["web", "api", "surface"] = "web"
+    context: StrictStr = Field("", max_length=domains.CONTEXT_LIMIT)
+
+
+class DomainIdIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
+
+
+class DomainCheckIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: StrictStr = Field(max_length=300)
+
+
+def _attempt(context: Context, scope: str) -> None:
+    """Counts an outgoing lookup against the progressive lock-out (DNS and HTTPS probes aren't free to repeat)."""
+    wait = context.state.auth.throttle.reserve(scope)
+    if wait:
+        raise ApiError(429, msg("sources.domains.too_many_attempts", seconds=wait), retry_in=wait)
+
+
+@router.post("/api/domains", response_model=DomainRow, openapi_extra=documented(DomainIn), **AS_RETURNED)
+def domain_register(context: Context = Depends(guard(Policy(admin=True, action="register-domain", body=2048))),
+                    data: DomainIn = Depends(body(DomainIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Registers an HTTPS domain and answers the TXT record that proves control of it. Nothing is tested."""
+    try:
+        record = domains.register_domain(context.data_dir, data.url, data.kind, data.context, by=context.user["username"])
+    except DomainError as exc:
+        raise ApiError(400, exc.message) from exc
+    context.state.log.info("domain_registered", extra={"user": context.user["username"], "reason": record["host"]})
+    return context.render(_domain_rows(context, [record])[0])
+
+
+@router.post("/api/domains/verify", response_model=DomainRow, openapi_extra=documented(DomainIdIn), **AS_RETURNED,
+             responses={404: {"description": "Unknown domain"}, 429: {"description": "Too many attempts"}})
+def domain_verify(context: Context = Depends(guard(Policy(admin=True, action="verify-domain", body=256))),
+                  data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Looks the domain's TXT record up once. Seen, the domain is an asset for 90 days; a daily re-check extends or
+    withdraws the proof."""
+    try:
+        domains.get_domain(context.data_dir, data.domain_id)
+    except DomainError as exc:
+        raise ApiError(404, exc.message) from exc
+    _attempt(context, f"domain-verify:{data.domain_id}")
+    try:
+        record = domains.verify_domain(context.data_dir, data.domain_id)
+    except DomainError as exc:
+        raise ApiError(400, exc.message) from exc
+    context.state.auth.throttle.succeeded(f"domain-verify:{data.domain_id}")
+    context.state.log.info("domain_verified", extra={"user": context.user["username"], "reason": record["host"]})
+    return context.render(_domain_rows(context, [record])[0])
+
+
+@router.post("/api/domains/check", response_model=DomainCheck, openapi_extra=documented(DomainCheckIn), **AS_RETURNED,
+             responses={429: {"description": "Too many attempts"}})
+def domain_check(context: Context = Depends(guard(Policy(admin=True, action="check-domain", body=1024))),
+                 data: DomainCheckIn = Depends(body(DomainCheckIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Whether the domain answers over HTTPS: one HEAD to its already-resolved public address, no redirects. Only a
+    hint before registering; a domain that doesn't answer can still be registered."""
+    _attempt(context, f"domain-check:{context.user['username']}")
+    try:
+        result = domains.check_reachability(data.url)
+    except DomainError as exc:
+        raise ApiError(400, exc.message) from exc
+    if result["reachable"]:
+        context.state.auth.throttle.succeeded(f"domain-check:{context.user['username']}")
+    return context.render(result)
+
+
+@router.post("/api/domains/remove", response_model=DomainRemoved, openapi_extra=documented(DomainIdIn), **AS_RETURNED,
+             responses={404: {"description": "Unknown domain"}})
+def domain_remove(context: Context = Depends(guard(Policy(admin=True, action="remove-domain", body=256))),
+                  data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Removes a domain. What was imported against it (runs, findings, their triage and tickets) goes with it, like a
+    repository that left the installation: the panel says so before asking."""
+    from pitangus.modules.runs import assets as run_assets
+    from pitangus.modules.runs.store import find_runs
+    try:
+        record = domains.get_domain(context.data_dir, data.domain_id)
+    except DomainError as exc:
+        raise ApiError(404, exc.message) from exc
+    deleted = run_assets.purge(context.data_dir, record["key"]) if find_runs(context.data_dir, assets=[record["key"]], limit=1) else 0
+    domains.remove_domain(context.data_dir, data.domain_id)
+    context.state.log.warning("domain_removed", extra={"user": context.user["username"], "reason": f"{record['host']}: {deleted} runs"})
+    return {"id": record["id"], "host": record["host"], "runs_deleted": deleted}
 
 
 # --- AI providers ---------------------------------------------------------------------------------------------------

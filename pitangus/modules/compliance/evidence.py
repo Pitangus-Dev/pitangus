@@ -25,7 +25,7 @@ def catalog(data_dir: Path) -> list[dict]:
             if row["status"] == "completed" and entry["last_complete"] is None:
                 entry["last_complete"] = row["created_at"]
     for entry in rows.values():
-        entry["kind"] = entry["kind"] or ("image" if entry["key"].startswith("image:") else "repository")
+        entry["kind"] = entry["kind"] or ("image" if entry["key"].startswith("image:") else "domain" if entry["key"].startswith("domain:") else "repository")
     return list(rows.values())
 
 

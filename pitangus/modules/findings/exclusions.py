@@ -154,7 +154,7 @@ def forget(data_dir: Path, key: str) -> None:
             _write(data_dir, payload)
 
 
-SUMMARY_SCANNERS = ("sast", "secrets", "sca", "iac", "cicd")
+SUMMARY_SCANNERS = ("sast", "secrets", "sca", "iac", "cicd", "dast")
 
 
 def _recount(reason, count: int):
