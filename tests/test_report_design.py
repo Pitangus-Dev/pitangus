@@ -179,7 +179,26 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class LaneTests(unittest.TestCase):
-    def test_flows_between_the_same_components_get_parallel_lanes(self):
+class RoutingTests(unittest.TestCase):
+    @staticmethod
+    def box(x, y):
+        return {"x": x, "y": y, "width": 184, "height": 88}
+
+    def test_a_flow_goes_around_a_component_in_its_way(self):
+        a, middle, b = self.box(0, 0), self.box(300, 0), self.box(600, 0)
+        self.assertEqual(threat_diagram.route(a, b, []), ("right", "left", 1))       # nothing in between: facing sides
+        sides = threat_diagram.route(a, b, [middle])
+        self.assertNotEqual(sides, ("right", "left", 1))                            # straight through «middle»: never
+        curve = threat_diagram._bezier(a, sides[0], b, sides[1], bend=sides[2])
+        self.assertEqual(threat_diagram._cost(curve, a, b, [middle])[0], 0)
+
+    def test_flows_sharing_a_side_spread_along_it_and_a_pair_runs_in_parallel(self):
+        rects = {"a": self.box(0, 200), "b": self.box(400, 0), "c": self.box(400, 400)}
         flows = [{"id": "ida", "source": "a", "target": "b"}, {"id": "vuelta", "source": "b", "target": "a"}, {"id": "otro", "source": "a", "target": "c"}]
-        self.assertEqual(threat_diagram.lanes(flows), {"ida": -7.0, "vuelta": 7.0, "otro": 0.0})
+        chosen = threat_diagram.routes(flows, rects)
+        offsets = threat_diagram.ports(flows, rects, chosen)
+        self.assertEqual((chosen["ida"][:2], chosen["vuelta"][:2]), (("right", "left"), ("left", "right")))
+        # On a's right side, in the order of what they reach: b (above) before c (below); none from the same point.
+        self.assertLess(offsets["ida"][0], offsets["vuelta"][1])
+        self.assertLess(offsets["vuelta"][1], offsets["otro"][0])
+        self.assertNotEqual(offsets["ida"][1], offsets["vuelta"][0])  # nor on b's left side

@@ -9,6 +9,12 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Fixed
 
+- **Threat diagram arrows no longer run behind other components.** Each flow picks the sides and the curve that go
+  around what is in between, and flows leaving the same side of a component spread along it instead of starting at one
+  point; the editor, the SVG and the PDF draw them the same way. In the bundled examples, flows running over another
+  component went from 108 of 156 to 12 (one flow per example still needs a route with bends). Wide curves and their
+  labels now stay inside the exported drawing.
+
 - **A threat marked mitigated or not applicable while the scans still find it** goes back to "with evidence", with a
   note saying who decided and asking to review the decision. The decision is kept and applies again once the
   evidence is gone.
