@@ -34,11 +34,28 @@ FRAMEWORKS = {
     "br-cmn": ("vulnerabilities", "testing", "traceability"),
     "cl-21663": ("risk", "improvement", "evidence"),
     "co-sfc": ("vulnerabilities", "secure_development", "evidence"),
+    "nis2": ("art21_2_d", "art21_2_e", "art21_2_f", "ir_6_2", "ir_6_5", "ir_6_10"),
+    "dora": ("art_8_2", "art_9_4_e", "art_24_5", "art_25_1", "rts_10_2", "rts_16_3"),
+    "gdpr": ("art_32_1_b", "art_32_1_d"),
+    "nist-ssdf": ("po_3", "ps_3", "pw_4", "pw_7", "rv_1", "rv_2"),
+    "nist-csf": ("id_am_02", "id_ra_01", "id_ra_06", "id_ra_07", "pr_ps_06"),
+    "nist-800-53": ("ra_5", "si_2", "sa_11", "cm_3", "cm_8"),
+    "hipaa": ("risk_analysis", "risk_management", "evaluation"),
+    "mx-cnbv-cub": ("art_168b11_iii", "art_168b11_ix", "art_168b12_v", "art_168b12_vi_vii"),
+    "mx-cnbv-ifc": ("art_63_iii", "art_63_ix", "art_64_v", "art_64_vi_vii"),
+    "mx-ifpe": ("art_21", "art_28_i"),
+    "mx-lfpdppp": ("art_18",),
     "general": (),
 }
 # Controls whose evidence relies on remediation deadlines.
-DEADLINE_CONTROLS = {("pci", "r6_3_3"), ("cra", "annex_i_ii_2"), ("br-cmn", "vulnerabilities"), ("cl-21663", "improvement"),
-                     ("co-sfc", "vulnerabilities")}
+DEADLINE_CONTROLS = {("pci", "r6_3_3"), ("cra", "annex_i_ii_2"), ("br-cmn", "vulnerabilities"),
+                     ("cl-21663", "improvement"), ("co-sfc", "vulnerabilities"), ("nis2", "art21_2_e"),
+                     ("nis2", "art21_2_f"), ("nis2", "ir_6_10"), ("dora", "art_24_5"), ("dora", "rts_10_2"),
+                     ("dora", "rts_16_3"), ("gdpr", "art_32_1_b"), ("nist-ssdf", "rv_2"), ("nist-csf", "id_ra_06"),
+                     ("nist-800-53", "ra_5"), ("nist-800-53", "si_2"), ("nist-800-53", "sa_11"),
+                     ("hipaa", "risk_management"), ("mx-cnbv-cub", "art_168b11_ix"),
+                     ("mx-cnbv-cub", "art_168b12_vi_vii"), ("mx-cnbv-ifc", "art_63_ix"),
+                     ("mx-cnbv-ifc", "art_64_vi_vii"), ("mx-ifpe", "art_21"), ("mx-lfpdppp", "art_18")}
 DETAIL = ("none", "high", "all")
 DETAIL_LIMIT = 40  # detail blocks: the findings table is already the complete evidence
 TEXT_LIMITS = {"title": 120, "organization": 120, "prepared_by": 80, "prepared_for": 120, "scope": 300}
@@ -237,7 +254,7 @@ def _controls(framework_label: str, controls: list, *, deadlines: bool, locale: 
     return [h2(i18n.t("reports.audit.controls_heading", locale, framework=framework_label)),
             _grid([_head(locale, "control", "contributes")]
                   + [[Paragraph(f"<b>{html.escape(code)}</b><br/>{html.escape(name)}", STYLE["cell"]), Paragraph(html.escape(text_), STYLE["cell"])]
-                     for code, name, text_, _ in controls], [42 * mm, WIDTH - 42 * mm]),
+                     for code, name, text_, _ in controls], [55 * mm, WIDTH - 55 * mm]),
             Paragraph(_t(i18n.t("reports.audit.controls_note", locale), 600), STYLE["note"]), *note]
 
 

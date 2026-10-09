@@ -551,6 +551,281 @@
         }
       }
     },
+    "nis2": {
+      "label": "NIS2 · Directiva (UE) 2022/2555 y Regl. Ejec. 2024/2690",
+      "controls": {
+        "art21_2_d": {
+          "code": "Art. 21(2)(d)",
+          "name": "Seguridad de la cadena de suministro",
+          "text": "Inventario de componentes de terceros (SBOM CycloneDX) con sus vulnerabilidades conocidas, para valorar lo que entregan los proveedores."
+        },
+        "art21_2_e": {
+          "code": "Art. 21(2)(e)",
+          "name": "Seguridad en la adquisición, el desarrollo y el mantenimiento, incluida la gestión y divulgación de las vulnerabilidades",
+          "text": "Vulnerabilidades del código, las dependencias, la IaC y las imágenes, con su estado, la decisión de triage y el plazo para corregirlas."
+        },
+        "art21_2_f": {
+          "code": "Art. 21(2)(f)",
+          "name": "Políticas y procedimientos para evaluar la eficacia de las medidas para la gestión de riesgos en el ámbito de la ciberseguridad",
+          "text": "Datos medibles del periodo: cobertura de los análisis, hallazgos abiertos frente a remediados y cumplimiento de plazos."
+        },
+        "ir_6_2": {
+          "code": "Regl. Ejec. 2024/2690, anexo 6.2",
+          "name": "Ciclo de vida del desarrollo seguro",
+          "text": "Pruebas de seguridad dentro del desarrollo: cada cambio se analiza antes de integrarse cuando se usa en pull requests o CI, y la rama principal también."
+        },
+        "ir_6_5": {
+          "code": "Regl. Ejec. 2024/2690, anexo 6.5",
+          "name": "Pruebas de seguridad",
+          "text": "Tipo, alcance, fecha y resultado de cada prueba, con la criticidad y la acción de mitigación de cada hallazgo (6.5.2(c))."
+        },
+        "ir_6_10": {
+          "code": "Regl. Ejec. 2024/2690, anexo 6.10",
+          "name": "Gestión y divulgación de las vulnerabilidades",
+          "text": "Resultados de análisis registrados (6.10.2(b)), plazos para lo crítico (6.10.2(c)) y el motivo documentado cuando una vulnerabilidad no se corrige (6.10.3: triage y OpenVEX). El anexo solo obliga a las entidades que enumera su artículo 1; para las demás es una referencia."
+        }
+      }
+    },
+    "dora": {
+      "label": "DORA · Reglamento (UE) 2022/2554 y RTS 2024/1774",
+      "controls": {
+        "art_8_2": {
+          "code": "Art. 8(2)",
+          "name": "Identificación",
+          "text": "Detección continua de vulnerabilidades TIC en el software propio, sus dependencias y sus imágenes."
+        },
+        "art_9_4_e": {
+          "code": "Art. 9(4)(e)",
+          "name": "Protección y prevención (gestión de cambios en las TIC)",
+          "text": "Evaluación de seguridad registrada para cada cambio antes de integrarlo, cuando se usa en pull requests o CI."
+        },
+        "art_24_5": {
+          "code": "Art. 24(5)",
+          "name": "Requisitos generales para la realización de pruebas de resiliencia operativa digital",
+          "text": "Prioridad, clasificación y estado de corrección de cada hallazgo que revelaron las pruebas, con sus plazos."
+        },
+        "art_25_1": {
+          "code": "Art. 25(1)",
+          "name": "Pruebas de las herramientas y los sistemas de TIC",
+          "text": "Resultados de evaluaciones y exploraciones de vulnerabilidades y de revisiones del código fuente, dos de las pruebas que enumera el artículo 25(1)."
+        },
+        "rts_10_2": {
+          "code": "RTS 2024/1774, art. 10(2)",
+          "name": "Gestión de vulnerabilidades y parches",
+          "text": "Análisis automatizado, seguimiento de bibliotecas de terceros y de código abierto, priorización y registro de cada vulnerabilidad hasta su resolución (letras b, d, f, g y h). La frecuencia semanal que se exige para los activos que sustentan funciones esenciales o importantes depende de cada cuánto analices."
+        },
+        "rts_16_3": {
+          "code": "RTS 2024/1774, art. 16(3)",
+          "name": "Adquisición, desarrollo y mantenimiento de los sistemas de TIC",
+          "text": "Revisión estática del código fuente que identifica vulnerabilidades, y el seguimiento de su corrección. Las pruebas dinámicas que el artículo también exige no forman parte de esta evidencia."
+        }
+      }
+    },
+    "gdpr": {
+      "label": "RGPD · Reglamento (UE) 2016/679, art. 32",
+      "controls": {
+        "art_32_1_b": {
+          "code": "Art. 32(1)(b)",
+          "name": "Seguridad del tratamiento: confidencialidad, integridad, disponibilidad y resiliencia permanentes",
+          "text": "Vulnerabilidades del software que trata datos personales, con su estado y plazo de corrección."
+        },
+        "art_32_1_d": {
+          "code": "Art. 32(1)(d)",
+          "name": "Seguridad del tratamiento: verificación, evaluación y valoración regulares de la eficacia",
+          "text": "Pruebas de seguridad automatizadas y periódicas de la aplicación, con su cobertura y resultados en el periodo."
+        }
+      }
+    },
+    "nist_ssdf": {
+      "label": "NIST SSDF · SP 800-218 v1.1",
+      "controls": {
+        "po_3": {
+          "code": "PO.3",
+          "name": "Implementar cadenas de herramientas de apoyo",
+          "text": "Artefactos que genera la cadena de herramientas como evidencia de las prácticas de desarrollo seguro (tarea PO.3.3)."
+        },
+        "ps_3": {
+          "code": "PS.3",
+          "name": "Archivar y proteger cada versión",
+          "text": "Procedencia de los componentes de cada versión analizada, compartida como SBOM (tarea PS.3.2)."
+        },
+        "pw_4": {
+          "code": "PW.4",
+          "name": "Reutilizar software ya asegurado",
+          "text": "Revisión continua de los componentes de terceros y de código abierto en busca de vulnerabilidades conocidas (tarea PW.4.4)."
+        },
+        "pw_7": {
+          "code": "PW.7",
+          "name": "Revisar o analizar el código legible para detectar vulnerabilidades",
+          "text": "Análisis del código en cada cambio, con cada problema registrado y con su triage dentro del flujo de trabajo (tarea PW.7.2)."
+        },
+        "rv_1": {
+          "code": "RV.1",
+          "name": "Identificar y confirmar vulnerabilidades de forma continua",
+          "text": "Análisis continuo del código, las dependencias y las imágenes para detectar vulnerabilidades nuevas (tareas RV.1.1 y RV.1.2)."
+        },
+        "rv_2": {
+          "code": "RV.2",
+          "name": "Evaluar, priorizar y corregir vulnerabilidades",
+          "text": "Severidad, decisión de riesgo (corregir, aceptar con responsable y vencimiento, o no afectado) y plazo de cada vulnerabilidad (tareas RV.2.1 y RV.2.2)."
+        }
+      }
+    },
+    "nist_csf": {
+      "label": "Marco de Ciberseguridad (CSF) 2.0 del NIST",
+      "controls": {
+        "id_am_02": {
+          "code": "ID.AM-02",
+          "name": "Se mantienen inventarios de software, servicios y sistemas gestionados por la organización",
+          "text": "Inventario de componentes por repositorio e imagen, exportable como SBOM CycloneDX."
+        },
+        "id_ra_01": {
+          "code": "ID.RA-01",
+          "name": "Se identifican, validan y registran las vulnerabilidades de los activos",
+          "text": "Vulnerabilidades detectadas por los análisis, registradas una a una y validadas cuando se revisan en el triage."
+        },
+        "id_ra_06": {
+          "code": "ID.RA-06",
+          "name": "Se eligen, priorizan, planifican, controlan y comunican las respuestas al riesgo",
+          "text": "Respuesta elegida para cada vulnerabilidad, con su prioridad, plazo y seguimiento del estado."
+        },
+        "id_ra_07": {
+          "code": "ID.RA-07",
+          "name": "Se gestionan los cambios y las excepciones, se evalúa su impacto en el riesgo, se registran y se realiza su seguimiento",
+          "text": "Revisión de seguridad de cada cambio, y excepciones registradas con motivo, responsable y vencimiento."
+        },
+        "pr_ps_06": {
+          "code": "PR.PS-06",
+          "name": "Se integran prácticas seguras de desarrollo de software y se supervisa su rendimiento durante todo el ciclo de vida de desarrollo del software",
+          "text": "Controles de seguridad automatizados dentro del ciclo de vida, con su cobertura y resultados."
+        }
+      }
+    },
+    "nist_800_53": {
+      "label": "NIST SP 800-53 Rev. 5",
+      "controls": {
+        "ra_5": {
+          "code": "RA-5",
+          "name": "Monitoreo y escaneo de vulnerabilidades",
+          "text": "Análisis del código, las dependencias y las imágenes, revisión de los resultados y seguimiento de la corrección frente a sus plazos (RA-5 a, c, d)."
+        },
+        "si_2": {
+          "code": "SI-2",
+          "name": "Corrección de fallos",
+          "text": "Fallos identificados y notificados, con el plazo de corrección de cada uno (SI-2 a, c)."
+        },
+        "sa_11": {
+          "code": "SA-11",
+          "name": "Pruebas y evaluación del desarrollador",
+          "text": "Pruebas de seguridad durante el desarrollo, incluido el análisis estático del código (SA-11(1)), y la corrección de los fallos encontrados."
+        },
+        "cm_3": {
+          "code": "CM-3",
+          "name": "Control de cambios de configuración",
+          "text": "Análisis del impacto en seguridad de cada cambio propuesto antes de integrarlo (CM-3 b)."
+        },
+        "cm_8": {
+          "code": "CM-8",
+          "name": "Inventario de componentes del sistema",
+          "text": "Inventario de componentes de software por repositorio e imagen (SBOM)."
+        }
+      }
+    },
+    "hipaa": {
+      "label": "HIPAA, Regla de Seguridad · 45 CFR 164.308",
+      "controls": {
+        "risk_analysis": {
+          "code": "§164.308(a)(1)(ii)(A)",
+          "name": "Análisis de riesgos (obligatorio)",
+          "text": "Insumo para el análisis de riesgos: vulnerabilidades técnicas de las aplicaciones que tratan información de salud protegida electrónica (ePHI), con su severidad. El análisis que exige HIPAA abarca mucho más que el código."
+        },
+        "risk_management": {
+          "code": "§164.308(a)(1)(ii)(B)",
+          "name": "Gestión de riesgos (obligatoria)",
+          "text": "Medidas aplicadas a cada vulnerabilidad (corrección o riesgo aceptado con su motivo) y sus plazos."
+        },
+        "evaluation": {
+          "code": "§164.308(a)(8)",
+          "name": "Evaluación",
+          "text": "Evidencia técnica periódica de la seguridad de las aplicaciones, como parte de la evaluación."
+        }
+      }
+    },
+    "mx_cnbv_cub": {
+      "label": "México · CNBV, bancos (CUB, arts. 168 Bis 11–12)",
+      "controls": {
+        "art_168b11_iii": {
+          "code": "Art. 168 Bis 11, fr. III",
+          "name": "Seguridad en todo el ciclo de vida, incluidas pruebas de vulnerabilidades y análisis de código antes de producción",
+          "text": "Análisis del código y de sus dependencias en cada cambio antes de integrarlo (en pull requests o CI), como parte de las pruebas previas a producción."
+        },
+        "art_168b11_ix": {
+          "code": "Art. 168 Bis 11, fr. IX",
+          "name": "Acciones correctivas o controles compensatorios para las vulnerabilidades detectadas, según su nivel de riesgo",
+          "text": "Acción correctiva o riesgo aceptado para cada vulnerabilidad, según su severidad."
+        },
+        "art_168b12_v": {
+          "code": "Art. 168 Bis 12, fr. V",
+          "name": "Clasificación de las vulnerabilidades detectadas",
+          "text": "Clasificación de cada vulnerabilidad por severidad, para aplicar la metodología de la institución."
+        },
+        "art_168b12_vi_vii": {
+          "code": "Art. 168 Bis 12, fr. VI–VII",
+          "name": "Planes de remediación y su seguimiento",
+          "text": "Responsable, plazo y estado de cada hallazgo por corregir, para el plan de remediación y su seguimiento. El calendario de escaneo de la infraestructura, las pruebas de penetración externas y el envío a la CNBV quedan fuera de esta evidencia."
+        }
+      }
+    },
+    "mx_cnbv_ifc": {
+      "label": "México · CNBV, financiamiento colectivo (IFC, arts. 63–64)",
+      "controls": {
+        "art_63_iii": {
+          "code": "Art. 63, fr. III",
+          "name": "Seguridad en todo el ciclo de vida, incluidas pruebas de vulnerabilidades y análisis de código antes de producción",
+          "text": "Análisis del código y de sus dependencias en cada cambio antes de integrarlo (en pull requests o CI), como parte de las pruebas previas a producción."
+        },
+        "art_63_ix": {
+          "code": "Art. 63, fr. IX",
+          "name": "Acciones correctivas o controles compensatorios para las vulnerabilidades detectadas",
+          "text": "Acción correctiva o riesgo aceptado para cada vulnerabilidad, según su severidad."
+        },
+        "art_64_v": {
+          "code": "Art. 64, fr. V",
+          "name": "Clasificación de las vulnerabilidades detectadas",
+          "text": "Clasificación de cada vulnerabilidad por severidad, para aplicar la metodología de la institución."
+        },
+        "art_64_vi_vii": {
+          "code": "Art. 64, fr. VI–VII",
+          "name": "Planes de remediación y su seguimiento",
+          "text": "Responsable, plazo y estado de cada hallazgo, y el análisis posterior que lo muestra remediado, como apoyo al seguimiento. El escaneo bimestral de la infraestructura queda fuera de esta evidencia."
+        }
+      }
+    },
+    "mx_ifpe": {
+      "label": "México · CNBV–Banxico, fondos de pago electrónico (IFPE)",
+      "controls": {
+        "art_21": {
+          "code": "Art. 21",
+          "name": "Escaneo de vulnerabilidades y plan de remediación",
+          "text": "Resultados de los análisis del código y las imágenes, los hallazgos críticos y altos con su plazo de corrección, y los datos del plan de remediación. El escaneo bimestral de toda la infraestructura queda fuera de esta evidencia."
+        },
+        "art_28_i": {
+          "code": "Art. 28, fr. I",
+          "name": "Pruebas de vulnerabilidades y análisis de código antes de liberar; control de cambios",
+          "text": "Análisis del código y de sus dependencias antes de integrar cada cambio, con registro de la revisión."
+        }
+      }
+    },
+    "mx_lfpdppp": {
+      "label": "México · LFPDPPP (2025), art. 18",
+      "controls": {
+        "art_18": {
+          "code": "Art. 18",
+          "name": "Medidas de seguridad administrativas, técnicas y físicas",
+          "text": "Evidencia técnica de las medidas de seguridad del software que trata datos personales: vulnerabilidades, estado y corrección."
+        }
+      }
+    },
     "general": {
       "label": "Gestión de vulnerabilidades"
     }

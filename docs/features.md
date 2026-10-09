@@ -93,8 +93,10 @@ policy and overdue findings sorted by delay: what SOC 2 and ISO 27001 ask for as
   accepted risk → `affected` with the action; false positive → `not_affected` with the reason; fixed → `fixed`.
 - **Malicious packages.** OpenSSF `MAL-*` advisories (via OSV) are flagged as **Malicious**, critical and "Act
   now", with the actual fix: remove the package and rotate the secrets from wherever it was installed. Never "update to…".
-- **Audit report frameworks.** Besides SOC 2 and ISO 27001: PCI DSS 4.0.1, CRA, Brazil (CMN Res. 4.893/5.274),
-  Chile (Law 21.663) and Colombia (SFC, CE 007/2018). The mapping to each control is indicative.
+- **Audit report frameworks.** Besides SOC 2 and ISO 27001: PCI DSS 4.0.1, CRA, NIS2, DORA and GDPR Art. 32 (EU);
+  NIST SSDF, NIST CSF 2.0, NIST SP 800-53 and the HIPAA Security Rule (US); Brazil (CMN Res. 4.893/5.274), Chile
+  (Law 21.663), Colombia (SFC, CE 007/2018) and Mexico (CNBV for banks and crowdfunding, IFPE, LFPDPPP Art. 18). The
+  mapping to each control is indicative: the report is evidence for an audit, not a certification.
 - **Evidence hub (Compliance view).** Pick a repository or image and download its SBOM, VEX, technical report or
   audit evidence for the chosen framework in one click; or the consolidated audit evidence of every analyzed asset.
   The files are the same exports as in Findings.

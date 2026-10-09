@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileCheck2, LoaderCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
+import { Select, SelectTrigger } from '@/shared/ui/select'
+import { FrameworkOptions } from '@/features/findings/framework-options'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
@@ -60,11 +61,11 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
     <DialogHeader><DialogTitle>{portfolio ? t('audit.title_portfolio', { name }) : t('audit.title')}</DialogTitle>
       <DialogDescription>{t('audit.description')}</DialogDescription></DialogHeader>
     <form className="space-y-5" onSubmit={submit}>
-      {/* Ley de Hick: ocho marcos en un selector, con lo que aporta el elegido debajo. */}
+      {/* Hick's law: the frameworks grouped by region in one selector, with what the chosen one covers below. */}
       <div className="space-y-2"><label htmlFor="audit-framework" className={label}>{t('audit.framework')}</label>
         <Select value={framework} onValueChange={value => setFramework((value ?? 'general') as Framework)}>
-          <SelectTrigger id="audit-framework" className="w-full border-app-line bg-inset">{current && t(current[1])}</SelectTrigger>
-          <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-xl">{frameworks.map(([id, text]) => <SelectItem key={id} value={id}>{t(text)}</SelectItem>)}</SelectContent>
+          <SelectTrigger id="audit-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{current && t(current[1])}</span></SelectTrigger>
+          <FrameworkOptions frameworks={frameworks} />
         </Select>
         <p className="text-xs text-app-muted">{current && t(current[2])}.{framework === 'general' ? '' : ` ${t('audit.mapping_note')}`}</p></div>
 
