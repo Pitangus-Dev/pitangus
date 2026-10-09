@@ -8,7 +8,7 @@ With a fresh server and a DNS record already pointing at it, it's four commands:
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.12.0                                   # the release you want (see Upgrades)
+git checkout v0.12.1                                   # the release you want (see Upgrades)
 make setup DOMAIN=pitangus.example.com PREBUILT=1   # HTTPS with Caddy + published images
 make up                                             # prints https://pitangus.example.com and the setup code
 ```
@@ -99,7 +99,7 @@ As the `pitangus` user:
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.12.0
+git checkout v0.12.1
 make setup DOMAIN=pitangus.example.com PREBUILT=1
 make doctor
 ```

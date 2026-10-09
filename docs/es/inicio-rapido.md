@@ -10,7 +10,7 @@ pueden dejar para después.
 Necesitas Docker (Engine 24+ con Compose v2.24+), `make` y `git`. `make doctor` comprueba que todo está.
 
 ```bash
-git clone --branch v0.12.0 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.12.1 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up
