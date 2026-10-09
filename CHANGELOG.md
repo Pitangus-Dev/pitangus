@@ -29,6 +29,19 @@ between minor versions: anything that changes behaviour is called out below.
   count). An administrator can remove an image that was never scanned. API: `POST /api/images` and `POST /api/images/remove`;
   `GET /api/images` items carry `analyzed`.
 
+### Security
+
+- **The images no longer carry pip.** It installs the pinned dependencies and is then removed, from the app image and
+  from Checkov's environment in the worker with the engines inside: nothing runs it, and the 25.0.1 that Python 3.12
+  bundles has six known vulnerabilities (pip 26 would trade them for its vendored urllib3, msgpack and setuptools).
+- **Checkov's asteval goes to 1.0.10** in the worker with the engines inside. Checkov 3.3.19 (and every later release
+  so far) pins 1.0.6, which it uses to evaluate the Terraform expressions of the scanned repository; 1.0.9 fixed two
+  sandbox escapes (GHSA-89v8-rhwq-hf77, GHSA-9w56-46f6-3qhx). It is installed by hash over the lock, from
+  `docker/checkov/overrides.txt`; Checkov's results don't change.
+- The Python base image moves to the current `python:3.12-slim-bookworm` digest (still Python 3.12.15). The engines and
+  the Docker CLI stay where they were: they are already the newest releases at least a week old, and the Go standard
+  library fixes their remaining findings need (Go 1.26.9 and 1.27.2) came out on 2026-10-08.
+
 ## [0.12.1] - 2026-10-09
 
 ### Added

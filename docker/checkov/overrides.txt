@@ -1,0 +1,7 @@
+# Installed over requirements.txt (--no-deps, by hash): security fixes for packages Checkov pins to a vulnerable
+# version, so pip-compile can't take them. Written by hand; drop an entry when Checkov's own pin reaches it.
+# asteval: Checkov 3.3.19 pins 1.0.6 and evaluates Terraform expressions from the scanned repository with it.
+# 1.0.9 fixes GHSA-89v8-rhwq-hf77 (CVE-2026-55244) and GHSA-9w56-46f6-3qhx (sandbox escapes); 1.0.10 (2026-08-21).
+asteval==1.0.10 \
+    --hash=sha256:8d805fa8084aa12204715f799430f0012a0db38b42e997f9f11a9637ad59855f \
+    --hash=sha256:46a4ed13cc2e4a29a21418f89dedd57db70d98eb96db0fb4c441d4edb2f5afed
