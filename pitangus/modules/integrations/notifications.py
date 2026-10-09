@@ -158,7 +158,7 @@ def panel_link(run_id: str | None = None) -> str | None:
     base = settings.text("PITANGUS_PUBLIC_URL").rstrip("/")
     if not base.startswith(("https://", "http://")):
         return None
-    return f"{base}/#/hallazgos?run={run_id}" if run_id else base
+    return f"{base}/#/findings?run={run_id}" if run_id else base
 
 
 def _where(finding: dict) -> str:

@@ -125,7 +125,7 @@ export function CodeSources({ showRepositories = false, onScan, onImages, runs =
           <ul className="mt-2 space-y-1 text-xs leading-5 text-app-subtle">{pending.map(item => <li key={item.id}><strong className="font-medium text-app-secondary">{item.name}:</strong> {t(item.reason)}</li>)}</ul></details>
       </CardContent>
     </Card>}
-    {showRepositories && <p className="text-sm text-app-muted">{t('providers.accounts_connected', { count: installations.length })} · <a className="font-medium text-brand hover:underline" href="#/integraciones">{t('providers.manage_github')}</a></p>}
+    {showRepositories && <p className="text-sm text-app-muted">{t('providers.accounts_connected', { count: installations.length })} · <a className="font-medium text-brand hover:underline" href="#/integrations">{t('providers.manage_github')}</a></p>}
     {(error || sourcesError) && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-3 text-sm text-danger">{error || sourcesError}</div>}
     {data?.providers.github?.error && <div role="alert" className="rounded-xl border border-warning-line bg-warning-soft p-3 text-sm text-warning">{data.providers.github.error}</div>}
 

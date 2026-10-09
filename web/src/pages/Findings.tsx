@@ -37,7 +37,7 @@ export function Findings({ user, requestedRun, onNew, onOpenPolicies }: { user: 
   useEffect(() => { if (asset) setRouteParam('repo', asset.key) }, [asset])
   useEffect(() => { setRouteParam('run', run === CURRENT ? null : run) }, [run])
   const [empty, setEmpty] = useState(false)
-  // A finding linked from outside (a Jira issue: #/hallazgos?repo=…&finding=…), opened once its repository loads.
+  // A finding linked from outside (a Jira issue: #/findings?repo=…&finding=…), opened once its repository loads.
   const [focus, setFocus] = useState(() => ({ repo: readRoute().params.get('repo'), finding: readRoute().params.get('finding') }))
 
   const searchAssets = useCallback(async (text: string) => {

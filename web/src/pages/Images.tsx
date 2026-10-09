@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { readRoute, setRouteParam } from '@/shared/lib/route'
 import { ImageList, type RepositoryFilter } from '@/features/sources/image-list'
 
-// Images page: the repository filter travels in the URL (#/imagenes?repo=…&name=…) so the link from Repositories works.
+// Images page: the repository filter travels in the URL (#/images?repo=…&name=…) so the link from Repositories works.
 export function Images({ admin, onOpenFindings, onNew }: { admin: boolean; onOpenFindings: (key: string) => void; onNew: () => void }) {
   const [repository, setRepository] = useState<RepositoryFilter | null>(() => {
     const params = readRoute().params

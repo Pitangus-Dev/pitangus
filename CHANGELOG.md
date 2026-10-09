@@ -35,6 +35,9 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Changed
 
+- **The panel's paths are English** (`#/findings`, `#/compliance`, `#/images`…) whatever its language, so a shared link
+  reads the same for everyone. The Spanish paths of earlier versions (`#/hallazgos`, `#/resumen`…) still work and are
+  rewritten, so links already sent in Jira issues, notifications or bookmarks don't break.
 - **New look for every PDF report** (technical, audit evidence, consolidated, threat model): a cover with the system,
   date, revision and reference; «Confidential» on every page and «page N of M» in the footer; Source Serif 4 and IBM
   Plex (embedded, SIL OFL) instead of Helvetica; ruled tables and key figures without fills; severity as coloured text.

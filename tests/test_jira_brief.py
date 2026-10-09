@@ -37,7 +37,7 @@ class BriefTests(unittest.TestCase):
                    "reason": "Request input reaches a SQL query built as text", "remediation": "Use the driver's parameters",
                    "path": "app/db.py", "line": 14, "severity": "high", "cwe": [89]}
         written = self.write([ticket("1" * 64)], {"1" * 64: finding}, first_seen={"1" * 64: "2026-09-20T10:00:00+00:00"},
-                             panel_url="https://pitangus.acme.io/#/hallazgos?repo=x&finding=y")
+                             panel_url="https://pitangus.acme.io/#/findings?repo=x&finding=y")
         headings = [block["heading"] for block in written["blocks"] if "heading" in block]
         self.assertEqual(headings[:5], ["The problem", "Where", "How to fix it", "How to verify it", "Deadline and context"])
         self.assertIn("Due date: 2026-10-20", written["text"])

@@ -232,7 +232,7 @@ def _landing(locale: str, port: int, title, detail) -> Response:
             "<style>body{font:15px system-ui,sans-serif;background:#0a0a0a;color:#eee;max-width:560px;margin:15vh auto;padding:0 20px}"
             "a{color:#fff}</style>"
             f"<h1>{html.escape(text(title, locale))}</h1><p>{html.escape(text(detail, locale))}</p>"
-            f"<p><a href=\"{html.escape(public_url(port))}/#/integraciones\">{html.escape(t('integrations.github.landing.back', locale))}</a></p>")
+            f"<p><a href=\"{html.escape(public_url(port))}/#/integrations\">{html.escape(t('integrations.github.landing.back', locale))}</a></p>")
     return Response(page.encode("utf-8"), status_code=200,
                     headers={"content-type": "text/html; charset=utf-8", "content-security-policy": LANDING_CSP})
 
