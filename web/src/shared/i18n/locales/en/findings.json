@@ -8,6 +8,8 @@
     "current_hint": "scans, PRs and imports combined, fixed items shown separately",
     "current_hint_short": "scans, PRs and imports",
     "no_runs": "No matching runs",
+    "load_failed": "Couldn't load these findings: {{error}}",
+    "assets_failed": "Couldn't load the assets: {{error}}",
     "removed": "GitHub has had no access to this repository since {{date}} (it was deleted or removed from the App). If access doesn't come back, its findings, triage and linked tickets are deleted after 24 hours.",
     "tabs": { "open": "Open", "fixed": "Fixed", "excluded": "Excluded" },
     "kind_scan": "Full scan",

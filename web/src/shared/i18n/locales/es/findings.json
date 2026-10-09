@@ -8,6 +8,8 @@
     "current_hint": "análisis, PRs e importaciones juntos, con lo remediado aparte",
     "current_hint_short": "análisis, PRs e importaciones",
     "no_runs": "Sin ejecuciones que coincidan",
+    "load_failed": "No se pudieron cargar estos hallazgos: {{error}}",
+    "assets_failed": "No se pudieron cargar los activos: {{error}}",
     "removed": "GitHub ya no da acceso a este repositorio (se borró o se quitó de la App) desde el {{date}}. Si no vuelve, sus hallazgos, triage y tickets enlazados se borran a las 24 horas.",
     "tabs": { "open": "Abiertos", "fixed": "Remediados", "excluded": "Excluidos" },
     "kind_scan": "Escaneo completo",

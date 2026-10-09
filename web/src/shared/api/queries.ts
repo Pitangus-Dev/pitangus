@@ -1,6 +1,6 @@
 // Shared queries (TanStack Query): one key and one way to ask for each resource, so two views showing the same thing
 // share the cache and a mutation knows what to invalidate.
-import { infiniteQueryOptions, keepPreviousData, queryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, keepPreviousData, queryOptions, type QueryClient } from '@tanstack/react-query'
 import { api, query } from '@/shared/api/http'
 import { apiGet, type Response } from '@/shared/api/client'
 import type { Dashboard, Page, RunRow } from '@/shared/lib/types'
@@ -24,6 +24,7 @@ export const keys = {
   assetSecretsAll: ['secret-rules', 'asset'] as const,
   assetSecrets: (key: string) => ['secret-rules', 'asset', key] as const,
   exclusions: (key: string) => ['exclusions', key] as const,
+  assets: ['assets'] as const,
   asset: (key: string) => ['assets', 'one', key] as const,
   jira: ['jira'] as const,
   jiraRouting: ['jira', 'routing'] as const,
@@ -107,6 +108,16 @@ export const assetQuery = <T extends AssetSummary = AssetSummary>(key: string) =
   queryKey: keys.asset(key), staleTime: 5 * 60_000,
   queryFn: async ({ signal }) => (await api.get<Page<T>>(`/api/assets?${query({ key, limit: 1 })}`, { signal })).items[0] ?? null,
 })
+// Assets by name for pickers (the first 50 matches).
+export const assetSearchQuery = <T>(q: string) => queryOptions({
+  queryKey: [...keys.assets, 'search', q], staleTime: 30_000,
+  queryFn: ({ signal }) => api.get<Page<T>>(`/api/assets?${query({ q: q || undefined, limit: 50 })}`, { signal }),
+})
+// An asset's scans, PR reviews and imports, searched for the run picker.
+export const assetRunsQuery = (key: string, q: string) => queryOptions({
+  queryKey: [...keys.runs, 'asset', key, q], staleTime: 30_000,
+  queryFn: ({ signal }) => api.get<Page<RunRow>>(`/api/runs/page?${query({ asset: key, type: 'repository_scan,image_scan,pr_review,sarif_import', q: q || undefined, limit: 50 })}`, { signal }),
+})
 
 // Jira: the credential's status is anyone's; routing and discovery are for administrators.
 export type JiraStatus = Response<'/api/integrations/jira'>
@@ -162,11 +173,22 @@ export const jiraBatchesQuery = () => queryOptions({
   refetchInterval: query => (query.state.data?.items ?? []).some(item => item.pending > 0) ? 3000 : false,
 })
 
-// Findings of every asset in a scope, by tab. `search` is the scope's query string (`scopeQuery`); the prefix is what a
-// triage or a Jira issue invalidates.
+// Findings, of one asset or of a scope. A triage, an exclusion or a Jira issue invalidates them all (`invalidateFindings`),
+// and the assets' open counts with them.
+export type FindingStatus = 'open' | 'fixed' | 'excluded' | 'all'
+const findingsKey = ['findings'] as const
+export const invalidateFindings = (client: QueryClient) =>
+  Promise.all([client.invalidateQueries({ queryKey: findingsKey }), client.invalidateQueries({ queryKey: keys.assets })])
+
+// One asset's current state (its findings registry: scans, PRs and imports together), by tab.
+export const assetStateQuery = <T>(key: string, status: FindingStatus) => queryOptions({
+  queryKey: [...findingsKey, 'asset', key, status],
+  queryFn: ({ signal }) => api.get<T>(`/api/assets/state?${query({ key, status })}`, { signal }),
+})
+
+// Findings of every asset in a scope, by tab. `search` is the scope's query string (`scopeQuery`).
 export type ScopedFindings = Response<'/api/findings/scope'>
-export const findingsScopeKey = ['findings', 'scope'] as const
-export const findingsScopeQuery = (search: string, status: 'open' | 'fixed' | 'excluded' | 'all') => queryOptions({
-  queryKey: [...findingsScopeKey, search, status],
+export const findingsScopeQuery = (search: string, status: FindingStatus) => queryOptions({
+  queryKey: [...findingsKey, 'scope', search, status],
   queryFn: ({ signal }) => api.get<ScopedFindings>(`/api/findings/scope?${[search, `status=${status}`].filter(Boolean).join('&')}`, { signal }),
 })

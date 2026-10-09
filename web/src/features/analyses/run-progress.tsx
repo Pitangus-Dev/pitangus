@@ -11,20 +11,13 @@ export type ProgressEvent = { at: string; level: 'info' | 'ok' | 'warn' | 'error
 export type RunningRun = { id: string; status: string; created_at: string; started_at?: string; finished_at?: string; source?: { name: string }; progress?: ProgressEvent[] }
 
 // Consola de progreso del escaneo: solo eventos pensados para el usuario, nunca salida del servidor.
-export function RunProgress({ run, onFinished }: { run: RunningRun; onFinished: (run: RunningRun) => void }) {
+export function RunProgress({ run }: { run: RunningRun }) {
   const { t } = useTranslation('analyses')
   // La consulta sondea sola mientras la ejecución está en cola o corriendo (ver runQuery) y comparte caché.
   // `dataUpdatedAt` is the clock for the elapsed time: it advances with every poll.
   const { data, dataUpdatedAt: now } = useQuery({ ...runQuery<RunningRun>(run.id), initialData: run })
   const live = data ?? run
   const bottom = useRef<HTMLDivElement>(null)
-  const notified = useRef(false)
-  useEffect(() => {
-    if (!notified.current && !['queued', 'running'].includes(live.status) && ['queued', 'running'].includes(run.status)) {
-      notified.current = true
-      onFinished(live)
-    }
-  }, [live, run.status, onFinished])
   useEffect(() => { bottom.current?.scrollIntoView({ block: 'nearest' }) }, [live.progress?.length])
   const active = ['queued', 'running'].includes(live.status)
   const elapsed = live.started_at ? Math.max(0, Math.round((now - Date.parse(live.started_at)) / 1000)) : 0
