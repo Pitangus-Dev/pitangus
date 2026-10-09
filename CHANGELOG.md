@@ -9,6 +9,12 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Fixed
 
+- **A Jira rule's backfill no longer skips findings whose issues were deleted in Jira.** Like a manual export, it now
+  asks Jira which linked issues still exist and creates again the ones that are gone; before, a cleanup in Jira left
+  those findings out of every backfill.
+
+### Fixed
+
 - **Threat diagram arrows no longer run behind other components.** Each flow picks the sides and the curve that go
   around what is in between, and flows leaving the same side of a component spread along it instead of starting at one
   point; the editor, the SVG and the PDF draw them the same way. In the bundled examples, flows running over another
