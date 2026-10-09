@@ -6,6 +6,25 @@ Qué hace cada parte del panel y con qué criterio. Para instalarlo, ve a [insta
 
 **Vocabulario.** Pitangus hace **análisis**: lee el código, las dependencias, la configuración y las imágenes sin ejecutarlos ni atacar nada, y sus hallazgos son candidatos que hay que confirmar. No es un *pentest*: un pentest intenta explotar los fallos contra un sistema en marcha y demuestra el impacto. Las futuras **pruebas dinámicas** (DAST) serán escaneos activos, tampoco un pentest; solo cuando un agente intente explotar y confirme el impacto hablaremos de *pentest asistido por IA*. Un informe de Pitangus no sustituye al pentest que piden SOC 2 o ISO 27001.
 
+## Qué cubre Pitangus y qué no
+
+Pitangus no escribe motores propios: corre los mejores de código abierto, fijados por digest, y añade lo que ninguno
+tiene, un solo registro con triage, plazos, evidencia, revisión de pull requests y prueba de que la corrección es
+real. Ahí también termina. Frente a una suite comercial (Snyk, Checkmarx, Veracode…), queda así:
+
+| Área | Qué corre | Dónde se queda corto |
+| --- | --- | --- |
+| Dependencias (SCA) | Trivy, OSV-Scanner y Grype sobre NVD, GHSA y OSV, con KEV y EPSS | Sin análisis de alcanzabilidad: una función vulnerable se reporta la llame tu código o no. |
+| Secretos | Gitleaks, más reglas propias con un paso de verificación para algunos tipos de token | — |
+| Imágenes de contenedor | Trivy y Grype sobre las capas, el historial y la configuración, leídas del registro | — |
+| Infraestructura y pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) y zizmor (GitHub Actions) | — |
+| Tu propio código (SAST) | Opengrep con las 58 reglas de `rules/`, 14 de ellas con seguimiento de datos dentro de un archivo | **Es la capa más fina.** Sin flujo de datos entre archivos ni conocimiento de frameworks más allá de esas reglas. Un motor propietario como Snyk Code encuentra fallos de lógica que estas reglas no ven. Para análisis profundo, corre CodeQL o Semgrep y [trae sus resultados](integraciones.md#traer-resultados-de-otros-analizadores): tienen el mismo ciclo de vida. |
+| Aplicaciones y API en ejecución (DAST) | Nada: Pitangus nunca ejecuta ni ataca lo que analiza | Previsto (abajo). Mientras tanto, corre ZAP o Nuclei por tu cuenta e importa su SARIF. |
+| Escala | Un análisis por worker; tantos workers como necesites, en una máquina o en varias | Sin análisis en paralelo dentro de un worker, sin manifiestos de autoescalado y sin medición publicada. Ver [escalar.md](escalar.md). |
+
+Lo que una suite comercial no puede ofrecer es la otra mitad de la tabla: corre en tu servidor, el código no sale de
+él, no hay precio por desarrollador y el código fuente es abierto.
+
 ## En desarrollo
 
 Se ven en el panel en gris, con la marca **En desarrollo**, para que se sepa que vienen. Hoy no dan resultados y no se pueden usar:

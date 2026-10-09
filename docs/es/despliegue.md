@@ -108,6 +108,7 @@ Todavía no hay manifiestos. Las piezas encajan directamente: un Deployment para
 sonda), otro para la imagen del worker (no necesita el socket de Docker), las cuatro variables desde un Secret y el
 PostgreSQL que prefieras. Con `PITANGUS_PERIODIC=external`, un CronJob que ejecute `python -m pitangus periodic`
 sustituye al reloj del worker líder.
+Cuántas réplicas del worker y qué mirar para escalarlas: [escalar.md](escalar.md).
 
 ## Tareas periódicas
 

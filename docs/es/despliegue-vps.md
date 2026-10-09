@@ -39,7 +39,7 @@ internet ──443/80──▶ caddy ──red edge──▶ api (panel + API, s
 | Disco | 40 GB SSD | 80 GB SSD |
 | Arquitectura | amd64 o arm64 (Hetzner CAX, Graviton, Ampere) | |
 
-En qué se va: cada análisis ejecuta un motor a la vez, con un tope de 2 CPU y 3 GB de memoria; la app y PostgreSQL ocupan unos 400 MB en reposo. En disco, las imágenes de los motores suman unos 2 GB, la base de Trivy ~1,3 GB, la de Grype ~2,1 GB (solo si analizas imágenes de contenedor), la copia local de NVD ~0,7 GB, y cada análisis guarda una instantánea del repositorio mientras corre. Deja sitio para las copias si pasan por el mismo disco antes de salir del servidor.
+En qué se va: cada análisis ejecuta un motor a la vez, con un tope de 2 CPU y 3 GB de memoria; la app y PostgreSQL ocupan unos 400 MB en reposo. En disco, las imágenes de los motores suman unos 2 GB, la base de Trivy ~1,3 GB, la de Grype ~2,1 GB (solo si analizas imágenes de contenedor), la copia local de NVD ~0,7 GB, y cada análisis guarda una instantánea del repositorio mientras corre. Deja sitio para las copias si pasan por el mismo disco antes de salir del servidor. Más repositorios de los que un worker da abasto: [escalar.md](escalar.md).
 
 Usa un **servidor dedicado** a Pitangus, no uno compartido con otras aplicaciones ni con otras personas: mira [Endurecimiento](#endurecimiento).
 

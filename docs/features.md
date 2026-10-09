@@ -8,6 +8,25 @@ What each part of the panel does, and the reasoning behind it. To install it, se
 
 **Languages.** The panel, findings, fix guides, reports, PR comments and notifications are available in English and Spanish. Findings are stored as message codes, not sentences, so each person reads them in their own language, and switching language never requires a rescan. Text nobody requests in person (PR comments, notifications, Jira issues, the CLI) uses `PITANGUS_DEFAULT_LOCALE` (`en` by default). Third-party text such as NVD, OSV or GHSA advisory summaries is shown as published.
 
+## What Pitangus covers, and what it doesn't
+
+Pitangus doesn't write its own engines: it runs the best open-source ones, pinned by digest, and adds what none of
+them has, one registry with triage, deadlines, evidence, pull request review and proof that a fix is real. That's
+also where it stops. Compared with a commercial suite (Snyk, Checkmarx, Veracode…), this is where it stands:
+
+| Area | What runs | Where it falls short |
+| --- | --- | --- |
+| Dependencies (SCA) | Trivy, OSV-Scanner and Grype over NVD, GHSA and OSV, with KEV and EPSS | No reachability analysis: a vulnerable function is reported whether your code calls it or not. |
+| Secrets | Gitleaks, plus Pitangus rules with a verification step for some token types | — |
+| Container images | Trivy and Grype on the layers, history and configuration, read from the registry | — |
+| Infrastructure and pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) and zizmor (GitHub Actions) | — |
+| Your own code (SAST) | Opengrep with the 58 rules in `rules/`, 14 of them with taint tracking inside one file | **This is the thinnest layer.** No cross-file data flow, and no framework-specific knowledge beyond what those rules cover. A proprietary engine like Snyk Code finds logic flaws these rules can't. For deep analysis, run CodeQL or Semgrep and [bring their results in](integrations.md#bringing-results-from-other-scanners): they get the same lifecycle. |
+| Running applications and APIs (DAST) | Nothing: Pitangus never runs or attacks what it scans | Planned (below). Until then, run ZAP or Nuclei yourself and import their SARIF. |
+| Scale | One scan per worker; as many workers as you need, on one machine or several | No parallel scans inside a worker, no autoscaling manifests, no published benchmark. See [scaling.md](scaling.md). |
+
+What a commercial suite can't offer is the other half of the table: it runs on your server, the code never leaves it,
+there's no per-developer price, and the source is open.
+
 ## In development
 
 These appear greyed out in the panel, marked **In development**, so you know they're coming. Today they produce no results and can't be used:
