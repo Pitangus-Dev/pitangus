@@ -160,10 +160,10 @@ export function FindingsTable({ findings, kpis, header, aside, column, exports, 
 
     {auditOpen && <AuditReportDialog open onClose={() => setAuditOpen(false)} name={audit.name} target={audit.target}
       selected={refs([...selected]).map(item => item.fingerprint)} filtered={groups.flatMap(group => group.findings.map(item => item.fingerprint))} total={findings.length} />}
-    <JiraExportDialog key={exporting?.join(',') ?? 'none'} selection={jira.selection} target={availability.target}
+    <JiraExportDialog key={`jira:${exporting?.join(',') ?? 'none'}`} selection={jira.selection} target={availability.target}
       findings={exporting && refs(exporting).map(item => ({ fingerprint: item.fingerprint, label: item.advisory?.summary || item.title, asset: item.asset?.key }))}
       onClose={() => { setExporting(null); setSelected(new Set()) }} onDone={onChanged} />
-    <TriageDialog key={decision ? `${decision.status}:${decision.ids.length}` : 'none'} runId={runId} status={decision?.status ?? null} fingerprints={decision ? refs(decision.ids).map(item => item.fingerprint) : []}
+    <TriageDialog key={`triage:${decision ? `${decision.status}:${decision.ids.length}` : 'none'}`} runId={runId} status={decision?.status ?? null} fingerprints={decision ? refs(decision.ids).map(item => item.fingerprint) : []}
       selections={decision ? triageParts(decision.ids) : undefined} onClose={() => setDecision(null)} onDone={decided} onPartial={() => { setSelected(new Set()); onChanged() }} />
   </>
 }
