@@ -91,8 +91,11 @@ política y los vencidos ordenados por retraso: lo que piden SOC 2 e ISO 27001 c
   riesgo aceptado → `affected` con la acción; falso positivo → `not_affected` con el motivo; remediado → `fixed`.
 - **Paquetes maliciosos.** Los avisos `MAL-*` de OpenSSF (vía OSV) se marcan como **Malicioso**, críticos y «Actuar
   ya», con la corrección real: eliminar el paquete y rotar los secretos de donde se instaló. Nunca «actualiza a…».
-- **Marcos del informe de auditoría.** Además de SOC 2 e ISO 27001: PCI DSS 4.0.1, CRA, Brasil (Res. CMN 4.893/5.274),
-  Chile (Ley 21.663) y Colombia (SFC, CE 007/2018). La relación con cada control es orientativa.
+- **Marcos del informe de auditoría.** Además de SOC 2 e ISO 27001: PCI DSS 4.0.1, CRA, NIS2, DORA y RGPD art. 32
+  (UE); NIST SSDF, NIST CSF 2.0, NIST SP 800-53 y la Regla de Seguridad de HIPAA (EE. UU.); Brasil (Res. CMN
+  4.893/5.274), Chile (Ley 21.663), Colombia (SFC, CE 007/2018) y México (CNBV para bancos y financiamiento colectivo,
+  IFPE, LFPDPPP art. 18). La relación con cada control es orientativa: el informe es evidencia para una auditoría, no una
+  certificación.
 - **Evidencias (vista Cumplimiento).** Eliges un repositorio o una imagen y descargas en un clic su SBOM, su VEX, el
   informe técnico o la evidencia de auditoría del marco elegido; o la evidencia de auditoría consolidada de todos los
   activos analizados. Son las mismas exportaciones que en Hallazgos.

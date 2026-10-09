@@ -292,6 +292,7 @@
     "imported": "Lo reportó {{tool}}, así que solo {{tool}} puede confirmar si ya no está: importa un SARIF completo nuevo de esa herramienta."
   },
   "audit": {
+    "framework_groups": { "international": "Internacionales", "eu": "Unión Europea", "us": "Estados Unidos", "latam": "Latinoamérica" },
     "frameworks": {
       "soc2": { "name": "SOC 2 Tipo II", "hint": "Relaciona la evidencia con CC3.2, CC7.1 y CC8.1" },
       "iso27001": { "name": "ISO/IEC 27001:2022", "hint": "Relaciona la evidencia con A.8.8, A.8.9, A.8.28 y A.8.29" },
@@ -300,6 +301,17 @@
       "br_cmn": { "name": "Brasil · Res. CMN 4.893 / 5.274", "hint": "Gestión continua de vulnerabilidades, pruebas y trazabilidad" },
       "cl_21663": { "name": "Chile · Ley 21.663", "hint": "Gestión de riesgos, revisión periódica y registro de decisiones" },
       "co_sfc": { "name": "Colombia · SFC, CE 007 de 2018", "hint": "Vulnerabilidades técnicas, desarrollo seguro y evidencia para supervisión" },
+      "nis2": { "name": "NIS2 · Directiva (UE) 2022/2555", "hint": "Art. 21(2) y anexo técnico: desarrollo seguro, pruebas y vulnerabilidades" },
+      "dora": { "name": "DORA · Reglamento (UE) 2022/2554", "hint": "Entidades financieras de la UE: riesgo TIC, pruebas y gestión de vulnerabilidades" },
+      "gdpr": { "name": "RGPD · art. 32", "hint": "Seguridad del tratamiento: la parte técnica del software que trata datos personales" },
+      "nist_ssdf": { "name": "NIST SSDF · SP 800-218", "hint": "Desarrollo de software seguro (la base de la declaración que el gobierno de EE. UU. pide a sus proveedores)" },
+      "nist_csf": { "name": "NIST CSF 2.0", "hint": "Identificar y Proteger: inventario, vulnerabilidades, respuesta al riesgo y desarrollo seguro" },
+      "nist_800_53": { "name": "NIST SP 800-53 Rev. 5", "hint": "FedRAMP: análisis de vulnerabilidades, corrección de fallos y pruebas del desarrollador" },
+      "hipaa": { "name": "HIPAA, Regla de Seguridad", "hint": "Salud en EE. UU.: insumo para el análisis y la gestión de riesgos" },
+      "mx_cnbv_cub": { "name": "México · CNBV, bancos (CUB)", "hint": "Bancos: pruebas de vulnerabilidades y análisis de código, clasificación y planes de remediación" },
+      "mx_cnbv_ifc": { "name": "México · CNBV, financiamiento colectivo (IFC)", "hint": "Instituciones de financiamiento colectivo: pruebas, clasificación y remediación de vulnerabilidades" },
+      "mx_ifpe": { "name": "México · fondos de pago electrónico (IFPE)", "hint": "Fondos de pago electrónico: escaneo de vulnerabilidades, plan de remediación y análisis de código antes de liberar" },
+      "mx_lfpdppp": { "name": "México · LFPDPPP, art. 18", "hint": "Datos personales: medidas de seguridad técnicas del software" },
       "general": { "name": "General", "hint": "Sin marco: gestión de vulnerabilidades" }
     },
     "mapping_note": "La relación con cada control es orientativa.",

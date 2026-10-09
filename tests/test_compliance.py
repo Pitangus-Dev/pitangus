@@ -541,7 +541,7 @@ class EvidenceHubTests(HttpCase):
             self.assertEqual((status, body[:5]), (200, b"%PDF-"), framework)
         self.assertEqual(self.call("POST", "/api/evidence/portfolio", {"framework": "soc2"}, {"Cookie": member, "Origin": ORIGIN, **JSON})[0], 403)  # CSRF
         self.assertEqual(self.call("POST", "/api/evidence/portfolio", {"framework": "soc2"}, {"Origin": ORIGIN, "X-Pitangus-Action": "audit-report", **JSON})[0], 401)
-        for bad in ({"framework": "hipaa"}, {"framework": "soc2", "title": "x"}, {}):
+        for bad in ({"framework": "fedramp"}, {"framework": "soc2", "title": "x"}, {}):
             self.assertEqual(_send(self, "/api/evidence/portfolio", "audit-report", bad, member)[0], 400, bad)
 
     def test_portfolio_without_analyzed_assets_is_404(self):
@@ -705,6 +705,23 @@ class FrameworkTests(unittest.TestCase):
         for framework in FRAMEWORKS:
             options = validate_options({"framework": framework}, default_by="ana")
             self.assertTrue(render_audit_pdf(record, findings, options, version="0.9").startswith(b"%PDF-"), framework)
+
+    def test_every_control_is_in_both_catalogs(self):
+        from pitangus.shared import i18n
+        for framework, controls in FRAMEWORKS.items():
+            base = f"reports.frameworks.{framework.replace('-', '_')}"
+            for locale in ("en", "es"):
+                keys = [f"{base}.label"] + [f"{base}.controls.{control}.{field}" for control in controls for field in ("code", "name", "text")]
+                for key in keys:
+                    self.assertNotEqual(i18n.t(key, locale), key, (locale, key))
+
+    def test_every_framework_label_fits_the_cover(self):
+        # The cover cuts its document kind at 120 characters; the consolidated one is the longest prefix.
+        from pitangus.shared import i18n
+        for framework in FRAMEWORKS:
+            for locale in ("en", "es"):
+                kind = i18n.t("reports.audit.evidence_consolidated", locale) + " · " + i18n.t(f"reports.frameworks.{framework.replace('-', '_')}.label", locale)
+                self.assertLessEqual(len(kind), 120, (locale, framework))
 
 
 if __name__ == "__main__":

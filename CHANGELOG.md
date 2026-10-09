@@ -15,6 +15,11 @@ between minor versions: anything that changes behaviour is called out below.
 - **Portfolio evidence for the scope you choose**: every analyzed asset, the repositories of one organization, or a
   chosen set of repositories and images; with a repository come the images built from it (it can be turned off). It
   applies to the portfolio SBOM, VEX and consolidated audit evidence.
+- **Audit evidence for eleven more frameworks.** European Union: NIS2 (Art. 21(2) and Implementing Regulation
+  2024/2690), DORA (with RTS 2024/1774) and GDPR Art. 32. United States: NIST SSDF (SP 800-218), NIST CSF 2.0,
+  NIST SP 800-53 Rev. 5 and the HIPAA Security Rule. Mexico: CNBV rules for banks (CUB) and crowdfunding institutions,
+  e-money institutions (IFPE) and LFPDPPP Art. 18. Each control says what the evidence covers and what stays out
+  (infrastructure scanning, external pentests, dynamic testing): it supports an audit, it doesn't certify compliance.
 
 ### Fixed
 

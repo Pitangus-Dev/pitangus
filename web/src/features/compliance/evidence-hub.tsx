@@ -5,7 +5,8 @@ import { ArrowDownToLine, LoaderCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
+import { Select, SelectTrigger } from '@/shared/ui/select'
+import { FrameworkOptions } from '@/features/findings/framework-options'
 import { SkeletonCard } from '@/shared/ui/loading'
 import { api, query } from '@/shared/api/http'
 import type { Response } from '@/shared/api/client'
@@ -66,8 +67,8 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
       {!counts.assets ? <p className="text-sm text-app-muted">{t('evidence.none')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('evidence.new_scan')}</button></p> : <>
         <div className="max-w-sm space-y-1"><label htmlFor="evidence-framework" className="text-xs text-app-muted">{t('evidence.framework')}</label>
           <Select value={framework} onValueChange={choose}>
-            <SelectTrigger id="evidence-framework" className="w-full border-app-line bg-inset">{frameworkName}</SelectTrigger>
-            <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-xl">{frameworks.map(([id, name]) => <SelectItem key={id} value={id}>{tf(name)}</SelectItem>)}</SelectContent>
+            <SelectTrigger id="evidence-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{frameworkName}</span></SelectTrigger>
+            <FrameworkOptions frameworks={frameworks} />
           </Select></div>
 
         <section aria-labelledby="evidence-asset" className="space-y-2">

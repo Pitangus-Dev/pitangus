@@ -292,6 +292,7 @@
     "imported": "{{tool}} reported it, so only {{tool}} can tell whether it's gone: import a new full SARIF from it."
   },
   "audit": {
+    "framework_groups": { "international": "International", "eu": "European Union", "us": "United States", "latam": "Latin America" },
     "frameworks": {
       "soc2": { "name": "SOC 2 Type II", "hint": "Maps the evidence to CC3.2, CC7.1 and CC8.1" },
       "iso27001": { "name": "ISO/IEC 27001:2022", "hint": "Maps the evidence to A.8.8, A.8.9, A.8.28 and A.8.29" },
@@ -300,6 +301,17 @@
       "br_cmn": { "name": "Brazil · CMN Res. 4.893 / 5.274", "hint": "Continuous vulnerability management, testing and traceability" },
       "cl_21663": { "name": "Chile · Law 21.663", "hint": "Risk management, periodic review and a record of decisions" },
       "co_sfc": { "name": "Colombia · SFC, CE 007 of 2018", "hint": "Technical vulnerabilities, secure development and evidence for supervisors" },
+      "nis2": { "name": "NIS2 · Directive (EU) 2022/2555", "hint": "Art. 21(2) and technical annex: secure development, testing and vulnerabilities" },
+      "dora": { "name": "DORA · Regulation (EU) 2022/2554", "hint": "Financial entities in the EU: ICT risk, testing and vulnerability management" },
+      "gdpr": { "name": "GDPR · Art. 32", "hint": "Security of processing: the technical side of the software that handles personal data" },
+      "nist_ssdf": { "name": "NIST SSDF · SP 800-218", "hint": "Secure software development (the basis of the US government's attestation form)" },
+      "nist_csf": { "name": "NIST CSF 2.0", "hint": "Identify and Protect: inventory, vulnerabilities, risk responses and secure development" },
+      "nist_800_53": { "name": "NIST SP 800-53 Rev. 5", "hint": "FedRAMP: vulnerability scanning, flaw remediation and developer testing" },
+      "hipaa": { "name": "HIPAA Security Rule", "hint": "Healthcare in the US: input for risk analysis and risk management" },
+      "mx_cnbv_cub": { "name": "Mexico · CNBV, banks (CUB)", "hint": "Banks: vulnerability tests and code analysis, classification and remediation plans" },
+      "mx_cnbv_ifc": { "name": "Mexico · CNBV, crowdfunding (IFC)", "hint": "Crowdfunding institutions: vulnerability tests, classification and remediation" },
+      "mx_ifpe": { "name": "Mexico · e-money institutions (IFPE)", "hint": "E-money institutions: vulnerability scanning, remediation plan and code analysis before release" },
+      "mx_lfpdppp": { "name": "Mexico · LFPDPPP, Art. 18", "hint": "Personal data: technical security measures of the software" },
       "general": { "name": "General", "hint": "No framework: vulnerability management" }
     },
     "mapping_note": "The mapping to each control is indicative.",

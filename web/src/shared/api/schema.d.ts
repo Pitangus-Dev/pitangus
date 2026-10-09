@@ -3393,7 +3393,7 @@ export interface components {
              * Framework
              * @enum {string}
              */
-            framework: "soc2" | "iso27001" | "pci" | "cra" | "br-cmn" | "cl-21663" | "co-sfc" | "general";
+            framework: "soc2" | "iso27001" | "pci" | "cra" | "br-cmn" | "cl-21663" | "co-sfc" | "nis2" | "dora" | "gdpr" | "nist-ssdf" | "nist-csf" | "nist-800-53" | "hipaa" | "mx-cnbv-cub" | "mx-cnbv-ifc" | "mx-ifpe" | "mx-lfpdppp" | "general";
         };
         /** ProductIn */
         ProductIn: {
