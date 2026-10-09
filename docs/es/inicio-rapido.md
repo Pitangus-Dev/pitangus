@@ -10,7 +10,7 @@ pueden dejar para después.
 Necesitas Docker (Engine 24+ con Compose v2.24+), `make` y `git`. `make doctor` comprueba que todo está.
 
 ```bash
-git clone --branch v0.12.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.12.2 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up
@@ -80,6 +80,9 @@ fecha de caducidad: queda como evidencia y no vuelve a molestar.
 - **Jira:** en **Integraciones**, para convertir hallazgos en incidencias sin duplicados.
 - **Imágenes privadas:** credenciales de solo lectura en **Integraciones → Registros de contenedores**.
 - **Auditorías:** en Hallazgos, **Más formatos → Evidencia para auditoría (SOC 2, ISO)…** genera el PDF (o **Informe de los seleccionados** con los que marques).
+- **Actualizaciones:** instalaste una versión fija, así que `make update` por sí solo se queda en ella. Cuando salga
+  una nueva ([Releases](https://github.com/Pitangus-Dev/pitangus/releases)): `git fetch --tags && git checkout v<nueva> && make update`
+  ([instalacion.md](instalacion.md#actualizar)).
 - **Desde otra máquina:** ponlo detrás de HTTPS (ver el README); sin HTTPS fuera de `127.0.0.1` no arranca.
 
 ¿Algo no funciona? [solucion-problemas.md](solucion-problemas.md) o `make doctor`.

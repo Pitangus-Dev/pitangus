@@ -12,7 +12,7 @@ metadata:
 A single CI step that scans what the pull request introduces (not what was already there) and blocks from the
 severity the team chooses. CI uses the published worker image (`ghcr.io/pitangus-dev/pitangus-worker`), which runs
 the engines (Opengrep with the Pitangus rules, Gitleaks, Trivy, OSV-Scanner, Checkov, zizmor) inside it: nothing to
-build and **no Docker socket**. On GitHub it is the Pitangus Action (`uses: Pitangus-Dev/pitangus@v0.12.1`).
+build and **no Docker socket**. On GitHub it is the Pitangus Action (`uses: Pitangus-Dev/pitangus@v0.12.2`).
 
 ## 1. Start from the official template
 

@@ -10,7 +10,7 @@ You need Docker (Engine 24+ with Compose v2.24+), `make` and `git`. `make doctor
 place.
 
 ```bash
-git clone --branch v0.12.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.12.2 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up
@@ -80,6 +80,9 @@ expiry date: it stays as evidence and stops getting in your way.
 - **Jira:** under **Integrations**, to turn findings into issues without duplicates.
 - **Private images:** read-only credentials under **Integrations → Container registries**.
 - **Audits:** in Findings, **More formats → Audit evidence (SOC 2, ISO…)** generates the PDF (or **Report on selected** for the ones you check).
+- **Upgrades:** you installed a fixed version, so `make update` alone stays on it. When a new one comes out
+  ([Releases](https://github.com/Pitangus-Dev/pitangus/releases)): `git fetch --tags && git checkout v<new> && make update`
+  ([installation.md](installation.md#upgrade)).
 - **From another machine:** put it behind HTTPS (see the README); outside `127.0.0.1` it won't start without HTTPS.
 
 Something not working? See [troubleshooting.md](troubleshooting.md) or run `make doctor`.
