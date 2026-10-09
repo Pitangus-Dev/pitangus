@@ -106,6 +106,35 @@ class ReportTests(unittest.TestCase):
         self.assertIn("## Resumen ejecutivo", spanish)
 
 
+class FormattingTests(unittest.TestCase):
+    def test_a_long_path_keeps_the_file_and_line_and_breaks_after_slashes(self):
+        from pitangus.modules.reporting.design import path
+        cell = path("backend/app/repositories/very/deep/nested/package/customer_repository.py:1287", 24)
+        self.assertTrue(cell.endswith("customer_repository.py:1287"))
+        self.assertIn("…/", cell)
+        self.assertTrue(all(len(row) <= 30 for row in cell.split("<br/>")[:-1]))
+        self.assertEqual(path("a<b>/c.py:1", 30), "a&lt;b&gt;/c.py:1")
+
+    def test_code_between_backticks_is_monospaced_and_still_escaped(self):
+        from pitangus.modules.reporting.design import rich
+        self.assertEqual(rich("Set `acl = \"private\"` and <b>"), 'Set <font name="Courier">acl = "private"</font> and &lt;b&gt;')
+
+    def test_a_dependency_advisory_points_at_its_manifest(self):
+        from pitangus.modules.reporting.design import location
+        self.assertEqual(location(advisory("CVE-1", "high", "1.0")), "backend/poetry.lock")
+        self.assertEqual(location(code("a", "high")), "app/db.py:12")
+
+    def test_percentages_use_the_locale_decimal_separator(self):
+        from pitangus.modules.reporting.design import percent
+        self.assertEqual((percent(0.975, "en"), percent(0.975, "es")), ("97.5 %", "97,5 %"))
+
+    def test_the_revision_is_the_commit_not_the_snapshot_hash(self):
+        from pitangus.modules.reporting.technical import revision
+        record = {"source": {"branch": "main", "commit": "9f3c2a1b7d4e5f60", "sha256": "e3b0c442" * 8}}
+        self.assertEqual(revision(record), "main · 9f3c2a1b7d4e")
+        self.assertEqual(revision({**record, "pull_request": {"head_sha": "abcdef1234567890"}}), "main · abcdef123456")
+
+
 class DiagramTests(unittest.TestCase):
     def test_colors_come_from_the_palette_and_are_validated(self):
         current = model(components=[{**item, "color": "danger"} if item["id"] == "api" else item for item in model()["components"]])

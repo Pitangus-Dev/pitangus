@@ -134,8 +134,9 @@
     "prepared_by": "Preparado por",
     "reviewed_by": "Revisado por",
     "approved_by": "Aprobado por",
-    "page_footer": "Pitangus {{version}}  ·  página {{page}}",
-    "disclaimer": "Evidencia técnica generada con herramientas automatizadas y revisada por el equipo. No constituye una opinión de auditoría, una certificación ni una declaración de cumplimiento."
+    "page_footer": "Pitangus {{version}}  ·  página {{page}} de {{total}}",
+    "disclaimer": "Evidencia técnica generada con herramientas automatizadas; requiere revisión del equipo. No constituye una opinión de auditoría, una certificación ni una declaración de cumplimiento.",
+    "decimal_separator": ","
   },
   "markdown": {
     "identifiers": "Identificadores: {{list}}",
@@ -163,7 +164,7 @@
     "identity_image": "imagen `{{reference}}`",
     "identity_image_digest": "imagen `{{reference}}` · digest `{{digest}}`",
     "identity_snapshot": "snapshot SHA-256 `{{sha}}`",
-    "run_line": "Run `{{id}}` · {{date}} · fuente `{{provider}}` · {{identity}}",
+    "run_line": "Análisis `{{id}}` · {{date}} · fuente `{{provider}}` · {{identity}}",
     "status_line": "Estado: **{{status}}** · {{files}} archivos · {{dependencies}} dependencias examinadas.",
     "executive_summary": "Resumen ejecutivo",
     "kev_total_one": "{{count}} hallazgo en el catálogo CISA KEV (explotación activa conocida).",
@@ -175,8 +176,8 @@
     "declared_context": "Contexto declarado",
     "context_note": "Descripción aportada por el equipo, no una verificación del sistema.",
     "dismissed": "Descartados en triage",
-    "dismissed_intro_one": "{{count}} hallazgo marcado como falso positivo o riesgo aceptado, con quién lo decidió y por qué.",
-    "dismissed_intro_other": "{{count}} hallazgos marcados como falso positivo o riesgo aceptado, con quién lo decidió y por qué.",
+    "dismissed_intro_one": "{{count}} hallazgo cerrado en triage (falso positivo, riesgo aceptado o remediado a mano), con quién lo decidió y por qué.",
+    "dismissed_intro_other": "{{count}} hallazgos cerrados en triage (falso positivo, riesgo aceptado o remediado a mano), con quién lo decidió y por qué.",
     "coverage": "Cobertura de esta ejecución",
     "no_findings": "No se generaron hallazgos con las reglas y dependencias examinadas. La cobertura se detalla más abajo.",
     "pending_intro": "{{pending}} que se cierran con {{actions}}.",
@@ -187,15 +188,22 @@
     "annex_more": "… y {{count}} más en el JSON y el SARIF",
     "identity_import": "importado de {{tool}} (SARIF)",
     "identity_import_commit": "importado de {{tool}} (SARIF) en el commit `{{commit}}`",
-    "title_import": "Hallazgos importados · {{name}}"
+    "title_import": "Hallazgos importados · {{name}}",
+    "run_status": {
+      "queued": "en cola",
+      "running": "en curso",
+      "completed": "completado",
+      "incomplete": "incompleto",
+      "failed": "fallido"
+    }
   },
   "asset": {
     "title": "Estado actual de hallazgos · {{name}}",
-    "asset_line": "Activo: `{{id}}` · corte UTC: `{{date}}`",
-    "scope_text": "Vista acumulada del registro de hallazgos de este activo. Combina escaneos completos y revisiones de PR; no representa una prueba independiente ni demuestra cobertura continua.",
+    "asset_line": "Activo: `{{id}}` · corte: `{{date}}`",
+    "scope_text": "Vista acumulada del registro de hallazgos de este activo. Combina análisis completos y revisiones de PR; no representa una prueba independiente ni demuestra cobertura continua.",
     "included_one": "{{count}} hallazgo incluido en esta vista.",
     "included_other": "{{count}} hallazgos incluidos en esta vista.",
-    "lifecycle_counts": "{{open}} abiertos; {{fixed}} remediados; {{suppressed}} descartados en triage; {{excluded}} excluidos.",
+    "lifecycle_counts": "Abiertos: {{open}} · remediados: {{fixed}} · descartados en triage: {{suppressed}} · excluidos: {{excluded}}.",
     "empty": "La vista seleccionada no contiene hallazgos.",
     "lifecycle_line": "Ciclo de vida: **{{status}}** · primera observación `{{first}}` · última observación `{{last}}`.",
     "limit_tools": "El registro refleja solo las herramientas, rutas y repositorios analizados.",
@@ -324,34 +332,34 @@
     "period_range": "{{start}} a {{end}}",
     "period_scan": "Análisis del {{date}}",
     "period_state": "Estado al {{date}}",
-    "issued_value": "{{date}} · ref. {{ref}}",
     "meta": {
       "organization": "Organización",
       "system": "Sistema / alcance",
       "period": "Periodo",
       "prepared_by": "Preparado por",
       "prepared_for": "Preparado para",
-      "issued": "Emitido"
+      "issued": "Emitido",
+      "reference": "Referencia"
     },
     "kpi": {
       "in_scope": "en el alcance",
-      "critical": "críticas",
-      "high": "altas",
-      "open": "abiertas o en curso",
-      "fixed": "remediadas",
+      "critical": "críticos",
+      "high": "altos",
+      "open": "abiertos o en curso",
+      "fixed": "remediados",
       "excepted": "excepciones aprobadas",
       "analysed": "repositorios con análisis completo",
-      "open_critical": "críticas abiertas",
-      "open_high": "altas abiertas"
+      "open_critical": "críticos abiertos",
+      "open_high": "altos abiertos"
     },
     "of_total": "{{done}} de {{total}}",
     "summary": "{{findings}} en el alcance de este informe: {{critical}}, {{high}}, {{medium}} y {{low}}. Abiertos o en curso: {{active}}; remediados: {{fixed}}; con excepción aprobada: {{excepted}}.",
-    "summary_kev_one": "{{count}} corresponde a vulnerabilidades con explotación activa conocida (CISA KEV).",
-    "summary_kev_other": "{{count}} corresponden a vulnerabilidades con explotación activa conocida (CISA KEV).",
+    "summary_kev_one": "{{count}} de los abiertos tiene explotación activa conocida (CISA KEV).",
+    "summary_kev_other": "{{count}} de los abiertos tienen explotación activa conocida (CISA KEV).",
     "summary_grouped": "Se agrupan en {{actions}}: los avisos de una misma dependencia se cierran con una sola actualización.",
     "method_static": "Análisis estático del {{date}}, sin ejecutar el código ni enviarlo a servicios externos.",
     "method_engines": "Motores: {{list}}.",
-    "method_snapshot": "Instantánea analizada: SHA-256 {{sha}}…",
+    "method_snapshot": "Instantánea analizada: SHA-256 {{sha}}.",
     "method_state": "Estado acumulado del repositorio a {{date}}: reúne los análisis completos y las revisiones de pull requests, con la fecha en que cada hallazgo se detectó y, si aplica, se remedió.",
     "method_gaps": "No se completó del todo: {{gaps}}. Esas áreas no equivalen a «sin hallazgos».",
     "method_complete": "Todos los motores del análisis se completaron.",
@@ -375,7 +383,10 @@
     "no_full_scan": "Sin análisis completo",
     "open_heading": "Críticos y altos abiertos ({{count}})",
     "open_truncated": "Se muestran {{shown}} de {{total}} acciones; el detalle completo está en el informe de cada repositorio.",
-    "no_open": "No hay hallazgos críticos ni altos abiertos."
+    "no_open": "No hay hallazgos críticos ni altos abiertos.",
+    "period_note": "Hallazgos detectados hasta el {{end}} y no remediados antes del {{start}}. Su estado y sus plazos son a {{issued}}.",
+    "method_revision": "Revisión analizada: {{revision}}.",
+    "summary_scan": "{{findings}} en el alcance de este informe: {{critical}}, {{high}}, {{medium}} y {{low}}. Abiertos o en curso: {{active}}; con excepción aprobada: {{excepted}}."
   },
   "frameworks": {
     "soc2": {
@@ -404,7 +415,7 @@
         "a8_8": {
           "code": "A.8.8",
           "name": "Gestión de vulnerabilidades técnicas",
-          "text": "Vulnerabilidades identificadas, evaluadas y en tratamiento, con su estado y responsable."
+          "text": "Vulnerabilidades identificadas, evaluadas y en tratamiento, con su estado."
         },
         "a8_9": {
           "code": "A.8.9",
@@ -553,9 +564,10 @@
       "asset": "Activo",
       "type": "Tipo",
       "date": "Fecha",
-      "revision": "Rama / revisión",
+      "revision": "Rama / commit",
       "engines": "Motores",
-      "reference": "Referencia"
+      "reference": "Referencia",
+      "snapshot": "Instantánea (SHA-256)"
     },
     "kpi": {
       "pending": "pendientes",
@@ -566,7 +578,7 @@
     "decided_one": "{{count}} decisión del equipo (riesgo aceptado o falso positivo) fuera de la cuenta.",
     "decided_other": "{{count}} decisiones del equipo (riesgo aceptado o falso positivo) fuera de la cuenta.",
     "incomplete": "Cobertura incompleta: {{gaps}}. Lo que no se analizó no equivale a «sin hallazgos».",
-    "first_truncated": "Las 15 primeras de {{total}} acciones, por explotación activa, severidad y alcance. El resto, en las secciones siguientes.",
+    "first_truncated": "Las {{shown}} primeras de {{total}} acciones, por explotación activa, severidad y alcance. El resto, en las secciones siguientes.",
     "dependencies": "Dependencias ({{packages}} · {{vulnerabilities}})",
     "partial_fix": "algún aviso sin corrección",
     "no_fixed_version": "sin versión corregida",
@@ -664,6 +676,7 @@
     "period_reversed": "El periodo termina antes de empezar",
     "too_many_findings": "Demasiados hallazgos para un informe: filtra o elige menos (hasta 5000)",
     "unsupported_profile": "Perfil o ejecución no compatible",
-    "invalid_title": "Título inválido"
+    "invalid_title": "Título inválido",
+    "scan_outside_period": "Este análisis es del {{date}}, fuera del periodo {{start}} a {{end}}. Elige un análisis del periodo o el estado del repositorio."
   }
 }

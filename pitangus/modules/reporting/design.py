@@ -14,11 +14,13 @@ from __future__ import annotations
 import html
 import io
 import re
+from collections.abc import Sequence
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A3, A4, landscape
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, NextPageTemplate, PageBreak, PageTemplate,
                                 Paragraph, Spacer, Table, TableStyle)
 
@@ -57,6 +59,7 @@ STYLE = {
     "value": ParagraphStyle("value", fontName="Helvetica-Bold", fontSize=8.8, leading=11.5, textColor=INK),
     "kpi": ParagraphStyle("kpi", fontName="Helvetica-Bold", fontSize=17, leading=20),
     "kpilabel": ParagraphStyle("kpilabel", fontName="Helvetica", fontSize=7.3, leading=9.5, textColor=MUTED),
+    "mono": ParagraphStyle("mono", fontName="Courier", fontSize=7.3, leading=10, textColor=INK),
     "chip": ParagraphStyle("chip", fontName="Helvetica-Bold", fontSize=7, leading=9, alignment=1),
 }
 MARGIN = 18 * mm
@@ -73,6 +76,45 @@ def t(value, limit: int = 400) -> str:
     if len(text) > limit:
         text = text[:limit].rsplit(" ", 1)[0] + "…"
     return html.escape(text, quote=False)
+
+
+def rich(value, limit: int = 400) -> str:
+    """Like t(), and `code` written between backticks is shown in a monospaced font instead of the raw marks."""
+    return re.sub(r"`([^`<>]+)`", r'<font name="Courier">\1</font>', t(value, limit))
+
+
+def plain(value, limit: int = 400) -> str:
+    """Like t(), without the backticks: a narrow table cell can't fit monospaced code."""
+    return t(str(value or "").replace("`", ""), limit)
+
+
+def path(value, width: int = 30, lines: int = 3) -> str:
+    """A file location that fits a narrow column: it breaks after «/» and, when too long, drops the middle of the
+    path, never the file name and line (the part that says where to look)."""
+    text = " ".join(str(value or "").split())
+    if len(text) > width * lines:
+        head, _, tail = text.rpartition("/")
+        keep = width * lines - len(tail) - 2
+        text = (head[:keep] + "…/" if head and keep > 4 else "…/") + tail
+    parts, rows = re.split(r"(?<=/)", text), [""]
+    for part in parts:
+        if rows[-1] and len(rows[-1]) + len(part) > width:
+            rows.append("")
+        rows[-1] += part
+    return "<br/>".join(html.escape(row, quote=False) for row in rows if row)
+
+
+def location(finding: dict) -> str:
+    """Where a finding is: a dependency advisory points at its manifest (its line says nothing), code at path:line."""
+    if finding.get("scanner") == "sca" or not finding.get("line"):
+        return str(finding.get("path") or "—")
+    return f"{finding.get('path')}:{finding.get('line')}"
+
+
+def percent(value: float, locale: str | None = None) -> str:
+    """0.975 → «97.5 %», with the locale's decimal separator."""
+    text = f"{value * 100:.1f}"
+    return (text.replace(".", ",") if i18n.t("reports.design.decimal_separator", locale) == "," else text) + " %"
 
 
 def day(value) -> str:
@@ -131,7 +173,7 @@ def chip(severity: str, label: str | None = None, *, locale: str | None = None) 
     return cell
 
 
-def kpis(items: list[tuple[str, object, colors.Color, colors.Color]], width: float = WIDTH) -> Table:
+def kpis(items: Sequence[tuple[str, object, colors.Color, colors.Color]], width: float = WIDTH) -> Table:
     """Key-figure cards: (label, value, value color, background). Six at most: more can't be read."""
     cells = [[Paragraph(f'<font color="{hexval(ink)}">{value}</font>', STYLE["kpi"]), Paragraph(label, STYLE["kpilabel"])]
              for label, value, ink, _ in items]
@@ -144,12 +186,14 @@ def kpis(items: list[tuple[str, object, colors.Color, colors.Color]], width: flo
     return result
 
 
-def meta(pairs: list[tuple[str, str]]) -> Table:
-    """Metadata grid (who, what, when), three per row."""
+def meta(pairs: list[tuple]) -> Table:
+    """Metadata grid (who, what, when), three per row. A third element "mono" shows an identifier whole, in a smaller
+    monospaced font: a reference or a hash is evidence and is never cut."""
     rows = []
     for start in range(0, len(pairs), 3):
         chunk = pairs[start:start + 3] + [("", "")] * (3 - len(pairs[start:start + 3]))
-        rows += [[Paragraph(t(label), STYLE["label"]) for label, _ in chunk], [Paragraph(t(value, 160), STYLE["value"]) for _, value in chunk]]
+        rows += [[Paragraph(t(pair[0]), STYLE["label"]) for pair in chunk],
+                 [Paragraph(t(pair[1], 160), STYLE["mono" if pair[2:] == ("mono",) else "value"]) for pair in chunk]]
     return grid(rows, [WIDTH / 3] * 3, header=False)
 
 
@@ -207,8 +251,28 @@ def build(story: list, *, title: str, footer: str, version: str, author: str = "
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(MUTED)
         canvas.drawString(MARGIN, 8.5 * mm, footer[:120])
-        canvas.drawRightString(width - MARGIN, 8.5 * mm, i18n.t("reports.design.page_footer", locale, version=version, page=document.page))
         canvas.restoreState()
+
+    class Numbered(Canvas):
+        """Draws «page N of M» once the total is known (the pages are kept until the document is saved)."""
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._pages: list[dict] = []
+
+        def showPage(self):
+            self._pages.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            for number, state in enumerate(self._pages, 1):
+                self.__dict__.update(state)
+                self.setFont("Helvetica", 7)
+                self.setFillColor(MUTED)
+                self.drawRightString(self._pagesize[0] - MARGIN, 8.5 * mm,
+                                     i18n.t("reports.design.page_footer", locale, version=version, page=number, total=len(self._pages)))
+                super().showPage()
+            super().save()
 
     def template(name: str, size) -> PageTemplate:
         body = Frame(MARGIN, 18 * mm, size[0] - 2 * MARGIN, size[1] - 34 * mm, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
@@ -217,7 +281,7 @@ def build(story: list, *, title: str, footer: str, version: str, author: str = "
     document = BaseDocTemplate(output, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=16 * mm, bottomMargin=18 * mm,
                                title=title[:120], author=author[:80] or "Pitangus", subject=subject[:120], creator=f"Pitangus {version}")
     document.addPageTemplates([template("normal", A4), template("wide", landscape(A4)), template("wide-a3", landscape(A3))])
-    document.build(_guard_headings(story))
+    document.build(_guard_headings(story), canvasmaker=Numbered)
     return output.getvalue()
 
 

@@ -19,7 +19,7 @@ from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
 from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, DANGER, DANGER_BG, INK, MUTED, ORDER, SEVERITY, SOFT,
                             STYLE, SUCCESS, SUCCESS_BG, WIDTH, GAP_STATES, build, bullets, chip, count, coverage_gaps, day, h2, header,
-                            hexval, kpis, listing, meta, severity_label, step_status, t as _t, table)
+                            hexval, kpis, listing, location, meta, path, percent, plain, rich, severity_label, step_status, t as _t, table)
 from pitangus.shared import i18n
 from pitangus.shared.i18n import default_locale, localize, msg
 
@@ -30,8 +30,22 @@ DETAIL_LIMIT = 150   # detail blocks for critical or high code findings
 TABLE_LIMIT = 500    # medium and low rows
 
 
-def _where(item: dict) -> str:
-    return str(item.get("path")) if item.get("scanner") == "sca" else f"{item.get('path')}:{item.get('line')}"
+FIRST_LIMIT = 15
+
+
+def _severity_counts(counts: dict[str, int], locale: str) -> str:
+    """«5 critical, 15 high and 51 medium»: counted as findings (in Spanish they agree with «hallazgos»)."""
+    parts = [msg(f"reports.count.{level}", count=counts[level]) for level in ("critical", "high", "medium") if counts[level]]
+    if counts["low"] + counts["info"]:
+        parts.append(msg("reports.count.low_info", count=counts["low"] + counts["info"]))
+    return listing([i18n.text(part, locale) for part in parts], 10, locale=locale)
+
+
+def revision(record: dict) -> str:
+    """Branch and commit that were analyzed (a pull request's head); the snapshot hash goes apart."""
+    source = record.get("source") or {}
+    commit = (record.get("pull_request") or {}).get("head_sha") or source.get("commit") or ""
+    return " · ".join(value for value in (source.get("branch"), commit[:12]) if value) or "—"
 
 
 def _columns(locale: str, *names: str) -> list[str]:
@@ -62,20 +76,25 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
     story = header(t("reports.technical.eyebrow", kind=kind), name,
                    t("reports.technical.subtitle_state" if record.get("type") == "asset_state" else "reports.technical.subtitle_scan", date=when))
     engines = [step for step in record.get("steps") or [] if (step.get("tool") or {}).get("version")]
-    story.append(meta([(t("reports.technical.meta.asset"), name), (t("reports.technical.meta.type"), kind), (t("reports.technical.meta.date"), when),
-                       (t("reports.technical.meta.revision"), " · ".join(value for value in (source.get("branch"), (source.get("sha256") or source.get("commit") or "")[:12]) if value) or "—"),
-                       (t("reports.technical.meta.engines"), ", ".join(step["name"] for step in engines) or "—"),
-                       (t("reports.technical.meta.reference"), str(record.get("id") or "—")[:32])]))
+    pairs = [(t("reports.technical.meta.asset"), name), (t("reports.technical.meta.type"), kind), (t("reports.technical.meta.date"), when),
+             (t("reports.technical.meta.revision"), revision(record)), (t("reports.technical.meta.engines"), ", ".join(step["name"] for step in engines) or "—"),
+             (t("reports.technical.meta.reference"), str(record.get("id") or "—"), "mono")]
+    if source.get("sha256"):
+        pairs.append((t("reports.technical.meta.snapshot"), str(source["sha256"]), "mono"))
+    story.append(meta(pairs))
     summary = t("reports.technical.summary", pending=msg("reports.count.pending_findings", count=len(active)),
-                 counts=counts_text({k: v for k, v in counts.items() if v}, locale=locale) or msg("reports.common.none"),
+                 counts=_severity_counts(counts, locale) or msg("reports.common.none"),
                  actions=msg("reports.count.actions", count=len(groups)), packages=msg("reports.count.packages_to_update", count=len(packages)),
                  fixable=fixable, code=msg("reports.count.findings", count=len(code)))
     if decided:
         summary += " " + t("reports.technical.decided", count=len(decided))
-    story += [Spacer(1, 10), h2(t("reports.common.summary")),
-              kpis([(t("reports.technical.kpi.pending"), len(active), INK, SOFT), (t("reports.audit.kpi.critical"), counts["critical"], SEVERITY["critical"][1], DANGER_BG),
-                    (t("reports.audit.kpi.high"), counts["high"], ATTENTION, ATTENTION_BG), (t("reports.technical.kpi.kev"), kev, DANGER, DANGER_BG),
-                    (t("reports.technical.kpi.actions"), len(groups), INK, SOFT), (t("reports.audit.kpi.fixed"), len(fixed), SUCCESS, SUCCESS_BG)]),
+    figures = [(t("reports.technical.kpi.pending"), len(active), INK, SOFT), (t("reports.audit.kpi.open_critical"), counts["critical"], SEVERITY["critical"][1], DANGER_BG),
+               (t("reports.audit.kpi.open_high"), counts["high"], ATTENTION, ATTENTION_BG), (t("reports.technical.kpi.kev"), kev, DANGER, DANGER_BG),
+               (t("reports.technical.kpi.actions"), len(groups), INK, SOFT)]
+    # A single scan only knows what it found: «fixed» comes from the repository's history (or a triage decision).
+    if record.get("type") == "asset_state" or fixed:
+        figures.append((t("reports.audit.kpi.fixed"), len(fixed), SUCCESS, SUCCESS_BG))
+    story += [Spacer(1, 10), h2(t("reports.common.summary")), kpis(figures),
               Spacer(1, 6), Paragraph(_t(summary, 900), STYLE["body"])]
     gaps = coverage_gaps(record.get("steps") or [], locale=locale)
     if gaps:
@@ -83,15 +102,15 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
     if groups:
         story.append(h2(t("reports.common.what_first")))
         body = []
-        for entry in groups[:15]:
+        for entry in groups[:FIRST_LIMIT]:
             item = entry["items"][0]
             what = (f"<b>{_t(entry['name'], 60)} {_t(entry['version'], 30)}</b> · {_t(count('advisories', len(entry['items']), locale))}" if entry["kind"] == "package"
                     else f"<b>{_t(item.get('title'), 120)}</b>")
             body.append([chip(entry["severity"], locale=locale), what + (kev_mark if entry["kev"] else ""),
-                         _t(entry["path"] if entry["kind"] == "package" else _where(item), 90), _t(action(entry, short=True, locale=locale), 180)])
+                         path(entry["path"] if entry["kind"] == "package" else location(item), 24), plain(action(entry, short=True, locale=locale), 180)])
         story.append(table(_columns(locale, "severity", "what", "where", "action"), body, [19 * mm, 52 * mm, 42 * mm, WIDTH - 113 * mm]))
-        if len(groups) > 15:
-            story.append(Paragraph(_t(t("reports.technical.first_truncated", total=len(groups)), 400), STYLE["note"]))
+        if len(groups) > FIRST_LIMIT:
+            story.append(Paragraph(_t(t("reports.technical.first_truncated", shown=FIRST_LIMIT, total=len(groups)), 400), STYLE["note"]))
     if packages:
         total = sum(len(entry["items"]) for entry in packages)
         story.append(h2(t("reports.technical.dependencies", packages=msg("reports.count.packages", count=len(packages)),
@@ -99,7 +118,7 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
         body = []
         for entry in packages:
             body.append([chip(entry["severity"], locale=locale),
-                         f"<b>{_t(entry['name'], 60)}</b> {_t(entry['version'], 30)}<br/><font color=\"#636363\">{_t(entry['ecosystem'], 20)} · {_t(entry['path'], 80)}</font>",
+                         f"<b>{_t(entry['name'], 60)}</b> {_t(entry['version'], 30)}<br/><font color=\"#636363\">{_t(entry['ecosystem'], 20)} · {path(entry['path'], 34)}</font>",
                          _t(counts_text(entry["counts"], locale=locale), 80) + f'<br/><font color="#636363">{_t(listing(entry["ids"], 4, locale=locale), 160)}</font>'
                          + (kev_mark if entry["kev"] else ""),
                          f"<b>{_t(entry['target'], 40)}</b>" + ("" if entry["complete"] else f'<br/><font color="#636363">{_t(t("reports.technical.partial_fix"))}</font>')
@@ -113,11 +132,11 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
         for item in serious[:DETAIL_LIMIT]:
             block = [Table([[chip(item.get("severity", "info"), locale=locale), Paragraph(f"<b>{_t(item.get('title'), 160)}</b>", STYLE["body"])]],
                            colWidths=[18 * mm, WIDTH - 18 * mm], style=[("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]),
-                     Paragraph(_t(" · ".join(value for value in (_where(item), item.get("rule_id"), ", ".join(f"CWE-{value}" for value in (item.get("cwe") or [])[:3]),
+                     Paragraph(_t(" · ".join(value for value in (location(item), item.get("rule_id"), ", ".join(f"CWE-{value}" for value in (item.get("cwe") or [])[:3]),
                                                                  status_label(status_of(item), locale)) if value), 240), STYLE["note"])]
             if item.get("reason"):
-                block.append(Paragraph(f"<b>{_t(t('reports.technical.what_label'))}</b> " + _t(item["reason"], 360), STYLE["body"]))
-            block.append(Paragraph(f"<b>{_t(t('reports.common.fix_label'))}</b> " + _t(item.get("remediation") or t("reports.technical.fallback_fix"), 420),
+                block.append(Paragraph(f"<b>{_t(t('reports.technical.what_label'))}</b> " + rich(item["reason"], 360), STYLE["body"]))
+            block.append(Paragraph(f"<b>{_t(t('reports.common.fix_label'))}</b> " + rich(item.get("remediation") or t("reports.technical.fallback_fix"), 420),
                                    STYLE["body"]))
             story += [KeepTogether(block), Spacer(1, 5)]
         if len(serious) > DETAIL_LIMIT:
@@ -125,8 +144,8 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
         if rest:
             story.append(Paragraph(_t(t("reports.common.medium_low", count=len(rest))), STYLE["h3"]))
             story.append(table(_columns(locale, "severity", "finding", "location", "fix"),
-                               [[chip(item.get("severity", "info"), locale=locale), _t(item.get("title"), 120), _t(_where(item), 90),
-                                 _t(action({"kind": "finding", "items": [item]}, short=True, locale=locale), 160)] for item in rest[:TABLE_LIMIT]],
+                               [[chip(item.get("severity", "info"), locale=locale), _t(item.get("title"), 120), path(location(item), 26),
+                                 plain(action({"kind": "finding", "items": [item]}, short=True, locale=locale), 160)] for item in rest[:TABLE_LIMIT]],
                                [19 * mm, 55 * mm, 45 * mm, WIDTH - 119 * mm]))
             if len(rest) > TABLE_LIMIT:
                 story.append(Paragraph(_t(t("reports.technical.table_truncated", shown=TABLE_LIMIT, total=len(rest)), 400), STYLE["note"]))
@@ -167,7 +186,7 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
                          _t(f"{package.get('name', '')} {package.get('version', '')}", 70),
                          _t(severity_label(item.get("severity"), locale)) if item.get("severity") in ORDER else "—",
                          f"{advisory['cvss_score']:.1f}" if isinstance(advisory.get("cvss_score"), (int, float)) else "—",
-                         f"{epss * 100:.1f} %" if isinstance(epss, (int, float)) else "—",
+                         percent(epss, locale) if isinstance(epss, (int, float)) else "—",
                          f'<font color="#b71824"><b>{_t(t("reports.common.yes"))}</b></font>' if item.get("kev") else "—", _t(package.get("fixed_version") or "—", 40),
                          _t((item.get("source") or {}).get("short") or (item.get("source") or {}).get("name") or "—", 20)])
         story.append(table(_columns(locale, "identifier", "package", "severity", "cvss", "epss", "kev", "fixed_in", "source"), body,

@@ -98,7 +98,7 @@ class IntegrationTests(unittest.TestCase):
         options = validate_options({}, default_by="ana")
         state = findings_registry.view(self.data_dir, self.key, status="all")
         content = pdf_text(render_audit_pdf(state, state["findings"], options, version="0.9"))
-        self.assertIn("\\(1 aviso fuera de plazo\\)", content)  # PDF text: accents and parentheses escaped
+        self.assertIn("\\(1 hallazgo fuera de plazo\\)", content)  # PDF text: accents and parentheses escaped
         self.assertIn("cr\\355tica 7 d\\355as", content)
         self.assertIn("(33 d\\355as)", content)  # delay: detected 40 days ago with a 7-day deadline
 

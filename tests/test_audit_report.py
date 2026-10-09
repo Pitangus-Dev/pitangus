@@ -34,6 +34,56 @@ class OptionsTests(unittest.TestCase):
         self.assertTrue(pdf.startswith(b"%PDF-"))
 
 
+class EvidenceTests(unittest.TestCase):
+    """What the evidence says has to be true: the period, the totals and the revision."""
+
+    def finding(self, digest, severity="high", **extra):
+        return {**_finding(digest * 64, severity), "package": None, **extra}
+
+    def render(self, record, findings, raw=None):
+        from pitangus.modules.reporting import audit
+        with patch.object(audit, "_kpis", wraps=audit._kpis) as figures:
+            pdf = render_audit_pdf(record, findings, validate_options(raw or {}, default_by="x"), version="0.12", locale="en")
+        self.assertTrue(pdf.startswith(b"%PDF-"))
+        return {label: value for label, value, _, _ in figures.call_args.args[0]}
+
+    def test_the_period_filters_the_repository_state(self):
+        def seen(first, **lifecycle):
+            return {"lifecycle": {"status": "open", "first_seen": f"{first}T10:00:00+00:00", **lifecycle}}
+        state = {"id": "state:x", "type": "asset_state", "created_at": "2026-10-01", "source": {"name": "x"}}
+        findings = [self.finding("a", **seen("2026-02-01")),                     # open the whole period
+                    self.finding("b", **seen("2026-08-01")),                     # detected after the period
+                    self.finding("c", **seen("2026-01-10", status="fixed", fixed={"at": "2026-02-15T00:00:00"})),  # fixed before
+                    self.finding("d", **seen("2026-01-10", status="fixed", fixed={"at": "2026-04-15T00:00:00"}))]  # fixed during
+        figures = self.render(state, findings, {"period_from": "2026-03-01", "period_to": "2026-06-30"})
+        self.assertEqual((figures["in scope"], figures["fixed"]), (2, 1))
+
+    def test_a_scan_outside_the_period_is_refused(self):
+        run = {"id": "r", "type": "repository_scan", "created_at": "2026-10-08T10:00:00+00:00", "source": {"name": "x"}}
+        with self.assertRaises(ReportError):
+            self.render(run, [self.finding("a")], {"period_from": "2026-01-01", "period_to": "2026-06-30"})
+        self.render(run, [self.finding("a")], {"period_from": "2026-10-01", "period_to": "2026-10-31"})
+
+    def test_figures_count_what_is_open_and_leave_out_what_is_out_of_scope(self):
+        state = {"id": "state:x", "type": "asset_state", "created_at": "2026-10-01", "source": {"name": "x"}}
+        findings = [self.finding("a", "critical"), self.finding("b", "high"),
+                    self.finding("c", "high", triage={"status": "accepted", "reason": "compensating control", "by": "ana"}),
+                    self.finding("d", "high", lifecycle={"status": "fixed", "fixed": {"at": "2026-09-01"}}),
+                    self.finding("e", "critical", lifecycle={"status": "excluded", "excluded": {"at": "2026-09-01"}})]
+        figures = self.render(state, findings)
+        self.assertEqual((figures["in scope"], figures["open critical"], figures["open high"], figures["open or in progress"],
+                          figures["fixed"], figures["approved exceptions"]), (4, 1, 1, 2, 1, 1))
+
+    def test_a_single_scan_does_not_claim_nothing_was_fixed(self):
+        run = {"id": "r", "type": "repository_scan", "created_at": "2026-10-08", "source": {"name": "x"}}
+        from pitangus.modules.reporting import audit
+        with patch.object(audit.i18n, "t", wraps=audit.i18n.t) as t:
+            self.assertNotIn("fixed", self.render(run, [self.finding("a")]))
+        keys = [call.args[0] for call in t.call_args_list]
+        self.assertIn("reports.audit.summary_scan", keys)
+        self.assertNotIn("reports.audit.summary", keys)
+
+
 class RouteTests(HttpCase):
     def setUp(self):
         super().setUp()
