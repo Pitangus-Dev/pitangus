@@ -46,7 +46,8 @@ make demo
 
 `make setup PREBUILT=1` usa las imágenes publicadas y firmadas, y todo sigue solo en tu máquina; `make up` las
 descarga junto con los motores, arranca y te muestra la URL y el **código de configuración**. Medido en una máquina
-limpia: menos de un minuto más unos 800 MB de descargas (unos 2 minutos a 50 Mbps). Si prefieres construir las imágenes
+limpia: menos de un minuto más unos 800 MB de descargas (unos 2 minutos a 50 Mbps; con una VPN corporativa puede tardar mucho más, mira
+[solución de problemas](docs/es/solucion-problemas.md)). Si prefieres construir las imágenes
 desde el código, omite `make setup PREBUILT=1`. `make demo` analiza de verdad los ejemplos vulnerables que trae el repositorio e importa un modelo de amenazas, para ver Pitangus funcionando sin conectar nada (`make demo IMAGE=nginx:1.21` añade una imagen).
 
 Abre <http://127.0.0.1:8766>, crea el administrador con el código y sigue **Primeros pasos** en el Resumen. La guía completa, con qué es opcional: [docs/es/inicio-rapido.md](docs/es/inicio-rapido.md).

@@ -6,12 +6,12 @@
 
 | | Mínimo | Notas |
 | --- | --- | --- |
-| Sistema | Linux, macOS o Windows con WSL2 | amd64 o arm64 (Apple Silicon incluido). |
+| Sistema | Linux, macOS o Windows con WSL2 | amd64 o arm64 (Apple Silicon incluido). En Windows, clona el repositorio dentro de Linux (`~/...`), no en `/mnt/c`. |
 | Docker | Engine 24+ y Compose v2.24+ | Docker Desktop, OrbStack o Docker Engine. |
 | make y git | cualquiera | `make` ya viene en macOS; en Debian/Ubuntu `sudo apt install make git`. En Windows, dentro de WSL2. |
 | Memoria | 4 GB libres | La app usa ~200 MB en reposo; cada análisis lanza un motor a la vez, limitado a 3 GB. |
 | Disco | 8 GB libres | Imágenes (~1 GB), bases de vulnerabilidades de Trivy (~1,3 GB) y de Grype (~2,1 GB, solo si analizas imágenes de contenedor), copia local de NVD (~0,7 GB) y tus ejecuciones. |
-| Red de salida | HTTPS a GitHub, NVD, CISA y EPSS | Detalle en [seguridad.md](seguridad.md#qué-sale-de-tu-máquina). No hace falta ninguna entrada desde internet. |
+| Red de salida | HTTPS a GitHub, NVD, CISA y EPSS; para las imágenes, `ghcr.io` (sus capas salen de `pkg-containers.githubusercontent.com`) y Docker Hub | Detalle en [seguridad.md](seguridad.md#qué-sale-de-tu-máquina). No hace falta ninguna entrada desde internet. |
 | Cuenta | GitHub (personal u organización que administres) | Para crear tu GitHub App. |
 
 No hace falta instalar Python, Node ni los motores de análisis: todo va en contenedores. **`make doctor`** comprueba los requisitos y dice cómo arreglar lo que falte.

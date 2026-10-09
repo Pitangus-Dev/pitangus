@@ -6,12 +6,12 @@ English · [Español](es/instalacion.md)
 
 | | Minimum | Notes |
 | --- | --- | --- |
-| OS | Linux, macOS, or Windows with WSL2 | amd64 or arm64 (Apple Silicon included). |
+| OS | Linux, macOS, or Windows with WSL2 | amd64 or arm64 (Apple Silicon included). On Windows, clone the repository inside Linux (`~/...`), not under `/mnt/c`. |
 | Docker | Engine 24+ and Compose v2.24+ | Docker Desktop, OrbStack or Docker Engine. |
 | make and git | any version | `make` ships with macOS; on Debian/Ubuntu, `sudo apt install make git`. On Windows, inside WSL2. |
 | Memory | 4 GB free | The app uses ~200 MB at rest; each scan runs one engine at a time, capped at 3 GB. |
 | Disk | 8 GB free | Images (~1 GB), Trivy's vulnerability database (~1.3 GB), Grype's (~2.1 GB, only if you scan container images), the local NVD copy (~0.7 GB) and your runs. |
-| Outbound network | HTTPS to GitHub, NVD, CISA and EPSS | Details in [security.md](security.md#what-leaves-your-machine). No inbound access from the internet is needed. |
+| Outbound network | HTTPS to GitHub, NVD, CISA and EPSS; for the images, `ghcr.io` (its layers come from `pkg-containers.githubusercontent.com`) and Docker Hub | Details in [security.md](security.md#what-leaves-your-machine). No inbound access from the internet is needed. |
 | Account | GitHub (personal, or an organization you administer) | To create your GitHub App. |
 
 You don't need to install Python, Node or the scanning engines: everything runs in containers. **`make doctor`** checks the requirements and tells you how to fix anything missing.

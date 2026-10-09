@@ -18,7 +18,8 @@ make up
 
 `make setup PREBUILT=1` usa las imágenes publicadas y firmadas en lugar de construirlas (omítelo para construirlas desde
 el código). La primera vez las descarga junto con los motores, unos 800 MB: menos de un minuto con una conexión rápida,
-unos 2 minutos a 50 Mbps. Al terminar muestra la URL (<http://127.0.0.1:8766>) y un
+unos 2 minutos a 50 Mbps (medido desde cero: cerca de 1 minuto a 150 Mbps, 3 en un portátil con WSL2). Con una VPN o
+un proxy corporativo la primera descarga puede tardar mucho más: mira [solucion-problemas.md](solucion-problemas.md). Al terminar muestra la URL (<http://127.0.0.1:8766>) y un
 **código de configuración** de un solo uso: con él creas el administrador en el panel. Si lo pierdes,
 `make setup-code` lo vuelve a mostrar.
 
