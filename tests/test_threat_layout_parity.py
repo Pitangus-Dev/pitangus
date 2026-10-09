@@ -46,6 +46,27 @@ class LayoutParityTests(unittest.TestCase):
                     self.assertEqual(editor["positions"], exported["nodes"])
                     self.assertEqual(editor["boxes"], exported["boundaries"])
 
+    def test_editor_and_exports_route_every_flow_the_same(self):
+        """Same sides and the same spread along them: the canvas and the SVG/PDF draw each arrow in the same place."""
+        with tempfile.TemporaryDirectory() as folder:
+            script = Path(folder) / "layout.ts"
+            shutil.copy(ROOT / "web/src/features/threats/threat-layout.ts", script)
+            for path in EXAMPLES:
+                model = tm.from_portable(json.loads(path.read_text(encoding="utf-8")))
+                rects = threat_diagram.drawn_rects(model)  # the boxes the exports draw and the editor routes on
+                flows = [{"id": flow["id"], "source": flow["source"], "target": flow["target"]} for flow in model["flows"]]
+                (Path(folder) / "input.json").write_text(json.dumps({"flows": flows, "rects": rects}))
+                code = ("const {routes, ports} = await import(process.argv[1]); import fs from 'fs';"
+                        "const {flows, rects} = JSON.parse(fs.readFileSync(process.argv[2])); const chosen = routes(flows, rects);"
+                        "console.log(JSON.stringify({chosen, offsets: ports(flows, rects, chosen)}))")
+                output = subprocess.run(["node", "--no-warnings", "--input-type=module", "-e", code, str(script), str(Path(folder) / "input.json")],
+                                        capture_output=True, text=True, check=True).stdout
+                editor = json.loads(output)
+                chosen = threat_diagram.routes(model["flows"], rects)
+                with self.subTest(example=path.name):
+                    self.assertEqual({key: list(value) for key, value in chosen.items()}, editor["chosen"])
+                    self.assertEqual({key: list(value) for key, value in threat_diagram.ports(model["flows"], rects, chosen).items()}, editor["offsets"])
+
     def test_editor_and_exports_list_the_same_legend(self):
         with tempfile.TemporaryDirectory() as folder:
             shutil.copy(ROOT / "web/src/features/threats/threat-layout.ts", Path(folder) / "threat-layout.ts")

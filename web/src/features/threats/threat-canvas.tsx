@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  applyNodeChanges, Background, BackgroundVariant, BaseEdge, ConnectionMode, Controls, EdgeLabelRenderer, getBezierPath, Handle,
+  applyNodeChanges, Background, BackgroundVariant, BaseEdge, ConnectionMode, Controls, EdgeLabelRenderer, Handle,
   MarkerType, NodeResizer, Panel, Position, ReactFlow, ReactFlowProvider, useReactFlow,
   type Connection, type Edge, type EdgeChange, type EdgeProps, type Node, type NodeChange, type NodeProps,
 } from '@xyflow/react'
@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
-import { autoLayout, baseKind, curvePoint, fitBox, labelSpots, lanes, NODE_H, NODE_W, shift, sizeOf, type Side } from '@/features/threats/threat-layout'
+import { autoLayout, baseKind, bezierPath, curvePoint, drawnRect, fitBox, labelSpots, NODE_H, NODE_W, ports, routes, shift, sizeOf, type Side } from '@/features/threats/threat-layout'
 import { BOUNDARY_TONE, boundaryTone, isManual, kindTone, LEGEND, legendTones, NODE_BASE, NODE_TONE, NODE_WASH, TEXT_TONE, toneOf, TONE_NAMES, TONES, withLegendLabel, type Tone } from '@/features/threats/threat-colors'
 import { assetGroups, newId, PROCESSES, STORES, type Catalog, type Component, type Flow, type Kind, type Model, type Point, type Threat } from '@/features/threats/threat-model-types'
 
@@ -23,7 +23,7 @@ const select = 'h-8 w-full rounded-lg border border-app-line bg-app-soft px-2 te
 
 type ComponentData = { component: Component; kindLabel: string; flagged: boolean }
 type BoundaryData = { name: string; tone: Tone }
-type FlowData = { flow: Flow; number: number; flagged: boolean; labelAt?: number; offset?: number }
+type FlowData = { flow: Flow; number: number; flagged: boolean; labelAt?: number; offsets?: [number, number]; bend?: number }
 type CanvasNode = Node<ComponentData, 'component'> | Node<BoundaryData, 'boundary'>
 
 const componentId = (id: string) => `c:${id}`
@@ -52,14 +52,6 @@ function build(model: Model, threats: Threat[], kinds: Record<Kind, string>, pre
              data: { name: item.name, tone: boundaryTone(item.color) }, zIndex: 0, dragHandle: '.tm-drag', selected: select ? false : old?.selected ?? false }
   })
   return [...boundaries, ...components]
-}
-
-// Qué lado de cada componente mira al otro (por sus centros): así las flechas no cruzan por dentro de las cajas.
-type Rect = Point & { width: number; height: number }
-function sides(a: Rect, b: Rect): [string, string] {
-  const dx = (b.x + b.width / 2) - (a.x + a.width / 2), dy = (b.y + b.height / 2) - (a.y + a.height / 2)
-  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? ['r', 'l'] : ['l', 'r']
-  return dy >= 0 ? ['b', 't'] : ['t', 'b']
 }
 
 // Frontera más pequeña que contiene el centro de cada componente.
@@ -126,12 +118,11 @@ function BoundaryNode({ data, selected }: NodeProps<Node<BoundaryData, 'boundary
 
 function FlowEdge({ id, sourceX: rawSourceX, sourceY: rawSourceY, targetX: rawTargetX, targetY: rawTargetY, sourcePosition, targetPosition, data, selected, markerEnd }: EdgeProps<Edge<FlowData, 'flow'>>) {
   const { t } = useTranslation('threats')
-  // Carril propio si hay más flujos entre los mismos dos componentes (no se pintan uno encima del otro).
-  const [sourceX, sourceY] = shift(sourcePosition as Side, rawSourceX, rawSourceY, data?.offset ?? 0)
-  const [targetX, targetY] = shift(targetPosition as Side, rawTargetX, rawTargetY, data?.offset ?? 0)
-  const [path, midX, midY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
-  const at = data?.labelAt ?? 0.5
-  const spot = at === 0.5 ? { x: midX, y: midY } : curvePoint(sourceX, sourceY, sourcePosition as Side, targetX, targetY, targetPosition as Side, at)
+  // Flows sharing a side spread along it (ports); the curve is the exports' one, not React Flow's.
+  const [sourceX, sourceY] = shift(sourcePosition as Side, rawSourceX, rawSourceY, data?.offsets?.[0] ?? 0)
+  const [targetX, targetY] = shift(targetPosition as Side, rawTargetX, rawTargetY, data?.offsets?.[1] ?? 0)
+  const path = bezierPath(sourceX, sourceY, sourcePosition as Side, targetX, targetY, targetPosition as Side, data?.bend ?? 1)
+  const spot = curvePoint(sourceX, sourceY, sourcePosition as Side, targetX, targetY, targetPosition as Side, data?.labelAt ?? 0.5, data?.bend ?? 1)
   const labelX = Math.round(spot.x), labelY = Math.round(spot.y)
   const flow = data?.flow
   // En el lienzo, corta: número y protocolo (lo mismo que el SVG y el informe). Completa al seleccionarla y en el título.
@@ -249,19 +240,20 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
   const rects = useMemo(() => Object.fromEntries(nodes.filter(node => node.type === 'component').map(node => [plain(node.id),
     { ...node.position, width: node.measured?.width ?? node.width ?? NODE_W, height: node.measured?.height ?? node.height ?? NODE_H }])), [nodes])
   const edges = useMemo<Edge<FlowData, 'flow'>[]>(() => {
-    const side: Record<string, Side> = { t: 'top', r: 'right', b: 'bottom', l: 'left' }
-    const drawn = model.flows.flatMap((item, index) => {
-      const a = rects[item.source], b = rects[item.target]
-      if (!a || !b) return []
-      return [{ item, number: index + 1, handles: sides(a, b) }]
-    })
-    const offsets = lanes(model.flows)
-    const spots = labelSpots(drawn.map(({ item, number, handles }) => ({ id: item.id, source: rects[item.source], target: rects[item.target],
-      sourceSide: side[handles[0]], targetSide: side[handles[1]], text: `${number} · ${item.protocol}`, offset: offsets[item.id] })), Object.values(rects))
-    return drawn.map(({ item, number, handles: [sourceHandle, targetHandle] }) => ({ id: flowId(item.id), type: 'flow' as const, source: componentId(item.source), target: componentId(item.target),
-      sourceHandle, targetHandle, selected: selectedFlow === item.id, data: { flow: item, number, flagged: hot.has(item.id), labelAt: spots[item.id], offset: offsets[item.id] },
+    const handle: Record<Side, string> = { top: 't', right: 'r', bottom: 'b', left: 'l' }
+    // Sides that go around the other components, and flows sharing a side spread along it, decided on the boxes as
+    // the exports draw them, so the canvas and the SVG/PDF route each flow the same way.
+    const boxes = Object.fromEntries(model.components.filter(item => rects[item.id]).map(item => [item.id, drawnRect(item, rects[item.id])]))
+    const chosen = routes(model.flows, boxes)
+    const offsets = ports(model.flows, boxes, chosen)
+    const drawn = model.flows.flatMap((item, index) => chosen[item.id] ? [{ item, number: index + 1, sides: chosen[item.id] }] : [])
+    const spots = labelSpots(drawn.map(({ item, number, sides }) => ({ id: item.id, source: rects[item.source], target: rects[item.target],
+      sourceSide: sides[0], targetSide: sides[1], text: `${number} · ${item.protocol}`, offsets: offsets[item.id], bend: sides[2] })), Object.values(rects))
+    return drawn.map(({ item, number, sides }) => ({ id: flowId(item.id), type: 'flow' as const, source: componentId(item.source), target: componentId(item.target),
+      sourceHandle: handle[sides[0]], targetHandle: handle[sides[1]], selected: selectedFlow === item.id,
+      data: { flow: item, number, flagged: hot.has(item.id), labelAt: spots[item.id], offsets: offsets[item.id], bend: sides[2] },
       markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 } }))
-  }, [model.flows, rects, selectedFlow, hot])
+  }, [model.flows, model.components, rects, selectedFlow, hot])
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     const picked = changes.find(change => change.type === 'select')

@@ -311,10 +311,14 @@ def layout(model: dict) -> dict:
     return result
 
 
-# ------------------------------------------------------------------ arrows and labels (same as React Flow)
+# ------------------------------------------------------------------ arrows and labels (same as the editor)
+
+BEND = 48  # least a curve leaves its side: two sides facing the same way (top to top) still arc around what's between
+
 
 def _offset(distance: float) -> float:
-    return 0.5 * distance if distance >= 0 else 0.25 * 25 * math.sqrt(-distance)
+    """React Flow's bezier, with a least bend (the editor draws this same curve, see threat-layout.ts)."""
+    return max(BEND, 0.5 * distance) if distance >= 0 else 0.25 * 25 * math.sqrt(-distance)
 
 
 def _control(side: str, x1: float, y1: float, x2: float, y2: float) -> tuple[float, float]:
@@ -341,27 +345,134 @@ def sides(a: dict, b: dict) -> tuple[str, str]:
     return ("bottom", "top") if dy >= 0 else ("top", "bottom")
 
 
-LANE = 14  # spacing between flows joining the same two components (there and back, or several)
+SIDES = ("right", "left", "bottom", "top")
+PORT = 14      # spacing between flows leaving or reaching the same side of a component
+CLEARANCE = 6  # a curve this close to another component reads as touching it
+DETOUR = 60    # what a side other than the facing one has to save to be chosen
+BENDS = (1, 0.5, 1.8, 3)  # how much a curve opens: tighter or wider arcs get around what the usual one runs over
+REBEND = 30    # what a bend other than the usual has to save to be chosen
 
 
-def lanes(flows: list[dict]) -> dict[str, float]:
-    """Offset of each flow: flows that share endpoints (in either direction) run in parallel lanes."""
-    groups: dict[frozenset, list[str]] = {}
-    for flow in flows:
-        groups.setdefault(frozenset((flow["source"], flow["target"])), []).append(flow["id"])
-    return {identifier: (index - (len(members) - 1) / 2) * LANE for members in groups.values() for index, identifier in enumerate(members)}
+def _bezier(a: dict, source_side: str, b: dict, target_side: str, offsets: tuple[float, float] = (0, 0),
+            bend: float = 1) -> tuple[tuple[float, float], ...]:
+    start = _shift(_anchor(a, source_side), source_side, offsets[0])
+    end = _shift(_anchor(b, target_side), target_side, offsets[1])
+
+    def control(side, x1, y1, x2, y2):
+        x, y = _control(side, x1, y1, x2, y2)
+        return x1 + (x - x1) * bend, y1 + (y - y1) * bend
+    return start, control(source_side, *start, *end), control(target_side, *end, *start), end
+
+
+SAMPLES = 48    # pieces a curve is cut into to check it: short enough not to jump over a component
+AGAINST = 200   # leaving (or reaching) a component by the side that faces away from the other one
+ROOM = 80       # how far beyond the components a curve may go before it counts as leaving the drawing
+DIRECTION = {"right": (1, 0), "left": (-1, 0), "bottom": (0, 1), "top": (0, -1)}
+
+
+def _crosses(p: tuple[float, float], q: tuple[float, float], rect: dict, margin: float) -> bool:
+    """Whether the segment p→q touches the rectangle (grown by `margin`): Liang–Barsky clipping."""
+    dx, dy = q[0] - p[0], q[1] - p[1]
+    low, high = 0.0, 1.0
+    for edge, distance in ((-dx, p[0] - rect["x"] + margin), (dx, rect["x"] + rect["width"] + margin - p[0]),
+                           (-dy, p[1] - rect["y"] + margin), (dy, rect["y"] + rect["height"] + margin - p[1])):
+        if edge == 0:
+            if distance < 0:
+                return False
+            continue
+        ratio = distance / edge
+        if edge < 0:
+            if ratio > high:
+                return False
+            low = max(low, ratio)
+        else:
+            if ratio < low:
+                return False
+            high = min(high, ratio)
+    return True
+
+
+def _cost(curve, a: dict, b: dict, others: list[dict], area: dict | None = None) -> tuple[int, float]:
+    """Pieces of the curve over a component (others with some clearance; its own two ends, away from where it leaves
+    and arrives) or outside the drawing's area, then its length. sqrt rather than hypot: the editor must get the very
+    same numbers."""
+    hits, length, previous = 0, 0.0, curve[0]
+    for step in range(1, SAMPLES + 1):
+        point = _point(curve, step / SAMPLES)
+        length += math.sqrt((point[0] - previous[0]) ** 2 + (point[1] - previous[1]) ** 2)
+        hits += sum(1 for rect in others if _crosses(previous, point, rect, CLEARANCE))
+        if 3 <= step <= SAMPLES - 2:
+            hits += sum(1 for rect in (a, b) if _crosses(previous, point, rect, 0))
+        if area is not None and not _crosses(point, point, area, 0):
+            hits += 1
+        previous = point
+    return hits, length
+
+
+def _against(side: str, rect: dict, other: dict) -> bool:
+    ux, uy = DIRECTION[side]
+    return ux * ((other["x"] + other["width"] / 2) - (rect["x"] + rect["width"] / 2)) + uy * ((other["y"] + other["height"] / 2) - (rect["y"] + rect["height"] / 2)) < 0
+
+
+def route(a: dict, b: dict, others: list[dict], area: dict | None = None) -> tuple[str, str, float]:
+    """The sides a flow leaves and reaches, and how much its curve opens: the facing sides and the usual curve unless it
+    runs over another component, then the shortest choice that doesn't (or runs over the fewest). Same as the editor's
+    route()."""
+    facing = sides(a, b)
+    best, best_cost = (*facing, 1), (math.inf, math.inf)
+    pairs = (facing, *((source, target) for source in SIDES for target in SIDES if (source, target) != facing))
+    for bend in BENDS:
+        for pair in pairs:
+            hits, length = _cost(_bezier(a, pair[0], b, pair[1], bend=bend), a, b, others, area)
+            cost = (hits, length + (0 if pair == facing else DETOUR) + (0 if bend == 1 else REBEND)
+                    + AGAINST * (_against(pair[0], a, b) + _against(pair[1], b, a)))
+            if cost < best_cost:
+                best, best_cost = (*pair, bend), cost
+    return best
+
+
+def routes(flows: list[dict], rects: dict[str, dict]) -> dict[str, tuple[str, str, float]]:
+    drawn = [flow for flow in flows if flow["source"] in rects and flow["target"] in rects]
+    if not drawn:
+        return {}
+    left, top = min(rect["x"] for rect in rects.values()) - ROOM, min(rect["y"] for rect in rects.values()) - ROOM
+    right = max(rect["x"] + rect["width"] for rect in rects.values()) + ROOM
+    bottom = max(rect["y"] + rect["height"] for rect in rects.values()) + ROOM
+    area = {"x": left, "y": top, "width": right - left, "height": bottom - top}
+    return {flow["id"]: route(rects[flow["source"]], rects[flow["target"]],
+                              [rect for key, rect in rects.items() if key not in (flow["source"], flow["target"])], area) for flow in drawn}
+
+
+def ports(flows: list[dict], rects: dict[str, dict], chosen: dict[str, tuple[str, str, float]]) -> dict[str, tuple[float, float]]:
+    """Where each flow meets its sides, as offsets from their middle: flows sharing a side spread along it in the order
+    of what they connect to, so they don't leave from one point or cross on the way out (a pair there and back
+    runs in parallel). Same as the editor's ports()."""
+    slots: dict[tuple[str, str], list[tuple[float, int, str, int]]] = {}
+    for index, flow in enumerate(flows):
+        if flow["id"] not in chosen:
+            continue
+        source_side, target_side, _ = chosen[flow["id"]]
+        slots.setdefault((flow["source"], source_side), []).append((_along(source_side, rects[flow["target"]]), index, flow["id"], 0))
+        slots.setdefault((flow["target"], target_side), []).append((_along(target_side, rects[flow["source"]]), index, flow["id"], 1))
+    result = {identifier: [0.0, 0.0] for identifier in chosen}
+    for (component, side), members in slots.items():
+        if len(members) < 2:
+            continue
+        members.sort()
+        rect = rects[component]
+        span = rect["height"] if side in ("left", "right") else rect["width"]
+        step = max(0.0, min(PORT, (span - 16) / (len(members) - 1)))
+        for position, (_, _, identifier, end) in enumerate(members):
+            result[identifier][end] = (position - (len(members) - 1) / 2) * step
+    return {identifier: (values[0], values[1]) for identifier, values in result.items()}
+
+
+def _along(side: str, other: dict) -> float:
+    return other["y"] + other["height"] / 2 if side in ("left", "right") else other["x"] + other["width"] / 2
 
 
 def _shift(point: tuple[float, float], side: str, offset: float) -> tuple[float, float]:
     return (point[0], point[1] + offset) if side in ("left", "right") else (point[0] + offset, point[1])
-
-
-def _curve(a: dict, b: dict, offset: float = 0) -> tuple[tuple[float, float], ...]:
-    source_side, target_side = sides(a, b)
-    start, end = _shift(_anchor(a, source_side), source_side, offset), _shift(_anchor(b, target_side), target_side, offset)
-    c1 = _control(source_side, *start, *end)
-    c2 = _control(target_side, *end, *start)
-    return start, c1, c2, end
 
 
 def _point(curve, t: float) -> tuple[float, float]:
@@ -433,18 +544,26 @@ def flow_label(number: int, flow: dict) -> str:
     return f"{number} · {flow['protocol'].upper()}"
 
 
+def drawn_rects(model: dict, geometry: dict | None = None) -> dict[str, dict]:
+    """Each component's box as drawn (and as the editor routes flows): its own height if resized, else DRAW_H."""
+    geometry = geometry or layout(model)
+    rects = {}
+    for component in model.get("components", []):
+        point = geometry["nodes"].get(component["id"])
+        if point:
+            width, height = node_size(component)
+            rects[component["id"]] = {"x": point["x"], "y": point["y"], "width": width,
+                                      "height": height if (component.get("size") or {}).get("height") else min(height, DRAW_H)}
+    return rects
+
+
 def scene(model: dict, kinds: dict[str, str] | None = None, *, locale: str | None = None) -> dict:
     """The diagram as primitives: {"bounds": (x, y, w, h), "items": [...]}. Painted by to_svg and to_drawing."""
     locale = locale or default_locale()
     kinds = kinds or {}
     geometry = layout(model)
     components = {item["id"]: item for item in model.get("components", [])}
-    rects = {}
-    for key, point in geometry["nodes"].items():
-        if key in components:
-            width, height = node_size(components[key])
-            drawn = min(height, DRAW_H) if not (components[key].get("size") or {}).get("height") else height
-            rects[key] = {"x": point["x"], "y": point["y"], "width": width, "height": drawn}
+    rects = drawn_rects(model, geometry)
     items: list[dict] = []
     for boundary in model.get("boundaries", []):
         box = geometry["boundaries"].get(boundary["id"])
@@ -456,12 +575,16 @@ def scene(model: dict, kinds: dict[str, str] | None = None, *, locale: str | Non
                   {"t": "text", "x": box["x"] + 14, "y": box["y"] + 24, "text": boundary["name"][:80], "size": 12.5, "bold": True, "fill": ink}]
     # Flows: curves like the editor's, numbered in model order (the report table uses the same number).
     curves = []
-    offsets = lanes(model.get("flows", []))
-    for number, flow in enumerate(model.get("flows", []), start=1):
-        a, b = rects.get(flow["source"]), rects.get(flow["target"])
-        if not a or not b:
+    flows = model.get("flows", [])
+    chosen = routes(flows, rects)
+    offsets = ports(flows, rects, chosen)
+    for number, flow in enumerate(flows, start=1):
+        if flow["id"] not in chosen:
             continue
-        curves.append((flow, number, _curve(a, b, offsets.get(flow["id"], 0)), math.hypot(b["x"] - a["x"], b["y"] - a["y"])))
+        a, b = rects[flow["source"]], rects[flow["target"]]
+        source_side, target_side, bend = chosen[flow["id"]]
+        curves.append((flow, number, _bezier(a, source_side, b, target_side, offsets[flow["id"]], bend),
+                       math.hypot(b["x"] - a["x"], b["y"] - a["y"])))
     spots = label_spots([(flow["id"], curve, flow_label(number, flow), length) for flow, number, curve, length in curves], list(rects.values()))
     curves = [(flow, number, curve) for flow, number, curve, _ in curves]
     for flow, number, curve in curves:
@@ -518,6 +641,10 @@ def scene(model: dict, kinds: dict[str, str] | None = None, *, locale: str | Non
             items.append({"t": "text", "x": x + w / 2, "y": cursor - 1, "text": " · ".join(flags), "size": 9, "fill": MUTED, "anchor": "middle"})
     # Drawing bounds, with the title above and the legend below.
     extents = [(r["x"], r["y"], r["x"] + r["width"], r["y"] + r["height"]) for r in rects.values()]
+    # The flows and their labels too: a wide curve must not be cut off at the edge.
+    extents += [(x, y, x, y) for _, _, curve in curves for x, y in (_point(curve, step / 24) for step in range(25))]
+    extents += [(x - label_width(flow_label(number, flow)) / 2, y - LABEL_H / 2, x + label_width(flow_label(number, flow)) / 2, y + LABEL_H / 2)
+                for flow, number, _ in curves for x, y in (spots[flow["id"]],)]
     extents += [(box["x"], box["y"], box["x"] + box["width"], box["y"] + box["height"]) for box in geometry["boundaries"].values()]
     left = min((item[0] for item in extents), default=0) - 32
     top = min((item[1] for item in extents), default=0) - 64

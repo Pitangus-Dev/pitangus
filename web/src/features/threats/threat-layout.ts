@@ -226,37 +226,139 @@ export function fitBox(box: Box, members: { position: Point; width: number; heig
 // pisa componentes ni etiquetas ya colocadas. Mismo trazado que getBezierPath de React Flow.
 export type Side = 'top' | 'right' | 'bottom' | 'left'
 type Rect = { x: number; y: number; width: number; height: number }
-export type LabelEdge = { id: string; source: Rect; target: Rect; sourceSide: Side; targetSide: Side; text: string; offset?: number }
+export type LabelEdge = { id: string; source: Rect; target: Rect; sourceSide: Side; targetSide: Side; text: string; offsets?: [number, number]; bend?: number }
 
-// Flujos que unen los mismos dos componentes (ida y vuelta, o varios): carriles paralelos, como en threat_diagram.lanes.
-export const LANE = 14
-export function lanes(flows: { id: string; source: string; target: string }[]): Record<string, number> {
-  const groups = new Map<string, string[]>()
-  for (const flow of flows) {
-    const key = [flow.source, flow.target].sort().join('\u0000')
-    groups.set(key, [...(groups.get(key) ?? []), flow.id])
-  }
-  return Object.fromEntries([...groups.values()].flatMap(members => members.map((id, index) => [id, (index - (members.length - 1) / 2) * LANE])))
-}
 export const shift = (side: Side, x: number, y: number, offset: number): [number, number] => side === 'left' || side === 'right' ? [x, y + offset] : [x + offset, y]
 
 const LABEL_MAX = 132
 const LABEL_H = 20
 const SPOTS = [0.5, 0.4, 0.6, 0.3, 0.7, 0.78, 0.22, 0.85, 0.15]
 
-const offset = (distance: number) => distance >= 0 ? 0.5 * distance : 0.25 * 25 * Math.sqrt(-distance)
+// React Flow's bezier with a least bend, as threat_diagram._offset: two sides facing the same way still arc around.
+const BEND = 48
+const offset = (distance: number) => distance >= 0 ? Math.max(BEND, 0.5 * distance) : 0.25 * 25 * Math.sqrt(-distance)
 const control = (side: Side, x1: number, y1: number, x2: number, y2: number): [number, number] =>
   side === 'left' ? [x1 - offset(x1 - x2), y1] : side === 'right' ? [x1 + offset(x2 - x1), y1]
     : side === 'top' ? [x1, y1 - offset(y1 - y2)] : [x1, y1 + offset(y2 - y1)]
 
-export function curvePoint(sx: number, sy: number, sourceSide: Side, tx: number, ty: number, targetSide: Side, t: number) {
-  const [ax, ay] = control(sourceSide, sx, sy, tx, ty)
-  const [bx, by] = control(targetSide, tx, ty, sx, sy)
+// `bend` scales how far the control points go (threat_diagram.BENDS): a tighter or wider arc.
+const bent = (side: Side, x1: number, y1: number, x2: number, y2: number, bend: number): [number, number] => {
+  const [x, y] = control(side, x1, y1, x2, y2)
+  return [x1 + (x - x1) * bend, y1 + (y - y1) * bend]
+}
+export function curvePoint(sx: number, sy: number, sourceSide: Side, tx: number, ty: number, targetSide: Side, t: number, bend = 1) {
+  const [ax, ay] = bent(sourceSide, sx, sy, tx, ty, bend)
+  const [bx, by] = bent(targetSide, tx, ty, sx, sy, bend)
   const u = 1 - t
   return { x: u ** 3 * sx + 3 * u * u * t * ax + 3 * u * t * t * bx + t ** 3 * tx, y: u ** 3 * sy + 3 * u * u * t * ay + 3 * u * t * t * by + t ** 3 * ty }
 }
 
-const anchor = (rect: Rect, side: Side) => side === 'left' ? [rect.x, rect.y + rect.height / 2] : side === 'right' ? [rect.x + rect.width, rect.y + rect.height / 2]
+// The SVG path of that same curve (the canvas draws it instead of React Flow's getBezierPath).
+export function bezierPath(sx: number, sy: number, sourceSide: Side, tx: number, ty: number, targetSide: Side, bend = 1): string {
+  const [ax, ay] = bent(sourceSide, sx, sy, tx, ty, bend)
+  const [bx, by] = bent(targetSide, tx, ty, sx, sy, bend)
+  return `M${sx},${sy} C${ax},${ay} ${bx},${by} ${tx},${ty}`
+}
+
+// Which side of each component faces the other, by their centers (as threat_diagram.sides).
+export function sides(a: Rect, b: Rect): [Side, Side] {
+  const dx = (b.x + b.width / 2) - (a.x + a.width / 2), dy = (b.y + b.height / 2) - (a.y + a.height / 2)
+  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? ['right', 'left'] : ['left', 'right']
+  return dy >= 0 ? ['bottom', 'top'] : ['top', 'bottom']
+}
+
+// The sides a flow uses: the facing ones unless that curve runs over another component, then the shortest pair that
+// doesn't (or runs over the fewest). Same as threat_diagram.route, number for number (sqrt, not hypot).
+const SIDES: Side[] = ['right', 'left', 'bottom', 'top']
+const CLEARANCE = 6, DETOUR = 60, PORT = 14, REBEND = 30, SAMPLES = 48, AGAINST = 200, ROOM = 80
+const BENDS = [1, 0.5, 1.8, 3]
+const DIRECTION: Record<Side, [number, number]> = { right: [1, 0], left: [-1, 0], bottom: [0, 1], top: [0, -1] }
+// Whether the segment p→q touches the rectangle grown by `margin` (Liang–Barsky, as threat_diagram._crosses).
+function crosses(px: number, py: number, qx: number, qy: number, rect: Rect, margin: number): boolean {
+  const dx = qx - px, dy = qy - py
+  let low = 0, high = 1
+  const edges: [number, number][] = [[-dx, px - rect.x + margin], [dx, rect.x + rect.width + margin - px], [-dy, py - rect.y + margin], [dy, rect.y + rect.height + margin - py]]
+  for (const [edge, distance] of edges) {
+    if (edge === 0) { if (distance < 0) return false; continue }
+    const ratio = distance / edge
+    if (edge < 0) { if (ratio > high) return false; low = Math.max(low, ratio) }
+    else { if (ratio < low) return false; high = Math.min(high, ratio) }
+  }
+  return true
+}
+function cost(a: Rect, sourceSide: Side, b: Rect, targetSide: Side, others: Rect[], bend: number, area: Rect | null): [number, number] {
+  const [sx, sy] = anchor(a, sourceSide), [tx, ty] = anchor(b, targetSide)
+  let hits = 0, length = 0, px = sx, py = sy
+  for (let step = 1; step <= SAMPLES; step++) {
+    const { x, y } = curvePoint(sx, sy, sourceSide, tx, ty, targetSide, step / SAMPLES, bend)
+    length += Math.sqrt((x - px) ** 2 + (y - py) ** 2)
+    hits += others.filter(rect => crosses(px, py, x, y, rect, CLEARANCE)).length
+    if (step >= 3 && step <= SAMPLES - 2) hits += [a, b].filter(rect => crosses(px, py, x, y, rect, 0)).length
+    if (area && !crosses(x, y, x, y, area, 0)) hits += 1
+    px = x; py = y
+  }
+  return [hits, length]
+}
+const against = (side: Side, rect: Rect, other: Rect) => DIRECTION[side][0] * ((other.x + other.width / 2) - (rect.x + rect.width / 2))
+  + DIRECTION[side][1] * ((other.y + other.height / 2) - (rect.y + rect.height / 2)) < 0
+export type Route = [Side, Side, number]
+export function route(a: Rect, b: Rect, others: Rect[], area: Rect | null = null): Route {
+  const facing = sides(a, b)
+  let best: Route = [facing[0], facing[1], 1], bestCost: [number, number] = [Infinity, Infinity]
+  const pairs: [Side, Side][] = [facing, ...SIDES.flatMap(source => SIDES.map(target => [source, target] as [Side, Side])).filter(([source, target]) => source !== facing[0] || target !== facing[1])]
+  for (const bend of BENDS) {
+    for (const pair of pairs) {
+      const [hits, length] = cost(a, pair[0], b, pair[1], others, bend, area)
+      const value: [number, number] = [hits, length + (pair === facing ? 0 : DETOUR) + (bend === 1 ? 0 : REBEND)
+        + AGAINST * (Number(against(pair[0], a, b)) + Number(against(pair[1], b, a)))]
+      if (value[0] < bestCost[0] || (value[0] === bestCost[0] && value[1] < bestCost[1])) { best = [pair[0], pair[1], bend]; bestCost = value }
+    }
+  }
+  return best
+}
+type Link = { id: string; source: string; target: string }
+export function routes(flows: Link[], rects: Record<string, Rect>): Record<string, Route> {
+  const drawn = flows.filter(flow => rects[flow.source] && rects[flow.target])
+  const boxes = Object.values(rects)
+  if (!drawn.length) return {}
+  const left = Math.min(...boxes.map(rect => rect.x)) - ROOM, top = Math.min(...boxes.map(rect => rect.y)) - ROOM
+  const right = Math.max(...boxes.map(rect => rect.x + rect.width)) + ROOM, bottom = Math.max(...boxes.map(rect => rect.y + rect.height)) + ROOM
+  const area = { x: left, y: top, width: right - left, height: bottom - top }
+  return Object.fromEntries(drawn.map(flow => [flow.id,
+    route(rects[flow.source], rects[flow.target], Object.entries(rects).filter(([key]) => key !== flow.source && key !== flow.target).map(([, rect]) => rect), area)]))
+}
+// A component's box as the exports draw it and as flows are routed (threat_diagram.drawn_rects): its own height if
+// resized, else DRAW_H, whatever the browser measured.
+export const DRAW_H = 72
+export const drawnRect = (component: Component, position: Point) =>
+  ({ x: position.x, y: position.y, width: sizeOf(component).width, height: component.size?.height ?? Math.min(sizeOf(component).height, DRAW_H) })
+// Flows sharing a side spread along it in the order of what they connect to (as threat_diagram.ports).
+const along = (side: Side, other: Rect) => side === 'left' || side === 'right' ? other.y + other.height / 2 : other.x + other.width / 2
+export function ports(flows: Link[], rects: Record<string, Rect>, chosen: Record<string, Route>): Record<string, [number, number]> {
+  const slots = new Map<string, { key: number; index: number; id: string; end: 0 | 1; component: string; side: Side }[]>()
+  const add = (component: string, side: Side, entry: { key: number; index: number; id: string; end: 0 | 1 }) => {
+    const slot = `${component}\u0000${side}`
+    slots.set(slot, [...(slots.get(slot) ?? []), { ...entry, component, side }])
+  }
+  flows.forEach((flow, index) => {
+    const pair = chosen[flow.id]
+    if (!pair) return
+    add(flow.source, pair[0], { key: along(pair[0], rects[flow.target]), index, id: flow.id, end: 0 })
+    add(flow.target, pair[1], { key: along(pair[1], rects[flow.source]), index, id: flow.id, end: 1 })
+  })
+  const result: Record<string, [number, number]> = Object.fromEntries(Object.keys(chosen).map(id => [id, [0, 0]]))
+  for (const members of slots.values()) {
+    if (members.length < 2) continue
+    members.sort((a, b) => a.key - b.key || a.index - b.index || a.end - b.end)
+    const rect = rects[members[0].component], side = members[0].side
+    const span = side === 'left' || side === 'right' ? rect.height : rect.width
+    const step = Math.max(0, Math.min(PORT, (span - 16) / (members.length - 1)))
+    members.forEach((member, position) => { result[member.id][member.end] = (position - (members.length - 1) / 2) * step })
+  }
+  return result
+}
+
+const anchor = (rect: Rect, side: Side): [number, number] => side === 'left' ? [rect.x, rect.y + rect.height / 2] : side === 'right' ? [rect.x + rect.width, rect.y + rect.height / 2]
   : side === 'top' ? [rect.x + rect.width / 2, rect.y] : [rect.x + rect.width / 2, rect.y + rect.height]
 const overlap = (a: Rect, b: Rect) => Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y))
 
@@ -267,11 +369,11 @@ export function labelSpots(edges: LabelEdge[], components: Rect[]): Record<strin
   const length = (edge: LabelEdge) => Math.hypot(edge.target.x - edge.source.x, edge.target.y - edge.source.y)
   for (const edge of [...edges].sort((a, b) => length(a) - length(b))) {
     const [ax, ay] = anchor(edge.source, edge.sourceSide), [bx, by] = anchor(edge.target, edge.targetSide)
-    const [sx, sy] = shift(edge.sourceSide, ax, ay, edge.offset ?? 0), [tx, ty] = shift(edge.targetSide, bx, by, edge.offset ?? 0)
+    const [sx, sy] = shift(edge.sourceSide, ax, ay, edge.offsets?.[0] ?? 0), [tx, ty] = shift(edge.targetSide, bx, by, edge.offsets?.[1] ?? 0)
     const width = Math.min(LABEL_MAX, edge.text.length * 6 + 14) + 8
     let best = { t: 0.5, cost: Infinity, rect: null as Rect | null }
     for (const t of SPOTS) {
-      const point = curvePoint(sx, sy, edge.sourceSide, tx, ty, edge.targetSide, t)
+      const point = curvePoint(sx, sy, edge.sourceSide, tx, ty, edge.targetSide, t, edge.bend ?? 1)
       const rect = { x: point.x - width / 2, y: point.y - (LABEL_H + 6) / 2, width, height: LABEL_H + 6 }
       // Pisar un componente pesa más que pisar otra etiqueta; alejarse del centro, apenas.
       const cost = components.reduce((total, item) => total + overlap(rect, item) * 4, 0) + placed.reduce((total, item) => total + overlap(rect, item), 0) + Math.abs(t - 0.5)
