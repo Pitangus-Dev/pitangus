@@ -10,6 +10,6 @@ fastapi==0.142.2
 uvicorn==0.54.0
 pydantic==2.13.5
 # Database: PostgreSQL with SQLAlchemy 2 (Core), Alembic migrations and the psycopg 3 driver (LGPL).
-sqlalchemy==2.1.1
+sqlalchemy==2.1.2
 alembic==1.20.0
 psycopg[binary]==3.3.6
