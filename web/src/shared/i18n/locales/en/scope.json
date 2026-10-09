@@ -16,5 +16,6 @@
   "nothing": "Nothing analyzed matches this scope",
   "image": "Image",
   "repository": "Repository",
+  "domain": "Domain",
   "no_match": "No analyzed repository or image with that name"
 }

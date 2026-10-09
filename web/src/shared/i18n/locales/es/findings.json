@@ -91,7 +91,7 @@
     "any_priority": "Cualquier prioridad",
     "source": "Fuente",
     "any_source": "Cualquier fuente",
-    "source_options": { "sca": "Dependencias", "sast": "Código", "iac": "Infraestructura", "cicd": "Pipelines CI/CD", "secrets": "Secretos" },
+    "source_options": { "sca": "Dependencias", "sast": "Código", "iac": "Infraestructura", "cicd": "Pipelines CI/CD", "secrets": "Secretos", "dast": "Web (DAST)" },
     "deadline": "Plazo",
     "any_deadline": "Cualquier plazo",
     "deadline_options": { "overdue": "Fuera de plazo", "soon": "Vencidos o vencen en 7 días" }
@@ -117,7 +117,7 @@
     "no_match_dismissed_other": "Nada coincide con estos filtros · {{count}} descartados en triage (cambia el filtro de estado para verlos).",
     "pagination_one": "elementos · {{count}} hallazgo", "pagination_other": "elementos · {{count}} hallazgos"
   },
-  "scanner": { "sca": "Dependencia", "sast": "Código", "secrets": "Secreto", "iac": "Infraestructura", "cicd": "CI/CD" },
+  "scanner": { "sca": "Dependencia", "sast": "Código", "secrets": "Secreto", "iac": "Infraestructura", "cicd": "CI/CD", "dast": "Web" },
   "tool": { "pitangus": "Reglas de Pitangus" },
   "group": {
     "advisories_one": "{{count}} aviso", "advisories_other": "{{count}} avisos",
@@ -432,7 +432,7 @@
     "by_asset": {
       "title": "Por activo",
       "hint": "Lo pendiente en cada activo, primero lo más crítico. Abre uno para ver solo sus hallazgos.",
-      "repository": "Repositorio", "image": "Imagen",
+      "repository": "Repositorio", "image": "Imagen", "domain": "Dominio",
       "open": "ver solo este activo",
       "pending_one": "{{value}} pendiente", "pending_other": "{{value}} pendientes",
       "critical_one": "{{value}} crítico", "critical_other": "{{value}} críticos",

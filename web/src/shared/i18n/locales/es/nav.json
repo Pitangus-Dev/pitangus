@@ -28,7 +28,7 @@
     "users": "Usuarios",
     "new": "Nuevo análisis",
     "account": "Cuenta",
-    "domains": "Pruebas web"
+    "domains": "Dominios"
   },
   "descriptions": {
     "overview": "Qué riesgos tiene tu código, sus dependencias y tus imágenes, por qué importan y cómo se corrigen.",
@@ -36,7 +36,7 @@
     "new": "Define el objetivo, declara el alcance y revisa qué se ejecuta antes de lanzar.",
     "repositories": "Conecta tus repositorios y elige el código que quieres analizar.",
     "images": "Las imágenes de contenedor que has analizado y el repositorio desde el que se construye cada una.",
-    "domains": "Esta parte todavía no da resultados reales: la verás aquí cuando esté lista.",
+    "domains": "Dominios propios, demostrados por DNS, para traer los hallazgos de tus propias ejecuciones de ZAP o Nuclei. Las pruebas dinámicas desde aquí siguen en desarrollo.",
     "integrations": "Administra los proveedores de código y consulta el estado de la IA.",
     "account": "Tu acceso: contraseña y segundo factor.",
     "users": "Invita a tu equipo, asigna roles y retira accesos.",
@@ -64,9 +64,8 @@
   },
   "dast": {
     "title": "Pruebas dinámicas de aplicaciones web y API (DAST)",
-    "description": "Pruebas dinámicas (DAST) contra tus aplicaciones en marcha, solo sobre dominios cuya propiedad hayas demostrado.",
+    "description": "Pitangus ejecutando ZAP o Nuclei por ti, solo contra los dominios verificados de arriba. Mientras tanto, importa los resultados de tus propias ejecuciones.",
     "plan": {
-      "dns": "Verificación de propiedad del dominio por DNS TXT (ya implementada, se activará con el resto)",
       "scan": "Escaneo activo con ZAP o Nuclei en un contenedor aislado, con límites de velocidad y de alcance",
       "auth": "Autenticación en la aplicación con una cuenta de prueba que tú declares",
       "evidence": "Hallazgos con la petición y la respuesta que los demuestran, en el mismo ciclo de vida que los del código"
