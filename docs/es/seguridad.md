@@ -58,7 +58,7 @@ Pitangus lee el código de tus repositorios y guarda credenciales de GitHub y Ji
 | `api.osv.dev` | Nombres y versiones de tus dependencias | **Solo si lo autorizas** en cada análisis. Por defecto no se usa. |
 | Tu sitio de Jira | Los campos que asignas a cada incidencia (por defecto título, descripción, prioridad, etiquetas y plazo de corrección) y comentarios cuando se verifica la corrección de un hallazgo o reaparece | Solo si conectas Jira: cuando alguien exporta, o por su cuenta con reglas de enrutamiento automáticas. |
 | `api.openai.com`, `api.anthropic.com` | La clave del servidor, para comprobar que es válida | Solo cuando un operador la prueba (`ai-check`). La IA aún no se usa: no recibe código ni hallazgos. |
-| Tus dominios | Un `HEAD` HTTPS y una consulta DNS TXT | Solo cuando estén disponibles las pruebas dinámicas (en desarrollo). Solo a direcciones públicas. |
+| Tus dominios | Una consulta DNS TXT de `_pitangus.<host>` y un `HEAD` HTTPS al dominio cuando una persona administradora lo sondea antes de añadirlo | Cuando quien administra verifica un dominio, una vez al día por cada dominio verificado (se vuelve a comprobar la prueba) y cuando el formulario de añadir dominio sondea uno alcanzable. El `HEAD` va a la dirección ya resuelta y solo si todas las direcciones son públicas; no se siguen redirecciones. No se escanea nada. |
 
 No hay telemetría.
 

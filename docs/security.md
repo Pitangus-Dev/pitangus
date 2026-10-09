@@ -58,7 +58,7 @@ Pitangus reads your repositories' code and stores GitHub and Jira credentials. T
 | `api.osv.dev` | Your dependencies' names and versions | **Only if you allow it**, per scan. Not used by default. |
 | Your Jira site | The fields you map for each issue (by default title, description, priority, labels and due date), and comments when a finding is verified fixed or reappears | Only if you connect Jira: when someone exports, or on its own for automatic routing rules. |
 | `api.openai.com`, `api.anthropic.com` | The server's key, to check that it's valid | Only when an operator tests it (`ai-check`). AI isn't used yet: it receives no code and no findings. |
-| Your domains | An HTTPS `HEAD` and a DNS TXT lookup | Only once dynamic testing is available (in development). Only to public addresses. |
+| Your domains | A DNS TXT lookup of `_pitangus.<host>`, and one HTTPS `HEAD` to the domain when an administrator probes it before adding it | When an administrator verifies a domain, once a day for every verified domain (the proof is re-checked), and when the Add domain form probes a reachable domain. The `HEAD` goes to the already-resolved address and only if every address is public; no redirects are followed. Nothing is scanned. |
 
 There's no telemetry.
 

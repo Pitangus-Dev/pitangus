@@ -7,6 +7,28 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Added
+
+- **Bring your own DAST.** `import-sarif` (CLI, panel, `POST /api/ci/sarif` and the Action) accepts the SARIF of web
+  scanners (ZAP's `sarif-json` report, Nuclei's `-se`) against a **verified domain** (`--asset domain:<host>`, also
+  the host or the domain's id). Their findings get `scanner: dast` (the `Web` source in Findings), the URL without its
+  query string or fragment as the location, a fingerprint of rule, URL and parameter name (never the evidence, so the
+  same alert doesn't come back as new on every run), and only the method, parameter and a bounded evidence are kept:
+  never the request or response the tool attached, which carry cookies and authorization headers. A later full import
+  of the same tool marks fixed what it no longer reports, like any import. Importing against a domain nobody vouches
+  for (not verified, or the proof ran out) is refused with `409`. Recipes for GitHub Actions with the ZAP Automation
+  Framework plan and with Nuclei in [integrations.md](docs/integrations.md#bring-your-own-dast).
+
+- **Domains** (Scanning → Domains). The domain registry that was hidden is now in the panel: an administrator adds an
+  HTTPS domain, publishes the TXT record shown (with copy buttons) and verifies it; everyone sees the domains and
+  their status, with "Findings" once something was imported against one. The proof counts for 90 days and a daily
+  periodic task looks the record up again (present: extended; gone: withdrawn; DNS not answering: nothing changes).
+  Removing a domain deletes what was imported against it, and the panel says so before asking. API, administrators
+  only for the writes: `GET /api/domains`, `POST /api/domains`, `POST /api/domains/verify`, `POST /api/domains/check`
+  (one HTTPS `HEAD` to a public address, no redirects) and `POST /api/domains/remove`; verifying and probing count
+  against the progressive lock-out. Storage moved from the `domains` document to the `domain_registry` table
+  (Alembic `0010`, data migration `domains_to_table`). Native dynamic testing stays in development.
+
 ### Fixed
 
 - **An organization batch now uses every worker.** The leader fed the batch one repository at a time, and only while

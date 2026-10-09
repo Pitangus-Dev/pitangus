@@ -55,8 +55,86 @@ Los dos huecos por los que más preguntan:
   sitio se rige por los términos de CodeQL de GitHub. El mismo paso con Semgrep está en
   [cli.md](cli.md#resultados-de-otras-herramientas).
 - **Pruebas dinámicas.** Pitangus nunca ejecuta ni ataca tus aplicaciones. Hasta que lo ofrezca, corre ZAP o Nuclei
-  por tu cuenta, contra sistemas tuyos, e importa su SARIF de la misma forma (ZAP lo escribe con la plantilla
-  `sarif-json` de su add-on de informes; Nuclei, con `-se`).
+  por tu cuenta, contra sistemas tuyos, e importa su SARIF sobre un dominio verificado: ver
+  [Trae tu propio DAST](#trae-tu-propio-dast) más abajo.
+
+### Trae tu propio DAST
+
+Pitangus todavía no ejecuta escáneres web (está en [en desarrollo](funcionalidades.md#en-desarrollo)). Si tu pipeline ya corre **OWASP ZAP** o **Nuclei**, su SARIF entra en el registro como cualquier otra importación, con un **dominio verificado** como activo: los hallazgos tienen el mismo triage, plazos, incidencias de Jira y avisos que los del código, y una importación completa posterior deja remediado lo que el escáner ya no reporte.
+
+1. En **Análisis → Dominios**, una persona administradora añade el dominio (`https://app.example.com`), publica el registro TXT que muestra el panel (`_pitangus.app.example.com` = `pitangus-verify=…`) y lo verifica. El dominio pasa a ser el activo `domain:app.example.com`. El registro se consulta de nuevo cada día; si desaparece, o pasan 90 días sin comprobarlo, el dominio deja de ser un activo hasta que alguien lo verifique otra vez.
+2. El pipeline escribe el SARIF y lo envía con las entradas `import-sarif`, `server`, `token` y `asset` de la Action (o con `python -m pitangus import-sarif … --asset domain:app.example.com --server …`).
+
+ZAP solo escribe SARIF con la plantilla `sarif-json` del add-on de informes, desde un job `report` del plan del [Automation Framework](https://www.zaproxy.org/docs/desktop/addons/automation-framework/) ([job report](https://www.zaproxy.org/docs/desktop/addons/report-generation/automation/), [plantilla SARIF](https://www.zaproxy.org/docs/desktop/addons/report-generation/report-sarif-json/)). Un plan pasivo (spider y análisis pasivo, sin ataques) desde GitHub Actions:
+
+```yaml
+name: Análisis dinámico
+on:
+  schedule: [{ cron: '0 3 * * 1' }]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  zap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ZAP, pasivo, con el Automation Framework
+        run: |
+          cat > zap.yaml <<'EOF'
+          env:
+            contexts:
+              - name: app
+                urls: ["https://app.example.com"]
+                includePaths: ["https://app.example.com/.*"]
+            parameters:
+              failOnError: true
+              progressToStdout: true
+          jobs:
+            - type: spider
+              parameters:
+                maxDuration: 2
+            - type: passiveScan-wait
+            - type: report
+              parameters:
+                template: sarif-json
+                reportDir: /zap/wrk
+                reportFile: zap
+          EOF
+          docker run --rm --user "$(id -u)" -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd -autorun /zap/wrk/zap.yaml
+          ls zap.*   # la plantilla decide el nombre del archivo; apunta `import-sarif` a él
+      - uses: Pitangus-Dev/pitangus@v0.12.2
+        if: always()
+        with:
+          scan: false
+          import-sarif: zap.sarif
+          asset: domain:app.example.com
+          server: https://pitangus.example.com
+          token: ${{ secrets.PITANGUS_IMPORT_TOKEN }}
+```
+
+Nuclei escribe SARIF con `-se` ([opciones](https://docs.projectdiscovery.io/tools/nuclei/running)). Mantén baja la tasa de peticiones, deja fuera las plantillas que hacen fuzzing o pueden tumbar el objetivo y fija la imagen:
+
+```yaml
+      - name: Nuclei
+        run: |
+          docker run --rm -v "$PWD:/out" projectdiscovery/nuclei:v3.3.5 \
+            -u https://app.example.com -rl 20 -c 10 -severity low,medium,high,critical \
+            -etags dos,fuzz,intrusive -se /out/nuclei.sarif
+      - uses: Pitangus-Dev/pitangus@v0.12.2
+        if: always()
+        with:
+          scan: false
+          import-sarif: nuclei.sarif
+          asset: domain:app.example.com
+          server: https://pitangus.example.com
+          token: ${{ secrets.PITANGUS_IMPORT_TOKEN }}
+```
+
+Qué hace Pitangus con ello: los hallazgos de un escáner web llevan `scanner: dast`; la ubicación es la URL sin query ni fragmento (un token de sesión o un *cache-buster* en la URL no debe convertir la misma alerta en un hallazgo nuevo en cada ejecución); la huella es regla, URL y nombre del parámetro, nunca la evidencia; y solo se guardan el método, el parámetro y una evidencia acotada, nunca la petición ni la respuesta que adjunta ZAP (llevan cookies y cabeceras de autorización). Nuclei pone la ruta de la plantilla donde SARIF espera un archivo y la URL en las propiedades del resultado; Pitangus lee la URL. Una ejecución con las dos herramientas está bien: cada una solo remedia lo que ella misma reportó.
+
+**Solo contra sistemas tuyos o que estés autorizado a probar.** El registro TXT demuestra a Pitangus el control de la zona DNS; no es una autorización para probar nada, y Pitangus no comprueba que la tengas. El escaneo activo (el *active scan* de ZAP, el fuzzing `-dast` de Nuclei) puede dañar datos y disparar defensas: hazlo solo donde tengas permiso, fuera de producción salvo que sepas lo que haces, y deja el plan en pasivo en el resto de los casos. Sigue siendo un *análisis*, no un pentest.
 
 ## Jira Cloud
 

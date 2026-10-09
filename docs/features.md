@@ -33,7 +33,7 @@ These appear greyed out in the panel, marked **In development**, so you know the
 
 | Feature | What it will do |
 | --- | --- |
-| Dynamic testing of web applications and APIs | Active scanning (DAST) with ZAP or Nuclei in an isolated container, only against domains whose ownership you've verified through DNS. |
+| Dynamic testing of web applications and APIs | Pitangus running ZAP or Nuclei in an isolated container, only against the domains you've verified through DNS. The domain registry already works, and your own ZAP or Nuclei results can be imported against a verified domain today: see [Domains](#domains). |
 | GitLab, Bitbucket, Azure DevOps | Connect repositories with read-only project tokens. |
 | AI assistance | Finding explanations and patch proposals with your own key, with consent on every run. |
 | Public API | Scoped personal tokens and a documented `/api/v1`. (The CLI for CI already exists: [`scan`](cli.md).) |
@@ -68,6 +68,14 @@ Starting a scan returns `202` immediately with its ID and queues it; one or more
 No secret value is stored: only the variable name or the history step. Private images need a **read-only** registry token, which an administrator saves (encrypted) in **Integrations → Container registries**. Each image is its own asset in **Findings**, identified by registry and repository, without the tag: when you scan `api:1.5`, whatever no longer appears compared with `api:1.4` is marked fixed.
 
 Also available from the CLI (useful in CI): `make cli ARGS="scan-image --reference ghcr.io/acme/api:1.4"`. Like `scan-repository`, it returns `0` with no findings, `1` with findings, `2` on invalid input and `3` if the analysis was incomplete: the same codes as [`scan`](cli.md).
+
+## Domains
+
+**Scanning → Domains** is the registry of the HTTPS domains you own. An administrator adds one (`https://app.example.com`: public domain, no port, no query; at most 20), publishes the TXT record the panel shows (`_pitangus.<host>` = `pitangus-verify=<token>`, with copy buttons) and verifies it. Before adding, the panel can probe whether the domain answers over HTTPS: one `HEAD` to its already-resolved public address, no redirects, never to a private address. Registering, probing and verifying don't test anything.
+
+A verified domain is the asset `domain:<host>`: `import-sarif` accepts the SARIF of your own ZAP or Nuclei runs against it ([Bring your own DAST](integrations.md#bring-your-own-dast)), and from then on those findings live in **Findings** with the same lifecycle as code findings (`Web` as their source). The proof counts for 90 days and is looked up again every day: if the record is gone, the domain stops being an asset until someone verifies it again; if DNS doesn't answer, nothing changes until the proof runs out. Members see the domains and their status; only administrators add, verify or remove. Removing a domain deletes what was imported against it (runs, findings, triage, tickets), and the panel says so before asking.
+
+The TXT record proves technical control of the DNS zone, not authorization to test the application: that stays with whoever operates Pitangus. Pitangus running the scanners itself is [in development](#in-development).
 
 ## Findings and their lifecycle
 

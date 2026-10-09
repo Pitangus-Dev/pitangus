@@ -31,7 +31,7 @@ Se ven en el panel en gris, con la marca **En desarrollo**, para que se sepa que
 
 | Función | Qué hará |
 | --- | --- |
-| Pruebas dinámicas de aplicaciones web y API | Escaneo activo (DAST) con ZAP o Nuclei en un contenedor aislado, solo sobre dominios cuya propiedad hayas verificado por DNS. |
+| Pruebas dinámicas de aplicaciones web y API | Pitangus ejecutando ZAP o Nuclei en un contenedor aislado, solo sobre los dominios que hayas verificado por DNS. El registro de dominios ya funciona, y hoy ya puedes importar tus propios resultados de ZAP o Nuclei sobre un dominio verificado: mira [Dominios](#dominios). |
 | GitLab, Bitbucket, Azure DevOps | Conectar repositorios con tokens de solo lectura del proyecto. |
 | Asistencia con IA | Explicación de hallazgos y propuesta de parche con tu propia clave, con consentimiento en cada ejecución. |
 | API pública | Tokens personales con ámbitos y `/api/v1` documentada. (La CLI para CI ya existe: [`scan`](cli.md).) |
@@ -66,6 +66,14 @@ Lanzar un escaneo devuelve al instante `202` con su identificador y lo encola; u
 Ningún valor secreto se guarda: solo el nombre de la variable o el paso del historial. Las imágenes privadas necesitan un token de **solo lectura** del registro, que un administrador guarda en **Integraciones → Registros de contenedores** (cifrado). Cada imagen es un activo propio en **Hallazgos**, identificado por registro y repositorio, sin la etiqueta: al analizar `api:1.5`, lo que ya no aparece respecto a `api:1.4` queda remediado.
 
 También por CLI (útil en CI): `make cli ARGS="scan-image --reference ghcr.io/acme/api:1.4"`. Como `scan-repository`, devuelve `0` sin hallazgos, `1` con hallazgos, `2` ante una entrada inválida y `3` si el análisis quedó incompleto: los mismos códigos que [`scan`](cli.md).
+
+## Dominios
+
+**Análisis → Dominios** es el registro de los dominios HTTPS que son tuyos. Una persona administradora añade uno (`https://app.example.com`: dominio público, sin puerto ni query; 20 como máximo), publica el registro TXT que muestra el panel (`_pitangus.<host>` = `pitangus-verify=<token>`, con botones para copiar) y lo verifica. Antes de añadirlo, el panel puede sondear si el dominio responde por HTTPS: un solo `HEAD` a su dirección pública ya resuelta, sin seguir redirecciones y nunca a una dirección privada. Registrar, sondear y verificar no prueban nada.
+
+Un dominio verificado es el activo `domain:<host>`: `import-sarif` acepta sobre él el SARIF de tus propias ejecuciones de ZAP o Nuclei ([Trae tu propio DAST](integraciones.md#trae-tu-propio-dast)), y desde ese momento esos hallazgos viven en **Hallazgos** con el mismo ciclo de vida que los del código (con `Web` como origen). La prueba vale 90 días y se consulta de nuevo cada día: si el registro desapareció, el dominio deja de ser un activo hasta que alguien lo verifique otra vez; si DNS no responde, nada cambia hasta que la prueba caduque. Los miembros ven los dominios y su estado; solo quien administra añade, verifica o elimina. Eliminar un dominio borra lo que se importó sobre él (ejecuciones, hallazgos, triage, incidencias), y el panel lo dice antes de preguntar.
+
+El registro TXT demuestra el control técnico de la zona DNS, no la autorización para probar la aplicación: esa sigue siendo de quien opera Pitangus. Que Pitangus ejecute los escáneres por su cuenta está [en desarrollo](#en-desarrollo).
 
 ## Hallazgos y su ciclo de vida
 
