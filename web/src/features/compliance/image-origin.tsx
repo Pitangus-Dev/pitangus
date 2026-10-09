@@ -5,16 +5,18 @@ import { GitBranch } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
 import { api } from '@/shared/api/http'
-import type { PostResponse, Response } from '@/shared/api/client'
+import type { PostResponse } from '@/shared/api/client'
 import { evidenceAssetsQuery, keys } from '@/shared/api/queries'
 import { formatDate } from '@/shared/i18n/format'
 
-type Asset = Response<'/api/evidence/assets'>['items'][number]
 type Link = PostResponse<'/api/evidence/image-link'>
+type BuiltFrom = Link['built_from']
+// Any image row that knows its key and where it is built from (the evidence picker, the Images page).
+type Image = { key: string; built_from?: BuiltFrom | null }
 
 // Which repository an image is built from: its OCI label says so, or an administrator sets it by hand (a manual link
 // wins). The repository brings the image into a portfolio scope and its commit shows in the reports.
-export function ImageOrigin({ asset, admin, onChanged }: { asset: Asset; admin: boolean; onChanged: (asset: Asset) => void }) {
+export function ImageOrigin({ asset, admin, onChanged }: { asset: Image; admin: boolean; onChanged: (builtFrom: BuiltFrom) => void }) {
   const { t } = useTranslation('compliance')
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
@@ -30,9 +32,10 @@ export function ImageOrigin({ asset, admin, onChanged }: { asset: Asset; admin: 
     setError('')
     try {
       const result = await api.post<Link>('/api/evidence/image-link', 'image-link', { image: asset.key, repository })
-      onChanged({ ...asset, built_from: result.built_from })
+      onChanged(result.built_from)
       setEditing(false)
       void queryClient.invalidateQueries({ queryKey: keys.evidence })
+      void queryClient.invalidateQueries({ queryKey: keys.images })
     } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) }
   }
   const origin = built ? (built.how === 'manual'
@@ -46,7 +49,7 @@ export function ImageOrigin({ asset, admin, onChanged }: { asset: Asset; admin: 
       {admin && built?.how === 'manual' && !editing && <Button size="xs" variant="ghost" onClick={() => void save(null)}>{t('evidence.origin.use_label')}</Button>}
     </p>
     {editing && <div className="flex flex-wrap items-center gap-2">
-      <Combobox autoFocus className="min-w-64 max-w-sm flex-1" label={t('evidence.origin.pick_label')} placeholder={t('evidence.origin.pick')} emptyText={t('evidence.no_match')} value={null}
+      <Combobox autoFocus className="w-full min-w-0 max-w-sm flex-1 sm:min-w-64" label={t('evidence.origin.pick_label')} placeholder={t('evidence.origin.pick')} emptyText={t('evidence.no_match')} value={null}
         search={search} onSelect={option => void save(option.id)} />
       <Button size="xs" variant="ghost" onClick={() => setEditing(false)}>{t('common:actions.cancel')}</Button></div>}
     {error && <p role="alert" className="text-xs text-danger">{error}</p>}

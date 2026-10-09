@@ -9,6 +9,10 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Added
 
+- **Images page** (Scanning → Images): every analyzed image, the repository it's built from and how it was linked
+  (OCI label or by hand), with a "not linked" tab for the ones that still need one. An administrator links, changes or
+  removes the link there; each row opens its findings or scans the image again. Repositories show how many images are
+  built from each one, and from a repository you can link another image to it.
 - **One scope picker for the evidence in Compliance.** Three steps: which assets (one, an organization, several or all),
   which framework, and the downloads for that scope, with a preview of what it covers (repositories, images, how many
   with a complete scan) before downloading anything. The separate "one asset" and "portfolio" blocks are gone.

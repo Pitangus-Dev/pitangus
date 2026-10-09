@@ -95,6 +95,43 @@ def set_link(data_dir: Path, image: str, repository: str | None, *, by: str) -> 
     return links(data_dir, rows).get(image)
 
 
+LINK_FILTERS = ("all", "unlinked", "label", "manual")
+
+
+def images(data_dir: Path, *, query: str = "", link: str = "all", repository: str | None = None) -> dict:
+    """The Images page: each analyzed image with its latest scan, the reference to scan it again and where it is built
+    from; filtered by name, by how it is linked (`unlinked`: no analyzed repository) or by the `repository` it is built
+    from. `counts` cover every image, whatever the filters, for the page's tabs."""
+    from pitangus.modules.runs.store import find_runs
+    from pitangus.modules.sources.assets import asset_key
+    rows = evidence.catalog(data_dir)
+    built = links(data_dir, rows)
+    latest: dict[str, dict] = {}
+    for row in find_runs(data_dir, types=("image_scan",)):  # most recent first
+        latest.setdefault(asset_key(row), row)
+    found = []
+    for row in rows:
+        if row["kind"] != "image":
+            continue
+        scan = latest.get(row["key"]) or {}
+        image = (scan.get("source") or {}).get("image") or {}
+        found.append({"key": row["key"], "name": row["name"], "reference": image.get("reference") or scan.get("target"),
+                      "last_scan": {"run_id": scan["id"], "created_at": scan["created_at"], "status": scan["status"]} if scan else None,
+                      "last_complete": row["last_complete"], "built_from": built.get(row["key"])})
+    def how(item: dict) -> str:
+        return item["built_from"]["how"] if (item["built_from"] or {}).get("repository") else "unlinked"
+    built_by: dict[str, int] = {}
+    for item in found:
+        if (item["built_from"] or {}).get("repository"):
+            built_by[item["built_from"]["repository"]] = built_by.get(item["built_from"]["repository"], 0) + 1
+    if repository is not None:
+        found = [item for item in found if (item["built_from"] or {}).get("repository") == repository]
+    counts = {name: sum(1 for item in found if how(item) == name) for name in LINK_FILTERS[1:]}
+    needle = query.strip().casefold()
+    items = [item for item in found if (not needle or needle in item["name"].casefold()) and (link == "all" or how(item) == link)]
+    return {"items": items, "counts": {"all": len(found), **counts}, "repositories": built_by}
+
+
 def accounts(rows: list[dict]) -> list[str]:
     """Organizations (owners) of the analyzed repositories, for the scope picker."""
     return sorted({str(row["name"]).split("/", 1)[0] for row in rows if row["kind"] == "repository" and "/" in str(row["name"])},

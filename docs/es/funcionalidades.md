@@ -96,9 +96,13 @@ política y los vencidos ordenados por retraso: lo que piden SOC 2 e ISO 27001 c
   4.893/5.274), Chile (Ley 21.663), Colombia (SFC, CE 007/2018) y México (CNBV para bancos y financiamiento colectivo,
   IFPE, LFPDPPP art. 18). La relación con cada control es orientativa: el informe es evidencia para una auditoría, no una
   certificación.
-- **Evidencias (vista Cumplimiento).** Eliges un repositorio o una imagen y descargas en un clic su SBOM, su VEX, el
-  informe técnico o la evidencia de auditoría del marco elegido; o la evidencia de auditoría consolidada de todos los
-  activos analizados. Son las mismas exportaciones que en Hallazgos.
+- **Evidencias (vista Cumplimiento).** Eliges el alcance (un activo, una organización, varios o todos) y el marco, y
+  descargas el SBOM, el VEX, el informe técnico o la evidencia de auditoría (consolidados si hay más de un activo). Los
+  archivos de un solo activo son las mismas exportaciones que en Hallazgos.
+- **Imágenes y el repositorio desde el que se construyen (vista Imágenes).** Pitangus lee el repositorio de las
+  etiquetas OCI de la imagen (`org.opencontainers.image.source` y `.revision`); si faltan o se equivocan, un
+  administrador la vincula a mano y ese vínculo manda. La evidencia de un repositorio incluye las imágenes construidas
+  desde él, y los informes dicen «construida desde org/repo @ commit».
 - **Kit CRA (vista Cumplimiento, opcional).** Solo para fabricantes que venden en la UE productos con software: un
   administrador lo activa en **Políticas** («Vendemos productos con software en la UE (CRA)», desactivado por defecto,
   con un motivo que queda en el historial; desactivarlo conserva los datos). Luego un administrador marca qué

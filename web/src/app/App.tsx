@@ -3,7 +3,7 @@ import { healthQuery, keys, runsQuery } from '@/shared/api/queries'
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import {
-  ChevronRight, Clock3, GitPullRequest, LayoutDashboard, Network,
+  Boxes, ChevronRight, Clock3, GitPullRequest, LayoutDashboard, Network,
   Landmark, LogOut, Menu, Monitor, Moon, Play, PlugZap, Radar, ScrollText, SearchCheck, Shield, ShieldAlert, Sun, Layers3, UserRound, UsersRound,
   Bug,
 } from 'lucide-react'
@@ -31,6 +31,7 @@ import { PullRequests } from '@/pages/PullRequests'
 import { ThreatModels } from '@/pages/ThreatModels'
 import { Compliance } from '@/pages/Compliance'
 import { Policies } from '@/pages/Policies'
+import { Images } from '@/pages/Images'
 import type { RunRow } from '@/shared/lib/types'
 import { LocaleSwitch } from '@/shared/i18n/locale-switch'
 import { formatDate } from '@/shared/i18n/format'
@@ -39,7 +40,7 @@ import { Button } from '@/shared/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/shared/ui/sheet'
 
-type View = 'overview' | 'analyses' | 'new' | 'findings' | 'coverage' | 'repositories' | 'domains' | 'integrations' | 'account' | 'users' | 'pulls' | 'threats' | 'cves' | 'compliance' | 'policies'
+type View = 'overview' | 'analyses' | 'new' | 'findings' | 'coverage' | 'repositories' | 'images' | 'domains' | 'integrations' | 'account' | 'users' | 'pulls' | 'threats' | 'cves' | 'compliance' | 'policies'
 type Theme = 'system' | 'light' | 'dark'
 
 // Ley de Hick: tres grupos con nombre en vez de once opciones seguidas. Lo que aún no funciona
@@ -56,6 +57,7 @@ const navigation: { id: string; label: string; items: { id: View; label: string;
   { id: 'scanning', label: 'groups.scanning', items: [
     { id: 'analyses', label: 'items.analyses', icon: SearchCheck },
     { id: 'repositories', label: 'items.repositories', icon: Layers3 },
+    { id: 'images', label: 'items.images', icon: Boxes },
     { id: 'pulls', label: 'items.pulls', icon: GitPullRequest },
   ] },
   { id: 'settings', label: 'groups.settings', items: [
@@ -65,7 +67,7 @@ const navigation: { id: string; label: string; items: { id: View; label: string;
   ] },
 ]
 const DESCRIPTION: Partial<Record<View, string>> = {
-  overview: 'descriptions.overview', analyses: 'descriptions.analyses', new: 'descriptions.new', repositories: 'descriptions.repositories',
+  overview: 'descriptions.overview', analyses: 'descriptions.analyses', new: 'descriptions.new', repositories: 'descriptions.repositories', images: 'descriptions.images',
   domains: 'descriptions.domains', integrations: 'descriptions.integrations', account: 'descriptions.account', users: 'descriptions.users',
   pulls: 'descriptions.pulls', cves: 'descriptions.cves', compliance: 'descriptions.compliance', threats: 'descriptions.threats',
   policies: 'descriptions.policies',
@@ -153,6 +155,9 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   const selectView = (next: View) => { if (next === 'new') setSelectedSource(null); if (next === 'findings') setSelectedId(null); setView(next); setMobileOpen(false); writeRoute(next) }
   // Un CVE concreto del Resumen: la URL lleva su id (lo lee el tracker al montarse) y la vista cambia a la vez.
   const openTracker = (id?: string) => { if (!id) return selectView('cves'); writeRoute('cves', { id }); setView('cves'); setMobileOpen(false) }
+  // The images built from a repository (from Repositories), and an image's findings (from Images).
+  const openImages = (repository: { key: string; name: string }) => { writeRoute('images', { repo: repository.key, name: repository.name }); setView('images'); setMobileOpen(false) }
+  const openAssetFindings = (key: string) => { setSelectedId(null); writeRoute('findings', { repo: key }); setView('findings'); setMobileOpen(false) }
   const scanSource = (id: string) => { setSelectedSource(id); setView('new'); setMobileOpen(false) }
   const completedRepositoryScan = async (id: string) => { await refresh(); await openRun(id, 'findings') }
 
@@ -181,7 +186,8 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   const renderMain = () => {
     if (view === 'new') return <AnalysisWizard key={selectedSource ?? 'new'} initialSourceId={selectedSource} isAdmin={user.role === 'admin'} onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onManageConnections={() => selectView('integrations')} onCancel={() => selectView('analyses')} />
     if (view === 'analyses') return <AnalysisList refreshKey={rows.length * 1000 + rows.filter(row => row.status === 'running' || row.status === 'queued').length} onOpen={id => openRun(id, 'findings')} onNew={() => selectView('new')} viewer={{ username: user.username, admin: user.role === 'admin' }} />
-    if (view === 'repositories') return <CodeSources showRepositories runs={rows} onScan={scanSource} canManage={user.role === 'admin'} />
+    if (view === 'repositories') return <CodeSources showRepositories runs={rows} onScan={scanSource} onImages={openImages} canManage={user.role === 'admin'} />
+    if (view === 'images') return <Images key={readRoute().params.get('repo') ?? 'all'} admin={user.role === 'admin'} onOpenFindings={openAssetFindings} onNew={() => selectView('new')} />
     if (view === 'domains') return <ComingSoonPage title={t('dast.title')} description={t('dast.description')} plan={[t('dast.plan.dns'), t('dast.plan.scan'), t('dast.plan.auth'), t('dast.plan.evidence')]} />
     if (view === 'overview') return <Dashboard onOpenRun={id => openRun(id, 'findings')} onNew={() => selectView('new')} onNavigate={view => selectView(view as View)} onTracker={openTracker} />
     if (view === 'threats') return <ThreatModels user={user} onOpenRun={id => openRun(id, 'findings')} />

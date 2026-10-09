@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { imagesQuery } from '@/shared/api/queries'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/shared/api/http'
 import { ChevronDown, ExternalLink, FileCheck2, GitBranch, Layers3, LoaderCircle, LockKeyhole, RefreshCw, Search, ShieldCheck } from 'lucide-react'
@@ -29,8 +31,11 @@ const pending = [
 ] as const
 const PAGE_SIZE = 25
 
-export function CodeSources({ showRepositories = false, onScan, runs = [], canManage = false }: { showRepositories?: boolean; onScan?: (id: string) => void; runs?: Run[]; canManage?: boolean }) {
+export function CodeSources({ showRepositories = false, onScan, onImages, runs = [], canManage = false }: { showRepositories?: boolean; onScan?: (id: string) => void; onImages?: (repository: { key: string; name: string }) => void; runs?: Run[]; canManage?: boolean }) {
   const { t } = useTranslation('sources')
+  // Images built from each repository (by their key), so each row can say how many and open them.
+  const linkedImages = useQuery({ ...imagesQuery({ limit: 1 }), enabled: showRepositories })
+  const imageCount = useMemo(() => new Map(Object.entries(linkedImages.data?.repositories ?? {})), [linkedImages.data])
   const [github, setGithub] = useState<GitHubStatus | null>(null)
   const [filter, setFilter] = useState('')
   const [accountFilter, setAccountFilter] = useState('')
@@ -155,7 +160,10 @@ export function CodeSources({ showRepositories = false, onScan, runs = [], canMa
             return <div key={source.id} className="grid gap-2 border-b border-app-line px-4 py-3 last:border-b-0 md:grid-cols-[20px_minmax(0,1fr)_minmax(0,170px)_120px_130px_130px] md:items-center">
               {source.installation_id ? <input type="checkbox" aria-label={t('repositories.select_one', { name: source.name })} className="size-4 accent-brand" checked={selected.has(source.id)}
                 onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(source.id); else next.delete(source.id); return next })} /> : <span />}
-              <div className="flex min-w-0 items-center gap-2"><GitBranch className="size-4 shrink-0 text-app-muted" /><span className="truncate text-sm font-medium">{source.name}</span>{source.private && <LockKeyhole className="size-3 shrink-0 text-app-subtle" />}</div>
+              <div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><GitBranch className="size-4 shrink-0 text-app-muted" /><span className="truncate text-sm font-medium">{source.name}</span>{source.private && <LockKeyhole className="size-3 shrink-0 text-app-subtle" />}</div>
+                {onImages && source.uid && (imageCount.get(source.uid) || (canManage && last)) ? <button type="button" onClick={() => onImages({ key: source.uid ?? '', name: source.name })}
+                  aria-label={imageCount.get(source.uid) ? t('images.count_for', { count: imageCount.get(source.uid), name: source.name }) : t('images.link_for', { name: source.name })}
+                  className="ml-6 min-h-6 text-xs text-brand underline-offset-2 hover:underline">{imageCount.get(source.uid) ? t('images.count', { count: imageCount.get(source.uid) }) : t('images.link_from_repository')}</button> : null}</div>
               <div className="flex min-w-0 items-center gap-1"><span className="text-xs text-app-subtle md:sr-only">{t('repositories.columns.branch')}</span><ScanBranchLabel source={source} />{canManage && source.installation_id && source.uid && <ScanBranchEdit source={source} ref={editButton(source.id)} expanded={editingBranch === source.id} onEdit={() => setEditingBranch(current => current === source.id ? null : source.id)} />}</div>
               <span className="text-xs text-app-muted">{source.account ?? source.provider.toUpperCase()}</span>
               <span className="text-xs text-app-muted">{last ? formatDay(last.created_at, { dateStyle: 'short' }) : t('repositories.not_scanned')}</span>

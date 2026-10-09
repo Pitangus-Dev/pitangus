@@ -289,5 +289,47 @@
       "skip": "Omitir",
       "submit": "Verificar ahora"
     }
+  },
+  "images": {
+    "description": "Pitangus lee el repositorio de las etiquetas OCI de la imagen; si faltan o son incorrectas, un administrador la vincula manualmente y ese vínculo manda.",
+    "filter": "Filtrar por cómo están vinculadas",
+    "tabs": {
+      "all": "Todas",
+      "unlinked": "Sin vincular",
+      "label": "Por etiqueta OCI",
+      "manual": "Vinculadas manualmente"
+    },
+    "unlinked_hint": "No tienen un repositorio analizado vinculado: sus etiquetas no indican ninguno o indican uno que Pitangus no ha analizado. Vincúlalas a mano para que entren en la evidencia de ese repositorio.",
+    "search": "Buscar imágenes",
+    "search_placeholder": "Buscar imágenes…",
+    "loading": "Cargando imágenes",
+    "load_failed": "No se pudieron cargar las imágenes. Vuelve a intentarlo en un momento.",
+    "none": "Aún no has analizado ninguna imagen.",
+    "new_scan": "Analizar una imagen",
+    "no_match": "Ninguna imagen coincide",
+    "last_scan": "último análisis {{date}}",
+    "findings": "Hallazgos",
+    "rescan": "Analizar de nuevo",
+    "queued": "En cola",
+    "built_from": "Construidas desde {{name}}",
+    "clear_repository": "Ver todas las imágenes",
+    "link": "Vincular una imagen…",
+    "link_label": "Imagen para vincular a {{name}}",
+    "count_one": "{{count}} imagen",
+    "count_other": "{{count}} imágenes",
+    "link_from_repository": "Vincular una imagen",
+    "title": "Imágenes analizadas",
+    "none_for_repository": "Ninguna imagen está vinculada a {{name}}.",
+    "none_for_repository_admin": "Elige una arriba para vincularla.",
+    "currently": "ahora construida desde {{name}}",
+    "linked": "{{image}} vinculada a {{name}}.",
+    "relinked": "{{image}} ahora se construye desde {{name}}.",
+    "unlinked": "{{image}} vuelve a lo que dicen sus etiquetas.",
+    "queued_for": "Análisis de {{name}} en cola",
+    "rescan_for": "Analizar de nuevo {{name}}",
+    "findings_for": "Hallazgos de {{name}}",
+    "count_for_one": "{{count}} imagen construida desde {{name}}",
+    "count_for_other": "{{count}} imágenes construidas desde {{name}}",
+    "link_for": "Vincular una imagen a {{name}}"
   }
 }

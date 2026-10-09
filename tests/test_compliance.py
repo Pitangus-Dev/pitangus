@@ -675,6 +675,36 @@ class ImageProvenanceTests(HttpCase):
         status, pdf, _ = self.call("GET", "/api/assets/export?key=image:ghcr.io/org/api&status=open&artifact=report.pdf", headers={"Cookie": member})
         self.assertEqual((status, pdf[:5]), (200, b"%PDF-"))
 
+    def test_images_page_lists_how_each_image_is_linked(self):
+        member, admin = _login(self, "miembro"), _login(self, "jefa", role="admin")
+        stamp = datetime.now(timezone.utc).isoformat()
+        for name in ("org/api", "org/web"):
+            save_repository_scan(self.data_dir, _scan(name, [], stamp), created_at=stamp)
+        save_repository_scan(self.data_dir, _image("ghcr.io/org/api", stamp, labels={"org.opencontainers.image.source": "https://github.com/org/api"}), created_at=stamp)
+        save_repository_scan(self.data_dir, _image("ghcr.io/org/gone", stamp, labels={"org.opencontainers.image.source": "https://github.com/org/gone"}), created_at=stamp)
+        save_repository_scan(self.data_dir, _image("docker.io/org/web", stamp), created_at=stamp)
+        _send(self, "/api/evidence/image-link", "image-link", {"image": "image:docker.io/org/web", "repository": "github:org/web"}, admin)
+
+        self.assertEqual(self.call("GET", "/api/images")[0], 401)
+        status, page, _ = self.call("GET", "/api/images", headers={"Cookie": member})
+        self.assertEqual((status, page["total"], page["counts"]), (200, 3, {"all": 3, "unlinked": 1, "label": 1, "manual": 1}))
+        self.assertEqual(page["repositories"], {"github:org/api": 1, "github:org/web": 1})
+        rows = {item["key"]: item for item in page["items"]}
+        self.assertEqual(rows["image:ghcr.io/org/api"]["reference"], "ghcr.io/org/api:1")
+        self.assertEqual(rows["image:ghcr.io/org/api"]["last_scan"]["status"], "completed")
+        # A label that names a repository Pitangus hasn't analyzed is shown, but counts as unlinked.
+        self.assertEqual((rows["image:ghcr.io/org/gone"]["built_from"]["name"], rows["image:ghcr.io/org/gone"]["built_from"]["repository"]), ("org/gone", None))
+        keys = lambda query: [item["key"] for item in self.call("GET", f"/api/images?{query}", headers={"Cookie": member})[1]["items"]]  # noqa: E731
+        self.assertEqual(keys("link=unlinked"), ["image:ghcr.io/org/gone"])
+        self.assertEqual(keys("link=manual"), ["image:docker.io/org/web"])
+        self.assertEqual(keys("repository=github:org/api"), ["image:ghcr.io/org/api"])
+        self.assertEqual(self.call("GET", "/api/images?repository=github:org/api", headers={"Cookie": member})[1]["counts"],
+                         {"all": 1, "unlinked": 0, "label": 1, "manual": 0})
+        self.assertEqual(keys("q=WEB"), ["image:docker.io/org/web"])
+        self.assertEqual(self.call("GET", "/api/images?q=web", headers={"Cookie": member})[1]["counts"]["all"], 3)  # tabs count every image
+        for bad in ("link=other", "q=" + "a" * 101, "limit=0"):
+            self.assertEqual(self.call("GET", f"/api/images?{bad}", headers={"Cookie": member})[0], 400, bad)
+
 
 class CraFrameworkGateTests(HttpCase):
     """The CRA mapping of the audit evidence only exists while the CRA policy is on."""

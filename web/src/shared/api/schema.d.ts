@@ -1790,6 +1790,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Analyzed Images
+         * @description Analyzed images with where each is built from (OCI label or set by hand), filtered by name, by how it is linked
+         *     or by the repository it is built from.
+         */
+        get: operations["analyzed_images_api_images_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/images/scans": {
         parameters: {
             query?: never;
@@ -1975,6 +1996,19 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+        };
+        /** AnalyzedImage */
+        AnalyzedImage: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Reference */
+            reference: string | null;
+            last_scan: components["schemas"]["ImageLastScan"] | null;
+            /** Last Complete */
+            last_complete: string | null;
+            built_from: components["schemas"]["BuiltFrom"] | null;
         };
         /** AssessIn */
         AssessIn: {
@@ -2813,6 +2847,26 @@ export interface components {
             /** Queued */
             queued?: number | null;
         };
+        /** ImageCounts */
+        ImageCounts: {
+            /** All */
+            all: number;
+            /** Unlinked */
+            unlinked: number;
+            /** Label */
+            label: number;
+            /** Manual */
+            manual: number;
+        };
+        /** ImageLastScan */
+        ImageLastScan: {
+            /** Run Id */
+            run_id: string;
+            /** Created At */
+            created_at: string;
+            /** Status */
+            status: string;
+        };
         /** ImageLink */
         ImageLink: {
             /** Image */
@@ -2825,6 +2879,22 @@ export interface components {
             image: string;
             /** Repository */
             repository: string | null;
+        };
+        /** ImagePage */
+        ImagePage: {
+            /** Items */
+            items: components["schemas"]["AnalyzedImage"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            counts: components["schemas"]["ImageCounts"];
+            /** Repositories */
+            repositories: {
+                [key: string]: number;
+            };
         };
         /**
          * ImportCheck
@@ -7567,6 +7637,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExclusionsSaved"];
+                };
+            };
+        };
+    };
+    analyzed_images_api_images_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                link?: "all" | "unlinked" | "label" | "manual";
+                repository?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagePage"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

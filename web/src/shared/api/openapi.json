@@ -5634,6 +5634,102 @@
         }
       }
     },
+    "/api/images": {
+      "get": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Analyzed Images",
+        "description": "Analyzed images with where each is built from (OCI label or set by hand), filtered by name, by how it is linked\nor by the repository it is built from.",
+        "operationId": "analyzed_images_api_images_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "link",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "unlinked",
+                "label",
+                "manual"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Link"
+            }
+          },
+          {
+            "name": "repository",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Repository"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/images/scans": {
       "post": {
         "tags": [
@@ -6421,6 +6517,70 @@
           "offset"
         ],
         "title": "AffectedAssetPage"
+      },
+      "AnalyzedImage": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "last_scan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageLastScan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_complete": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Complete"
+          },
+          "built_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuiltFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "reference",
+          "last_scan",
+          "last_complete",
+          "built_from"
+        ],
+        "title": "AnalyzedImage"
       },
       "AssessIn": {
         "properties": {
@@ -9195,6 +9355,57 @@
         ],
         "title": "Health"
       },
+      "ImageCounts": {
+        "properties": {
+          "all": {
+            "type": "integer",
+            "title": "All"
+          },
+          "unlinked": {
+            "type": "integer",
+            "title": "Unlinked"
+          },
+          "label": {
+            "type": "integer",
+            "title": "Label"
+          },
+          "manual": {
+            "type": "integer",
+            "title": "Manual"
+          }
+        },
+        "type": "object",
+        "required": [
+          "all",
+          "unlinked",
+          "label",
+          "manual"
+        ],
+        "title": "ImageCounts"
+      },
+      "ImageLastScan": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "created_at",
+          "status"
+        ],
+        "title": "ImageLastScan"
+      },
       "ImageLink": {
         "properties": {
           "image": {
@@ -9248,6 +9459,51 @@
           "repository"
         ],
         "title": "ImageLinkIn"
+      },
+      "ImagePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyzedImage"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ImageCounts"
+          },
+          "repositories": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "maxProperties": 10000,
+            "title": "Repositories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "counts",
+          "repositories"
+        ],
+        "title": "ImagePage"
       },
       "ImportCheck": {
         "properties": {

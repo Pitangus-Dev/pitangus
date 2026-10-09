@@ -289,5 +289,47 @@
       "skip": "Skip",
       "submit": "Verify now"
     }
+  },
+  "images": {
+    "description": "Pitangus reads the repository from the image's OCI labels; when they're missing or wrong, an administrator links it by hand, and that link wins.",
+    "filter": "Filter by how they're linked",
+    "tabs": {
+      "all": "All",
+      "unlinked": "Not linked",
+      "label": "From OCI label",
+      "manual": "Linked by hand"
+    },
+    "unlinked_hint": "No analyzed repository is linked: the labels don't name one, or they name a repository Pitangus hasn't analyzed. Link it by hand so it joins that repository's evidence.",
+    "search": "Search images",
+    "search_placeholder": "Search images…",
+    "loading": "Loading images",
+    "load_failed": "Couldn't load the images. Try again in a moment.",
+    "none": "No images analyzed yet.",
+    "new_scan": "Scan an image",
+    "no_match": "No image matches",
+    "last_scan": "last scan {{date}}",
+    "findings": "Findings",
+    "rescan": "Scan again",
+    "queued": "Queued",
+    "built_from": "Built from {{name}}",
+    "clear_repository": "Show every image",
+    "link": "Link an image…",
+    "link_label": "Image to link to {{name}}",
+    "count_one": "{{count}} image",
+    "count_other": "{{count}} images",
+    "link_from_repository": "Link an image",
+    "title": "Analyzed images",
+    "none_for_repository": "No image is linked to {{name}}.",
+    "none_for_repository_admin": "Choose one above to link it.",
+    "currently": "now built from {{name}}",
+    "linked": "{{image}} linked to {{name}}.",
+    "relinked": "{{image}} is now built from {{name}}.",
+    "unlinked": "{{image}} is back to what its labels say.",
+    "queued_for": "Scan of {{name}} queued",
+    "rescan_for": "Scan {{name}} again",
+    "findings_for": "Findings of {{name}}",
+    "count_for_one": "{{count}} image built from {{name}}",
+    "count_for_other": "{{count}} images built from {{name}}",
+    "link_for": "Link an image to {{name}}"
   }
 }

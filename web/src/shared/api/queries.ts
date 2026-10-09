@@ -1,6 +1,6 @@
 // Consultas compartidas (TanStack Query): una clave y una forma de pedir cada recurso, para que dos vistas que
 // muestran lo mismo compartan caché y una mutación sepa qué invalidar.
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { api, query } from '@/shared/api/http'
 import { apiGet, type Response } from '@/shared/api/client'
 import type { Dashboard, Page, RunRow } from '@/shared/lib/types'
@@ -18,6 +18,7 @@ export const keys = {
   evidence: ['evidence'] as const,
   evidenceAssets: ['evidence', 'assets'] as const,
   evidenceScope: ['evidence', 'scope'] as const,
+  images: ['images'] as const,
   secretRules: ['secret-rules'] as const,
   secretBuiltinRules: ['secret-rules', 'builtin'] as const,
   assetSecretsAll: ['secret-rules', 'asset'] as const,
@@ -68,6 +69,12 @@ export const evidenceQuery = () => queryOptions({ queryKey: keys.evidence, query
 export const evidenceScopeQuery = (search: string) => queryOptions({
   queryKey: [...keys.evidenceScope, search], staleTime: 30_000,
   queryFn: ({ signal }) => api.get<Response<'/api/evidence/scope'>>(search ? `/api/evidence/scope?${search}` : '/api/evidence/scope', { signal }),
+})
+// Analyzed images with where each is built from, for the Images page and the repositories that show their images.
+export type ImageLink = 'all' | 'unlinked' | 'label' | 'manual'
+export const imagesQuery = ({ q = '', link = 'all', repository = '', offset = 0, limit = 25 }: { q?: string; link?: ImageLink; repository?: string; offset?: number; limit?: number }) => queryOptions({
+  queryKey: [...keys.images, q, link, repository, offset, limit], staleTime: 30_000, placeholderData: keepPreviousData,
+  queryFn: ({ signal }) => apiGet('/api/images', { q: q || undefined, link: link === 'all' ? undefined : link, repository: repository || undefined, offset, limit }, { signal }),
 })
 // Analyzed assets for the evidence hub's picker, searched by name on the server.
 export const evidenceAssetsQuery = (q: string, kind: '' | 'repository' | 'image' = '') => queryOptions({
