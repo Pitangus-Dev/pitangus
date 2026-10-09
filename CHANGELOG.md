@@ -7,6 +7,8 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-10-09
+
 ### Added
 
 - **Findings of several assets at once.** Findings has the same scope picker as Compliance: one asset (as before, with
@@ -67,6 +69,15 @@ between minor versions: anything that changes behaviour is called out below.
 - The Python base image moves to the current `python:3.12-slim-bookworm` digest (still Python 3.12.15). The engines stay
   where they were: they are already the newest releases at least a week old, and the Go standard library fixes their
   remaining findings need (Go 1.26.9 and 1.27.2) came out on 2026-10-08.
+
+### Upgrading from 0.12.1
+
+- If you installed a release (`git clone --branch v0.12.1`, as in the quickstart), `make update` alone stays on it:
+  `git fetch --tags && git checkout v0.12.2 && make update`. Following `main`, `make update` is enough. The new
+  "Upgrade" section of [docs/installation.md](docs/installation.md#upgrade) explains both.
+- The database gets one new table (the images added without scanning), created on start: nothing to do by hand.
+- Slack and Teams notices change format (no emoji); a signed webhook receiver gets a cleaner `title` and a new
+  `dependency` field per item.
 
 ## [0.12.1] - 2026-10-09
 
