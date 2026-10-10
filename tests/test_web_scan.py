@@ -154,10 +154,10 @@ class ScanTests(unittest.TestCase):
             scan = web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, progress=lambda level, message: events.append(level))
         imported = [item for run in sarif_import.parse(real()) for item in run["findings"]]
         self.assertEqual([item["fingerprint"] for item in scan["findings"]], [item["fingerprint"] for item in imported])
-        self.assertEqual(len(scan["findings"]), 12)
+        self.assertEqual(len(scan["findings"]), 9)  # ZAP reports the root as https://host and https://host/: one finding each
         self.assertTrue(all(item["scanner"] == "dast" and item["path"].startswith(f"https://{HOST}/") for item in scan["findings"]))
         self.assertEqual((scan["type"], scan["variant"], scan["status"], scan["source"]["id"]), ("dast_scan", "baseline", "completed", f"domain:{HOST}"))
-        self.assertEqual(scan["summary"]["dast"], 12)
+        self.assertEqual(scan["summary"]["dast"], 9)
         self.assertEqual([step["status"] for step in scan["steps"]], ["completed", "not_tested", "pending"])
         # Never the request or response ZAP attached, nor the response headers that came with them.
         stored = json.dumps(scan)
@@ -215,13 +215,13 @@ class GuardrailTests(unittest.TestCase):
         calls = []
         with patch.object(engines.shutil, "which", return_value="/usr/bin/docker"), fake_docker(real(), calls=calls):
             record = self.run_job()
-        self.assertEqual((record["status"], record["type"], len(record["findings"])), ("completed", "dast_scan", 12))
+        self.assertEqual((record["status"], record["type"], len(record["findings"])), ("completed", "dast_scan", 9))
         self.assertIn(f"{HOST}:104.21.32.173", calls[0])  # IPv4 first among the public answers
         state = findings_registry.load(self.data_dir, f"domain:{HOST}")
-        self.assertEqual(sum(1 for entry in state["findings"].values() if entry["status"] == "open"), 12)
+        self.assertEqual(sum(1 for entry in state["findings"].values() if entry["status"] == "open"), 9)
         outcome = import_sarif(self.data_dir, real(), asset=f"domain:{HOST}", requested_by="ci")
         self.assertEqual(outcome["runs"][0]["opened"], 0)
-        self.assertEqual(len(findings_registry.load(self.data_dir, f"domain:{HOST}")["findings"]), 12)
+        self.assertEqual(len(findings_registry.load(self.data_dir, f"domain:{HOST}")["findings"]), 9)
 
     def test_off_by_default(self):
         with patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": ""}), \
