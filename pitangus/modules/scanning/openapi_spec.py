@@ -40,7 +40,7 @@ class SpecError(ValueError):
 
 
 def _yaml(raw: str) -> Any:
-    import yaml  # type: ignore[import-untyped]
+    import yaml  # type: ignore[import-untyped, unused-ignore]  # stubs (types-PyYAML) are optional
 
     class NoAliases(yaml.SafeLoader):
         def compose_node(self, parent, index):  # noqa: D401 — PyYAML's own hook
