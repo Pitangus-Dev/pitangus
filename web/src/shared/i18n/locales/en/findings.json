@@ -21,7 +21,19 @@
   },
   "web": {
     "eyebrow": "Passive web scan · ZAP",
-    "help": "ZAP crawled the site and read its responses without attacking it. Findings here are signals about headers, cookies and exposed information; confirm each one against the application."
+    "help": "A passive scan: ZAP read the site's responses without attacking it.",
+    "what": "What it is",
+    "where": "Where",
+    "evidence": "Evidence",
+    "highlighted": "Highlighted: the part this finding is about.",
+    "attack": "Request the scanner sent",
+    "how_to_fix": "How to fix it",
+    "how_to_check": "How to check it",
+    "references": "References",
+    "according_to": "according to {{tool}}",
+    "parameter": "Parameter",
+    "check_hint": "After deploying, run it and compare the header with the evidence.",
+    "rescan": "Deploy the fix, then scan the domain again: “Reverify” below, or a new import if the finding came from your own scanner."
   },
   "import": {
     "eyebrow": "SARIF import · {{tool}}",
@@ -292,6 +304,7 @@
     "inconclusive": "The scan was incomplete (an engine didn't run), so it proves nothing. Try again.",
     "failed": "The verification scan failed. Try again.",
     "prompt": "Already fixed it? Reverify: we scan the repository or image again and tell you whether it's still there.",
+    "prompt_web": "Already fixed and deployed? Reverify: we run the passive scan of the domain again and tell you whether it's still there.",
     "again": "Verify again",
     "start": "Reverify",
     "demo": "Demo data: rescan it with “make demo”.",

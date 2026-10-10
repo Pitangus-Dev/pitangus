@@ -216,6 +216,15 @@ def _finding_block(finding: dict, locale: str, *, level: str = "###") -> list[st
                        path=finding["path"], fix=msg("reports.markdown.fixed_in", version=fixed) if fixed else msg("reports.markdown.no_fixed_version")))
     else:
         lines.append(t("reports.markdown.location", locale, where=_where(finding)))
+    web = finding.get("web") or {}
+    if finding.get("scanner") == "dast" and web:
+        # The scanner's own words, attributed; values from the site lose their backticks so they stay inline code.
+        if web.get("parameter"):
+            lines.append(t("reports.markdown.parameter", locale, name=str(web["parameter"]).replace("`", "'")))
+        if web.get("evidence"):
+            lines.append(t("reports.markdown.evidence", locale, text=" ".join(str(web["evidence"]).split())[:300].replace("`", "'")))
+        if web.get("description"):
+            lines.append(t("reports.markdown.according_to", locale, tool=finding.get("tool") or "?", text=" ".join(str(web["description"]).split())))
     source = finding.get("source") or {}
     if source.get("name"):
         name = source["name"].replace("[", "(").replace("]", ")")
@@ -264,8 +273,9 @@ def _finding_block(finding: dict, locale: str, *, level: str = "###") -> list[st
             lines += ["", f"{command['label']}:", "", "```", command["code"], "```"]
     if advisory.get("details"):
         lines += ["", advisory["details"][:800].replace("\n\n", "\n")]
-    if advisory.get("references"):
-        lines += ["", t("reports.common.references", locale, list=" · ".join(advisory["references"][:4]))]
+    references = [url for url in [*(advisory.get("references") or []), *(web.get("references") or [])] if isinstance(url, str)][:4]
+    if references:
+        lines += ["", t("reports.common.references", locale, list=" · ".join(references))]
     return lines + [""]
 
 
@@ -360,7 +370,7 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
     attach(active)
     updates = {id(item): [command["code"] for command in (item.get("fix") or {}).get("commands") or [] if _is_update(command)] for item in active}
     for item in active:
-        item["fix"] = localize(item.get("fix"), locale)
+        item["fix"], item["priority"] = localize(item.get("fix"), locale), localize(item.get("priority"), locale)
     groups = fix_groups(active)
     lines += [t("reports.markdown.pending_intro", locale, pending=msg("reports.count.pending_findings", count=len(active)),
                 actions=msg("reports.count.actions", count=len(groups))), "",

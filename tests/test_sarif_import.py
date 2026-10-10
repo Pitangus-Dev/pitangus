@@ -190,11 +190,11 @@ class DastParserTests(unittest.TestCase):
                          ("https://app.example.com/greeting", "high", [79], 6, "Cross Site Scripting (Reflected)", 10))
         self.assertEqual((csp_root["path"], csp_root["severity"], csp_root["cwe"], csp_root["confidence"]), ("https://app.example.com/", "medium", [693], 8))
         self.assertEqual(csp_hello["path"], "https://app.example.com/hello")  # ?lang=en#top dropped
-        self.assertEqual((cookie["path"], cookie["severity"], cookie["web"]), ("https://app.example.com/login", "low",
-                                                                              {"method": "POST", "parameter": "session", "evidence": "Set-Cookie: session"}))
+        self.assertEqual((cookie["path"], cookie["severity"]), ("https://app.example.com/login", "low"))
+        self.assertLessEqual({"method": "POST", "parameter": "session", "evidence": "Set-Cookie: session"}.items(), cookie["web"].items())
         # ZAP keeps the fix under `solution`; the request and response it attached (cookies, bearer, body) never land.
         self.assertIn("vetted library", text(xss["remediation"], "en"))
-        self.assertEqual(xss["web"], {"method": "GET", "parameter": "name", "evidence": "</p><script>alert(1);</script><p>"})
+        self.assertLessEqual({"method": "GET", "parameter": "name", "evidence": "</p><script>alert(1);</script><p>"}.items(), xss["web"].items())
         self.assertNotIn("JSESSIONID", json.dumps(run["findings"]))
         self.assertNotIn("hunter2", json.dumps(run["findings"]))
         self.assertEqual(len({item["fingerprint"] for item in run["findings"]}), 4)

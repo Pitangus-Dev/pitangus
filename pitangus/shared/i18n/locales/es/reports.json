@@ -203,7 +203,10 @@
       "completed": "completado",
       "incomplete": "incompleto",
       "failed": "fallido"
-    }
+    },
+    "according_to": "**Según {{tool}}:** {{text}}",
+    "parameter": "Parámetro: `{{name}}`",
+    "evidence": "Evidencia: `{{text}}`"
   },
   "asset": {
     "title": "Estado actual de hallazgos · {{name}}",
@@ -897,7 +900,8 @@
       "before": "Antes",
       "after": "Después",
       "how_to_verify": "Cómo verificarlo",
-      "verify_text": "Tras el cambio, «Verificar de nuevo» en Pitangus (o el siguiente análisis completo) lo marca como remediado cuando la regla deja de encontrarlo."
+      "verify_text": "Tras el cambio, «Verificar de nuevo» en Pitangus (o el siguiente análisis completo) lo marca como remediado cuando la regla deja de encontrarlo.",
+      "verify_web": "Despliega la corrección y vuelve a analizar el dominio: «Reverificar» en Pitangus (o el siguiente análisis del dominio) lo marca como remediado cuando el escáner deja de reportarlo."
     }
   },
   "pdf": {

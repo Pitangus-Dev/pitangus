@@ -66,8 +66,20 @@ between minor versions: anything that changes behaviour is called out below.
   (one HTTPS `HEAD` to a public address, no redirects) and `POST /api/domains/remove`; verifying and probing count
   against the progressive lock-out. Storage moved from the `domains` document to the `domain_registry` table
   (Alembic `0010`, data migration `domains_to_table`). Native dynamic testing stays in development.
+- **Web findings say what the scanner knows.** An imported or native web finding keeps its rule's description,
+  solution, references (http(s) only, at most 8) and WASC ids, and the attack the scanner sent, all bounded and redacted
+  (`web.description`, `web.solution`, `web.references`, `web.wasc`, `web.attack`). The panel shows them in order (what it
+  is, where, evidence, how to fix it, how to check it, references), attributed to the scanner and as published. Pitangus
+  only adds what it derives: the fragment of the evidence the result is about (`fix.web.highlight`, e.g. the
+  `'unsafe-inline'` of the `style-src` the message names) and, for rules about response headers, a quoted `curl -sI`
+  check (`fix.web.check`). Jira issues and the Markdown and technical reports carry the same.
 
 ### Fixed
+
+- **Web findings read as web findings.** Their location is the URL, never `URL:1`; the fix and re-verify texts say to
+  deploy and scan the domain again instead of pushing to a branch; and their priority no longer asks to "confirm
+  reachability" (a code concept) but says whether it comes from a response header, a cookie, an attack the scanner sent
+  or is informational. Findings stored before get the new texts when read.
 
 - **The same web alert on a site's root is one finding.** ZAP reports `https://host` and `https://host/` as different
   results; Pitangus already took both as the root, but counted them as two findings. A repeated alert on the same URL

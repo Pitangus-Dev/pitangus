@@ -72,6 +72,14 @@ def _code(text: str, limit: int = 1500) -> str:
     return "<br/>".join(_t(row, 200).replace(" ", "&nbsp;") if row.strip() else "&nbsp;" for row in rows)
 
 
+def _code_block(code: str, label: Paragraph | None = None) -> Table:
+    block = Table([*([[label]] if label else []), [Paragraph(_code(code), STYLE["code"])]], colWidths=[WIDTH], hAlign="LEFT")
+    block.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), CODE_BG), ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                               ("RIGHTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, 0), 6),
+                               ("BOTTOMPADDING", (0, -1), (-1, -1), 8)]))
+    return block
+
+
 def _sheet(item: dict, ident: str, locale: str) -> list:
     """One critical or high code finding: what it is, where, what happens, how to fix it and how to know it's fixed."""
     t = lambda key, **params: i18n.t(key, locale, **params)  # noqa: E731
@@ -92,8 +100,11 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
     facts.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                                ("LINEABOVE", (0, 0), (-1, 0), 1.2, INK), ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE)]))
     story = [head, Paragraph(_t(item.get("title"), 200), STYLE["sheet_title"]), facts]
+    web = item.get("web") or {}
     if item.get("reason"):
         story += [Paragraph(_t(t("reports.technical.sheet.what_happens")), STYLE["h4"]), Paragraph(rich(item["reason"], 600), STYLE["body"])]
+    if web.get("description"):  # the scanner's own text about its rule
+        story.append(Paragraph(rich(web["description"], 600), STYLE["body"]))
     story += [Paragraph(_t(t("reports.technical.sheet.how_to_fix")), STYLE["h4"]),
               Paragraph(rich(item.get("remediation") or t("reports.technical.fallback_fix"), 600), STYLE["body"])]
     fix = localize(item.get("fix") or guide(cast(Finding, item)), locale) or {}
@@ -103,15 +114,15 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
         for key, colour, code in (("before", DANGER, example.get("before")), ("after", SUCCESS, example["after"])):
             if not code:
                 continue
-            block = Table([[Paragraph(f'<font color="{hexval(colour)}">{_t(t(f"reports.technical.sheet.{key}"))}</font>', STYLE["label"])],
-                           [Paragraph(_code(code), STYLE["code"])]], colWidths=[WIDTH], hAlign="LEFT")
-            block.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), CODE_BG), ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                                       ("RIGHTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, 0), 6),
-                                       ("BOTTOMPADDING", (0, -1), (-1, -1), 8)]))
-            story += [Spacer(1, 4), block]
+            label = Paragraph(f'<font color="{hexval(colour)}">{_t(t(f"reports.technical.sheet.{key}"))}</font>', STYLE["label"])
+            story += [Spacer(1, 4), _code_block(code, label)]
     story += [Paragraph(_t(t("reports.technical.sheet.how_to_verify")), STYLE["h4"]),
-              Paragraph(_t(t("reports.technical.sheet.verify_text")), STYLE["body"])]
-    references = [url for url in ((item.get("advisory") or {}).get("references") or [])[:3] if str(url).startswith("https://")]
+              Paragraph(_t(t("reports.technical.sheet.verify_web" if item.get("scanner") == "dast" else "reports.technical.sheet.verify_text")), STYLE["body"])]
+    for command in fix.get("commands") or []:
+        if command.get("action") == "check":
+            story += [Spacer(1, 4), _code_block(command.get("code") or "")]
+    references = [url for url in [*((item.get("advisory") or {}).get("references") or []), *(web.get("references") or [])]
+                  if str(url).startswith("https://")][:3]
     if references:
         story.append(Paragraph(_t(i18n.t("reports.common.references", locale, list=" · ".join(references)), 400), STYLE["note"]))
     # The heading and the facts never part; the rest may flow onto the next page.

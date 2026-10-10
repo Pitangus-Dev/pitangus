@@ -5,9 +5,10 @@ import { Badge } from '@/shared/ui/badge'
 import { formatDate, formatNumber } from '@/shared/i18n/format'
 import { slaText } from '@/features/findings/sla'
 import { FixSection, Reverify } from '@/features/findings/fix-guide'
+import { WebFinding } from '@/features/findings/web-finding'
 import { TriageActions, TriageHistory } from '@/features/findings/triage'
 import { TRIAGE_LABEL, type TriageStatus } from '@/features/findings/triage-status'
-import { SEVERITY_LABEL, idOf, labelOf, severityClass, statusOf, toolName, type RepositoryFinding } from '@/features/findings/finding-model'
+import { SEVERITY_LABEL, idOf, labelOf, locationOf, severityClass, statusOf, toolName, type RepositoryFinding } from '@/features/findings/finding-model'
 
 // One finding, expanded: what it is, how to fix and verify it, its triage and how it got here. `runId`: the run or asset
 // state to re-verify it against; `jira`: its Jira action.
@@ -15,20 +16,21 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
   const { t } = useTranslation('findings')
   const advisory = finding.advisory
   const pkg = finding.package
+  const web = finding.scanner === 'dast'
   return <div id={`finding-${idOf(finding)}`} tabIndex={-1} className="rounded-xl border border-app-line bg-panel p-4">
     <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="text-sm font-medium">{advisory?.summary || finding.title}</p><p className="mt-1 flex flex-wrap gap-x-2 font-mono text-xs text-app-subtle"><span className="text-app-secondary">{finding.rule_id}</span>{finding.cve.filter(id => id !== finding.rule_id).map(id => <a key={id} href={`https://www.cve.org/CVERecord?id=${id}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">{id}</a>)}{finding.ghsa.filter(id => id !== finding.rule_id).map(id => <a key={id} href={`https://github.com/advisories/${id}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">{id}</a>)}{finding.cwe.map(id => <a key={id} href={`https://cwe.mitre.org/data/definitions/${id}.html`} target="_blank" rel="noreferrer" className="hover:underline">CWE-{id}</a>)}</p></div><Badge variant="outline" className={severityClass(finding.severity)}>{labelOf(t, SEVERITY_LABEL, finding.severity)}{advisory?.cvss_score !== null && advisory?.cvss_score !== undefined ? ` · ${advisory.cvss_score}` : ''}</Badge></div>
     <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
       {pkg?.dev && <Fact label={t('detail.type')}><span className="rounded border border-app-line px-1.5 py-0.5 text-xs">{t('detail.dev_dependency')}</span> <span className="text-xs text-app-subtle">{t('detail.dev_hint')}</span></Fact>}
       {pkg && <Fact label={t('detail.fix')}>{pkg.fixed_version ? <><span className="font-mono">{pkg.version}</span> → <span className="font-mono font-medium text-success">{pkg.fixed_version}</span></> : t('detail.no_fix')}</Fact>}
-      {!pkg && <Fact label={t('detail.location')}><span className="font-mono text-xs">{finding.path}:{finding.line}</span></Fact>}
+      {!pkg && !web && <Fact label={t('detail.location')}><span className="font-mono text-xs">{locationOf(finding)}</span></Fact>}
       {finding.framework && <Fact label={t('detail.technology')}>{finding.framework}</Fact>}
       {finding.epss && <Fact label={t('detail.epss')}>{formatNumber(finding.epss.score, { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-app-subtle">{t('detail.percentile', { value: formatNumber(Math.round(finding.epss.percentile * 100)) })}</span></Fact>}
       {finding.kev && <Fact label="CISA KEV">{t('detail.kev_since', { date: finding.kev.date_added ?? '' })}{finding.kev.ransomware ? ` · ${t('detail.kev_ransomware')}` : ''}</Fact>}
       {advisory?.cvss_vector && <Fact label={t('detail.cvss_vector')}><span className="font-mono text-xs break-all">{advisory.cvss_vector}</span></Fact>}
     </div>
-    <FixSection fix={finding.fix} remediation={finding.remediation} />
+    {web ? <WebFinding finding={finding} /> : <FixSection fix={finding.fix} remediation={finding.remediation} />}
     {finding.lifecycle?.status !== 'excluded' && (finding.lifecycle?.status !== 'fixed' || finding.verification) && <Reverify runId={runId} fingerprint={finding.fingerprint} verification={finding.verification}
-      onChanged={onChanged} canVerify={finding.lifecycle?.status !== 'fixed'}
+      onChanged={onChanged} canVerify={finding.lifecycle?.status !== 'fixed'} web={web}
       blocked={demo ? t('verify.demo')
         : finding.lifecycle?.origin?.kind === 'pr' && !finding.lifecycle.origin.merged ? t('verify.open_pr')
         : finding.lifecycle?.origin?.kind === 'import' ? t('verify.imported', { tool: finding.lifecycle.origin.tool || finding.tool || 'SARIF' }) : null} />}

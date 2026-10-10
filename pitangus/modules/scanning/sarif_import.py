@@ -16,7 +16,9 @@ are merged, because an import of a tool is what later proves that tool's finding
   same alert look new on every run), and the key is rule + URL + parameter name: never the evidence or the message,
   which carry request-specific values. Nuclei puts the template path where the URI belongs and the URL in its
   properties; both are read. Only the method, the parameter and a bounded evidence are kept (`web`): never the
-  request or response the tool attached, which carry cookies and authorization headers.
+  request or response the tool attached, which carry cookies and authorization headers. What the tool says about its
+  rule is kept as published, bounded and redacted: the description, the solution, the http(s) references and the WASC
+  ids; and per result, the attack it sent, if any.
 * **Strix** (AI pentest agents): a finding without a code location comes anchored to `SECURITY.md` with
   `properties.synthetic_location`; it takes the URL of the endpoint it is about (`properties.strix.target` plus the
   route of `properties.strix.endpoint`, "GET /api/users/{id}"), so it is a web finding; one with a code location stays
@@ -39,7 +41,7 @@ MAX_BYTES = 10_000_000
 MAX_RUNS = 20
 MAX_RESULTS = 5000
 TITLE_MAX, MESSAGE_MAX, PATH_MAX, RULE_MAX, TOOL_MAX, VERSION_MAX = 300, 2000, 1000, 200, 100, 50
-EVIDENCE_MAX, PARAMETER_MAX = 2000, 200
+EVIDENCE_MAX, PARAMETER_MAX, ATTACK_MAX, REFERENCES_MAX, REFERENCE_MAX = 2000, 200, 500, 8, 300
 
 SECRET_TOOLS = ("gitleaks", "trufflehog", "detect-secrets", "ggshield", "gitguardian", "secretlint", "talisman")
 SCA_TOOLS = ("trivy", "grype", "osv-scanner", "dependabot", "dependency-check", "npm audit", "pip-audit", "retire")
@@ -60,6 +62,8 @@ PRECISION = {"very-high": 9, "high": 8, "medium": 6, "low": 4, "very-low": 3}
 CVE = re.compile(r"CVE-\d{4}-\d{4,}", re.IGNORECASE)
 GHSA = re.compile(r"GHSA(?:-[23456789cfghjmpqrvwx]{4}){3}", re.IGNORECASE)
 CWE = re.compile(r"(?:^|[^a-z])cwe[-/:_ ]?0*(\d{1,5})\b", re.IGNORECASE)
+WASC = re.compile(r"(?:^|[^a-z])wasc[-/:_ ]?0*(\d{1,3})\b", re.IGNORECASE)
+REFERENCE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
 OWASP = re.compile(r"\bA(\d{2}):(20\d{2})\b")
 
 
@@ -198,12 +202,50 @@ def redact(value: str) -> str:
     return CREDENTIAL_HEADER.sub(lambda match: f"{match.group(1)}: [redacted]", value)
 
 
-def _web(result: dict, snippet: str) -> dict[str, Any]:
-    """What is kept of the request that proved a web finding: method, parameter and bounded evidence. The request
-    and response the tool attached are dropped whole: they carry cookies and authorization headers."""
+def _attack(result: dict) -> str:
+    """The payload an active scanner sent (ZAP: `attack` on the result or its location); passive results have none."""
+    for properties in (_dict(result.get("properties")), *(_dict(_dict(item).get("properties")) for item in _list(result.get("locations"))[:1])):
+        value = properties.get("attack")
+        if isinstance(value, str) and value.strip():
+            return redact(value.strip())[:ATTACK_MAX]
+    return ""
+
+
+def _references(rule: dict) -> list[str]:
+    """The rule's http(s) links (ZAP: `properties.references`; others: `helpUri`), as given, without duplicates."""
+    candidates = [*_list(_dict(rule.get("properties")).get("references")), rule.get("helpUri")]
+    found = [match.group(0).rstrip(".,;)") for item in candidates if isinstance(item, str) for match in REFERENCE.finditer(item)]
+    return [url for url in dict.fromkeys(found) if len(url) <= REFERENCE_MAX][:REFERENCES_MAX]
+
+
+def _wascs(result: dict, rule: dict, tags: list[str]) -> list[int]:
+    found = [int(match.group(1)) for tag in tags for match in WASC.finditer(tag)]
+    for properties in (_dict(result.get("properties")), _dict(rule.get("properties"))):
+        value = properties.get("wascid", properties.get("wasc"))
+        if isinstance(value, (int, str)) and not isinstance(value, bool) and str(value).isdigit():
+            found.append(int(value))
+    references = [*_list(result.get("taxa")), *(_dict(item).get("target") for item in _list(rule.get("relationships")))]
+    for reference in map(_dict, references):
+        if str(_dict(reference.get("toolComponent")).get("name", "")).upper() == "WASC":
+            number = re.sub(r"(?i)^wasc-?", "", str(reference.get("id") or ""))
+            if number.isdigit():
+                found.append(int(number))
+    return sorted({item for item in found if 0 < item < 1000})[:10]
+
+
+def _web(result: dict, rule: dict, snippet: str, tags: list[str]) -> dict[str, Any]:
+    """What is kept of the request that proved a web finding: method, parameter, attack and bounded evidence, plus the
+    tool's own text about the rule. The request and response the tool attached are dropped whole: they carry cookies
+    and authorization headers."""
     method = clean_name(_dict(result.get("webRequest")).get("method"), 10).upper() or _endpoint(result)[0]
-    return {**({"method": method} if method else {}), **({"parameter": _parameter(result)} if _parameter(result) else {}),
-            **({"evidence": redact(snippet)[:EVIDENCE_MAX]} if snippet else {})}
+    properties = _dict(rule.get("properties"))
+    description = redact(_text(rule.get("fullDescription"), MESSAGE_MAX))
+    solution = redact(_text(properties.get("solution"), MESSAGE_MAX) or _text(rule.get("help"), MESSAGE_MAX))
+    parameter, attack, references, wascs = _parameter(result), _attack(result), _references(rule), _wascs(result, rule, tags)
+    return {**({"method": method} if method else {}), **({"parameter": parameter} if parameter else {}),
+            **({"evidence": redact(snippet)[:EVIDENCE_MAX]} if snippet else {}), **({"attack": attack} if attack else {}),
+            **({"description": description} if description else {}), **({"solution": solution} if solution else {}),
+            **({"references": references} if references else {}), **({"wasc": wascs} if wascs else {})}
 
 
 def _severity(result: dict, rule: dict) -> str:
@@ -319,11 +361,13 @@ def _finding(result: dict, rule: dict, rule_id: str, tool: str, location: tuple[
                     else msg("scanning.sarif.remediation", tool=tool),
                     cwe=_cwes(result, rule, tags), owasp="", confidence=PRECISION.get(precision, 6), digest=digest)
     finding["title"], finding["cve"], finding["ghsa"] = title, cves, ghsas
-    if scanner == "dast":
-        finding["web"] = _web(result, snippet)
     finding["owasp"] = sorted({f"A{number}:{year}" for tag in tags for number, year in OWASP.findall(tag)})[:10]
-    finding["priority"]["factors"] = [msg("scanning.sarif.priority", tool=tool, severity=SEVERITY_NAME.get(finding["severity"], severity)),
-                                      msg("scanning.priority.confirm_reachability")]
+    finding["priority"]["factors"] = [msg("scanning.sarif.priority", tool=tool, severity=SEVERITY_NAME.get(finding["severity"], severity))]
+    if scanner == "dast":
+        # Reachability is a code question; what a web finding's context means is added when it is read (fix_guide).
+        finding["web"] = _web(result, rule, snippet, tags)
+    else:
+        finding["priority"]["factors"].append(msg("scanning.priority.confirm_reachability"))
     return finding
 
 

@@ -165,6 +165,8 @@ def _where(finding: dict) -> str:
     package = finding.get("package") or {}
     if package.get("name"):
         return f"{package['name']} {package.get('version') or ''}".strip()
+    if finding.get("scanner") == "dast" or not finding.get("line"):  # a URL has no line
+        return str(finding.get("path") or "")
     return f"{finding.get('path')}:{finding.get('line')}"
 
 

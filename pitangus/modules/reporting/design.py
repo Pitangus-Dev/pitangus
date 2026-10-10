@@ -152,8 +152,9 @@ def built_from(record: dict, locale: str | None = None) -> str:
 
 
 def location(finding: dict) -> str:
-    """Where a finding is: a dependency advisory points at its manifest (its line says nothing), code at path:line."""
-    if finding.get("scanner") == "sca" or not finding.get("line"):
+    """Where a finding is: a dependency advisory points at its manifest and a web finding at its URL (their line says
+    nothing), code at path:line."""
+    if finding.get("scanner") in ("sca", "dast") or not finding.get("line"):
         return str(finding.get("path") or "—")
     return f"{finding.get('path')}:{finding.get('line')}"
 

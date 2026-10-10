@@ -215,7 +215,13 @@
       "package_all_other": "{{package}} {{version}} ({{ecosystem}}) has {{count}} known vulnerabilities. Version {{target}} fixes all of them.",
       "package_some_other": "{{package}} {{version}} ({{ecosystem}}) has {{count}} known vulnerabilities. Version {{target}} fixes {{fixed}} of them; the other {{rest}} have no fix published yet.",
       "package_none_one": "{{package}} {{version}} ({{ecosystem}}) has a known vulnerability without a fixed version yet.",
-      "package_none_other": "{{package}} {{version}} ({{ecosystem}}) has {{count}} known vulnerabilities and none has a fixed version yet."
+      "package_none_other": "{{package}} {{version}} ({{ecosystem}}) has {{count}} known vulnerabilities and none has a fixed version yet.",
+      "site": "Site: ",
+      "url": "URL: ",
+      "parameter": "Parameter: ",
+      "evidence": "Evidence: ",
+      "according_to": "According to {{tool}}:",
+      "verify_web": "Deploy the fix, then scan the domain again from Pitangus (or import a new report from your scanner). The next scan that no longer reports it confirms it and says so in a comment on this issue."
     }
   },
   "notifications": {

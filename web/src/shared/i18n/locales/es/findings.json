@@ -21,7 +21,19 @@
   },
   "web": {
     "eyebrow": "Análisis web pasivo · ZAP",
-    "help": "ZAP recorrió el sitio y leyó sus respuestas sin atacarlo. Estos hallazgos son señales sobre cabeceras, cookies e información expuesta; confirma cada uno contra la aplicación."
+    "help": "Análisis pasivo: ZAP leyó las respuestas del sitio sin atacarlo.",
+    "what": "Qué pasa",
+    "where": "Dónde",
+    "evidence": "Evidencia",
+    "highlighted": "Resaltado: la parte a la que se refiere el hallazgo.",
+    "attack": "Petición que envió el escáner",
+    "how_to_fix": "Cómo corregirlo",
+    "how_to_check": "Cómo comprobarlo",
+    "references": "Referencias",
+    "according_to": "según {{tool}}",
+    "parameter": "Parámetro",
+    "check_hint": "Después de desplegar, ejecútalo y compara la cabecera con la evidencia.",
+    "rescan": "Despliega la corrección y vuelve a analizar el dominio: «Reverificar» abajo, o una importación nueva si el hallazgo vino de tu propio escáner."
   },
   "import": {
     "eyebrow": "Importación SARIF · {{tool}}",
@@ -292,6 +304,7 @@
     "inconclusive": "El análisis quedó incompleto (algún motor no corrió): no demuestra nada. Vuelve a intentarlo.",
     "failed": "El análisis de verificación falló. Vuelve a intentarlo.",
     "prompt": "¿Ya lo corregiste? Reverifica: se vuelve a analizar el repositorio o la imagen y te decimos si sigue ahí.",
+    "prompt_web": "¿Ya lo corregiste y desplegaste? Reverifica: volvemos a hacer el análisis pasivo del dominio y te decimos si sigue ahí.",
     "again": "Volver a verificar",
     "start": "Reverificar",
     "demo": "Datos de demostración: se vuelven a analizar con «make demo».",

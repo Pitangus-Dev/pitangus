@@ -7,8 +7,10 @@ import { formatDate } from '@/shared/i18n/format'
 
 // Cómo corregir un hallazgo (pitangus/modules/findings/fix_guide.py) y reverificarlo (verifications.py): cierra el ciclo
 // encontrar → corregir → verificar sin buscar el hallazgo a mano en un análisis nuevo.
-export type FixGuide = { kind: 'dependency' | 'code' | 'secret' | 'config'; steps: string[]; commands: { label: string; code: string }[]
-  example: { language: string; before: string; after: string; note?: string } | null }
+export type FixGuide = { kind: 'dependency' | 'code' | 'secret' | 'config' | 'web'; steps: string[]; commands: { label: string; code: string; action?: string }[]
+  example: { language: string; before: string; after: string; note?: string } | null
+  // Web: the evidence split around the fragment the result is about, and a curl check of the response headers.
+  web?: { highlight: { before: string; match: string; after: string } | null; check: string | null } }
 export type Verification = { run_id: string; by: string; at: string; state: 'running' | 'fixed' | 'present' | 'inconclusive' | 'failed'; finished_at?: string | null }
 
 export function CodeBlock({ code, label }: { code: string; label: string }) {
@@ -50,8 +52,8 @@ export function FixSection({ fix, remediation }: { fix?: FixGuide | null; remedi
 }
 
 // Estado de la verificación y el botón. El refresco mientras corre lo hace la vista (uno para todos los hallazgos).
-export function Reverify({ runId, fingerprint, verification, blocked, canVerify, onChanged }: { runId: string; fingerprint: string; verification?: Verification | null
-  blocked?: string | null; canVerify: boolean; onChanged: () => void }) {
+export function Reverify({ runId, fingerprint, verification, blocked, canVerify, onChanged, web = false }: { runId: string; fingerprint: string; verification?: Verification | null
+  blocked?: string | null; canVerify: boolean; onChanged: () => void; web?: boolean }) {
   const { t } = useTranslation('findings')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -73,7 +75,7 @@ export function Reverify({ runId, fingerprint, verification, blocked, canVerify,
           : state === 'present' ? <span className="font-medium text-attention">{finished ? t('verify.present_at', { date: finished }) : t('verify.present')}</span>
           : state === 'inconclusive' ? t('verify.inconclusive')
           : state === 'failed' ? t('verify.failed')
-          : t('verify.prompt')}
+          : web ? t('verify.prompt_web') : t('verify.prompt')}
       </p>
       {/* aria-disabled en vez de disabled: el foco de teclado se queda en el botón mientras se verifica. */}
       {!blocked && canVerify && <Button size="sm" variant="outline" aria-disabled={busy || running} onClick={() => void start()} className="border-app-line bg-panel aria-disabled:opacity-60">

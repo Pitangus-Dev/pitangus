@@ -215,7 +215,13 @@
       "package_all_other": "{{package}} {{version}} ({{ecosystem}}) tiene {{count}} vulnerabilidades conocidas. La versión {{target}} las corrige todas.",
       "package_some_other": "{{package}} {{version}} ({{ecosystem}}) tiene {{count}} vulnerabilidades conocidas. La versión {{target}} corrige {{fixed}} de ellas; las otras {{rest}} aún no tienen versión corregida.",
       "package_none_one": "{{package}} {{version}} ({{ecosystem}}) tiene una vulnerabilidad conocida que aún no tiene versión corregida.",
-      "package_none_other": "{{package}} {{version}} ({{ecosystem}}) tiene {{count}} vulnerabilidades conocidas y ninguna tiene todavía versión corregida."
+      "package_none_other": "{{package}} {{version}} ({{ecosystem}}) tiene {{count}} vulnerabilidades conocidas y ninguna tiene todavía versión corregida.",
+      "site": "Sitio: ",
+      "url": "URL: ",
+      "parameter": "Parámetro: ",
+      "evidence": "Evidencia: ",
+      "according_to": "Según {{tool}}:",
+      "verify_web": "Despliega la corrección y vuelve a analizar el dominio desde Pitangus (o importa un reporte nuevo de tu escáner). El siguiente análisis que ya no lo reporte lo confirma y lo dice en un comentario de esta incidencia."
     }
   },
   "notifications": {
