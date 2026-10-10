@@ -2,7 +2,6 @@
   "tagline": "Spot it. Fix it. Prove it.",
   "main": "Main",
   "workspace": "Workspace",
-  "eyebrow": "Security workspace / 01",
   "open_navigation": "Open navigation",
   "last_run": "Last run {{date}}",
   "role_without_2fa": "{{role}} · no 2FA",

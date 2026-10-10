@@ -2,7 +2,6 @@
   "tagline": "Detéctalo. Corrígelo. Demuéstralo.",
   "main": "Principal",
   "workspace": "Workspace",
-  "eyebrow": "Security workspace / 01",
   "open_navigation": "Abrir navegación",
   "last_run": "Última ejecución {{date}}",
   "role_without_2fa": "{{role}} · sin 2FA",
