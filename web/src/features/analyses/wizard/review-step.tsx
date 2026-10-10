@@ -73,11 +73,6 @@ function Foldout({ title, children }: { title: string; children: ReactNode }) {
   </details>
 }
 
-export function WafNote() {
-  const { t } = useTranslation('analyses')
-  return <Foldout title={t('review.waf_title')}><p>{t('review.waf_text')}</p></Foldout>
-}
-
 export function DetailList({ title, items }: { title: string; items: string[] }) {
   return <div className="space-y-1"><p className="text-xs font-medium text-app-secondary">{title}</p>
     <ul className="list-disc space-y-0.5 pl-5">{items.map(item => <li key={item}>{item}</li>)}</ul></div>

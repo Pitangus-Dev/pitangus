@@ -294,12 +294,12 @@
       "open_for_other": "{{count}} hallazgos abiertos en {{host}}",
       "new_scan": "Nuevo análisis",
       "verify": "Verificar",
-      "remove": "Eliminar",
-      "remove_title": "¿Eliminar {{host}}?",
-      "confirm_remove": "Sale de la lista y se borran sus cabeceras guardadas. No se analizó ni importó nada contra él.",
-      "confirm_remove_runs_one": "También se borran sus cabeceras guardadas y su único análisis o importación, con sus hallazgos, triage y tickets. No se puede deshacer.",
-      "confirm_remove_runs_other": "También se borran sus cabeceras guardadas y sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets. No se puede deshacer.",
-      "removed": "{{host}} eliminado.",
+      "remove": "Desconectar",
+      "remove_title": "¿Desconectar {{host}}?",
+      "confirm_remove": "Se borran sus cabeceras guardadas, usuarios de prueba, alcance y análisis programado. No se analizó ni importó nada contra él.",
+      "confirm_remove_runs_one": "Se borran sus cabeceras guardadas, usuarios de prueba, alcance y análisis programado, y también su único análisis o importación, con sus hallazgos, triage y tickets. No se puede deshacer.",
+      "confirm_remove_runs_other": "Se borran sus cabeceras guardadas, usuarios de prueba, alcance y análisis programado, y también sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets. No se puede deshacer.",
+      "removed": "{{host}} desconectado.",
       "added": "{{host}} añadido. Verifícalo para poder analizarlo.",
       "verified_notice": "{{host}} verificado hasta el {{date}}.",
       "noun": "dominios",
@@ -308,7 +308,10 @@
       "login_count_other": "{{count}} usuarios",
       "login_none": "Ninguno",
       "login_for_one": "{{count}} usuario de prueba de {{host}}",
-      "login_for_other": "{{count}} usuarios de prueba de {{host}}"
+      "login_for_other": "{{count}} usuarios de prueba de {{host}}",
+      "showing": "Mostrando {{shown}} de {{total}}",
+      "no_match": "Ningún dominio coincide con «{{query}}».",
+      "empty_member": "Quien administra los añade y verifica."
     },
     "add": {
       "title": "Añadir dominio o API",
@@ -419,7 +422,21 @@
       "save": "Guardar programación",
       "once_a_day": "Ese día ya tiene un análisis, así que el primero programado será el siguiente día que corresponda.",
       "paused": "En pausa: la verificación caducó. Verifica de nuevo para reanudar.",
-      "surface": "Los dominios de solo inventario no se analizan."
+      "surface": "Los dominios de solo inventario no se analizan.",
+      "access": {
+        "legend": "Acceso de los análisis programados",
+        "none": "Los análisis programados solo ven páginas públicas. Añade usuarios de prueba o cabeceras para llegar a lo que hay detrás de un login.",
+        "outside": "Inicia sesión en {{host}}, fuera del alcance guardado",
+        "full": "Como máximo {{max}} usuarios de prueba por análisis.",
+        "headers_one": "Enviar la cabecera guardada ({{names}})",
+        "headers_other": "Enviar las {{count}} cabeceras guardadas ({{names}})",
+        "count_one": "{{count}} usuario de prueba",
+        "count_other": "{{count}} usuarios de prueba",
+        "summary_both": "Inicia sesión como {{names}} y envía las cabeceras guardadas",
+        "summary_users": "Inicia sesión como {{names}}",
+        "summary_headers": "Envía las cabeceras guardadas",
+        "summary_none": "Solo páginas públicas"
+      }
     },
     "access": {
       "list_label": "Cabeceras guardadas",
@@ -523,6 +540,19 @@
       "limit": "Hasta {{max}} usuarios de prueba por dominio.",
       "check_url": "Comprobar con (opcional)",
       "check_url_hint": "Una página que solo ve quien inició sesión, como /account. Tras iniciar sesión, el análisis la abre como este usuario: una redirección al login, un 401 o un 403 significa que no funcionó. En blanco, decide la comprobación del propio ZAP."
+    },
+    "disconnect": {
+      "title": "Desconectar dominio",
+      "text": "Quita {{host}} de Pitangus y borra:",
+      "headers": "Sus cabeceras de petición guardadas",
+      "users": "Sus usuarios de prueba, con sus contraseñas y claves TOTP",
+      "scope": "Sus hosts relacionados y el alcance guardado",
+      "schedule": "Su análisis programado",
+      "runs_one": "Su único análisis o importación, con sus hallazgos, triage y tickets",
+      "runs_other": "Sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets",
+      "final": "No se analizó ni importó nada contra él, así que no se pierde ningún hallazgo. No se puede deshacer.",
+      "final_runs": "No queda nada de él en Pitangus: exporta antes lo que necesites. No se puede deshacer.",
+      "button": "Desconectar dominio"
     }
   },
   "images": {

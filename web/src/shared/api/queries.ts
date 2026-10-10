@@ -93,6 +93,7 @@ export type DomainHeader = components['schemas']['DomainHeader']
 export type DomainSchedule = components['schemas']['DomainSchedule']
 export type DomainTestUser = components['schemas']['DomainTestUser']
 export type DomainProbe = components['schemas']['DomainCheck']
+export type Egress = components['schemas']['Egress']
 export type QueuedDomainScan = components['schemas']['QueuedDomainScan']
 export const domainsQuery = () => queryOptions({ queryKey: keys.domains, queryFn: ({ signal }) => apiGet('/api/domains', undefined, { signal }) })
 // A domain's related hosts, its saved scope and its last discovery round; polled while a round is queued or running.

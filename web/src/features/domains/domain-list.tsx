@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Globe2, MoreHorizontal, Plus, Search } from 'lucide-react'
@@ -37,20 +37,28 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
   const domains = useQuery(domainsQuery())
   const items = domains.data?.items ?? []
   const needle = search.trim().toLowerCase()
-  const matching = needle ? items.filter(domain => domain.host.includes(needle)) : items
+  const matching = needle ? items.filter(domain => domain.host.includes(needle) || (domain.context ?? '').toLowerCase().includes(needle)) : items
   const start = offset < matching.length ? offset : 0
   const shown = matching.slice(start, start + PAGE)
   const refresh = () => void queryClient.invalidateQueries({ queryKey: keys.domains })
   const { ask, removal } = useRemoveDomain(domain => { setNotice(t('domains.list.removed', { host: domain.host })); addOpener.current?.focus() })
-  const add = <Button ref={addOpener} onClick={() => setAdding(true)}><Plus aria-hidden />{t('domains.list.add')}</Button>
+  // The row opens the domain; its own buttons and links (and text being selected) keep their click.
+  const openRow = (event: MouseEvent<HTMLTableRowElement>, domain: Domain) => {
+    if ((event.target as HTMLElement).closest('a, button, input, [role=menuitem], [role=menu]') || window.getSelection()?.toString()) return
+    onOpenDomain(domain)
+  }
 
-  return <Card className="border-app-line bg-panel"><CardContent className="space-y-4 p-5">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      {items.length > PAGE ? <div className="relative w-full sm:max-w-xs"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-muted" aria-hidden />
-        <Input aria-label={t('domains.list.search')} placeholder={t('domains.list.search')} value={search} onChange={event => { setSearch(event.target.value); setOffset(0) }} className="border-app-line bg-app-soft pl-9" /></div>
-        : <span />}
-      {admin && items.length > 0 && add}
+  return <div className="space-y-6">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div><h1 className="text-2xl font-semibold tracking-tight">{t('nav:items.domains')}</h1><p className="mt-1 max-w-2xl text-sm text-app-muted">{t('nav:descriptions.domains')}</p></div>
+      {admin && <Button ref={addOpener} onClick={() => setAdding(true)} className="self-start sm:self-auto"><Plus aria-hidden />{t('domains.list.add')}</Button>}
     </div>
+    <Card className="border-app-line bg-panel"><CardContent className="space-y-4 p-5">
+    {items.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="relative w-full sm:max-w-xs"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-muted" aria-hidden />
+        <Input type="search" aria-label={t('domains.list.search')} placeholder={t('domains.list.search')} value={search} onChange={event => { setSearch(event.target.value); setOffset(0) }} className="border-app-line bg-app-soft pl-9" /></div>
+      <p role="status" className="text-xs text-app-muted">{t('domains.list.showing', { shown: matching.length, total: items.length })}</p>
+    </div>}
     {!admin && <p className="text-sm text-app-muted">{t('domains.list.read_only')}</p>}
     <div role="status">{notice && <p className="rounded-xl border border-success-line bg-success-soft px-3 py-2 text-sm text-success">{notice}</p>}</div>
     {removal.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{removal.error.message}</p>}
@@ -58,7 +66,8 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
         <Button size="xs" variant="outline" onClick={() => void domains.refetch()}>{t('common:actions.retry')}</Button></div>
     : !domains.data ? <SkeletonTable rows={3} columns={5} label={t('domains.list.loading')} />
     : !items.length ? <div className="flex flex-col items-center gap-3 py-14 text-center"><Globe2 className="size-7 text-app-muted" aria-hidden />
-        <p className="font-medium">{t('domains.list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t('domains.list.empty_text')}</p>{admin && add}</div>
+        <p className="font-medium">{t('domains.list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t(admin ? 'domains.list.empty_text' : 'domains.list.empty_member')}</p></div>
+    : !matching.length ? <p className="py-10 text-center text-sm text-app-muted">{t('domains.list.no_match', { query: search.trim() })}</p>
     : <div className="-mx-5 overflow-x-auto"><table className={`w-full text-sm motion-safe:transition-opacity ${domains.isFetching ? 'opacity-70' : ''}`} aria-busy={domains.isFetching || undefined}>
       <thead><tr className="border-b border-app-line text-left text-xs text-app-muted">
         <th scope="col" className="px-5 py-3 font-normal">{t('domains.list.col_domain')}</th>
@@ -72,7 +81,7 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
         const state = verification(domain)
         const last = lastScanOf(domain)
         const chip = <span title={domain.verified ? untilOf(domain) : undefined} className={`rounded-md border px-1.5 text-xs ${TONE[state.tone]}`}>{state.label}</span>
-        return <tr key={domain.id} className="border-b border-app-line last:border-0">
+        return <tr key={domain.id} onClick={event => openRow(event, domain)} className="cursor-pointer border-b border-app-line last:border-0 hover:bg-app-soft">
           <td className="px-5 py-3"><div className="flex min-w-0 flex-col gap-1">
             <span className="flex min-w-0 flex-wrap items-center gap-2">
               <button type="button" onClick={() => onOpenDomain(domain)} className="min-h-6 truncate text-left font-medium text-app-fg underline-offset-2 hover:underline">{domain.host}</button>
@@ -102,4 +111,5 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
     <VerifyDomainDialog domain={verifying} onOpenChange={open => { if (!open) setVerifying(null) }} onStartScan={onNewScan}
       onVerified={domain => { refresh(); setNotice(t('domains.list.verified_notice', { host: domain.host, date: untilOf(domain) })) }} />
   </CardContent></Card>
+  </div>
 }

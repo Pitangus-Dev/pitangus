@@ -294,12 +294,12 @@
       "open_for_other": "{{count}} open findings in {{host}}",
       "new_scan": "New scan",
       "verify": "Verify",
-      "remove": "Remove",
-      "remove_title": "Remove {{host}}?",
-      "confirm_remove": "It leaves the list and its saved headers are deleted. Nothing was scanned or imported against it.",
-      "confirm_remove_runs_one": "Its saved headers and its only scan or import, with its findings, triage and tickets, are deleted too. This can't be undone.",
-      "confirm_remove_runs_other": "Its saved headers and its {{count}} scans and imports, with their findings, triage and tickets, are deleted too. This can't be undone.",
-      "removed": "{{host}} removed.",
+      "remove": "Disconnect",
+      "remove_title": "Disconnect {{host}}?",
+      "confirm_remove": "Its saved headers, test users, scope and scheduled scan are deleted. Nothing was scanned or imported against it.",
+      "confirm_remove_runs_one": "Its saved headers, test users, scope and scheduled scan are deleted, and so is its only scan or import, with its findings, triage and tickets. This can't be undone.",
+      "confirm_remove_runs_other": "Its saved headers, test users, scope and scheduled scan are deleted, and so are its {{count}} scans and imports, with their findings, triage and tickets. This can't be undone.",
+      "removed": "{{host}} disconnected.",
       "added": "{{host}} added. Verify it to scan it.",
       "verified_notice": "{{host}} verified until {{date}}.",
       "noun": "domains",
@@ -308,7 +308,10 @@
       "login_count_other": "{{count}} test users",
       "login_none": "None",
       "login_for_one": "{{count}} test user of {{host}}",
-      "login_for_other": "{{count}} test users of {{host}}"
+      "login_for_other": "{{count}} test users of {{host}}",
+      "showing": "Showing {{shown}} of {{total}}",
+      "no_match": "No domain matches “{{query}}”.",
+      "empty_member": "An admin adds and verifies them."
     },
     "add": {
       "title": "Add a domain or API",
@@ -419,7 +422,21 @@
       "save": "Save schedule",
       "once_a_day": "That day already has a scan, so the first scheduled one runs on the next matching day.",
       "paused": "Paused: the verification expired. Verify again to resume.",
-      "surface": "Inventory-only domains aren't scanned."
+      "surface": "Inventory-only domains aren't scanned.",
+      "access": {
+        "legend": "Access for scheduled scans",
+        "none": "Scheduled scans see public pages only. Add test users or headers to reach what's behind a login.",
+        "outside": "Signs in on {{host}}, outside the saved scope",
+        "full": "At most {{max}} test users per scan.",
+        "headers_one": "Send the saved header ({{names}})",
+        "headers_other": "Send the {{count}} saved headers ({{names}})",
+        "count_one": "{{count}} test user",
+        "count_other": "{{count}} test users",
+        "summary_both": "Signs in as {{names}} and sends the saved headers",
+        "summary_users": "Signs in as {{names}}",
+        "summary_headers": "Sends the saved headers",
+        "summary_none": "Public pages only"
+      }
     },
     "access": {
       "list_label": "Saved headers",
@@ -523,6 +540,19 @@
       "limit": "Up to {{max}} test users per domain.",
       "check_url": "Check URL (optional)",
       "check_url_hint": "A page only a signed-in user sees, like /account. After signing in, the scan opens it as this user: a redirect to the login, 401 or 403 means the sign-in failed. Blank: ZAP's own check decides."
+    },
+    "disconnect": {
+      "title": "Disconnect domain",
+      "text": "Removes {{host}} from Pitangus and deletes:",
+      "headers": "Its saved request headers",
+      "users": "Its test users, with their passwords and TOTP keys",
+      "scope": "Its related hosts and saved scope",
+      "schedule": "Its scheduled scan",
+      "runs_one": "Its only scan or import, with its findings, triage and tickets",
+      "runs_other": "Its {{count}} scans and imports, with their findings, triage and tickets",
+      "final": "Nothing was scanned or imported against it, so no findings are lost. This can't be undone.",
+      "final_runs": "Nothing about it stays in Pitangus: export what you need first. This can't be undone.",
+      "button": "Disconnect domain"
     }
   },
   "images": {

@@ -23,12 +23,12 @@ const scopeOf = (hosts: Related[], status: string) => ({ domain_id: DOMAIN.id, r
   in_scope: hosts.filter(item => item.state === 'in_scope').length, limit: 100, scope_limit: 20, discovery: discovery(status) })
 const SPEC = JSON.stringify({ openapi: '3.0.3', info: { title: 'Shop', version: '1' }, paths: { '/items': { get: {}, post: {} }, '/items/{id}': { parameters: [], get: {} } } })
 
-function setup({ admin = true, dast = true, domains = [DOMAIN, UNVERIFIED] as unknown[], source = null as string | null } = {}) {
+function setup({ admin = true, dast = true, domains = [DOMAIN, UNVERIFIED] as unknown[], source = null as string | null, egress = null as unknown } = {}) {
   // The domain's saved scope: never searched until the switch asks for it, then one public host found, out of scope.
   let related: Related[] = []
   let status = 'idle'
   const calls = mockApi(call => {
-    if (call.path === '/api/domains') return { body: { items: domains, total: domains.length, limit: 20, dast } }
+    if (call.path === '/api/domains') return { body: { items: domains, total: domains.length, limit: 20, dast, egress } }
     if (call.path.startsWith('/api/domains/scope') && call.method === 'GET') return { body: scopeOf(related, status) }
     if (call.path === '/api/domains/discover') {
       status = 'done'
@@ -221,6 +221,42 @@ describe('a web or API scan', () => {
     expect(scan(calls)?.body).toEqual({ domain_id: DOMAIN.id, mode: 'web', use_headers: false, test_users: [admin.id] })
   })
 
+  it('a new schedule signs in like the scan by default, only as users inside the saved scope', async () => {
+    const admin = { id: 'd'.repeat(24), name: 'Admin user', method: 'password', username: 'qa@app.example.com', applies_to: 'app.example.com', login_url: null }
+    const docs = { id: 'e'.repeat(24), name: 'Docs editor', method: 'password_totp', username: 'docs', applies_to: 'docs.app.example.com', login_url: null }
+    const { user, calls } = setup({ domains: [{ ...DOMAIN, test_users: [admin, docs], test_user_count: 2 }] })
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
+    await proceed(user)
+    await user.click(await screen.findByRole('radio', { name: /app\.example\.com/ }))
+    await proceed(user)
+    await heading('access.title')
+    await user.click(screen.getByRole('checkbox', { name: /Admin user/ }))
+    await proceed(user)
+    await heading('review.title')
+    await user.click(screen.getByRole('switch', { name: src('domains.schedule.switch') }))
+    const access = screen.getByRole('group', { name: src('domains.schedule.access.legend') })
+    expect((within(access).getByRole('checkbox', { name: /Admin user/ }) as HTMLInputElement).checked).toBe(true)
+    expect(within(access).getByRole('checkbox', { name: /Docs editor/ }).hasAttribute('disabled')).toBe(true)
+    await user.click(screen.getByRole('button', { name: tr('launch.web') }))
+    await vi.waitFor(() => expect(calls.some(call => call.path === '/api/domains/schedule')).toBe(true))
+    expect(calls.find(call => call.path === '/api/domains/schedule')?.body).toMatchObject({ domain_id: DOMAIN.id, schedule: { test_users: [admin.id], use_headers: false } })
+  })
+
+  it('shows the outgoing addresses to allow, with a copy button, instead of a fold', async () => {
+    const { user } = setup({ domains: [DOMAIN], egress: { ips: ['203.0.113.10', '198.51.100.0/24'], source: 'setting', detected_at: null } })
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
+    await proceed(user)
+    await user.click(await screen.findByRole('radio', { name: /app\.example\.com/ }))
+    await proceed(user)
+    await heading('access.title')
+    await user.click(screen.getByRole('button', { name: tr('wizard.skip') }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: tr('skip.access.confirm') }))
+    await heading('review.title')
+    expect(screen.getByText(tr('review.egress.allow'))).toBeTruthy()
+    expect(screen.getByText('203.0.113.10, 198.51.100.0/24')).toBeTruthy()
+    expect(screen.getByRole('button', { name: tr('review.egress.copy_label') })).toBeTruthy()
+  })
+
   it('jumps back to a step from its review row', async () => {
     const { user } = setup({ domains: [DOMAIN] })
     await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
@@ -266,7 +302,7 @@ describe('a web or API scan', () => {
     const paths = first.calls.filter(call => call.method === 'POST').map(call => call.path)
     expect(paths).toEqual(['/api/domains/scans', '/api/domains/schedule'])  // the schedule after the scan, so it skips today
     expect(first.calls.find(call => call.path === '/api/domains/schedule')?.body).toEqual({ domain_id: DOMAIN.id,
-      schedule: { frequency: 'daily', weekdays: [], month_days: [], time: '23:45', timezone: browserZone() } })
+      schedule: { frequency: 'daily', weekdays: [], month_days: [], time: '23:45', timezone: browserZone(), test_users: [], use_headers: false } })
     cleanup()
 
     const second = setup({ domains: [DOMAIN] })

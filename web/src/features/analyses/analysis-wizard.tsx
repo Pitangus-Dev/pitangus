@@ -8,13 +8,15 @@ import { formatList } from '@/shared/i18n/format'
 import type { Source } from '@/features/sources/sources'
 import { ScheduleOption, type SchedulePlan } from '@/features/analyses/wizard/schedule-option'
 import { defaultRule, normalized, ruleOf, sameRule } from '@/features/domains/schedule'
+import { accessOf, sameAccess, usableAccess } from '@/features/domains/schedule-access-model'
 import { SarifImport } from '@/features/analyses/sarif-import'
 import { useBatches } from '@/features/analyses/use-batches'
 import { AccessStep } from '@/features/analyses/wizard/access-step'
 import { ContextStep } from '@/features/analyses/wizard/context-step'
 import { ImagesStep } from '@/features/analyses/wizard/images-step'
 import { RepositoriesStep, type CodeTarget } from '@/features/analyses/wizard/repositories-step'
-import { DetailList, LooksFor, OsvOption, ReviewStep, WafNote, type ReviewRow } from '@/features/analyses/wizard/review-step'
+import { DetailList, LooksFor, OsvOption, ReviewStep, type ReviewRow } from '@/features/analyses/wizard/review-step'
+import { EgressNote } from '@/features/analyses/wizard/egress-note'
 import { StepRail } from '@/features/analyses/wizard/step-frame'
 import { TargetStep, type WebTarget } from '@/features/analyses/wizard/target-step'
 import { TypeChooser } from '@/features/analyses/wizard/type-chooser'
@@ -71,15 +73,19 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
   const batch = kind === 'code' ? code.mode === 'org' || code.sources.length > 1 : kind === 'image' && references.length > 1
   // With the switch on, the scan reaches the hosts saved in the domain's scope (the server reads them again when it starts).
   const scopeOpen = kind === 'web' && !!domain && target.scopeOpen
-  const savedScope = useQuery({ ...domainScopeQuery(domain?.id ?? ''), enabled: scopeOpen }).data
-  const hosts = scopeOpen && savedScope?.covered ? savedScope.hosts.filter(item => item.state === 'in_scope').map(item => item.host) : []
+  // Scheduled scans always use the saved scope, so it's read for the schedule's test users too.
+  const savedScope = useQuery({ ...domainScopeQuery(domain?.id ?? ''), enabled: kind === 'web' && !!domain && domain.kind !== 'surface' }).data
+  const scheduledHosts = savedScope?.covered ? savedScope.hosts.filter(item => item.state === 'in_scope').map(item => item.host) : []
+  const hosts = scopeOpen ? scheduledHosts : []
   const headerNames = (domain?.headers ?? []).map(item => item.name)
   const sending = useHeaders && headerNames.length > 0
   // Only users still saved, signing in on a host this scope reaches (the scope can change after they were picked).
   const signingIn = (domain?.test_users ?? []).filter(user => testUsers.includes(user.id) && !signInHost(user, domain?.host ?? '', hosts)).slice(0, USERS_PER_SCAN)
   const specInvalid = spec?.mode === 'url' && !!domain && !inScope(spec.url, domain.host, hosts)
   // Until touched, the plan is the domain's own schedule (or none, with a default rule ready to switch on).
-  const schedule: SchedulePlan = schedulePlan ?? { on: !!domain?.schedule, rule: domain?.schedule ? ruleOf(domain.schedule) : defaultRule(), alsoNow: true }
+  // A new schedule signs in and sends headers like this scan does; an existing one keeps its own choice.
+  const schedule: SchedulePlan = schedulePlan ?? { on: !!domain?.schedule, rule: domain?.schedule ? ruleOf(domain.schedule) : defaultRule(), alsoNow: true,
+    access: domain?.schedule ? accessOf(domain.schedule) : { test_users: signingIn.map(user => user.id), use_headers: sending } }
   const scanNow = !schedule.on || schedule.alsoNow
   const osv = !!plan.data?.osv_needed && allowOsv
 
@@ -91,8 +97,9 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
   const launch = useMutation({
     mutationFn: async (): Promise<string | null> => {
       if (kind === 'web' && domain) {
-        const changed = schedule.on ? !domain.schedule || !sameRule(ruleOf(domain.schedule), schedule.rule) : !!domain.schedule
-        const saveSchedule = () => apiPost('/api/domains/schedule', 'schedule-domain', { domain_id: domain.id, schedule: schedule.on ? normalized(schedule.rule) : null })
+        const access = usableAccess(domain, schedule.access, scheduledHosts)
+        const changed = schedule.on ? !domain.schedule || !sameRule(ruleOf(domain.schedule), schedule.rule) || !sameAccess(accessOf(domain.schedule), access) : !!domain.schedule
+        const saveSchedule = () => apiPost('/api/domains/schedule', 'schedule-domain', { domain_id: domain.id, schedule: schedule.on ? { ...normalized(schedule.rule), ...access } : null })
         if (!scanNow) {
           await saveSchedule()
           await queryClient.invalidateQueries({ queryKey: keys.domains })
@@ -173,9 +180,9 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
       { label: t('review.access'), value: access.length ? access.join(' · ') : t('review.access_none'), step: steps.indexOf('access') },
       ...(domain?.context ? [{ label: t('review.context'), value: domain.context }] : [])]
     return { rows, label: scanNow ? t('launch.web') : t('launch.schedule'),
-      options: domain?.kind === 'surface' ? undefined : <ScheduleOption value={schedule} onChange={setSchedulePlan} lastScanAt={domain?.last_scan?.created_at as string | undefined}
+      options: !domain || domain.kind === 'surface' ? undefined : <ScheduleOption value={schedule} onChange={setSchedulePlan} domain={domain} hosts={scheduledHosts} lastScanAt={domain?.last_scan?.created_at as string | undefined}
         hint={spec ? t('review.schedule_without_spec') : undefined} />,
-      notes: <WafNote />, details: undefined }
+      notes: <EgressNote egress={domains.data?.egress} admin={isAdmin} />, details: undefined }
   }
 
   const view = (() => {

@@ -16,7 +16,7 @@ import { domainsQuery, keys, runsQuery } from '@/shared/api/queries'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Skeleton } from '@/shared/ui/loading'
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/shared/ui/menu'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/shared/ui/menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 
 const TABS: { id: DomainTab; label: string }[] = [
@@ -71,18 +71,18 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
         {scannable && (domain.verified
           ? <Button onClick={() => onNewScan(domain)}><Play aria-hidden />{t('domains.page.new_scan')}</Button>
           : <Button onClick={() => setVerifying(true)}><ShieldCheck aria-hidden />{t('domains.list.verify')}</Button>)}
-        {admin && <Menu><MenuTrigger render={<Button variant="outline" size="icon" aria-label={t('domains.list.actions_for', { host: domain.host })} />}><MoreHorizontal /></MenuTrigger>
-          <MenuContent>{(domain.verified || !scannable) && <><MenuItem onClick={() => setVerifying(true)}>{t(domain.verified ? 'domains.page.verify_again' : 'domains.list.verify')}</MenuItem><MenuSeparator /></>}
-            <MenuItem className="text-danger" onClick={() => ask(domain)}>{t('domains.list.remove')}</MenuItem></MenuContent></Menu>}
+        {/* Disconnecting lives at the bottom of the overview, where it says what goes with it. */}
+        {admin && (domain.verified || !scannable) && <Menu><MenuTrigger render={<Button variant="outline" size="icon" aria-label={t('domains.list.actions_for', { host: domain.host })} />}><MoreHorizontal /></MenuTrigger>
+          <MenuContent><MenuItem onClick={() => setVerifying(true)}>{t(domain.verified ? 'domains.page.verify_again' : 'domains.list.verify')}</MenuItem></MenuContent></Menu>}
       </div>
     </div>
-    {removal.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{removal.error.message}</p>}
     <Tabs value={tabs.some(item => item.id === tab) ? tab : 'overview'} onValueChange={value => onTab(value as DomainTab)}>
       <div className="overflow-x-auto border-b border-app-line"><TabsList variant="line" aria-label={t('domains.page.tabs_label')}>
         {tabs.map(item => <TabsTrigger key={item.id} value={item.id} className="min-h-8 px-3">{t(item.label)}</TabsTrigger>)}
       </TabsList></div>
       <TabsContent value="overview" className="pt-6">
-        <DomainOverview domain={domain} admin={admin} onVerify={() => setVerifying(true)} />
+        <DomainOverview domain={domain} admin={admin} onVerify={() => setVerifying(true)} onDisconnect={() => ask(domain)} disconnecting={removal.isPending}
+          disconnectError={removal.isError ? removal.error.message : ''} />
       </TabsContent>
       <TabsContent value="findings" className="pt-6">
         <DomainFindings domain={domain} user={user} onNewScan={() => onNewScan(domain)} onImport={onImport} onOpenPolicies={onOpenPolicies} />

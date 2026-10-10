@@ -218,10 +218,19 @@
     "osv_hint": "Sends package names and versions (not code) to api.osv.dev. Off: dependencies aren't checked.",
     "batch_note": "Runs as a batch you can follow and cancel in Scans.",
     "schedule_without_spec": "Scheduled scans browse the site; they don't use the API documentation.",
-    "waf_title": "Behind a firewall or WAF?",
-    "waf_text": "Allow this server's public IP, or the scan may be blocked.",
     "authorization": "It only browses and reads, never attacks. Launch it only against sites you're allowed to test.",
-    "access_users": "Signs in as {{names}}"
+    "access_users": "Signs in as {{names}}",
+    "egress": {
+      "allow": "If your site filters by IP, allow:",
+      "copy": "Copy",
+      "copy_label": "Copy the IP addresses",
+      "copied": "Copied",
+      "copy_failed": "Couldn't copy: select the addresses and copy them by hand.",
+      "unknown": "If your site filters by IP, it has to allow this server's address, which isn't configured yet.",
+      "detect": "Detect",
+      "detect_hint": "Asks api.ipify.org once which public IP this server is seen from. If scans run on another machine, set PITANGUS_EGRESS_IPS instead.",
+      "ask_admin": "If your site filters by IP, ask an admin to set the outgoing IP."
+    }
   },
   "details": {
     "title": "Technical details",

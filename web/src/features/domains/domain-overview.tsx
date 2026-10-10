@@ -4,6 +4,7 @@ import { formatDay } from '@/shared/i18n/format'
 import { Button } from '@/shared/ui/button'
 import { HeadersEditor } from '@/features/domains/headers-editor'
 import { ScheduleSection } from '@/features/domains/schedule-section'
+import { DisconnectDomain } from '@/features/domains/disconnect-domain'
 import { coversSubdomains, lastScanOf, type Domain } from '@/features/domains/domains'
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -12,9 +13,11 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   </div>
 }
 
-// Everything about a domain that isn't findings or scans: a few facts, the scheduled scan and the headers its scans send.
-// Access lives here rather than in its own tab: it's a handful of rows, configured once, like the schedule.
-export function DomainOverview({ domain, admin, onVerify }: { domain: Domain; admin: boolean; onVerify: () => void }) {
+// Everything about a domain that isn't findings or scans: a few facts, the scheduled scan and the headers its scans send,
+// and, last, disconnecting it. Access lives here rather than in its own tab: it's a handful of rows, configured once.
+export function DomainOverview({ domain, admin, onVerify, onDisconnect, disconnecting = false, disconnectError = '' }: {
+  domain: Domain; admin: boolean; onVerify: () => void; onDisconnect: () => void; disconnecting?: boolean; disconnectError?: string
+}) {
   const { t } = useTranslation('sources')
   const [addingHeader, setAddingHeader] = useState(false)
   const last = lastScanOf(domain)
@@ -37,5 +40,6 @@ export function DomainOverview({ domain, admin, onVerify }: { domain: Domain; ad
       </div>
       <HeadersEditor domain={domain} admin={admin} adding={addingHeader} onAddingChange={setAddingHeader} />
     </section>}
+    {admin && <DisconnectDomain domain={domain} busy={disconnecting} error={disconnectError} onDisconnect={onDisconnect} />}
   </div>
 }

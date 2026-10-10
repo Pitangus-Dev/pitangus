@@ -49,6 +49,26 @@ describe('domains list', () => {
     expect(within(pending).getByText(tr('domains.list.login_none'))).toBeTruthy()
   })
 
+  it('puts "Add domain" next to the title, searches the list and opens a domain from anywhere on its row', async () => {
+    const { user, opened } = render()
+    const title = await screen.findByRole('heading', { level: 1, name: i18n.t('nav:items.domains') })
+    expect(title.parentElement?.parentElement?.querySelector('button')?.textContent).toBe(tr('domains.list.add'))
+    expect(await screen.findByText(tr('domains.list.showing', { shown: 2, total: 2 }))).toBeTruthy()
+    await user.type(screen.getByRole('searchbox', { name: tr('domains.list.search') }), 'api.')
+    expect(screen.getByText(tr('domains.list.showing', { shown: 1, total: 2 }))).toBeTruthy()
+    const rows = within(screen.getByRole('table')).getAllByRole('row')
+    expect(rows).toHaveLength(2)  // the header and api.example.com
+    await user.click(within(rows[1]).getByText(tr('domains.kind.api')))
+    expect(opened).toEqual([[VERIFIED.id, undefined]])
+    // Its own buttons keep their click: the menu opens, the row doesn't.
+    await user.click(within(rows[1]).getByRole('button', { name: tr('domains.list.actions_for', { host: 'api.example.com' }) }))
+    expect(opened).toHaveLength(1)
+    await user.keyboard('{Escape}')
+    await user.clear(screen.getByRole('searchbox', { name: tr('domains.list.search') }))
+    await user.type(screen.getByRole('searchbox', { name: tr('domains.list.search') }), 'nothing-here')
+    expect(screen.getByText(tr('domains.list.no_match', { query: 'nothing-here' }))).toBeTruthy()
+  })
+
   it('shows an empty state with one action', async () => {
     render(true, () => ({ body: page([]) }))
     expect(await screen.findByText(tr('domains.list.empty_title'))).toBeTruthy()

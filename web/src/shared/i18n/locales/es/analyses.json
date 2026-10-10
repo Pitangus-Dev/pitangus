@@ -218,10 +218,19 @@
     "osv_hint": "Envía nombres y versiones de paquetes (no código) a api.osv.dev. Apagado: no se revisan dependencias.",
     "batch_note": "Corre como un lote que puedes seguir y cancelar en Análisis.",
     "schedule_without_spec": "Los análisis programados recorren el sitio; no usan la documentación de la API.",
-    "waf_title": "¿Hay un firewall o WAF?",
-    "waf_text": "Permite la IP pública de este servidor o el análisis puede quedar bloqueado.",
     "authorization": "Solo navega y lee; nunca ataca. Lánzalo solo contra sitios que tengas permiso de probar.",
-    "access_users": "Inicia sesión como {{names}}"
+    "access_users": "Inicia sesión como {{names}}",
+    "egress": {
+      "allow": "Si tu sitio filtra por IP, permite:",
+      "copy": "Copiar",
+      "copy_label": "Copiar las direcciones IP",
+      "copied": "Copiado",
+      "copy_failed": "No se pudo copiar: selecciona las direcciones y cópialas a mano.",
+      "unknown": "Si tu sitio filtra por IP, tiene que permitir la dirección de este servidor, que aún no está configurada.",
+      "detect": "Detectar",
+      "detect_hint": "Pregunta una vez a api.ipify.org desde qué IP pública se ve este servidor. Si los análisis corren en otra máquina, configura PITANGUS_EGRESS_IPS.",
+      "ask_admin": "Si tu sitio filtra por IP, pide a quien administra que configure la IP de salida."
+    }
   },
   "details": {
     "title": "Detalles técnicos",

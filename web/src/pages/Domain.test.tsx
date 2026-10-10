@@ -84,6 +84,23 @@ describe('a domain page', () => {
     await waitFor(() => expect(calls.some(call => call.path === '/api/domains/discover' && call.action === 'discover-domain')).toBe(true))
   })
 
+  it('ends the overview with a disconnect section that says what is deleted, and asks before doing it', async () => {
+    const { calls, user } = setup()
+    const zone = await screen.findByRole('region', { name: tr('domains.disconnect.title') })
+    for (const key of ['domains.disconnect.headers', 'domains.disconnect.users', 'domains.disconnect.scope', 'domains.disconnect.schedule', 'domains.disconnect.final']) {
+      expect(within(zone).getByText(tr(key))).toBeTruthy()
+    }
+    // Only in that section: the page's menu keeps verifying.
+    await user.click(screen.getByRole('button', { name: tr('domains.list.actions_for', { host: 'app.example.com' }) }))
+    expect(screen.queryByRole('menuitem', { name: tr('domains.list.remove') })).toBeNull()
+    await user.keyboard('{Escape}')
+    await user.click(within(zone).getByRole('button', { name: tr('domains.disconnect.button') }))
+    const question = await screen.findByRole('alertdialog', { name: tr('domains.list.remove_title', { host: 'app.example.com' }) })
+    expect(within(question).getByText(tr('domains.list.confirm_remove'))).toBeTruthy()
+    await user.click(within(question).getByRole('button', { name: i18n.t('common:actions.cancel') }))
+    expect(calls.some(call => call.path === '/api/domains/remove')).toBe(false)
+  })
+
   it('schedules the scan, says when in plain words, and changes or turns it off', async () => {
     const { calls, user } = setup()
     expect(await screen.findByRole('heading', { level: 2, name: tr('domains.schedule.title') })).toBeTruthy()
@@ -99,7 +116,7 @@ describe('a domain page', () => {
     await user.click(within(days).getByRole('button', { name: weekdayName(5) }))
     await user.click(screen.getByRole('button', { name: tr('domains.schedule.save') }))
     await waitFor(() => expect(calls.find(call => call.path === '/api/domains/schedule')).toEqual({ method: 'POST', path: '/api/domains/schedule', action: 'schedule-domain',
-      body: { domain_id: ID, schedule: { frequency: 'weekly', weekdays: [5], month_days: [], time: '09:00', timezone: browserZone() } } }))
+      body: { domain_id: ID, schedule: { frequency: 'weekly', weekdays: [5], month_days: [], time: '09:00', timezone: browserZone(), test_users: [], use_headers: false } } }))
     // Testing Library collapses the narrow no-break space Intl puts before AM/PM.
     const sentence = describeRule({ frequency: 'weekly', weekdays: [5], month_days: [], time: '09:00', timezone: browserZone() }).replace(/\s/g, ' ')
     expect(await screen.findByText(sentence)).toBeTruthy()

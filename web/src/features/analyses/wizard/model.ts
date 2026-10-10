@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+export { USERS_PER_SCAN, signInHost } from '@/features/domains/test-users-model'
 
 // `web` covers sites and APIs alike: with an OpenAPI spec the server calls its endpoints instead of crawling.
 export type Kind = 'code' | 'image' | 'web'
@@ -20,13 +21,6 @@ export const STEP_LABEL = {
 } as const
 // Optional steps can be skipped with a button; the rest need an answer.
 export const OPTIONAL: StepId[] = ['context', 'access']
-
-export const USERS_PER_SCAN = 3   // test users one web scan signs in with
-
-const hostOf = (url: string | null | undefined) => { try { return url ? new URL(url).hostname.toLowerCase() : '' } catch { return '' } }
-// A test user signs in on a host this scan must reach (the root, or a subdomain listed by name): the one that isn't, or null.
-export const signInHost = (user: { applies_to: string; login_url?: string | null }, root: string, hosts: string[]) =>
-  [user.applies_to, hostOf(user.login_url)].filter(Boolean).find(host => host !== root && !hosts.includes(host)) ?? null
 
 export const BATCH_LIMIT = 100   // repositories or images picked by hand per batch (a whole organization has no such cap)
 export const CONTEXT_MAX = 400
