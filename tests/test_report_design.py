@@ -106,6 +106,40 @@ class ReportTests(unittest.TestCase):
         self.assertIn("org/&lt;b&gt;app&lt;/b&gt;", content)  # the name is data: shown as is, not interpreted
         self.assertLessEqual(pages(pdf), 5)
 
+    def web_record(self):
+        def web(rule: str, title: str, url: str, severity: str) -> dict:
+            return {"fingerprint": f"{rule}{url}".ljust(64, "0")[:64], "scanner": "dast", "tool": "ZAP", "severity": severity, "rule_id": rule,
+                    "title": title, "path": url, "line": 1, "reason": "ZAP lo reporta.", "remediation": "Quita unsafe-inline de style-src.",
+                    "cwe": [693], "cve": [], "ghsa": [], "web": {"method": "GET"}}
+        urls = ["https://pitangus.dev/", "https://pitangus.dev/es/", "https://pitangus.dev/_astro"]
+        findings = [*(web("10055", "CSP: style-src unsafe-inline", url, "medium") for url in urls),
+                    *(web("pitangus-json-credentials", "Credencial o secreto en una respuesta JSON", f"{url}api.json", "high") for url in urls[:2]),
+                    web("10096", "Timestamp Disclosure - Unix", "https://pitangus.dev/app.js", "low")]
+        return {**self.record(findings), "type": "dast_scan", "status": "completed", "owasp_coverage": [], "limitations": [],
+                "source": {"name": "pitangus.dev", "provider": "domain"},
+                "summary": {"files": 6, "dependencies": 0, "severities": {"high": 2, "medium": 3, "low": 1}, "priorities": {}}}, urls
+
+    def test_a_web_problem_on_several_urls_is_one_action_one_sheet_and_one_row(self):
+        record, urls = self.web_record()
+        groups = fix_groups(record["findings"], by_problem=True)
+        self.assertEqual(sorted((entry["kind"], len(entry["items"])) for entry in groups), [("web", 1), ("web", 2), ("web", 3)])
+        self.assertEqual(len(fix_groups(record["findings"])), 6)  # the audit evidence keeps one row per URL
+        _, content = rendered(lambda: render_technical_pdf(record, version="t"))
+        self.assertIn("CSP: style-src unsafe-inline · 3 URL", content)
+        self.assertIn("y 2 URL más", content)  # the medium-and-low row names one URL and counts the rest
+        self.assertEqual(content.count("Credencial o secreto en una respuesta JSON"), 2)  # what to do first and one sheet, not one per URL
+        self.assertIn("URL (2)", content)
+        self.assertIn("6 hallazgos", content.replace("\xa0", " "))  # the figures still count each URL
+
+    def test_the_markdown_report_groups_web_problems_too(self):
+        from pitangus.modules.runs.store import render_repository_report
+        record, urls = self.web_record()
+        english = render_repository_report(record, locale="en")
+        self.assertIn("CSP: style-src unsafe-inline · 3 URLs", english)
+        self.assertEqual(english.count("#### Credencial o secreto en una respuesta JSON"), 1)
+        self.assertIn("URLs (2): `https://pitangus.dev/api.json`, `https://pitangus.dev/es/api.json`", english)
+        self.assertIn("`https://pitangus.dev/` and 2 more URLs", english)
+
     def test_markdown_report_renders_in_the_requested_language(self):
         from pitangus.modules.runs.store import render_repository_report
         findings = [{**advisory("CVE-1", "high", "12.0.0"), "ghsa": [], "reason": "", "kev": None}, code("a", "critical")]

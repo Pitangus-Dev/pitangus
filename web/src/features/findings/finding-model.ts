@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import { formatNumber } from '@/shared/i18n/format'
 import type { components } from '@/shared/api/schema'
 import type { Sla } from '@/features/findings/sla'
 import type { FixGuide, Verification } from '@/features/findings/fix-guide'
@@ -75,11 +76,16 @@ const urgent = (findings: RepositoryFinding[]) => findings.reduce((best, item) =
 
 export type Group = { key: string; label: string; meta: string; scanner: string; findings: RepositoryFinding[]; severity: string; action: string; fix: string | null; epss: number | null; kev: boolean; sla: Sla | null }
 
+// A web problem's key: the same rule and title of an asset, at whatever URL ("CSP: style-src unsafe-inline" on three pages).
+const problemOf = (finding: RepositoryFinding) => finding.scanner === 'dast' && finding.rule_id ? `dast:${finding.rule_id}|${finding.title}` : `${finding.scanner}:${finding.finding_id}`
+
 // A package with three advisories is one piece of remediation work: grouped, saying the version that closes them all.
+// So is a web problem repeated on several URLs: one row that opens to each URL. Only the presentation groups: every
+// finding keeps its own fingerprint, triage and lifecycle, and the figures count them one by one.
 export function groupFindings(findings: RepositoryFinding[], t: TFunction): Group[] {
   const groups = new Map<string, RepositoryFinding[]>()
   for (const finding of findings) {
-    const key = `${finding.asset ? `${finding.asset.key}|` : ''}${finding.package ? `${finding.package.ecosystem}:${finding.package.name}@${finding.package.version}` : `${finding.scanner}:${finding.finding_id}`}`
+    const key = `${finding.asset ? `${finding.asset.key}|` : ''}${finding.package ? `${finding.package.ecosystem}:${finding.package.name}@${finding.package.version}` : problemOf(finding)}`
     groups.set(key, [...(groups.get(key) ?? []), finding])
   }
   return Array.from(groups.entries()).map(([key, items]) => {
@@ -91,6 +97,7 @@ export function groupFindings(findings: RepositoryFinding[], t: TFunction): Grou
     return { key, findings: items, scanner: items[0].scanner, severity: worst(items), action: urgent(items), fix, epss, kev: items.some(item => item.kev), sla,
       label: pkg ? `${pkg.name} ${pkg.version}` : items[0].title,
       meta: pkg ? [t('findings:group.advisories', { count: items.length }), pkg.ecosystem, ...(pkg.dev ? [t('findings:group.dev')] : pkg.direct === false ? [t('findings:group.transitive')] : []),
-        fix ? t('findings:group.upgrade', { version: fix }) : t('findings:group.no_fix')].join(' · ') : locationOf(items[0]) }
+        fix ? t('findings:group.upgrade', { version: fix }) : t('findings:group.no_fix')].join(' · ')
+      : items.length > 1 ? t('findings:group.urls', { count: items.length, value: formatNumber(items.length) }) : locationOf(items[0]) }
   }).sort((left, right) => (ACTION_ORDER[left.action] - ACTION_ORDER[right.action]) || (SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity]) || left.label.localeCompare(right.label))
 }

@@ -127,7 +127,11 @@
     "low_info_one": "{{count}} bajo o informativo",
     "low_info_other": "{{count}} bajos o informativos",
     "are_critical_one": "{{count}} es crítico",
-    "are_critical_other": "{{count}} son críticos"
+    "are_critical_other": "{{count}} son críticos",
+    "urls_one": "{{count}} URL",
+    "urls_other": "{{count}} URL",
+    "more_urls_one": "y {{count}} URL más",
+    "more_urls_other": "y {{count}} URL más"
   },
   "design": {
     "listing_last": "{{items}} y {{last}}",
@@ -207,7 +211,9 @@
     },
     "according_to": "**Según {{tool}}:** {{text}}",
     "parameter": "Parámetro: `{{name}}`",
-    "evidence": "Evidencia: `{{text}}`"
+    "evidence": "Evidencia: `{{text}}`",
+    "urls_one": "URL: {{list}}",
+    "urls_other": "URL ({{count}}): {{list}}"
   },
   "asset": {
     "title": "Estado actual de hallazgos · {{name}}",
@@ -902,7 +908,9 @@
       "after": "Después",
       "how_to_verify": "Cómo verificarlo",
       "verify_text": "Tras el cambio, «Verificar de nuevo» en Pitangus (o el siguiente análisis completo) lo marca como remediado cuando la regla deja de encontrarlo.",
-      "verify_web": "Despliega la corrección y vuelve a analizar el dominio: «Reverificar» en Pitangus (o el siguiente análisis del dominio) lo marca como remediado cuando el escáner deja de reportarlo."
+      "verify_web": "Despliega la corrección y vuelve a analizar el dominio: «Reverificar» en Pitangus (o el siguiente análisis del dominio) lo marca como remediado cuando el escáner deja de reportarlo.",
+      "urls_one": "URL",
+      "urls_other": "URL ({{count}})"
     }
   },
   "pdf": {

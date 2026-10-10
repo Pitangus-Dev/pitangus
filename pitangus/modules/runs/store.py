@@ -357,6 +357,7 @@ def _md(value, limit: int = 160) -> str:
 
 
 MD_DETAIL_LIMIT, MD_TABLE_LIMIT, MD_ANNEX_LIMIT = 150, 500, 600
+MD_URLS = 20   # a web problem's URLs listed in its block; the rest are counted
 
 
 def _is_update(command: dict) -> bool:
@@ -368,7 +369,7 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
     with detail only for critical and high, and a compact index. Full detail stays in the panel, the JSON, the SARIF
     and the tickets."""
     from pitangus.modules.findings.fix_guide import attach
-    from pitangus.modules.findings.remediation import action, counts_text, fix_groups
+    from pitangus.modules.findings.remediation import action, counts_text, fix_groups, problems
     lines = ["## " + t("reports.common.findings", locale), ""]
     if not active:
         return lines + [t("reports.markdown.no_findings", locale), ""]
@@ -376,14 +377,16 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
     updates = {id(item): [command["code"] for command in (item.get("fix") or {}).get("commands") or [] if _is_update(command)] for item in active}
     for item in active:
         item["fix"], item["priority"] = localize(item.get("fix"), locale), localize(item.get("priority"), locale)
-    groups = fix_groups(active)
+    groups = fix_groups(active, by_problem=True)
     lines += [t("reports.markdown.pending_intro", locale, pending=msg("reports.count.pending_findings", count=len(active)),
                 actions=msg("reports.count.actions", count=len(groups))), "",
               "### " + t("reports.common.what_first", locale), "", *_header(locale, "severity", "what", "where", "action")]
     for entry in groups[:15]:
         item = entry["items"][0]
         what = (f"{entry['name']} {entry['version']} · {t('reports.count.advisories', locale, count=len(entry['items']))}"
-                if entry["kind"] == "package" else item.get("title"))
+                if entry["kind"] == "package"
+                else f"{item.get('title')} · {t('reports.count.urls', locale, count=len(entry['items']))}" if entry["kind"] == "web" and len(entry["items"]) > 1
+                else item.get("title"))
         where = entry["path"] if entry["kind"] == "package" else _where(item)
         lines.append(f"| {_severity(entry['severity'], locale)}{' · KEV' if entry['kev'] else ''} | {_md(what, 100)} | "
                      f"`{_md(where, 400)}` | {_md(action(entry, short=True, locale=locale), 160)} |")
@@ -400,20 +403,31 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
                          f"{('`' + _md(commands[0], 120) + '`') if commands and '`' not in commands[0] else '—'} |")
     code = [item for item in active if not (item.get("scanner") == "sca" and (item.get("package") or {}).get("name"))]
     if code:
-        serious = [item for item in code if item.get("severity") in ("critical", "high")]
-        rest = [item for item in code if item.get("severity") not in ("critical", "high")]
+        # A web problem on several URLs is one block or one row, listing its URLs.
+        units = problems(code)
+        serious = [unit for unit in units if any(item.get("severity") in ("critical", "high") for item in unit)]
+        rest = [unit for unit in units if not any(item.get("severity") in ("critical", "high") for item in unit)]
         lines += ["", "### " + t("reports.common.code_heading", locale, count=len(code)), ""]
-        for finding in serious[:MD_DETAIL_LIMIT]:
-            lines += _finding_block(finding, locale, level="####")
+        for unit in serious[:MD_DETAIL_LIMIT]:
+            block = _finding_block(unit[0], locale, level="####")
+            if len(unit) > 1:
+                listed = ", ".join(f"`{_md(_where(item), 300).replace('`', '')}`" for item in unit[:MD_URLS])
+                if len(unit) > MD_URLS:
+                    listed += " " + t("reports.count.more_urls", locale, count=len(unit) - MD_URLS)
+                urls = t("reports.markdown.urls", locale, count=len(unit), list=listed)
+                block[block.index(t("reports.markdown.location", locale, where=_where(unit[0])))] = urls
+            lines += block
         if len(serious) > MD_DETAIL_LIMIT:
             lines += [t("reports.markdown.detail_truncated", locale, shown=MD_DETAIL_LIMIT, total=len(serious)), ""]
         if rest:
-            lines += ["#### " + t("reports.common.medium_low", locale, count=len(rest)), "",
+            lines += ["#### " + t("reports.common.medium_low", locale, count=sum(len(unit) for unit in rest)), "",
                       *_header(locale, "severity", "finding", "location", "fix")]
-            for item in rest[:MD_TABLE_LIMIT]:
-                where = _where(item)
-                lines.append(f"| {_severity(item.get('severity'), locale)} | {_md(item.get('title'), 100)} | "
-                             f"`{_md(where, 400)}` | {_md(item.get('remediation'), 160)} |")
+            for unit in rest[:MD_TABLE_LIMIT]:
+                item = unit[0]
+                worst = min((entry.get("severity") or "info" for entry in unit), key=lambda level: SEVERITY_ORDER.get(level, 9))
+                more = " " + _md(t('reports.count.more_urls', locale, count=len(unit) - 1), 60) if len(unit) > 1 else ""
+                lines.append(f"| {_severity(worst, locale)} | {_md(item.get('title'), 100)} | "
+                             f"`{_md(_where(item), 400)}`{more} | {_md(item.get('remediation'), 160)} |")
             if len(rest) > MD_TABLE_LIMIT:
                 lines.append(f"| | {t('reports.markdown.more_in_panel', locale, count=len(rest) - MD_TABLE_LIMIT)} | | |")
             lines.append("")

@@ -184,7 +184,9 @@
     "no_match_dismissed_one": "Nothing matches these filters · {{count}} dismissed in triage (change the status filter to see it).",
     "no_match_dismissed_other": "Nothing matches these filters · {{count}} dismissed in triage (change the status filter to see them).",
     "pagination_one": "items · {{count}} finding",
-    "pagination_other": "items · {{count}} findings"
+    "pagination_other": "items · {{count}} findings",
+    "grouped_one": "{{findings}} findings in {{problems}} problem",
+    "grouped_other": "{{findings}} findings in {{problems}} problems"
   },
   "scanner": {
     "sca": "Dependency",
@@ -209,7 +211,9 @@
     "imported": "Imported",
     "malicious": "Malicious",
     "malicious_hint": "Known malicious package (OpenSSF): remove it and rotate any secrets on the machines where it was installed",
-    "mixed": "Mixed statuses: {{statuses}}"
+    "mixed": "Mixed statuses: {{statuses}}",
+    "urls_one": "{{value}} URL",
+    "urls_other": "{{value}} URLs"
   },
   "step": {
     "completed": "Completed",

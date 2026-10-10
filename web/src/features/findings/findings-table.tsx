@@ -75,6 +75,7 @@ export function FindingsTable({ findings, kpis, header, aside, column, exports, 
     && (deadline === 'all' || (deadline === 'overdue' ? item.sla?.state === 'overdue' : item.sla?.state === 'overdue' || item.sla?.state === 'soon'))
     && (!query.trim() || `${item.title} ${item.package?.name ?? ''} ${item.path} ${item.cve.join(' ')} ${item.ghsa.join(' ')} ${item.asset?.name ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))), t), [findings, triageView, severity, action, scanner, deadline, query, t])
   const page = groups.slice(offset, offset + PAGE)
+  const shown = useMemo(() => groups.reduce((total, group) => total + group.findings.length, 0), [groups])
   useEffect(() => {
     if (!arrival) return
     const element = document.getElementById(`finding-${arrival.fingerprint}`)
@@ -129,10 +130,14 @@ export function FindingsTable({ findings, kpis, header, aside, column, exports, 
       </div>}
       {findings.length === 0
         ? <div className="flex flex-col items-center gap-2 py-14 text-center"><ShieldCheck className="size-7 text-brand" /><p className="font-medium">{t('empty.title')}</p><p className="max-w-md text-sm text-app-muted">{t('empty.body')}</p></div>
-        : <div className="overflow-hidden rounded-xl border border-app-line">
+        : <>{groups.length > 0 && groups.length < shown && <p className="text-xs text-app-muted">{t('table.grouped', { count: groups.length, problems: formatNumber(groups.length), findings: formatNumber(shown) })}</p>}
+        <div className="overflow-hidden rounded-xl border border-app-line">
           <div className={`hidden gap-3 border-b border-app-line px-4 py-2.5 text-xs text-app-subtle md:grid ${column ? 'grid-cols-[20px_120px_90px_minmax(0,1fr)_minmax(0,0.5fr)_80px_110px]' : 'grid-cols-[20px_120px_90px_minmax(0,1fr)_110px_110px]'}`}><input type="checkbox" aria-label={t('table.select_page')} checked={allOnPage} onChange={event => toggle(pageIds, event.target.checked)} className="size-4 accent-brand" /><span>{t('filters.priority')}</span><span>{t('filters.severity')}</span><span>{t('table.finding')}</span>{column && <span>{column.label}</span>}<span>EPSS</span><span>{t('filters.source')}</span></div>
           {page.length === 0 && <div className="px-4 py-10 text-center text-sm text-app-subtle">{triageView === 'active' && dismissed ? t('table.no_match_dismissed', { count: dismissed }) : t('table.no_match')}</div>}
-          {page.map(group => { const expanded = open === group.key
+          {page.map((group, index) => { const expanded = open === group.key
+            const region = `findings-group-${offset + index}`
+            // A web problem on several URLs opens to one entry per URL, each headed by its URL.
+            const perUrl = group.scanner === 'dast' && group.findings.length > 1
             const ids = group.findings.map(idOf)
             const first = group.findings[0]
             const statuses = new Set(group.findings.map(statusOf))
@@ -140,7 +145,7 @@ export function FindingsTable({ findings, kpis, header, aside, column, exports, 
             return <div key={group.key} className={`flex items-start border-b border-app-line last:border-b-0 ${SUPPRESSED.includes(statusOf(first)) && statuses.size === 1 ? 'opacity-70' : ''}`}>
               <input type="checkbox" aria-label={t('table.select_item', { name: column ? `${group.label} · ${column.text(first)}` : group.label })} checked={ids.every(item => selected.has(item))} onChange={event => toggle(ids, event.target.checked)} className="mt-4 ml-4 size-4 shrink-0 accent-brand" />
               <div className="min-w-0 flex-1">
-              <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : group.key)} className={`grid w-full gap-2 py-3 pr-4 pl-3 text-left motion-safe:transition hover:bg-app-soft md:items-center ${grid}`}>
+              <button type="button" aria-expanded={expanded} aria-controls={expanded ? region : undefined} onClick={() => setOpen(expanded ? null : group.key)} className={`grid w-full gap-2 py-3 pr-4 pl-3 text-left motion-safe:transition hover:bg-app-soft md:items-center ${grid}`}>
                 <Badge variant="outline" className={`w-fit ${actionClass(group.action)}`}>{labelOf(t, ACTION_LABEL, group.action)}</Badge>
                 <Badge variant="outline" className={`w-fit ${severityClass(group.severity)}`}>{labelOf(t, SEVERITY_LABEL, group.severity)}</Badge>
                 <span className="flex min-w-0 items-start gap-2"><ChevronRight className={`mt-1 size-3.5 shrink-0 text-app-subtle motion-safe:transition ${expanded ? 'rotate-90' : ''}`} /><span className="min-w-0"><span className="block truncate text-sm font-medium">{group.label}</span><span className="block truncate text-xs text-app-subtle">{group.meta}{group.kev ? ' · CISA KEV' : ''}{group.findings.some(item => item.ticket) ? ` · ${[...new Set(group.findings.flatMap(item => item.ticket ? [item.ticket.key] : []))].join(', ')}` : ''}</span>{first.lifecycle?.origin?.kind === 'pr' && <span className="mt-1 mr-1 inline-block rounded border border-info-line px-1.5 text-[11px] text-info">{first.lifecycle.origin.merged ? t('group.pr_merged', { number: first.lifecycle.origin.pr }) : t('group.pr', { number: first.lifecycle.origin.pr })}</span>}{first.lifecycle?.origin?.kind === 'import' && <span className="mt-1 mr-1 inline-block rounded border border-app-line px-1.5 text-[11px] text-app-muted">{t('group.imported')}</span>}<SlaPill sla={group.sla} />{group.findings.some(item => item.malicious) && <span className="mt-1 mr-1 inline-block rounded bg-danger-solid px-1.5 text-[11px] font-semibold text-on-solid" title={t('group.malicious_hint')}>{t('group.malicious')}</span>}{statuses.size > 1 ? <span className="mt-1 block text-[11px] text-app-subtle">{t('group.mixed', { statuses: [...statuses].map(item => t(TRIAGE_LABEL[item])).join(', ') })}</span> : <span className="mt-1 block"><TriageBadge state={groupState} /></span>}</span></span>
@@ -148,12 +153,12 @@ export function FindingsTable({ findings, kpis, header, aside, column, exports, 
                 <span className="font-mono text-xs text-app-muted">{group.epss !== null ? formatNumber(group.epss, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'}</span>
                 <span className="text-xs text-app-muted">{labelOf(t, SCANNER_LABEL, group.scanner)}{first.tool ? <span className="block text-[11px] text-app-subtle">{toolsOf(t, first)}</span> : null}</span>
               </button>
-              {expanded && <div className="space-y-3 border-t border-app-line bg-inset py-4 pr-4 pl-3">{group.findings.map(finding => <FindingDetail key={finding.finding_id} finding={finding} runId={finding.asset ? stateId(finding.asset.key) : runId} demo={(finding.asset?.key ?? assetKey) === DEMO_SOURCE} canAccept={canAccept} onChanged={onChanged} onPick={status => setDecision({ status, ids: [idOf(finding)] })}
+              {expanded && <div id={region} className="space-y-3 border-t border-app-line bg-inset py-4 pr-4 pl-3">{group.findings.map(finding => <FindingDetail key={finding.finding_id} finding={finding} heading={perUrl ? finding.path : undefined} runId={finding.asset ? stateId(finding.asset.key) : runId} demo={(finding.asset?.key ?? assetKey) === DEMO_SOURCE} canAccept={canAccept} onChanged={onChanged} onPick={status => setDecision({ status, ids: [idOf(finding)] })}
                 jira={<JiraFindingAction ticket={finding.ticket} pending={isPending(finding)} availability={availability} name={finding.advisory?.summary || finding.title} onCreate={() => setExporting([idOf(finding)])} />} />)}</div>}
               </div>
             </div> })}
           <Pagination total={groups.length} limit={PAGE} offset={Math.min(offset, Math.max(0, groups.length - 1))} onPrev={() => setOffset(current => Math.max(0, current - PAGE))} onNext={() => setOffset(current => current + PAGE)} noun={t('table.pagination', { count: findings.length })} />
-        </div>}
+        </div></>}
     </CardContent></Card>
 
     {exports(() => setAuditOpen(true))}

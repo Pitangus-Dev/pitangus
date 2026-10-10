@@ -2,7 +2,8 @@
 
 Advisories of the same package (same manifest and version) are closed by a single upgrade: the
 highest of the versions that fix each advisory. Code, secrets and infrastructure are handled one by
-one, but the same rule repeated across several files is a single pattern to fix.
+one, but the same rule repeated across several files is a single pattern to fix. A web problem (the same rule and
+title) found on several URLs is one fix too: one entry that lists its URLs, while each URL stays a finding of its own.
 """
 
 from __future__ import annotations
@@ -23,6 +24,30 @@ def _counts(items: list[dict]) -> dict[str, int]:
     return {level: sum(1 for item in items if item.get("severity") == level) for level in ORDER if any(item.get("severity") == level for item in items)}
 
 
+def _web_key(item: dict) -> tuple[str, str, str] | None:
+    """A web problem: the same rule with the same title, wherever it was seen."""
+    if item.get("scanner") != "dast" or not item.get("rule_id"):
+        return None
+    return ("web", str(item["rule_id"]), text(item.get("title")) if isinstance(item.get("title"), dict) else str(item.get("title") or ""))
+
+
+def problems(findings: list[dict]) -> list[list[dict]]:
+    """The findings in their order, one list per report row: a web problem's URLs together (at its first place),
+    anything else alone."""
+    rows: list[list[dict]] = []
+    seen: dict[tuple, list[dict]] = {}
+    for item in findings:
+        key = _web_key(item)
+        if key is None:
+            rows.append([item])
+        elif key in seen:
+            seen[key].append(item)
+        else:
+            seen[key] = [item]
+            rows.append(seen[key])
+    return rows
+
+
 def _ids(items: list[dict]) -> list[str]:
     ids = []
     for item in items:
@@ -30,12 +55,13 @@ def _ids(items: list[dict]) -> list[str]:
     return list(dict.fromkeys(ids))
 
 
-def fix_groups(findings: list[dict], *, by_rule: bool = False) -> list[dict]:
+def fix_groups(findings: list[dict], *, by_rule: bool = False, by_problem: bool = False) -> list[dict]:
     """One entry per fix, in priority order (active exploitation, severity, scope).
 
     Each entry: kind ("package" or "finding"), severity (the worst), items, counts, ids, kev, epss,
     and for packages name, version, path, target (the version that closes them all) and complete (all have a fix).
-    With by_rule, code findings of the same rule are grouped together (kind "rule")."""
+    With by_rule, code findings of the same rule are grouped together (kind "rule"); with by_problem, a web problem
+    on several URLs is one entry (kind "web", with its `urls`)."""
     groups: dict[tuple, list[dict]] = {}
     for item in findings:
         package = item.get("package") or {}
@@ -43,6 +69,8 @@ def fix_groups(findings: list[dict], *, by_rule: bool = False) -> list[dict]:
             key = ("package", item.get("path") or "", package["name"], package.get("version") or "")
         elif by_rule and item.get("rule_id"):
             key = ("rule", item.get("scanner") or "", item["rule_id"])
+        elif by_problem and (web := _web_key(item)) is not None:
+            key = web
         else:
             key = ("finding", item.get("fingerprint") or id(item))
         groups.setdefault(key, []).append(item)
@@ -60,6 +88,8 @@ def fix_groups(findings: list[dict], *, by_rule: bool = False) -> list[dict]:
                          ecosystem=(items[0]["package"].get("ecosystem") or ""))
         elif key[0] == "rule":
             entry.update(rule=key[2], title=items[0].get("title") or key[2])
+        elif key[0] == "web":
+            entry.update(rule=key[1], title=items[0].get("title") or key[1], urls=[str(item.get("path") or "") for item in items])
         result.append(entry)
     # Malicious and actively exploited first.
     return sorted(result, key=lambda entry: (not entry["malicious"], not entry["kev"], ORDER.get(entry["severity"], 9), -len(entry["items"]), -entry["epss"],

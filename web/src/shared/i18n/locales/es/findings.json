@@ -184,7 +184,9 @@
     "no_match_dismissed_one": "Nada coincide con estos filtros · {{count}} descartado en triage (cambia el filtro de estado para verlo).",
     "no_match_dismissed_other": "Nada coincide con estos filtros · {{count}} descartados en triage (cambia el filtro de estado para verlos).",
     "pagination_one": "elementos · {{count}} hallazgo",
-    "pagination_other": "elementos · {{count}} hallazgos"
+    "pagination_other": "elementos · {{count}} hallazgos",
+    "grouped_one": "{{findings}} hallazgos en {{problems}} problema",
+    "grouped_other": "{{findings}} hallazgos en {{problems}} problemas"
   },
   "scanner": {
     "sca": "Dependencia",
@@ -209,7 +211,9 @@
     "imported": "Importado",
     "malicious": "Malicioso",
     "malicious_hint": "Paquete malicioso conocido (OpenSSF): elimínalo y rota los secretos de donde se instaló",
-    "mixed": "Estados mixtos: {{statuses}}"
+    "mixed": "Estados mixtos: {{statuses}}",
+    "urls_one": "{{value}} URL",
+    "urls_other": "{{value}} URL"
   },
   "step": {
     "completed": "Completado",

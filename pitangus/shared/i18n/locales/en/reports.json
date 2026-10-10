@@ -127,7 +127,11 @@
     "low_info_one": "{{count}} low or informational",
     "low_info_other": "{{count}} low or informational",
     "are_critical_one": "{{count}} is critical",
-    "are_critical_other": "{{count}} are critical"
+    "are_critical_other": "{{count}} are critical",
+    "urls_one": "{{count}} URL",
+    "urls_other": "{{count}} URLs",
+    "more_urls_one": "and {{count}} more URL",
+    "more_urls_other": "and {{count}} more URLs"
   },
   "design": {
     "listing_last": "{{items}} and {{last}}",
@@ -207,7 +211,9 @@
     },
     "according_to": "**According to {{tool}}:** {{text}}",
     "parameter": "Parameter: `{{name}}`",
-    "evidence": "Evidence: `{{text}}`"
+    "evidence": "Evidence: `{{text}}`",
+    "urls_one": "URL: {{list}}",
+    "urls_other": "URLs ({{count}}): {{list}}"
   },
   "asset": {
     "title": "Current state of findings · {{name}}",
@@ -902,7 +908,9 @@
       "after": "After",
       "how_to_verify": "How to verify it",
       "verify_text": "After the change, \"Verify again\" in Pitangus (or the next full scan) marks it fixed once the rule no longer finds it.",
-      "verify_web": "Deploy the fix, then scan the domain again: “Reverify” in Pitangus (or the next scan of the domain) marks it fixed once the scanner no longer reports it."
+      "verify_web": "Deploy the fix, then scan the domain again: “Reverify” in Pitangus (or the next scan of the domain) marks it fixed once the scanner no longer reports it.",
+      "urls_one": "URL",
+      "urls_other": "URLs ({{count}})"
     }
   },
   "pdf": {
