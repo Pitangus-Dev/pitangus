@@ -11,7 +11,7 @@ export function DisconnectDomain({ domain, busy, error, onDisconnect }: { domain
   const scannable = domain.kind !== 'surface'
   return <section aria-labelledby="domain-disconnect" className="space-y-3 rounded-xl border border-danger-line p-4">
     <h2 id="domain-disconnect" className="text-base font-semibold text-danger">{t('domains.disconnect.title')}</h2>
-    <p className="text-sm text-app-secondary">{t('domains.disconnect.text', { host: domain.host })}</p>
+    <p className="text-sm text-app-secondary">{scannable || runs > 0 ? t('domains.disconnect.text', { host: domain.host }) : t('domains.disconnect.text_only', { host: domain.host })}</p>
     {(scannable || runs > 0) && <ul className="list-disc space-y-0.5 pl-5 text-sm text-app-secondary">
       {scannable && <>
         <li>{t('domains.disconnect.headers')}</li>
@@ -23,6 +23,6 @@ export function DisconnectDomain({ domain, busy, error, onDisconnect }: { domain
     </ul>}
     <p className="text-sm text-app-muted">{runs > 0 ? t('domains.disconnect.final_runs') : t('domains.disconnect.final')}</p>
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-    <Button variant="outline" disabled={busy} onClick={onDisconnect} className="border-danger-line text-danger">{t('domains.disconnect.button')}</Button>
+    <Button variant="outline" disabled={busy} onClick={onDisconnect} className="border-danger-line text-danger hover:text-danger dark:border-danger-line">{t('domains.disconnect.button')}</Button>
   </section>
 }

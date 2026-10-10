@@ -20,7 +20,9 @@ export function useRemoveDomain(onRemoved: (domain: Domain) => void) {
   })
   const ask = (domain: Domain) => void confirm({
     title: t('domains.list.remove_title', { host: domain.host }),
-    description: domain.runs ? t('domains.list.confirm_remove_runs', { count: domain.runs }) : t('domains.list.confirm_remove'),
+    description: domain.kind === 'surface'
+      ? domain.runs ? t('domains.list.confirm_remove_surface_runs', { count: domain.runs }) : t('domains.list.confirm_remove_surface')
+      : domain.runs ? t('domains.list.confirm_remove_runs', { count: domain.runs }) : t('domains.list.confirm_remove'),
     confirmLabel: t('domains.list.remove'), destructive: true,
   }).then(ok => { if (ok) removal.mutate(domain) })
   return { ask, removal }

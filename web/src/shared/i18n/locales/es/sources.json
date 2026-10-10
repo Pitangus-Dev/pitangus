@@ -311,7 +311,10 @@
       "login_for_other": "{{count}} usuarios de prueba de {{host}}",
       "showing": "Mostrando {{shown}} de {{total}}",
       "no_match": "Ningún dominio coincide con «{{query}}».",
-      "empty_member": "Quien administra los añade y verifica."
+      "empty_member": "Quien administra los añade y verifica.",
+      "confirm_remove_surface": "Sale de la lista. No se analizó ni importó nada contra él.",
+      "confirm_remove_surface_runs_one": "También se borra su único análisis o importación, con sus hallazgos, triage y tickets. No se puede deshacer.",
+      "confirm_remove_surface_runs_other": "También se borran sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets. No se puede deshacer."
     },
     "add": {
       "title": "Añadir dominio o API",
@@ -552,7 +555,8 @@
       "runs_other": "Sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets",
       "final": "No se analizó ni importó nada contra él, así que no se pierde ningún hallazgo. No se puede deshacer.",
       "final_runs": "No queda nada de él en Pitangus: exporta antes lo que necesites. No se puede deshacer.",
-      "button": "Desconectar dominio"
+      "button": "Desconectar dominio",
+      "text_only": "Quita {{host}} de Pitangus."
     }
   },
   "images": {
