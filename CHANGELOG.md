@@ -39,6 +39,15 @@ between minor versions: anything that changes behaviour is called out below.
   Teams notice sent, as soon as its last repository was queued, while the last scans were still running, so the notice
   could report fewer scans and findings than there were. It now waits for every scan of the batch to end.
 
+### Security
+
+- **The panel drops the `shadcn` package (292 fewer packages in its lockfile, braces among them).** Only its stylesheet
+  was used; it is now copied into the panel, so the CLI and its tree (fast-glob, ts-morph, braces with
+  GHSA-vfj7-8cjw-p6xm, which has no fixed release) are no longer installed to build it. The built panel doesn't change.
+- **Checkov's `requirements.txt` no longer lists asteval 1.0.6.** The image already installed 1.0.10 over it
+  (`overrides.txt`); the vulnerable pin stayed in the lock and scanners reported it. An overridden package now appears
+  only in `overrides.txt`, and a test checks it.
+
 ## [0.12.2] - 2026-10-09
 
 ### Added

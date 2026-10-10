@@ -35,7 +35,7 @@ Los registros salen por la salida de errores, legibles por defecto o como un obj
 
 ## Desarrollo y pruebas
 
-El frontend React/TypeScript usa [shadcn/ui](https://ui.shadcn.com/docs/installation/vite), Tailwind y Lucide. El selector de tema es un componente shadcn; soporta sistema, claro y oscuro (oscuro por defecto).
+El frontend React/TypeScript usa [shadcn/ui](https://ui.shadcn.com/docs/installation/vite), Tailwind y Lucide. El selector de tema es un componente shadcn; soporta sistema, claro y oscuro (oscuro por defecto). El paquete `shadcn` no es una dependencia: su hoja de estilos está copiada en `web/src/shared/ui/shadcn-tailwind.css`, y para añadir componentes basta con `pnpm dlx shadcn@<versión> add …` (lee `components.json`).
 
 ```bash
 corepack enable   # una vez: pnpm en la versión que fija web/package.json
