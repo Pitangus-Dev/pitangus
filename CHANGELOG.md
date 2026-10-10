@@ -161,8 +161,43 @@ between minor versions: anything that changes behaviour is called out below.
   `schedule_last_at`, `schedule_last_run` and `schedule_note` fields are gone. Alembic `0012_scan_schedule` adds
   `schedule_rule`; the data migration `scan_schedule_rules` keeps existing weekly schedules on the weekday and time of
   their next run, in UTC.
+- **Pitangus' own nuclei templates.** `pitangus/modules/scanning/rules/nuclei/` (ids `pitangus-…`) goes through the
+  same `allowed()` and page-level split as nuclei-templates, into its own cache folder (named after its digest) mounted
+  read-only at `/pitangus` next to the release: open directory listing (CWE-548) and credentials in JSON responses
+  (CWE-200) on every page, 26 fixed sensitive paths per host (CWE-200/538), published API descriptions, development
+  metadata files, and security.txt as a technology row. GET only, no query strings; each matcher proves the content.
+  Their title, description and remediation are stored in English and Spanish.
+- **A URL inventory for the web scan.** robots.txt (`Allow`/`Disallow` paths and `Sitemap:` lines) and the sitemaps
+  (an index followed down to 5 documents per host) are read by the worker from each host's pinned address, like an
+  OpenAPI definition; with katana's crawl, the definition's parameter-free GET paths and every URL ZAP requested (a new
+  `export` job in the plan), they make one inventory (in scope, no query strings, up to 500) that ZAP requests before
+  its spider and nuclei reads whole. A new step, `dast-inventory`, says what each source added. **Changed:**
+  `web_inventory` is now `{sources: {katana, robots, sitemap, openapi, zap}, count, urls}` (no `tool`).
+- **The findings table and the technical report group a web problem by rule and title.** One row "CSP: style-src
+  unsafe-inline · 3 URLs" opens to each URL (aria-expanded/aria-controls), each with its own fingerprint, triage and
+  lifecycle; the table says "15 findings in 8 problems" and the figures still count per URL. The PDF and Markdown
+  technical reports give such a problem one action, one sheet or one row with its URLs; the audit evidence keeps one row
+  per URL.
 
 ### Fixed
+
+- **A web tool that exits 0 without reaching a host is no longer a clean result.** nuclei (now without `-silent`,
+  with `-stats -sj`) skipping a host as unresponsive or refused ("denied address found for host"), templates that
+  couldn't execute or statistics showing no request sent; katana whose seed only errored; httpx without an answer; and
+  testssl.sh with a fatal `scanProblem` or an interrupted scan (exit 246) leave their step `partial`, name the hosts,
+  add a limitation and report the tool `inconclusive` in `summary.tools`, so the registry doesn't mark that tool's
+  earlier findings fixed.
+- **katana found pitangus.dev's /es/ again.** With `-kf all`, katana 1.7 dropped links it also saw in robots.txt or a
+  sitemap; the flag is gone (the inventory reads those files instead), and a URL its browser flags with an error after
+  reading it stays in the crawl.
+- **testssl.sh findings read as one problem each.** Rule ids lose their certificate suffix (`<hostCert#1>`, `<#2>`),
+  a check repeated per certificate is one finding, and every certificate problem (chain of trust, revocation, the
+  certificate's or an intermediate's expiry, lifetime, name) is one `certificate` finding per host with each check as
+  evidence, merged with nuclei's certificate templates; `security_headers` folds into ZAP's header findings.
+  **Changed:** testssl.sh findings get new fingerprints once (the old certificate ones are marked fixed by the next scan).
+- **"Last run" in the page header is the newest analysis.** It took the first repository or image scan of the list, so
+  newer web scans never showed; it now picks the newest analysis of any kind by date, and shows only on Overview,
+  Findings and Analyses.
 
 - **A scheduled scan is queued exactly once.** Locking the due domain, queuing its scan and moving its schedule on
   are now one transaction: a crash in between, or two rounds at once, can neither queue a slot twice nor lose it.
