@@ -89,7 +89,7 @@ def wildcard_pattern(wildcard: str) -> str:
 
 
 def plan(host: str, url: str, *, hosts=(), wildcards=(), headers=(), api: dict | None = None) -> dict:
-    """The Automation Framework plan: inside a context of the scope's hosts only, a spider per listed host (or the
+    """The Automation Framework plan: inside a context of the scope's hosts only, a spider per listed host (plus the
     OpenAPI import in API mode) and the passive rules; with `headers`, a replacer that adds them to requests for
     those hosts only."""
     extra = [item for item in hosts if item != host]
@@ -101,17 +101,17 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), headers=(), api: dict |
                      "rules": [{"description": f"pitangus header {index + 1}", "url": scope, "matchType": "req_header",
                                 "matchString": name, "matchRegex": False, "replacementString": value, "tokenProcessing": False}
                                for index, (name, value) in enumerate(headers)]})
+    # The spec adds the documented endpoints to the crawl, it doesn't replace it: a site and its API are one target.
+    jobs.append({"type": "spider", "parameters": {"context": CONTEXT, "url": url, "maxDuration": SPIDER_MINUTES, "maxDepth": 5,
+                                                  "threadCount": 2, "postForm": False, "acceptCookies": True}})
+    jobs += [{"type": "spider", "parameters": {"context": CONTEXT, "url": f"https://{item}/", "maxDuration": EXTRA_SPIDER_MINUTES,
+                                               "maxDepth": 5, "threadCount": 2, "postForm": False, "acceptCookies": True}}
+             for item in extra]
     if api is not None:
         jobs.append({"type": "openapi", "parameters": {"apiFile": api["file"], "context": CONTEXT, "targetUrl": api["target"]}})
-    else:
-        jobs.append({"type": "spider", "parameters": {"context": CONTEXT, "url": url, "maxDuration": SPIDER_MINUTES, "maxDepth": 5,
-                                                      "threadCount": 2, "postForm": False, "acceptCookies": True}})
-        jobs += [{"type": "spider", "parameters": {"context": CONTEXT, "url": f"https://{item}/", "maxDuration": EXTRA_SPIDER_MINUTES,
-                                                   "maxDepth": 5, "threadCount": 2, "postForm": False, "acceptCookies": True}}
-                 for item in extra]
     jobs += [{"type": "passiveScan-wait", "parameters": {"maxDuration": PASSIVE_MINUTES}},
              {"type": "report", "parameters": {"template": "sarif-json", "reportDir": WORK, "reportFile": "zap"}}]
-    start = [api["target"]] if api is not None else [url, *(f"https://{item}/" for item in extra)]
+    start = list(dict.fromkeys([url, *(f"https://{item}/" for item in extra), *([api["target"]] if api is not None else [])]))
     return {"env": {"contexts": [{"name": CONTEXT, "urls": start, "includePaths": patterns}],
                     "parameters": {"failOnError": True, "failOnWarning": False, "progressToStdout": True}},
             "jobs": jobs}

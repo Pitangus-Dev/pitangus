@@ -101,10 +101,14 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
                                ("LINEABOVE", (0, 0), (-1, 0), 1.2, INK), ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE)]))
     story = [head, Paragraph(_t(item.get("title"), 200), STYLE["sheet_title"]), facts]
     web = item.get("web") or {}
+    if item.get("reason") or web.get("description"):
+        story.append(Paragraph(_t(t("reports.technical.sheet.what_happens")), STYLE["h4"]))
     if item.get("reason"):
-        story += [Paragraph(_t(t("reports.technical.sheet.what_happens")), STYLE["h4"]), Paragraph(rich(item["reason"], 600), STYLE["body"])]
-    if web.get("description"):  # the scanner's own text about its rule
-        story.append(Paragraph(rich(web["description"], 600), STYLE["body"]))
+        story.append(Paragraph(rich(item["reason"], 600), STYLE["body"]))
+    if web.get("description"):  # the scanner's own text about its rule, attributed
+        # The Markdown key marks the attribution in bold (**…**); a PDF paragraph would print the asterisks.
+        said = i18n.t("reports.markdown.according_to", locale, tool=item.get("tool") or "", text=web["description"]).replace("**", "")
+        story.append(Paragraph(rich(said, 700), STYLE["note"]))
     story += [Paragraph(_t(t("reports.technical.sheet.how_to_fix")), STYLE["h4"]),
               Paragraph(rich(item.get("remediation") or t("reports.technical.fallback_fix"), 600), STYLE["body"])]
     fix = localize(item.get("fix") or guide(cast(Finding, item)), locale) or {}
@@ -120,9 +124,9 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
               Paragraph(_t(t("reports.technical.sheet.verify_web" if item.get("scanner") == "dast" else "reports.technical.sheet.verify_text")), STYLE["body"])]
     for command in fix.get("commands") or []:
         if command.get("action") == "check":
-            story += [Spacer(1, 4), _code_block(command.get("code") or "")]
+            story += [Spacer(1, 4), _code_block(command.get("code") or "", Paragraph(_t(command.get("label") or ""), STYLE["label"]))]
     references = [url for url in [*((item.get("advisory") or {}).get("references") or []), *(web.get("references") or [])]
-                  if str(url).startswith("https://")][:3]
+                  if str(url).startswith(("https://", "http://"))][:3]
     if references:
         story.append(Paragraph(_t(i18n.t("reports.common.references", locale, list=" · ".join(references)), 400), STYLE["note"]))
     # The heading and the facts never part; the rest may flow onto the next page.

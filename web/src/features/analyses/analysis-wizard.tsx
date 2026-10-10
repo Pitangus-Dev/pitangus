@@ -147,7 +147,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
     const host = domain?.host ?? ''
     const specValue = spec ? spec.mode === 'file' ? `${spec.filename} · ${t('spec.summary', { version: spec.version, count: spec.endpoints })}` : spec.url : t('review.spec_none')
     const rows: ReviewRow[] = [typeRow,
-      { label: t('review.target'), value: hosts.length && !spec ? t('review.scope_value', { host, count: hosts.length }) : host, step: 0 },
+      { label: t('review.target'), value: hosts.length ? t('review.scope_value', { host, count: hosts.length }) : host, step: 0 },
       ...(spec || domain?.kind === 'api' ? [{ label: t('review.spec'), value: specValue, step: 0 }] : []),
       { label: t('review.access'), value: sending ? t('review.access_value', { count: headerNames.length, names: formatList(headerNames) }) : t('review.access_none'), step: steps.indexOf('access') },
       ...(domain?.context ? [{ label: t('review.context'), value: domain.context }] : [])]

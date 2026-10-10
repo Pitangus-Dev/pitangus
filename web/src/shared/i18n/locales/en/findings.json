@@ -11,7 +11,11 @@
     "load_failed": "Couldn't load these findings: {{error}}",
     "assets_failed": "Couldn't load the assets: {{error}}",
     "removed": "GitHub has had no access to this repository since {{date}} (it was deleted or removed from the App). If access doesn't come back, its findings, triage and linked tickets are deleted after 24 hours.",
-    "tabs": { "open": "Open", "fixed": "Fixed", "excluded": "Excluded" },
+    "tabs": {
+      "open": "Open",
+      "fixed": "Fixed",
+      "excluded": "Excluded"
+    },
     "kind_scan": "Full scan",
     "kind_advisory": "New advisories",
     "kind_pr": "PR",
@@ -21,7 +25,7 @@
   },
   "web": {
     "eyebrow": "Passive web scan · ZAP",
-    "help": "A passive scan: ZAP read the site's responses without attacking it.",
+    "help": "A passive scan: ZAP read the site's responses without attacking it. Each finding is a signal: confirm it in the application.",
     "what": "What it is",
     "where": "Where",
     "evidence": "Evidence",
@@ -33,7 +37,9 @@
     "according_to": "according to {{tool}}",
     "parameter": "Parameter",
     "check_hint": "After deploying, run it and compare the header with the evidence.",
-    "rescan": "Deploy the fix, then scan the domain again: “Reverify” below, or a new import if the finding came from your own scanner."
+    "show_more": "Show more",
+    "show_less": "Show less",
+    "new_tab": "(opens in a new tab)"
   },
   "import": {
     "eyebrow": "SARIF import · {{tool}}",
@@ -46,17 +52,27 @@
   },
   "state": {
     "eyebrow": "Current state · {{provider}}",
-    "provider": { "registry": "container image", "local": "local", "repository": "repository" },
-    "pending_one": "<strong>{{count}}</strong> pending", "pending_other": "<strong>{{count}}</strong> pending",
-    "from_pr_one": "({{count}} comes from open PRs)", "from_pr_other": "({{count}} come from open PRs)",
-    "fixed_one": "<strong>{{count}}</strong> fixed", "fixed_other": "<strong>{{count}}</strong> fixed",
-    "suppressed_one": "{{count}} dismissed in triage", "suppressed_other": "{{count}} dismissed in triage",
-    "excluded_one": "{{count}} in excluded paths", "excluded_other": "{{count}} in excluded paths",
+    "provider": {
+      "registry": "container image",
+      "local": "local",
+      "repository": "repository"
+    },
+    "pending_one": "<strong>{{count}}</strong> pending",
+    "pending_other": "<strong>{{count}}</strong> pending",
+    "from_pr_one": "({{count}} comes from open PRs)",
+    "from_pr_other": "({{count}} come from open PRs)",
+    "fixed_one": "<strong>{{count}}</strong> fixed",
+    "fixed_other": "<strong>{{count}}</strong> fixed",
+    "suppressed_one": "{{count}} dismissed in triage",
+    "suppressed_other": "{{count}} dismissed in triage",
+    "excluded_one": "{{count}} in excluded paths",
+    "excluded_other": "{{count}} in excluded paths",
     "help": "Combines full scans and PR reviews and keeps itself up to date: anything that stops showing up is marked fixed, and anything that comes back is reopened."
   },
   "pr": {
     "eyebrow": "PR review · {{name}}",
-    "changed_files_one": "{{count}} file changed", "changed_files_other": "{{count}} files changed",
+    "changed_files_one": "{{count}} file changed",
+    "changed_files_other": "{{count}} files changed",
     "blocks": "Blocks",
     "passes": "Passes",
     "scope": "Only what this PR <strong>introduces</strong> shows up here.",
@@ -68,29 +84,39 @@
   "scan": {
     "image": "Container image",
     "code": "Code scan",
-    "provider": { "registry": "registry", "local": "local" },
+    "provider": {
+      "registry": "registry",
+      "local": "local"
+    },
     "digest": "digest",
     "user": "user {{user}}",
-    "agreement_one": "{{count}} advisory confirmed by both Trivy and Grype", "agreement_other": "{{count}} advisories confirmed by both Trivy and Grype",
+    "agreement_one": "{{count}} advisory confirmed by both Trivy and Grype",
+    "agreement_other": "{{count}} advisories confirmed by both Trivy and Grype",
     "snapshot": "snapshot",
     "branch": "branch <code>{{branch}}</code>",
     "branch_commit": "branch <code>{{branch}}</code> at commit <code>{{commit}}</code>",
-    "files_one": "{{count}} file", "files_other": "{{count}} files",
-    "dependencies_one": "{{count}} dependency", "dependencies_other": "{{count}} dependencies",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "dependencies_one": "{{count}} dependency",
+    "dependencies_other": "{{count}} dependencies",
     "new": "New scan",
     "repository": "Repository"
   },
   "tiles": {
     "overdue": "Overdue",
-    "due_soon_one": "{{count}} due in the next 7 days", "due_soon_other": "{{count}} due in the next 7 days",
+    "due_soon_one": "{{count}} due in the next 7 days",
+    "due_soon_other": "{{count}} due in the next 7 days",
     "critical": "Critical",
     "high": "High",
     "kev": "In CISA KEV",
     "kev_hint": "actively exploited",
     "fixable": "Fix available",
-    "of_pending_one": "of {{count}} pending", "of_pending_other": "of {{count}} pending",
-    "of_excluded_one": "of {{count}} excluded", "of_excluded_other": "of {{count}} excluded",
-    "dismissed_one": "{{count}} dismissed", "dismissed_other": "{{count}} dismissed"
+    "of_pending_one": "of {{count}} pending",
+    "of_pending_other": "of {{count}} pending",
+    "of_excluded_one": "of {{count}} excluded",
+    "of_excluded_other": "of {{count}} excluded",
+    "dismissed_one": "{{count}} dismissed",
+    "dismissed_other": "{{count}} dismissed"
   },
   "filters": {
     "search": "Search findings",
@@ -101,20 +127,35 @@
     "status": "Status",
     "any_status": "Any status",
     "status_options": {
-      "active": "Pending", "open": "Open", "in_progress": "In progress", "fixed": "Fixed",
-      "false_positive": "False positives", "accepted": "Accepted risk"
+      "active": "Pending",
+      "open": "Open",
+      "in_progress": "In progress",
+      "fixed": "Fixed",
+      "false_positive": "False positives",
+      "accepted": "Accepted risk"
     },
     "priority": "Priority",
     "any_priority": "Any priority",
     "source": "Source",
     "any_source": "Any source",
-    "source_options": { "sca": "Dependencies", "sast": "Code", "iac": "Infrastructure", "cicd": "CI/CD pipelines", "secrets": "Secrets", "dast": "Web (DAST)" },
+    "source_options": {
+      "sca": "Dependencies",
+      "sast": "Code",
+      "iac": "Infrastructure",
+      "cicd": "CI/CD pipelines",
+      "secrets": "Secrets",
+      "dast": "Web (DAST)"
+    },
     "deadline": "Due date",
     "any_deadline": "Any due date",
-    "deadline_options": { "overdue": "Overdue", "soon": "Overdue or due within 7 days" }
+    "deadline_options": {
+      "overdue": "Overdue",
+      "soon": "Overdue or due within 7 days"
+    }
   },
   "selection": {
-    "count_one": "{{count}} selected", "count_other": "{{count}} selected",
+    "count_one": "{{count}} selected",
+    "count_other": "{{count}} selected",
     "jira": "Create in Jira",
     "jira_max": "Up to {{max}} findings at once",
     "jira_dismissed": "Dismissed or excluded findings don't go to Jira",
@@ -132,12 +173,23 @@
     "no_match": "Nothing matches these filters.",
     "no_match_dismissed_one": "Nothing matches these filters · {{count}} dismissed in triage (change the status filter to see it).",
     "no_match_dismissed_other": "Nothing matches these filters · {{count}} dismissed in triage (change the status filter to see them).",
-    "pagination_one": "items · {{count}} finding", "pagination_other": "items · {{count}} findings"
+    "pagination_one": "items · {{count}} finding",
+    "pagination_other": "items · {{count}} findings"
   },
-  "scanner": { "sca": "Dependency", "sast": "Code", "secrets": "Secret", "iac": "Infrastructure", "cicd": "CI/CD", "dast": "Web" },
-  "tool": { "pitangus": "Pitangus rules" },
+  "scanner": {
+    "sca": "Dependency",
+    "sast": "Code",
+    "secrets": "Secret",
+    "iac": "Infrastructure",
+    "cicd": "CI/CD",
+    "dast": "Web"
+  },
+  "tool": {
+    "pitangus": "Pitangus rules"
+  },
   "group": {
-    "advisories_one": "{{count}} advisory", "advisories_other": "{{count}} advisories",
+    "advisories_one": "{{count}} advisory",
+    "advisories_other": "{{count}} advisories",
     "dev": "development",
     "transitive": "transitive",
     "upgrade": "upgrade to {{version}}",
@@ -150,7 +202,11 @@
     "mixed": "Mixed statuses: {{statuses}}"
   },
   "step": {
-    "completed": "Completed", "partial": "Partial", "not_tested": "Not tested", "inconclusive": "Inconclusive", "pending": "Pending"
+    "completed": "Completed",
+    "partial": "Partial",
+    "not_tested": "Not tested",
+    "inconclusive": "Inconclusive",
+    "pending": "Pending"
   },
   "export": {
     "pdf": "PDF report",
@@ -172,7 +228,8 @@
   },
   "log": {
     "title": "Scan log",
-    "events_one": "{{count}} event", "events_other": "{{count}} events",
+    "events_one": "{{count}} event",
+    "events_other": "{{count}} events",
     "seconds": "{{seconds}} s"
   },
   "coverage": {
@@ -220,9 +277,11 @@
     "excluded_pattern": "Excluded: it's in a path an admin excluded (<code>{{pattern}}</code>). It doesn't count as open or block PRs."
   },
   "sla": {
-    "overdue_one": "Overdue by {{count}} day", "overdue_other": "Overdue by {{count}} days",
+    "overdue_one": "Overdue by {{count}} day",
+    "overdue_other": "Overdue by {{count}} days",
     "due_today": "Due today",
-    "due_in_one": "Due in {{count}} day", "due_in_other": "Due in {{count}} days",
+    "due_in_one": "Due in {{count}} day",
+    "due_in_other": "Due in {{count}} days",
     "pill_title_one": "{{count}}-day deadline from first detection · due {{due}}",
     "pill_title_other": "{{count}}-day deadline from first detection · due {{due}}"
   },
@@ -260,7 +319,11 @@
   },
   "triage": {
     "verb": {
-      "open": "Reopen", "in_progress": "In progress", "false_positive": "False positive", "accepted": "Accept risk", "fixed": "Mark fixed"
+      "open": "Reopen",
+      "in_progress": "In progress",
+      "false_positive": "False positive",
+      "accepted": "Accept risk",
+      "fixed": "Mark fixed"
     },
     "expired": "Acceptance expired",
     "more_states": "More statuses",
@@ -271,7 +334,8 @@
       "accepted": "You take on the risk for a limited time: it stops counting as pending until the expiry date, then reopens on its own.",
       "fixed": "Marks it fixed without waiting for the next scan. Explain how it was fixed (PR, patch, deploy) so it's in the history. If the next scan finds it again, it reopens on its own."
     },
-    "dialog_title_one": "{{action}} · {{count}} finding", "dialog_title_other": "{{action}} · {{count}} findings",
+    "dialog_title_one": "{{action}} · {{count}} finding",
+    "dialog_title_other": "{{action}} · {{count}} findings",
     "reason": "Reason",
     "reason_optional": "Reason (optional)",
     "placeholder": {
@@ -312,27 +376,89 @@
     "imported": "{{tool}} reported it, so only {{tool}} can tell whether it's gone: import a new full SARIF from it."
   },
   "audit": {
-    "framework_groups": { "international": "International", "eu": "European Union", "us": "United States", "latam": "Latin America" },
+    "framework_groups": {
+      "international": "International",
+      "eu": "European Union",
+      "us": "United States",
+      "latam": "Latin America"
+    },
     "frameworks": {
-      "soc2": { "name": "SOC 2 Type II", "hint": "Maps the evidence to CC3.2, CC7.1 and CC8.1" },
-      "iso27001": { "name": "ISO/IEC 27001:2022", "hint": "Maps the evidence to A.8.8, A.8.9, A.8.28 and A.8.29" },
-      "pci": { "name": "PCI DSS 4.0.1", "hint": "Requirements 6.2.4, 6.3.1, 6.3.2 (inventory) and 6.3.3 (patching within a month)" },
-      "cra": { "name": "EU Cyber Resilience Act (CRA)", "hint": "Annex I, part II (vulnerabilities, SBOM, testing) and article 14" },
-      "br_cmn": { "name": "Brazil · CMN Res. 4.893 / 5.274", "hint": "Continuous vulnerability management, testing and traceability" },
-      "cl_21663": { "name": "Chile · Law 21.663", "hint": "Risk management, periodic review and a record of decisions" },
-      "co_sfc": { "name": "Colombia · SFC, CE 007 of 2018", "hint": "Technical vulnerabilities, secure development and evidence for supervisors" },
-      "nis2": { "name": "NIS2 · Directive (EU) 2022/2555", "hint": "Art. 21(2) and technical annex: secure development, testing and vulnerabilities" },
-      "dora": { "name": "DORA · Regulation (EU) 2022/2554", "hint": "Financial entities in the EU: ICT risk, testing and vulnerability management" },
-      "gdpr": { "name": "GDPR · Art. 32", "hint": "Security of processing: the technical side of the software that handles personal data" },
-      "nist_ssdf": { "name": "NIST SSDF · SP 800-218", "hint": "Secure software development (the basis of the US government's attestation form)" },
-      "nist_csf": { "name": "NIST CSF 2.0", "hint": "Identify and Protect: inventory, vulnerabilities, risk responses and secure development" },
-      "nist_800_53": { "name": "NIST SP 800-53 Rev. 5", "hint": "FedRAMP: vulnerability scanning, flaw remediation and developer testing" },
-      "hipaa": { "name": "HIPAA Security Rule", "hint": "Healthcare in the US: input for risk analysis and risk management" },
-      "mx_cnbv_cub": { "name": "Mexico · CNBV, banks (CUB)", "hint": "Banks: vulnerability tests and code analysis, classification and remediation plans" },
-      "mx_cnbv_ifc": { "name": "Mexico · CNBV, crowdfunding (IFC)", "hint": "Crowdfunding institutions: vulnerability tests, classification and remediation" },
-      "mx_ifpe": { "name": "Mexico · e-money institutions (IFPE)", "hint": "E-money institutions: vulnerability scanning, remediation plan and code analysis before release" },
-      "mx_lfpdppp": { "name": "Mexico · LFPDPPP, Art. 18", "hint": "Personal data: technical security measures of the software" },
-      "general": { "name": "General", "hint": "No framework: vulnerability management" }
+      "soc2": {
+        "name": "SOC 2 Type II",
+        "hint": "Maps the evidence to CC3.2, CC7.1 and CC8.1"
+      },
+      "iso27001": {
+        "name": "ISO/IEC 27001:2022",
+        "hint": "Maps the evidence to A.8.8, A.8.9, A.8.28 and A.8.29"
+      },
+      "pci": {
+        "name": "PCI DSS 4.0.1",
+        "hint": "Requirements 6.2.4, 6.3.1, 6.3.2 (inventory) and 6.3.3 (patching within a month)"
+      },
+      "cra": {
+        "name": "EU Cyber Resilience Act (CRA)",
+        "hint": "Annex I, part II (vulnerabilities, SBOM, testing) and article 14"
+      },
+      "br_cmn": {
+        "name": "Brazil · CMN Res. 4.893 / 5.274",
+        "hint": "Continuous vulnerability management, testing and traceability"
+      },
+      "cl_21663": {
+        "name": "Chile · Law 21.663",
+        "hint": "Risk management, periodic review and a record of decisions"
+      },
+      "co_sfc": {
+        "name": "Colombia · SFC, CE 007 of 2018",
+        "hint": "Technical vulnerabilities, secure development and evidence for supervisors"
+      },
+      "nis2": {
+        "name": "NIS2 · Directive (EU) 2022/2555",
+        "hint": "Art. 21(2) and technical annex: secure development, testing and vulnerabilities"
+      },
+      "dora": {
+        "name": "DORA · Regulation (EU) 2022/2554",
+        "hint": "Financial entities in the EU: ICT risk, testing and vulnerability management"
+      },
+      "gdpr": {
+        "name": "GDPR · Art. 32",
+        "hint": "Security of processing: the technical side of the software that handles personal data"
+      },
+      "nist_ssdf": {
+        "name": "NIST SSDF · SP 800-218",
+        "hint": "Secure software development (the basis of the US government's attestation form)"
+      },
+      "nist_csf": {
+        "name": "NIST CSF 2.0",
+        "hint": "Identify and Protect: inventory, vulnerabilities, risk responses and secure development"
+      },
+      "nist_800_53": {
+        "name": "NIST SP 800-53 Rev. 5",
+        "hint": "FedRAMP: vulnerability scanning, flaw remediation and developer testing"
+      },
+      "hipaa": {
+        "name": "HIPAA Security Rule",
+        "hint": "Healthcare in the US: input for risk analysis and risk management"
+      },
+      "mx_cnbv_cub": {
+        "name": "Mexico · CNBV, banks (CUB)",
+        "hint": "Banks: vulnerability tests and code analysis, classification and remediation plans"
+      },
+      "mx_cnbv_ifc": {
+        "name": "Mexico · CNBV, crowdfunding (IFC)",
+        "hint": "Crowdfunding institutions: vulnerability tests, classification and remediation"
+      },
+      "mx_ifpe": {
+        "name": "Mexico · e-money institutions (IFPE)",
+        "hint": "E-money institutions: vulnerability scanning, remediation plan and code analysis before release"
+      },
+      "mx_lfpdppp": {
+        "name": "Mexico · LFPDPPP, Art. 18",
+        "hint": "Personal data: technical security measures of the software"
+      },
+      "general": {
+        "name": "General",
+        "hint": "No framework: vulnerability management"
+      }
     },
     "mapping_note": "The mapping to each control is indicative.",
     "framework_hint": "{{hint}}.",
@@ -342,7 +468,10 @@
     "framework": "Framework",
     "portfolio_scope": "Every scanned repository in the organization, its coverage against GitHub (which ones lack a complete scan), open critical and high findings, and exceptions, in one document.",
     "findings_legend": "Findings in the report",
-    "scope": { "selected": "Selected", "filtered": "What your filters show" },
+    "scope": {
+      "selected": "Selected",
+      "filtered": "What your filters show"
+    },
     "organization": "Organization",
     "organization_placeholder": "e.g. Acme Inc. · AppSec team",
     "prepared_for": "Prepared for",
@@ -362,7 +491,8 @@
     "disclaimer": "This is technical evidence for the auditor, not an audit opinion or a certification. Review and sign it before you hand it over.",
     "generating": "Generating…",
     "generate_portfolio": "Generate consolidated PDF",
-    "generate_one": "Generate PDF · {{count}} finding", "generate_other": "Generate PDF · {{count}} findings",
+    "generate_one": "Generate PDF · {{count}} finding",
+    "generate_other": "Generate PDF · {{count}} findings",
     "file": "{{name}}-evidence-{{framework}}.pdf"
   },
   "secret_rules": {
@@ -425,8 +555,10 @@
     }
   },
   "scope": {
-    "eyebrow_one": "Several assets · {{value}}", "eyebrow_other": "Several assets · {{value}}",
-    "chosen_one": "{{count}} chosen asset", "chosen_other": "{{count}} chosen assets",
+    "eyebrow_one": "Several assets · {{value}}",
+    "eyebrow_other": "Several assets · {{value}}",
+    "chosen_one": "{{count}} chosen asset",
+    "chosen_other": "{{count}} chosen assets",
     "everything": "Everything analyzed",
     "help": "The current state of every asset in this scope, taken together: scans, PRs and imports. Open an asset to see its runs and settings.",
     "one_asset_only": "Excluded paths, secret rules and picking a specific run work on one asset: choose “One” or open an asset under “By asset”.",
@@ -437,10 +569,14 @@
     "picker_failed": "Couldn't load the organizations and assets to choose from. Reload the page to try again.",
     "asset_inline": "Asset: {{name}}",
     "asset": "Asset",
-    "selected_one": "{{value}} selected in {{assets}} assets", "selected_other": "{{value}} selected in {{assets}} assets",
-    "triage_across_one": "Saved separately in each of the {{count}} assets.", "triage_across_other": "Saved separately in each of the {{count}} assets.",
-    "triage_partial_one": "Saved in {{count}} of {{total}} assets. These failed:", "triage_partial_other": "Saved in {{count}} of {{total}} assets. These failed:",
-    "triage_retry_one": "Retry {{count}} asset", "triage_retry_other": "Retry {{count}} assets",
+    "selected_one": "{{value}} selected in {{assets}} assets",
+    "selected_other": "{{value}} selected in {{assets}} assets",
+    "triage_across_one": "Saved separately in each of the {{count}} assets.",
+    "triage_across_other": "Saved separately in each of the {{count}} assets.",
+    "triage_partial_one": "Saved in {{count}} of {{total}} assets. These failed:",
+    "triage_partial_other": "Saved in {{count}} of {{total}} assets. These failed:",
+    "triage_retry_one": "Retry {{count}} asset",
+    "triage_retry_other": "Retry {{count}} assets",
     "audit_assets_open_one": "The asset in this scope with its open findings (critical and high in detail) and exceptions, in one document.",
     "audit_assets_open_other": "The {{value}} assets in this scope with their open findings (critical and high in detail) and exceptions, in one document.",
     "audit_assets_all_one": "The asset in this scope with all its findings (open, fixed and exceptions), in one document.",
@@ -450,11 +586,16 @@
     "by_asset": {
       "title": "By asset",
       "hint": "Pending work in each asset, most critical first. Open one to see only its findings.",
-      "repository": "Repository", "image": "Image", "domain": "Domain",
+      "repository": "Repository",
+      "image": "Image",
+      "domain": "Domain",
       "open": "show only this asset",
-      "pending_one": "{{value}} pending", "pending_other": "{{value}} pending",
-      "critical_one": "{{value}} critical", "critical_other": "{{value}} critical",
-      "all_one": "Show all {{value}}", "all_other": "Show all {{value}}",
+      "pending_one": "{{value}} pending",
+      "pending_other": "{{value}} pending",
+      "critical_one": "{{value}} critical",
+      "critical_other": "{{value}} critical",
+      "all_one": "Show all {{value}}",
+      "all_other": "Show all {{value}}",
       "fewer": "Show fewer"
     }
   }

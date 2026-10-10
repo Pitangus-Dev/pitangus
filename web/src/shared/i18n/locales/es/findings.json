@@ -11,7 +11,11 @@
     "load_failed": "No se pudieron cargar estos hallazgos: {{error}}",
     "assets_failed": "No se pudieron cargar los activos: {{error}}",
     "removed": "GitHub ya no da acceso a este repositorio (se borró o se quitó de la App) desde el {{date}}. Si no vuelve, sus hallazgos, triage y tickets enlazados se borran a las 24 horas.",
-    "tabs": { "open": "Abiertos", "fixed": "Remediados", "excluded": "Excluidos" },
+    "tabs": {
+      "open": "Abiertos",
+      "fixed": "Remediados",
+      "excluded": "Excluidos"
+    },
     "kind_scan": "Escaneo completo",
     "kind_advisory": "Avisos nuevos",
     "kind_pr": "PR",
@@ -21,8 +25,8 @@
   },
   "web": {
     "eyebrow": "Análisis web pasivo · ZAP",
-    "help": "Análisis pasivo: ZAP leyó las respuestas del sitio sin atacarlo.",
-    "what": "Qué pasa",
+    "help": "Análisis pasivo: ZAP leyó las respuestas del sitio sin atacarlo. Cada hallazgo es una señal: confírmalo en la aplicación.",
+    "what": "Qué es",
     "where": "Dónde",
     "evidence": "Evidencia",
     "highlighted": "Resaltado: la parte a la que se refiere el hallazgo.",
@@ -33,7 +37,9 @@
     "according_to": "según {{tool}}",
     "parameter": "Parámetro",
     "check_hint": "Después de desplegar, ejecútalo y compara la cabecera con la evidencia.",
-    "rescan": "Despliega la corrección y vuelve a analizar el dominio: «Reverificar» abajo, o una importación nueva si el hallazgo vino de tu propio escáner."
+    "show_more": "Ver más",
+    "show_less": "Ver menos",
+    "new_tab": "(se abre en otra pestaña)"
   },
   "import": {
     "eyebrow": "Importación SARIF · {{tool}}",
@@ -46,17 +52,27 @@
   },
   "state": {
     "eyebrow": "Estado actual · {{provider}}",
-    "provider": { "registry": "imagen de contenedor", "local": "local", "repository": "repositorio" },
-    "pending_one": "<strong>{{count}}</strong> pendiente", "pending_other": "<strong>{{count}}</strong> pendientes",
-    "from_pr_one": "({{count}} viene de PRs abiertos)", "from_pr_other": "({{count}} vienen de PRs abiertos)",
-    "fixed_one": "<strong>{{count}}</strong> remediado", "fixed_other": "<strong>{{count}}</strong> remediados",
-    "suppressed_one": "{{count}} descartado en triage", "suppressed_other": "{{count}} descartados en triage",
-    "excluded_one": "{{count}} en rutas excluidas", "excluded_other": "{{count}} en rutas excluidas",
+    "provider": {
+      "registry": "imagen de contenedor",
+      "local": "local",
+      "repository": "repositorio"
+    },
+    "pending_one": "<strong>{{count}}</strong> pendiente",
+    "pending_other": "<strong>{{count}}</strong> pendientes",
+    "from_pr_one": "({{count}} viene de PRs abiertos)",
+    "from_pr_other": "({{count}} vienen de PRs abiertos)",
+    "fixed_one": "<strong>{{count}}</strong> remediado",
+    "fixed_other": "<strong>{{count}}</strong> remediados",
+    "suppressed_one": "{{count}} descartado en triage",
+    "suppressed_other": "{{count}} descartados en triage",
+    "excluded_one": "{{count}} en rutas excluidas",
+    "excluded_other": "{{count}} en rutas excluidas",
     "help": "Junta los escaneos completos y las revisiones de PR. Se actualiza solo: lo que deja de aparecer queda remediado, lo que vuelve se reabre."
   },
   "pr": {
     "eyebrow": "Revisión de PR · {{name}}",
-    "changed_files_one": "{{count}} archivo cambiado", "changed_files_other": "{{count}} archivos cambiados",
+    "changed_files_one": "{{count}} archivo cambiado",
+    "changed_files_other": "{{count}} archivos cambiados",
     "blocks": "Bloquea",
     "passes": "Pasa",
     "scope": "Aquí solo aparece lo que <strong>introduce</strong> este PR.",
@@ -68,29 +84,39 @@
   "scan": {
     "image": "Imagen de contenedor",
     "code": "Análisis de código",
-    "provider": { "registry": "registro", "local": "local" },
+    "provider": {
+      "registry": "registro",
+      "local": "local"
+    },
     "digest": "digest",
     "user": "usuario {{user}}",
-    "agreement_one": "{{count}} aviso confirmado por Trivy y Grype", "agreement_other": "{{count}} avisos confirmados por Trivy y Grype",
+    "agreement_one": "{{count}} aviso confirmado por Trivy y Grype",
+    "agreement_other": "{{count}} avisos confirmados por Trivy y Grype",
     "snapshot": "snapshot",
     "branch": "rama <code>{{branch}}</code>",
     "branch_commit": "rama <code>{{branch}}</code> en el commit <code>{{commit}}</code>",
-    "files_one": "{{count}} archivo", "files_other": "{{count}} archivos",
-    "dependencies_one": "{{count}} dependencia", "dependencies_other": "{{count}} dependencias",
+    "files_one": "{{count}} archivo",
+    "files_other": "{{count}} archivos",
+    "dependencies_one": "{{count}} dependencia",
+    "dependencies_other": "{{count}} dependencias",
     "new": "Nuevo análisis",
     "repository": "Repositorio"
   },
   "tiles": {
     "overdue": "Fuera de plazo",
-    "due_soon_one": "{{count}} vence en los próximos 7 días", "due_soon_other": "{{count}} vencen en los próximos 7 días",
+    "due_soon_one": "{{count}} vence en los próximos 7 días",
+    "due_soon_other": "{{count}} vencen en los próximos 7 días",
     "critical": "Críticas",
     "high": "Altas",
     "kev": "En CISA KEV",
     "kev_hint": "explotación activa",
     "fixable": "Con corrección",
-    "of_pending_one": "de {{count}} pendiente", "of_pending_other": "de {{count}} pendientes",
-    "of_excluded_one": "de {{count}} excluido", "of_excluded_other": "de {{count}} excluidos",
-    "dismissed_one": "{{count}} descartado", "dismissed_other": "{{count}} descartados"
+    "of_pending_one": "de {{count}} pendiente",
+    "of_pending_other": "de {{count}} pendientes",
+    "of_excluded_one": "de {{count}} excluido",
+    "of_excluded_other": "de {{count}} excluidos",
+    "dismissed_one": "{{count}} descartado",
+    "dismissed_other": "{{count}} descartados"
   },
   "filters": {
     "search": "Buscar hallazgos",
@@ -101,20 +127,35 @@
     "status": "Estado",
     "any_status": "Todos los estados",
     "status_options": {
-      "active": "Pendientes", "open": "Abiertos", "in_progress": "En curso", "fixed": "Remediados",
-      "false_positive": "Falsos positivos", "accepted": "Riesgo aceptado"
+      "active": "Pendientes",
+      "open": "Abiertos",
+      "in_progress": "En curso",
+      "fixed": "Remediados",
+      "false_positive": "Falsos positivos",
+      "accepted": "Riesgo aceptado"
     },
     "priority": "Prioridad",
     "any_priority": "Cualquier prioridad",
     "source": "Fuente",
     "any_source": "Cualquier fuente",
-    "source_options": { "sca": "Dependencias", "sast": "Código", "iac": "Infraestructura", "cicd": "Pipelines CI/CD", "secrets": "Secretos", "dast": "Web (DAST)" },
+    "source_options": {
+      "sca": "Dependencias",
+      "sast": "Código",
+      "iac": "Infraestructura",
+      "cicd": "Pipelines CI/CD",
+      "secrets": "Secretos",
+      "dast": "Web (DAST)"
+    },
     "deadline": "Plazo",
     "any_deadline": "Cualquier plazo",
-    "deadline_options": { "overdue": "Fuera de plazo", "soon": "Vencidos o vencen en 7 días" }
+    "deadline_options": {
+      "overdue": "Fuera de plazo",
+      "soon": "Vencidos o vencen en 7 días"
+    }
   },
   "selection": {
-    "count_one": "{{count}} seleccionado", "count_other": "{{count}} seleccionados",
+    "count_one": "{{count}} seleccionado",
+    "count_other": "{{count}} seleccionados",
     "jira": "Crear en Jira",
     "jira_max": "Hasta {{max}} hallazgos a la vez",
     "jira_dismissed": "Los hallazgos descartados o excluidos no van a Jira",
@@ -132,12 +173,23 @@
     "no_match": "Nada coincide con estos filtros.",
     "no_match_dismissed_one": "Nada coincide con estos filtros · {{count}} descartado en triage (cambia el filtro de estado para verlo).",
     "no_match_dismissed_other": "Nada coincide con estos filtros · {{count}} descartados en triage (cambia el filtro de estado para verlos).",
-    "pagination_one": "elementos · {{count}} hallazgo", "pagination_other": "elementos · {{count}} hallazgos"
+    "pagination_one": "elementos · {{count}} hallazgo",
+    "pagination_other": "elementos · {{count}} hallazgos"
   },
-  "scanner": { "sca": "Dependencia", "sast": "Código", "secrets": "Secreto", "iac": "Infraestructura", "cicd": "CI/CD", "dast": "Web" },
-  "tool": { "pitangus": "Reglas de Pitangus" },
+  "scanner": {
+    "sca": "Dependencia",
+    "sast": "Código",
+    "secrets": "Secreto",
+    "iac": "Infraestructura",
+    "cicd": "CI/CD",
+    "dast": "Web"
+  },
+  "tool": {
+    "pitangus": "Reglas de Pitangus"
+  },
   "group": {
-    "advisories_one": "{{count}} aviso", "advisories_other": "{{count}} avisos",
+    "advisories_one": "{{count}} aviso",
+    "advisories_other": "{{count}} avisos",
     "dev": "de desarrollo",
     "transitive": "transitiva",
     "upgrade": "actualizar a {{version}}",
@@ -150,7 +202,11 @@
     "mixed": "Estados mixtos: {{statuses}}"
   },
   "step": {
-    "completed": "Completado", "partial": "Parcial", "not_tested": "No probado", "inconclusive": "Inconcluso", "pending": "Pendiente"
+    "completed": "Completado",
+    "partial": "Parcial",
+    "not_tested": "No probado",
+    "inconclusive": "Inconcluso",
+    "pending": "Pendiente"
   },
   "export": {
     "pdf": "Informe PDF",
@@ -172,7 +228,8 @@
   },
   "log": {
     "title": "Registro del escaneo",
-    "events_one": "{{count}} evento", "events_other": "{{count}} eventos",
+    "events_one": "{{count}} evento",
+    "events_other": "{{count}} eventos",
     "seconds": "{{seconds}} s"
   },
   "coverage": {
@@ -220,9 +277,11 @@
     "excluded_pattern": "Excluido: está en una ruta que un administrador excluyó (<code>{{pattern}}</code>). No cuenta como abierto ni bloquea PRs."
   },
   "sla": {
-    "overdue_one": "Vencido hace {{count}} día", "overdue_other": "Vencido hace {{count}} días",
+    "overdue_one": "Vencido hace {{count}} día",
+    "overdue_other": "Vencido hace {{count}} días",
     "due_today": "Vence hoy",
-    "due_in_one": "Vence en {{count}} día", "due_in_other": "Vence en {{count}} días",
+    "due_in_one": "Vence en {{count}} día",
+    "due_in_other": "Vence en {{count}} días",
     "pill_title_one": "Plazo de {{count}} día desde la primera detección · vence el {{due}}",
     "pill_title_other": "Plazo de {{count}} días desde la primera detección · vence el {{due}}"
   },
@@ -260,7 +319,11 @@
   },
   "triage": {
     "verb": {
-      "open": "Reabrir", "in_progress": "En curso", "false_positive": "Falso positivo", "accepted": "Aceptar riesgo", "fixed": "Marcar remediado"
+      "open": "Reabrir",
+      "in_progress": "En curso",
+      "false_positive": "Falso positivo",
+      "accepted": "Aceptar riesgo",
+      "fixed": "Marcar remediado"
     },
     "expired": "Aceptación caducada",
     "more_states": "Más estados",
@@ -271,7 +334,8 @@
       "accepted": "El riesgo se asume de forma temporal: deja de contar como pendiente hasta la fecha de caducidad y luego vuelve a abrirse solo.",
       "fixed": "Se da por corregido sin esperar al siguiente escaneo. Explica cómo se remedió (PR, parche, despliegue): queda en el historial. Si el próximo escaneo lo vuelve a encontrar, se reabre solo."
     },
-    "dialog_title_one": "{{action}} · {{count}} hallazgo", "dialog_title_other": "{{action}} · {{count}} hallazgos",
+    "dialog_title_one": "{{action}} · {{count}} hallazgo",
+    "dialog_title_other": "{{action}} · {{count}} hallazgos",
     "reason": "Motivo",
     "reason_optional": "Motivo (opcional)",
     "placeholder": {
@@ -312,27 +376,89 @@
     "imported": "Lo reportó {{tool}}, así que solo {{tool}} puede confirmar si ya no está: importa un SARIF completo nuevo de esa herramienta."
   },
   "audit": {
-    "framework_groups": { "international": "Internacionales", "eu": "Unión Europea", "us": "Estados Unidos", "latam": "Latinoamérica" },
+    "framework_groups": {
+      "international": "Internacionales",
+      "eu": "Unión Europea",
+      "us": "Estados Unidos",
+      "latam": "Latinoamérica"
+    },
     "frameworks": {
-      "soc2": { "name": "SOC 2 Tipo II", "hint": "Relaciona la evidencia con CC3.2, CC7.1 y CC8.1" },
-      "iso27001": { "name": "ISO/IEC 27001:2022", "hint": "Relaciona la evidencia con A.8.8, A.8.9, A.8.28 y A.8.29" },
-      "pci": { "name": "PCI DSS 4.0.1", "hint": "Requisitos 6.2.4, 6.3.1, 6.3.2 (inventario) y 6.3.3 (parches en un mes)" },
-      "cra": { "name": "Ciberresiliencia de la UE (CRA)", "hint": "Anexo I, parte II (vulnerabilidades, SBOM, pruebas) y artículo 14" },
-      "br_cmn": { "name": "Brasil · Res. CMN 4.893 / 5.274", "hint": "Gestión continua de vulnerabilidades, pruebas y trazabilidad" },
-      "cl_21663": { "name": "Chile · Ley 21.663", "hint": "Gestión de riesgos, revisión periódica y registro de decisiones" },
-      "co_sfc": { "name": "Colombia · SFC, CE 007 de 2018", "hint": "Vulnerabilidades técnicas, desarrollo seguro y evidencia para supervisión" },
-      "nis2": { "name": "NIS2 · Directiva (UE) 2022/2555", "hint": "Art. 21(2) y anexo técnico: desarrollo seguro, pruebas y vulnerabilidades" },
-      "dora": { "name": "DORA · Reglamento (UE) 2022/2554", "hint": "Entidades financieras de la UE: riesgo TIC, pruebas y gestión de vulnerabilidades" },
-      "gdpr": { "name": "RGPD · art. 32", "hint": "Seguridad del tratamiento: la parte técnica del software que trata datos personales" },
-      "nist_ssdf": { "name": "NIST SSDF · SP 800-218", "hint": "Desarrollo de software seguro (la base de la declaración que el gobierno de EE. UU. pide a sus proveedores)" },
-      "nist_csf": { "name": "NIST CSF 2.0", "hint": "Identificar y Proteger: inventario, vulnerabilidades, respuesta al riesgo y desarrollo seguro" },
-      "nist_800_53": { "name": "NIST SP 800-53 Rev. 5", "hint": "FedRAMP: análisis de vulnerabilidades, corrección de fallos y pruebas del desarrollador" },
-      "hipaa": { "name": "HIPAA, Regla de Seguridad", "hint": "Salud en EE. UU.: insumo para el análisis y la gestión de riesgos" },
-      "mx_cnbv_cub": { "name": "México · CNBV, bancos (CUB)", "hint": "Bancos: pruebas de vulnerabilidades y análisis de código, clasificación y planes de remediación" },
-      "mx_cnbv_ifc": { "name": "México · CNBV, financiamiento colectivo (IFC)", "hint": "Instituciones de financiamiento colectivo: pruebas, clasificación y remediación de vulnerabilidades" },
-      "mx_ifpe": { "name": "México · fondos de pago electrónico (IFPE)", "hint": "Fondos de pago electrónico: escaneo de vulnerabilidades, plan de remediación y análisis de código antes de liberar" },
-      "mx_lfpdppp": { "name": "México · LFPDPPP, art. 18", "hint": "Datos personales: medidas de seguridad técnicas del software" },
-      "general": { "name": "General", "hint": "Sin marco: gestión de vulnerabilidades" }
+      "soc2": {
+        "name": "SOC 2 Tipo II",
+        "hint": "Relaciona la evidencia con CC3.2, CC7.1 y CC8.1"
+      },
+      "iso27001": {
+        "name": "ISO/IEC 27001:2022",
+        "hint": "Relaciona la evidencia con A.8.8, A.8.9, A.8.28 y A.8.29"
+      },
+      "pci": {
+        "name": "PCI DSS 4.0.1",
+        "hint": "Requisitos 6.2.4, 6.3.1, 6.3.2 (inventario) y 6.3.3 (parches en un mes)"
+      },
+      "cra": {
+        "name": "Ciberresiliencia de la UE (CRA)",
+        "hint": "Anexo I, parte II (vulnerabilidades, SBOM, pruebas) y artículo 14"
+      },
+      "br_cmn": {
+        "name": "Brasil · Res. CMN 4.893 / 5.274",
+        "hint": "Gestión continua de vulnerabilidades, pruebas y trazabilidad"
+      },
+      "cl_21663": {
+        "name": "Chile · Ley 21.663",
+        "hint": "Gestión de riesgos, revisión periódica y registro de decisiones"
+      },
+      "co_sfc": {
+        "name": "Colombia · SFC, CE 007 de 2018",
+        "hint": "Vulnerabilidades técnicas, desarrollo seguro y evidencia para supervisión"
+      },
+      "nis2": {
+        "name": "NIS2 · Directiva (UE) 2022/2555",
+        "hint": "Art. 21(2) y anexo técnico: desarrollo seguro, pruebas y vulnerabilidades"
+      },
+      "dora": {
+        "name": "DORA · Reglamento (UE) 2022/2554",
+        "hint": "Entidades financieras de la UE: riesgo TIC, pruebas y gestión de vulnerabilidades"
+      },
+      "gdpr": {
+        "name": "RGPD · art. 32",
+        "hint": "Seguridad del tratamiento: la parte técnica del software que trata datos personales"
+      },
+      "nist_ssdf": {
+        "name": "NIST SSDF · SP 800-218",
+        "hint": "Desarrollo de software seguro (la base de la declaración que el gobierno de EE. UU. pide a sus proveedores)"
+      },
+      "nist_csf": {
+        "name": "NIST CSF 2.0",
+        "hint": "Identificar y Proteger: inventario, vulnerabilidades, respuesta al riesgo y desarrollo seguro"
+      },
+      "nist_800_53": {
+        "name": "NIST SP 800-53 Rev. 5",
+        "hint": "FedRAMP: análisis de vulnerabilidades, corrección de fallos y pruebas del desarrollador"
+      },
+      "hipaa": {
+        "name": "HIPAA, Regla de Seguridad",
+        "hint": "Salud en EE. UU.: insumo para el análisis y la gestión de riesgos"
+      },
+      "mx_cnbv_cub": {
+        "name": "México · CNBV, bancos (CUB)",
+        "hint": "Bancos: pruebas de vulnerabilidades y análisis de código, clasificación y planes de remediación"
+      },
+      "mx_cnbv_ifc": {
+        "name": "México · CNBV, financiamiento colectivo (IFC)",
+        "hint": "Instituciones de financiamiento colectivo: pruebas, clasificación y remediación de vulnerabilidades"
+      },
+      "mx_ifpe": {
+        "name": "México · fondos de pago electrónico (IFPE)",
+        "hint": "Fondos de pago electrónico: escaneo de vulnerabilidades, plan de remediación y análisis de código antes de liberar"
+      },
+      "mx_lfpdppp": {
+        "name": "México · LFPDPPP, art. 18",
+        "hint": "Datos personales: medidas de seguridad técnicas del software"
+      },
+      "general": {
+        "name": "General",
+        "hint": "Sin marco: gestión de vulnerabilidades"
+      }
     },
     "mapping_note": "La relación con cada control es orientativa.",
     "framework_hint": "{{hint}}.",
@@ -342,7 +468,10 @@
     "framework": "Marco",
     "portfolio_scope": "Todos los repositorios analizados de la organización, su cobertura frente a GitHub (cuáles no tienen un análisis completo), los críticos y altos abiertos y las excepciones, en un solo documento.",
     "findings_legend": "Hallazgos del informe",
-    "scope": { "selected": "Seleccionados", "filtered": "Los que ves con los filtros" },
+    "scope": {
+      "selected": "Seleccionados",
+      "filtered": "Los que ves con los filtros"
+    },
     "organization": "Organización",
     "organization_placeholder": "p. ej. Acme S.A.S. · Equipo AppSec",
     "prepared_for": "Preparado para",
@@ -362,7 +491,8 @@
     "disclaimer": "Es evidencia técnica para el auditor, no una opinión de auditoría ni una certificación. Revísala y fírmala antes de entregarla.",
     "generating": "Generando…",
     "generate_portfolio": "Generar PDF consolidado",
-    "generate_one": "Generar PDF · {{count}} hallazgo", "generate_other": "Generar PDF · {{count}} hallazgos",
+    "generate_one": "Generar PDF · {{count}} hallazgo",
+    "generate_other": "Generar PDF · {{count}} hallazgos",
     "file": "{{name}}-evidencia-{{framework}}.pdf"
   },
   "secret_rules": {
@@ -425,8 +555,10 @@
     }
   },
   "scope": {
-    "eyebrow_one": "Varios activos · {{value}}", "eyebrow_other": "Varios activos · {{value}}",
-    "chosen_one": "{{count}} activo elegido", "chosen_other": "{{count}} activos elegidos",
+    "eyebrow_one": "Varios activos · {{value}}",
+    "eyebrow_other": "Varios activos · {{value}}",
+    "chosen_one": "{{count}} activo elegido",
+    "chosen_other": "{{count}} activos elegidos",
     "everything": "Todo lo analizado",
     "help": "El estado actual de todos los activos de este alcance en conjunto: escaneos, PR e importaciones. Abre un activo para ver sus ejecuciones y su configuración.",
     "one_asset_only": "Las rutas excluidas, las reglas de secretos y elegir una ejecución concreta van por activo: elige «Uno» o abre un activo en «Por activo».",
@@ -437,10 +569,14 @@
     "picker_failed": "No se pudieron cargar las organizaciones y los activos para elegir. Recarga la página para intentarlo de nuevo.",
     "asset_inline": "Activo: {{name}}",
     "asset": "Activo",
-    "selected_one": "{{value}} seleccionado en {{assets}} activos", "selected_other": "{{value}} seleccionados en {{assets}} activos",
-    "triage_across_one": "Se guarda por separado en cada uno de los {{count}} activos.", "triage_across_other": "Se guarda por separado en cada uno de los {{count}} activos.",
-    "triage_partial_one": "Guardado en {{count}} de {{total}} activos. Fallaron estos:", "triage_partial_other": "Guardado en {{count}} de {{total}} activos. Fallaron estos:",
-    "triage_retry_one": "Reintentar {{count}} activo", "triage_retry_other": "Reintentar {{count}} activos",
+    "selected_one": "{{value}} seleccionado en {{assets}} activos",
+    "selected_other": "{{value}} seleccionados en {{assets}} activos",
+    "triage_across_one": "Se guarda por separado en cada uno de los {{count}} activos.",
+    "triage_across_other": "Se guarda por separado en cada uno de los {{count}} activos.",
+    "triage_partial_one": "Guardado en {{count}} de {{total}} activos. Fallaron estos:",
+    "triage_partial_other": "Guardado en {{count}} de {{total}} activos. Fallaron estos:",
+    "triage_retry_one": "Reintentar {{count}} activo",
+    "triage_retry_other": "Reintentar {{count}} activos",
     "audit_assets_open_one": "El activo de este alcance con sus hallazgos abiertos (críticos y altos en detalle) y las excepciones, en un solo documento.",
     "audit_assets_open_other": "Los {{value}} activos de este alcance con sus hallazgos abiertos (críticos y altos en detalle) y las excepciones, en un solo documento.",
     "audit_assets_all_one": "El activo de este alcance con todos sus hallazgos (abiertos, remediados y excepciones), en un solo documento.",
@@ -450,11 +586,16 @@
     "by_asset": {
       "title": "Por activo",
       "hint": "Lo pendiente en cada activo, primero lo más crítico. Abre uno para ver solo sus hallazgos.",
-      "repository": "Repositorio", "image": "Imagen", "domain": "Dominio",
+      "repository": "Repositorio",
+      "image": "Imagen",
+      "domain": "Dominio",
       "open": "ver solo este activo",
-      "pending_one": "{{value}} pendiente", "pending_other": "{{value}} pendientes",
-      "critical_one": "{{value}} crítico", "critical_other": "{{value}} críticos",
-      "all_one": "Ver {{value}}", "all_other": "Ver los {{value}}",
+      "pending_one": "{{value}} pendiente",
+      "pending_other": "{{value}} pendientes",
+      "critical_one": "{{value}} crítico",
+      "critical_other": "{{value}} críticos",
+      "all_one": "Ver {{value}}",
+      "all_other": "Ver los {{value}}",
       "fewer": "Ver menos"
     }
   }

@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
 import { CodeBlock } from '@/features/findings/fix-guide'
@@ -13,13 +13,18 @@ export function WebFinding({ finding }: { finding: RepositoryFinding }) {
   const said = tool ? t('web.according_to', { tool }) : undefined
   const highlight = finding.fix?.web?.highlight
   const check = finding.fix?.web?.check
+  const checkLabel = finding.fix?.commands?.[0]?.label ?? t('web.how_to_check')
+  const [more, setMore] = useState(false)
   const references = (web.references ?? []).filter(url => /^https?:\/\//i.test(url))
   // Old findings kept only the message and the solution inside our own sentence ("ZAP reports: …"): shown as they are.
   const showReason = !!finding.reason && !(web.description && finding.reason.includes(web.description))
   return <div className="mt-3 space-y-3">
     <Section title={t('web.what')} note={web.description ? said : undefined}>
-      {web.description && <p className="whitespace-pre-line">{web.description}</p>}
-      {showReason && <p className={web.description ? 'text-xs text-app-muted' : ''}>{finding.reason}</p>}
+      {showReason && <p className="whitespace-pre-line wrap-anywhere">{finding.reason}</p>}
+      {web.description && <>
+        <p className={`whitespace-pre-line wrap-anywhere ${showReason ? 'mt-1 text-xs text-app-muted' : ''} ${more ? '' : 'line-clamp-3'}`}>{web.description}</p>
+        {web.description.length > 240 && <button type="button" aria-expanded={more} onClick={() => setMore(value => !value)} className="mt-1 min-h-6 text-xs text-brand hover:underline">{more ? t('web.show_less') : t('web.show_more')}</button>}
+      </>}
     </Section>
     <Section title={t('web.where')}>
       <p className="font-mono text-xs break-all">{web.method && <span className="mr-1.5 rounded border border-app-line px-1 py-0.5 text-app-muted">{web.method}</span>}{finding.path}</p>
@@ -34,14 +39,13 @@ export function WebFinding({ finding }: { finding: RepositoryFinding }) {
         <pre className="mt-1 rounded-lg border border-app-line bg-inset p-3 font-mono text-xs leading-5 whitespace-pre-wrap text-app-secondary wrap-anywhere">{web.attack}</pre></div>}
     </Section>}
     <Section title={t('web.how_to_fix')} note={web.solution ? said : undefined} tone="brand">
-      <p className="whitespace-pre-line">{web.solution || finding.remediation}</p>
+      <p className="whitespace-pre-line wrap-anywhere">{web.solution || finding.remediation}</p>
     </Section>
-    <Section title={t('web.how_to_check')}>
-      {check && <><CodeBlock code={check} label={t('web.how_to_check')} /><p className="mt-1 mb-2 text-xs text-app-muted">{t('web.check_hint')}</p></>}
-      <p className="text-xs text-app-muted">{t('web.rescan')}</p>
-    </Section>
+    {check && <Section title={t('web.how_to_check')}>
+      <CodeBlock code={check} label={checkLabel} /><p className="mt-1 text-xs text-app-muted">{t('web.check_hint')}</p>
+    </Section>}
     {references.length > 0 && <Section title={t('web.references')} note={said}>
-      <ul className="space-y-0.5 text-xs">{references.map(url => <li key={url} className="min-w-0"><a href={url} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-1 text-brand hover:underline"><span className="truncate">{label(url)}</span><ExternalLink className="size-3 shrink-0" /></a></li>)}</ul>
+      <ul className="space-y-1 text-xs">{references.map(url => <li key={url} className="min-w-0"><a href={url} title={url} target="_blank" rel="noreferrer" className="inline-flex min-h-6 max-w-full items-center gap-1 text-brand hover:underline"><span className="truncate">{label(url)}</span><ExternalLink className="size-3 shrink-0" /><span className="sr-only">{t('web.new_tab')}</span></a></li>)}</ul>
     </Section>}
   </div>
 }

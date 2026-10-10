@@ -54,6 +54,7 @@ describe('web findings', () => {
     await user.click(screen.getByRole('button', { name: /CSP: style-src unsafe-inline/ }))
     expect(screen.getByText('ZAP reports: style-src includes unsafe-inline.')).toBeTruthy()
     expect(screen.getByText('Guidance from ZAP: Ensure that your web server sets the header.')).toBeTruthy()
-    expect(screen.getByText(i18n.t('findings:web.rescan'))).toBeTruthy()
+    // No check command: no "how to check" section; «Reverificar» below already says to re-scan.
+    expect(screen.queryByText(i18n.t('findings:web.how_to_check'))).toBeNull()
   })
 })

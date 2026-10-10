@@ -901,7 +901,7 @@
       "after": "After",
       "how_to_verify": "How to verify it",
       "verify_text": "After the change, \"Verify again\" in Pitangus (or the next full scan) marks it fixed once the rule no longer finds it.",
-      "verify_web": "Deploy the fix, then scan the domain again: “Re-verify” in Pitangus (or the next scan of the domain) marks it fixed once the scanner no longer reports it."
+      "verify_web": "Deploy the fix, then scan the domain again: “Reverify” in Pitangus (or the next scan of the domain) marks it fixed once the scanner no longer reports it."
     }
   },
   "pdf": {

@@ -1,9 +1,17 @@
 {
   "run_type": {
-    "repository_scan": "Code scan", "image_scan": "Container image", "pr_review": "PR review",
-    "advisory_watch": "New advisories", "sarif_import": "SARIF import", "dast_scan": "Web scan"
+    "repository_scan": "Code scan",
+    "image_scan": "Container image",
+    "pr_review": "PR review",
+    "advisory_watch": "New advisories",
+    "sarif_import": "SARIF import",
+    "dast_scan": "Web scan"
   },
-  "duration": { "minutes": "~{{value}} min", "hours": "~{{value}} h", "under_two_minutes": "under 2 min" },
+  "duration": {
+    "minutes": "~{{value}} min",
+    "hours": "~{{value}} h",
+    "under_two_minutes": "under 2 min"
+  },
   "listing_more": "{{names}} and {{rest}} more",
   "remove_item": "Remove {{name}}",
   "chooser": {
@@ -129,7 +137,7 @@
     "optional": "(optional)",
     "add": "Add API documentation",
     "nudge": "An API has few links to follow: add its OpenAPI spec so the scan calls each documented endpoint.",
-    "instead": "With it, the scan calls the documented endpoints instead of browsing the site.",
+    "instead": "With it, the scan also calls every documented endpoint, besides crawling the site.",
     "choose": "Upload OpenAPI file",
     "replace": "Replace",
     "remove": "Remove {{name}}",
@@ -249,9 +257,11 @@
   "batch": {
     "last_one": "Last batch · {{label}}: {{count}} scanned{{failed}}{{cancelled}}{{critical}}.",
     "last_other": "Last batch · {{label}}: {{count}} scanned{{failed}}{{cancelled}}{{critical}}.",
-    "failed_one": ", {{count}} failed", "failed_other": ", {{count}} failed",
+    "failed_one": ", {{count}} failed",
+    "failed_other": ", {{count}} failed",
     "cancelled": " · cancelled",
-    "critical_one": " · {{count}} critical", "critical_other": " · {{count}} critical",
+    "critical_one": " · {{count}} critical",
+    "critical_other": " · {{count}} critical",
     "cancel_title": "Cancel the batch?",
     "keep_running": "Keep scanning",
     "confirm_cancel": "Whatever is already scanned is kept, and the scan in progress finishes.",
@@ -259,7 +269,8 @@
     "cancel": "Cancel batch",
     "progress_label": "Batch: {{done}} of {{total}} scanned",
     "progress": "{{done}} of {{total}} scanned{{failed}} · {{critical}} critical and {{high}} high so far · {{duration}} left. It moves forward whenever nothing else is scanning, so you can keep using the panel.",
-    "progress_failed_one": " ({{count}} failed)", "progress_failed_other": " ({{count}} failed)",
+    "progress_failed_one": " ({{count}} failed)",
+    "progress_failed_other": " ({{count}} failed)",
     "show_failed": "Show failed"
   },
   "import": {
@@ -280,26 +291,37 @@
     },
     "scope": {
       "label": "Scope",
-      "full": "Full", "full_hint": "Everything the tool checked in this asset: what it no longer reports is marked fixed",
-      "partial": "Partial", "partial_hint": "Only some files or one module: adds and updates, never marks anything fixed",
+      "full": "Full",
+      "full_hint": "Everything the tool checked in this asset: what it no longer reports is marked fixed",
+      "partial": "Partial",
+      "partial_hint": "Only some files or one module: adds and updates, never marks anything fixed",
       "note": "Pitangus scans never close imported findings, and imports never close theirs."
     },
     "more": "More options",
     "optional": "(optional)",
-    "tool": "Tool name", "tool_hint": "Replaces the name in the file.",
-    "commit": "Commit", "commit_invalid": "Use the commit SHA: 7 to 64 hexadecimal characters.",
-    "branch": "Branch", "branch_invalid": "That isn't a valid branch name.",
-    "submit": "Import findings", "submitting": "Importing…",
+    "tool": "Tool name",
+    "tool_hint": "Replaces the name in the file.",
+    "commit": "Commit",
+    "commit_invalid": "Use the commit SHA: 7 to 64 hexadecimal characters.",
+    "branch": "Branch",
+    "branch_invalid": "That isn't a valid branch name.",
+    "submit": "Import findings",
+    "submitting": "Importing…",
     "too_large": "The file is over the server's {{max}} MB limit.",
     "result": {
       "title": "Imported into {{name}}",
       "description_full": "One run per tool. Whatever each tool no longer reports is now marked fixed.",
       "description_partial": "One run per tool. Partial import: nothing was marked fixed.",
-      "findings_one": "{{count}} finding", "findings_other": "{{count}} findings",
-      "opened_one": "{{count}} new", "opened_other": "{{count}} new",
-      "fixed_one": "{{count}} fixed", "fixed_other": "{{count}} fixed",
-      "skipped_one": "{{count}} not imported (suppressed or passing)", "skipped_other": "{{count}} not imported (suppressed or passing)",
-      "open": "View findings", "open_label": "View findings from {{tool}}",
+      "findings_one": "{{count}} finding",
+      "findings_other": "{{count}} findings",
+      "opened_one": "{{count}} new",
+      "opened_other": "{{count}} new",
+      "fixed_one": "{{count}} fixed",
+      "fixed_other": "{{count}} fixed",
+      "skipped_one": "{{count}} not imported (suppressed or passing)",
+      "skipped_other": "{{count}} not imported (suppressed or passing)",
+      "open": "View findings",
+      "open_label": "View findings from {{tool}}",
       "another": "Import another file"
     }
   },
@@ -315,12 +337,27 @@
     "empty_title": "No scans yet",
     "empty_text": "Your scans will show up here. Run the first one on a repository or a container image.",
     "new": "New scan",
-    "columns": { "status": "Status", "analysis": "Scan", "type": "Type", "findings": "Findings", "started": "Started" },
-    "fallback": { "asset": "Asset", "repository": "Repository", "image": "Image", "pull_request": "Pull request", "analysis": "Scan" },
+    "columns": {
+      "status": "Status",
+      "analysis": "Scan",
+      "type": "Type",
+      "findings": "Findings",
+      "started": "Started"
+    },
+    "fallback": {
+      "asset": "Asset",
+      "repository": "Repository",
+      "image": "Image",
+      "pull_request": "Pull request",
+      "analysis": "Scan"
+    },
     "hint": {
-      "pr_review_one": "new in the PR", "pr_review_other": "new in the PR",
-      "advisory_watch_one": "new advisory", "advisory_watch_other": "new advisories",
-      "candidates_one": "candidate", "candidates_other": "candidates"
+      "pr_review_one": "new in the PR",
+      "pr_review_other": "new in the PR",
+      "advisory_watch_one": "new advisory",
+      "advisory_watch_other": "new advisories",
+      "candidates_one": "candidate",
+      "candidates_other": "candidates"
     },
     "trigger_branch": "· automatic: the branch changed",
     "trigger_branch_sha": "· automatic: the branch changed ({{sha}})",
@@ -328,7 +365,12 @@
     "trigger_advisories": "· automatic: published after the last scan",
     "trigger_import": "· from {{tool}}",
     "trigger_import_partial": "· from {{tool}}, partial",
-    "severity_letter": { "critical": "C", "high": "H", "medium": "M", "low": "L" },
+    "severity_letter": {
+      "critical": "C",
+      "high": "H",
+      "medium": "M",
+      "low": "L"
+    },
     "severity_count": "{{severity}}: {{value}}",
     "noun": "scans"
   },

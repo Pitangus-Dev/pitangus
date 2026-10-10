@@ -356,11 +356,11 @@ class ScopeAndAccessPlanTests(unittest.TestCase):
             self.assertFalse(re.fullmatch(rule["url"], url), url)
         self.assertNotIn("activeScan", json.dumps(plan))
 
-    def test_api_mode_imports_the_definition_instead_of_crawling(self):
+    def test_api_mode_adds_the_documented_endpoints_to_the_crawl(self):
         plan = web.plan(HOST, f"https://{HOST}/", api={"file": "/zap/wrk/spec.json", "target": f"https://{HOST}/v1"})
-        self.assertEqual([job["type"] for job in plan["jobs"]], ["openapi", "passiveScan-wait", "report"])
-        self.assertEqual(plan["jobs"][0]["parameters"], {"apiFile": "/zap/wrk/spec.json", "context": web.CONTEXT, "targetUrl": f"https://{HOST}/v1"})
-        self.assertEqual(plan["env"]["contexts"][0]["urls"], [f"https://{HOST}/v1"])
+        self.assertEqual([job["type"] for job in plan["jobs"]], ["spider", "openapi", "passiveScan-wait", "report"])
+        self.assertEqual(plan["jobs"][1]["parameters"], {"apiFile": "/zap/wrk/spec.json", "context": web.CONTEXT, "targetUrl": f"https://{HOST}/v1"})
+        self.assertEqual(plan["env"]["contexts"][0]["urls"], [f"https://{HOST}/", f"https://{HOST}/v1"])
 
 
 class SecretAndApiScanTests(unittest.TestCase):
@@ -406,7 +406,7 @@ class SecretAndApiScanTests(unittest.TestCase):
         self.assertEqual(given["servers"], [{"url": f"https://{HOST}/v1"}])
         self.assertNotIn("evil.example", files[0][web.SPEC])
         plan = json.loads(inputs[0])
-        self.assertEqual(plan["jobs"][0]["parameters"]["targetUrl"], f"https://{HOST}/v1")
+        self.assertEqual(next(job for job in plan["jobs"] if job["type"] == "openapi")["parameters"]["targetUrl"], f"https://{HOST}/v1")
         self.assertEqual((scan["variant"], scan["target"], scan["api"]), ("api", f"https://{HOST}/v1",
                                                                          {"sha256": api["sha256"], "endpoints": 3, "source": "upload"}))
         self.assertNotIn("internal-only-description", json.dumps(scan))

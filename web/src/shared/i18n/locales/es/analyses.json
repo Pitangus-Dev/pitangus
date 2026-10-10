@@ -1,9 +1,17 @@
 {
   "run_type": {
-    "repository_scan": "Análisis de código", "image_scan": "Imagen de contenedor", "pr_review": "Revisión de PR",
-    "advisory_watch": "Avisos nuevos", "sarif_import": "Importación SARIF", "dast_scan": "Análisis web"
+    "repository_scan": "Análisis de código",
+    "image_scan": "Imagen de contenedor",
+    "pr_review": "Revisión de PR",
+    "advisory_watch": "Avisos nuevos",
+    "sarif_import": "Importación SARIF",
+    "dast_scan": "Análisis web"
   },
-  "duration": { "minutes": "~{{value}} min", "hours": "~{{value}} h", "under_two_minutes": "menos de 2 min" },
+  "duration": {
+    "minutes": "~{{value}} min",
+    "hours": "~{{value}} h",
+    "under_two_minutes": "menos de 2 min"
+  },
   "listing_more": "{{names}} y {{rest}} más",
   "remove_item": "Quitar {{name}}",
   "chooser": {
@@ -129,7 +137,7 @@
     "optional": "(opcional)",
     "add": "Añadir documentación de la API",
     "nudge": "Una API tiene pocos enlaces que seguir: añade su especificación OpenAPI para que el análisis llame a cada endpoint documentado.",
-    "instead": "Con ella, el análisis llama a los endpoints documentados en vez de recorrer el sitio.",
+    "instead": "Con ella, el análisis además llama a cada endpoint documentado, aparte de recorrer el sitio.",
     "choose": "Subir archivo OpenAPI",
     "replace": "Reemplazar",
     "remove": "Quitar {{name}}",
@@ -249,9 +257,11 @@
   "batch": {
     "last_one": "Último lote · {{label}}: {{count}} analizado{{failed}}{{cancelled}}{{critical}}.",
     "last_other": "Último lote · {{label}}: {{count}} analizados{{failed}}{{cancelled}}{{critical}}.",
-    "failed_one": ", {{count}} fallido", "failed_other": ", {{count}} fallidos",
+    "failed_one": ", {{count}} fallido",
+    "failed_other": ", {{count}} fallidos",
     "cancelled": " · cancelado",
-    "critical_one": " · {{count}} crítico", "critical_other": " · {{count}} críticos",
+    "critical_one": " · {{count}} crítico",
+    "critical_other": " · {{count}} críticos",
     "cancel_title": "¿Cancelar el lote?",
     "keep_running": "Seguir con el lote",
     "confirm_cancel": "Lo ya analizado se conserva y el análisis en curso termina.",
@@ -259,7 +269,8 @@
     "cancel": "Cancelar lote",
     "progress_label": "Lote: {{done}} de {{total}} analizados",
     "progress": "{{done}} de {{total}} analizados{{failed}} · {{critical}} críticos y {{high}} altos hasta ahora · quedan {{duration}}. Avanza cuando no hay otros análisis: puedes seguir usando el panel.",
-    "progress_failed_one": " ({{count}} fallido)", "progress_failed_other": " ({{count}} fallidos)",
+    "progress_failed_one": " ({{count}} fallido)",
+    "progress_failed_other": " ({{count}} fallidos)",
     "show_failed": "Ver fallidos"
   },
   "import": {
@@ -280,26 +291,37 @@
     },
     "scope": {
       "label": "Alcance",
-      "full": "Completa", "full_hint": "Todo lo que la herramienta revisó en este activo: lo que ya no reporte se marca como remediado",
-      "partial": "Parcial", "partial_hint": "Solo algunos archivos o un módulo: agrega y actualiza, no marca nada como remediado",
+      "full": "Completa",
+      "full_hint": "Todo lo que la herramienta revisó en este activo: lo que ya no reporte se marca como remediado",
+      "partial": "Parcial",
+      "partial_hint": "Solo algunos archivos o un módulo: agrega y actualiza, no marca nada como remediado",
       "note": "Los análisis de Pitangus nunca cierran hallazgos importados, ni una importación cierra los suyos."
     },
     "more": "Más opciones",
     "optional": "(opcional)",
-    "tool": "Nombre de la herramienta", "tool_hint": "Reemplaza el nombre que trae el archivo.",
-    "commit": "Commit", "commit_invalid": "Usa el SHA del commit: de 7 a 64 caracteres hexadecimales.",
-    "branch": "Rama", "branch_invalid": "Ese no es un nombre de rama válido.",
-    "submit": "Importar hallazgos", "submitting": "Importando…",
+    "tool": "Nombre de la herramienta",
+    "tool_hint": "Reemplaza el nombre que trae el archivo.",
+    "commit": "Commit",
+    "commit_invalid": "Usa el SHA del commit: de 7 a 64 caracteres hexadecimales.",
+    "branch": "Rama",
+    "branch_invalid": "Ese no es un nombre de rama válido.",
+    "submit": "Importar hallazgos",
+    "submitting": "Importando…",
     "too_large": "El archivo supera el límite de {{max}} MB del servidor.",
     "result": {
       "title": "Importado en {{name}}",
       "description_full": "Una ejecución por herramienta. Lo que cada una ya no reporta quedó como remediado.",
       "description_partial": "Una ejecución por herramienta. Importación parcial: no se marcó nada como remediado.",
-      "findings_one": "{{count}} hallazgo", "findings_other": "{{count}} hallazgos",
-      "opened_one": "{{count}} nuevo", "opened_other": "{{count}} nuevos",
-      "fixed_one": "{{count}} remediado", "fixed_other": "{{count}} remediados",
-      "skipped_one": "{{count}} sin importar (suprimido o sin problemas)", "skipped_other": "{{count}} sin importar (suprimidos o sin problemas)",
-      "open": "Ver hallazgos", "open_label": "Ver hallazgos de {{tool}}",
+      "findings_one": "{{count}} hallazgo",
+      "findings_other": "{{count}} hallazgos",
+      "opened_one": "{{count}} nuevo",
+      "opened_other": "{{count}} nuevos",
+      "fixed_one": "{{count}} remediado",
+      "fixed_other": "{{count}} remediados",
+      "skipped_one": "{{count}} sin importar (suprimido o sin problemas)",
+      "skipped_other": "{{count}} sin importar (suprimidos o sin problemas)",
+      "open": "Ver hallazgos",
+      "open_label": "Ver hallazgos de {{tool}}",
       "another": "Importar otro archivo"
     }
   },
@@ -315,12 +337,27 @@
     "empty_title": "Aún no hay análisis",
     "empty_text": "Aquí aparecerán tus análisis. Lanza el primero sobre un repositorio o una imagen de contenedor.",
     "new": "Nuevo análisis",
-    "columns": { "status": "Estado", "analysis": "Análisis", "type": "Tipo", "findings": "Hallazgos", "started": "Iniciado" },
-    "fallback": { "asset": "Activo", "repository": "Repositorio", "image": "Imagen", "pull_request": "Pull request", "analysis": "Análisis" },
+    "columns": {
+      "status": "Estado",
+      "analysis": "Análisis",
+      "type": "Tipo",
+      "findings": "Hallazgos",
+      "started": "Iniciado"
+    },
+    "fallback": {
+      "asset": "Activo",
+      "repository": "Repositorio",
+      "image": "Imagen",
+      "pull_request": "Pull request",
+      "analysis": "Análisis"
+    },
     "hint": {
-      "pr_review_one": "nuevo en el PR", "pr_review_other": "nuevos en el PR",
-      "advisory_watch_one": "aviso nuevo", "advisory_watch_other": "avisos nuevos",
-      "candidates_one": "candidato", "candidates_other": "candidatos"
+      "pr_review_one": "nuevo en el PR",
+      "pr_review_other": "nuevos en el PR",
+      "advisory_watch_one": "aviso nuevo",
+      "advisory_watch_other": "avisos nuevos",
+      "candidates_one": "candidato",
+      "candidates_other": "candidatos"
     },
     "trigger_branch": "· automático: cambió la rama",
     "trigger_branch_sha": "· automático: cambió la rama ({{sha}})",
@@ -328,7 +365,12 @@
     "trigger_advisories": "· automático: publicados después del último análisis",
     "trigger_import": "· desde {{tool}}",
     "trigger_import_partial": "· desde {{tool}}, parcial",
-    "severity_letter": { "critical": "C", "high": "A", "medium": "M", "low": "B" },
+    "severity_letter": {
+      "critical": "C",
+      "high": "A",
+      "medium": "M",
+      "low": "B"
+    },
     "severity_count": "{{severity}}: {{value}}",
     "noun": "análisis"
   },
