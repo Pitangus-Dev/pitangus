@@ -35,7 +35,7 @@ Logs go to standard error, human-readable by default or one JSON object per even
 
 ## Development and tests
 
-The React/TypeScript frontend uses [shadcn/ui](https://ui.shadcn.com/docs/installation/vite), Tailwind and Lucide. The theme picker is a shadcn component; it supports system, light and dark (dark by default).
+The React/TypeScript frontend uses [shadcn/ui](https://ui.shadcn.com/docs/installation/vite), Tailwind and Lucide. The theme picker is a shadcn component; it supports system, light and dark (dark by default). The `shadcn` package isn't a dependency: its stylesheet is copied to `web/src/shared/ui/shadcn-tailwind.css`, and new components can be added with `pnpm dlx shadcn@<version> add …` (it reads `components.json`).
 
 ```bash
 corepack enable   # once: pnpm at the version web/package.json pins
