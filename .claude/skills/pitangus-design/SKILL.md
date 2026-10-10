@@ -26,7 +26,7 @@ If a rule conflicts with what the user asks for, ask; never break it silently.
   - Prefer tables, ruled rows and plain sections (`<section>` + small h2 + hairline) to cards. A card is for a self-contained object or a chart; never a card inside a card, never a grid of identical icon+title+bullets cards.
   - Key figures in one ruled row (`KeyFigures`/`KeyFigure` from `shared/ui/key-figures.tsx`), never one box per number.
   - Selection is an ink border on a soft neutral (`border-app-fg bg-app-soft`), not a brand tint. `brand` is for focus, links, the active item and the one primary action.
-  - One yellow primary button per view; a strong secondary uses `variant="ink"`, the rest `outline`/`ghost`.
+  - One solid yellow primary button per view. Always-present or strong secondary actions (the header's "New scan", an empty state's call to action) use `variant="brand"`: sulphur tint with a sulphur border and ink text, so they read as Pitangus without competing; the rest `outline`/`ghost`. No solid black buttons.
   - No decorative eyebrows (mono, uppercase, letter-spaced labels), no `tracking-[…]`, no sparkle icons, no icon inside a tinted box. Icons only where they carry meaning (navigation, file type, status), 16 px.
   - Floating surfaces: hairline border plus `shadow-md` (dialogs `shadow-lg`); flat surfaces have no shadow. No `backdrop-blur`.
   - Type: IBM Plex Sans / Plex Mono (the same as the PDFs); mono only for code, IDs, paths, versions, CVEs. Page titles `text-2xl`, one short line of description.

@@ -6,6 +6,9 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-[color-mix(in_oklch,var(--primary),var(--foreground)_8%)]",
+        // The brand's quiet form: always-available actions (the header's "New scan") that must read as Pitangus without
+        // competing with the one solid yellow action of the page.
+        brand: "border-primary bg-[color-mix(in_oklch,var(--primary),var(--background)_78%)] text-foreground hover:bg-[color-mix(in_oklch,var(--primary),var(--background)_62%)]",
         // Strong secondary action: ink on paper, so the yellow stays for the one main action.
         ink: "bg-foreground text-background hover:bg-foreground/85",
         outline:

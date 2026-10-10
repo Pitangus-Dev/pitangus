@@ -234,7 +234,7 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
         return <div key={item.installation_id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-app-line bg-panel px-3 py-2 text-sm">
           <div><p className="font-medium">{item.account ?? t('github.install.installation', { id: item.installation_id })}</p>
             <p className="text-xs text-app-muted">{item.account_type === 'Organization' ? t('github.install.organization') : t('github.install.personal')} · {item.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories')}</p></div>
-          <Button size="sm" variant={connected ? 'outline' : 'ink'} disabled={busy || !canManage || connected} onClick={() => void connect(item.installation_id)}>
+          <Button size="sm" variant={connected ? 'outline' : 'brand'} disabled={busy || !canManage || connected} onClick={() => void connect(item.installation_id)}>
             {connected ? t('github.install.connected') : t('github.install.connect')}
           </Button>
         </div>

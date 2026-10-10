@@ -31,7 +31,7 @@ function useStore(domain: Domain) {
 }
 
 // "Add test user ▾": the two ways a scan can sign in. Codes by email and magic links need an inbox nobody here reads.
-export function AddTestUserMenu({ onPick, disabled, variant = 'outline' }: { onPick: (method: LoginMethod) => void; disabled?: boolean; variant?: 'outline' | 'ink' }) {
+export function AddTestUserMenu({ onPick, disabled, variant = 'outline' }: { onPick: (method: LoginMethod) => void; disabled?: boolean; variant?: 'outline' | 'brand' }) {
   const { t } = useTranslation('sources')
   return <Menu><MenuTrigger render={<Button variant={variant} size="sm" disabled={disabled} />}>{t('domains.test_users.add')}<ChevronDown className="size-3.5" aria-hidden /></MenuTrigger>
     <MenuContent align="start">
@@ -197,7 +197,7 @@ export function TestUsersPanel({ domain, admin }: { domain: Domain; admin: boole
     : <div className="flex flex-col items-center gap-3 py-12 text-center">
         <UserRound className="size-7 text-app-muted" aria-hidden />
         <p className="text-sm text-app-muted">{t('domains.test_users.empty')}</p>
-        <AddTestUserMenu onPick={add} variant="ink" />
+        <AddTestUserMenu onPick={add} variant="brand" />
       </div>}
     {admin && <TestUserDialog domain={domain} editing={editing} onClose={() => setEditing(null)}
       onSaved={user => setNotice(t('domains.test_users.saved', { name: user.name }))} />}
