@@ -144,10 +144,14 @@ class QueueTests(unittest.TestCase):
                 while not jobs.leader and time.monotonic() < deadline:
                     time.sleep(0.05)
                 self.assertTrue(jobs.leader)
-                with db.engine().connect() as admin:  # the database drops the leader's session (restart, network, idle kill)
+                # The database drops the leader's session (restart, network, idle kill). Only that session: in CI the test
+                # processes share one database, and the others hold advisory locks of their own (documents.lock).
+                key = worker_module.LEADER_KEY & 0xFFFFFFFFFFFFFFFF
+                with db.engine().connect() as admin:
                     admin.execute(text("SELECT pg_terminate_backend(pid) FROM pg_locks WHERE locktype = 'advisory' "
                                        "AND database = (SELECT oid FROM pg_database WHERE datname = current_database()) "
-                                       "AND pid <> pg_backend_pid()"))
+                                       "AND classid::bigint = :high AND objid::bigint = :low AND objsubid = 1 "
+                                       "AND pid <> pg_backend_pid()"), {"high": key >> 32, "low": key & 0xFFFFFFFF})
                     admin.commit()
                 deadline = time.monotonic() + 5
                 while not stopped and time.monotonic() < deadline:
