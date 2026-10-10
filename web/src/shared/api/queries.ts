@@ -20,6 +20,12 @@ export const keys = {
   evidenceScope: ['evidence', 'scope'] as const,
   images: ['images'] as const,
   domains: ['domains'] as const,
+  domainProbe: (url: string) => ['domain-probe', url] as const,
+  registries: ['registries'] as const,
+  repositoryPlan: (sourceId: string) => ['repository-plan', sourceId] as const,
+  sourceAccounts: ['sources', 'accounts'] as const,
+  sourceCount: (account: string) => ['sources', 'count', account] as const,
+  source: (id: string) => ['sources', 'one', id] as const,
   secretRules: ['secret-rules'] as const,
   secretBuiltinRules: ['secret-rules', 'builtin'] as const,
   assetSecretsAll: ['secret-rules', 'asset'] as const,
@@ -78,8 +84,40 @@ export const imagesQuery = ({ q = '', link = 'all', repository = '', offset = 0,
   queryKey: [...keys.images, q, link, repository, offset, limit], staleTime: 30_000, placeholderData: keepPreviousData,
   queryFn: ({ signal }) => apiGet('/api/images', { q: q || undefined, link: link === 'all' ? undefined : link, repository: repository || undefined, offset, limit }, { signal }),
 })
-// The registered domains (at most 20) with whether each one's DNS TXT proof is current; administrators also get the record.
+// The registered domains (at most `limit`) with their proof, schedule and last scan; administrators also get how to
+// prove them and the saved header names. `dast` says whether this server runs web scans at all.
+export type DomainRow = components['schemas']['DomainRow']
+export type DomainHeader = components['schemas']['DomainHeader']
+export type DomainProbe = components['schemas']['DomainCheck']
+export type QueuedDomainScan = components['schemas']['QueuedDomainScan']
 export const domainsQuery = () => queryOptions({ queryKey: keys.domains, queryFn: ({ signal }) => apiGet('/api/domains', undefined, { signal }) })
+// The probe before registering (does it resolve publicly and answer over HTTPS?), cached per URL so typing back is free.
+export const domainProbeQuery = (url: string) => queryOptions({
+  queryKey: keys.domainProbe(url), staleTime: 60_000, retry: false,
+  queryFn: ({ signal }) => api.post<DomainProbe>('/api/domains/probe', 'probe-domain', { url }, { signal }),
+})
+// Saved container registry credentials (registry, user, last four of the token), to say which images use them.
+export const registriesQuery = () => queryOptions({ queryKey: keys.registries, staleTime: 60_000, queryFn: ({ signal }) => apiGet('/api/registries', undefined, { signal }) })
+// What a code scan of one repository would run, worked out on the server from its real tree and the engines it has.
+export const repositoryPlanQuery = <T>(sourceId: string) => queryOptions({
+  queryKey: keys.repositoryPlan(sourceId), staleTime: 60_000, retry: false,
+  queryFn: ({ signal }) => api.get<T>(`/api/repositories/plan?${query({ source_id: sourceId })}`, { signal }),
+})
+// GitHub organizations connected through the App (scanning a whole one is for administrators), and how many
+// repositories one of them has.
+export const sourceAccountsQuery = () => queryOptions({
+  queryKey: keys.sourceAccounts, staleTime: 60_000,
+  queryFn: async ({ signal }) => (await apiGet('/api/sources', { provider: 'github', per_page: '1' }, { signal })).accounts ?? [],
+})
+export const sourceCountQuery = (account: string) => queryOptions({
+  queryKey: keys.sourceCount(account), staleTime: 60_000, retry: false,
+  queryFn: async ({ signal }) => (await apiGet('/api/sources', { account, provider: 'github', per_page: '1' }, { signal })).total,
+})
+// One repository by id (a direct link), without asking for the catalog.
+export const sourceQuery = <T>(id: string) => queryOptions({
+  queryKey: keys.source(id), staleTime: 60_000,
+  queryFn: async ({ signal }) => (await api.get<{ sources: T[] }>(`/api/sources?${query({ id })}`, { signal })).sources[0] ?? null,
+})
 // Analyzed assets for the evidence hub's picker, searched by name on the server.
 export const evidenceAssetsQuery = (q: string, kind: '' | 'repository' | 'image' = '') => queryOptions({
   queryKey: [...keys.evidenceAssets, q, kind], staleTime: 30_000,

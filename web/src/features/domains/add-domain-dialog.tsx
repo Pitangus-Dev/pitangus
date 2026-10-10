@@ -1,0 +1,89 @@
+import { useState, type FormEvent } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { ChevronRight, CircleAlert, CircleCheck, LoaderCircle } from 'lucide-react'
+import { apiPost } from '@/shared/api/client'
+import { ApiError } from '@/shared/api/http'
+import { domainProbeQuery } from '@/shared/api/queries'
+import { useDebounced } from '@/shared/lib/useDebounced'
+import { Button } from '@/shared/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, dialogFullOnMobile } from '@/shared/ui/dialog'
+import { Input } from '@/shared/ui/input'
+import type { Domain, DomainKind } from '@/features/domains/domains'
+
+const KINDS = [
+  { id: 'web', label: 'domains.kind.web', hint: 'domains.kind_hint.web' },
+  { id: 'api', label: 'domains.kind.api', hint: 'domains.kind_hint.api' },
+  { id: 'surface', label: 'domains.kind.surface', hint: 'domains.kind_hint.surface' },
+] as const
+const CONTEXT_MAX = 400
+// The server wants https with no port or query; here we only add the scheme people leave out.
+const normalize = (value: string) => { const trimmed = value.trim(); return !trimmed || /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}` }
+const probeable = (candidate: string) => /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+\/?[^\s?#]*$/i.test(candidate)
+
+// Registers a site or API; whether it answers is a hint, never a reason to refuse it.
+export function AddDomainDialog({ open, onOpenChange, onAdded, initialKind = 'web' }: { open: boolean; onOpenChange: (open: boolean) => void; onAdded: (domain: Domain) => void; initialKind?: DomainKind }) {
+  const { t } = useTranslation('sources')
+  // The form lives inside the popup: closing unmounts it, so the next opening starts empty.
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className={`max-w-xl ${dialogFullOnMobile}`}>
+    <DialogHeader><DialogTitle>{t('domains.add.title')}</DialogTitle><DialogDescription>{t('domains.add.description')}</DialogDescription></DialogHeader>
+    <AddDomainForm initialKind={initialKind} onCancel={() => onOpenChange(false)} onAdded={domain => { onAdded(domain); onOpenChange(false) }} />
+  </DialogContent></Dialog>
+}
+
+function AddDomainForm({ initialKind, onCancel, onAdded }: { initialKind: DomainKind; onCancel: () => void; onAdded: (domain: Domain) => void }) {
+  const { t } = useTranslation('sources')
+  const [url, setUrl] = useState('')
+  const [kind, setKind] = useState<DomainKind>(initialKind)
+  const [context, setContext] = useState('')
+  const candidate = normalize(url)
+  const settled = useDebounced(candidate, 600)
+  const probe = useQuery({ ...domainProbeQuery(settled), enabled: probeable(settled) })
+  const checking = probeable(candidate) && (settled !== candidate || probe.isFetching)
+  const reach = !checking && settled === candidate ? probe.data : undefined
+  const probeError = !checking && settled === candidate && probe.error instanceof ApiError ? probe.error.message : ''
+  const register = useMutation({
+    mutationFn: () => apiPost('/api/domains', 'register-domain', { url: candidate, kind, context }),
+    onSuccess: onAdded,
+  })
+  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!register.isPending) register.mutate() }
+
+  return <form onSubmit={submit} className="space-y-5">
+      <div className="space-y-1.5">
+        <label htmlFor="domain-url" className="text-sm text-app-secondary">{t('domains.add.domain')}</label>
+        <div className="relative">
+          <Input id="domain-url" required autoFocus value={url} onChange={event => setUrl(event.target.value)} placeholder={t('domains.add.placeholder')}
+            aria-describedby="domain-url-probe" autoComplete="off" spellCheck={false} className="border-app-line bg-app-soft pr-10" />
+          <span className="absolute top-1/2 right-3 -translate-y-1/2" aria-hidden>{checking ? <LoaderCircle className="size-4 text-app-muted motion-safe:animate-spin" />
+            : reach?.reachable ? <CircleCheck className="size-4 text-success" /> : reach || probeError ? <CircleAlert className="size-4 text-warning" /> : null}</span>
+        </div>
+        <p id="domain-url-probe" role="status" className="min-h-4 text-xs">
+          {checking ? <span className="text-app-muted">{t('domains.add.checking')}</span>
+            : reach?.reachable ? <span className="text-success">{t('domains.add.reachable', { code: reach.http_status ?? 200 })}</span>
+            : reach ? <span className="text-warning">{t('domains.add.unreachable')} <span className="text-app-muted">{reach.detail}</span></span>
+            : probeError ? <span className="text-warning">{probeError}</span> : null}
+        </p>
+      </div>
+      <details className="group">
+        <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-sm text-app-muted"><ChevronRight className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{t('domains.add.more')}</summary>
+        <div className="mt-4 space-y-4">
+          <fieldset className="space-y-2"><legend className="mb-2 text-sm text-app-secondary">{t('domains.add.kind')}</legend>
+            {KINDS.map(item => <label key={item.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 motion-safe:transition ${kind === item.id ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-inset hover:border-brand/30'}`}>
+              <input type="radio" name="domain-kind" value={item.id} checked={kind === item.id} onChange={() => setKind(item.id)} className="mt-0.5 accent-brand" />
+              <span><span className="block text-sm">{t(item.label)}</span><span className="text-xs text-app-muted">{t(item.hint)}</span></span></label>)}
+          </fieldset>
+          <div className="space-y-1.5">
+            <label htmlFor="domain-context" className="text-sm text-app-secondary">{t('domains.add.context')} <span className="text-app-muted">{t('domains.add.optional')}</span></label>
+            <textarea id="domain-context" rows={3} maxLength={CONTEXT_MAX} value={context} onChange={event => setContext(event.target.value)} aria-describedby="domain-context-help"
+              placeholder={t('domains.add.context_placeholder')} className="w-full rounded-xl border border-app-line bg-app-soft p-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
+            <p id="domain-context-help" className="text-xs text-app-muted">{t('domains.add.context_help')}</p>
+          </div>
+        </div>
+      </details>
+      {register.error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger">{register.error.message}</p>}
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>{t('common:actions.cancel')}</Button>
+        <Button type="submit" disabled={register.isPending || !url.trim()}>{register.isPending && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('domains.add.submit')}</Button>
+      </DialogFooter>
+    </form>
+}

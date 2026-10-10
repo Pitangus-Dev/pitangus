@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { formatDate } from '@/shared/i18n/format'
@@ -28,26 +28,28 @@ const rowIssues = (t: T, row: AnalysisRow) => { const count = row.summary.candid
 const SEVERITIES = [['critical', 'list.severity_letter.critical', 'common:severity.critical', 'bg-danger-solid text-on-solid'], ['high', 'list.severity_letter.high', 'common:severity.high', 'bg-attention-soft text-attention'],
   ['medium', 'list.severity_letter.medium', 'common:severity.medium', 'bg-warning-soft text-warning'], ['low', 'list.severity_letter.low', 'common:severity.low', 'bg-info-soft text-info']] as const
 
-export function AnalysisList({ refreshKey, onOpen, onNew, viewer }: { refreshKey: number; onOpen: (id: string) => void; onNew: () => void; viewer: { username: string; admin: boolean } }) {
+// Every scan, or one asset's (`asset`, e.g. a domain's page: no batches, no type filter, and its own empty state).
+export function AnalysisList({ refreshKey, onOpen, onNew, viewer, asset, empty }: { refreshKey: number; onOpen: (id: string) => void; onNew: () => void; viewer: { username: string; admin: boolean }; asset?: string; empty?: ReactNode }) {
   const { t } = useTranslation('analyses')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
   const [type, setType] = useState('all')
   // La lista se pide paginada al servidor: con mil ejecuciones no se cargan mil filas.
-  const page = usePaged<AnalysisRow>('/api/runs/page', { q: query.trim() || undefined, status: status === 'all' ? undefined : status, type: type === 'all' ? undefined : type }, 25, refreshKey)
+  const page = usePaged<AnalysisRow>('/api/runs/page', { asset, q: query.trim() || undefined, status: status === 'all' ? undefined : status, type: type === 'all' ? undefined : type }, 25, refreshKey)
   const visible = page.items
   // Lotes (varios repositorios, una organización o varias imágenes): su progreso, arriba de la lista.
   const { active: batch, last: lastBatch, reload: reloadBatches } = useBatches()
 
   return <Card className="border-app-line bg-panel"><CardContent className="space-y-5 p-5">
-    <BatchPanel active={batch} last={lastBatch} viewer={viewer} onChanged={() => void reloadBatches()} />
+    {!asset && <BatchPanel active={batch} last={lastBatch} viewer={viewer} onChanged={() => void reloadBatches()} />}
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="relative min-w-0 flex-1 sm:max-w-xs"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" /><Input aria-label={t('list.search')} placeholder={t('list.search_placeholder')} value={query} onChange={event => setQuery(event.target.value)} className="border-app-line bg-app-soft pl-9" /></div>
       <Select value={status} onValueChange={value => setStatus(value ?? 'all')}><SelectTrigger aria-label={t('list.filter_status')} size="sm" className="min-w-40 border-app-line bg-app-soft text-app-secondary">{status === 'all' ? t('list.all_statuses') : statusLabel(t, status)}</SelectTrigger><SelectContent align="start" className="border border-app-line bg-panel p-1 text-app-fg shadow-xl"><SelectItem value="all">{t('list.all_statuses')}</SelectItem><SelectItem value="running">{t('list.status_running')}</SelectItem><SelectItem value="completed">{t('common:run_status.completed')}</SelectItem><SelectItem value="incomplete">{t('common:run_status.incomplete')}</SelectItem><SelectItem value="failed">{t('common:run_status.failed')}</SelectItem></SelectContent></Select>
-      <Select value={type} onValueChange={value => setType(value ?? 'all')}><SelectTrigger aria-label={t('list.filter_type')} size="sm" className="min-w-44 border-app-line bg-app-soft text-app-secondary">{type === 'all' ? t('list.all_types') : typeLabel(t, type)}</SelectTrigger><SelectContent align="start" className="border border-app-line bg-panel p-1 text-app-fg shadow-xl"><SelectItem value="all">{t('list.all_types')}</SelectItem><SelectItem value="repository_scan">{t('run_type.repository_scan')}</SelectItem><SelectItem value="image_scan">{t('run_type.image_scan')}</SelectItem><SelectItem value="dast_scan">{t('run_type.dast_scan')}</SelectItem><SelectItem value="pr_review">{t('run_type.pr_review')}</SelectItem><SelectItem value="advisory_watch">{t('run_type.advisory_watch')}</SelectItem><SelectItem value="sarif_import">{t('run_type.sarif_import')}</SelectItem></SelectContent></Select>
+      {!asset && <Select value={type} onValueChange={value => setType(value ?? 'all')}><SelectTrigger aria-label={t('list.filter_type')} size="sm" className="min-w-44 border-app-line bg-app-soft text-app-secondary">{type === 'all' ? t('list.all_types') : typeLabel(t, type)}</SelectTrigger><SelectContent align="start" className="border border-app-line bg-panel p-1 text-app-fg shadow-xl"><SelectItem value="all">{t('list.all_types')}</SelectItem><SelectItem value="repository_scan">{t('run_type.repository_scan')}</SelectItem><SelectItem value="image_scan">{t('run_type.image_scan')}</SelectItem><SelectItem value="dast_scan">{t('run_type.dast_scan')}</SelectItem><SelectItem value="pr_review">{t('run_type.pr_review')}</SelectItem><SelectItem value="advisory_watch">{t('run_type.advisory_watch')}</SelectItem><SelectItem value="sarif_import">{t('run_type.sarif_import')}</SelectItem></SelectContent></Select>}
     </div>
     {page.error && <p role="alert" className="text-sm text-danger">{page.error}</p>}
     {page.total === 0 && page.loading ? <SkeletonTable rows={6} columns={5} label={t('list.loading')} />
+      : page.total === 0 && empty && !query.trim() && status === 'all' ? empty
       : page.total === 0
       ? <div className="flex flex-col items-center gap-3 py-16 text-center"><Radar className="size-7 text-app-subtle" /><p className="font-medium">{t('list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t('list.empty_text')}</p><Button onClick={onNew} className="mt-1 bg-primary text-primary-foreground hover:bg-primary/90"><Plus /> {t('list.new')}</Button></div>
       : <div className="overflow-hidden rounded-xl border border-app-line">

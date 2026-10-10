@@ -36,7 +36,7 @@
     "new": "Define el objetivo, declara el alcance y revisa qué se ejecuta antes de lanzar.",
     "repositories": "Conecta tus repositorios y elige el código que quieres analizar.",
     "images": "Las imágenes de contenedor que has analizado y el repositorio desde el que se construye cada una.",
-    "domains": "Dominios propios, demostrados por DNS, para traer los hallazgos de tus propias ejecuciones de ZAP o Nuclei. Las pruebas dinámicas desde aquí siguen en desarrollo.",
+    "domains": "Sitios y APIs que controlas. Verifícalos para analizarlos.",
     "integrations": "Administra los proveedores de código y consulta el estado de la IA.",
     "account": "Tu acceso: contraseña y segundo factor.",
     "users": "Invita a tu equipo, asigna roles y retira accesos.",
@@ -61,15 +61,6 @@
     "done_other": "Escaneo de {{name}} terminado: {{count}} hallazgos.",
     "done_severities_one": "Escaneo de {{name}} terminado: {{count}} hallazgo ({{critical}} críticos, {{high}} altos).",
     "done_severities_other": "Escaneo de {{name}} terminado: {{count}} hallazgos ({{critical}} críticos, {{high}} altos)."
-  },
-  "dast": {
-    "title": "Lo siguiente en pruebas dinámicas",
-    "description": "Lo que viene después del análisis web pasivo de estos dominios:",
-    "plan": {
-      "scan": "Pruebas de API desde su descripción OpenAPI, primero en modo seguro",
-      "auth": "Autenticación en la aplicación con una cuenta de prueba que tú declares",
-      "evidence": "Pruebas activas solo con autorización de un administrador, registrada en la ejecución"
-    }
   },
   "footer": "{{name}} · software libre bajo <license>AGPL-3.0</license> · <source>código fuente</source> · los resultados negativos no prueban ausencia de vulnerabilidades.",
   "update": {

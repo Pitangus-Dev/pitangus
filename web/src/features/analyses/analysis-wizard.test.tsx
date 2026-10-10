@@ -1,119 +1,193 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
-import { mockApi } from '@/shared/test/api'
+import { mockApi, type Call } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { AnalysisWizard } from '@/features/analyses/analysis-wizard'
 
+const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`analyses:${key}`, options)
 const SOURCE = { id: 'github#7', name: 'org/api', provider: 'github', branch: 'main', installation_id: 1 }
-const PLAN = { languages: [{ name: 'Python', files: 12, rules: 40 }], runs: ['Opengrep'], skips: [], osv_needed: true, files: 12,
-  manifests: ['setup.py'], iac: [] }
+const PLAN = { languages: [{ name: 'Python', files: 12, rules: 40 }], runs: ['Opengrep'], skips: [], osv_needed: true, files: 12, manifests: ['setup.py'], iac: [] }
+const DOMAIN = { id: 'a'.repeat(24), host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: '', key: 'domain:app.example.com',
+  verified: true, expired: false, proof_method: 'dns', schedule: null, headers: [], header_count: 0, runs: 0, open: 0 }
+const UNVERIFIED = { ...DOMAIN, id: 'b'.repeat(24), host: 'staging.example.com', url: 'https://staging.example.com/', key: 'domain:staging.example.com', verified: false, proof_method: null }
+const API = { ...DOMAIN, id: 'c'.repeat(24), host: 'api.example.com', url: 'https://api.example.com/', kind: 'api', key: 'domain:api.example.com', proof_method: 'file',
+  headers: [{ name: 'Authorization', last4: 'cret', saved_at: '2026-10-01T00:00:00Z' }], header_count: 1 }
+const SPEC = JSON.stringify({ openapi: '3.0.3', info: { title: 'Shop', version: '1' }, paths: { '/items': { get: {}, post: {} }, '/items/{id}': { parameters: [], get: {} } } })
 
-function wizard(onComplete: (id: string) => Promise<void>) {
+function setup({ admin = true, dast = true, domains = [DOMAIN, UNVERIFIED] as unknown[], source = null as string | null } = {}) {
   const calls = mockApi(call => {
+    if (call.path === '/api/domains') return { body: { items: domains, total: domains.length, limit: 20, dast } }
+    if (call.path === '/api/domains/scans') return { status: 202, body: { run_id: 'run-web', run: { id: 'run-web', status: 'queued' }, domain: DOMAIN } }
     if (call.path.startsWith('/api/sources')) return { body: { sources: [SOURCE], total: 1 } }
     if (call.path.startsWith('/api/repositories/plan')) return { body: PLAN }
     if (call.path === '/api/repositories/batches') return { body: { active: null, recent: [] } }
     if (call.path === '/api/repositories/scans') return { body: { run: { id: 'run-9' } } }
-  })
-  renderWithQueries(<AnalysisWizard onComplete={onComplete} onBatchStarted={() => {}} onManageConnections={() => {}} onManageDomains={() => {}} onCancel={() => {}}
-    initialSourceId={SOURCE.id} isAdmin={false} />)
-  return calls
-}
-
-const VERIFIED = { id: 'a'.repeat(24), host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: '', key: 'domain:app.example.com',
-  verified: true, expired: false, runs: 0, open: 0 }
-const UNVERIFIED = { ...VERIFIED, id: 'b'.repeat(24), host: 'staging.example.com', url: 'https://staging.example.com/', key: 'domain:staging.example.com', verified: false }
-
-function webWizard(page: { dast: boolean }, admin: boolean) {
-  return mockApi(call => {
-    if (call.path === '/api/domains') return { body: { items: [VERIFIED, UNVERIFIED], total: 2, limit: 20, ...page } }
-    if (call.path === '/api/domains/scans') return admin ? { status: 202, body: { run: { id: 'run-web', status: 'queued' }, domain: VERIFIED } } : { status: 403, body: { error: 'no' } }
-    if (call.path === '/api/repositories/batches') return { body: { active: null, recent: [] } }
     if (call.path === '/api/registries') return { body: { registries: [] } }
+    if (call.path.startsWith('/api/assets')) return { body: { items: [], total: 0, limit: 1, offset: 0 } }
   })
+  const done = vi.fn(async () => {})
+  renderWithQueries(<AnalysisWizard onComplete={done} onBatchStarted={() => {}} onManageConnections={() => {}} onCancel={() => {}} initialSourceId={source} isAdmin={admin} />)
+  return { calls, done, user: userEvent.setup() }
 }
+const proceed = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: tr('wizard.continue') }))
+const heading = (key: string) => screen.findByRole('heading', { level: 2, name: tr(key) })
+const scan = (calls: Call[]) => calls.find(call => call.path === '/api/domains/scans')
 
-async function toReview(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByText(SOURCE.name)
-  await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.continue')) }))
-  await user.type(screen.getByLabelText(new RegExp(i18n.t('analyses:context.question'))), 'Public API behind the gateway')
-  await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.continue')) }))
-  await screen.findByRole('checkbox')
-}
+describe('choosing what to scan', () => {
+  it('offers four cards as one radio group, Code first, and moves with the arrow keys', async () => {
+    const { user } = setup()
+    const group = await screen.findByRole('radiogroup', { name: tr('chooser.title') })
+    const cards = within(group).getAllByRole('radio')
+    expect(cards.map(card => card.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'false'])
+    expect(screen.queryByText('Opengrep')).toBeNull()
+    expect(screen.getByText(tr('wizard.kinds.code.benefit_2'))).toBeTruthy()
+    cards[0].focus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('radio', { name: tr('wizard.kinds.image.title') }).getAttribute('aria-checked')).toBe('true')
+    await user.keyboard('{Enter}')
+    expect(await heading('images.title')).toBeTruthy()
+  })
 
-describe('launching an analysis', () => {
-  it('sends nothing to OSV unless the person agrees', async () => {
-    const done = vi.fn(async () => {})
-    const user = userEvent.setup()
-    const calls = wizard(done)
+  it('opens importing from its own link', async () => {
+    const { user } = setup({ admin: false })
+    await user.click(await screen.findByRole('button', { name: /SARIF/ }))
+    expect(await screen.findByText(tr('import.title'))).toBeTruthy()
+  })
+
+  it('says web and API scans are off, and how an admin turns them on', async () => {
+    setup({ dast: false })
+    await waitFor(() => expect(screen.getByRole('radio', { name: tr('wizard.kinds.web.title') }).getAttribute('aria-disabled')).toBe('true'))
+    expect(screen.getAllByText(tr('chooser.off'))).toHaveLength(2)
+    expect(screen.getByText('PITANGUS_DAST_ENABLED=1')).toBeTruthy()
+  })
+
+  it('lets members read the web card but not continue', async () => {
+    const { user } = setup({ admin: false })
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
+    expect(screen.getByRole('button', { name: tr('wizard.continue') }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByText(tr('chooser.admin_only'))).toBeTruthy()
+  })
+})
+
+describe('a code scan', () => {
+  async function toReview(user: ReturnType<typeof userEvent.setup>) {
+    await screen.findByText(SOURCE.name)
+    await proceed(user)
+    await user.type(screen.getByLabelText(tr('context.label')), 'Public API behind the gateway')
+    await proceed(user)
+    await heading('review.title')
+  }
+
+  it('sends nothing to OSV unless the switch is turned on', async () => {
+    const { user, calls, done } = setup({ admin: false, source: SOURCE.id })
     await toReview(user)
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:launch.code')) }))
-
+    expect((await screen.findAllByText(/Python/)).length).toBeGreaterThan(0)
+    expect(screen.getByRole('switch', { name: tr('review.osv_label') }).getAttribute('aria-checked')).toBe('false')
+    await user.click(screen.getByRole('button', { name: tr('launch.code') }))
     await vi.waitFor(() => expect(done).toHaveBeenCalledWith('run-9'))
-    expect(calls.find(call => call.path === '/api/repositories/scans')).toEqual({ method: 'POST', path: '/api/repositories/scans',
-      action: 'scan-repository', body: { source_id: SOURCE.id, allow_osv_upload: false, context: 'Public API behind the gateway' } })
+    expect(calls.find(call => call.path === '/api/repositories/scans')?.body).toEqual({ source_id: SOURCE.id, allow_osv_upload: false, context: 'Public API behind the gateway' })
   })
 
-  it('asks OSV only with the consent ticked', async () => {
-    const user = userEvent.setup()
-    const calls = wizard(async () => {})
+  it('asks OSV only with the switch on', async () => {
+    const { user, calls } = setup({ admin: false, source: SOURCE.id })
     await toReview(user)
-    await user.click(screen.getByRole('checkbox'))
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:launch.code')) }))
-    await vi.waitFor(() => expect(calls.some(call => call.path === '/api/repositories/scans')).toBe(true))
-    const scan = calls.find(call => call.path === '/api/repositories/scans')
-    expect(scan?.body).toMatchObject({ allow_osv_upload: true })
+    await user.click(await screen.findByRole('switch', { name: tr('review.osv_label') }))
+    await user.click(screen.getByRole('button', { name: tr('launch.code') }))
+    await vi.waitFor(() => expect(calls.find(call => call.path === '/api/repositories/scans')?.body).toMatchObject({ allow_osv_upload: true }))
   })
 
-  it('launches a passive web scan of a verified domain, never of an unverified one', async () => {
-    const calls = webWizard({ dast: true }, true)
-    const done = vi.fn(async () => {})
-    const user = userEvent.setup()
-    renderWithQueries(<AnalysisWizard onComplete={done} onBatchStarted={() => {}} onManageConnections={() => {}} onManageDomains={() => {}} onCancel={() => {}}
-      initialSourceId={null} isAdmin />)
-    expect(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.kinds.api.title')) }).hasAttribute('disabled')).toBe(true)
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.kinds.web.title')) }))
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.continue')) }))
+  it('skips the context without a warning and offers to add it from the review', async () => {
+    const { user } = setup({ admin: false, source: SOURCE.id })
+    await screen.findByText(SOURCE.name)
+    await proceed(user)
+    await user.click(screen.getByRole('button', { name: tr('wizard.skip') }))
+    await heading('review.title')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await user.click(screen.getByRole('button', { name: i18n.t('analyses:review.no_context').replace(/.*<add>(.*)<\/add>.*/, '$1') }))
+    expect(await heading('context.title')).toBeTruthy()
+  })
+})
 
-    const unverified = await screen.findByRole('radio', { name: new RegExp('staging.example.com') })
-    expect(unverified.hasAttribute('disabled')).toBe(true)
-    const next = screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.continue')) })
-    expect(next.hasAttribute('disabled')).toBe(true)
-    await user.click(screen.getByRole('radio', { name: new RegExp('app.example.com') }))
-    await user.click(next)
-    expect(await screen.findByText(i18n.t('analyses:review.web_skips.attacks'))).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:launch.web')) }))
+describe('a web scan', () => {
+  it('takes a verified domain, a scope with subdomains (DNS proof) and warns before going without headers', async () => {
+    const { user, calls, done } = setup()
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
+    await proceed(user)
+    await heading('target.title')
+    expect((await screen.findByRole('radio', { name: /staging\.example\.com/ })).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: tr('target.verify_for', { host: 'staging.example.com' }) })).toBeTruthy()
+    expect(screen.getByRole('button', { name: tr('wizard.continue') }).hasAttribute('disabled')).toBe(true)
+    await user.click(screen.getByRole('radio', { name: /app\.example\.com/ }))
 
+    await user.click(screen.getByRole('switch', { name: tr('scope.toggle') }))
+    const field = screen.getByLabelText(tr('scope.add_label'))
+    await user.type(field, 'evil.com{Enter}')
+    expect(screen.getByText(tr('scope.foreign', { host: 'evil.com', domain: 'app.example.com' }))).toBeTruthy()
+    await user.clear(field)
+    await user.type(field, 'shop.app.example.com{Enter}')
+    const row = screen.getByRole('radiogroup', { name: tr('scope.row_label', { host: 'shop.app.example.com' }) })
+    expect(within(row).getByRole('radio', { name: tr('scope.in') }).getAttribute('aria-checked')).toBe('true')
+
+    await proceed(user)
+    await heading('access.title')
+    await proceed(user)
+    const question = await screen.findByRole('alertdialog', { name: tr('skip.access.title') })
+    await user.click(within(question).getByRole('button', { name: tr('skip.access.confirm') }))
+
+    await heading('review.title')
+    expect(screen.getByText(tr('review.mode_passive'))).toBeTruthy()
+    expect(screen.getByText(tr('review.scope_value', { host: 'app.example.com', count: 1 }))).toBeTruthy()
+    expect(screen.getByText(tr('review.access_none'))).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: tr('launch.web') }))
     await vi.waitFor(() => expect(done).toHaveBeenCalledWith('run-web'))
-    expect(calls.find(call => call.path === '/api/domains/scans')).toEqual({ method: 'POST', path: '/api/domains/scans', action: 'scan-domain',
-      body: { domain_id: VERIFIED.id } })
+    expect(scan(calls)).toEqual({ method: 'POST', path: '/api/domains/scans', action: 'scan-domain',
+      body: { domain_id: DOMAIN.id, mode: 'web', hosts: ['shop.app.example.com'], use_headers: false } })
+    expect(calls.some(call => call.path === '/api/domains/schedule')).toBe(false)
   })
 
-  it('says how to turn web scans on, and that only administrators launch them', async () => {
-    webWizard({ dast: false }, false)
-    const user = userEvent.setup()
-    renderWithQueries(<AnalysisWizard onComplete={async () => {}} onBatchStarted={() => {}} onManageConnections={() => {}} onManageDomains={() => {}} onCancel={() => {}}
-      initialSourceId={null} isAdmin={false} />)
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.kinds.web.title')) }))
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.continue')) }))
-
-    expect(await screen.findByText('PITANGUS_DAST_ENABLED=1')).toBeTruthy()
-    expect(screen.getByText(i18n.t('analyses:web.admin_only'))).toBeTruthy()
-    await user.click(screen.getByRole('radio', { name: new RegExp('app.example.com') }))
-    expect(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.continue')) }).hasAttribute('disabled')).toBe(true)
+  it('jumps back to a step from its review row', async () => {
+    const { user } = setup({ domains: [DOMAIN] })
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
+    await proceed(user)
+    await user.click(await screen.findByRole('radio', { name: /app\.example\.com/ }))
+    await proceed(user)
+    await heading('access.title')
+    await user.click(screen.getByRole('button', { name: tr('wizard.skip') }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: tr('skip.access.confirm') }))
+    await heading('review.title')
+    await user.click(screen.getByRole('button', { name: tr('review.change_for', { label: tr('review.access') }) }))
+    expect(await heading('access.title')).toBeTruthy()
   })
+})
 
-  it('offers importing SARIF next to the scan types', async () => {
-    mockApi(call => call.path.startsWith('/api/assets') ? { body: { items: [], total: 0, limit: 1, offset: 0 } } : undefined)
-    const user = userEvent.setup()
-    renderWithQueries(<AnalysisWizard onComplete={async () => {}} onBatchStarted={() => {}} onManageConnections={() => {}} onManageDomains={() => {}} onCancel={() => {}}
-      initialSourceId={null} isAdmin={false} />)
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:run_type.sarif_import')) }))
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('analyses:wizard.continue')) }))
+describe('an API scan', () => {
+  it('needs a spec, keeps a file or meta proof to its exact host and sends the saved headers', async () => {
+    const { user, calls } = setup({ domains: [API] })
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.api.title') }))
+    await proceed(user)
+    await user.click(await screen.findByRole('radio', { name: /api\.example\.com/ }))
+    expect(screen.queryByRole('switch', { name: tr('scope.toggle') })).toBeNull()
+    expect(screen.getByText(tr('scope.exact_only', { host: 'api.example.com' }))).toBeTruthy()
+    await proceed(user)
 
-    expect(await screen.findByText(i18n.t('analyses:import.title'))).toBeTruthy()
-    expect(await screen.findByText(i18n.t('analyses:import.no_asset'))).toBeTruthy()
+    await heading('spec.title')
+    expect(screen.getByRole('button', { name: tr('wizard.continue') }).hasAttribute('disabled')).toBe(true)
+    await user.upload(document.getElementById('spec-file') as HTMLInputElement, new File(['{"swagger": "1.0"}'], 'old.json', { type: 'application/json' }))
+    expect(await screen.findByText(tr('spec.invalid'))).toBeTruthy()
+    await user.upload(document.getElementById('spec-file') as HTMLInputElement, new File([SPEC], 'openapi.json', { type: 'application/json' }))
+    expect(await screen.findByText(new RegExp(tr('spec.summary', { version: '3.0.3', count: 3 })))).toBeTruthy()
+    await proceed(user)
+
+    await heading('access.title')
+    expect(screen.getByRole('switch', { name: tr('access.use_all') }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByText(tr('access.test_account'))).toBeTruthy()
+    await proceed(user)
+    await heading('review.title')
+    expect(screen.getByText(tr('review.access_value', { count: 1, names: 'Authorization' }))).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: tr('launch.api') }))
+    await vi.waitFor(() => expect(scan(calls)).toBeTruthy())
+    expect(scan(calls)?.body).toEqual({ domain_id: API.id, mode: 'api', use_headers: true, spec: { filename: 'openapi.json', content_base64: btoa(SPEC) } })
   })
 })

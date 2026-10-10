@@ -60,4 +60,7 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
   return <DialogPrimitive.Description data-slot="dialog-description" className={cn("text-sm text-app-muted", className)} {...props} />
 }
 
+// Below 768 px a form dialog takes the whole screen: room for the keyboard and for long values.
+export const dialogFullOnMobile = "max-md:h-dvh max-md:max-h-dvh max-md:w-screen max-md:max-w-none max-md:rounded-none"
+
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription }

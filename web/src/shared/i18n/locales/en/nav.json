@@ -36,7 +36,7 @@
     "new": "Choose the target, declare the scope and review what will run before you launch.",
     "repositories": "Connect your repositories and choose the code you want to scan.",
     "images": "The container images you've analyzed and the repository each is built from.",
-    "domains": "Domains you own, proven by DNS, to bring the findings of your own ZAP or Nuclei runs. Dynamic testing from here is still in development.",
+    "domains": "Sites and APIs you control. Verify them to scan them.",
     "integrations": "Manage code providers and check the AI status.",
     "account": "Your access: password and two-factor authentication.",
     "users": "Invite your team, assign roles and revoke access.",
@@ -61,15 +61,6 @@
     "done_other": "{{name}} scan finished: {{count}} findings.",
     "done_severities_one": "{{name}} scan finished: {{count}} finding ({{critical}} critical, {{high}} high).",
     "done_severities_other": "{{name}} scan finished: {{count}} findings ({{critical}} critical, {{high}} high)."
-  },
-  "dast": {
-    "title": "Next in dynamic testing",
-    "description": "What comes after the passive web scan of these domains:",
-    "plan": {
-      "scan": "API testing from an OpenAPI description, in safe mode first",
-      "auth": "Sign-in to the application with a test account you declare",
-      "evidence": "Active tests only with an administrator's authorization, recorded in the run"
-    }
   },
   "footer": "{{name}} · free software under <license>AGPL-3.0</license> · <source>source code</source> · a clean result doesn't prove there are no vulnerabilities.",
   "update": {
