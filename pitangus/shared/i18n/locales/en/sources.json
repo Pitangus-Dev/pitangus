@@ -109,7 +109,8 @@
       "limit": "A domain keeps at most {{max}} test users",
       "not_found": "That test user doesn't exist or was removed",
       "too_many": "A scan signs in with at most {{max}} test users",
-      "not_in_scope": "{{name}} signs in on {{host}}, which isn't in this scan's scope: add it to the scope or pick another test user"
+      "not_in_scope": "{{name}} signs in on {{host}}, which isn't in this scan's scope: add it to the scope or pick another test user",
+      "invalid_check_url": "The check URL is an HTTPS page, without a port or credentials in it"
     }
   }
 }

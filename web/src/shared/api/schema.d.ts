@@ -3229,7 +3229,8 @@ export interface components {
         /**
          * DomainTestUser
          * @description A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root
-         *     of the host it applies to; `last_used_at` is when a scan last signed in with it.
+         *     of the host it applies to; `check_url` is a page only a signed-in user sees, asked for after signing in to confirm
+         *     it worked; `last_used_at` is when a scan last signed in with it.
          */
         DomainTestUser: {
             /** Id */
@@ -3247,6 +3248,8 @@ export interface components {
             applies_to: string;
             /** Login Url */
             login_url?: string | null;
+            /** Check Url */
+            check_url?: string | null;
             /** Notes */
             notes?: string | null;
             /** Created By */
@@ -7563,6 +7566,8 @@ export interface operations {
                     } | null;
                     /** Login Url */
                     login_url?: string | null;
+                    /** Check Url */
+                    check_url?: string | null;
                     /** Notes */
                     notes?: string | null;
                     /** Applies To */

@@ -3762,6 +3762,18 @@
                     ],
                     "title": "Login Url"
                   },
+                  "check_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Check Url"
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -10557,6 +10569,17 @@
             ],
             "title": "Login Url"
           },
+          "check_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check Url"
+          },
           "notes": {
             "anyOf": [
               {
@@ -10623,7 +10646,7 @@
           "applies_to"
         ],
         "title": "DomainTestUser",
-        "description": "A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root\nof the host it applies to; `last_used_at` is when a scan last signed in with it."
+        "description": "A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root\nof the host it applies to; `check_url` is a page only a signed-in user sees, asked for after signing in to confirm\nit worked; `last_used_at` is when a scan last signed in with it."
       },
       "DomainTestUsers": {
         "properties": {

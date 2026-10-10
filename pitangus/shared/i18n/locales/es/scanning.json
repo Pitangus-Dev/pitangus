@@ -580,6 +580,11 @@
       "api": {
         "name": "Análisis pasivo de API (ZAP)",
         "detail": "{{count}} operaciones GET y HEAD de la definición OpenAPI pedidas en {{target}} y después las reglas pasivas de ZAP sobre cada respuesta. {{findings}} hallazgos."
+      },
+      "login": {
+        "name": "Inicio de sesión con usuarios de prueba",
+        "detail_one": "{{signed_in}} de {{count}} usuario de prueba inició sesión, comprobado antes del recorrido.",
+        "detail_other": "{{signed_in}} de {{count}} usuarios de prueba iniciaron sesión, comprobado antes del recorrido."
       }
     },
     "limitations": {
@@ -590,8 +595,10 @@
       "headers": "Las peticiones llevaron las cabeceras guardadas del dominio; no se comprobó que autenticaran de verdad, así que pueden faltar páginas detrás de un login.",
       "api": "Solo se pidieron las {{count}} operaciones GET y HEAD de la definición, con valores de ejemplo: quedaron fuera POST, PUT, PATCH y DELETE, y no se probaron endpoints que la definición no lista.",
       "wildcards": "Los hosts que solo encajan con un comodín no se resolvieron y no se analizaron: lista un host por nombre para incluirlo.",
-      "login_one": "Inició sesión con 1 usuario de prueba: ZAP detecta por su cuenta la sesión y cómo saber si sigue dentro, y no se confirmó que el inicio de sesión funcionara, así que pueden faltar páginas detrás del login. Lo alcanzado muestra lo que ve esa cuenta, no lo que ven otros roles.",
-      "login_other": "Inició sesión con {{count}} usuarios de prueba: ZAP detecta por su cuenta la sesión y cómo saber si sigue dentro, y no se confirmó que cada inicio de sesión funcionara, así que pueden faltar páginas detrás del login. Lo alcanzado muestra lo que ven esas cuentas, no lo que ven otros roles."
+      "login_one": "Inició sesión con 1 usuario de prueba, comprobado antes del recorrido. Lo alcanzado muestra lo que ve esa cuenta, no lo que ven otros roles, y un recorrido con tiempo limitado aún puede dejarse páginas.",
+      "login_other": "Inició sesión con {{count}} usuarios de prueba, cada uno comprobado antes del recorrido. Lo alcanzado muestra lo que ven esas cuentas, no lo que ven otros roles, y un recorrido con tiempo limitado aún puede dejarse páginas.",
+      "login_failed_one": "No se pudo iniciar sesión como {{names}}: lo que solo ve esa cuenta no se analizó, así que no verlo aquí no demuestra nada.",
+      "login_failed_other": "No se pudo iniciar sesión como {{names}}: lo que solo ven esas cuentas no se analizó, así que no verlo aquí no demuestra nada."
     },
     "errors": {
       "disabled": "Los análisis web están apagados en este servidor: define PITANGUS_DAST_ENABLED=1 en su entorno y reinícialo.",
@@ -619,6 +626,15 @@
       "fetch_failed": "No se pudo descargar la definición OpenAPI de {{url}}.",
       "fetch_status": "{{url}} respondió {{code}} en vez de la definición OpenAPI (no se siguen redirecciones).",
       "missing": "El modo API necesita una definición OpenAPI."
+    },
+    "login": {
+      "signed_in": "Sesión iniciada como «{{name}}».",
+      "failed": "No pudo iniciar sesión como «{{name}}»: {{reason}} No se recorrieron sus páginas detrás del login.",
+      "check_status": "su página de comprobación {{url}} respondió {{status}} en vez de 200.",
+      "check_status_zap": "su página de comprobación {{url}} respondió {{status}} en vez de 200 (ZAP: {{reason}}).",
+      "check_unreached": "no se pudo pedir su página de comprobación {{url}}.",
+      "zap_failed": "ZAP informa {{reason}}",
+      "unconfirmed": "ZAP no pudo confirmar que el inicio de sesión funcionara."
     }
   },
   "discovery": {

@@ -39,7 +39,11 @@
     "check_hint": "After deploying, run it and compare the header with the evidence.",
     "show_more": "Show more",
     "show_less": "Show less",
-    "new_tab": "(opens in a new tab)"
+    "new_tab": "(opens in a new tab)",
+    "sign_ins": "Sign-in as test users",
+    "signed_in": "Signed in as «{{name}}»",
+    "sign_in_failed": "Couldn't sign in as «{{name}}»: {{reason}}",
+    "partial": "Partial coverage: what only that account sees wasn't analyzed, so few or no findings there doesn't mean it's clean."
   },
   "import": {
     "eyebrow": "SARIF import · {{tool}}",

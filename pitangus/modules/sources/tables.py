@@ -92,6 +92,7 @@ domain_test_users = Table(
     Column("name", Text, nullable=False),
     Column("method", Text, nullable=False),  # password · password_totp
     Column("login_url", Text, nullable=False, server_default=""),
+    Column("check_url", Text, nullable=False, server_default=""),  # a page only a signed-in user sees
     Column("notes", Text, nullable=False, server_default=""),
     Column("applies_to", Text, nullable=False),
     Column("secret", Text, nullable=False),

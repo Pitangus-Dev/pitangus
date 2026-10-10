@@ -1,6 +1,6 @@
 """test users a domain's web scans sign in with
 
-One row per account: its name, sign-in method, login page, notes and host in clear; the username, password and TOTP
+One row per account: its name, sign-in method, login and check pages, notes and host in clear; the username, password and TOTP
 seed sealed together with the master key (`secret`). Removing the domain removes them.
 
 Revision ID: 0014
@@ -24,6 +24,7 @@ def upgrade() -> None:
     sa.Column('name', sa.Text(), nullable=False),
     sa.Column('method', sa.Text(), nullable=False),
     sa.Column('login_url', sa.Text(), server_default='', nullable=False),
+    sa.Column('check_url', sa.Text(), server_default='', nullable=False),
     sa.Column('notes', sa.Text(), server_default='', nullable=False),
     sa.Column('applies_to', sa.Text(), nullable=False),
     sa.Column('secret', sa.Text(), nullable=False),

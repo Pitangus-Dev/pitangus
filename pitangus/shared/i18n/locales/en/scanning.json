@@ -580,6 +580,11 @@
       "api": {
         "name": "Passive API analysis (ZAP)",
         "detail": "{{count}} GET and HEAD operations of the OpenAPI definition requested at {{target}}, then ZAP's passive rules over every response. {{findings}} findings."
+      },
+      "login": {
+        "name": "Sign-in as test users",
+        "detail_one": "{{signed_in}} of {{count}} test user signed in, checked before the crawl.",
+        "detail_other": "{{signed_in}} of {{count}} test users signed in, checked before the crawl."
       }
     },
     "limitations": {
@@ -590,8 +595,10 @@
       "headers": "Requests carried the domain's saved headers; whether they actually authenticated wasn't checked, so pages behind a login may still be missing.",
       "api": "Only the {{count}} GET and HEAD operations of the definition were requested, with example values: POST, PUT, PATCH and DELETE operations were left out, and endpoints the definition doesn't list weren't tried.",
       "wildcards": "Hosts matched only by a wildcard weren't resolved, so they weren't analyzed: list a host by name to include it.",
-      "login_one": "Signed in as 1 test user: ZAP detects the session and the logged-in check by itself, and whether the sign-in worked wasn't confirmed, so pages behind the login may still be missing. Pages it reached show what that account can see, not what other roles can.",
-      "login_other": "Signed in as {{count}} test users: ZAP detects the session and the logged-in check by itself, and whether each sign-in worked wasn't confirmed, so pages behind the login may still be missing. Pages reached show what those accounts can see, not what other roles can."
+      "login_one": "Signed in as 1 test user, checked before the crawl. Pages it reached show what that account can see, not what other roles can, and a crawl capped in time may still miss some.",
+      "login_other": "Signed in as {{count}} test users, each checked before the crawl. Pages reached show what those accounts can see, not what other roles can, and a crawl capped in time may still miss some.",
+      "login_failed_one": "Couldn't sign in as {{names}}: what only that account sees wasn't analyzed, so its absence here proves nothing.",
+      "login_failed_other": "Couldn't sign in as {{names}}: what only those accounts see wasn't analyzed, so its absence here proves nothing."
     },
     "errors": {
       "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
@@ -619,6 +626,15 @@
       "fetch_failed": "Couldn't download the OpenAPI definition from {{url}}.",
       "fetch_status": "{{url}} answered {{code}} instead of the OpenAPI definition (redirects aren't followed).",
       "missing": "API mode needs an OpenAPI definition."
+    },
+    "login": {
+      "signed_in": "Signed in as «{{name}}».",
+      "failed": "Couldn't sign in as «{{name}}»: {{reason}} Its pages behind the login weren't crawled.",
+      "check_status": "its check page {{url}} answered {{status}} instead of 200.",
+      "check_status_zap": "its check page {{url}} answered {{status}} instead of 200 (ZAP: {{reason}}).",
+      "check_unreached": "its check page {{url}} couldn't be requested.",
+      "zap_failed": "ZAP reports {{reason}}",
+      "unconfirmed": "ZAP couldn't confirm that the sign-in worked."
     }
   },
   "discovery": {

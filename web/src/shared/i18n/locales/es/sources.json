@@ -483,7 +483,7 @@
       "keep_saved": "Déjala en blanco para conservar la guardada.",
       "totp_secret": "Clave de la app de autenticación (secreto TOTP)",
       "totp_hint": "La clave en base32 que aparece al configurar la app, a menudo en «¿No puedes escanear el código?».",
-      "advanced": "Avanzado: URL de login, alcance, notas",
+      "advanced": "Avanzado: URL de login y de comprobación, alcance, notas",
       "login_url": "URL de login (opcional)",
       "login_url_hint": "Donde el análisis empieza a iniciar sesión. En blanco, abre la página de inicio del host de abajo y sigue el enlace de login que encuentre.",
       "applies_to": "Se aplica a",
@@ -510,7 +510,9 @@
       "count_other": "{{count}} usuarios de prueba guardados",
       "last_used": "Usado por última vez el {{date}}",
       "never_used": "Aún sin usar",
-      "limit": "Hasta {{max}} usuarios de prueba por dominio."
+      "limit": "Hasta {{max}} usuarios de prueba por dominio.",
+      "check_url": "Comprobar con (opcional)",
+      "check_url_hint": "Una página que solo ve quien inició sesión, como /account. Tras iniciar sesión, el análisis la abre como este usuario: una redirección al login, un 401 o un 403 significa que no funcionó. En blanco, decide la comprobación del propio ZAP."
     }
   },
   "images": {

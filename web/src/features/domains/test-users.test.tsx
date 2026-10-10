@@ -62,7 +62,7 @@ describe('test users', () => {
     await user.type(within(dialog).getByLabelText(tr('domains.test_users.login_url')), 'https://app.example.com/login')
     await user.click(within(dialog).getByRole('button', { name: tr('domains.test_users.save') }))
     await waitFor(() => expect(sent(calls)).toEqual([{ domain_id: ID, op: 'save', name: 'Admin user', method: 'password', username: 'qa@app.example.com', password: PASSWORD,
-      login_url: 'https://app.example.com/login', notes: '', applies_to: 'app.example.com' }]))
+      login_url: 'https://app.example.com/login', check_url: '', notes: '', applies_to: 'app.example.com' }]))
 
     const row = (await screen.findByText('Admin user')).closest('li') as HTMLElement
     expect(within(row).getByText(`qa@app.example.com · ${tr('domains.test_users.method.password')}`)).toBeTruthy()

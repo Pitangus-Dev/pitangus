@@ -483,7 +483,7 @@
       "keep_saved": "Leave it blank to keep the saved one.",
       "totp_secret": "Authenticator key (TOTP secret)",
       "totp_hint": "The base32 key shown when you set up the authenticator, often under “Can't scan the code?”.",
-      "advanced": "Advanced: login URL, scope, notes",
+      "advanced": "Advanced: login and check URLs, scope, notes",
       "login_url": "Login URL (optional)",
       "login_url_hint": "Where the scan starts signing in. Blank opens the home page of the host below and follows the login link it finds.",
       "applies_to": "Applies to",
@@ -510,7 +510,9 @@
       "count_other": "{{count}} saved test users",
       "last_used": "Last used {{date}}",
       "never_used": "Not used yet",
-      "limit": "Up to {{max}} test users per domain."
+      "limit": "Up to {{max}} test users per domain.",
+      "check_url": "Check URL (optional)",
+      "check_url_hint": "A page only a signed-in user sees, like /account. After signing in, the scan opens it as this user: a redirect to the login, 401 or 403 means the sign-in failed. Blank: ZAP's own check decides."
     }
   },
   "images": {

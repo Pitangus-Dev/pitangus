@@ -39,7 +39,11 @@
     "check_hint": "Después de desplegar, ejecútalo y compara la cabecera con la evidencia.",
     "show_more": "Ver más",
     "show_less": "Ver menos",
-    "new_tab": "(se abre en otra pestaña)"
+    "new_tab": "(se abre en otra pestaña)",
+    "sign_ins": "Inicio de sesión con usuarios de prueba",
+    "signed_in": "Sesión iniciada como «{{name}}»",
+    "sign_in_failed": "No pudo iniciar sesión como «{{name}}»: {{reason}}",
+    "partial": "Cobertura parcial: lo que solo ve esa cuenta no se analizó, así que pocos o ningún hallazgo ahí no significa que esté limpio."
   },
   "import": {
     "eyebrow": "Importación SARIF · {{tool}}",

@@ -4,6 +4,7 @@ authentication through environment variables, never through the plan, a file, th
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -77,7 +78,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual([(item["name"], item["method"], item["username"], item["applies_to"]) for item in listed],
                          [("Admin user", "password", USERNAME, HOST), ("MFA user", "password_totp", "mfa@pitangus.dev", HOST)])
         self.assertEqual((listed[1]["login_url"], listed[1]["notes"], first["created_by"]), (f"https://{HOST}/login#/sign-in", "Read-only role", "jefa"))
-        self.assertEqual(set(first), {"id", "name", "method", "username", "login_url", "notes", "applies_to", "created_by", "created_at",
+        self.assertEqual(set(first), {"id", "name", "method", "username", "login_url", "check_url", "notes", "applies_to", "created_by", "created_at",
                                       "updated_at", "last_used_at"})
         everything = json.dumps(listed) + json.dumps([first, second]) + stored_rows(self.data_dir)
         for secret in (PASSWORD_1, "Second-Pass-0042", SEED, SEED.lower()[:16]):
@@ -116,7 +117,8 @@ class ModelTests(unittest.TestCase):
                        {"password": "line\nbreak"}, {"password": None},
                        {"login_url": f"http://{HOST}/login"}, {"login_url": f"https://{HOST}:8443/login"}, {"login_url": "https://evil.example/login"},
                        {"login_url": f"https://user:pw@{HOST}/"}, {"login_url": f"https://{HOST}.evil.example/"},
-                       {"applies_to": "evil.example"}, {"applies_to": "localhost"}, {"notes": "x" * 1001},
+                       {"applies_to": "evil.example"}, {"applies_to": "localhost"}, {"notes": "x" * 1001}, {"check_url": f"http://{HOST}/account"},
+                       {"check_url": "https://evil.example/account"}, {"check_url": f"https://{HOST}/${{HOME}}"},
                        {"method": "password_totp"}, {"method": "password_totp", "totp": {"secret": "not base32!"}},
                        {"method": "password_totp", "totp": {"secret": "JBSWY3DP"}},
                        {"method": "password_totp", "totp": {"secret": SEED, "digits": 5}},
@@ -206,15 +208,84 @@ class PlanTests(unittest.TestCase):
                  {"name": "MFA", "username": "mfa", "password": "Second-Pass-0042", "login_url": "https://docs.pitangus.dev/in",
                   "applies_to": "docs.pitangus.dev", "totp": {"secret": SEED, "digits": 8, "period": 60, "algorithm": "SHA256"}}]
         planned, environment = web.login_plan(users, HOST, f"https://{HOST}/app")
-        self.assertEqual(planned, [{"login_url": f"https://{HOST}/", "start": f"https://{HOST}/app", "totp": None},
-                                   {"login_url": "https://docs.pitangus.dev/in", "start": "https://docs.pitangus.dev/",
-                                    "totp": {"digits": 8, "period": 60, "algorithm": "SHA256"}}])
+        self.assertEqual(planned, [{"name": "Admin", "login_url": f"https://{HOST}/", "start": f"https://{HOST}/app", "check_url": None,
+                                    "totp": None},
+                                   {"name": "MFA", "login_url": "https://docs.pitangus.dev/in", "start": "https://docs.pitangus.dev/",
+                                    "check_url": None, "totp": {"digits": 8, "period": 60, "algorithm": "SHA256"}}])
         self.assertEqual(environment, {"PITANGUS_LOGIN_1_USERNAME": USERNAME, "PITANGUS_LOGIN_1_PASSWORD": PASSWORD_1,
                                        "PITANGUS_LOGIN_2_USERNAME": "mfa", "PITANGUS_LOGIN_2_PASSWORD": "Second-Pass-0042",
                                        "PITANGUS_LOGIN_2_TOTP": SEED})
         text_plan = web.plan_text(HOST, f"https://{HOST}/app", users=planned)
         for secret in (USERNAME, PASSWORD_1, SEED, "Second-Pass-0042"):
             self.assertNotIn(secret, text_plan)
+
+
+def fake_zap(document, calls, *, signed_in=None, stdout="", check_stdout=""):
+    """`docker run` of ZAP. A sign-in check run (its script runs `check-<n>.yaml`) writes each check's authentication
+    report (`signed_in`: whether it worked, per check; all by default) and its marked output; the main run writes
+    `document` as the SARIF. `calls`: each run's command, script, standard input and environment."""
+    def run(command, **kwargs):
+        work = Path(command[command.index("-v") + 1].rsplit(":", 2)[0])
+        script = command[command.index("-c") + 1]
+        calls.append({"command": command, "script": script, "input": kwargs.get("input"), "env": kwargs.get("env"),
+                      "files": {path.name: path.read_text() for path in work.iterdir()}})
+        checks = re.findall(r"check-(\d+)\.yaml < /dev/null", script)
+        if checks:
+            output = ""
+            for number in checks:
+                worked = True if signed_in is None else signed_in[int(number) - 1]
+                (work / f"auth-{number}.json").write_text(json.dumps({
+                    "summaryItems": [{"key": "auth.summary.auth", "passed": worked}],
+                    "failureReasons": [] if worked else [{"key": "auth.failure.logged_in", "description": "No indication found of being logged in."}]}))
+                output += f"{web.CHECK_MARK}-{number}\nJob requestor requesting URL https://{HOST}/ with user login-{number}\n{check_stdout}\n"
+            return subprocess.CompletedProcess(command, 0, output + f"{web.CHECK_MARK}-end\n", "")
+        if document is not None:
+            (work / web.REPORT).write_text(json.dumps(document))
+        return subprocess.CompletedProcess(command, 0 if document is not None else 1, stdout, "")
+    return patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=run)
+
+
+def plan_of(call: dict) -> dict:
+    """The main plan: what follows the secrets on standard input."""
+    secrets = call["script"].count("IFS= read -r PITANGUS_LOGIN_")
+    return json.loads(call["input"].split("\n", secrets)[secrets])
+
+
+class SignInCheckTests(unittest.TestCase):
+    """Each test user's sign-in is confirmed alone before the crawl: its check page, else ZAP's own report."""
+
+    USER = {"name": "Admin", "check_url": None}
+
+    def test_the_report_decides_without_a_check_page(self):
+        worked = {"summaryItems": [{"key": "auth.summary.auth", "passed": True}]}
+        self.assertEqual(web.sign_in_outcome(self.USER, worked, "requesting URL"), {"name": "Admin", "status": "signed_in", "reason": None})
+        failed = {"summaryItems": [{"key": "auth.summary.auth", "passed": False}],
+                  "failureReasons": [{"key": "auth.failure.no_successful_logins", "description": "No successful browser logins."}]}
+        outcome = web.sign_in_outcome(self.USER, failed, "")
+        self.assertEqual(outcome["status"], "failed")
+        self.assertIn("No successful browser logins.", text(outcome["reason"], "en"))  # ZAP's words, as written
+        for report in (None, {}, {"summaryItems": "nope"}):
+            with self.subTest(report=report):
+                outcome = web.sign_in_outcome(self.USER, report, "")
+                self.assertEqual((outcome["status"], outcome["reason"]["$t"]), ("failed", "scanning.web.login.unconfirmed"))
+
+    def test_a_check_page_must_answer_200_as_that_user(self):
+        user = {"name": "Admin", "check_url": f"https://{HOST}/account"}
+        report = {"summaryItems": [{"key": "auth.summary.auth", "passed": False}]}  # the check page wins over the report
+        ran = f"Job requestor requesting URL https://{HOST}/account with user login-1\n"
+        self.assertEqual(web.sign_in_outcome(user, report, ran)["status"], "signed_in")
+        for output, status in ((ran + f"Difference in response code values for message GET https://{HOST}/account Expected : 200 Received : 302\n", "302"),
+                               (ran + "Difference in response code values for message GET x Expected : 200 Received : 401", "401")):
+            outcome = web.sign_in_outcome(user, None, output)
+            self.assertEqual(outcome["status"], "failed")
+            self.assertIn(f"answered {status} instead of 200", text(outcome["reason"], "en"))
+        for output in ("", ran + "Error sending message GET x in job requestor"):
+            self.assertEqual(web.sign_in_outcome(user, None, output)["reason"]["$t"], "scanning.web.login.check_unreached")
+
+    def test_each_check_keeps_to_its_own_part_of_the_output(self):
+        output = f"noise\n{web.CHECK_MARK}-1\none\n{web.CHECK_MARK}-2\ntwo\n{web.CHECK_MARK}-end\nafter\n"
+        self.assertEqual(web._segments(output, 2), ["one\n", "two\n"])
+        self.assertEqual(web._segments("", 2), ["", ""])
 
 
 class SignedInScanTests(unittest.TestCase):
@@ -228,60 +299,83 @@ class SignedInScanTests(unittest.TestCase):
         self.data_dir = Path(self.directory.name)
         self.record = {"id": "a" * 24, "host": HOST, "url": f"https://{HOST}/", "kind": "web", "key": f"domain:{HOST}"}
         self.users = [{"id": "b" * 24, "name": "Admin", "username": USERNAME, "password": PASSWORD_1, "login_url": None, "applies_to": HOST,
-                       "totp": {"secret": SEED, "digits": 6, "period": 30, "algorithm": "SHA1"}}]
+                       "check_url": None, "totp": {"secret": SEED, "digits": 6, "period": 30, "algorithm": "SHA1"}}]
 
-    def fake(self, document, calls, *, stdout=""):
-        def run(command, **kwargs):
-            work = Path(command[command.index("-v") + 1].rsplit(":", 2)[0])
-            calls.append({"command": command, "input": kwargs.get("input"), "env": kwargs.get("env"),
-                          "files": {path.name: path.read_text() for path in work.iterdir()}})
-            if document is not None:
-                (work / web.REPORT).write_text(json.dumps(document))
-            return subprocess.CompletedProcess(command, 0 if document is not None else 1, stdout, "")
-        return patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=run)
-
-    def test_secrets_reach_zap_by_environment_variable_name_and_are_scrubbed_from_what_it_returns(self):
+    def test_secrets_reach_zap_only_on_its_standard_input_and_are_scrubbed_from_what_it_returns(self):
         document = real()
         document["runs"][0]["results"][0]["message"]["text"] += f" Form echoed password={PASSWORD_1}"
         calls, events = [], []
-        with self.fake(document, calls, stdout=f"Signed in with {PASSWORD_1} / {SEED}"):
+        with fake_zap(document, calls, stdout=f"Signed in with {PASSWORD_1} / {SEED}", check_stdout=f"echo {PASSWORD_1}"):
             scan = web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, users=self.users,
                                    progress=lambda level, message: events.append(message))
-        (call,) = calls
-        command = call["command"]
-        for name in ("PITANGUS_LOGIN_1_USERNAME", "PITANGUS_LOGIN_1_PASSWORD", "PITANGUS_LOGIN_1_TOTP"):
-            self.assertEqual(command[command.index(name) - 1], "-e")  # by name only: Docker reads the value from its own env
-        self.assertEqual((call["env"]["PITANGUS_LOGIN_1_PASSWORD"], call["env"]["PITANGUS_LOGIN_1_TOTP"]), (PASSWORD_1, SEED))
-        self.assertIn(web.HOME_EXEC, command)  # geckodriver runs from ZAP's home
-        plan = json.loads(call["input"])
+        check, main = calls
+        for call in calls:
+            command = call["command"]
+            # Nothing in the container's configuration (`docker inspect`), its command line (`ps`) or the host's disk.
+            self.assertIsNone(call["env"])
+            self.assertFalse(any(part == "-e" or part.startswith("PITANGUS_LOGIN") for part in command))
+            for secret in (PASSWORD_1, SEED, USERNAME):
+                self.assertNotIn(secret, json.dumps(command) + json.dumps(call["files"]))
+            self.assertIn(web.HOME_EXEC, command)  # geckodriver runs from ZAP's home
+            # The wrapper reads them first, one per line, and exports them to ZAP's processes only.
+            self.assertIn("IFS= read -r PITANGUS_LOGIN_1_PASSWORD && export PITANGUS_LOGIN_1_PASSWORD", call["script"])
+            self.assertEqual(call["input"].split("\n")[:3], [USERNAME, PASSWORD_1, SEED])
+        plan = plan_of(main)
         self.assertEqual(plan["env"]["contexts"][1]["users"][0]["credentials"]["password"], "${PITANGUS_LOGIN_1_PASSWORD}")
-        for secret in (PASSWORD_1, SEED, USERNAME):
-            self.assertNotIn(secret, json.dumps(command) + call["input"] + json.dumps(call["files"]))
         for secret in (PASSWORD_1, SEED):
-            self.assertNotIn(secret, json.dumps(scan) + json.dumps(events))
+            self.assertNotIn(secret, json.dumps(plan) + json.dumps(scan) + json.dumps(events))
         self.assertIn("[redacted]", json.dumps(scan))
+        self.assertEqual((scan["status"], scan["logins"]), ("completed", [{"name": "Admin", "status": "signed_in", "reason": None}]))
         self.assertEqual((scan["scope"]["test_users"], {item["web"]["coverage"] for item in scan["findings"]}), (["Admin"], {"baseline+login"}))
-        self.assertIn("scanning.web.limitations.login", json.dumps(scan["limitations"]))
-        # Without test users, ZAP's home stays noexec and nothing is passed in its environment.
+        self.assertIn("scanning.web.login.signed_in", json.dumps(events))
+        # Without test users there is no check run, ZAP's home stays noexec and its standard input is the plan alone.
         calls.clear()
-        with self.fake(real(), calls):
+        with fake_zap(real(), calls):
             web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir)
-        self.assertIn(web.HOME, calls[0]["command"])
-        self.assertIsNone(calls[0]["env"])
-        self.assertFalse(any(part.startswith("PITANGUS_LOGIN") for part in calls[0]["command"]))
+        (call,) = calls
+        self.assertIn(web.HOME, call["command"])
+        self.assertNotIn("read -r", call["script"])
+        self.assertEqual(json.loads(call["input"])["env"]["contexts"][0]["name"], web.CONTEXT)
+
+    def test_a_user_that_cant_sign_in_isnt_crawled_as_and_the_run_says_its_coverage_is_partial(self):
+        users = [self.users[0], {**self.users[0], "id": "c" * 24, "name": "Viewer", "username": "viewer", "totp": None}]
+        calls, events = [], []
+        with fake_zap(real(), calls, signed_in=[True, False]):
+            scan = web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, users=users,
+                                   progress=lambda level, message: events.append((level, message)))
+        check, main = calls
+        self.assertEqual(len(plan_of(main)["env"]["contexts"]), 2)  # the anonymous one and Admin's
+        self.assertNotIn("viewer", main["input"])
+        self.assertEqual(scan["status"], "incomplete")
+        self.assertEqual([(item["name"], item["status"]) for item in scan["logins"]], [("Admin", "signed_in"), ("Viewer", "failed")])
+        self.assertIn("No indication found of being logged in.", text(scan["logins"][1]["reason"], "en"))
+        steps = {step["id"]: step for step in scan["steps"]}
+        self.assertEqual((steps["dast"]["status"], steps["login"]["status"]), ("partial", "partial"))
+        self.assertIn("1 of 2 test users signed in", text(steps["login"]["detail"], "en"))
+        self.assertIn("Couldn't sign in as Viewer", text(scan["limitations"], "en"))
+        self.assertIn(("warn", "scanning.web.login.failed"), [(level, message["$t"]) for level, message in events if isinstance(message, dict)])
+        # Nobody signed in: the crawl is anonymous, and its findings vouch only for what an anonymous crawl sees.
+        calls.clear()
+        with fake_zap(real(), calls, signed_in=[False]):
+            scan = web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, users=self.users[:1])
+        self.assertEqual((scan["status"], {item["web"]["coverage"] for item in scan["findings"]}), ("incomplete", {"baseline"}))
+        self.assertNotIn("read -r", calls[1]["script"])
 
     def test_no_other_variable_reaches_the_plan_where_zap_would_fill_it_with_a_secret(self):
         calls = []
-        with self.fake(real(), calls), self.assertRaises(web.WebScanError) as caught:
+        with fake_zap(real(), calls), self.assertRaises(web.WebScanError) as caught:
             web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, users=self.users,
                             headers=[("X-Leak", "${PITANGUS_LOGIN_1_PASSWORD}")])
         self.assertEqual(calls, [])  # ZAP never started
         self.assertIn("${", text(caught.exception.message, "en"))
         self.assertEqual(web.start_url({**self.record, "url": f"https://{HOST}/${{PITANGUS_LOGIN_1_PASSWORD}}"}), f"https://{HOST}/")
+        for bad in ({"a b": "x"}, {"PITANGUS_LOGIN_1_PASSWORD": "two\nlines"}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                web.run_zap("{}", {HOST: "104.21.32.173"}, Path(self.directory.name), secrets=bad)
 
     def test_a_failing_plan_is_scrubbed_too(self):
         calls = []
-        with self.fake(None, calls, stdout=f"Automation plan failures:\n\tJob spider failed for {PASSWORD_1}\n"), \
+        with fake_zap(None, calls, stdout=f"Automation plan failures:\n\tJob spider failed for {PASSWORD_1}\n"), \
                 self.assertRaises(web.WebScanError) as caught:
             web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, users=self.users)
         self.assertNotIn(PASSWORD_1, json.dumps(caught.exception.message))
@@ -305,15 +399,9 @@ class WorkerTests(unittest.TestCase):
         queued = self.jobs.enqueue_dast_scan(domain=self.domain, requested_by="jefa", options=options)
         with db.transaction(self.data_dir) as connection:
             payload = connection.execute(select(jobs.c.payload).where(jobs.c.run_id == queued["id"])).scalar_one()
-
-        def run(command, **kwargs):
-            calls.append((command, kwargs.get("env")))
-            work = Path(command[command.index("-v") + 1].rsplit(":", 2)[0])
-            (work / web.REPORT).write_text(json.dumps(real()))
-            return subprocess.CompletedProcess(command, 0, "", "")
         with patch.object(domains, "lookup_txt", return_value=[self.domain["txt_value"]]), \
                 patch("pitangus.modules.sources.domains.socket.getaddrinfo", return_value=[(2, 1, 6, "", ("104.21.32.173", 443))]), \
-                patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=run):
+                fake_zap(real(), calls):
             self.jobs._execute({**payload, "kind": "dast_scan", "run_id": queued["id"]})
         with db.transaction(self.data_dir) as connection:
             connection.execute(update(jobs).where(jobs.c.run_id == queued["id"]).values(status="done"))
@@ -321,15 +409,15 @@ class WorkerTests(unittest.TestCase):
 
     def test_the_worker_opens_the_chosen_users_only_for_zap_and_stores_nothing_secret(self):
         records = capture_logs(self)
-        saved = test_users.save(self.data_dir, self.domain, totp_user())
+        saved = test_users.save(self.data_dir, self.domain, totp_user(check_url=f"https://{HOST}/account"))
         calls = []
         record, payload = self.run_queued({"mode": "web", "test_users": [saved["id"]]}, calls)
-        self.assertEqual(record["status"], "completed", record["progress"][-1])
+        self.assertEqual(record["logins"][0]["name"], "MFA user")
         self.assertEqual(payload["test_users"], [saved["id"]])
-        (command, environment), = calls
-        self.assertEqual(environment["PITANGUS_LOGIN_1_PASSWORD"], "Second-Pass-0042")
-        self.assertEqual(environment["PITANGUS_LOGIN_1_TOTP"], SEED)
-        everything = json.dumps(record) + json.dumps(payload) + "\n".join(records) + json.dumps(command)
+        check, *_ = calls
+        self.assertIn(f'"url": "https://{HOST}/account", "responseCode": 200', check["input"])
+        self.assertEqual(check["input"].split("\n")[1:3], ["Second-Pass-0042", SEED])
+        everything = json.dumps(record) + json.dumps(payload) + "\n".join(records) + json.dumps([call["command"] for call in calls])
         for secret in ("Second-Pass-0042", SEED):
             self.assertNotIn(secret, everything)
         self.assertTrue(test_users.list_users(self.data_dir, self.domain["id"])[0]["last_used_at"])

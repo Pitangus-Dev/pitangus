@@ -106,21 +106,22 @@ def check_applies_to(value, root: str) -> str:
     return host
 
 
-def check_login_url(value, root: str) -> str:
-    """Empty (the root of the host it applies to) or an HTTPS page on the domain or one of its subdomains."""
+def check_login_url(value, root: str, error: str = "sources.domains.test_users.invalid_login_url") -> str:
+    """Empty (the root of the host it applies to) or an HTTPS page on the domain or one of its subdomains. The same
+    rule for the check page (`error` names which field it is)."""
     if value is None or value == "":
         return ""
     if not isinstance(value, str) or len(value) > URL_MAX or any(ord(character) <= 32 or ord(character) == 127 for character in value.strip()) or "${" in value:
-        raise TestUserError(msg("sources.domains.test_users.invalid_login_url"))
+        raise TestUserError(msg(error))
     value = value.strip()
     try:
         parts = urlsplit(value)
         host = (parts.hostname or "").lower().rstrip(".")
         port = parts.port
     except ValueError as exc:
-        raise TestUserError(msg("sources.domains.test_users.invalid_login_url")) from exc
+        raise TestUserError(msg(error)) from exc
     if parts.scheme != "https" or parts.username or parts.password or port is not None or not domains.valid_host(host):
-        raise TestUserError(msg("sources.domains.test_users.invalid_login_url"))
+        raise TestUserError(msg(error))
     if not _under(host, root):
         raise TestUserError(msg("sources.domains.test_users.outside", host=host, root=root))
     return value
@@ -128,6 +129,12 @@ def check_login_url(value, root: str) -> str:
 
 def login_host(user: dict) -> str:
     return (urlsplit(user["login_url"]).hostname or "").lower().rstrip(".") if user.get("login_url") else user["applies_to"]
+
+
+def reached_hosts(user: dict) -> list[str]:
+    """Every host a test user's sign-in reaches: where it belongs, its login page and its check page."""
+    check = (urlsplit(user["check_url"]).hostname or "").lower().rstrip(".") if user.get("check_url") else ""
+    return list(dict.fromkeys(host for host in (user["applies_to"], login_host(user), check) if host))
 
 
 def check_totp(value) -> dict:
@@ -151,7 +158,7 @@ def check_totp(value) -> dict:
 
 def _shown(row, sealed: dict) -> dict:
     return {"id": row.id, "name": row.name, "method": row.method, "username": sealed.get("username", ""),
-            "login_url": row.login_url or None, "notes": row.notes or None, "applies_to": row.applies_to,
+            "login_url": row.login_url or None, "check_url": row.check_url or None, "notes": row.notes or None, "applies_to": row.applies_to,
             "created_by": row.created_by or None, "created_at": _iso(row.created_at), "updated_at": _iso(row.updated_at),
             "last_used_at": _iso(row.last_used_at)}
 
@@ -194,6 +201,7 @@ def save(data_dir: Path, record: dict, data: dict, *, by: str = "") -> dict:
     username = _line(data.get("username"), USERNAME_MAX, "sources.domains.test_users.invalid_username")
     applies_to = check_applies_to(data.get("applies_to"), root)
     login_url = check_login_url(data.get("login_url"), root)
+    check_url = check_login_url(data.get("check_url"), root, "sources.domains.test_users.invalid_check_url")
     notes = check_notes(data.get("notes"))
     password = data.get("password")
     password = None if password is None else _line(password, PASSWORD_MAX, "sources.domains.test_users.invalid_password", strip=False)
@@ -215,7 +223,7 @@ def save(data_dir: Path, record: dict, data: dict, *, by: str = "") -> dict:
             user_id = secrets.token_hex(12)
             sealed = {"username": username, "password": password, **({"totp": totp} if method == "password_totp" else {})}
             connection.execute(insert(domain_test_users).values(
-                tenant_id=TENANT, id=user_id, domain_id=domain_id, name=name, method=method, login_url=login_url, notes=notes,
+                tenant_id=TENANT, id=user_id, domain_id=domain_id, name=name, method=method, login_url=login_url, check_url=check_url, notes=notes,
                 applies_to=applies_to, secret=vault.seal(sealed, _purpose(domain_id, user_id)), created_by=by[:200]))
         else:
             current = next((row for row in rows if row.id == _id(user_id)), None)
@@ -232,7 +240,7 @@ def save(data_dir: Path, record: dict, data: dict, *, by: str = "") -> dict:
             else:
                 sealed.pop("totp", None)
             connection.execute(update(domain_test_users).where(domain_test_users.c.tenant_id == TENANT, domain_test_users.c.id == user_id)
-                               .values(name=name, method=method, login_url=login_url, notes=notes, applies_to=applies_to,
+                               .values(name=name, method=method, login_url=login_url, check_url=check_url, notes=notes, applies_to=applies_to,
                                        secret=vault.seal(sealed, _purpose(domain_id, user_id)), updated_at=now))
         (row,) = _rows(connection, domain_id, [user_id])
     _register(sealed)
@@ -262,7 +270,7 @@ def check_selection(data_dir: Path, record: dict, ids, scope: dict) -> list[dict
         raise TestUserError(msg("sources.domains.test_users.not_found"))
     chosen = [_shown(rows[item], {}) for item in ids]
     for user in chosen:
-        for host in dict.fromkeys((user["applies_to"], login_host(user))):
+        for host in reached_hosts(user):
             if host not in scope["hosts"]:
                 raise TestUserError(msg("sources.domains.test_users.not_in_scope", name=user["name"], host=host))
     return chosen

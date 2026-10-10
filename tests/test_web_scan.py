@@ -108,8 +108,8 @@ class ContainerTests(unittest.TestCase):
         options, arguments = argv[:image], argv[image + 1:]
         self.assertIn("@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2", argv[image])
         # The plan arrives on standard input and is written in the memory-only home, never in the host's work folder.
-        self.assertEqual(arguments, ["sh", "-c", f'umask 077 && cat > {web.PLAN} && exec zap.sh "$@"', "zap.sh", web.HEAP,
-                                     "-cmd", "-silent", "-autorun", web.PLAN])
+        self.assertEqual(arguments, ["sh", "-c", f'umask 077 && cat > {web.PLAN} && {{ exec zap.sh "$@" {web.PLAN}; }}', "zap.sh", web.HEAP,
+                                     "-cmd", "-silent", "-autorun"])
         self.assertTrue(web.PLAN.startswith("/home/zap/") and web.HOME.startswith("/home/zap:"))
         self.assertIn("-i", options)
         self.assertEqual(options[options.index("--dns") + 1], "127.0.0.1")  # only the pinned names resolve

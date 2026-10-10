@@ -70,6 +70,7 @@ function TestUserForm({ domain, editing, onCancel, onSaved }: { domain: Domain; 
   const [period, setPeriod] = useState('30')
   const [algorithm, setAlgorithm] = useState('SHA1')
   const [loginUrl, setLoginUrl] = useState(current?.login_url ?? '')
+  const [checkUrl, setCheckUrl] = useState(current?.check_url ?? '')
   const [notes, setNotes] = useState(current?.notes ?? '')
   const [appliesTo, setAppliesTo] = useState(current?.applies_to ?? domain.host)
   const save = useMutation({
@@ -77,7 +78,7 @@ function TestUserForm({ domain, editing, onCancel, onSaved }: { domain: Domain; 
       domain_id: domain.id, op: 'save', ...(current ? { id: current.id } : {}), name: name.trim(), method: editing.method, username: username.trim(),
       ...(password ? { password } : {}),
       ...(totp && secret ? { totp: { secret: secret.trim(), digits: Number(digits), period: Number(period), algorithm: algorithm as 'SHA1' | 'SHA256' | 'SHA512' } } : {}),
-      login_url: loginUrl.trim(), notes: notes.trim(), applies_to: appliesTo.trim() || domain.host,
+      login_url: loginUrl.trim(), check_url: checkUrl.trim(), notes: notes.trim(), applies_to: appliesTo.trim() || domain.host,
     }),
     onSuccess: saved => {
       store(saved)
@@ -112,6 +113,10 @@ function TestUserForm({ domain, editing, onCancel, onSaved }: { domain: Domain; 
         <Field id="test-user-login-url" label={t('domains.test_users.login_url')} hint={t('domains.test_users.login_url_hint')}>
           <Input id="test-user-login-url" inputMode="url" maxLength={2000} value={loginUrl} onChange={event => setLoginUrl(event.target.value)} placeholder={`https://${domain.host}/login`}
             autoComplete="off" spellCheck={false} aria-describedby="test-user-login-url-hint" className="border-app-line bg-app-soft font-mono" />
+        </Field>
+        <Field id="test-user-check-url" label={t('domains.test_users.check_url')} hint={t('domains.test_users.check_url_hint')}>
+          <Input id="test-user-check-url" inputMode="url" maxLength={2000} value={checkUrl} onChange={event => setCheckUrl(event.target.value)} placeholder={`https://${domain.host}/account`}
+            autoComplete="off" spellCheck={false} aria-describedby="test-user-check-url-hint" className="border-app-line bg-app-soft font-mono" />
         </Field>
         <Field id="test-user-applies-to" label={t('domains.test_users.applies_to')} hint={t('domains.test_users.applies_to_hint')}>
           <Input id="test-user-applies-to" maxLength={253} value={appliesTo} onChange={event => setAppliesTo(event.target.value)} autoComplete="off" spellCheck={false}

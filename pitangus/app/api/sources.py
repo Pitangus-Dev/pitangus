@@ -213,13 +213,15 @@ class DomainSchedule(Open):
 
 class DomainTestUser(Open):
     """A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root
-    of the host it applies to; `last_used_at` is when a scan last signed in with it."""
+    of the host it applies to; `check_url` is a page only a signed-in user sees, asked for after signing in to confirm
+    it worked; `last_used_at` is when a scan last signed in with it."""
     id: str
     name: str
     method: Literal["password", "password_totp"]
     username: str
     applies_to: str
     login_url: str | None = None
+    check_url: str | None = None
     notes: str | None = None
     created_by: str | None = None
     created_at: str | None = None
@@ -405,13 +407,15 @@ class DomainTestUserIn(BaseModel):
     password: StrictStr | None = Field(None, min_length=1, max_length=test_users.PASSWORD_MAX)
     totp: TotpIn | None = None
     login_url: StrictStr | None = Field(None, max_length=test_users.URL_MAX)
+    check_url: StrictStr | None = Field(None, max_length=test_users.URL_MAX)
     notes: StrictStr | None = Field(None, max_length=test_users.NOTES_MAX)
     applies_to: StrictStr | None = Field(None, max_length=260)
 
     @model_validator(mode="after")
     def _fields(self):
         if self.op == "remove" and (self.id is None or any(value is not None for value in (
-                self.name, self.method, self.username, self.password, self.totp, self.login_url, self.notes, self.applies_to))):
+                self.name, self.method, self.username, self.password, self.totp, self.login_url, self.check_url, self.notes,
+                self.applies_to))):
             raise ValueError("remove takes the id only")
         if self.op == "save" and (self.name is None or self.method is None or self.username is None):
             raise ValueError("save needs a name, a method and a username")

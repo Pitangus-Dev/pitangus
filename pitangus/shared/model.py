@@ -110,6 +110,7 @@ class RunRecord(TypedDict, total=False):
     review: dict[str, Any]
     scope: dict[str, Any]      # dast_scan: hosts, wildcards, header names (never values) and coverage key
     api: dict[str, Any]        # dast_scan in API mode: the definition's SHA-256, operations and source
+    logins: list[dict[str, Any]]  # dast_scan with test users: each one's sign-in check (name, status, reason)
     steps: list[dict[str, Any]]
     findings: list[Finding]
     excluded_findings: list[Finding]

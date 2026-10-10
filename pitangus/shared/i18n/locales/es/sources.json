@@ -109,7 +109,8 @@
       "limit": "Un dominio guarda como máximo {{max}} usuarios de prueba",
       "not_found": "Ese usuario de prueba no existe o se eliminó",
       "too_many": "Un análisis inicia sesión con {{max}} usuarios de prueba como máximo",
-      "not_in_scope": "{{name}} inicia sesión en {{host}}, que no está en el alcance de este análisis: añádelo al alcance o elige otro usuario de prueba"
+      "not_in_scope": "{{name}} inicia sesión en {{host}}, que no está en el alcance de este análisis: añádelo al alcance o elige otro usuario de prueba",
+      "invalid_check_url": "La URL de comprobación es una página HTTPS, sin puerto ni credenciales"
     }
   }
 }

@@ -13,11 +13,12 @@ followed. Wildcards (`*.example.com`) only widen that context; hosts reached thr
 
 The plan reaches ZAP on its standard input and is written inside the container's memory-only home: the headers a
 domain saved (API keys, tokens, cookies) go into it, never into a file on the host, the command line or the logs.
-Test users sign in with ZAP's browser-based authentication, each in a context of its own (its login page), and a
-spider (or the OpenAPI import) runs as each one. Their usernames, passwords and TOTP seeds aren't in the plan: only
-`${PITANGUS_LOGIN_<n>_…}` references that ZAP fills from its environment, which the Docker client passes on by name
-(`-e NAME`, the value read from its own environment, never on a command line). Whatever ZAP returns is scrubbed of
-all those values before it is stored.
+Test users sign in with ZAP's browser-based authentication, each in a context of its own (its login page). Each
+sign-in is checked first, alone in a ZAP of its own so its result is about that user (its check page, else ZAP's
+authentication report); a spider (or the OpenAPI import) then runs as each one that signed in. Their usernames,
+passwords and TOTP seeds aren't in the plan, only `${PITANGUS_LOGIN_<n>_…}` references: they come first on the
+container's standard input and a wrapper exports them to ZAP's processes only, never `docker run -e` (which
+`docker inspect` shows), a command line or a file. Whatever ZAP returns is scrubbed of all those values.
 
 The container is the only engine that reaches the internet on purpose. It runs as the image's own user (ZAP's Java
 needs a home from passwd), with no capabilities, no privilege escalation, a read-only root, memory and CPU caps and
@@ -72,6 +73,10 @@ TOTP_FIELD = ", ".join(f"input{match}:not([type='hidden'])" for match in (
     "[autocomplete='one-time-code']", "[name*='otp' i]", "[id*='otp' i]", "[name*='mfa' i]", "[id*='mfa' i]", "[name*='2fa' i]",
     "[name*='code' i]", "[id*='code' i]"))
 TOTP_WAIT_MS = 15_000
+SECRET_NAME = re.compile(r"PITANGUS_LOGIN_[0-9]+_[A-Z]+")
+CHECK_PLAN = "/home/zap/check-{}.yaml"
+CHECK_MARK = "PITANGUS-SIGN-IN-CHECK"
+CHECK_SECONDS = 150        # one test user's sign-in check, ZAP's start included
 
 
 class WebScanError(ValueError):
@@ -176,17 +181,90 @@ def plan_text(host: str, url: str, **options) -> str:
     return json.dumps(plan(host, url, **options), indent=2) + "\n"
 
 
-def run_zap(text: str, pins: dict[str, str], work: Path, *, timeout: int = TIMEOUT,
-            secret_env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+def run_zap(text: str | None, pins: dict[str, str], work: Path, *, timeout: int = TIMEOUT, secrets: dict[str, str] | None = None,
+            checks=()) -> subprocess.CompletedProcess:
     """ZAP over a fresh work folder only it writes to (its user isn't ours): the plan in through standard input
     (into its memory-only home), the SARIF out. `pins`: every host it may reach, with its checked address.
-    `secret_env`: the test users' secrets the plan refers to, passed on by name through the Docker client."""
+
+    `secrets`: the test users' secrets the plans refer to as `${NAME}`. They come first on standard input, one per
+    line, and the wrapper exports them to ZAP's own processes only: never `docker run -e` (which `docker inspect`
+    shows), a command line, a file or a log. `checks`: one-line plans run one after another before the main plan
+    (or instead of it, without `text`), each after a `CHECK_MARK-<n>` line on standard output."""
+    secrets = dict(secrets or {})
+    if any(not SECRET_NAME.fullmatch(name) or any(character in value for character in "\r\n\0") for name, value in secrets.items()):
+        raise ValueError("a secret is one line, under a PITANGUS_LOGIN_ name")
+    if any("\n" in check for check in checks):
+        raise ValueError("a check plan is one line")
     work.chmod(0o777)
-    # `umask 077`: the copy of the plan in the tmpfs is readable by ZAP's user only.
-    command = ["sh", "-c", f'umask 077 && cat > {PLAN} && exec zap.sh "$@"', "zap.sh", HEAP, "-cmd", "-silent", "-autorun", PLAN]
-    home = HOME_EXEC if secret_env else HOME
+    # `umask 077`: what lands in the tmpfs is readable by ZAP's user only. All of standard input is read before ZAP
+    # starts; `IFS= read -r` keeps each value exactly as it was sent.
+    reads = ["umask 077", *(f"IFS= read -r {name} && export {name}" for name in secrets),
+             *(f"IFS= read -r line && printf '%s\\n' \"$line\" > {CHECK_PLAN.format(index)}" for index in range(1, len(checks) + 1)),
+             *([f"cat > {PLAN}"] if text is not None else [])]
+    runs = [f'echo {CHECK_MARK}-{index}; zap.sh "$@" {CHECK_PLAN.format(index)} < /dev/null' for index in range(1, len(checks) + 1)]
+    runs.append(f'exec zap.sh "$@" {PLAN}' if text is not None else f"echo {CHECK_MARK}-end")
+    command = ["sh", "-c", " && ".join(reads) + " && { " + "; ".join(runs) + "; }", "zap.sh", HEAP, "-cmd", "-silent", "-autorun"]
+    stdin = "".join(f"{value}\n" for value in secrets.values()) + "".join(f"{check}\n" for check in checks) + (text or "")
+    home = HOME_EXEC if secrets or checks else HOME
     return _run("zap", command, None, network=True, mounts=["-v", f"{host_path(work)}:{WORK}:rw", "--tmpfs", home],
-                timeout=timeout, hosts=pins, pinned_only=True, image_user=True, stdin=text, secret_env=secret_env)
+                timeout=timeout, hosts=pins, pinned_only=True, image_user=True, stdin=stdin)
+
+
+def check_plan(index: int, user: dict, urls: list[str], patterns: list[str]) -> dict:
+    """One test user's sign-in check, alone in its ZAP so what ZAP reports is about it: sign in, ask for its check
+    page (or where its crawl starts) as that user, and ZAP's authentication report for its login host."""
+    target = user.get("check_url") or user["start"]
+    request: dict[str, Any] = {"url": target, **({"responseCode": 200} if user.get("check_url") else {})}
+    host = urlsplit(user["login_url"]).hostname or ""
+    return {"env": {"contexts": [_login_context(index, user, urls, patterns)],
+                    "parameters": {"failOnError": False, "failOnWarning": False, "progressToStdout": True}},
+            "jobs": [{"type": "requestor", "parameters": {"user": f"login-{index}"}, "requests": [request]},
+                     {"type": "passiveScan-wait", "parameters": {"maxDuration": 1}},
+                     {"type": "report", "parameters": {"template": "auth-report-json", "reportDir": WORK, "reportFile": f"auth-{index}"},
+                      "sections": ["summary"], "sites": [f"https://{host}"]}]}
+
+
+def sign_in_outcome(user: dict, report: dict | None, output: str) -> dict:
+    """Whether a test user's check signed in: its check page answering 200 when it has one (a redirect to the login,
+    401 or 403 means it didn't), else ZAP's authentication report. The reason quotes ZAP as it wrote it."""
+    summary = {item.get("key"): item for item in (report or {}).get("summaryItems") or [] if isinstance(item, dict)}
+    passed = summary.get("auth.summary.auth", {}).get("passed")
+    zap = "; ".join(str(item["description"]) for item in (report or {}).get("failureReasons") or []
+                    if isinstance(item, dict) and item.get("description"))[:300]
+    failed = None
+    if user.get("check_url"):
+        code = re.search(r"Expected\s*:\s*200\s+Received\s*:\s*(\d{3})", output)
+        if code:
+            failed = (msg("scanning.web.login.check_status_zap", url=user["check_url"], status=code.group(1), reason=zap) if zap
+                      else msg("scanning.web.login.check_status", url=user["check_url"], status=code.group(1)))
+        elif "Error sending message" in output or "requesting URL" not in output:
+            failed = msg("scanning.web.login.check_unreached", url=user["check_url"])
+    elif passed is False:
+        failed = msg("scanning.web.login.zap_failed", reason=zap) if zap else msg("scanning.web.login.unconfirmed")
+    elif passed is not True:
+        failed = msg("scanning.web.login.unconfirmed")
+    return {"name": user["name"], "status": "failed" if failed else "signed_in", "reason": failed}
+
+
+def _segments(output: str, count: int) -> list[str]:
+    """Each check's part of standard output, between its marker and the next."""
+    parts, current, index = [""] * count, None, 0
+    for line in output.splitlines():
+        marker = re.fullmatch(rf"{CHECK_MARK}-(\d+|end)", line.strip())
+        if marker:
+            index = int(marker.group(1)) if marker.group(1).isdigit() else 0
+            current = index - 1 if 0 < index <= count else None
+        elif current is not None:
+            parts[current] += line + "\n"
+    return parts
+
+
+def _no_stray_variables(planned: dict) -> None:
+    """ZAP replaces every `${NAME}` in a plan from its environment: only the test users' credentials may refer to it,
+    never a definition's path, a saved header or a URL that would send their secrets somewhere else."""
+    if "${" in json.dumps({**planned, "env": {**planned["env"], "contexts": [
+            {key: value for key, value in context.items() if key != "users"} for context in planned["env"]["contexts"]]}}):
+        raise WebScanError(msg("scanning.web.errors.variable"))
 
 
 def secret_parts(headers) -> list[str]:
@@ -274,13 +352,40 @@ def login_plan(users, host: str, url: str) -> tuple[list[dict], dict[str, str]]:
     for index, user in enumerate(users, start=1):
         totp = user.get("totp") or None
         own = user["applies_to"]
-        planned.append({"login_url": user.get("login_url") or f"https://{own}/", "start": url if own == host else f"https://{own}/",
+        planned.append({"name": user["name"], "login_url": user.get("login_url") or f"https://{own}/",
+                        "start": url if own == host else f"https://{own}/", "check_url": user.get("check_url") or None,
                         "totp": {key: totp[key] for key in ("digits", "period", "algorithm")} if totp else None})
         names = login_variables(index, bool(totp))
         environment[names["username"]], environment[names["password"]] = user["username"], user["password"]
         if totp:
             environment[names["totp"]] = totp["secret"]
     return planned, environment
+
+
+def _sign_in(users: list[dict], host: str, url: str, pins: dict[str, str], work: Path, hosts: dict, secrets: list[str]) -> list[dict]:
+    """Each test user's sign-in check, one after another in one container (a ZAP of its own each, so its report is
+    about that user alone), before the scan. One outcome per user, in order."""
+    logins, environment = login_plan(users, host, url)
+    probe = plan(host, url, **hosts, users=logins)
+    urls, patterns = probe["env"]["contexts"][0]["urls"], probe["env"]["contexts"][0]["includePaths"]
+    checks = []
+    for index, login in enumerate(logins, start=1):
+        checked = check_plan(index, login, urls, patterns)
+        _no_stray_variables(checked)
+        checks.append(json.dumps(checked))
+    with TemporaryDirectory(prefix="web-login-", dir=work) as temporary:
+        shared = Path(temporary) / "wrk"
+        shared.mkdir()
+        try:
+            completed = run_zap(None, pins, shared, timeout=60 + CHECK_SECONDS * len(users), secrets=environment, checks=checks)
+            output = scrub(completed.stdout or "", secrets)
+        except subprocess.TimeoutExpired:
+            output = ""
+        except OSError as exc:
+            raise WebScanError(msg("scanning.web.errors.failed")) from exc
+        reports = [_read(shared / f"auth-{index}.json") for index in range(1, len(users) + 1)]
+    return [sign_in_outcome(login, scrub(report, secrets) if report else None, segment)
+            for login, report, segment in zip(logins, reports, _segments(output, len(users)))]
 
 
 def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: dict | None = None,
@@ -295,7 +400,6 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     if any(item not in pins for item in scope["hosts"]):
         raise WebScanError(msg("scanning.web.errors.failed"))
     headers, users = list(headers), list(users)
-    logins, environment = login_plan(users, host, url)
     passwords = {value for user in users for value in (user["password"], (user.get("totp") or {}).get("secret") or "") if len(value) >= SCRUB_MIN}
     secrets = sorted(set(secret_parts(headers)) | passwords, key=len, reverse=True)
     extra = [item for item in scope["hosts"] if item != host]
@@ -320,26 +424,36 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     started = time.time()
     work = data_dir / "work"
     work.mkdir(parents=True, exist_ok=True)
+    patterns_hosts = {"hosts": scope["hosts"], "wildcards": scope["wildcards"],
+                      "excluded": [item for item in excluded if not domains.in_scope(item, {"hosts": scope["hosts"]})]}
+    outcomes: list[dict] = []
+    # Before anything signs in: the whole plan, as it would be with every test user, refers to no stray variable.
+    _no_stray_variables(plan(host, url, **patterns_hosts, headers=headers, users=login_plan(users, host, url)[0],
+                             api={"file": f"{WORK}/{SPEC}", "target": target} if api else None))
+    if users:
+        outcomes = _sign_in(users, host, url, pins, work, patterns_hosts, secrets)
+        for outcome in outcomes:
+            report("ok" if outcome["status"] == "signed_in" else "warn",
+                   msg("scanning.web.login.signed_in", name=outcome["name"]) if outcome["status"] == "signed_in"
+                   else msg("scanning.web.login.failed", name=outcome["name"], reason=outcome["reason"]))
+        # Who couldn't sign in isn't crawled as: it would only log in again and again, and vouch for nothing.
+        users = [user for user, outcome in zip(users, outcomes) if outcome["status"] == "signed_in"]
+    logins, environment = login_plan(users, host, url)
     timeout = TIMEOUT + 60 * EXTRA_SPIDER_MINUTES * len(extra) + 60 * (LOGIN_SPIDER_MINUTES + 1) * len(users)
     with TemporaryDirectory(prefix="web-", dir=work) as temporary:
         # ZAP's user must write in it, so it is open to everyone; its private parent keeps other local users out.
         shared = Path(temporary) / "wrk"
         shared.mkdir()
-        options: dict[str, Any] = {"hosts": scope["hosts"], "wildcards": scope["wildcards"], "headers": headers, "users": logins,
-                                   "excluded": [item for item in excluded if not domains.in_scope(item, {"hosts": scope["hosts"]})]}
+        options: dict[str, Any] = {**patterns_hosts, "headers": headers, "users": logins}
         if api:
             (shared / SPEC).write_text(openapi_spec.for_zap(api, target), encoding="utf-8")
             (shared / SPEC).chmod(0o644)
             options["api"] = {"file": f"{WORK}/{SPEC}", "target": target}
         planned = plan(host, url, **options)
-        # ZAP replaces every `${NAME}` in the plan from its environment: only the test users' credentials may refer
-        # to it, never a definition's path or a saved header that would send their secrets somewhere else.
-        if "${" in json.dumps({**planned, "env": {**planned["env"], "contexts": [
-                {key: value for key, value in context.items() if key != "users"} for context in planned["env"]["contexts"]]}}):
-            raise WebScanError(msg("scanning.web.errors.variable"))
+        _no_stray_variables(planned)
         text = json.dumps(planned, indent=2) + "\n"
         try:
-            completed = run_zap(text, pins, shared, timeout=timeout, secret_env=environment or None)
+            completed = run_zap(text, pins, shared, timeout=timeout, secrets=environment)
         except subprocess.TimeoutExpired as exc:
             raise WebScanError(msg("scanning.web.errors.timeout", minutes=timeout // 60)) from exc
         except OSError as exc:
@@ -358,6 +472,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
             finding["remediation"] = msg("scanning.web.remediation", tool=finding["tool"])
         finding.setdefault("web", {})["coverage"] = coverage
     complete = completed.returncode == 0
+    failed = [outcome["name"] for outcome in outcomes if outcome["status"] != "signed_in"]
     duration = round(time.time() - started, 1)
     severities = {level: sum(1 for item in findings if item["severity"] == level) for level in SEVERITIES}
     report("ok" if complete else "warn", msg("scanning.progress.engine", engine=meta["name"],
@@ -369,13 +484,18 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     else:
         first = {"id": "dast", "name": msg("scanning.web.steps.passive.name"), "status": "completed" if complete else "partial",
                  "detail": msg("scanning.web.steps.passive.detail", host=host, minutes=SPIDER_MINUTES, count=len(findings)), "tool": tool}
+    if failed:
+        first["status"] = "partial"
     steps: list[dict[str, Any]] = [
         first,
+        *([{"id": "login", "name": msg("scanning.web.steps.login.name"), "status": "partial" if failed else "completed",
+            "detail": msg("scanning.web.steps.login.detail", count=len(outcomes), signed_in=len(outcomes) - len(failed))}] if outcomes else []),
         {"id": "active", "name": msg("scanning.web.steps.active.name"), "status": "not_tested",
          "detail": msg("scanning.web.steps.active.detail")},
         {"id": "review", "name": msg("scanning.steps.review"), "status": "pending", "detail": msg("scanning.web.steps.review.detail")},
     ]
     limitations: list[Message] = [msg("scanning.web.limitations.passive"),
+                   *([msg("scanning.web.limitations.login_failed", count=len(failed), names=", ".join(failed))] if failed else []),
                    msg("scanning.web.limitations.login", count=len(users)) if users
                    else msg("scanning.web.limitations.headers") if headers else msg("scanning.web.limitations.unauthenticated"),
                    msg("scanning.web.limitations.api", count=api["endpoints"]) if api
@@ -385,7 +505,9 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     scanned: dict[str, Any] = {"hosts": scope["hosts"], "wildcards": scope["wildcards"], "headers": [name for name, _ in headers],
                                "test_users": [user["name"] for user in users], "coverage": coverage}
     result: RunRecord = {
-        "type": "dast_scan", "status": "completed" if complete else "incomplete",
+        # A test user that couldn't sign in leaves the run incomplete: "no findings" behind its login proves nothing.
+        "type": "dast_scan", "status": "completed" if complete and not failed else "incomplete",
+        "logins": outcomes,
         "source": domains.source_for(record), "target": target or url, "variant": "api" if api else "baseline", "context": "",
         "scope": scanned, "steps": steps, "findings": findings, "owasp_coverage": [], "limitations": limitations,
         "summary": {"files": len({item["path"] for item in findings}), "dependencies": 0, "candidates": len(findings),
