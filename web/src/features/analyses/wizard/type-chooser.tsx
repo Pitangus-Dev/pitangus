@@ -1,14 +1,14 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowRight, Boxes, Check, Code2, FileUp, Globe2 } from 'lucide-react'
+import { ArrowRight, Boxes, Check, CircleCheck, Code2, FileUp, Globe2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { StepFrame } from '@/features/analyses/wizard/step-frame'
 import type { Kind } from '@/features/analyses/wizard/model'
 
 const CARDS = [
-  { id: 'code', icon: Code2, title: 'wizard.kinds.code.title', line: 'wizard.kinds.code.line' },
-  { id: 'image', icon: Boxes, title: 'wizard.kinds.image.title', line: 'wizard.kinds.image.line' },
-  { id: 'web', icon: Globe2, title: 'wizard.kinds.web.title', line: 'wizard.kinds.web.line' },
+  { id: 'code', icon: Code2, title: 'wizard.kinds.code.title', line: 'wizard.kinds.code.line', points: 'wizard.kinds.code.points' },
+  { id: 'image', icon: Boxes, title: 'wizard.kinds.image.title', line: 'wizard.kinds.image.line', points: 'wizard.kinds.image.points' },
+  { id: 'web', icon: Globe2, title: 'wizard.kinds.web.title', line: 'wizard.kinds.web.line', points: 'wizard.kinds.web.points' },
 ] as const
 
 // What to check: three cards, one line each, and importing as a secondary link. A web scan (sites and APIs) sends
@@ -33,15 +33,17 @@ export function TypeChooser({ choice, onChoose, onContinue, onImport, onCancel, 
     else if (event.key === 'Enter' && !off(id) && !(!isAdmin && id === 'web')) { event.preventDefault(); onChoose(id); onContinue() }
   }
 
-  return <StepFrame title={t('chooser.title')} onBack={onCancel}
+  return <StepFrame title={t('chooser.title')} onBack={onCancel} backLabel={t('common:actions.cancel')}
     primary={<Button onClick={onContinue} disabled={off(choice) || adminOnly}>{t('wizard.continue')}<ArrowRight aria-hidden /></Button>}
     note={adminOnly ? <p role="status" className="text-right text-xs text-app-muted">{t('chooser.admin_only')}</p> : undefined}>
     <div role="radiogroup" aria-labelledby="wizard-step-title" className="grid gap-3 md:grid-cols-3">
       {CARDS.map((card, index) => {
         const selected = choice === card.id
         const disabled = off(card.id)
+        const listed: unknown = disabled ? [] : t(card.points, { returnObjects: true })
+        const points = Array.isArray(listed) ? listed.map(String) : []
         return <div key={card.id} ref={node => { cards.current[index] = node }} role="radio" aria-checked={selected} aria-disabled={disabled || undefined}
-          aria-labelledby={`kind-${card.id}`} aria-describedby={`kind-${card.id}-line`} tabIndex={selected ? 0 : -1}
+          aria-labelledby={`kind-${card.id}`} aria-describedby={points.length ? `kind-${card.id}-line kind-${card.id}-points` : `kind-${card.id}-line`} tabIndex={selected ? 0 : -1}
           onClick={() => { if (!disabled) onChoose(card.id) }} onKeyDown={event => move(event, card.id)}
           className={`rounded-2xl border p-5 text-left motion-safe:transition ${disabled ? 'cursor-not-allowed border-dashed border-app-line' : selected ? 'cursor-pointer border-brand/60 bg-brand/[0.07]' : 'cursor-pointer border-app-line hover:border-brand/30'}`}>
           <div className="flex items-start justify-between gap-3">
@@ -50,6 +52,8 @@ export function TypeChooser({ choice, onChoose, onContinue, onImport, onCancel, 
           </div>
           <h3 id={`kind-${card.id}`} className={`mt-6 text-base font-semibold ${disabled ? 'text-app-muted' : ''}`}>{t(card.title)}</h3>
           <p id={`kind-${card.id}-line`} className="mt-1 text-sm text-app-muted">{disabled ? t('chooser.off') : t(card.line)}</p>
+          {points.length > 0 && <ul id={`kind-${card.id}-points`} className="mt-4 space-y-1.5 text-sm text-app-secondary">{points.map(point =>
+            <li key={point} className="flex items-start gap-2"><CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-brand/70" />{point}</li>)}</ul>}
         </div>
       })}
     </div>

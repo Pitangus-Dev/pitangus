@@ -40,15 +40,30 @@
     "kinds": {
       "code": {
         "title": "Código",
-        "line": "Fallos, secretos filtrados y dependencias riesgosas, antes de publicar."
+        "line": "Fallos, secretos filtrados y dependencias riesgosas, antes de publicar.",
+        "points": [
+          "Fallos en tu propio código",
+          "Secretos subidos por error",
+          "Dependencias, infraestructura y pipelines riesgosos"
+        ]
       },
       "image": {
         "title": "Imagen de contenedor",
-        "line": "Lo que trae una imagen, antes de desplegarla."
+        "line": "Lo que trae una imagen, antes de desplegarla.",
+        "points": [
+          "Paquetes con vulnerabilidades conocidas",
+          "Secretos olvidados en las capas",
+          "Configuración riesgosa, como correr como root"
+        ]
       },
       "web": {
         "title": "Aplicación web o API",
-        "line": "Recorre tu sitio o API como un visitante. Nunca ataca."
+        "line": "Recorre tu sitio o API como un visitante. Nunca ataca.",
+        "points": [
+          "Cabeceras de seguridad y cookies",
+          "Información expuesta y librerías desactualizadas",
+          "Cada endpoint documentado en tu especificación OpenAPI"
+        ]
       }
     },
     "back_to_types": "Volver a tipos de análisis"

@@ -40,15 +40,30 @@
     "kinds": {
       "code": {
         "title": "Code",
-        "line": "Flaws, leaked secrets and risky dependencies, before they ship."
+        "line": "Flaws, leaked secrets and risky dependencies, before they ship.",
+        "points": [
+          "Flaws in your own code",
+          "Secrets committed by mistake",
+          "Risky dependencies, infrastructure and pipelines"
+        ]
       },
       "image": {
         "title": "Container image",
-        "line": "What an image carries, before you deploy it."
+        "line": "What an image carries, before you deploy it.",
+        "points": [
+          "Packages with known vulnerabilities",
+          "Secrets left in the layers",
+          "Risky settings, like running as root"
+        ]
       },
       "web": {
         "title": "Web app or API",
-        "line": "Browses your site or API like a visitor. It never attacks."
+        "line": "Browses your site or API like a visitor. It never attacks.",
+        "points": [
+          "Security headers and cookies",
+          "Exposed information and outdated libraries",
+          "Each endpoint documented in your OpenAPI spec"
+        ]
       }
     },
     "back_to_types": "Back to scan types"
