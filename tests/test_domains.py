@@ -179,7 +179,7 @@ class ApiTests(HttpCase):
             status, probe, _ = self.send("/api/domains/check", "check-domain", {"url": "https://intranet.example.com/"})
         self.assertEqual((status, probe["reachable"], probe["status"]), (200, False, "private_address"))
 
-    def test_removing_a_domain_takes_what_was_imported_against_it(self):
+    def test_removing_a_domain_keeps_what_was_imported_against_it(self):
         _, added, _ = self.send("/api/domains", "register-domain", {"url": f"https://{HOST}/"})
         now = datetime.now(timezone.utc)
         domains._mark(self.data_dir, added["id"], verified_at=now, verified_until=now + timedelta(days=1))
@@ -189,11 +189,17 @@ class ApiTests(HttpCase):
         _, assets, _ = self.call("GET", "/api/assets", headers={"Cookie": self.cookies["admin"]})
         self.assertEqual([(row["key"], row["name"], row["open"]["total"]) for row in assets["items"]], [(f"domain:{HOST}", HOST, 4)])
         status, removed, _ = self.send("/api/domains/remove", "remove-domain", {"domain_id": added["id"]})
-        self.assertEqual((status, removed), (200, {"id": added["id"], "host": HOST, "runs_deleted": 1}))
-        self.assertEqual(find_runs(self.data_dir, assets=[f"domain:{HOST}"]), [])
-        self.assertEqual(self.call("GET", "/api/assets", headers={"Cookie": self.cookies["admin"]})[1]["total"], 0)
+        self.assertEqual((status, removed), (200, {"id": added["id"], "host": HOST, "runs_kept": 1}))
+        # The evidence stays: the run, its findings and the asset are still there.
+        self.assertEqual(len(find_runs(self.data_dir, assets=[f"domain:{HOST}"])), 1)
+        _, assets, _ = self.call("GET", "/api/assets", headers={"Cookie": self.cookies["admin"]})
+        self.assertEqual([(row["key"], row["open"]["total"]) for row in assets["items"]], [(f"domain:{HOST}", 4)])
         self.assertEqual(self.call("GET", "/api/domains", headers={"Cookie": self.cookies["admin"]})[1]["total"], 0)
         self.assertEqual(self.send("/api/domains/remove", "remove-domain", {"domain_id": added["id"]})[0], 404)
+        # Adding the host again links its history back.
+        self.send("/api/domains", "register-domain", {"url": f"https://{HOST}/"})
+        _, page, _ = self.call("GET", "/api/domains", headers={"Cookie": self.cookies["admin"]})
+        self.assertEqual((page["items"][0]["runs"], page["items"][0]["open"]), (1, 4))
 
 
 SECRET = "Bearer eyJhbGciOiJIUzI1NiJ9.c2VjcmV0"

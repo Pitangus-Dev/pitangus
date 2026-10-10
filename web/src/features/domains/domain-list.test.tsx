@@ -87,7 +87,7 @@ describe('domains list', () => {
     let items: unknown[] = [VERIFIED]
     const { calls, user } = render(true, call => {
       if (call.method === 'GET') return { body: page(items) }
-      if (call.path === '/api/domains/remove') { items = []; return { body: { id: VERIFIED.id, host: VERIFIED.host, runs_deleted: 2 } } }
+      if (call.path === '/api/domains/remove') { items = []; return { body: { id: VERIFIED.id, host: VERIFIED.host, runs_kept: 2 } } }
     })
     await user.click(await screen.findByRole('button', { name: tr('domains.list.actions_for', { host: 'api.example.com' }) }))
     await user.click(await screen.findByRole('menuitem', { name: tr('domains.list.remove') }))

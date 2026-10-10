@@ -300,7 +300,7 @@ class DomainCheck(Open):
 class DomainRemoved(Open):
     id: str
     host: str
-    runs_deleted: int
+    runs_kept: int
 
 
 class DomainHeaders(Open):
@@ -594,16 +594,15 @@ def domain_check(context: Context = Depends(guard(Policy(admin=True, action="che
              responses={404: {"description": "Unknown domain"}})
 def domain_remove(context: Context = Depends(guard(Policy(admin=True, action="remove-domain", body=256))),
                   data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
-    """Removes a domain with its saved headers, test users, related hosts (its scope) and scheduled scan. What was
-    scanned or imported against it (runs, findings, their triage and tickets) goes with it, like a repository that
-    left the installation: the panel says so before asking."""
-    from pitangus.modules.runs import assets as run_assets
-    from pitangus.modules.runs.store import find_runs
+    """Removes a domain's configuration: saved headers, test users, related hosts (its scope) and scheduled scan. What
+    was scanned or imported against it (runs, findings, their triage and tickets) stays as evidence, and links back if
+    the same host is added again (the asset key comes from the host)."""
+    from pitangus.modules.runs.store import count_runs
     record = _known(context, data.domain_id)
-    deleted = run_assets.purge(context.data_dir, record["key"]) if find_runs(context.data_dir, assets=[record["key"]], limit=1) else 0
+    kept = count_runs(context.data_dir, assets=[record["key"]])
     domains.remove_domain(context.data_dir, data.domain_id)
-    context.state.log.warning("domain_removed", extra={"user": context.user["username"], "reason": f"{record['host']}: {deleted} runs"})
-    return {"id": record["id"], "host": record["host"], "runs_deleted": deleted}
+    context.state.log.warning("domain_removed", extra={"user": context.user["username"], "reason": f"{record['host']}: {kept} runs kept"})
+    return {"id": record["id"], "host": record["host"], "runs_kept": kept}
 
 
 @router.post("/api/domains/headers", response_model=DomainHeaders, openapi_extra=documented(DomainHeaderIn), **AS_RETURNED,

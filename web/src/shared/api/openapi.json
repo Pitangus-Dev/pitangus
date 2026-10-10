@@ -3528,7 +3528,7 @@
           "sources"
         ],
         "summary": "Domain Remove",
-        "description": "Removes a domain with its saved headers, test users, related hosts (its scope) and scheduled scan. What was\nscanned or imported against it (runs, findings, their triage and tickets) goes with it, like a repository that\nleft the installation: the panel says so before asking.",
+        "description": "Removes a domain's configuration: saved headers, test users, related hosts (its scope) and scheduled scan. What\nwas scanned or imported against it (runs, findings, their triage and tickets) stays as evidence, and links back if\nthe same host is added again (the asset key comes from the host).",
         "operationId": "domain_remove_api_domains_remove_post",
         "requestBody": {
           "content": {
@@ -10174,9 +10174,9 @@
             "type": "string",
             "title": "Host"
           },
-          "runs_deleted": {
+          "runs_kept": {
             "type": "integer",
-            "title": "Runs Deleted"
+            "title": "Runs Kept"
           }
         },
         "additionalProperties": true,
@@ -10184,7 +10184,7 @@
         "required": [
           "id",
           "host",
-          "runs_deleted"
+          "runs_kept"
         ],
         "title": "DomainRemoved"
       },

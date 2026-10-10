@@ -297,8 +297,8 @@
       "remove": "Desconectar",
       "remove_title": "¿Desconectar {{host}}?",
       "confirm_remove": "Se borran sus cabeceras guardadas, usuarios de prueba, alcance y análisis programado. No se analizó ni importó nada contra él.",
-      "confirm_remove_runs_one": "Se borran sus cabeceras guardadas, usuarios de prueba, alcance y análisis programado, y también su único análisis o importación, con sus hallazgos, triage y tickets. No se puede deshacer.",
-      "confirm_remove_runs_other": "Se borran sus cabeceras guardadas, usuarios de prueba, alcance y análisis programado, y también sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets. No se puede deshacer.",
+      "confirm_remove_runs_one": "Se borran sus cabeceras guardadas, usuarios de prueba, alcance y análisis programado. Su análisis o importación y sus hallazgos se conservan.",
+      "confirm_remove_runs_other": "Se borran sus cabeceras guardadas, usuarios de prueba, alcance y análisis programado. Sus {{count}} análisis e importaciones y sus hallazgos se conservan.",
       "removed": "{{host}} desconectado.",
       "added": "{{host}} añadido. Verifícalo para poder analizarlo.",
       "verified_notice": "{{host}} verificado hasta el {{date}}.",
@@ -313,8 +313,8 @@
       "no_match": "Ningún dominio coincide con «{{query}}».",
       "empty_member": "Quien administra los añade y verifica.",
       "confirm_remove_surface": "Sale de la lista. No se analizó ni importó nada contra él.",
-      "confirm_remove_surface_runs_one": "También se borra su único análisis o importación, con sus hallazgos, triage y tickets. No se puede deshacer.",
-      "confirm_remove_surface_runs_other": "También se borran sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets. No se puede deshacer."
+      "confirm_remove_surface_runs_one": "Sale de la lista. Su análisis o importación y sus hallazgos se conservan.",
+      "confirm_remove_surface_runs_other": "Sale de la lista. Sus {{count}} análisis e importaciones y sus hallazgos se conservan."
     },
     "add": {
       "title": "Añadir dominio o API",
@@ -546,15 +546,15 @@
     },
     "disconnect": {
       "title": "Desconectar dominio",
-      "text": "Quita {{host}} de Pitangus y borra:",
+      "text": "Quita {{host}} de Pitangus y borra su configuración:",
       "headers": "Sus cabeceras de petición guardadas",
       "users": "Sus usuarios de prueba, con sus contraseñas y claves TOTP",
       "scope": "Sus hosts relacionados y el alcance guardado",
       "schedule": "Su análisis programado",
-      "runs_one": "Su único análisis o importación, con sus hallazgos, triage y tickets",
-      "runs_other": "Sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets",
-      "final": "No se analizó ni importó nada contra él, así que no se pierde ningún hallazgo. No se puede deshacer.",
-      "final_runs": "No queda nada de él en Pitangus: exporta antes lo que necesites. No se puede deshacer.",
+      "runs_one": "Se conserva su análisis o importación, con sus hallazgos, triage y tickets: sigue en Análisis y Hallazgos.",
+      "runs_other": "Se conservan sus {{count}} análisis e importaciones, con sus hallazgos, triage y tickets: siguen en Análisis y Hallazgos.",
+      "final": "No se analizó ni importó nada contra él. Las credenciales borradas no se pueden recuperar.",
+      "final_runs": "Si vuelves a añadir {{host}}, su historial se enlaza de nuevo. Las credenciales borradas no se pueden recuperar.",
       "button": "Desconectar dominio",
       "text_only": "Quita {{host}} de Pitangus."
     }

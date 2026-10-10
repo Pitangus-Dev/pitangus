@@ -297,8 +297,8 @@
       "remove": "Disconnect",
       "remove_title": "Disconnect {{host}}?",
       "confirm_remove": "Its saved headers, test users, scope and scheduled scan are deleted. Nothing was scanned or imported against it.",
-      "confirm_remove_runs_one": "Its saved headers, test users, scope and scheduled scan are deleted, and so is its only scan or import, with its findings, triage and tickets. This can't be undone.",
-      "confirm_remove_runs_other": "Its saved headers, test users, scope and scheduled scan are deleted, and so are its {{count}} scans and imports, with their findings, triage and tickets. This can't be undone.",
+      "confirm_remove_runs_one": "Its saved headers, test users, scope and scheduled scan are deleted. Its scan or import and its findings stay.",
+      "confirm_remove_runs_other": "Its saved headers, test users, scope and scheduled scan are deleted. Its {{count}} scans and imports and their findings stay.",
       "removed": "{{host}} disconnected.",
       "added": "{{host}} added. Verify it to scan it.",
       "verified_notice": "{{host}} verified until {{date}}.",
@@ -313,8 +313,8 @@
       "no_match": "No domain matches “{{query}}”.",
       "empty_member": "An admin adds and verifies them.",
       "confirm_remove_surface": "It leaves the list. Nothing was scanned or imported against it.",
-      "confirm_remove_surface_runs_one": "Its only scan or import, with its findings, triage and tickets, is deleted too. This can't be undone.",
-      "confirm_remove_surface_runs_other": "Its {{count}} scans and imports, with their findings, triage and tickets, are deleted too. This can't be undone."
+      "confirm_remove_surface_runs_one": "It leaves the list. Its scan or import and its findings stay.",
+      "confirm_remove_surface_runs_other": "It leaves the list. Its {{count}} scans and imports and their findings stay."
     },
     "add": {
       "title": "Add a domain or API",
@@ -546,15 +546,15 @@
     },
     "disconnect": {
       "title": "Disconnect domain",
-      "text": "Removes {{host}} from Pitangus and deletes:",
+      "text": "Removes {{host}} from Pitangus and deletes its configuration:",
       "headers": "Its saved request headers",
       "users": "Its test users, with their passwords and TOTP keys",
       "scope": "Its related hosts and saved scope",
       "schedule": "Its scheduled scan",
-      "runs_one": "Its only scan or import, with its findings, triage and tickets",
-      "runs_other": "Its {{count}} scans and imports, with their findings, triage and tickets",
-      "final": "Nothing was scanned or imported against it, so no findings are lost. This can't be undone.",
-      "final_runs": "Nothing about it stays in Pitangus: export what you need first. This can't be undone.",
+      "runs_one": "Its scan or import stays, with its findings, triage and tickets: still in Analyses and Findings.",
+      "runs_other": "Its {{count}} scans and imports stay, with their findings, triage and tickets: still in Analyses and Findings.",
+      "final": "Nothing was scanned or imported against it. Deleted credentials can't be recovered.",
+      "final_runs": "If you add {{host}} again, its history links back. Deleted credentials can't be recovered.",
       "button": "Disconnect domain",
       "text_only": "Removes {{host}} from Pitangus."
     }

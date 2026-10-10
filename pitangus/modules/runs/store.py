@@ -601,6 +601,13 @@ def list_runs(data_dir: Path) -> list[dict]:
     return find_runs(data_dir)
 
 
+def count_runs(data_dir: Path, *, assets: list[str]) -> int:
+    """How many runs belong to these asset keys."""
+    statement = select(func.count()).select_from(runs).where(runs.c.tenant_id == TENANT, runs.c.asset_key.in_(assets))
+    with db.transaction(data_dir) as connection:
+        return int(connection.execute(statement).scalar_one())
+
+
 def find_runs(data_dir: Path, *, types=None, statuses=None, assets=None, asset_prefix: str | None = None,
               ids=None, limit: int | None = None) -> list[dict]:
     """The listing rows that match, newest first, filtered in the database (indexed type, status and asset columns)

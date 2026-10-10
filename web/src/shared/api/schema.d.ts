@@ -1152,9 +1152,9 @@ export interface paths {
         put?: never;
         /**
          * Domain Remove
-         * @description Removes a domain with its saved headers, test users, related hosts (its scope) and scheduled scan. What was
-         *     scanned or imported against it (runs, findings, their triage and tickets) goes with it, like a repository that
-         *     left the installation: the panel says so before asking.
+         * @description Removes a domain's configuration: saved headers, test users, related hosts (its scope) and scheduled scan. What
+         *     was scanned or imported against it (runs, findings, their triage and tickets) stays as evidence, and links back if
+         *     the same host is added again (the asset key comes from the host).
          */
         post: operations["domain_remove_api_domains_remove_post"];
         delete?: never;
@@ -3108,8 +3108,8 @@ export interface components {
             id: string;
             /** Host */
             host: string;
-            /** Runs Deleted */
-            runs_deleted: number;
+            /** Runs Kept */
+            runs_kept: number;
         } & {
             [key: string]: unknown;
         };
