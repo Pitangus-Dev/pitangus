@@ -131,6 +131,13 @@ def _domains_to_table(data_dir: Path) -> int:
     return domains.import_document(data_dir)
 
 
+def _scan_schedule_rules(data_dir: Path) -> int:
+    """A domain's weekly scan became a rule (daily, weekdays or days of the month, at a time in a timezone): the
+    existing ones keep their weekday and time, in UTC."""
+    from pitangus.modules.sources import domains
+    return domains.adopt_schedule_rules(data_dir)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("cra_opt_in", (), _cra_opt_in),
     Migration("seal_totp_seeds", (), _seal_totp_seeds),
@@ -140,6 +147,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("jira_routing", (), _jira_routing),
     Migration("brand_rename", (), _brand_rename),
     Migration("domains_to_table", (), _domains_to_table),
+    Migration("scan_schedule_rules", (), _scan_schedule_rules),
 )
 LATEST = len(MIGRATIONS)
 

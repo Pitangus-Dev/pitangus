@@ -46,7 +46,10 @@ domain_registry = Table(
     Column("checked_at", DateTime(timezone=True)),
     # Which proof made it verified (dns · file · meta); only a DNS proof covers the host's subdomains.
     Column("proof_method", Text, nullable=False, server_default="dns"),
-    Column("schedule", Text),  # null · weekly: a passive web scan queued by the periodic task
+    # The scheduled passive web scan, queued by the periodic task: null (off) or the rule's frequency (daily · weekly ·
+    # monthly), the rule itself (sources/domain_schedule.py) and its next run in UTC.
+    Column("schedule", Text),
+    Column("schedule_rule", JSONB),
     Column("schedule_next_at", DateTime(timezone=True)),
     Column("schedule_last_at", DateTime(timezone=True)),
     Column("schedule_last_run", String(32)),

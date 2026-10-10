@@ -90,6 +90,7 @@ export const imagesQuery = ({ q = '', link = 'all', repository = '', offset = 0,
 // prove them and the saved header names. `dast` says whether this server runs web scans at all.
 export type DomainRow = components['schemas']['DomainRow']
 export type DomainHeader = components['schemas']['DomainHeader']
+export type DomainSchedule = components['schemas']['DomainSchedule']
 export type DomainProbe = components['schemas']['DomainCheck']
 export type QueuedDomainScan = components['schemas']['QueuedDomainScan']
 export const domainsQuery = () => queryOptions({ queryKey: keys.domains, queryFn: ({ signal }) => apiGet('/api/domains', undefined, { signal }) })

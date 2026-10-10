@@ -54,7 +54,7 @@ The two gaps people ask about most:
   [cli.md](cli.md#other-tools-results).
 - **Dynamic testing.** Pitangus runs [passive web and API scans](features.md#passive-web-scan) with ZAP of a
   verified domain (crawl and read, or the GET and HEAD operations of an OpenAPI definition; never attack) when the
-  server sets `PITANGUS_DAST_ENABLED=1`: on demand or weekly, over listed subdomains when the domain has a DNS proof,
+  server sets `PITANGUS_DAST_ENABLED=1`: on demand or on a schedule, over listed subdomains when the domain has a DNS proof,
   and with request headers saved for the domain (API keys, bearer tokens, cookies). The domain can be proved with a DNS
   TXT record, a file under `/.well-known/` or a meta tag. For anything deeper (active scans, form sign-in, Nuclei, an
   AI pentest such as Strix), run the scanner yourself, against systems you own, and import its SARIF against the

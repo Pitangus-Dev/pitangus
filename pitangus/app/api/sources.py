@@ -195,12 +195,28 @@ class DomainHeader(Open):
     saved_at: str | None = None
 
 
+class DomainSchedule(Open):
+    """When the passive web scan runs on its own: daily, on `weekdays` (1 Monday … 7 Sunday) or on `month_days`
+    (1–28), at `time` (HH:MM) in `timezone` (IANA), at most once a day. `next_run_at` (UTC) is the moment the
+    scheduler queues it; `last_run_at` and `last_run_id` say what it did last and `note`, when that slot was skipped,
+    why."""
+    frequency: Literal["daily", "weekly", "monthly"]
+    weekdays: list[int] = Field(default_factory=list, max_length=7)
+    month_days: list[int] = Field(default_factory=list, max_length=28)
+    time: str
+    timezone: str
+    next_run_at: str | None = None
+    last_run_at: str | None = None
+    last_run_id: str | None = None
+    note: str | None = None
+
+
 class DomainRow(Open):
     """A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`
     says which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,
     `verify_file_url`, `verify_meta`) and the saved `headers` are only answered to administrators. `runs` and `open`
-    say what was scanned or imported against it; `schedule` is null or `weekly`, with the next and last scheduled
-    scan and, when the last one was skipped, why (`schedule_note`)."""
+    say what was scanned or imported against it; `schedule` is null (off) or when its passive web scan runs on its
+    own."""
     id: str
     host: str
     url: str
@@ -220,11 +236,7 @@ class DomainRow(Open):
     verify_token: str | None = None
     verify_file_url: str | None = None
     verify_meta: str | None = None
-    schedule: Literal["weekly"] | None = None
-    schedule_next_at: str | None = None
-    schedule_last_at: str | None = None
-    schedule_last_run: str | None = None
-    schedule_note: str | None = None
+    schedule: DomainSchedule | None = None
     last_scan: dict[str, Any] | None = None
     headers: list[DomainHeader] | None = Field(None, max_length=domain_headers.LIMIT)
     header_count: int = 0
@@ -295,7 +307,7 @@ def _domain_rows(context: Context, records: list[dict]) -> list[dict]:
 
 @router.get("/api/domains", response_model=DomainPage, **AS_RETURNED)
 def domain_list(context: Context = Depends(guard())) -> Any:
-    """The registered domains (at most `limit`), with whether each one's proof is current and its weekly scan."""
+    """The registered domains (at most `limit`), with whether each one's proof is current and its scheduled scan."""
     records = domains.list_domains(context.data_dir)
     return context.render({"items": _domain_rows(context, records), "total": len(records), "limit": domains.LIMIT,
                            "dast": settings.flag("PITANGUS_DAST_ENABLED")})
@@ -341,10 +353,30 @@ class DomainHeaderIn(BaseModel):
         return self
 
 
+class ScheduleIn(BaseModel):
+    """`weekdays` (1 Monday … 7 Sunday) go with weekly, `month_days` (1–28) with monthly; `time` is HH:MM in
+    `timezone`, an IANA name (the browser's, by default)."""
+    model_config = ConfigDict(extra="forbid")
+    frequency: Literal["daily", "weekly", "monthly"]
+    weekdays: list[Annotated[StrictInt, Field(ge=1, le=7)]] = Field(default_factory=list, max_length=7)
+    month_days: list[Annotated[StrictInt, Field(ge=1, le=28)]] = Field(default_factory=list, max_length=28)
+    time: StrictStr = Field(pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$")
+    timezone: StrictStr = Field(min_length=1, max_length=64)
+
+    @model_validator(mode="after")
+    def _days(self):
+        if self.frequency == "weekly" and not self.weekdays:
+            raise ValueError("weekly takes at least one weekday")
+        if self.frequency == "monthly" and not self.month_days:
+            raise ValueError("monthly takes at least one day of the month")
+        return self
+
+
 class DomainScheduleIn(BaseModel):
+    """`schedule`: the rule, or null to turn the scheduled scan off."""
     model_config = ConfigDict(extra="forbid")
     domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
-    schedule: Literal["weekly"] | None
+    schedule: ScheduleIn | None
 
 
 class SpecIn(BaseModel):
@@ -491,18 +523,25 @@ def domain_headers_route(context: Context = Depends(guard(Policy(admin=True, act
 
 @router.post("/api/domains/schedule", response_model=DomainRow, openapi_extra=documented(DomainScheduleIn), **AS_RETURNED,
              responses={404: {"description": "Unknown domain"}})
-def domain_schedule(context: Context = Depends(guard(Policy(admin=True, action="schedule-domain", body=256))),
+def domain_schedule(context: Context = Depends(guard(Policy(admin=True, action="schedule-domain", body=1024))),
                     data: DomainScheduleIn = Depends(body(DomainScheduleIn, msg("sources.domains.invalid_request")))) -> Any:
-    """Turns the weekly passive web scan of the domain on or off. The first one is queued at the next hourly round of
-    the periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host and the hosts saved
-    in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason."""
-    _known(context, data.domain_id)
+    """Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,
+    at a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the
+    local day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task
+    queues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the
+    domain's own host and the hosts saved in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason."""
+    from datetime import datetime
+    from pitangus.modules.runs.store import find_runs
+    record = _known(context, data.domain_id)
+    last = find_runs(context.data_dir, types=["dast_scan"], assets=[record["key"]], limit=1)
     try:
-        record = domains.set_schedule(context.data_dir, data.domain_id, data.schedule)
+        record = domains.set_schedule(context.data_dir, data.domain_id, data.schedule.model_dump() if data.schedule else None,
+                                      last_scan_at=datetime.fromisoformat(last[0]["created_at"]) if last else None)
     except DomainError as exc:
         raise ApiError(400, exc.message) from exc
-    context.state.log.info("domain_schedule_changed", extra={"user": context.user["username"],
-                                                             "reason": f"{record['host']}: {data.schedule or 'off'}"})
+    rule = record["schedule"]
+    context.state.log.info("domain_schedule_changed", extra={"user": context.user["username"], "reason": f"{record['host']}: "
+                                                             + (f"{rule['frequency']} {rule['time']} {rule['timezone']}" if rule else "off")})
     return context.render(_domain_rows(context, [record])[0])
 
 

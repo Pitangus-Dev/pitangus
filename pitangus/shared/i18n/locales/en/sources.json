@@ -72,9 +72,12 @@
       "not_manual": "{{host}} was found by discovery and stays listed: exclude it instead"
     },
     "schedule": {
-      "invalid": "The schedule is weekly or off",
-      "lapsed": "Skipped: the domain's proof lapsed. Verify it again and the weekly scan resumes at the next round",
-      "busy": "Waiting: another web scan was queued or running; it is tried again at the next round"
+      "invalid": "A schedule is daily, weekly on at least one weekday, or monthly on at least one day from 1 to 28",
+      "invalid_time": "The time of day is HH:MM, from 00:00 to 23:59",
+      "invalid_timezone": "{{zone}} isn't a time zone this server knows. Use an IANA name, such as America/Bogota or UTC",
+      "lapsed": "Skipped: the domain's proof lapsed. Verify it again and the scheduled scan resumes at the next round",
+      "busy": "Waiting: another web scan was queued or running; it is tried again at the next round",
+      "already_today": "Skipped: the domain was already scanned that day. The next scheduled scan runs as planned"
     },
     "headers": {
       "invalid_request": "Invalid header request",

@@ -276,7 +276,6 @@
       "col_open": "Open findings",
       "col_actions": "Actions",
       "never": "Never",
-      "weekly": "Weekly",
       "verified_by": "Verified · {{method}}",
       "pending": "Pending",
       "expired": "Expired",
@@ -370,8 +369,38 @@
       "back": "Back to domains & APIs"
     },
     "schedule": {
-      "toggle": "Scan every week",
-      "next": "Next: {{date}} (server time)",
+      "title": "Scheduled scan",
+      "switch": "Repeat on a schedule",
+      "also_now": "Also scan now",
+      "frequency": {
+        "label": "How often",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly"
+      },
+      "weekdays": "Days of the week",
+      "month_days": "Days of the month",
+      "month_day": "Day {{day}}",
+      "time": "Time",
+      "timezone": "Time zone",
+      "next": "Next run: {{date}}",
+      "pick_time": "Choose a time of day.",
+      "pick_weekday": "Choose at least one day of the week.",
+      "pick_month_day": "Choose at least one day of the month.",
+      "at_one": "at {{time}}",
+      "at_other": "at {{time}}",
+      "describe": {
+        "daily": "Every day {{at}} ({{zone}})",
+        "weekly": "Every {{days}} {{at}} ({{zone}})",
+        "monthly_one": "On day {{days}} of every month {{at}} ({{zone}})",
+        "monthly_other": "On days {{days}} of every month {{at}} ({{zone}})"
+      },
+      "none": "Not scheduled. Scans run only when someone launches them.",
+      "set": "Schedule",
+      "change": "Change",
+      "turn_off": "Turn off",
+      "save": "Save schedule",
+      "once_a_day": "That day already has a scan, so the first scheduled one runs on the next matching day.",
       "paused": "Paused: the verification expired. Verify again to resume.",
       "surface": "Inventory-only domains aren't scanned."
     },

@@ -210,8 +210,7 @@
     "osv_label": "Check dependencies online with OSV",
     "osv_hint": "Sends package names and versions (not code) to api.osv.dev. Off: dependencies aren't checked.",
     "batch_note": "Runs as a batch you can follow and cancel in Scans.",
-    "schedule": "Repeat every week",
-    "schedule_without_spec": "Weekly scans browse the site; they don't use the API documentation.",
+    "schedule_without_spec": "Scheduled scans browse the site; they don't use the API documentation.",
     "waf_title": "Behind a firewall or WAF?",
     "waf_text": "Allow this server's public IP, or the scan may be blocked.",
     "authorization": "It only browses and reads, never attacks. Launch it only against sites you're allowed to test."
@@ -247,7 +246,8 @@
     "organization_count": "Scan the organization ({{total}})",
     "image": "Scan image",
     "images": "Scan {{total}} images",
-    "web": "Start scan"
+    "web": "Start scan",
+    "schedule": "Schedule scan"
   },
   "org": {
     "counting": "Counting repositories…",

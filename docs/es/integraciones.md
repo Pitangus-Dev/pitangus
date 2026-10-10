@@ -56,7 +56,7 @@ Los dos huecos por los que más preguntan:
   [cli.md](cli.md#resultados-de-otras-herramientas).
 - **Pruebas dinámicas.** Pitangus hace [análisis web y de API pasivos](funcionalidades.md#análisis-web-pasivo) con
   ZAP de un dominio verificado (recorrer y leer, o las operaciones GET y HEAD de una definición OpenAPI; nunca atacar)
-  cuando el servidor define `PITANGUS_DAST_ENABLED=1`: a demanda o cada semana, sobre subdominios listados si el
+  cuando el servidor define `PITANGUS_DAST_ENABLED=1`: a demanda o programados, sobre subdominios listados si el
   dominio tiene prueba DNS, y con las cabeceras de petición guardadas para el dominio (claves de API, tokens bearer,
   cookies). El dominio se puede demostrar con un registro TXT, un archivo bajo `/.well-known/` o una etiqueta meta.
   Para algo más profundo (escaneos activos, inicio de sesión por formulario, Nuclei, un pentest con IA como Strix),

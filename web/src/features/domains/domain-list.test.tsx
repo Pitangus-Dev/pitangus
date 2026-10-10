@@ -14,7 +14,8 @@ const PENDING = { id: ID, host: 'app.example.com', url: 'https://app.example.com
   txt_name: '_pitangus.app.example.com', txt_value: 'pitangus-verify=abc123', verify_token: 'abc123', verify_file_url: 'https://app.example.com/.well-known/pitangus-verify.txt',
   verify_meta: '<meta name="pitangus-verify" content="abc123">', schedule: null, headers: [], header_count: 0, runs: 0, open: 0, last_scan: null }
 const VERIFIED = { ...PENDING, id: 'b'.repeat(24), host: 'api.example.com', key: 'domain:api.example.com', kind: 'api', verified: true, proof_method: 'file',
-  verified_at: '2026-10-02T00:00:00Z', verified_until: '2026-12-31T00:00:00Z', schedule: 'weekly', runs: 2, open: 5,
+  verified_at: '2026-10-02T00:00:00Z', verified_until: '2026-12-31T00:00:00Z', runs: 2, open: 5,
+  schedule: { frequency: 'monthly', weekdays: [], month_days: [1], time: '09:00', timezone: 'UTC', next_run_at: '2026-11-01T09:00:00Z' },
   last_scan: { id: 'run-1', status: 'completed', created_at: '2026-10-05T00:00:00Z', finished_at: null, variant: 'api' } }
 
 function render(admin = true, handler: Parameters<typeof mockApi>[0] = () => ({ body: page([PENDING, VERIFIED]) })) {
@@ -34,7 +35,7 @@ describe('domains list', () => {
     const verified = within(table).getAllByRole('row').find(row => row.textContent?.includes('api.example.com')) as HTMLElement
     expect(within(verified).getByText(tr('domains.kind.api'))).toBeTruthy()
     expect(within(verified).getAllByText(tr('domains.list.verified_by', { method: tr('domains.method.file') })).length).toBeGreaterThan(0)
-    expect(within(verified).getByText(tr('domains.list.weekly'))).toBeTruthy()
+    expect(within(verified).getByText(tr('domains.schedule.frequency.monthly'))).toBeTruthy()
     expect(screen.queryByText('domain:api.example.com')).toBeNull()
     await user.click(within(verified).getByRole('button', { name: tr('domains.list.open_for', { host: 'api.example.com', count: 5 }) }))
     await user.click(within(verified).getByRole('button', { name: 'api.example.com' }))

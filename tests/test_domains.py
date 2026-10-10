@@ -296,10 +296,11 @@ class ScheduleTests(unittest.TestCase):
         from pitangus.modules.runs import periodic
         from pitangus.modules.runs.jobs import BusyError
         self.assertEqual(domains.due_scans(self.data_dir, now=NOW), [])
-        domains.set_schedule(self.data_dir, self.two["id"], "weekly", now=NOW)
-        domains.set_schedule(self.data_dir, self.one["id"], "weekly", now=NOW + timedelta(minutes=5))
+        daily = {"frequency": "daily", "time": "12:00", "timezone": "UTC"}
+        domains.set_schedule(self.data_dir, self.two["id"], daily, now=NOW - timedelta(hours=1))
+        domains.set_schedule(self.data_dir, self.one["id"], {**daily, "time": "12:05"}, now=NOW - timedelta(hours=1))
         with self.assertRaises(DomainError):
-            domains.set_schedule(self.data_dir, self.one["id"], "daily")
+            domains.set_schedule(self.data_dir, self.one["id"], {"frequency": "hourly", "time": "12:00", "timezone": "UTC"})
         self.assertEqual([item["host"] for item in domains.due_scans(self.data_dir, now=NOW + timedelta(hours=1))],
                          ["two.example.com", "one.example.com"])  # the longest overdue first
         jobs = MagicMock()
@@ -308,23 +309,100 @@ class ScheduleTests(unittest.TestCase):
         self.assertEqual(periodic._domain_scans(self.data_dir, jobs, now=later), {"queued": "r" * 32, "host": "two.example.com"})
         kwargs = jobs.enqueue_dast_scan.call_args.kwargs
         self.assertEqual((kwargs["options"], kwargs["trigger"], kwargs["requested_by"]), ({"mode": "web", "use_scope": True}, {"kind": "schedule"}, "schedule"))
-        two = domains.get_domain(self.data_dir, self.two["id"])
-        self.assertEqual((two["schedule_last_run"], two["schedule_next_at"], two["schedule_note"]),
-                         ("r" * 32, (later + timedelta(days=7)).isoformat(), None))
+        two = domains.get_domain(self.data_dir, self.two["id"])["schedule"]
+        self.assertEqual((two["last_run_id"], two["next_run_at"], two["note"]),
+                         ("r" * 32, (NOW + timedelta(days=1)).isoformat(), None))
         # Another web scan running: it stays due, with the reason.
         jobs.enqueue_dast_scan.side_effect = BusyError(msg("scanning.web.errors.busy"))
         self.assertEqual(periodic._domain_scans(self.data_dir, jobs, now=later)["waiting"], "one.example.com")
-        one = domains.get_domain(self.data_dir, self.one["id"])
-        self.assertIn("another web scan", text(one["schedule_note"], "en"))
-        self.assertEqual(one["schedule_next_at"], (NOW + timedelta(minutes=5)).isoformat())
+        one = domains.get_domain(self.data_dir, self.one["id"])["schedule"]
+        self.assertIn("another web scan", text(one["note"], "en"))
+        self.assertEqual(one["next_run_at"], (NOW + timedelta(minutes=5)).isoformat())
         # A lapsed proof: skipped with the reason, nothing queued, still due.
         domains._mark(self.data_dir, self.one["id"], verified_at=None, verified_until=None)
         jobs.enqueue_dast_scan.reset_mock(side_effect=True)
         self.assertEqual(periodic._domain_scans(self.data_dir, jobs, now=later), {"queued": None})
         jobs.enqueue_dast_scan.assert_not_called()
-        self.assertIn("lapsed", text(domains.get_domain(self.data_dir, self.one["id"])["schedule_note"], "en"))
+        self.assertIn("lapsed", text(domains.get_domain(self.data_dir, self.one["id"])["schedule"]["note"], "en"))
         domains.set_schedule(self.data_dir, self.one["id"], None)
+        self.assertIsNone(domains.get_domain(self.data_dir, self.one["id"])["schedule"])
         self.assertEqual([item["host"] for item in domains.due_scans(self.data_dir, now=later + timedelta(days=30))], ["two.example.com"])
+
+    def test_the_rule_is_stored_normalized_and_the_next_run_skips_the_day_of_the_last_scan(self):
+        weekly = {"frequency": "weekly", "weekdays": [5, 1, 5], "month_days": [3], "time": "09:00", "timezone": "America/Bogota"}
+        schedule = domains.set_schedule(self.data_dir, self.one["id"], weekly, now=NOW)["schedule"]
+        self.assertEqual({key: schedule[key] for key in ("frequency", "weekdays", "month_days", "time", "timezone")},
+                         {"frequency": "weekly", "weekdays": [1, 5], "month_days": [], "time": "09:00", "timezone": "America/Bogota"})
+        # Friday 7:00 in Bogotá: today's 9:00 is still ahead.
+        self.assertEqual(schedule["next_run_at"], "2026-10-09T14:00:00+00:00")
+        # Scanned by hand today: the next one is Monday.
+        other = domains.set_schedule(self.data_dir, self.two["id"], weekly, now=NOW, last_scan_at=NOW - timedelta(hours=1))["schedule"]
+        self.assertEqual(other["next_run_at"], "2026-10-12T14:00:00+00:00")
+        # The same rule again keeps the next run; another one recomputes it.
+        self.assertEqual(domains.set_schedule(self.data_dir, self.one["id"], weekly, now=NOW + timedelta(hours=3))["schedule"]["next_run_at"],
+                         "2026-10-09T14:00:00+00:00")
+        monthly = domains.set_schedule(self.data_dir, self.one["id"], {"frequency": "monthly", "month_days": [28, 1], "time": "23:30",
+                                                                     "timezone": "Asia/Tokyo"}, now=NOW)["schedule"]
+        self.assertEqual((monthly["month_days"], monthly["next_run_at"]), ([1, 28], "2026-10-28T14:30:00+00:00"))
+        for bad in ({"frequency": "weekly", "weekdays": [], "time": "09:00", "timezone": "UTC"},
+                    {"frequency": "weekly", "weekdays": [8], "time": "09:00", "timezone": "UTC"},
+                    {"frequency": "weekly", "weekdays": [True], "time": "09:00", "timezone": "UTC"},
+                    {"frequency": "monthly", "month_days": [29], "time": "09:00", "timezone": "UTC"},
+                    {"frequency": "daily", "time": "24:00", "timezone": "UTC"},
+                    {"frequency": "daily", "time": "9:00", "timezone": "UTC"},
+                    {"frequency": "daily", "time": "09:00", "timezone": "Mars/Olympus"},
+                    {"frequency": "daily", "time": "09:00", "timezone": "../zoneinfo/UTC"}):
+            with self.subTest(bad=bad), self.assertRaises(DomainError):
+                domains.set_schedule(self.data_dir, self.one["id"], bad, now=NOW)
+
+    def test_a_domain_scanned_by_hand_that_day_moves_on_without_a_second_scan(self):
+        from pitangus.modules.runs import periodic
+        domains.set_schedule(self.data_dir, self.one["id"], {"frequency": "daily", "time": "12:00", "timezone": "UTC"}, now=NOW - timedelta(hours=1))
+        jobs = MagicMock()
+        with patch("pitangus.modules.runs.store.find_runs", return_value=[{"created_at": (NOW - timedelta(hours=2)).isoformat()}]):
+            self.assertEqual(periodic._domain_scans(self.data_dir, jobs, now=NOW + timedelta(minutes=3)), {"queued": None})
+        jobs.enqueue_dast_scan.assert_not_called()
+        schedule = domains.get_domain(self.data_dir, self.one["id"])["schedule"]
+        self.assertEqual(schedule["next_run_at"], (NOW + timedelta(days=1)).isoformat())
+        self.assertIn("already scanned", text(schedule["note"], "en"))
+
+    def test_queuing_and_moving_the_schedule_on_happen_together_or_not_at_all(self):
+        from pitangus.modules.runs import periodic
+        from pitangus.modules.runs.jobs import ScanJobs
+        from pitangus.modules.runs.tables import jobs as job_table
+        from pitangus.shared import db
+        domains.set_schedule(self.data_dir, self.one["id"], {"frequency": "daily", "time": "12:00", "timezone": "UTC"}, now=NOW - timedelta(hours=1))
+        scan_jobs = ScanJobs(self.data_dir, worker=False)
+
+        def queued() -> int:
+            with db.transaction(self.data_dir) as connection:
+                return len(connection.execute(select(job_table.c.id).where(job_table.c.kind == "dast_scan")).all())
+
+        # A crash after the job is queued but before the schedule moves on: neither is kept, and the slot stays due.
+        with patch.object(domains, "schedule_queued", side_effect=RuntimeError("crash")), self.assertRaises(RuntimeError):
+            periodic._domain_scans(self.data_dir, scan_jobs, now=NOW + timedelta(minutes=1))
+        self.assertEqual((queued(), find_runs(self.data_dir, types=["dast_scan"])), (0, []))
+        self.assertEqual(domains.get_domain(self.data_dir, self.one["id"])["schedule"]["next_run_at"], NOW.isoformat())
+        # The next round queues it once, and the round after that finds nothing due.
+        outcome = periodic._domain_scans(self.data_dir, scan_jobs, now=NOW + timedelta(minutes=6))
+        self.assertEqual((queued(), outcome["host"]), (1, "one.example.com"))
+        self.assertEqual(periodic._domain_scans(self.data_dir, scan_jobs, now=NOW + timedelta(minutes=11)), {"queued": None})
+        self.assertEqual(queued(), 1)
+
+    def test_old_weekly_schedules_get_the_weekday_and_time_of_their_next_run_in_utc(self):
+        from pitangus.modules.runs import periodic
+        sunday = datetime(2026, 10, 11, 3, 40, tzinfo=timezone.utc)
+        domains._mark(self.data_dir, self.one["id"], schedule="weekly", schedule_next_at=sunday)
+        legacy = domains.get_domain(self.data_dir, self.one["id"])["schedule"]  # read before the data migration
+        self.assertEqual((legacy["frequency"], legacy["weekdays"], legacy["time"], legacy["timezone"], legacy["next_run_at"]),
+                         ("weekly", [7], "03:40", "UTC", sunday.isoformat()))
+        self.assertEqual(domains.adopt_schedule_rules(self.data_dir), 1)
+        self.assertEqual(domains.adopt_schedule_rules(self.data_dir), 0)  # idempotent
+        self.assertEqual(domains.get_domain(self.data_dir, self.one["id"])["schedule"], legacy)
+        jobs = MagicMock()
+        jobs.enqueue_dast_scan.return_value = {"id": "s" * 32, "status": "queued"}
+        periodic._domain_scans(self.data_dir, jobs, now=sunday + timedelta(minutes=2))
+        self.assertEqual(domains.get_domain(self.data_dir, self.one["id"])["schedule"]["next_run_at"], (sunday + timedelta(days=7)).isoformat())
 
     def test_the_task_is_off_without_web_scans(self):
         from pitangus.modules.runs import periodic
@@ -401,12 +479,23 @@ class AccessApiTests(HttpCase):
         with public(), answering(200, f"<meta name='pitangus-verify' content='{token}'>".encode()):
             status, verified, _ = self.send("/api/domains/verify", "verify-domain", {"domain_id": self.domain["id"], "method": "meta"})
         self.assertEqual((status, verified["verified"], verified["proof_method"]), (200, True, "meta"))
-        self.assertEqual(self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": "weekly"}, role="member")[0], 403)
-        self.assertEqual(self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": "daily"})[0], 400)
-        status, row, _ = self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": "weekly"})
-        self.assertEqual((status, row["schedule"], bool(row["schedule_next_at"])), (200, "weekly", True))
+        rule = {"frequency": "weekly", "weekdays": [5], "time": "09:00", "timezone": "America/Bogota"}
+        self.assertEqual(self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": rule}, role="member")[0], 403)
+        for bad in ("weekly", {**rule, "weekdays": []}, {**rule, "frequency": "hourly"}, {**rule, "time": "25:00"},
+                    {**rule, "weekdays": [True]}, {**rule, "extra": 1}, {**rule, "frequency": "monthly", "month_days": [31]}):
+            with self.subTest(bad=bad):
+                self.assertEqual(self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": bad})[0], 400)
+        status, answer, _ = self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": {**rule, "timezone": "Mars/Base"}})
+        self.assertEqual((status, "Mars/Base" in answer["error"]), (400, True))
+        self.assertEqual(self.send("/api/domains/schedule", "schedule-domain", {"domain_id": "f" * 24, "schedule": rule})[0], 404)
+        status, row, _ = self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": rule})
+        schedule = row["schedule"]
+        self.assertEqual((status, schedule["frequency"], schedule["weekdays"], schedule["month_days"], schedule["time"], schedule["timezone"]),
+                         (200, "weekly", [5], [], "09:00", "America/Bogota"))
+        moment = datetime.fromisoformat(schedule["next_run_at"])
+        self.assertEqual((moment.utcoffset(), moment.isoweekday(), moment.hour, moment.minute), (timedelta(0), 5, 14, 0))
         status, row, _ = self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": None})
-        self.assertEqual((status, row["schedule"], row["schedule_next_at"]), (200, None, None))
+        self.assertEqual((status, row["schedule"]), (200, None))
 
 
 class _Records(logging.Handler):

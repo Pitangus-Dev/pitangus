@@ -14,12 +14,13 @@ import { AddDomainDialog } from '@/features/domains/add-domain-dialog'
 import { VerifyDomainDialog } from '@/features/domains/verify-domain-dialog'
 import { useRemoveDomain } from '@/features/domains/use-remove-domain'
 import { TONE, kindOf, lastScanOf, untilOf, verification, type Domain } from '@/features/domains/domains'
+import { FREQUENCY } from '@/features/domains/schedule'
 
 const PAGE = 25
 export type DomainTab = 'overview' | 'findings' | 'scans' | 'scope'
 
-// The sites and APIs a team controls, alike: kind as a tag, whether the proof is current, the last scan (and whether it
-// repeats weekly) and open findings. Administrators add, verify and remove; everyone else reads.
+// The sites and APIs a team controls, alike: kind as a tag, whether the proof is current, the last scan (and how often
+// it repeats, when scheduled) and open findings. Administrators add, verify and remove; everyone else reads.
 export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean; onOpenDomain: (domain: Domain, tab?: DomainTab) => void; onNewScan: (domain: Domain) => void }) {
   const { t } = useTranslation('sources')
   const queryClient = useQueryClient()
@@ -73,7 +74,7 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
               <span className="rounded-md border border-app-line px-1.5 text-xs text-app-muted">{kindOf(domain)}</span></span>
             <span className="md:hidden">{chip}</span></div></td>
           <td className="hidden px-3 py-3 md:table-cell">{chip}</td>
-          <td className="hidden px-3 py-3 text-xs text-app-muted md:table-cell">{last ? formatDay(last.created_at, { dateStyle: 'medium' }) : t('domains.list.never')}{domain.schedule === 'weekly' && <span className="block">{t('domains.list.weekly')}</span>}</td>
+          <td className="hidden px-3 py-3 text-xs text-app-muted md:table-cell">{last ? formatDay(last.created_at, { dateStyle: 'medium' }) : t('domains.list.never')}{domain.schedule && <span className="block">{t(FREQUENCY[domain.schedule.frequency])}</span>}</td>
           <td className="px-3 py-3 text-right">{domain.open
             ? <button type="button" onClick={() => onOpenDomain(domain, 'findings')} aria-label={t('domains.list.open_for', { host: domain.host, count: domain.open })} className="min-h-6 min-w-6 font-mono text-app-fg underline-offset-2 hover:underline">{domain.open}</button>
             : <span className="font-mono text-app-muted">0</span>}</td>

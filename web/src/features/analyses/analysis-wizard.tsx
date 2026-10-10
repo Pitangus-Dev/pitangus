@@ -5,8 +5,9 @@ import { apiPost } from '@/shared/api/client'
 import { api } from '@/shared/api/http'
 import { domainScopeQuery, domainsQuery, keys, registriesQuery, repositoryPlanQuery, sourceCountQuery, sourceQuery, type QueuedDomainScan } from '@/shared/api/queries'
 import { formatList } from '@/shared/i18n/format'
-import { Switch } from '@/shared/ui/switch'
 import type { Source } from '@/features/sources/sources'
+import { ScheduleOption, type SchedulePlan } from '@/features/analyses/wizard/schedule-option'
+import { defaultRule, normalized, ruleOf, sameRule } from '@/features/domains/schedule'
 import { SarifImport } from '@/features/analyses/sarif-import'
 import { useBatches } from '@/features/analyses/use-batches'
 import { AccessStep } from '@/features/analyses/wizard/access-step'
@@ -26,8 +27,8 @@ const CHOOSER = -1
 // New scan: choose what to check, answer one question per step, review and launch. Several repositories (or an
 // organization, or several images) become a batch that moves forward when the server is free; a web scan takes one
 // verified domain, and an API spec when there is one. A direct link brings a repository or a domain already chosen.
-export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections, onCancel, initialSourceId, initialDomainId = null, initialKind = null, isAdmin }: {
-  onComplete: (id: string) => Promise<void>; onBatchStarted: () => void; onManageConnections: () => void; onCancel: () => void
+export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onManageConnections, onCancel, initialSourceId, initialDomainId = null, initialKind = null, isAdmin }: {
+  onComplete: (id: string) => Promise<void>; onBatchStarted: () => void; onScheduled?: (domainId: string) => void; onManageConnections: () => void; onCancel: () => void
   initialSourceId: string | null; initialDomainId?: string | null; initialKind?: Start; isAdmin: boolean
 }) {
   const { t } = useTranslation('analyses')
@@ -43,7 +44,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const [spec, setSpec] = useState<Spec | null>(null)
   const [useHeaders, setUseHeaders] = useState(true)
   const [allowOsv, setAllowOsv] = useState(false)
-  const [weekly, setWeekly] = useState<boolean | null>(null)
+  const [schedulePlan, setSchedulePlan] = useState<SchedulePlan | null>(null)
 
   const domains = useQuery(domainsQuery())
   const registries = useQuery(registriesQuery()).data?.registries
@@ -74,7 +75,9 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const headerNames = (domain?.headers ?? []).map(item => item.name)
   const sending = useHeaders && headerNames.length > 0
   const specInvalid = spec?.mode === 'url' && !!domain && !inScope(spec.url, domain.host, hosts)
-  const weeklyOn = weekly ?? domain?.schedule === 'weekly'
+  // Until touched, the plan is the domain's own schedule (or none, with a default rule ready to switch on).
+  const schedule: SchedulePlan = schedulePlan ?? { on: !!domain?.schedule, rule: domain?.schedule ? ruleOf(domain.schedule) : defaultRule(), alsoNow: true }
+  const scanNow = !schedule.on || schedule.alsoNow
   const osv = !!plan.data?.osv_needed && allowOsv
 
   const restart = () => { setKind(null); setStep(0) }
@@ -85,11 +88,20 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const launch = useMutation({
     mutationFn: async (): Promise<string | null> => {
       if (kind === 'web' && domain) {
+        const changed = schedule.on ? !domain.schedule || !sameRule(ruleOf(domain.schedule), schedule.rule) : !!domain.schedule
+        const saveSchedule = () => apiPost('/api/domains/schedule', 'schedule-domain', { domain_id: domain.id, schedule: schedule.on ? normalized(schedule.rule) : null })
+        if (!scanNow) {
+          await saveSchedule()
+          await queryClient.invalidateQueries({ queryKey: keys.domains })
+          onScheduled?.(domain.id)
+          return null
+        }
         // With a spec the server calls its documented endpoints (API mode) instead of crawling the site.
         const source = spec ? spec.mode === 'file' ? { spec: { filename: spec.filename, content_base64: spec.content } } : { spec_url: spec.url } : {}
         const queued = await api.post<QueuedDomainScan>('/api/domains/scans', 'scan-domain', { domain_id: domain.id, mode: spec ? 'api' : 'web', ...(scopeOpen ? { use_scope: true } : {}), use_headers: sending, ...source })
-        // The scan is queued either way; a schedule that didn't save shows on the domain's page, not as a failed launch.
-        if (weeklyOn !== (domain.schedule === 'weekly')) await apiPost('/api/domains/schedule', 'schedule-domain', { domain_id: domain.id, schedule: weeklyOn ? 'weekly' : null }).catch(() => null)
+        // Saved after the scan, so its next run skips today. The scan is queued either way; a schedule that didn't save
+        // shows on the domain's page, not as a failed launch.
+        if (changed) await saveSchedule().catch(() => null)
         void queryClient.invalidateQueries({ queryKey: keys.domains })
         return queued.run_id
       }
@@ -104,7 +116,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
         : await api.post<{ run: { id: string } }>('/api/repositories/scans', 'scan-repository', { source_id: single, allow_osv_upload: osv, context })
       return data.run.id
     },
-    onSuccess: async id => { if (id) await onComplete(id); else onBatchStarted() },
+    onSuccess: async id => { if (id) await onComplete(id); else if (kind !== 'web') onBatchStarted() },
   })
 
   if (kind === 'import') return <SarifImport onOpenRun={onComplete} onBack={restart} />
@@ -154,8 +166,9 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
       ...(spec || domain?.kind === 'api' ? [{ label: t('review.spec'), value: specValue, step: 0 }] : []),
       { label: t('review.access'), value: sending ? t('review.access_value', { count: headerNames.length, names: formatList(headerNames) }) : t('review.access_none'), step: steps.indexOf('access') },
       ...(domain?.context ? [{ label: t('review.context'), value: domain.context }] : [])]
-    return { rows, label: t('launch.web'),
-      options: <Switch id="weekly-scan" checked={weeklyOn} onCheckedChange={setWeekly} label={t('review.schedule')} hint={spec ? t('review.schedule_without_spec') : undefined} />,
+    return { rows, label: scanNow ? t('launch.web') : t('launch.schedule'),
+      options: domain?.kind === 'surface' ? undefined : <ScheduleOption value={schedule} onChange={setSchedulePlan} lastScanAt={domain?.last_scan?.created_at as string | undefined}
+        hint={spec ? t('review.schedule_without_spec') : undefined} />,
       notes: <WafNote />, details: undefined }
   }
 
@@ -165,7 +178,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
     if (current === 'images') return <ImagesStep text={imageText} onText={setImageText} registries={registries} batchBusy={!!activeBatch} onManageConnections={onManageConnections} {...frame} />
     if (current === 'context') return <ContextStep value={context} onChange={setContext} {...frame} />
     if (current === 'target') return <TargetStep value={target} spec={spec} onSpec={setSpec} specInvalid={specInvalid} {...frame}
-      onChange={value => { if (value.domain?.id !== target.domain?.id) { setSpec(null); setUseHeaders(true); setWeekly(null) } setTarget(value) }} />
+      onChange={value => { if (value.domain?.id !== target.domain?.id) { setSpec(null); setUseHeaders(true); setSchedulePlan(null) } setTarget(value) }} />
     if (current === 'access' && domain) return <AccessStep domain={domain} useHeaders={useHeaders} onUseHeaders={setUseHeaders} {...frame} />
     if (current === 'review') {
       const content = review()

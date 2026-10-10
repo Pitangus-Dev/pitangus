@@ -3,17 +3,18 @@ import { describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
-import { formatDate, formatDay } from '@/shared/i18n/format'
+import { formatDay } from '@/shared/i18n/format'
 import type { SessionUser } from '@/features/auth/session'
 import type { DomainTab } from '@/features/domains/domain-list'
 import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { Domain } from '@/pages/Domain'
+import { browserZone, describeRule, formatRun, weekdayName } from '@/features/domains/schedule'
 
 const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
 const ID = 'a'.repeat(24)
 const DOMAIN = { id: ID, host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: 'Shop front', key: 'domain:app.example.com', verified: true, expired: false,
-  registered_at: '2026-10-01T00:00:00Z', registered_by: 'jefa', verified_until: '2026-12-31T00:00:00Z', proof_method: 'meta', schedule: null, schedule_next_at: null,
+  registered_at: '2026-10-01T00:00:00Z', registered_by: 'jefa', verified_until: '2026-12-31T00:00:00Z', proof_method: 'meta', schedule: null,
   headers: [{ name: 'Cookie', last4: null, saved_at: '2026-10-02T00:00:00Z' }], header_count: 1, runs: 0, open: 0, last_scan: null }
 const ADMIN = { username: 'jefa', display_name: 'Jefa', role: 'admin', totp_enabled: true } as unknown as SessionUser
 
@@ -28,11 +29,15 @@ const SCOPE = { domain_id: ID, root: 'app.example.com', covered: false, reason: 
     available: true, unavailable: null } }
 
 function setup() {
-  let schedule: string | null = null
+  let schedule: Record<string, unknown> | null = null
   const calls = mockApi(call => {
     if (call.path.startsWith('/api/domains/scope') || call.path === '/api/domains/discover') return { body: SCOPE }
-    if (call.path === '/api/domains' && call.method === 'GET') return { body: { items: [{ ...DOMAIN, schedule, schedule_next_at: schedule ? '2026-10-12T03:00:00Z' : null }], total: 1, limit: 20, dast: true } }
-    if (call.path === '/api/domains/schedule') { schedule = (call.body as { schedule: string | null }).schedule; return { body: { ...DOMAIN, schedule } } }
+    if (call.path === '/api/domains' && call.method === 'GET') return { body: { items: [{ ...DOMAIN, schedule }], total: 1, limit: 20, dast: true } }
+    if (call.path === '/api/domains/schedule') {
+      const rule = (call.body as { schedule: Record<string, unknown> | null }).schedule
+      schedule = rule && { ...rule, next_run_at: '2026-10-16T14:00:00Z' }
+      return { body: { ...DOMAIN, schedule } }
+    }
     if (call.path === '/api/runs') return { body: [] }
     if (call.path.startsWith('/api/runs/page')) return { body: { items: [], total: 0, limit: 25, offset: 0 } }
     if (call.path.startsWith('/api/assets')) return { body: { items: [], total: 0, limit: 1, offset: 0 } }
@@ -79,14 +84,36 @@ describe('a domain page', () => {
     await waitFor(() => expect(calls.some(call => call.path === '/api/domains/discover' && call.action === 'discover-domain')).toBe(true))
   })
 
-  it('turns the weekly scan on and says when the next one is', async () => {
+  it('schedules the scan, says when in plain words, and changes or turns it off', async () => {
     const { calls, user } = setup()
-    const toggle = await screen.findByRole('switch', { name: tr('domains.schedule.toggle') })
-    expect(toggle.getAttribute('aria-checked')).toBe('false')
-    await user.click(toggle)
+    expect(await screen.findByRole('heading', { level: 2, name: tr('domains.schedule.title') })).toBeTruthy()
+    expect(screen.getByText(tr('domains.schedule.none'))).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: tr('domains.schedule.set') }))
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: tr('domains.schedule.frequency.weekly') }))
+    // Weekly on today's weekday at 9:00 in the browser's zone, until changed.
+    const days = screen.getByRole('group', { name: tr('domains.schedule.weekdays') })
+    const pressed = within(days).getAllByRole('button').filter(button => button.getAttribute('aria-pressed') === 'true')
+    expect(pressed).toHaveLength(1)
+    await user.click(pressed[0])
+    expect(screen.getByRole('button', { name: tr('domains.schedule.save') })).toHaveProperty('disabled', true)
+    await user.click(within(days).getByRole('button', { name: weekdayName(5) }))
+    await user.click(screen.getByRole('button', { name: tr('domains.schedule.save') }))
     await waitFor(() => expect(calls.find(call => call.path === '/api/domains/schedule')).toEqual({ method: 'POST', path: '/api/domains/schedule', action: 'schedule-domain',
-      body: { domain_id: ID, schedule: 'weekly' } }))
-    await waitFor(() => expect(screen.getByRole('switch', { name: tr('domains.schedule.toggle') }).getAttribute('aria-checked')).toBe('true'))
-    expect(await screen.findByText(tr('domains.schedule.next', { date: formatDate('2026-10-12T03:00:00Z') }))).toBeTruthy()
+      body: { domain_id: ID, schedule: { frequency: 'weekly', weekdays: [5], month_days: [], time: '09:00', timezone: browserZone() } } }))
+    // Testing Library collapses the narrow no-break space Intl puts before AM/PM.
+    const sentence = describeRule({ frequency: 'weekly', weekdays: [5], month_days: [], time: '09:00', timezone: browserZone() }).replace(/\s/g, ' ')
+    expect(await screen.findByText(sentence)).toBeTruthy()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: tr('domains.schedule.change') })))
+    expect(screen.getByText(tr('domains.schedule.next', { date: formatRun('2026-10-16T14:00:00Z') }))).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: tr('domains.schedule.change') }))
+    await user.click(screen.getByRole('radio', { name: tr('domains.schedule.frequency.daily') }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common:actions.cancel') }))
+    expect(screen.getByText(sentence)).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: tr('domains.schedule.turn_off') }))
+    await waitFor(() => expect(calls.filter(call => call.path === '/api/domains/schedule').at(-1)?.body).toEqual({ domain_id: ID, schedule: null }))
+    expect(await screen.findByText(tr('domains.schedule.none'))).toBeTruthy()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: tr('domains.schedule.set') })))
   })
 })

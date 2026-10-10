@@ -72,9 +72,12 @@
       "not_manual": "{{host}} lo encontró la búsqueda y sigue en la lista: exclúyelo en su lugar"
     },
     "schedule": {
-      "invalid": "La programación es semanal o ninguna",
-      "lapsed": "Omitido: la prueba del dominio caducó. Verifícalo de nuevo y el análisis semanal se reanuda en la siguiente ronda",
-      "busy": "En espera: había otro análisis web en cola o en curso; se vuelve a intentar en la siguiente ronda"
+      "invalid": "La programación es diaria, semanal con al menos un día de la semana, o mensual con al menos un día del 1 al 28",
+      "invalid_time": "La hora va en formato HH:MM, de 00:00 a 23:59",
+      "invalid_timezone": "{{zone}} no es una zona horaria que este servidor conozca. Usa un nombre IANA, como America/Bogota o UTC",
+      "lapsed": "Omitido: la prueba del dominio caducó. Verifícalo de nuevo y el análisis programado se reanuda en la siguiente ronda",
+      "busy": "En espera: había otro análisis web en cola o en curso; se vuelve a intentar en la siguiente ronda",
+      "already_today": "Omitido: el dominio ya se analizó ese día. El siguiente análisis programado corre como estaba previsto"
     },
     "headers": {
       "invalid_request": "Solicitud de cabecera inválida",

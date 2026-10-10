@@ -31,6 +31,8 @@ from urllib.parse import urlsplit
 from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 
+from pitangus.modules.sources import domain_schedule
+from pitangus.modules.sources.domain_schedule import ScheduleError
 from pitangus.modules.sources.tables import domain_registry
 from pitangus.shared import db, documents
 from pitangus.shared import log as logging_setup
@@ -63,8 +65,6 @@ META_NAME = "pitangus-verify"
 BODY_LIMIT = 64 * 1024
 FETCH_SECONDS = 10    # a whole HTTPS fetch, however slowly the server answers
 SCOPE_LIMIT = 20      # hosts a scan may list
-SCHEDULES = ("weekly",)
-SCHEDULE_EVERY = timedelta(days=7)
 LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 
 
@@ -97,9 +97,17 @@ def _row(row, now: datetime | None = None) -> dict:
             "proof_method": row.proof_method if row.verified_at else None,
             "verify_token": secret, "verify_file_url": f"https://{row.host}{WELL_KNOWN}",
             "verify_meta": f'<meta name="{META_NAME}" content="{secret}">',
-            "schedule": row.schedule, "schedule_next_at": _iso(row.schedule_next_at) if row.schedule else None,
-            "schedule_last_at": _iso(row.schedule_last_at), "schedule_last_run": row.schedule_last_run,
-            "schedule_note": row.schedule_note}
+            "schedule": _schedule(row, now)}
+
+
+def _schedule(row, now: datetime) -> dict | None:
+    """The rule with when it runs next and what happened last time. A weekly schedule from before rules existed (no
+    `schedule_rule` yet: the data migration writes it) reads as the weekday and time of its next run, in UTC."""
+    if not row.schedule:
+        return None
+    rule = row.schedule_rule if isinstance(row.schedule_rule, dict) else domain_schedule.legacy(row.schedule_next_at, now=now)
+    return {**rule, "next_run_at": _iso(row.schedule_next_at), "last_run_at": _iso(row.schedule_last_at),
+            "last_run_id": row.schedule_last_run, "note": row.schedule_note}
 
 
 def list_domains(data_dir: Path) -> list[dict]:
@@ -441,37 +449,79 @@ def in_scope(host: str, scope: dict) -> bool:
     return host in scope.get("hosts", []) or any(host.endswith(pattern[1:]) for pattern in scope.get("wildcards", []))
 
 
-def set_schedule(data_dir: Path, domain_id: str, schedule: str | None, *, now: datetime | None = None) -> dict:
-    """Turns the weekly passive scan on (the first one at the next round of the periodic task) or off."""
-    if schedule is not None and schedule not in SCHEDULES:
-        raise DomainError(msg("sources.domains.schedule.invalid"))
-    record = get_domain(data_dir, domain_id)
-    if schedule == record["schedule"]:
-        return record
-    if schedule is None:
-        return _mark(data_dir, domain_id, schedule=None, schedule_next_at=None, schedule_note=None)
-    return _mark(data_dir, domain_id, schedule=schedule, schedule_next_at=now or _now(), schedule_note=None)
-
-
-def due_scans(data_dir: Path, *, now: datetime | None = None) -> list[dict]:
-    """Domains whose scheduled scan is due, the longest overdue first."""
+def set_schedule(data_dir: Path, domain_id: str, rule: dict | None, *, now: datetime | None = None,
+                 last_scan_at: datetime | None = None) -> dict:
+    """Sets the scheduled passive scan (`domain_schedule` rule) or turns it off (None). The next run is the rule's first
+    moment after now, never on the local day of the domain's last scan (`last_scan_at`): at most one a day. Saving
+    the same rule again keeps the next run, so a slot that is due but not yet queued isn't lost."""
     now = now or _now()
+    record = get_domain(data_dir, domain_id)
+    if rule is None:
+        return _mark(data_dir, domain_id, schedule=None, schedule_rule=None, schedule_next_at=None, schedule_note=None)
+    try:
+        rule = domain_schedule.normalize(rule)
+    except ScheduleError as exc:
+        raise DomainError(exc.message) from exc
+    current = record["schedule"]
+    if current and current["next_run_at"] and {key: current[key] for key in rule} == rule:
+        return record
+    not_on = domain_schedule.local_day(last_scan_at, rule) if last_scan_at else None
+    return _mark(data_dir, domain_id, schedule=rule["frequency"], schedule_rule=rule, schedule_note=None,
+                 schedule_next_at=domain_schedule.next_run(rule, now, not_on=not_on))
+
+
+def due_scans(data_dir: Path, *, now: datetime | None = None, lock: bool = False) -> list[dict]:
+    """Domains whose scheduled scan is due, the longest overdue first. `lock`: their rows stay locked until the
+    caller's transaction ends (and rows another round holds are left out), so queuing a scan and moving the schedule
+    on happen together or not at all."""
+    now = now or _now()
+    statement = select(domain_registry).where(
+        domain_registry.c.tenant_id == TENANT, domain_registry.c.schedule.in_(domain_schedule.FREQUENCIES),
+        domain_registry.c.schedule_next_at <= now).order_by(domain_registry.c.schedule_next_at, domain_registry.c.id)
     with db.transaction(data_dir) as connection:
-        rows = connection.execute(select(domain_registry).where(
-            domain_registry.c.tenant_id == TENANT, domain_registry.c.schedule.in_(SCHEDULES),
-            domain_registry.c.schedule_next_at <= now).order_by(domain_registry.c.schedule_next_at, domain_registry.c.id)).all()
+        rows = connection.execute(statement.with_for_update(skip_locked=True) if lock else statement).all()
     return [_row(row, now) for row in rows]
 
 
+def _rule(record: dict) -> dict:
+    return {key: record["schedule"][key] for key in ("frequency", "weekdays", "month_days", "time", "timezone")}
+
+
 def schedule_queued(data_dir: Path, domain_id: str, run_id: str, *, now: datetime | None = None) -> dict:
+    """The scheduled scan was queued now: the next one is the rule's next moment on a later local day."""
     now = now or _now()
-    return _mark(data_dir, domain_id, schedule_last_at=now, schedule_last_run=run_id, schedule_note=None,
-                 schedule_next_at=now + SCHEDULE_EVERY)
+    rule = _rule(get_domain(data_dir, domain_id))
+    return _mark(data_dir, domain_id, schedule_last_at=now, schedule_last_run=run_id, schedule_note=None, schedule_rule=rule,
+                 schedule_next_at=domain_schedule.next_run(rule, now, not_on=domain_schedule.local_day(now, rule)))
 
 
 def schedule_skipped(data_dir: Path, domain_id: str, note, *, now: datetime | None = None) -> dict:
     """The scan was due and didn't start (`note` says why): it stays due, so the next round tries again."""
     return _mark(data_dir, domain_id, schedule_last_at=now or _now(), schedule_note=note)
+
+
+def schedule_moved(data_dir: Path, domain_id: str, note, *, after: datetime, not_on, now: datetime | None = None) -> dict:
+    """The slot is dropped (`note` says why) and the schedule moves on to its next moment after `not_on`."""
+    rule = _rule(get_domain(data_dir, domain_id))
+    return _mark(data_dir, domain_id, schedule_last_at=now or _now(), schedule_note=note, schedule_rule=rule,
+                 schedule_next_at=domain_schedule.next_run(rule, after, not_on=not_on))
+
+
+def adopt_schedule_rules(data_dir: Path) -> int:
+    """Weekly schedules from before rules existed get theirs (data migration `scan_schedule_rules`): the weekday and
+    time of their next run, in UTC, so they keep firing when they would have. Returns how many."""
+    now = _now()
+    moved = 0
+    with db.transaction(data_dir) as connection:
+        rows = connection.execute(select(domain_registry.c.id, domain_registry.c.schedule_next_at).where(
+            domain_registry.c.tenant_id == TENANT, domain_registry.c.schedule.is_not(None),
+            domain_registry.c.schedule_rule.is_(None)).with_for_update()).all()
+        for row in rows:
+            rule = domain_schedule.legacy(row.schedule_next_at, now=now)
+            connection.execute(update(domain_registry).where(domain_registry.c.tenant_id == TENANT, domain_registry.c.id == row.id)
+                               .values(schedule="weekly", schedule_rule=rule, schedule_next_at=row.schedule_next_at or now))
+            moved += 1
+    return moved
 
 
 def import_document(data_dir: Path) -> int:

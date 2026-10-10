@@ -1041,7 +1041,7 @@ export interface paths {
         };
         /**
          * Domain List
-         * @description The registered domains (at most `limit`), with whether each one's proof is current and its weekly scan.
+         * @description The registered domains (at most `limit`), with whether each one's proof is current and its scheduled scan.
          */
         get: operations["domain_list_api_domains_get"];
         put?: never;
@@ -1173,9 +1173,11 @@ export interface paths {
         put?: never;
         /**
          * Domain Schedule
-         * @description Turns the weekly passive web scan of the domain on or off. The first one is queued at the next hourly round of
-         *     the periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host and the hosts saved
-         *     in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason.
+         * @description Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,
+         *     at a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the
+         *     local day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task
+         *     queues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the
+         *     domain's own host and the hosts saved in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason.
          */
         post: operations["domain_schedule_api_domains_schedule_post"];
         delete?: never;
@@ -3067,8 +3069,8 @@ export interface components {
          * @description A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`
          *     says which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,
          *     `verify_file_url`, `verify_meta`) and the saved `headers` are only answered to administrators. `runs` and `open`
-         *     say what was scanned or imported against it; `schedule` is null or `weekly`, with the next and last scheduled
-         *     scan and, when the last one was skipped, why (`schedule_note`).
+         *     say what was scanned or imported against it; `schedule` is null (off) or when its passive web scan runs on its
+         *     own.
          */
         DomainRow: {
             /** Id */
@@ -3109,16 +3111,7 @@ export interface components {
             verify_file_url?: string | null;
             /** Verify Meta */
             verify_meta?: string | null;
-            /** Schedule */
-            schedule?: "weekly" | null;
-            /** Schedule Next At */
-            schedule_next_at?: string | null;
-            /** Schedule Last At */
-            schedule_last_at?: string | null;
-            /** Schedule Last Run */
-            schedule_last_run?: string | null;
-            /** Schedule Note */
-            schedule_note?: string | null;
+            schedule?: components["schemas"]["DomainSchedule"] | null;
             /** Last Scan */
             last_scan?: {
                 [key: string]: unknown;
@@ -3140,6 +3133,38 @@ export interface components {
              * @default 0
              */
             open: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainSchedule
+         * @description When the passive web scan runs on its own: daily, on `weekdays` (1 Monday … 7 Sunday) or on `month_days`
+         *     (1–28), at `time` (HH:MM) in `timezone` (IANA), at most once a day. `next_run_at` (UTC) is the moment the
+         *     scheduler queues it; `last_run_at` and `last_run_id` say what it did last and `note`, when that slot was skipped,
+         *     why.
+         */
+        DomainSchedule: {
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "daily" | "weekly" | "monthly";
+            /** Weekdays */
+            weekdays?: number[];
+            /** Month Days */
+            month_days?: number[];
+            /** Time */
+            time: string;
+            /** Timezone */
+            timezone: string;
+            /** Next Run At */
+            next_run_at?: string | null;
+            /** Last Run At */
+            last_run_at?: string | null;
+            /** Last Run Id */
+            last_run_id?: string | null;
+            /** Note */
+            note?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -7420,8 +7445,21 @@ export interface operations {
                 "application/json": {
                     /** Domain Id */
                     domain_id: string;
-                    /** Schedule */
-                    schedule: "weekly" | null;
+                    schedule: {
+                        /**
+                         * Frequency
+                         * @enum {string}
+                         */
+                        frequency: "daily" | "weekly" | "monthly";
+                        /** Weekdays */
+                        weekdays?: number[];
+                        /** Month Days */
+                        month_days?: number[];
+                        /** Time */
+                        time: string;
+                        /** Timezone */
+                        timezone: string;
+                    } | null;
                 };
             };
         };

@@ -23,7 +23,7 @@ _log = logging_setup.get("periodic")
 STATE = "periodic"
 NVD_BUDGET = 600  # seconds of NVD sync per round: a worker job, never a request
 NVD_EVERY = 900   # longer than the budget: rounds never pile up behind each other
-DOMAIN_SCAN_SECONDS = 3600  # how often due weekly web scans are looked for
+DOMAIN_SCAN_SECONDS = 300  # how often due scheduled web scans are looked for (a rule has a time of day)
 
 
 @dataclass(frozen=True)
@@ -86,27 +86,38 @@ def _domains(data_dir: Path, jobs) -> object:
 
 
 def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> object:
-    """Queues the weekly passive web scan of the most overdue domain (one: web scans run one at a time). A domain
-    whose proof lapsed is skipped with the reason and stays due; another web scan in progress leaves it for the next
-    round. Scheduled scans crawl the domain's own host and the hosts saved in its scope (while its DNS proof covers
-    them), without its saved headers."""
+    """Queues the scheduled passive web scan of the most overdue domain (one: web scans run one at a time). Locking
+    the domain's row, queuing the scan and moving its schedule on are one transaction: a crash or a second round can
+    neither queue a slot twice nor lose it. A domain whose proof lapsed is skipped with the reason and stays due;
+    another web scan in progress leaves it for the next round; a domain already scanned that local day (by hand)
+    moves on to its next run, so it is scanned at most once a day. Scheduled scans crawl the domain's own host
+    and the hosts saved in its scope (while its DNS proof covers them), without its saved headers."""
     from pitangus.modules.runs.jobs import BusyError
-    from pitangus.modules.sources import domains
+    from pitangus.modules.runs.store import find_runs
+    from pitangus.modules.sources import domain_schedule, domains
+    from pitangus.shared import db
     from pitangus.shared.i18n import msg
     now = now or datetime.now(timezone.utc)
-    for record in domains.due_scans(data_dir, now=now):
-        if not record["verified"]:
-            domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.lapsed"), now=now)
-            _log.warning("scheduled_scan_skipped", extra={"reason": f"{record['host']}: proof lapsed"})
-            continue
-        try:
-            queued = jobs.enqueue_dast_scan(domain=record, requested_by="schedule", trigger={"kind": "schedule"},
-                                            options={"mode": "web", "use_scope": True})
-        except BusyError:
-            domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.busy"), now=now)
-            return {"queued": None, "waiting": record["host"]}
-        domains.schedule_queued(data_dir, record["id"], queued["id"], now=now)
-        return {"queued": queued["id"], "host": record["host"]}
+    with db.transaction(data_dir):
+        for record in domains.due_scans(data_dir, now=now, lock=True):
+            if not record["verified"]:
+                domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.lapsed"), now=now)
+                _log.warning("scheduled_scan_skipped", extra={"reason": f"{record['host']}: proof lapsed"})
+                continue
+            today = domain_schedule.local_day(now, record["schedule"])
+            last = find_runs(data_dir, types=["dast_scan"], assets=[record["key"]], limit=1)
+            if last and domain_schedule.local_day(datetime.fromisoformat(last[0]["created_at"]), record["schedule"]) == today:
+                domains.schedule_moved(data_dir, record["id"], msg("sources.domains.schedule.already_today"),
+                                       after=now, not_on=today, now=now)
+                continue
+            try:
+                queued = jobs.enqueue_dast_scan(domain=record, requested_by="schedule", trigger={"kind": "schedule"},
+                                                options={"mode": "web", "use_scope": True})
+            except BusyError:
+                domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.busy"), now=now)
+                return {"queued": None, "waiting": record["host"]}
+            domains.schedule_queued(data_dir, record["id"], queued["id"], now=now)
+            return {"queued": queued["id"], "host": record["host"]}
     return {"queued": None}
 
 

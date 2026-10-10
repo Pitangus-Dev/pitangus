@@ -1,12 +1,14 @@
-import { describe, expect, it, vi } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { mockApi, type Call } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { AnalysisWizard } from '@/features/analyses/analysis-wizard'
+import { browserZone } from '@/features/domains/schedule'
 
 const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`analyses:${key}`, options)
+const src = (key: string) => i18n.t(`sources:${key}`)
 const SOURCE = { id: 'github#7', name: 'org/api', provider: 'github', branch: 'main', installation_id: 1 }
 const PLAN = { languages: [{ name: 'Python', files: 12, rules: 40 }], runs: ['Opengrep'], skips: [], osv_needed: true, files: 12, manifests: ['setup.py'], iac: [] }
 const DOMAIN = { id: 'a'.repeat(24), host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: '', key: 'domain:app.example.com',
@@ -40,6 +42,7 @@ function setup({ admin = true, dast = true, domains = [DOMAIN, UNVERIFIED] as un
       if (body.op === 'set') related = related.map(item => item.host === body.host ? { ...item, state: body.state ?? item.state } : item)
       return { body: scopeOf(related, status) }
     }
+    if (call.path === '/api/domains/schedule') return { body: DOMAIN }
     if (call.path === '/api/domains/scans') return { status: 202, body: { run_id: 'run-web', run: { id: 'run-web', status: 'queued' }, domain: DOMAIN } }
     if (call.path.startsWith('/api/sources')) return { body: { sources: [SOURCE], total: 1 } }
     if (call.path.startsWith('/api/repositories/plan')) return { body: PLAN }
@@ -49,8 +52,9 @@ function setup({ admin = true, dast = true, domains = [DOMAIN, UNVERIFIED] as un
     if (call.path.startsWith('/api/assets')) return { body: { items: [], total: 0, limit: 1, offset: 0 } }
   })
   const done = vi.fn(async () => {})
-  renderWithQueries(<AnalysisWizard onComplete={done} onBatchStarted={() => {}} onManageConnections={() => {}} onCancel={() => {}} initialSourceId={source} isAdmin={admin} />)
-  return { calls, done, user: userEvent.setup() }
+  const scheduled = vi.fn()
+  renderWithQueries(<AnalysisWizard onComplete={done} onBatchStarted={() => {}} onScheduled={scheduled} onManageConnections={() => {}} onCancel={() => {}} initialSourceId={source} isAdmin={admin} />)
+  return { calls, done, scheduled, user: userEvent.setup() }
 }
 const proceed = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: tr('wizard.continue') }))
 const heading = (key: string) => screen.findByRole('heading', { level: 2, name: tr(key) })
@@ -201,6 +205,51 @@ describe('a web or API scan', () => {
     await heading('review.title')
     await user.click(screen.getByRole('button', { name: tr('review.change_for', { label: tr('review.access') }) }))
     expect(await heading('access.title')).toBeTruthy()
+  })
+
+  it('schedules the scan: also now by default, or only from then on', async () => {
+    const reach = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
+      await proceed(user)
+      await user.click(await screen.findByRole('radio', { name: /app\.example\.com/ }))
+      await proceed(user)
+      await heading('access.title')
+      await user.click(screen.getByRole('button', { name: tr('wizard.skip') }))
+      await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: tr('skip.access.confirm') }))
+      await heading('review.title')
+    }
+    // Noon UTC: in any zone, 23:45 local is still ahead.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-09T12:00:00Z') })
+    onTestFinished(() => { vi.useRealTimers() })
+    const first = setup({ domains: [DOMAIN] })
+    await reach(first.user)
+    const toggle = screen.getByRole('switch', { name: src('domains.schedule.switch') })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(screen.queryByRole('radiogroup', { name: src('domains.schedule.frequency.label') })).toBeNull()
+    await first.user.click(toggle)
+    await first.user.click(screen.getByRole('radio', { name: src('domains.schedule.frequency.daily') }))
+    fireEvent.change(screen.getByLabelText(src('domains.schedule.time')), { target: { value: '23:45' } })
+    const alsoNow = screen.getByRole('checkbox', { name: src('domains.schedule.also_now') }) as HTMLInputElement
+    expect(alsoNow.checked).toBe(true)
+    // Scanned now, the first scheduled scan waits for tomorrow.
+    expect(screen.getByText(src('domains.schedule.once_a_day'))).toBeTruthy()
+    await first.user.click(screen.getByRole('button', { name: tr('launch.web') }))
+    await vi.waitFor(() => expect(first.done).toHaveBeenCalledWith('run-web'))
+    const paths = first.calls.filter(call => call.method === 'POST').map(call => call.path)
+    expect(paths).toEqual(['/api/domains/scans', '/api/domains/schedule'])  // the schedule after the scan, so it skips today
+    expect(first.calls.find(call => call.path === '/api/domains/schedule')?.body).toEqual({ domain_id: DOMAIN.id,
+      schedule: { frequency: 'daily', weekdays: [], month_days: [], time: '23:45', timezone: browserZone() } })
+    cleanup()
+
+    const second = setup({ domains: [DOMAIN] })
+    await reach(second.user)
+    await second.user.click(screen.getByRole('switch', { name: src('domains.schedule.switch') }))
+    await second.user.click(screen.getByRole('checkbox', { name: src('domains.schedule.also_now') }))
+    await second.user.click(screen.getByRole('button', { name: tr('launch.schedule') }))
+    await vi.waitFor(() => expect(second.scheduled).toHaveBeenCalledWith(DOMAIN.id))
+    expect(second.calls.some(call => call.path === '/api/domains/scans')).toBe(false)
+    expect(second.done).not.toHaveBeenCalled()
+    expect(second.calls.find(call => call.path === '/api/domains/schedule')?.body).toMatchObject({ domain_id: DOMAIN.id, schedule: { frequency: 'weekly', time: '09:00' } })
   })
 
   it('on an API domain, nudges for the spec, keeps a file proof to its exact host and sends the spec and saved headers', async () => {

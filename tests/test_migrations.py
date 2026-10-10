@@ -235,5 +235,31 @@ class BrandRenameMigrationTests(unittest.TestCase):
         self.assertIn("brand_rename", migrations.upgrade(self.data_dir))
         self.assertIsNone(documents.load(self.data_dir, "jira-routing"))
 
+
+class ScanScheduleRulesMigrationTests(unittest.TestCase):
+    """A domain's weekly scan became a rule: the ones scheduled before keep their weekday and time, in UTC."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.data_dir = Path(self.directory.name) / "data"
+        self.data_dir.mkdir()
+        documents.save(self.data_dir, migrations.VERSION_DOCUMENT, {"version": migrations.LATEST - 1, "history": []})
+
+    def test_weekly_schedules_get_their_rule_once_and_the_others_are_left_alone(self):
+        from datetime import datetime, timezone
+        from pitangus.modules.sources import domains
+        wednesday = datetime(2026, 10, 14, 21, 7, tzinfo=timezone.utc)
+        weekly = domains.register_domain(self.data_dir, "https://weekly.example.com/")
+        idle = domains.register_domain(self.data_dir, "https://idle.example.com/")
+        domains._mark(self.data_dir, weekly["id"], schedule="weekly", schedule_next_at=wednesday)
+        self.assertIn("scan_schedule_rules", migrations.upgrade(self.data_dir))
+        schedule = domains.get_domain(self.data_dir, weekly["id"])["schedule"]
+        self.assertEqual({key: schedule[key] for key in ("frequency", "weekdays", "month_days", "time", "timezone", "next_run_at")},
+                         {"frequency": "weekly", "weekdays": [3], "month_days": [], "time": "21:07", "timezone": "UTC",
+                          "next_run_at": wednesday.isoformat()})
+        self.assertIsNone(domains.get_domain(self.data_dir, idle["id"])["schedule"])
+        self.assertEqual(migrations._scan_schedule_rules(self.data_dir), 0)  # idempotent
+
 if __name__ == "__main__":
     unittest.main()

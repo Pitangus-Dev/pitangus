@@ -1,7 +1,11 @@
 import { intlLocale } from '@/shared/i18n'
 
-export const formatDate = (stamp: string | number | Date) =>
-  new Date(stamp).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
+export const formatDate = (stamp: string | number | Date, options: Intl.DateTimeFormatOptions = {}) =>
+  new Date(stamp).toLocaleString(intlLocale(), timeZoneNameOrStyles(options))
+// dateStyle/timeStyle can't be combined with timeZoneName: spelled out instead when a zone name is asked for.
+const timeZoneNameOrStyles = (options: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions => options.timeZoneName
+  ? { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', ...options }
+  : { dateStyle: 'medium', timeStyle: 'short', ...options }
 export const formatDay = (stamp: string | number | Date, options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' }) =>
   new Date(stamp).toLocaleDateString(intlLocale(), options)
 export const formatNumber = (value: number, options?: Intl.NumberFormatOptions) =>

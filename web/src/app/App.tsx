@@ -204,7 +204,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
       // `api` is the old address of what is now one web scan for sites and APIs.
       const type = wizardStart.type === 'api' ? 'web' : wizardStart.type === 'code' || wizardStart.type === 'image' || wizardStart.type === 'web' || wizardStart.type === 'import' ? wizardStart.type : null
       return <AnalysisWizard key={selectedSource ?? `${wizardStart.domain ?? ''}:${type ?? 'new'}`} initialSourceId={selectedSource} initialDomainId={wizardStart.domain} initialKind={type} isAdmin={user.role === 'admin'}
-        onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onManageConnections={() => selectView('integrations')} onCancel={() => selectView('analyses')} />
+        onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onScheduled={id => openDomain({ id })} onManageConnections={() => selectView('integrations')} onCancel={() => selectView('analyses')} />
     }
     if (view === 'analyses') return <AnalysisList refreshKey={rows.length * 1000 + rows.filter(row => row.status === 'running' || row.status === 'queued').length} onOpen={id => openRun(id, 'findings')} onNew={() => selectView('new')} viewer={{ username: user.username, admin: user.role === 'admin' }} />
     if (view === 'repositories') return <CodeSources showRepositories runs={rows} onScan={scanSource} onImages={openImages} canManage={user.role === 'admin'} />

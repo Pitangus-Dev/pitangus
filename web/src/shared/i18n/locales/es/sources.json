@@ -276,7 +276,6 @@
       "col_open": "Hallazgos abiertos",
       "col_actions": "Acciones",
       "never": "Nunca",
-      "weekly": "Semanal",
       "verified_by": "Verificado · {{method}}",
       "pending": "Pendiente",
       "expired": "Caducada",
@@ -370,8 +369,38 @@
       "back": "Volver a dominios y APIs"
     },
     "schedule": {
-      "toggle": "Analizar cada semana",
-      "next": "Próximo: {{date}} (hora del servidor)",
+      "title": "Análisis programado",
+      "switch": "Programar",
+      "also_now": "También ahora",
+      "frequency": {
+        "label": "Frecuencia",
+        "daily": "Diaria",
+        "weekly": "Semanal",
+        "monthly": "Mensual"
+      },
+      "weekdays": "Días de la semana",
+      "month_days": "Días del mes",
+      "month_day": "Día {{day}}",
+      "time": "Hora",
+      "timezone": "Zona horaria",
+      "next": "Próximo análisis: {{date}}",
+      "pick_time": "Elige una hora.",
+      "pick_weekday": "Elige al menos un día de la semana.",
+      "pick_month_day": "Elige al menos un día del mes.",
+      "at_one": "a la {{time}}",
+      "at_other": "a las {{time}}",
+      "describe": {
+        "daily": "Todos los días {{at}} ({{zone}})",
+        "weekly": "Cada {{days}} {{at}} ({{zone}})",
+        "monthly_one": "El día {{days}} de cada mes {{at}} ({{zone}})",
+        "monthly_other": "Los días {{days}} de cada mes {{at}} ({{zone}})"
+      },
+      "none": "Sin programar. Solo se analiza cuando alguien lo lanza.",
+      "set": "Programar",
+      "change": "Cambiar",
+      "turn_off": "Desactivar",
+      "save": "Guardar programación",
+      "once_a_day": "Ese día ya tiene un análisis, así que el primero programado será el siguiente día que corresponda.",
       "paused": "En pausa: la verificación caducó. Verifica de nuevo para reanudar.",
       "surface": "Los dominios de solo inventario no se analizan."
     },

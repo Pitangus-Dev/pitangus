@@ -210,8 +210,7 @@
     "osv_label": "Consultar dependencias en línea con OSV",
     "osv_hint": "Envía nombres y versiones de paquetes (no código) a api.osv.dev. Apagado: no se revisan dependencias.",
     "batch_note": "Corre como un lote que puedes seguir y cancelar en Análisis.",
-    "schedule": "Repetir cada semana",
-    "schedule_without_spec": "Los análisis semanales recorren el sitio; no usan la documentación de la API.",
+    "schedule_without_spec": "Los análisis programados recorren el sitio; no usan la documentación de la API.",
     "waf_title": "¿Hay un firewall o WAF?",
     "waf_text": "Permite la IP pública de este servidor o el análisis puede quedar bloqueado.",
     "authorization": "Solo navega y lee; nunca ataca. Lánzalo solo contra sitios que tengas permiso de probar."
@@ -247,7 +246,8 @@
     "organization_count": "Analizar la organización ({{total}})",
     "image": "Analizar imagen",
     "images": "Analizar {{total}} imágenes",
-    "web": "Iniciar análisis"
+    "web": "Iniciar análisis",
+    "schedule": "Programar análisis"
   },
   "org": {
     "counting": "Contando repositorios…",

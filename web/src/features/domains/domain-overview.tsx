@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { formatDay } from '@/shared/i18n/format'
 import { Button } from '@/shared/ui/button'
 import { HeadersEditor } from '@/features/domains/headers-editor'
-import { ScheduleToggle } from '@/features/domains/schedule-toggle'
+import { ScheduleSection } from '@/features/domains/schedule-section'
 import { coversSubdomains, lastScanOf, type Domain } from '@/features/domains/domains'
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -12,7 +12,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   </div>
 }
 
-// Everything about a domain that isn't findings or scans: a few facts, the weekly scan and the headers its scans send.
+// Everything about a domain that isn't findings or scans: a few facts, the scheduled scan and the headers its scans send.
 // Access lives here rather than in its own tab: it's a handful of rows, configured once, like the schedule.
 export function DomainOverview({ domain, admin, onVerify }: { domain: Domain; admin: boolean; onVerify: () => void }) {
   const { t } = useTranslation('sources')
@@ -29,7 +29,7 @@ export function DomainOverview({ domain, admin, onVerify }: { domain: Domain; ad
       {domain.context && <Fact label={t('domains.page.context')}>{domain.context}</Fact>}
       <Fact label={t('domains.page.added')}>{domain.registered_by ? t('domains.page.added_by', { date: added, user: domain.registered_by }) : added || '—'}</Fact>
     </dl>
-    <ScheduleToggle domain={domain} admin={admin} />
+    <ScheduleSection domain={domain} admin={admin} />
     {scannable && <section aria-labelledby="domain-access" className="space-y-3">
       <div className="space-y-1">
         <h2 id="domain-access" className="text-base font-semibold">{t('domains.page.access_title')}</h2>

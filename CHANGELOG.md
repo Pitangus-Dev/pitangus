@@ -84,8 +84,23 @@ between minor versions: anything that changes behaviour is called out below.
   only adds what it derives: the fragment of the evidence the result is about (`fix.web.highlight`, e.g. the
   `'unsafe-inline'` of the `style-src` the message names) and, for rules about response headers, a quoted `curl -sI`
   check (`fix.web.check`). Jira issues and the Markdown and technical reports carry the same.
+- **Scheduled domain scans follow a rule.** The weekly switch became a schedule: daily, on one or more weekdays or on
+  one or more days of the month (1–28), at a time of day in an IANA time zone (the browser's by default, checked by
+  the server), at most once a day per domain. `POST /api/domains/schedule` takes `schedule: {frequency, weekdays,
+  month_days, time, timezone}` or `null`; `GET /api/domains` answers it with `next_run_at` (UTC, computed by the
+  server; the panel previews the same moment). The review of a web scan has a "Schedule" switch with "Also run now"
+  (on by default; off, it only saves the schedule), and the domain's page says the schedule in plain words with
+  Change and Turn off. A domain already scanned that local day moves on to its next run instead of a second scan.
+  The periodic task looks for due scans every 5 minutes instead of every hour. **Changed:** `DomainRow.schedule` is
+  now an object (with `next_run_at`, `last_run_at`, `last_run_id`, `note`) and the flat `schedule_next_at`,
+  `schedule_last_at`, `schedule_last_run` and `schedule_note` fields are gone. Alembic `0012_scan_schedule` adds
+  `schedule_rule`; the data migration `scan_schedule_rules` keeps existing weekly schedules on the weekday and time of
+  their next run, in UTC.
 
 ### Fixed
+
+- **A scheduled scan is queued exactly once.** Locking the due domain, queuing its scan and moving its schedule on
+  are now one transaction: a crash in between, or two rounds at once, can neither queue a slot twice nor lose it.
 
 - **Web findings read as web findings.** Their location is the URL, never `URL:1`; the fix and re-verify texts say to
   deploy and scan the domain again instead of pushing to a branch; and their priority no longer asks to "confirm
