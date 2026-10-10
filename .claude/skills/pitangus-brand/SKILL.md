@@ -18,7 +18,7 @@ Pitangus is a self-hosted application security tool: it analyses code, images an
 ## Principles
 
 1. **One color, one meaning.** `sulphur` is the brand and the primary action, nothing else. States have their own families (`critical`, `attention`, `ok`, `info`) and severity is drawn from them. A color in two roles means one of them is wrong.
-2. **One solid yellow per view.** The page's primary action is `sulphur`. Always-present actions (the header's "New scan") and an empty state's call to action use the **brand-quiet** button (`sulphur-soft` + `sulphur-line`). Everything else is outline or ghost. No solid black buttons.
+2. **Solid sulphur = do the main thing.** The header's "New scan", a form's or dialog's primary action and an empty state's call to action are solid `sulphur` with `on-sulphur` text, at most one per zone (header, content, dialog). Everything else is outline or ghost. No pale-yellow buttons, no solid black buttons.
 3. **Structure before boxes.** A page is: title, one line of description, toolbar, content. Tables with a hairline border, sections split by a rule, key figures in one ruled row. A card (`surface` + `line` + `radius-lg`) only for a chart or a self-contained object. Never a card wrapping the page, never a card inside a card.
 4. **Full width, left aligned.** Content uses the main area's width and aligns with the header. Only running text is capped (~70 characters); tables and lists are not.
 5. **Cool neutrals, not cream.** `bg` cool stone, `surface` white. Cream with a terracotta accent is the "AI default" look; Pitangus does not use it.
@@ -27,7 +27,7 @@ Pitangus is a self-hosted application security tool: it analyses code, images an
 ## Color
 
 - Text: `ink` on `bg`, `surface`, `sunken`; `ink-2` secondary; `muted` for labels and metadata. All ≥ 4.5:1 in both themes.
-- Brand: `sulphur` with `on-sulphur` text. `rufous` only in the logo and illustrations.
+- Brand: `sulphur` with `on-sulphur` text. `rufous` only in the logo and illustrations. `sulphur-soft`/`sulphur-line` only highlight searched text, never buttons.
 - Selection (row, chip, option): `ink` border on `sunken`. Never a brand tint.
 - Focus: `focus`, 2px solid with 2px offset (ink on light, sulphur on dark). Text fields: 2px inner border. Underlined tabs: the underline itself.
 - Links: `ink`, underlined.
@@ -53,7 +53,27 @@ Spanish uses "tú"; short sentences, concrete verbs ("Añadir dominio", "Iniciar
 
 ## Iconography
 
-Lucide at 16px, in the color of the text beside it, only where it carries meaning (navigation, file type, status). Never inside a tinted circle or box, never a sparkle icon for "AI". Logos: `pitangus-logo.svg` on light grounds, `pitangus-icon.svg` (with its tile) on dark grounds (`web/public/assets/`), used as is, never redrawn.
+**Phosphor** (`@phosphor-icons/react`, MIT), weight *regular*, 16px (20px in navigation), in the color of the text beside it, only where it carries meaning (navigation, object type, status). Never inside a tinted circle or box, never a sparkle for "AI". One concept, one icon, always the same:
+
+| Concept | Phosphor |
+| --- | --- |
+| New scan, scan | `Scan` (never a "play" icon) |
+| Add / edit / remove | `Plus` / `PencilSimple` / `Trash` |
+| Search | `MagnifyingGlass` |
+| Download / upload / opens elsewhere | `DownloadSimple` / `UploadSimple` / `ArrowSquareOut` |
+| Overview / Findings / Threats / Coverage | `SquaresFour` / `ShieldWarning` / `TreeStructure` / `Target` |
+| CVE tracker / Compliance / Analyses | `Bug` / `Scales` / `ListMagnifyingGlass` |
+| Repositories / Images / Domains / Pull requests | `GitBranch` / `Package` / `Globe` / `GitPullRequest` |
+| Policies / Integrations / Users | `Scroll` / `PlugsConnected` / `Users` |
+| ok / failure / attention / info | `CheckCircle` / `XCircle` / `Warning` / `Info` |
+
+## Logo
+
+`web/public/assets/pitangus-logo.svg` only on light grounds (`bg`, `surface`): its outline is ink, so on dark it vanishes and leaves the white brow and crest floating. On dark grounds, the favicon and the app avatar use `pitangus-icon.svg` (the bird on its stone `#F5F6F7` tile). Used as is, never redrawn; minimum 24px.
+
+## Notices
+
+An inline notice is a row on the normal surface: the status icon in its family color and the text in `ink`. Only an error that blocks the task gets `critical-soft` with `critical-line`. No full pastel boxes for informative notices.
 
 ## Motion
 
@@ -61,4 +81,4 @@ Only in response to an action (open, expand, confirm), short (≤150ms) and behi
 
 ## Prohibited
 
-Cards wrapping a page; cards inside cards; grids of identical icon+title+bullets cards; radii above 8px; yellow for states; solid black buttons; letter-spaced uppercase labels; monospace labels; "→" at the end of text; gradients; blurs; sparkle icons; cream grounds.
+Pale-yellow buttons; full pastel notice boxes; "play" icons for scanning; cards wrapping a page; cards inside cards; grids of identical icon+title+bullets cards; radii above 8px; yellow for states; solid black buttons; letter-spaced uppercase labels; monospace labels; "→" at the end of text; gradients; blurs; sparkle icons; cream grounds.

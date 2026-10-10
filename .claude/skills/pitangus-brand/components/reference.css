@@ -7,7 +7,6 @@ body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/22px var(--fon
 .ds-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--radius-md);border:1px solid transparent;font:500 14px/1 var(--font-sans);color:var(--ink);background:transparent;cursor:pointer}
 .ds-btn svg{width:16px;height:16px}
 .ds-btn--primary{background:var(--sulphur);color:var(--on-sulphur)}
-.ds-btn--brand{background:var(--sulphur-soft);border-color:var(--sulphur-line);color:var(--ink)}
 .ds-btn--outline{background:var(--surface);border-color:var(--line-strong)}
 .ds-btn--ghost:hover{background:var(--sunken)}
 .ds-btn--danger{background:var(--surface);border-color:var(--critical-line);color:var(--critical)}
@@ -58,3 +57,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/22px var(--fon
 /* Empty state */
 .ds-empty{display:grid;justify-items:center;gap:8px;padding:40px 16px;text-align:center;color:var(--muted)}
 .ds-empty strong{color:var(--ink);font-weight:500}
+.ds-note{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--line);background:var(--surface);color:var(--ink);font:400 13px/20px var(--font-sans)}
+.ds-note--block{background:var(--critical-soft);border-color:var(--critical-line)}
+.ds-note .ic{flex:none;width:18px;height:18px;margin-top:1px}.ds-note .ic svg{width:18px;height:18px}
+.ic.c{color:var(--critical)}.ic.a{color:var(--attention)}.ic.o{color:var(--ok)}.ic.i{color:var(--info)}
