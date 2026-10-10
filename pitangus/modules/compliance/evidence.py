@@ -20,7 +20,7 @@ def catalog(data_dir: Path) -> list[dict]:
         entry = rows.setdefault(key, {"key": key, "name": (row.get("source") or {}).get("name") or key, "kind": None,
                                       "last_complete": None, "last_status": None})
         if row["type"] in FULL_SCANS:
-            entry["kind"] = entry["kind"] or ("image" if row["type"] == "image_scan" else "repository")
+            entry["kind"] = entry["kind"] or {"image_scan": "image", "dast_scan": "domain"}.get(row["type"], "repository")
             entry["last_status"] = entry["last_status"] or row["status"]
             if row["status"] == "completed" and entry["last_complete"] is None:
                 entry["last_complete"] = row["created_at"]

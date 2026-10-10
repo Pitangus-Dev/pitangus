@@ -248,6 +248,14 @@ def reverify_finding(context: Context = Depends(guard(Policy(action="reverify-fi
     base = run_assets.latest_scan(data_dir, key)
     if base is None:
         raise ApiError(409, msg("api.no_full_scan"))
+    if base["type"] == "dast_scan":  # it reaches someone's site: launched by an administrator, like the first one
+        from pitangus.app.api.sources import launch_domain_scan
+        if (context.user or {}).get("role") != "admin":
+            raise ApiError(409, msg("api.dast_reverify_admin"))
+        queued = launch_domain_scan(context, str(((base.get("source") or {}).get("domain") or {}).get("id") or ""),
+                                    trigger={"kind": "reverify"})["run"]
+        verifications.record(data_dir, key, data.fingerprint, queued["id"], by=context.user["username"])
+        return context.render({"run": queued, "joined": False})
     if state.jobs.pending() >= QUEUE_LIMIT:
         raise ApiError(429, msg("api.queue_full"))
     source = base.get("source") or {}

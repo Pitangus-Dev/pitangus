@@ -3480,6 +3480,59 @@
         }
       }
     },
+    "/api/domains/scans": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Scan",
+        "description": "Queues a passive web scan (ZAP: spider and passive rules, never an attack) of a verified domain. Off unless the\nserver sets PITANGUS_DAST_ENABLED; one at a time.",
+        "operationId": "domain_scan_api_domains_scans_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id"
+                ],
+                "title": "DomainIdIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuedDomainScan"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "409": {
+            "description": "Web scans off, domain not verified or private, or one already running"
+          },
+          "429": {
+            "description": "Queue full"
+          }
+        }
+      }
+    },
     "/api/providers": {
       "get": {
         "tags": [
@@ -9106,6 +9159,11 @@
           "limit": {
             "type": "integer",
             "title": "Limit"
+          },
+          "dast": {
+            "type": "boolean",
+            "title": "Dast",
+            "default": false
           }
         },
         "additionalProperties": true,
@@ -9115,7 +9173,8 @@
           "total",
           "limit"
         ],
-        "title": "DomainPage"
+        "title": "DomainPage",
+        "description": "`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED)."
       },
       "DomainRemoved": {
         "properties": {
@@ -12438,6 +12497,25 @@
           "review"
         ],
         "title": "PullRow"
+      },
+      "QueuedDomainScan": {
+        "properties": {
+          "run": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Run"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/DomainRow"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "run",
+          "domain"
+        ],
+        "title": "QueuedDomainScan"
       },
       "QueuedImageScan": {
         "properties": {

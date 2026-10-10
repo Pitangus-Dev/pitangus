@@ -222,6 +222,23 @@ def verify_domain(data_dir: Path, domain_id: str, *, now: datetime | None = None
     return _mark(data_dir, domain_id, verified_at=now, verified_until=now + timedelta(days=VERIFY_DAYS), checked_at=now)
 
 
+def confirm_control(data_dir: Path, domain_id: str, *, now: datetime | None = None) -> dict:
+    """The domain, only if its proof is current and its TXT record is still published right now: what a scan that
+    reaches it checks before it starts. A record gone withdraws the proof, as `recheck` does; DNS not answering
+    proves nothing, so nothing starts either."""
+    record = get_domain(data_dir, domain_id)
+    if not record["verified"]:
+        raise DomainError(msg("sources.domains.not_verified", host=record["host"]))
+    values = lookup_txt(record["txt_name"])
+    if values is None:
+        raise DomainError(msg("sources.domains.dns_unavailable"))
+    if record["txt_value"] not in values:
+        _mark(data_dir, domain_id, verified_at=None, verified_until=None, checked_at=now or _now())
+        _log.warning("domain_proof_withdrawn", extra={"reason": record["host"]})
+        raise DomainError(msg("sources.domains.proof_gone", host=record["host"]))
+    return record
+
+
 def recheck(data_dir: Path, *, now: datetime | None = None) -> dict:
     """The periodic re-verification: every domain with a proof is looked up again. Present, the proof is extended;
     gone, it is withdrawn (the TXT was removed: whoever controls the zone no longer vouches). DNS not answering
@@ -290,6 +307,21 @@ def _is_public(address: str) -> bool:
         return ipaddress.ip_address(address.split("%")[0]).is_global
     except ValueError:
         return False
+
+
+def public_address(host: str) -> str:
+    """The address a scan of `host` is pinned to, once every address the name resolves to is public (no loopback,
+    private, link-local or cloud metadata range). IPv4 first: Docker's default bridge often has no IPv6 route."""
+    try:
+        infos = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError) as exc:
+        raise DomainError(msg("sources.domains.check.dns_error")) from exc
+    addresses = sorted({info[4][0].split("%")[0] for info in infos}, key=lambda address: (":" in address, address))
+    if not addresses:
+        raise DomainError(msg("sources.domains.check.dns_error"))
+    if not all(_is_public(address) for address in addresses):
+        raise DomainError(msg("sources.domains.check.private_address"))
+    return addresses[0]
 
 
 def check_reachability(url: str) -> dict:

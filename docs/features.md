@@ -4,7 +4,7 @@ English · [Español](es/funcionalidades.md)
 
 What each part of the panel does, and the reasoning behind it. To install it, see [installation.md](installation.md).
 
-**Vocabulary.** Pitangus performs **analysis**: it reads code, dependencies, configuration and images without running them or attacking anything, and its findings are candidates you need to confirm. It is not a *pentest*: a pentest tries to exploit flaws against a running system and demonstrates the impact. The upcoming **dynamic testing** (DAST) will be active scanning, which isn't a pentest either; we'll only talk about an *AI-assisted pentest* once an agent attempts exploitation and confirms the impact. A Pitangus report doesn't replace the pentest that SOC 2 or ISO 27001 require.
+**Vocabulary.** Pitangus performs **analysis**: it reads code, dependencies, configuration and images without running them or attacking anything, and its findings are candidates you need to confirm. It is not a *pentest*: a pentest tries to exploit flaws against a running system and demonstrates the impact. Its **dynamic analysis** (DAST) is passive today: ZAP crawls a verified domain and reads its responses without attacking it. Active scanning, when it comes, won't be a pentest either; we'll only talk about an *AI-assisted pentest* once an agent attempts exploitation and confirms the impact. A Pitangus report doesn't replace the pentest that SOC 2 or ISO 27001 require.
 
 **Languages.** The panel, findings, fix guides, reports, PR comments and notifications are available in English and Spanish. Findings are stored as message codes, not sentences, so each person reads them in their own language, and switching language never requires a rescan. Text nobody requests in person (PR comments, notifications, Jira issues, the CLI) uses `PITANGUS_DEFAULT_LOCALE` (`en` by default). Third-party text such as NVD, OSV or GHSA advisory summaries is shown as published.
 
@@ -21,7 +21,7 @@ also where it stops. Compared with a commercial suite (Snyk, Checkmarx, Veracode
 | Container images | Trivy and Grype on the layers, history and configuration, read from the registry | — |
 | Infrastructure and pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) and zizmor (GitHub Actions) | — |
 | Your own code (SAST) | Opengrep with the 58 rules in `rules/`, 14 of them with taint tracking inside one file | **This is the thinnest layer.** No cross-file data flow, and no framework-specific knowledge beyond what those rules cover. A proprietary engine like Snyk Code finds logic flaws these rules can't. For deep analysis, run CodeQL or Semgrep and [bring their results in](integrations.md#bringing-results-from-other-scanners): they get the same lifecycle. |
-| Running applications and APIs (DAST) | No engine of its own: Pitangus never runs or attacks what it scans. ZAP or Nuclei results import against a verified domain ([bring your own DAST](integrations.md#bring-your-own-dast)) | A native engine is planned (below); until then, you run the scanner. |
+| Running applications and APIs (DAST) | A [passive web scan](#passive-web-scan) with ZAP of a verified domain, launched from the panel (off unless the server sets `PITANGUS_DAST_ENABLED=1`). ZAP or Nuclei results also import against a verified domain ([bring your own DAST](integrations.md#bring-your-own-dast)) | **Passive only:** no injections or other attacks, no sign-in, a spider capped at 2 minutes. API testing and active scans are in development (below); for them, run your own scanner and import its results. |
 | Scale | One scan per worker; as many workers as you need, on one machine or several | No parallel scans inside a worker, no autoscaling manifests, no published benchmark. See [scaling.md](scaling.md). |
 
 What a commercial suite can't offer is the other half of the table: it runs on your server, the code never leaves it,
@@ -33,7 +33,7 @@ These appear greyed out in the panel, marked **In development**, so you know the
 
 | Feature | What it will do |
 | --- | --- |
-| Dynamic testing of web applications and APIs | Pitangus running ZAP or Nuclei in an isolated container, only against the domains you've verified through DNS. The domain registry already works, and your own ZAP or Nuclei results can be imported against a verified domain today: see [Domains](#domains). |
+| Dynamic testing of APIs, and active or authenticated web scans | API testing from an OpenAPI description (safe mode first), sign-in with a test account you declare, and active tests only with an administrator's authorization recorded in the run. The passive web scan already works: see [Passive web scan](#passive-web-scan). |
 | GitLab, Bitbucket, Azure DevOps | Connect repositories with read-only project tokens. |
 | AI assistance | Finding explanations and patch proposals with your own key, with consent on every run. |
 | Public API | Scoped personal tokens and a documented `/api/v1`. (The CLI for CI already exists: [`scan`](cli.md).) |
@@ -75,7 +75,18 @@ Also available from the CLI (useful in CI): `make cli ARGS="scan-image --referen
 
 A verified domain is the asset `domain:<host>`: `import-sarif` accepts the SARIF of your own ZAP or Nuclei runs against it ([Bring your own DAST](integrations.md#bring-your-own-dast)), and from then on those findings live in **Findings** with the same lifecycle as code findings (`Web` as their source). The proof counts for 90 days and is looked up again every day: if the record is gone, the domain stops being an asset until someone verifies it again; if DNS doesn't answer, nothing changes until the proof runs out. Members see the domains and their status; only administrators add, verify or remove. Removing a domain deletes what was imported against it (runs, findings, triage, tickets), and the panel says so before asking.
 
-The TXT record proves technical control of the DNS zone, not authorization to test the application: that stays with whoever operates Pitangus. Pitangus running the scanners itself is [in development](#in-development).
+The TXT record proves technical control of the DNS zone, not authorization to test the application: that stays with whoever operates Pitangus.
+
+### Passive web scan
+
+With `PITANGUS_DAST_ENABLED=1` on the server, an administrator launches one from **New analysis → Web application**: ZAP 2.17 (its image pinned by digest) crawls a verified domain for up to 2 minutes and runs its passive rules over every response: security headers, cookies, information leaks, outdated JavaScript libraries. It never attacks: no active scan, no AJAX spider, no form submissions. It's a dynamic *analysis*, not a pentest.
+
+- **Checked again before it starts.** The worker confirms that the feature is on, that the domain's proof is current and its TXT record is still published (a record that's gone withdraws the proof), and that the name resolves to public addresses only (no private, loopback, link-local or cloud metadata ranges). ZAP gets the first of them pinned to the name, and its context holds that host only: links and redirects to other hosts are noted, not followed.
+- **Limits.** One web scan at a time per installation, 15 minutes at most, ZAP's container with 3 GB and 2 CPUs and an explicit Java heap.
+- **Findings** are stored as an import of ZAP's SARIF would store them, with the same fingerprints: importing your own ZAP run of the same site doesn't duplicate anything, and the next web scan marks fixed whatever is gone. Only the method, the parameter and a bounded, redacted evidence are kept, never the request or the response. Re-verifying a web finding launches a new web scan (administrators only).
+- **Where it runs.** It needs the Docker runner: the worker image without a Docker socket (`pitangus-worker`) doesn't carry ZAP (Java, about 1.2 GB), and the run says so. With the variable on, `make engines` pulls ZAP's image too.
+
+What it leaves out is listed in the run: pages behind a login, everything the spider didn't reach, and any attack. API testing and active scans are [in development](#in-development).
 
 ## Findings and their lifecycle
 
@@ -293,7 +304,7 @@ If the owner allows sending **only dependency names and versions** to `api.osv.d
 make scan DIR=../my-repo ARGS="--allow-osv-upload"
 ```
 
-JSON, Markdown, SARIF, SOC 2 Type II and ISO 27001 reports can be downloaded from each run, in English or Spanish. The compliance profiles organize technical evidence; they don't constitute an audit, certification or attestation. CWE/CVE/GHSA links point to the corresponding public records when identifiers exist. DAST against real targets is still pending.
+JSON, Markdown, SARIF, SOC 2 Type II and ISO 27001 reports can be downloaded from each run, in English or Spanish. The compliance profiles organize technical evidence; they don't constitute an audit, certification or attestation. CWE/CVE/GHSA links point to the corresponding public records when identifiers exist. Dynamic analysis is passive only ([Passive web scan](#passive-web-scan)).
 
 ## AI providers
 

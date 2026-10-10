@@ -1119,6 +1119,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/domains/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Scan
+         * @description Queues a passive web scan (ZAP: spider and passive rules, never an attack) of a verified domain. Off unless the
+         *     server sets PITANGUS_DAST_ENABLED; one at a time.
+         */
+        post: operations["domain_scan_api_domains_scans_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/providers": {
         parameters: {
             query?: never;
@@ -2795,7 +2816,10 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** DomainPage */
+        /**
+         * DomainPage
+         * @description `dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED).
+         */
         DomainPage: {
             /** Items */
             items: components["schemas"]["DomainRow"][];
@@ -2803,6 +2827,11 @@ export interface components {
             total: number;
             /** Limit */
             limit: number;
+            /**
+             * Dast
+             * @default false
+             */
+            dast: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -3951,6 +3980,16 @@ export interface components {
             /** Closed At */
             closed_at: string | null;
             review: components["schemas"]["PullReview"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** QueuedDomainScan */
+        QueuedDomainScan: {
+            /** Run */
+            run: {
+                [key: string]: unknown;
+            };
+            domain: components["schemas"]["DomainRow"];
         } & {
             [key: string]: unknown;
         };
@@ -6973,6 +7012,54 @@ export interface operations {
             };
             /** @description Unknown domain */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_scan_api_domains_scans_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueuedDomainScan"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Web scans off, domain not verified or private, or one already running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Queue full */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

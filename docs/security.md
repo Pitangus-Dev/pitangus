@@ -59,13 +59,14 @@ Pitangus reads your repositories' code and stores GitHub and Jira credentials. T
 | Your Jira site | The fields you map for each issue (by default title, description, priority, labels and due date), and comments when a finding is verified fixed or reappears | Only if you connect Jira: when someone exports, or on its own for automatic routing rules. |
 | `api.openai.com`, `api.anthropic.com` | The server's key, to check that it's valid | Only when an operator tests it (`ai-check`). AI isn't used yet: it receives no code and no findings. |
 | Your domains | A DNS TXT lookup of `_pitangus.<host>`, and one HTTPS `HEAD` to the domain when an administrator probes it before adding it | When an administrator verifies a domain, once a day for every verified domain (the proof is re-checked), and when the Add domain form probes a reachable domain. The `HEAD` goes to the already-resolved address and only if every address is public; no redirects are followed. Nothing is scanned. |
+| A verified domain you scan | ZAP's requests: the pages its spider reaches on that host, with ordinary `GET`s (no attacks, no form submissions) | Only when an administrator launches a [passive web scan](features.md#passive-web-scan), with `PITANGUS_DAST_ENABLED=1`. ZAP's container is the one engine that reaches a site on purpose; it gets the domain's checked public address pinned to its name and a context with that host only. |
 
 There's no telemetry.
 
 ## Code analysis
 
 - Repository code **is never executed**: Pitangus analyzes a read-only snapshot.
-- Engines run in ephemeral containers with a read-only filesystem (they write only to an in-memory `/tmp` of 1 GB and to the folders they're given), `--cap-drop ALL`, `no-new-privileges` and memory, CPU and process limits. Gitleaks, Opengrep, Checkov and zizmor have no network; Trivy and Grype use it only for their vulnerability database and, when scanning an image, to read it from the registry.
+- Engines run in ephemeral containers with a read-only filesystem (they write only to an in-memory `/tmp` of 1 GB and to the folders they're given), `--cap-drop ALL`, `no-new-privileges` and memory, CPU and process limits. Gitleaks, Opengrep, Checkov and zizmor have no network; Trivy and Grype use it only for their vulnerability database and, when scanning an image, to read it from the registry. ZAP (passive web scans) uses it to reach the verified domain, and runs as its image's own user (uid 1000) over a fresh work folder, never a repository snapshot.
 - Container images you scan **are neither run nor built**: the engines read the manifest and the layers.
 - The Trivy, OSV-Scanner, Gitleaks, Grype, Checkov and zizmor images are pinned by digest. The Opengrep image is built from the official binary, checked against its SHA-256.
 - Values of secrets found in your code are redacted: findings keep the location and the type, not the value.
@@ -82,6 +83,7 @@ There's no telemetry.
 - **A single workspace** per installation: every user sees every connected repository.
 - **Registry token visible to root.** While a private image is being scanned, the token sits in the engine container's configuration: anyone with Docker access on the host (who is already root) can read it. Use read-only tokens.
 - **Registry redirects aren't checked.** Registries serve image layers from other hosts (a CDN, a bucket), so Trivy and Grype follow their redirects. A registry you ask to scan could point them at an internal address. They only request, and what comes back isn't shown. Scan images from registries you trust, or run the engines on a network without access to your internal one.
+- **ZAP's network isn't fenced in.** Docker can't limit where a bridge network goes without an egress proxy, so ZAP's container could in principle reach any address the host can, including your internal network or a cloud metadata endpoint. What keeps it on the domain is its plan: a context holding that host only, the name pinned to the public address checked right before the scan, `-silent` (no update checks), no active scan. A redirect or a link to another host is outside the context and isn't followed; a page on the domain that redirects to the same host's name can't land elsewhere, because the name is pinned. If your Docker host can reach sensitive internal services, run the worker on a network that can't, or keep `PITANGUS_DAST_ENABLED` off.
 
 ## Recommendations
 

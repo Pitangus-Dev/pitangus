@@ -119,7 +119,7 @@ export const assetSearchQuery = <T>(q: string) => queryOptions({
 // An asset's scans, PR reviews and imports, searched for the run picker.
 export const assetRunsQuery = (key: string, q: string) => queryOptions({
   queryKey: [...keys.runs, 'asset', key, q], staleTime: 30_000,
-  queryFn: ({ signal }) => api.get<Page<RunRow>>(`/api/runs/page?${query({ asset: key, type: 'repository_scan,image_scan,pr_review,sarif_import', q: q || undefined, limit: 50 })}`, { signal }),
+  queryFn: ({ signal }) => api.get<Page<RunRow>>(`/api/runs/page?${query({ asset: key, type: 'repository_scan,image_scan,dast_scan,pr_review,sarif_import', q: q || undefined, limit: 50 })}`, { signal }),
 })
 
 // Jira: the credential's status is anyone's; routing and discovery are for administrators.

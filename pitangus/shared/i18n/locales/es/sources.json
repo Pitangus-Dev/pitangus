@@ -41,6 +41,8 @@
     "dns_unavailable": "No se pudo consultar DNS",
     "dns_failed": "La consulta DNS falló",
     "txt_missing": "No se encontró el TXT de verificación; revisa el nombre, el valor y la propagación",
+    "not_verified": "{{host}} no tiene una prueba DNS vigente: verifícalo de nuevo antes de analizarlo",
+    "proof_gone": "El TXT de {{host}} ya no está publicado y el dominio dejó de contar como verificado: vuelve a publicarlo y verifícalo",
     "check": {
       "dns_error": "El dominio no resuelve en DNS.",
       "private_address": "El dominio resuelve a una dirección privada o reservada; no se sondea.",

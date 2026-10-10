@@ -54,13 +54,14 @@ Los dos huecos por los que más preguntan:
   CodeQL es gratis en repositorios públicos y, con GitHub Advanced Security, en los privados; correr su CLI en otro
   sitio se rige por los términos de CodeQL de GitHub. El mismo paso con Semgrep está en
   [cli.md](cli.md#resultados-de-otras-herramientas).
-- **Pruebas dinámicas.** Pitangus nunca ejecuta ni ataca tus aplicaciones. Hasta que lo ofrezca, corre ZAP o Nuclei
-  por tu cuenta, contra sistemas tuyos, e importa su SARIF sobre un dominio verificado: ver
-  [Trae tu propio DAST](#trae-tu-propio-dast) más abajo.
+- **Pruebas dinámicas.** Pitangus hace un [análisis web pasivo](funcionalidades.md#análisis-web-pasivo) con ZAP de
+  un dominio verificado (recorrer y leer, nunca atacar) cuando el servidor define `PITANGUS_DAST_ENABLED=1`. Para
+  algo más profundo (escaneos activos, con sesión, API, Nuclei), corre el escáner por tu cuenta, contra sistemas tuyos,
+  e importa su SARIF sobre el dominio verificado: ver [Trae tu propio DAST](#trae-tu-propio-dast) más abajo.
 
 ### Trae tu propio DAST
 
-Pitangus todavía no ejecuta escáneres web (está en [en desarrollo](funcionalidades.md#en-desarrollo)). Si tu pipeline ya corre **OWASP ZAP** o **Nuclei**, su SARIF entra en el registro como cualquier otra importación, con un **dominio verificado** como activo: los hallazgos tienen el mismo triage, plazos, incidencias de Jira y avisos que los del código, y una importación completa posterior deja remediado lo que el escáner ya no reporte.
+El análisis web propio de Pitangus es pasivo y se lanza desde el panel ([Análisis web pasivo](funcionalidades.md#análisis-web-pasivo)): guarda los hallazgos de ZAP exactamente como lo haría una importación del SARIF de ZAP, con las mismas huellas, así que ambos pueden alimentar el mismo dominio sin duplicados. Para escaneos activos, con sesión o con Nuclei, o para mantener el escáner en tu pipeline: si ya corre **OWASP ZAP** o **Nuclei**, su SARIF entra en el registro como cualquier otra importación, con un **dominio verificado** como activo: los hallazgos tienen el mismo triage, plazos, incidencias de Jira y avisos que los del código, y una importación completa posterior deja remediado lo que el escáner ya no reporte.
 
 1. En **Análisis → Dominios**, una persona administradora añade el dominio (`https://app.example.com`), publica el registro TXT que muestra el panel (`_pitangus.app.example.com` = `pitangus-verify=…`) y lo verifica. El dominio pasa a ser el activo `domain:app.example.com`. El registro se consulta de nuevo cada día; si desaparece, o pasan 90 días sin comprobarlo, el dominio deja de ser un activo hasta que alguien lo verifique otra vez.
 2. El pipeline escribe el SARIF y lo envía con las entradas `import-sarif`, `server`, `token` y `asset` de la Action (o con `python -m pitangus import-sarif … --asset domain:app.example.com --server …`).

@@ -104,7 +104,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
     for (const row of rows) {
       const before = previous.current.get(row.id)
       if ((before === 'queued' || before === 'running') && row.status !== 'queued' && row.status !== 'running') {
-        const name = row.type === 'repository_scan' ? row.source?.name ?? t('toast.repository') : row.type === 'image_scan' ? row.target ?? t('toast.image') : row.target
+        const name = row.type === 'dast_scan' ? row.source?.name ?? row.target : row.type === 'repository_scan' ? row.source?.name ?? t('toast.repository') : row.type === 'image_scan' ? row.target ?? t('toast.image') : row.target
         const count = row.summary.candidates ?? 0, severities = row.summary.severities
         toasts.push(row.status === 'failed' ? 'error' : 'ok', row.status === 'failed'
           ? t('toast.failed', { name })
@@ -186,7 +186,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   </div>
 
   const renderMain = () => {
-    if (view === 'new') return <AnalysisWizard key={selectedSource ?? 'new'} initialSourceId={selectedSource} isAdmin={user.role === 'admin'} onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onManageConnections={() => selectView('integrations')} onCancel={() => selectView('analyses')} />
+    if (view === 'new') return <AnalysisWizard key={selectedSource ?? 'new'} initialSourceId={selectedSource} isAdmin={user.role === 'admin'} onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onManageConnections={() => selectView('integrations')} onManageDomains={() => selectView('domains')} onCancel={() => selectView('analyses')} />
     if (view === 'analyses') return <AnalysisList refreshKey={rows.length * 1000 + rows.filter(row => row.status === 'running' || row.status === 'queued').length} onOpen={id => openRun(id, 'findings')} onNew={() => selectView('new')} viewer={{ username: user.username, admin: user.role === 'admin' }} />
     if (view === 'repositories') return <CodeSources showRepositories runs={rows} onScan={scanSource} onImages={openImages} canManage={user.role === 'admin'} />
     if (view === 'images') return <Images key={readRoute().params.get('repo') ?? 'all'} admin={user.role === 'admin'} onOpenFindings={openAssetFindings} onNew={() => selectView('new')} />

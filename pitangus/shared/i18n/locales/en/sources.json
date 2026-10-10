@@ -41,6 +41,8 @@
     "dns_unavailable": "Couldn't query DNS",
     "dns_failed": "The DNS query failed",
     "txt_missing": "The verification TXT record wasn't found; check the name, the value and propagation",
+    "not_verified": "{{host}} has no current DNS proof: verify it again before scanning it",
+    "proof_gone": "The TXT record of {{host}} is gone, so it no longer counts as verified: publish it and verify again",
     "check": {
       "dns_error": "The domain doesn't resolve in DNS.",
       "private_address": "The domain resolves to a private or reserved address; it isn't probed.",

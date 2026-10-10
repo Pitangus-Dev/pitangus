@@ -552,5 +552,40 @@
       "too_many_results": "A SARIF import takes at most {{max}} results: split it by tool or by folder",
       "no_tool": "Name the tool: the SARIF doesn't say which one produced it"
     }
+  },
+  "web": {
+    "progress": {
+      "starting": "ZAP {{version}}: crawling {{host}} for up to {{minutes}} minutes and reading its responses (passive, no attacks)…"
+    },
+    "detail": "{{count}} findings on the domain ({{results}} alerts read).",
+    "remediation": "Fix it following {{tool}}'s guidance for this alert. The next web scan marks it fixed once it no longer reports it.",
+    "steps": {
+      "passive": {
+        "name": "Passive web analysis (ZAP)",
+        "detail": "Spider on {{host}} for up to {{minutes}} minutes, then ZAP's passive rules over every response: headers, cookies, information leaks. {{count}} findings."
+      },
+      "active": {
+        "name": "Active tests",
+        "detail": "Not run: this scan never sends attacks (injections, fuzzing, form submissions)."
+      },
+      "review": {
+        "detail": "Passive alerts are signals: confirm each one against the application and its deployment before acting."
+      }
+    },
+    "limitations": {
+      "passive": "Passive analysis: ZAP only read the responses to ordinary requests. Injections and other attacks weren't tried, so not seeing them here proves nothing.",
+      "unauthenticated": "Without signing in: pages behind a login weren't reached.",
+      "spider": "The spider stops after {{minutes}} minutes: a large site isn't covered whole, and pages it didn't reach weren't analyzed.",
+      "not_pentest": "This is an automated dynamic analysis, not a penetration test."
+    },
+    "errors": {
+      "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
+      "needs_docker": "Web scans need the Docker runner: the worker without a Docker socket doesn't carry ZAP.",
+      "failed": "ZAP didn't finish the scan.",
+      "timeout": "ZAP went past the {{minutes}}-minute limit and the scan was stopped.",
+      "unreadable": "ZAP's report couldn't be read.",
+      "busy": "A web scan is already queued or running; wait for it to finish.",
+      "address": "{{host}} can't be scanned: {{reason}}"
+    }
   }
 }

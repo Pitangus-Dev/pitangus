@@ -194,6 +194,9 @@
     "identity_import": "imported from {{tool}} (SARIF)",
     "identity_import_commit": "imported from {{tool}} (SARIF) at commit `{{commit}}`",
     "title_import": "Imported findings · {{name}}",
+    "title_web": "Passive web scan · {{name}}",
+    "identity_web": "`{{url}}` crawled and read by ZAP, no attacks",
+    "status_line_web": "Status: **{{status}}** · {{urls}} URLs with findings.",
     "run_status": {
       "queued": "queued",
       "running": "running",
@@ -288,7 +291,8 @@
         }
       }
     },
-    "scope_import": "`{{name}}`, findings reported by {{tool}} and imported as SARIF; Pitangus didn't analyze the code in this run."
+    "scope_import": "`{{name}}`, findings reported by {{tool}} and imported as SARIF; Pitangus didn't analyze the code in this run.",
+    "scope_web": "`{{url}}`, crawled and read by ZAP without attacks (passive dynamic analysis); neither the code nor pages behind a login were analyzed."
   },
   "audit": {
     "status": {
@@ -837,7 +841,8 @@
       "pr_review": "Pull request review",
       "asset_state": "Cumulative state",
       "default": "Scan",
-      "sarif_import": "SARIF import"
+      "sarif_import": "SARIF import",
+      "dast_scan": "Passive web scan"
     },
     "subtitle_state": "Cumulative state as of {{date}}",
     "subtitle_scan": "Scan of {{date}}",

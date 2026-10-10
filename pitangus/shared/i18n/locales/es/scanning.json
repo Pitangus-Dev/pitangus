@@ -552,5 +552,40 @@
       "too_many_results": "Una importación SARIF admite como máximo {{max}} resultados: divídela por herramienta o por carpeta",
       "no_tool": "Indica la herramienta: el SARIF no dice cuál lo generó"
     }
+  },
+  "web": {
+    "progress": {
+      "starting": "ZAP {{version}}: recorriendo {{host}} hasta {{minutes}} minutos y leyendo sus respuestas (pasivo, sin ataques)…"
+    },
+    "detail": "{{count}} hallazgos en el dominio ({{results}} alertas leídas).",
+    "remediation": "Corrígelo con la guía de {{tool}} para esta alerta. El próximo análisis web lo marca remediado cuando deje de reportarlo.",
+    "steps": {
+      "passive": {
+        "name": "Análisis web pasivo (ZAP)",
+        "detail": "Spider sobre {{host}} hasta {{minutes}} minutos y después las reglas pasivas de ZAP sobre cada respuesta: cabeceras, cookies, fugas de información. {{count}} hallazgos."
+      },
+      "active": {
+        "name": "Pruebas activas",
+        "detail": "No se ejecutaron: este análisis nunca envía ataques (inyecciones, fuzzing, envío de formularios)."
+      },
+      "review": {
+        "detail": "Las alertas pasivas son señales: confirma cada una contra la aplicación y su despliegue antes de actuar."
+      }
+    },
+    "limitations": {
+      "passive": "Análisis pasivo: ZAP solo leyó las respuestas a peticiones normales. No probó inyecciones ni otros ataques, así que no verlos aquí no demuestra nada.",
+      "unauthenticated": "Sin iniciar sesión: las páginas detrás de un login no se alcanzaron.",
+      "spider": "El spider se detiene a los {{minutes}} minutos: un sitio grande no se cubre entero y lo que no alcanzó no se analizó.",
+      "not_pentest": "Es un análisis dinámico automatizado, no una prueba de penetración."
+    },
+    "errors": {
+      "disabled": "Los análisis web están apagados en este servidor: define PITANGUS_DAST_ENABLED=1 en su entorno y reinícialo.",
+      "needs_docker": "Los análisis web necesitan el runner de Docker: el worker sin socket de Docker no incluye ZAP.",
+      "failed": "ZAP no terminó el análisis.",
+      "timeout": "ZAP pasó del límite de {{minutes}} minutos y el análisis se detuvo.",
+      "unreadable": "No se pudo leer el informe de ZAP.",
+      "busy": "Ya hay un análisis web en cola o en curso; espera a que termine.",
+      "address": "No se puede analizar {{host}}: {{reason}}"
+    }
   }
 }

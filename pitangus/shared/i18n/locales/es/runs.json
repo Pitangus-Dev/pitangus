@@ -3,6 +3,8 @@
     "queued": "En cola: esperando al trabajador de escaneos.",
     "queued_pr": "En cola: revisión del PR #{{number}} ({{sha}}).",
     "queued_image": "En cola: análisis de la imagen {{image}}.",
+    "queued_web": "En cola: análisis web pasivo de {{host}}.",
+    "web_target": "Prueba DNS confirmada y {{host}} resuelve a una dirección pública ({{address}}); ZAP envía a esa dirección sus peticiones a {{host}}.",
     "downloading_snapshot": "Descargando el snapshot del repositorio en solo lectura…",
     "snapshot_ready_one": "Snapshot listo: {{count}} archivo analizable.",
     "snapshot_ready_other": "Snapshot listo: {{count}} archivos analizables.",
@@ -31,6 +33,7 @@
     "source": "No se pudo obtener el repositorio: {{reason}}",
     "internal": "El análisis falló por un error interno; el equipo puede revisar los logs del servidor con el identificador de la ejecución.",
     "image_internal": "El análisis de la imagen falló por un error interno; revisa los logs con el identificador de la ejecución.",
+    "dast_internal": "El análisis web falló por un error interno; revisa los logs con el identificador de la ejecución.",
     "pr": "No se pudo revisar el PR: {{reason}}",
     "pr_internal": "La revisión falló por un error interno; el equipo puede revisar los logs del servidor con el identificador de la ejecución."
   },

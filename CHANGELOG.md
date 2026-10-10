@@ -9,6 +9,19 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Added
 
+- **Passive web scan of a verified domain**, launched from the panel (New analysis → Web application) or with
+  `POST /api/domains/scans` (administrators). ZAP 2.17, pinned by digest, crawls the domain for up to 2 minutes and
+  runs its passive rules over every response; no active scan, no AJAX spider, no form submissions. Off unless the
+  server sets `PITANGUS_DAST_ENABLED=1`. Before it starts, the worker checks again that the domain's proof is current
+  and its TXT record still published (gone: the proof is withdrawn), and that the name resolves to public addresses
+  only; ZAP gets that address pinned and a context with the host only. One web scan at a time, 15 minutes at most;
+  ZAP runs as its image's user with no capabilities, a read-only root, 3 GB and 2 CPUs and an explicit heap. Its SARIF
+  goes through the `import-sarif` parser, so a native scan and an import of the same site share fingerprints. A new
+  run type, `dast_scan`, is a full scan of the domain: what it no longer reports is marked fixed. It needs the Docker
+  runner (the worker image without a socket doesn't carry ZAP and says so), and `make engines` pulls ZAP's image
+  (about 1.2 GB) only with the variable on. The residual risk of an engine with network is in
+  [security.md](docs/security.md).
+
 - **Bring your own DAST.** `import-sarif` (CLI, panel, `POST /api/ci/sarif` and the Action) accepts the SARIF of web
   scanners (ZAP's `sarif-json` report, Nuclei's `-se`) against a **verified domain** (`--asset domain:<host>`, also
   the host or the domain's id). Their findings get `scanner: dast` (the `Web` source in Findings), the URL without its

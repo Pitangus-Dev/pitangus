@@ -1,7 +1,7 @@
 {
   "run_type": {
     "repository_scan": "Code scan", "image_scan": "Container image", "pr_review": "PR review",
-    "advisory_watch": "New advisories", "sarif_import": "SARIF import", "dast": "Dynamic web app or API testing"
+    "advisory_watch": "New advisories", "sarif_import": "SARIF import", "dast_scan": "Web scan"
   },
   "duration": { "minutes": "~{{value}} min", "hours": "~{{value}} h", "under_two_minutes": "under 2 min" },
   "listing_more": "{{names}} and {{rest}} more",
@@ -11,7 +11,7 @@
     "continue": "Continue",
     "back": "Back",
     "back_to_types": "Back to scan types",
-    "steps": { "source": "Source code", "targets": "Targets", "image": "Image", "context": "Context", "review": "Review and launch" },
+    "steps": { "source": "Source code", "target": "Domain", "image": "Image", "context": "Context", "review": "Review and launch" },
     "kinds": {
       "code": {
         "description": "Scans a snapshot of your repository without running its code or installing dependencies.",
@@ -23,8 +23,14 @@
         "packages": "Packages: Trivy + Grype", "secrets": "Secrets in layers, ENV and history", "config": "Configuration: Pitangus rules + Checkov"
       },
       "web": {
-        "description": "Active scanning (DAST) against your running application, on verified domains. Not producing results yet.",
-        "dns": "Ownership verified through DNS", "isolated": "DAST in an isolated container", "evidence": "Evidence with request and response"
+        "title": "Web application",
+        "description": "Crawls one of your verified domains with ZAP and reads its responses. Passive: it never attacks.",
+        "dns": "Only domains verified through DNS", "passive": "Headers, cookies and information leaks", "evidence": "Findings with URL, parameter and evidence"
+      },
+      "api": {
+        "title": "API",
+        "description": "Tests an API from its OpenAPI description, in safe mode, on a verified domain.",
+        "openapi": "Endpoints from OpenAPI", "safe": "Safe mode first, no attacks", "dns": "Only domains verified through DNS"
       },
       "import": {
         "description": "Brings findings from another tool into an asset you already have, so you triage them alongside everything else.",
@@ -90,23 +96,18 @@
     "credentials_missing": "No credentials for <strong>{{registry}}</strong>: fine for public images. If it's private, an admin can save a read-only token in <link>Integrations → Container registries</link>.",
     "tip": "Tip: scan an immutable tag (a version or <mono>@sha256:</mono>) rather than <mono>latest</mono>, so you know exactly what you reviewed."
   },
-  "targets": {
-    "description": "Choose the registered domains and APIs to include in these tests.",
-    "verified": "Verified", "unverified": "Unverified",
-    "add_more": "Add more targets",
-    "empty_title": "No targets yet",
-    "empty_text": "Pick from your registered domains or register a new one.",
-    "add_domains_ellipsis": "Add domains…",
-    "limit_hint": "Up to {{limit}} targets per run. Adding a domain doesn't send it any test traffic.",
-    "dialog_title": "Add domains",
-    "dialog_description": "Pick from the domains registered in this workspace. Up to {{limit}} per run.",
-    "search": "Search registered domains",
-    "search_placeholder": "app.yourdomain.com…",
+  "web": {
+    "description": "Choose the verified domain to scan. ZAP crawls it for a few minutes and reads every response; it never sends attacks.",
+    "disabled": "Web scans are off on this server. An administrator turns them on by setting <mono>PITANGUS_DAST_ENABLED=1</mono> in the server's environment and restarting it.",
+    "admin_only": "Only an administrator can launch a web scan: it sends traffic to a live site.",
     "loading": "Loading domains",
-    "no_match": "No registered domains match.",
-    "register": "Register a new domain…",
-    "selected_of": "{{selected}}/{{limit}} selected",
-    "add": "Add targets"
+    "choose": "Domain to scan",
+    "verified": "Verified", "unverified": "Not verified", "expired": "Proof expired",
+    "empty_title": "No domains yet",
+    "empty_text": "Register a domain you control and prove it with a DNS TXT record; then it can be scanned.",
+    "register": "Register a domain",
+    "open_domains": "Go to Domains",
+    "unverified_hint": "Domains without a current DNS proof can't be scanned. Verify them in <manage>Domains</manage>."
   },
   "context": {
     "description": "Whatever you write here is stored with the run and shows up in the report.",
@@ -149,8 +150,19 @@
       "source": "The source code that produced it isn't scanned (run a code scan on its repository)",
       "secrets": "No secret value that turns up is stored, only where it was found"
     },
-    "dast_unavailable": "Dynamic tests can't be launched yet: the isolated runner and the rate and scope limits are still missing. This setup is prepared, not run.",
-    "unverified_targets": "Some targets aren't verified. Proving ownership with a DNS TXT record is required before any active test."
+    "web_runs": {
+      "spider": "ZAP's spider on {{host}} for a few minutes, following links and the sitemap",
+      "passive": "ZAP's passive rules on every response: security headers, cookies, information leaks, outdated libraries",
+      "scope": "Only {{host}}: links and redirects to other hosts are noted, not followed",
+      "lifecycle": "Findings join the domain's register (triage, deadlines, Jira); the next web scan marks fixed whatever is gone"
+    },
+    "web_skips": {
+      "attacks": "No attacks: no injections, fuzzing or form submissions",
+      "login": "Pages behind a login",
+      "hosts": "Subdomains and any other host",
+      "pentest": "It isn't a penetration test"
+    },
+    "web_authorization": "The DNS proof shows you control the domain, not that you may test it: launch it only against systems you own or are authorized to test. The DNS proof and the addresses are checked again before ZAP starts."
   },
   "launch": {
     "queuing": "Queuing…",
@@ -160,8 +172,7 @@
     "organization_count": "Scan the organization ({{total}})",
     "repositories": "Scan {{total}} repositories",
     "code": "Start code review",
-    "dast": "Launch dynamic tests",
-    "dast_unavailable": "The isolated DAST runner isn't available yet"
+    "web": "Start passive web scan"
   },
   "batch": {
     "last_one": "Last batch · {{label}}: {{count}} scanned{{failed}}{{cancelled}}{{critical}}.",

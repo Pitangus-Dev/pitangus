@@ -63,12 +63,12 @@
     "done_severities_other": "Escaneo de {{name}} terminado: {{count}} hallazgos ({{critical}} críticos, {{high}} altos)."
   },
   "dast": {
-    "title": "Pruebas dinámicas de aplicaciones web y API (DAST)",
-    "description": "Pitangus ejecutando ZAP o Nuclei por ti, solo contra los dominios verificados de arriba. Mientras tanto, importa los resultados de tus propias ejecuciones.",
+    "title": "Lo siguiente en pruebas dinámicas",
+    "description": "Lo que viene después del análisis web pasivo de estos dominios:",
     "plan": {
-      "scan": "Escaneo activo con ZAP o Nuclei en un contenedor aislado, con límites de velocidad y de alcance",
+      "scan": "Pruebas de API desde su descripción OpenAPI, primero en modo seguro",
       "auth": "Autenticación en la aplicación con una cuenta de prueba que tú declares",
-      "evidence": "Hallazgos con la petición y la respuesta que los demuestran, en el mismo ciclo de vida que los del código"
+      "evidence": "Pruebas activas solo con autorización de un administrador, registrada en la ejecución"
     }
   },
   "footer": "{{name}} · software libre bajo <license>AGPL-3.0</license> · <source>código fuente</source> · los resultados negativos no prueban ausencia de vulnerabilidades.",

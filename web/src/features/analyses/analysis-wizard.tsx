@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { api, query } from '@/shared/api/http'
-import { ArrowLeft, ArrowRight, Boxes, Check, CircleAlert, Code2, FileUp, Globe2, KeyRound, Layers3, LoaderCircle, LockKeyhole, Plus, Search, SearchCheck, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
-import { AddDomainDialog, VerifyDomainDialog } from '@/features/sources/domain-dialogs'
-import { kindOf, type Domain } from '@/features/sources/domains'
+import { ArrowLeft, ArrowRight, Boxes, Braces, Check, Code2, FileUp, Globe2, KeyRound, Layers3, LoaderCircle, LockKeyhole, Plus, SearchCheck, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
+import type { Domain } from '@/features/sources/domains'
+import { WebTarget } from '@/features/analyses/web-target'
+import { domainsQuery } from '@/shared/api/queries'
 import { SoonBadge } from '@/shared/ui/coming-soon'
-import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
-import { Input } from '@/shared/ui/input'
 import { SourceSearch } from '@/features/sources/source-search'
 import { fetchSource, type Source, type SourcePage } from '@/features/sources/sources'
-import { SkeletonCard, SkeletonList } from '@/shared/ui/loading'
+import { SkeletonCard } from '@/shared/ui/loading'
 import { useBatches } from '@/features/analyses/use-batches'
 import { SarifImport } from '@/features/analyses/sarif-import'
 import { SelectField } from '@/shared/ui/select-field'
@@ -25,20 +25,19 @@ type Registry = { registry: string; username: string; last4: string }
 
 const STEPS: Record<ScanKind, { id: string; label: string }[]> = {
   code: [{ id: 'source', label: 'wizard.steps.source' }, { id: 'context', label: 'wizard.steps.context' }, { id: 'review', label: 'wizard.steps.review' }],
-  web: [{ id: 'targets', label: 'wizard.steps.targets' }, { id: 'context', label: 'wizard.steps.context' }, { id: 'review', label: 'wizard.steps.review' }],
+  web: [{ id: 'target', label: 'wizard.steps.target' }, { id: 'review', label: 'wizard.steps.review' }],
   image: [{ id: 'image', label: 'wizard.steps.image' }, { id: 'context', label: 'wizard.steps.context' }, { id: 'review', label: 'wizard.steps.review' }],
 }
 // Mismo criterio que el servidor: registro opcional (con punto, puerto o localhost), repositorio en minúsculas, etiqueta o digest.
 const IMAGE_REFERENCE = /^(?:((?:[a-zA-Z0-9-]+\.)+[a-zA-Z0-9-]+(?::\d{1,5})?|localhost(?::\d{1,5})?|[a-zA-Z0-9-]+:\d{1,5})\/)?[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:\/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*){0,5}(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[0-9a-f]{64})?$/
 const registryOf = (reference: string) => { const match = reference.trim().match(IMAGE_REFERENCE); return match ? (match[1]?.toLowerCase() ?? 'docker.io') : null }
-const TARGET_LIMIT = 5
 const BATCH_LIMIT = 100   // repositorios o imágenes por lote elegidos a mano (una organización entera no tiene este tope)
 const listing = (t: TFunction<'analyses'>, names: string[], limit = 3) => names.length <= limit ? names.join(', ') : t('listing_more', { names: names.slice(0, limit).join(', '), rest: names.length - limit })
 const duration = (t: TFunction<'analyses'>, seconds: number) => seconds < 5400 ? t('duration.minutes', { value: Math.max(1, Math.round(seconds / 60)) }) : t('duration.hours', { value: Math.round(seconds / 3600) })
 
 // Uno o varios: con más de un repositorio (o una organización, o varias imágenes) se crea un lote que avanza cuando el
 // servidor está libre; su progreso se ve en Análisis.
-export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections, onCancel, initialSourceId, isAdmin }: { onComplete: (id: string) => Promise<void>; onBatchStarted: () => void; onManageConnections: () => void; onCancel: () => void; initialSourceId: string | null; isAdmin: boolean }) {
+export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections, onManageDomains, onCancel, initialSourceId, isAdmin }: { onComplete: (id: string) => Promise<void>; onBatchStarted: () => void; onManageConnections: () => void; onManageDomains: () => void; onCancel: () => void; initialSourceId: string | null; isAdmin: boolean }) {
   const { t } = useTranslation('analyses')
   const [kind, setKind] = useState<Kind | null>(initialSourceId ? 'code' : null)
   const [choice, setChoice] = useState<Kind>('code')
@@ -53,15 +52,14 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const orgTotal = typeof orgResult === 'number' ? orgResult : null
   // Solo un lote a la vez: con uno en curso se puede lanzar un análisis suelto, no otro lote.
   const { active: activeBatch } = useBatches()
-  // Web targets (DAST) aren't offered yet and the API has no domain routes: the list starts empty.
-  const [domains, setDomains] = useState<Domain[] | null>([])
-  const [targets, setTargets] = useState<string[]>([])
+  // A passive web scan takes one verified domain; whether this server runs them comes with the domain list.
+  const [webTarget, setWebTarget] = useState<Domain | null>(null)
+  const domainPage = useQuery({ ...domainsQuery(), enabled: kind === 'web' })
   const [context, setContext] = useState('')
   const [allowOsv, setAllowOsv] = useState(false)
   const [plan, setPlan] = useState<ScanPlan | null>(null)
   const [planError, setPlanError] = useState('')
   const [pickSource, setPickSource] = useState(false)
-  const [pickTargets, setPickTargets] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [reference, setReference] = useState('')
@@ -90,7 +88,6 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   useEffect(() => { api.get<{ registries: Registry[] }>('/api/registries').then(data => setRegistries(data.registries)).catch(() => {}) }, [])
 
   const steps = kind && kind !== 'import' ? STEPS[kind] : []
-  const chosenTargets = (domains ?? []).filter(item => targets.includes(item.id))
   const references = Array.from(new Set(reference.split('\n').map(line => line.trim()).filter(Boolean)))
   const invalidReferences = references.filter(item => !registryOf(item))
   const imageRegistries = Array.from(new Set(references.map(registryOf).filter((item): item is string => !!item)))
@@ -100,14 +97,15 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const batch = kind === 'code' ? codeMode === 'org' || chosenSources.length > 1 : kind === 'image' && references.length > 1
   const codeReady = codeMode === 'org' ? !!organization && !!orgTotal : chosenSources.length > 0 && chosenSources.length <= BATCH_LIMIT && (chosenSources.length === 1 || !withoutApp.length)
   const imageReady = references.length > 0 && references.length <= BATCH_LIMIT && !invalidReferences.length
-  const ready = (kind === 'code' ? codeReady : kind === 'image' ? imageReady : targets.length > 0) && !(batch && activeBatch)
+  const webReady = isAdmin && !!domainPage.data?.dast && !!webTarget?.verified
+  const ready = (kind === 'code' ? codeReady : kind === 'image' ? imageReady : webReady) && !(batch && activeBatch)
   const none = t('review.target_none')
   const sourceNames = listing(t, chosenSources.map(item => item.name))
   const imageNames = listing(t, references)
   const targetLabel = kind === 'code'
     ? codeMode === 'org' ? `${organization ? t('review.target_org', { name: organization }) : t('review.target_org_unset')}${orgTotal ? ` · ${t('common:count.repositories', { count: orgTotal })}` : ''}` : chosenSources.length ? chosenSources.length > 1 ? t('review.target_repositories', { total: chosenSources.length, names: sourceNames }) : sourceNames : none
     : kind === 'image' ? references.length ? references.length > 1 ? t('review.target_images', { total: references.length, names: imageNames }) : imageNames : none
-    : chosenTargets.map(item => item.host).join(', ') || none
+    : webTarget?.url ?? none
 
   const launch = async () => {
     if (busy || !ready) return
@@ -120,7 +118,9 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
         onBatchStarted()
         return
       }
-      const data = kind === 'image'
+      const data = kind === 'web'
+        ? await api.post<{ run: { id: string } }>('/api/domains/scans', 'scan-domain', { domain_id: webTarget?.id })
+        : kind === 'image'
         ? await api.post<{ run: { id: string } }>('/api/images/scans', 'scan-image', { reference: references[0], context })
         : await api.post<{ run: { id: string } }>('/api/repositories/scans', 'scan-repository', { source_id: source, allow_osv_upload: !!plan?.osv_needed && allowOsv, context })
       await onComplete(data.run.id)
@@ -130,12 +130,13 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
 
   if (!kind) return <div className="space-y-6">
     <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">{t('wizard.choose_type')}</h2><Button variant="ghost" onClick={onCancel}><ArrowLeft /> {t('common:actions.back')}</Button></div>
-    <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-4">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {([['code', Code2, t('run_type.repository_scan'), t('wizard.kinds.code.description'), [t('wizard.kinds.code.sast'), t('wizard.kinds.code.secrets'), t('wizard.kinds.code.dependencies'), t('wizard.kinds.code.iac')]],
          ['image', Boxes, t('run_type.image_scan'), t('wizard.kinds.image.description'), [t('wizard.kinds.image.packages'), t('wizard.kinds.image.secrets'), t('wizard.kinds.image.config')]],
+         ['web', Globe2, t('wizard.kinds.web.title'), t('wizard.kinds.web.description'), [t('wizard.kinds.web.dns'), t('wizard.kinds.web.passive'), t('wizard.kinds.web.evidence')]],
          ['import', FileUp, t('run_type.sarif_import'), t('wizard.kinds.import.description'), [t('wizard.kinds.import.tools'), t('wizard.kinds.import.existing'), t('wizard.kinds.import.fixes')]],
-         ['web', Globe2, t('run_type.dast'), t('wizard.kinds.web.description'), [t('wizard.kinds.web.dns'), t('wizard.kinds.web.isolated'), t('wizard.kinds.web.evidence')]]] as const).map(([id, Icon, title, description, bullets]) => { const soon = id === 'web'; return <button key={id} disabled={soon} onClick={() => setChoice(id)} aria-pressed={choice === id} className={`rounded-2xl border p-6 text-left transition ${soon ? 'cursor-not-allowed border-dashed border-app-line bg-inset/40 opacity-60' : choice === id ? 'border-brand/60 bg-brand/[0.07]' : 'border-app-line bg-panel hover:border-brand/30'}`}>
-        <div className="flex items-start justify-between gap-3"><div className={`flex size-11 items-center justify-center rounded-2xl ${id === 'web' ? 'bg-info-soft text-info' : 'bg-brand/15 text-brand'}`}><Icon /></div>{soon ? <SoonBadge /> : <span className={`mt-1 flex size-4 items-center justify-center rounded-full border ${choice === id ? 'border-primary bg-primary' : 'border-app-line'}`}>{choice === id && <Check className="size-3 text-primary-foreground" />}</span>}</div>
+         ['api', Braces, t('wizard.kinds.api.title'), t('wizard.kinds.api.description'), [t('wizard.kinds.api.openapi'), t('wizard.kinds.api.safe'), t('wizard.kinds.api.dns')]]] as const).map(([id, Icon, title, description, bullets]) => { const soon = id === 'api'; return <button key={id} disabled={soon} onClick={() => { if (id !== 'api') setChoice(id) }} aria-pressed={soon ? undefined : choice === id} className={`rounded-2xl border p-6 text-left transition ${soon ? 'cursor-not-allowed border-dashed border-app-line bg-inset/40 opacity-60' : choice === id ? 'border-brand/60 bg-brand/[0.07]' : 'border-app-line bg-panel hover:border-brand/30'}`}>
+        <div className="flex items-start justify-between gap-3"><div className={`flex size-11 items-center justify-center rounded-2xl ${id === 'web' || id === 'api' ? 'bg-info-soft text-info' : 'bg-brand/15 text-brand'}`}><Icon /></div>{soon ? <SoonBadge /> : <span className={`mt-1 flex size-4 items-center justify-center rounded-full border ${choice === id ? 'border-primary bg-primary' : 'border-app-line'}`}>{choice === id && <Check className="size-3 text-primary-foreground" />}</span>}</div>
         <h3 className="mt-6 text-lg font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-app-muted">{description}</p>
         <ul className="mt-5 space-y-1.5">{bullets.map(item => <li key={item} className="flex items-center gap-2 text-xs text-app-subtle"><SearchCheck className="size-3.5 shrink-0" />{item}</li>)}</ul>
       </button> })}
@@ -190,12 +191,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
           <p className="text-xs text-app-subtle"><Trans t={t} i18nKey="image.tip" components={{ mono: <span className="font-mono" /> }} /></p>
         </CardContent></Card>}
 
-        {current === 'targets' && <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('wizard.steps.targets')}</CardTitle><CardDescription>{t('targets.description')}</CardDescription></CardHeader><CardContent className="space-y-4">
-          {chosenTargets.length
-            ? <div className="space-y-2">{chosenTargets.map(domain => <div key={domain.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-app-line bg-inset p-4"><span className="flex min-w-0 items-center gap-3"><Globe2 className="size-4 shrink-0 text-app-muted" /><span className="min-w-0"><span className="block truncate text-sm font-medium">{domain.url}</span><span className="text-xs text-app-subtle">{kindOf(domain)}</span></span></span><span className="flex items-center gap-2"><Badge variant="outline" className={domain.verified ? 'border-success-line text-success' : 'border-warning-line text-warning'}>{domain.verified ? t('targets.verified') : t('targets.unverified')}</Badge><Button aria-label={t('remove_item', { name: domain.host })} variant="ghost" size="icon-sm" onClick={() => setTargets(previous => previous.filter(id => id !== domain.id))}><X /></Button></span></div>)}<Button variant="outline" onClick={() => setPickTargets(true)} className="border-app-line bg-app-soft"><Plus /> {t('targets.add_more')}</Button></div>
-            : <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-app-line py-14 text-center"><Globe2 className="size-6 text-app-subtle" /><p className="text-sm font-medium">{t('targets.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t('targets.empty_text')}</p><Button onClick={() => setPickTargets(true)} className="mt-1 bg-primary text-primary-foreground hover:bg-primary/90"><Plus /> {t('targets.add_domains_ellipsis')}</Button></div>}
-          <p className="text-xs text-app-subtle">{t('targets.limit_hint', { limit: TARGET_LIMIT })}</p>
-        </CardContent></Card>}
+        {current === 'target' && <WebTarget isAdmin={isAdmin} selected={webTarget} onSelect={setWebTarget} onManageDomains={onManageDomains} />}
 
         {current === 'context' && <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('wizard.steps.context')}</CardTitle><CardDescription>{t('context.description')}</CardDescription></CardHeader><CardContent className="space-y-3">
           <label htmlFor="run-context" className="text-sm text-app-secondary">{t('context.question')} <span className="text-app-subtle">{t('context.optional')}</span></label>
@@ -205,9 +201,9 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
 
         {current === 'review' && <div className="space-y-5">
           <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('wizard.steps.review')}</CardTitle><CardDescription>{t('review.description')}</CardDescription></CardHeader><CardContent className="space-y-4">
-            <Row label={t('review.type')} value={kind === 'code' ? t('run_type.repository_scan') : kind === 'image' ? t('run_type.image_scan') : t('run_type.dast')} />
+            <Row label={t('review.type')} value={kind === 'code' ? t('run_type.repository_scan') : kind === 'image' ? t('run_type.image_scan') : t('run_type.dast_scan')} />
             <Row label={t('review.target')} value={targetLabel} />
-            <Row label={t('wizard.steps.context')} value={context.trim() || t('review.no_context')} />
+            {kind !== 'web' && <Row label={t('wizard.steps.context')} value={context.trim() || t('review.no_context')} />}
             {batch && <div className="flex items-start gap-3 rounded-xl border border-brand/30 bg-brand/[0.06] p-4 text-sm text-app-secondary"><Layers3 className="mt-0.5 size-4 shrink-0 text-brand" /><span>{kind === 'image' ? t('review.batch_image') : t('review.batch_code')}</span></div>}
             {kind === 'code' && !batch && <>
               {!plan ? <div className="flex items-center gap-2 rounded-xl border border-app-line bg-inset p-4 text-sm text-app-muted">{planError ? <><TriangleAlert className="size-4 text-warning" />{planError}</> : <div className="w-full"><SkeletonCard lines={4} label={t('review.plan_loading')} /></div>}</div> : <>
@@ -221,10 +217,11 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
               <div className="space-y-2 rounded-xl border border-app-line bg-inset p-4"><p className="text-xs font-medium tracking-widest text-app-subtle uppercase">{t('review.runs')}</p>{[t('review.image_runs.packages'), t('review.image_runs.secrets'), t('review.image_runs.config'), t('review.image_runs.checkov'), t('review.image_runs.priority'), imageCredentials ? t('review.image_runs.saved_credentials', { registry: imageRegistry }) : t('review.image_runs.anonymous')].map(item => <p key={item} className="flex gap-2 text-sm text-app-secondary"><Check className="mt-0.5 size-4 shrink-0 text-brand" />{item}</p>)}</div>
               <div className="space-y-2 rounded-xl border border-app-line bg-inset p-4"><p className="text-xs font-medium tracking-widest text-app-subtle uppercase">{t('review.skips')}</p>{[t('review.image_skips.run'), t('review.image_skips.source'), t('review.image_skips.secrets')].map(item => <p key={item} className="flex gap-2 text-sm text-app-muted"><X className="mt-0.5 size-4 shrink-0 text-app-subtle" />{item}</p>)}</div>
             </>}
-            {kind === 'web' && <div className="space-y-3">
-              <div className="flex items-start gap-3 rounded-xl border border-warning-line bg-warning-soft p-4 text-sm text-warning"><TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" /><span>{t('review.dast_unavailable')}</span></div>
-              {chosenTargets.some(item => !item.verified) && <div className="flex items-start gap-3 rounded-xl border border-app-line bg-inset p-4 text-sm text-app-muted"><CircleAlert className="mt-0.5 size-4 shrink-0 text-app-subtle" /><span>{t('review.unverified_targets')}</span></div>}
-            </div>}
+            {kind === 'web' && webTarget && <>
+              <div className="space-y-2 rounded-xl border border-app-line bg-inset p-4"><p className="text-xs font-medium tracking-widest text-app-subtle uppercase">{t('review.runs')}</p>{[t('review.web_runs.spider', { host: webTarget.host }), t('review.web_runs.passive'), t('review.web_runs.scope', { host: webTarget.host }), t('review.web_runs.lifecycle')].map(item => <p key={item} className="flex gap-2 text-sm text-app-secondary"><Check className="mt-0.5 size-4 shrink-0 text-brand" />{item}</p>)}</div>
+              <div className="space-y-2 rounded-xl border border-app-line bg-inset p-4"><p className="text-xs font-medium tracking-widest text-app-subtle uppercase">{t('review.skips')}</p>{[t('review.web_skips.attacks'), t('review.web_skips.login'), t('review.web_skips.hosts'), t('review.web_skips.pentest')].map(item => <p key={item} className="flex gap-2 text-sm text-app-muted"><X className="mt-0.5 size-4 shrink-0 text-app-subtle" />{item}</p>)}</div>
+              <p className="flex items-start gap-3 rounded-xl border border-app-line bg-inset p-4 text-xs leading-5 text-app-muted"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-app-subtle" /><span>{t('review.web_authorization')}</span></p>
+            </>}
           </CardContent></Card>
           {error && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>}
         </div>}
@@ -232,9 +229,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
         <div className="flex items-center justify-between gap-3 border-t border-app-line pt-5">
           <Button variant="ghost" onClick={() => step === 0 ? setKind(null) : setStep(step - 1)}><ArrowLeft /> {t('wizard.back')}</Button>
           {current === 'review'
-            ? kind === 'code' || kind === 'image'
-              ? <Button onClick={() => void launch()} disabled={busy || !ready} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="animate-spin" /> : batch ? <Layers3 /> : <SearchCheck />}{busy ? t('launch.queuing') : kind === 'image' ? references.length > 1 ? t('launch.images', { total: references.length }) : t('launch.image') : codeMode === 'org' ? orgTotal ? t('launch.organization_count', { total: orgTotal }) : t('launch.organization') : chosenSources.length > 1 ? t('launch.repositories', { total: chosenSources.length }) : t('launch.code')}</Button>
-              : <Button disabled title={t('launch.dast_unavailable')}>{t('launch.dast')}</Button>
+            ? <Button onClick={() => void launch()} disabled={busy || !ready} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="motion-safe:animate-spin" /> : batch ? <Layers3 /> : kind === 'web' ? <Globe2 /> : <SearchCheck />}{busy ? t('launch.queuing') : kind === 'web' ? t('launch.web') : kind === 'image' ? references.length > 1 ? t('launch.images', { total: references.length }) : t('launch.image') : codeMode === 'org' ? orgTotal ? t('launch.organization_count', { total: orgTotal }) : t('launch.organization') : chosenSources.length > 1 ? t('launch.repositories', { total: chosenSources.length }) : t('launch.code')}</Button>
             : <Button onClick={() => setStep(step + 1)} disabled={step === 0 && !ready} className="bg-primary text-primary-foreground hover:bg-primary/90">{t('wizard.continue')} <ArrowRight /></Button>}
         </div>
       </div>
@@ -243,7 +238,6 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
     </div>
 
     <SourceDialog open={pickSource} onOpenChange={setPickSource} selected={chosenSources.map(item => item.id)} onToggle={item => setChosenSources(previous => previous.some(entry => entry.id === item.id) ? previous.filter(entry => entry.id !== item.id) : [...previous, item])} onManageConnections={onManageConnections} />
-    <TargetsDialog open={pickTargets} onOpenChange={setPickTargets} domains={domains} selected={targets} onConfirm={ids => { setTargets(ids); setPickTargets(false) }} onRegistered={domain => setDomains(previous => [...(previous ?? []).filter(item => item.id !== domain.id), domain])} />
   </div>
 }
 
@@ -262,34 +256,4 @@ function SourceDialog({ open, onOpenChange, selected, onToggle, onManageConnecti
     {!connected && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-app-line bg-inset p-4 text-sm"><span className="text-app-muted">{t('source.no_provider')}</span><Button variant="outline" onClick={onManageConnections} className="border-app-line bg-panel">{t('source.connect')}</Button></div>}
     <DialogFooter><span className="mr-auto text-xs text-app-subtle">{t('source.selected', { count: selected.length })}</span><Button onClick={() => onOpenChange(false)} className="bg-primary text-primary-foreground hover:bg-primary/90">{t('source.done')}</Button></DialogFooter>
   </DialogContent></Dialog>
-}
-
-function TargetsDialog({ open, onOpenChange, domains, selected, onConfirm, onRegistered }: { open: boolean; onOpenChange: (open: boolean) => void; domains: Domain[] | null; selected: string[]; onConfirm: (ids: string[]) => void; onRegistered: (domain: Domain) => void }) {
-  const { t } = useTranslation('analyses')
-  const [filter, setFilter] = useState('')
-  const [draft, setDraft] = useState<string[]>(selected)
-  const [adding, setAdding] = useState(false)
-  const [pending, setPending] = useState<Domain | null>(null)
-  // Opening (or a new selection while open) starts the draft from the confirmed targets.
-  const [synced, setSynced] = useState({ open, selected })
-  if (synced.open !== open || synced.selected !== selected) { setSynced({ open, selected }); if (open) setDraft(selected) }
-  const visible = (domains ?? []).filter(item => item.host.includes(filter.trim().toLowerCase()))
-  const toggle = (id: string) => setDraft(previous => previous.includes(id) ? previous.filter(item => item !== id) : previous.length < TARGET_LIMIT ? [...previous, id] : previous)
-  return <>
-    <Dialog open={open && !adding && !pending} onOpenChange={onOpenChange}><DialogContent className="max-w-xl">
-      <DialogHeader><DialogTitle>{t('targets.dialog_title')}</DialogTitle><DialogDescription>{t('targets.dialog_description', { limit: TARGET_LIMIT })}</DialogDescription></DialogHeader>
-      <div className="relative"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" /><Input aria-label={t('targets.search')} placeholder={t('targets.search_placeholder')} value={filter} onChange={event => setFilter(event.target.value)} className="border-app-line bg-app-soft pl-9" /></div>
-      <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-app-line p-2">
-        {visible.map(domain => { const checked = draft.includes(domain.id)
-          return <label key={domain.id} className={`flex cursor-pointer items-center gap-3 rounded-lg p-3 transition ${checked ? 'bg-brand/10' : 'hover:bg-app-soft'}`}><input type="checkbox" checked={checked} onChange={() => toggle(domain.id)} disabled={!checked && draft.length >= TARGET_LIMIT} className="accent-brand" /><Globe2 className="size-4 shrink-0 text-app-muted" /><span className="min-w-0 flex-1"><span className="block truncate text-sm">{domain.host}</span><span className="text-xs text-app-subtle">{kindOf(domain)}</span></span><span className={`shrink-0 text-xs ${domain.verified ? 'text-success' : 'text-warning'}`}>{domain.verified ? t('targets.verified') : t('targets.unverified')}</span></label> })}
-        {!domains ? <SkeletonList rows={3} dense label={t('targets.loading')} /> : !visible.length && <p className="py-6 text-center text-sm text-app-muted">{t('targets.no_match')}</p>}
-      </div>
-      {/* El diálogo nuevo se abre en el tick siguiente: si se abriera en este clic, el
-          detector de pulsación externa de base-ui vería ese mismo clic y lo cerraría. */}
-      <button onClick={() => window.setTimeout(() => setAdding(true), 0)} className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-app-line py-3 text-sm text-app-muted transition hover:border-brand/40 hover:text-app-fg"><Plus className="size-4" /> {t('targets.register')}</button>
-      <DialogFooter><span className="mr-auto text-xs text-app-subtle">{t('targets.selected_of', { selected: draft.length, limit: TARGET_LIMIT })}</span><Button variant="ghost" onClick={() => onOpenChange(false)}>{t('common:actions.cancel')}</Button><Button disabled={!draft.length} onClick={() => onConfirm(draft)} className="bg-primary text-primary-foreground hover:bg-primary/90"><ShieldCheck /> {t('targets.add')}</Button></DialogFooter>
-    </DialogContent></Dialog>
-    <AddDomainDialog open={adding} onOpenChange={setAdding} onAdded={domain => { onRegistered(domain); setDraft(previous => previous.length < TARGET_LIMIT ? [...previous, domain.id] : previous); setPending(domain) }} />
-    <VerifyDomainDialog domain={pending} onOpenChange={() => setPending(null)} onVerified={domain => { onRegistered(domain); setPending(null) }} />
-  </>
 }

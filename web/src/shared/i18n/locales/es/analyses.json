@@ -1,7 +1,7 @@
 {
   "run_type": {
     "repository_scan": "Análisis de código", "image_scan": "Imagen de contenedor", "pr_review": "Revisión de PR",
-    "advisory_watch": "Avisos nuevos", "sarif_import": "Importación SARIF", "dast": "Pruebas dinámicas de app web o API"
+    "advisory_watch": "Avisos nuevos", "sarif_import": "Importación SARIF", "dast_scan": "Análisis web"
   },
   "duration": { "minutes": "~{{value}} min", "hours": "~{{value}} h", "under_two_minutes": "menos de 2 min" },
   "listing_more": "{{names}} y {{rest}} más",
@@ -11,7 +11,7 @@
     "continue": "Continuar",
     "back": "Atrás",
     "back_to_types": "Volver a tipos de análisis",
-    "steps": { "source": "Código fuente", "targets": "Objetivos", "image": "Imagen", "context": "Contexto", "review": "Revisar y lanzar" },
+    "steps": { "source": "Código fuente", "target": "Dominio", "image": "Imagen", "context": "Contexto", "review": "Revisar y lanzar" },
     "kinds": {
       "code": {
         "description": "Analiza un snapshot de tu repositorio sin ejecutar su código ni instalar dependencias.",
@@ -23,8 +23,14 @@
         "packages": "Paquetes: Trivy + Grype", "secrets": "Secretos en capas, ENV e historial", "config": "Configuración: reglas de Pitangus + Checkov"
       },
       "web": {
-        "description": "Escaneo activo (DAST) contra tu aplicación en marcha, sobre dominios verificados. Todavía no dan resultados.",
-        "dns": "Verificación de propiedad por DNS", "isolated": "DAST en contenedor aislado", "evidence": "Evidencia con petición y respuesta"
+        "title": "Aplicación web",
+        "description": "Recorre con ZAP uno de tus dominios verificados y lee sus respuestas. Pasivo: nunca ataca.",
+        "dns": "Solo dominios verificados por DNS", "passive": "Cabeceras, cookies y fugas de información", "evidence": "Hallazgos con URL, parámetro y evidencia"
+      },
+      "api": {
+        "title": "API",
+        "description": "Prueba una API a partir de su descripción OpenAPI, en modo seguro, sobre un dominio verificado.",
+        "openapi": "Endpoints desde OpenAPI", "safe": "Primero modo seguro, sin ataques", "dns": "Solo dominios verificados por DNS"
       },
       "import": {
         "description": "Trae los hallazgos de otra herramienta a un activo que ya tienes, para hacer su triage junto con todo lo demás.",
@@ -90,23 +96,18 @@
     "credentials_missing": "Sin credenciales para <strong>{{registry}}</strong>: sirve para imágenes públicas. Si es privada, un administrador puede guardar un token de solo lectura en <link>Integraciones → Registros de contenedores</link>.",
     "tip": "Consejo: analiza una etiqueta inmutable (versión o <mono>@sha256:</mono>) en lugar de <mono>latest</mono>, para saber exactamente qué revisaste."
   },
-  "targets": {
-    "description": "Elige los dominios y API registrados que quieres incluir en estas pruebas.",
-    "verified": "Verificado", "unverified": "Sin verificar",
-    "add_more": "Añadir más objetivos",
-    "empty_title": "Todavía no hay objetivos",
-    "empty_text": "Elige entre tus dominios registrados o registra uno nuevo.",
-    "add_domains_ellipsis": "Añadir dominios…",
-    "limit_hint": "Hasta {{limit}} objetivos por ejecución. Incluir un dominio no le envía tráfico de prueba.",
-    "dialog_title": "Añadir dominios",
-    "dialog_description": "Elige entre los dominios registrados en este workspace. Hasta {{limit}} por ejecución.",
-    "search": "Buscar dominios registrados",
-    "search_placeholder": "app.tudominio.com…",
+  "web": {
+    "description": "Elige el dominio verificado que quieres analizar. ZAP lo recorre unos minutos y lee cada respuesta; nunca envía ataques.",
+    "disabled": "Los análisis web están apagados en este servidor. Un administrador los enciende definiendo <mono>PITANGUS_DAST_ENABLED=1</mono> en el entorno del servidor y reiniciándolo.",
+    "admin_only": "Solo un administrador puede lanzar un análisis web: envía tráfico a un sitio en funcionamiento.",
     "loading": "Cargando dominios",
-    "no_match": "No hay dominios registrados que coincidan.",
-    "register": "Registrar un dominio nuevo…",
-    "selected_of": "{{selected}}/{{limit}} seleccionados",
-    "add": "Añadir objetivos"
+    "choose": "Dominio que quieres analizar",
+    "verified": "Verificado", "unverified": "Sin verificar", "expired": "Prueba vencida",
+    "empty_title": "Todavía no hay dominios",
+    "empty_text": "Registra un dominio que controles y demuéstralo con un registro TXT en DNS; después podrás analizarlo.",
+    "register": "Registrar un dominio",
+    "open_domains": "Ir a Dominios",
+    "unverified_hint": "Los dominios sin una prueba DNS vigente no se pueden analizar. Verifícalos en <manage>Dominios</manage>."
   },
   "context": {
     "description": "Lo que cuentes aquí queda guardado con la ejecución y aparece en el reporte.",
@@ -149,8 +150,19 @@
       "source": "No se analiza el código fuente que la generó (lánzalo sobre su repositorio)",
       "secrets": "Ningún valor secreto encontrado se guarda: solo su ubicación"
     },
-    "dast_unavailable": "Las pruebas dinámicas todavía no se pueden lanzar: falta el runner aislado y los límites de tasa y alcance. Esta configuración queda preparada, no ejecutada.",
-    "unverified_targets": "Hay objetivos sin verificar. La propiedad por DNS TXT es requisito previo a cualquier prueba activa."
+    "web_runs": {
+      "spider": "El spider de ZAP sobre {{host}} durante unos minutos, siguiendo enlaces y el sitemap",
+      "passive": "Las reglas pasivas de ZAP sobre cada respuesta: cabeceras de seguridad, cookies, fugas de información, librerías desactualizadas",
+      "scope": "Solo {{host}}: los enlaces y redirecciones a otros hosts se anotan, no se siguen",
+      "lifecycle": "Los hallazgos entran en el registro del dominio (triage, plazos, Jira); el próximo análisis web marca remediado lo que ya no aparezca"
+    },
+    "web_skips": {
+      "attacks": "Sin ataques: ni inyecciones, ni fuzzing, ni envío de formularios",
+      "login": "Las páginas detrás de un login",
+      "hosts": "Los subdominios y cualquier otro host",
+      "pentest": "No es una prueba de penetración"
+    },
+    "web_authorization": "La prueba DNS demuestra que controlas el dominio, no que puedas probarlo: lánzalo solo contra sistemas tuyos o que estés autorizado a probar. La prueba DNS y las direcciones se comprueban otra vez antes de que ZAP arranque."
   },
   "launch": {
     "queuing": "Encolando…",
@@ -160,8 +172,7 @@
     "organization_count": "Analizar la organización ({{total}})",
     "repositories": "Analizar {{total}} repositorios",
     "code": "Iniciar revisión de código",
-    "dast": "Lanzar pruebas dinámicas",
-    "dast_unavailable": "El runner aislado de DAST aún no está disponible"
+    "web": "Iniciar análisis web pasivo"
   },
   "batch": {
     "last_one": "Último lote · {{label}}: {{count}} analizado{{failed}}{{cancelled}}{{critical}}.",

@@ -52,13 +52,14 @@ The two gaps people ask about most:
   CodeQL is free for public repositories and, through GitHub Advanced Security, for private ones; running its CLI
   elsewhere is governed by the GitHub CodeQL Terms. The same step with Semgrep is in
   [cli.md](cli.md#other-tools-results).
-- **Dynamic testing.** Pitangus never runs or attacks your applications. Until it offers that, run ZAP or Nuclei
-  yourself, against systems you own, and import their SARIF against a verified domain: see
-  [Bring your own DAST](#bring-your-own-dast) below.
+- **Dynamic testing.** Pitangus runs a [passive web scan](features.md#passive-web-scan) with ZAP of a verified
+  domain (crawl and read, never attack) when the server sets `PITANGUS_DAST_ENABLED=1`. For anything deeper (active
+  scans, sign-in, APIs, Nuclei), run the scanner yourself, against systems you own, and import its SARIF against the
+  verified domain: see [Bring your own DAST](#bring-your-own-dast) below.
 
 ### Bring your own DAST
 
-Pitangus doesn't run web scanners yet (that's listed under [in development](features.md#in-development)). If your pipeline already runs **OWASP ZAP** or **Nuclei**, their SARIF goes into the registry like any other import, with a **verified domain** as the asset: the findings get the same triage, deadlines, Jira issues and notifications as code findings, and a later full import marks fixed whatever the scanner no longer reports.
+Pitangus's own web scan is passive and runs from the panel ([Passive web scan](features.md#passive-web-scan)): it stores ZAP's findings exactly as an import of ZAP's SARIF would, with the same fingerprints, so both can feed the same domain without duplicates. For active scans, authenticated scans or Nuclei, or to keep the scanner in your pipeline: if it already runs **OWASP ZAP** or **Nuclei**, their SARIF goes into the registry like any other import, with a **verified domain** as the asset: the findings get the same triage, deadlines, Jira issues and notifications as code findings, and a later full import marks fixed whatever the scanner no longer reports.
 
 1. In **Scanning → Domains**, an administrator adds the domain (`https://app.example.com`) and publishes the TXT record the panel shows (`_pitangus.app.example.com` = `pitangus-verify=…`), then verifies it. The domain is now the asset `domain:app.example.com`. The record is looked up again every day; if it disappears, or 90 days go by without a check, the domain stops being an asset until someone verifies it again.
 2. The pipeline writes SARIF and sends it with the Action's `import-sarif`, `server`, `token` and `asset` inputs (or `python -m pitangus import-sarif … --asset domain:app.example.com --server …`).

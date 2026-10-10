@@ -67,7 +67,12 @@ IMAGES = {
     # GitHub Actions in depth: template injection, dangerous triggers, permissions and unpinned actions.
     "zizmor": {"name": "zizmor", "version": "1.30.1",
                "image": "ghcr.io/zizmorcore/zizmor@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101"},
+    # Passive web scans of verified domains (scanning/web.py): Java, ~1.2 GB, Docker runner only.
+    "zap": {"name": "ZAP", "version": "2.17.0",
+            "image": "ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2"},
 }
+# Engines that reach a web target instead of reading a snapshot: pulled and listed only with PITANGUS_DAST_ENABLED.
+WEB_ENGINES = frozenset({"zap"})
 # Languages with our own rules and the extensions that identify them in the snapshot.
 RULE_LANGUAGES = {
     "JavaScript": {".js", ".jsx", ".mjs", ".cjs"}, "TypeScript": {".ts", ".tsx"}, "Python": {".py"},
@@ -293,7 +298,7 @@ def runner() -> str:
 
 def engine_ready(key: str) -> bool:
     if runner() == "local":
-        return shutil.which(BINARIES[key]) is not None
+        return key in BINARIES and shutil.which(BINARIES[key]) is not None
     return docker_available() and image_available(key)
 
 
@@ -321,8 +326,10 @@ def unavailable(key: str, without_docker):
 def engine_status() -> list[dict]:
     """Which engines are ready (images in the host's Docker, or installed binaries). For `make doctor` and `engines`."""
     local = runner() == "local"
+    listed = {key: meta for key, meta in IMAGES.items()
+              if key not in WEB_ENGINES or (not local and settings.flag("PITANGUS_DAST_ENABLED"))}
     return [{"tool": key, "name": meta["name"], "version": meta["version"], "image": shutil.which(BINARIES[key]) or BINARIES[key] if local else meta["image"],
-             "ready": engine_ready(key), "built_locally": local or "@sha256:" not in meta["image"]} for key, meta in IMAGES.items()]
+             "ready": engine_ready(key), "built_locally": local or "@sha256:" not in meta["image"]} for key, meta in listed.items()]
 
 
 def pull_engines(report=None) -> list[dict]:
@@ -433,10 +440,14 @@ def writable_cache(preferred: Path) -> Path:
 
 def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool = False,
          mounts: list[str] | None = None, timeout: int = 900, env: dict[str, str] | None = None,
-         secret_env: dict[str, str] | None = None, hosts: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+         secret_env: dict[str, str] | None = None, hosts: dict[str, str] | None = None,
+         image_user: bool = False) -> subprocess.CompletedProcess:
     """The engine's ephemeral container. `secret_env` travels through the Docker client's environment
     (`-e NAME` with no value), never on the command line, so it doesn't show in `ps` or in the logs.
-    `hosts`: names the container resolves to a fixed address ({name: address}), already checked by the caller."""
+    `hosts`: names the container resolves to a fixed address ({name: address}), already checked by the caller.
+    `image_user`: run as the image's own user (ZAP's Java takes its home from passwd), never with a snapshot."""
+    if image_user and snapshot is not None:
+        raise ValueError("an engine running as its image's user never mounts a snapshot")
     if runner() == "local":
         return _run_local(key, arguments, snapshot, mounts=mounts, timeout=timeout, env=env, secret_env=secret_env, network=network)
     environment = [part for name, value in (env or {}).items() for part in ("-e", f"{name}={value}")]
@@ -448,7 +459,7 @@ def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool
                "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                # Only /tmp (HOME) and the mounted folders are writable; the tmpfs counts against --memory.
                "--read-only", "--tmpfs", f"/tmp:rw,{'exec' if key in EXEC_FROM_TMP else 'noexec'},nosuid,nodev,size={ENGINE_TMPFS}",
-               *engine_user(), "--pids-limit", "512", "--memory", "3g", "--cpus", "2",
+               *([] if image_user else engine_user()), "--pids-limit", "512", "--memory", "3g", "--cpus", "2",
                "--network", "bridge" if network else "none",
                *[part for host, address in (hosts or {}).items() for part in ("--add-host", f"{host}:{address}")],
                # An image built here has no digest: never let Docker fetch that name from a registry instead.

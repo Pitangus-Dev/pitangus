@@ -4,7 +4,7 @@
 
 Qué hace cada parte del panel y con qué criterio. Para instalarlo, ve a [instalacion.md](instalacion.md).
 
-**Vocabulario.** Pitangus hace **análisis**: lee el código, las dependencias, la configuración y las imágenes sin ejecutarlos ni atacar nada, y sus hallazgos son candidatos que hay que confirmar. No es un *pentest*: un pentest intenta explotar los fallos contra un sistema en marcha y demuestra el impacto. Las futuras **pruebas dinámicas** (DAST) serán escaneos activos, tampoco un pentest; solo cuando un agente intente explotar y confirme el impacto hablaremos de *pentest asistido por IA*. Un informe de Pitangus no sustituye al pentest que piden SOC 2 o ISO 27001.
+**Vocabulario.** Pitangus hace **análisis**: lee el código, las dependencias, la configuración y las imágenes sin ejecutarlos ni atacar nada, y sus hallazgos son candidatos que hay que confirmar. No es un *pentest*: un pentest intenta explotar los fallos contra un sistema en marcha y demuestra el impacto. Su **análisis dinámico** (DAST) hoy es pasivo: ZAP recorre un dominio verificado y lee sus respuestas sin atacarlo. Los escaneos activos, cuando lleguen, tampoco serán un pentest; solo cuando un agente intente explotar y confirme el impacto hablaremos de *pentest asistido por IA*. Un informe de Pitangus no sustituye al pentest que piden SOC 2 o ISO 27001.
 
 ## Qué cubre Pitangus y qué no
 
@@ -19,7 +19,7 @@ real. Ahí también termina. Frente a una suite comercial (Snyk, Checkmarx, Vera
 | Imágenes de contenedor | Trivy y Grype sobre las capas, el historial y la configuración, leídas del registro | — |
 | Infraestructura y pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) y zizmor (GitHub Actions) | — |
 | Tu propio código (SAST) | Opengrep con las 58 reglas de `rules/`, 14 de ellas con seguimiento de datos dentro de un archivo | **Es la capa más fina.** Sin flujo de datos entre archivos ni conocimiento de frameworks más allá de esas reglas. Un motor propietario como Snyk Code encuentra fallos de lógica que estas reglas no ven. Para análisis profundo, corre CodeQL o Semgrep y [trae sus resultados](integraciones.md#traer-resultados-de-otros-analizadores): tienen el mismo ciclo de vida. |
-| Aplicaciones y API en ejecución (DAST) | Sin motor propio: Pitangus nunca ejecuta ni ataca lo que analiza. Los resultados de ZAP o Nuclei se importan sobre un dominio verificado ([trae tu propio DAST](integraciones.md#trae-tu-propio-dast)) | Está previsto un motor propio (abajo); mientras tanto, el escáner lo corres tú. |
+| Aplicaciones y API en ejecución (DAST) | Un [análisis web pasivo](#análisis-web-pasivo) con ZAP de un dominio verificado, lanzado desde el panel (apagado salvo que el servidor defina `PITANGUS_DAST_ENABLED=1`). Los resultados de ZAP o Nuclei también se importan sobre un dominio verificado ([trae tu propio DAST](integraciones.md#trae-tu-propio-dast)) | **Solo pasivo:** sin inyecciones ni otros ataques, sin iniciar sesión, con un spider limitado a 2 minutos. Las pruebas de API y los escaneos activos están en desarrollo (abajo); para eso, corre tu propio escáner e importa sus resultados. |
 | Escala | Un análisis por worker; tantos workers como necesites, en una máquina o en varias | Sin análisis en paralelo dentro de un worker, sin manifiestos de autoescalado y sin medición publicada. Ver [escalar.md](escalar.md). |
 
 Lo que una suite comercial no puede ofrecer es la otra mitad de la tabla: corre en tu servidor, el código no sale de
@@ -31,7 +31,7 @@ Se ven en el panel en gris, con la marca **En desarrollo**, para que se sepa que
 
 | Función | Qué hará |
 | --- | --- |
-| Pruebas dinámicas de aplicaciones web y API | Pitangus ejecutando ZAP o Nuclei en un contenedor aislado, solo sobre los dominios que hayas verificado por DNS. El registro de dominios ya funciona, y hoy ya puedes importar tus propios resultados de ZAP o Nuclei sobre un dominio verificado: mira [Dominios](#dominios). |
+| Pruebas dinámicas de API y análisis web activos o autenticados | Pruebas de API a partir de su descripción OpenAPI (primero en modo seguro), inicio de sesión con una cuenta de prueba que declares y pruebas activas solo con la autorización de un administrador registrada en la ejecución. El análisis web pasivo ya funciona: mira [Análisis web pasivo](#análisis-web-pasivo). |
 | GitLab, Bitbucket, Azure DevOps | Conectar repositorios con tokens de solo lectura del proyecto. |
 | Asistencia con IA | Explicación de hallazgos y propuesta de parche con tu propia clave, con consentimiento en cada ejecución. |
 | API pública | Tokens personales con ámbitos y `/api/v1` documentada. (La CLI para CI ya existe: [`scan`](cli.md).) |
@@ -73,7 +73,18 @@ También por CLI (útil en CI): `make cli ARGS="scan-image --reference ghcr.io/a
 
 Un dominio verificado es el activo `domain:<host>`: `import-sarif` acepta sobre él el SARIF de tus propias ejecuciones de ZAP o Nuclei ([Trae tu propio DAST](integraciones.md#trae-tu-propio-dast)), y desde ese momento esos hallazgos viven en **Hallazgos** con el mismo ciclo de vida que los del código (con `Web` como origen). La prueba vale 90 días y se consulta de nuevo cada día: si el registro desapareció, el dominio deja de ser un activo hasta que alguien lo verifique otra vez; si DNS no responde, nada cambia hasta que la prueba caduque. Los miembros ven los dominios y su estado; solo quien administra añade, verifica o elimina. Eliminar un dominio borra lo que se importó sobre él (ejecuciones, hallazgos, triage, incidencias), y el panel lo dice antes de preguntar.
 
-El registro TXT demuestra el control técnico de la zona DNS, no la autorización para probar la aplicación: esa sigue siendo de quien opera Pitangus. Que Pitangus ejecute los escáneres por su cuenta está [en desarrollo](#en-desarrollo).
+El registro TXT demuestra el control técnico de la zona DNS, no la autorización para probar la aplicación: esa sigue siendo de quien opera Pitangus.
+
+### Análisis web pasivo
+
+Con `PITANGUS_DAST_ENABLED=1` en el servidor, quien administra lo lanza desde **Nuevo análisis → Aplicación web**: ZAP 2.17 (con su imagen fijada por digest) recorre un dominio verificado durante hasta 2 minutos y pasa sus reglas pasivas por cada respuesta: cabeceras de seguridad, cookies, fugas de información, librerías JavaScript desactualizadas. Nunca ataca: ni escaneo activo, ni spider AJAX, ni envío de formularios. Es un *análisis* dinámico, no un pentest.
+
+- **Se comprueba otra vez antes de empezar.** El worker confirma que la función está encendida, que la prueba del dominio está vigente y su TXT sigue publicado (si ya no está, se retira la prueba) y que el nombre resuelve solo a direcciones públicas (nada de rangos privados, de loopback, link-local ni de metadatos de la nube). ZAP recibe la primera de ellas fijada al nombre, y su contexto contiene solo ese host: los enlaces y redirecciones a otros hosts se anotan, no se siguen.
+- **Límites.** Un análisis web a la vez por instalación, 15 minutos como máximo, el contenedor de ZAP con 3 GB y 2 CPU y un heap de Java explícito.
+- **Hallazgos.** Se guardan como los guardaría una importación del SARIF de ZAP, con las mismas huellas: importar después tu propia ejecución de ZAP sobre el mismo sitio no duplica nada, y el siguiente análisis web marca remediado lo que ya no aparezca. Solo se guardan el método, el parámetro y una evidencia acotada y redactada, nunca la petición ni la respuesta. Reverificar un hallazgo web lanza un análisis web nuevo (solo quien administra).
+- **Dónde corre.** Necesita el runner de Docker: la imagen del worker sin socket de Docker (`pitangus-worker`) no incluye ZAP (Java, unos 1,2 GB), y la ejecución lo dice. Con la variable encendida, `make engines` también descarga la imagen de ZAP.
+
+Lo que deja fuera queda listado en la ejecución: las páginas detrás de un login, todo lo que el spider no alcanzó y cualquier ataque. Las pruebas de API y los escaneos activos están [en desarrollo](#en-desarrollo).
 
 ## Hallazgos y su ciclo de vida
 
@@ -293,7 +304,7 @@ Si el propietario autoriza transmitir **solo nombres y versiones de dependencias
 make scan DIR=../mi-repo ARGS="--allow-osv-upload"
 ```
 
-Los informes JSON, Markdown, SARIF, SOC 2 Tipo II e ISO 27001 se descargan desde cada ejecución. Los perfiles de cumplimiento ordenan evidencia técnica; no constituyen auditoría, certificación ni atestación. Los enlaces CWE/CVE/GHSA apuntan a los registros públicos correspondientes cuando hay identificadores. DAST sobre objetivos reales sigue pendiente.
+Los informes JSON, Markdown, SARIF, SOC 2 Tipo II e ISO 27001 se descargan desde cada ejecución. Los perfiles de cumplimiento ordenan evidencia técnica; no constituyen auditoría, certificación ni atestación. Los enlaces CWE/CVE/GHSA apuntan a los registros públicos correspondientes cuando hay identificadores. El análisis dinámico es solo pasivo ([Análisis web pasivo](#análisis-web-pasivo)).
 
 ## Proveedores de IA
 

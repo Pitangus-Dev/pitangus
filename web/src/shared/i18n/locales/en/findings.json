@@ -16,7 +16,12 @@
     "kind_advisory": "New advisories",
     "kind_pr": "PR",
     "kind_pr_number": "PR #{{number}}",
-    "kind_import": "Import · {{tool}}"
+    "kind_import": "Import · {{tool}}",
+    "kind_web": "Web scan"
+  },
+  "web": {
+    "eyebrow": "Passive web scan · ZAP",
+    "help": "ZAP crawled the site and read its responses without attacking it. Findings here are signals about headers, cookies and exposed information; confirm each one against the application."
   },
   "import": {
     "eyebrow": "SARIF import · {{tool}}",

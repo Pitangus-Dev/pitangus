@@ -40,6 +40,9 @@ export DOCKER_SOCKET_GID
 # The worker runs the engines inside its image (compose.no-socket.yaml): nothing to pull, one more image to check.
 NO_SOCKET := $(shell sed -n 's/^COMPOSE_FILE=//p' .env 2>/dev/null | tail -n1 | grep -o 'compose\.no-socket\.yaml')
 ENGINE_IMAGES := sed -n 's/.*"image": "\([^"]*@sha256:[0-9a-f]\{64\}\)".*/\1/p' pitangus/modules/scanning/engines.py
+# ZAP (web scans, ~1.2 GB) only when they're on: PITANGUS_DAST_ENABLED in the environment or in .env.
+DAST_ENABLED := $(or $(PITANGUS_DAST_ENABLED),$(shell sed -n 's/^PITANGUS_DAST_ENABLED=//p' .env 2>/dev/null | tail -n1))
+WEB_IMAGES := $(if $(filter 1 true yes on TRUE YES ON True Yes On,$(strip $(DAST_ENABLED))),,| grep -v '/zaproxy/')
 
 .DEFAULT_GOAL := help
 .PHONY: arch openapi standalone help doctor setup build up down restart status logs ps setup-code engines scan demo update backup restore \
@@ -97,9 +100,9 @@ logs: ## Follow the app logs (Ctrl+C to exit). Another service: make logs SERVIC
 setup-code: ## Show the code to create the first administrator
 	@sh scripts/setup-code.sh "$(URL)"
 
-engines: ## Pull the missing engine images (Trivy, OSV-Scanner, Gitleaks, Grype, Checkov, zizmor), with progress
+engines: ## Pull the missing engine images (Trivy, OSV-Scanner, Gitleaks, Grype, Checkov, zizmor; ZAP with web scans on), with progress
 	@if [ "$(NO_SOCKET)" ]; then echo 'Engines: inside the worker image (no Docker socket).'; exit 0; fi; \
-	images=$$($(ENGINE_IMAGES)); \
+	images=$$($(ENGINE_IMAGES) $(WEB_IMAGES)); \
 	missing=0; for image in $$images; do docker image inspect "$$image" >/dev/null 2>&1 || missing=$$((missing + 1)); done; \
 	if [ $$missing -eq 0 ]; then echo 'Engines: all images are ready.'; exit 0; fi; \
 	echo "Engines: $$missing images missing; the first time can take a while depending on your connection."; \

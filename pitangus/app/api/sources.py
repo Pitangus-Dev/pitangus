@@ -25,7 +25,8 @@ from pitangus.modules.sources import domains
 from pitangus.modules.sources.assets import with_scan_branches
 from pitangus.modules.sources.domains import DomainError
 from pitangus.modules.sources.repositories import SourceError, find_source, list_repositories, source_page, unavailable
-from pitangus.shared import log as logging_setup
+from pitangus.modules.runs.jobs import BusyError
+from pitangus.shared import log as logging_setup, settings
 from pitangus.shared.i18n import msg, t, text
 
 router = APIRouter(tags=["sources"])
@@ -210,9 +211,11 @@ class DomainRow(Open):
 
 
 class DomainPage(Open):
+    """`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED)."""
     items: list[DomainRow] = Field(max_length=domains.LIMIT)
     total: int
     limit: int
+    dast: bool = False
 
 
 class DomainCheck(Open):
@@ -249,7 +252,8 @@ def _domain_rows(context: Context, records: list[dict]) -> list[dict]:
 def domain_list(context: Context = Depends(guard())) -> Any:
     """The registered domains (at most `limit`), with whether each one's TXT proof is current."""
     records = domains.list_domains(context.data_dir)
-    return context.render({"items": _domain_rows(context, records), "total": len(records), "limit": domains.LIMIT})
+    return context.render({"items": _domain_rows(context, records), "total": len(records), "limit": domains.LIMIT,
+                           "dast": settings.flag("PITANGUS_DAST_ENABLED")})
 
 
 class DomainIn(BaseModel):
@@ -340,6 +344,48 @@ def domain_remove(context: Context = Depends(guard(Policy(admin=True, action="re
     domains.remove_domain(context.data_dir, data.domain_id)
     context.state.log.warning("domain_removed", extra={"user": context.user["username"], "reason": f"{record['host']}: {deleted} runs"})
     return {"id": record["id"], "host": record["host"], "runs_deleted": deleted}
+
+
+class QueuedDomainScan(Open):
+    run: dict[str, Any]
+    domain: DomainRow
+
+
+def launch_domain_scan(context: Context, domain_id: str, *, trigger: dict | None = None) -> dict:
+    """Queues a passive web scan of a verified domain; the worker checks everything again before it starts."""
+    from pitangus.app.api.repositories import QUEUE_LIMIT
+    if not settings.flag("PITANGUS_DAST_ENABLED"):
+        raise ApiError(409, msg("scanning.web.errors.disabled"))
+    try:
+        record = domains.get_domain(context.data_dir, domain_id)
+    except DomainError as exc:
+        raise ApiError(404, exc.message) from exc
+    if not record["verified"]:
+        raise ApiError(409, msg("sources.domains.not_verified", host=record["host"]))
+    try:
+        domains.public_address(record["host"])
+    except DomainError as exc:
+        raise ApiError(409, msg("scanning.web.errors.address", host=record["host"], reason=exc.message)) from exc
+    if context.state.jobs.pending() >= QUEUE_LIMIT:
+        raise ApiError(429, msg("api.queue_full"))
+    try:
+        queued = context.state.jobs.enqueue_dast_scan(domain=record, requested_by=context.user["username"], trigger=trigger)
+    except BusyError as exc:
+        raise ApiError(409, exc.message) from exc
+    context.state.log.warning("dast_scan_launched", extra={"user": context.user["username"], "reason": record["host"]})
+    return {"run": queued, "domain": record}
+
+
+@router.post("/api/domains/scans", status_code=202, response_model=QueuedDomainScan, openapi_extra=documented(DomainIdIn),
+             **AS_RETURNED, responses={404: {"description": "Unknown domain"},
+                                       409: {"description": "Web scans off, domain not verified or private, or one already running"},
+                                       429: {"description": "Queue full"}})
+def domain_scan(context: Context = Depends(guard(Policy(admin=True, action="scan-domain", body=256))),
+                data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Queues a passive web scan (ZAP: spider and passive rules, never an attack) of a verified domain. Off unless the
+    server sets PITANGUS_DAST_ENABLED; one at a time."""
+    launched = launch_domain_scan(context, data.domain_id)
+    return context.render({"run": launched["run"], "domain": _domain_rows(context, [launched["domain"]])[0]})
 
 
 # --- AI providers ---------------------------------------------------------------------------------------------------

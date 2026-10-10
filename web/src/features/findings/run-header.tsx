@@ -22,6 +22,12 @@ export function RunHeader({ run, onNew }: { run: RepositoryRun; onNew: () => voi
     {run.review?.delivery && <p className="text-xs text-app-subtle">{t('pr.delivery', { comment: run.review.delivery.comment ?? '—', status: run.review.delivery.status ?? '—' })}</p>}
   </div>
   if (run.type === 'sarif_import') return <ImportHeader run={run} onNew={onNew} />
+  if (run.type === 'dast_scan') return <div className="flex flex-col gap-4 rounded-2xl border border-app-line bg-panel p-5 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0">
+    <div className="mb-1 text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('web.eyebrow')}</div>
+    <h2 className="truncate text-xl font-semibold">{run.source?.name ?? run.target ?? '—'}</h2>
+    <p className="mt-1 text-xs text-app-subtle">{formatDate(run.created_at)}{run.target ? <> · <span className="font-mono">{run.target}</span></> : null}</p>
+    <p className="mt-2 text-sm text-app-muted">{t('web.help')}</p>
+  </div><Button variant="outline" onClick={onNew} className="shrink-0 border-app-line bg-app-soft">{t('scan.new')} <ArrowRight /></Button></div>
   return <div className="flex flex-col gap-4 rounded-2xl border border-app-line bg-panel p-5 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="mb-1 text-xs font-semibold tracking-[0.18em] text-brand uppercase">{run.type === 'image_scan' ? t('scan.image') : t('scan.code')} · {({ github: 'GitHub', registry: t('scan.provider.registry'), local: t('scan.provider.local'), gitlab: 'GitLab' } as Record<string, string>)[run.source?.provider ?? 'local'] ?? run.source?.provider}</div><h2 className="truncate text-xl font-semibold">{run.source?.name ?? t('scan.repository')}</h2><p className="mt-1 text-xs text-app-subtle">{formatDate(run.created_at)} · {run.source?.image
         ? <><span className="font-mono">{run.source.image.reference}</span>{run.source.image.resolved_digest ? <> · {t('scan.digest')} <span className="font-mono">{run.source.image.resolved_digest.slice(7, 19)}</span></> : null}{run.source.image.os ? ` · ${run.source.image.os}` : ''} · {t('scan.user', { user: run.source.image.user ?? 'root' })}{run.summary.agreement ? ` · ${t('scan.agreement', { count: run.summary.agreement.both })}` : ''}</>
         : <>{run.source?.branch && <>{run.source.commit

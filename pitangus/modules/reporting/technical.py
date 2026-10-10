@@ -28,7 +28,7 @@ from pitangus.shared import i18n
 from pitangus.shared.i18n import default_locale, localize, msg
 from pitangus.shared.model import Finding
 
-KINDS = ("repository_scan", "image_scan", "pr_review", "sarif_import", "asset_state")
+KINDS = ("repository_scan", "image_scan", "dast_scan", "pr_review", "sarif_import", "asset_state")
 ACTIVE = ("open", "in_progress")
 ANNEX_LIMIT = 600
 DETAIL_LIMIT = 150   # sheets for critical or high code findings

@@ -66,6 +66,8 @@ SETTINGS: dict[str, Setting] = {
     "PITANGUS_NVD_API_KEY": Setting(),
     "PITANGUS_ALLOW_PRIVATE_REGISTRIES": Setting(kind="flag"),
     "PITANGUS_ALLOW_PRIVATE_WEBHOOKS": Setting(kind="flag"),
+    # Passive web scans (ZAP) of verified domains: off unless the operator turns them on
+    "PITANGUS_DAST_ENABLED": Setting(kind="flag"),
     # Engines started through the Docker socket mount folders by their path on the host
     "PITANGUS_HOST_DATA_DIR": Setting(),
     "PITANGUS_HOST_RULES_DIR": Setting(),

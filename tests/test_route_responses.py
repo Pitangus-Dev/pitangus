@@ -16,7 +16,7 @@ class RouteResponseTests(HttpCase):
 
     def test_an_empty_domain_registry_answers_its_shape(self):
         status, body, _ = self.call("GET", "/api/domains", headers={"Cookie": self.admin})
-        self.assertEqual((status, body), (200, {"items": [], "total": 0, "limit": 20}))
+        self.assertEqual((status, body), (200, {"items": [], "total": 0, "limit": 20, "dast": False}))
 
     def test_jira_without_a_connection_says_so_and_nothing_more(self):
         status, body, _ = self.call("GET", "/api/integrations/jira", headers={"Cookie": self.admin})

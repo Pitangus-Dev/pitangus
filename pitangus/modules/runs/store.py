@@ -178,8 +178,10 @@ def _percent(value: float, locale: str) -> str:
 
 
 def _where(finding: dict) -> str:
-    """A dependency advisory points at its manifest (its line says nothing); code at path:line."""
-    return str(finding.get("path")) if finding.get("scanner") == "sca" or not finding.get("line") else f"{finding.get('path')}:{finding.get('line')}"
+    """A dependency advisory points at its manifest and a web finding at its URL (their line says nothing); code at
+    path:line."""
+    return str(finding.get("path")) if finding.get("scanner") in ("sca", "dast") or not finding.get("line") \
+        else f"{finding.get('path')}:{finding.get('line')}"
 
 
 def _action_label(action, locale: str) -> str:
@@ -280,17 +282,22 @@ def render_repository_report(record: dict, *, locale: str | None = None) -> str:
     if imported is not None:
         identity = (t("reports.markdown.identity_import_commit", locale, tool=imported.get("tool"), commit=str(source["commit"])[:12])
                     if source.get("commit") else t("reports.markdown.identity_import", locale, tool=imported.get("tool")))
+    elif record.get("type") == "dast_scan":
+        identity = t("reports.markdown.identity_web", locale, url=record.get("target") or source["name"])
     elif image:
         identity = (t("reports.markdown.identity_image_digest", locale, reference=image.get("reference"), digest=image["resolved_digest"])
                     if image.get("resolved_digest") else t("reports.markdown.identity_image", locale, reference=image.get("reference")))
     else:
         identity = t("reports.markdown.identity_snapshot", locale, sha=source.get("sha256"))
-    heading = "reports.markdown.title_import" if imported is not None else "reports.markdown.title_image" if image else "reports.markdown.title_code"
+    web = record.get("type") == "dast_scan"
+    heading = ("reports.markdown.title_import" if imported is not None else "reports.markdown.title_web" if web
+               else "reports.markdown.title_image" if image else "reports.markdown.title_code")
+    status = (t(f"reports.markdown.run_status.{record['status']}", locale)
+              if record["status"] in ("queued", "running", "completed", "incomplete", "failed") else record["status"])
     lines = ["# " + t(heading, locale, name=source["name"]), "",
              t("reports.markdown.run_line", locale, id=record["id"], date=record["created_at"], provider=source["provider"], identity=identity),
-             t("reports.markdown.status_line", locale, status=t(f"reports.markdown.run_status.{record['status']}", locale)
-               if record["status"] in ("queued", "running", "completed", "incomplete", "failed") else record["status"],
-               files=summary["files"], dependencies=summary["dependencies"]), "",
+             t("reports.markdown.status_line_web", locale, status=status, urls=summary["files"]) if web
+             else t("reports.markdown.status_line", locale, status=status, files=summary["files"], dependencies=summary["dependencies"]), "",
              "## " + t("reports.markdown.executive_summary", locale), "",
              *_header(locale, "priority", "count", "", "severity", "count")]
     rows = [(_action_label("act", locale), priorities.get("act", 0), _severity("critical", locale), severities.get("critical", 0)),
@@ -529,7 +536,7 @@ def profile_pdf_titles(profile: str, *, locale: str | None = None) -> dict:
 def render_profile_report(record: dict, profile: str, title: str = "", *, locale: str | None = None) -> str:
     """Technical dossier; it is not an audit opinion or a certification."""
     locale = locale or default_locale()
-    if profile not in PROFILES or record.get("type") not in ("repository_scan", "image_scan", "pr_review", "sarif_import", "asset_state"):
+    if profile not in PROFILES or record.get("type") not in ("repository_scan", "image_scan", "dast_scan", "pr_review", "sarif_import", "asset_state"):
         raise ReportInputError(msg("reports.errors.unsupported_profile"))
     if title and (len(title) > 100 or not all(ch.isprintable() and ch not in "#`[]<>" for ch in title)):
         raise ReportInputError(msg("reports.errors.invalid_title"))
@@ -542,6 +549,8 @@ def render_profile_report(record: dict, profile: str, title: str = "", *, locale
         scope = t("reports.profile.scope_state", locale, name=source["name"])
     elif record["type"] == "sarif_import":
         scope = t("reports.profile.scope_import", locale, name=source["name"], tool=(record.get("trigger") or {}).get("tool"))
+    elif record["type"] == "dast_scan":
+        scope = t("reports.profile.scope_web", locale, url=record.get("target") or source["name"])
     elif source.get("image"):
         scope = t("reports.profile.scope_image", locale, name=source["name"], reference=source["image"].get("reference"))
     else:

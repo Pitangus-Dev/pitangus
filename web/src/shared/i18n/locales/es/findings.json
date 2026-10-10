@@ -16,7 +16,12 @@
     "kind_advisory": "Avisos nuevos",
     "kind_pr": "PR",
     "kind_pr_number": "PR #{{number}}",
-    "kind_import": "Importación · {{tool}}"
+    "kind_import": "Importación · {{tool}}",
+    "kind_web": "Análisis web"
+  },
+  "web": {
+    "eyebrow": "Análisis web pasivo · ZAP",
+    "help": "ZAP recorrió el sitio y leyó sus respuestas sin atacarlo. Estos hallazgos son señales sobre cabeceras, cookies e información expuesta; confirma cada uno contra la aplicación."
   },
   "import": {
     "eyebrow": "Importación SARIF · {{tool}}",

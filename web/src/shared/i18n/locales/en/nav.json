@@ -63,12 +63,12 @@
     "done_severities_other": "{{name}} scan finished: {{count}} findings ({{critical}} critical, {{high}} high)."
   },
   "dast": {
-    "title": "Dynamic web and API application testing (DAST)",
-    "description": "Pitangus running ZAP or Nuclei for you, only against the verified domains above. Until then, import the results of your own runs.",
+    "title": "Next in dynamic testing",
+    "description": "What comes after the passive web scan of these domains:",
     "plan": {
-      "scan": "Active scanning with ZAP or Nuclei in an isolated container, with rate and scope limits",
+      "scan": "API testing from an OpenAPI description, in safe mode first",
       "auth": "Sign-in to the application with a test account you declare",
-      "evidence": "Findings with the request and response that prove them, in the same lifecycle as code findings"
+      "evidence": "Active tests only with an administrator's authorization, recorded in the run"
     }
   },
   "footer": "{{name}} · free software under <license>AGPL-3.0</license> · <source>source code</source> · a clean result doesn't prove there are no vulnerabilities.",

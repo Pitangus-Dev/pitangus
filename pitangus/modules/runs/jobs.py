@@ -25,6 +25,7 @@ from pitangus.shared import log as logging_setup, settings
 from pitangus.modules.scanning.repository import scan_repository
 from pitangus.modules.sources.repositories import SourceError, snapshot_source
 from pitangus.modules.sources.assets import asset_key, scan_branch
+from pitangus.modules.sources.domains import source_for as domain_source
 from pitangus.modules.integrations.github import GitHubAppError
 from pitangus.modules.runs import queue
 from pitangus.modules.runs import registry as run_registry
@@ -50,6 +51,14 @@ def _reason(exc: Exception):
     """The error's own message (a catalog message or plain text), to embed in ours."""
     value = getattr(exc, "message", None) or (exc.args[0] if exc.args else "")
     return value if isinstance(value, dict) else str(exc)[:300]
+
+
+class BusyError(ValueError):
+    """Something that runs one at a time is already queued or running; `message` is a catalog message."""
+
+    def __init__(self, message: dict):
+        super().__init__(message)
+        self.message = message
 
 
 def _counts(summary: dict) -> dict:
@@ -183,6 +192,30 @@ class ScanJobs:
         log.info("análisis de imagen encolado", extra={"run_id": run_id, "path": image["reference"]})
         return {"id": run_id, "status": "queued"}
 
+    def enqueue_dast_scan(self, *, domain: dict, requested_by: str, trigger: dict | None = None) -> dict:
+        """Passive web scan of a verified domain (scanning/web.py). One at a time per instance: it reaches someone's
+        application, so a second one waits for the first rather than doubling the load. Raises BusyError."""
+        from sqlalchemy import func, select
+        from pitangus.modules.runs.tables import jobs
+        run_id = uuid.uuid4().hex
+        record = {"schema_version": "0.3.0", "id": run_id, "type": "dast_scan", "status": "queued", "created_at": _now(),
+                  "target": domain["url"], "variant": "baseline", "source": domain_source(domain),
+                  "requested_by": requested_by, "context": "", "summary": {"candidates": 0, "files": 0, "dependencies": 0},
+                  "steps": [], "findings": [], "owasp_coverage": [], "limitations": [],
+                  "progress": [_event("info", msg("runs.progress.queued_web", host=domain["host"]))]}
+        if trigger:
+            record["trigger"] = trigger
+        with db.transaction(self.data_dir) as connection:
+            db.lock(connection, "dast-scan")
+            busy = connection.execute(select(func.count()).select_from(jobs).where(
+                jobs.c.tenant_id == db.TENANT, jobs.c.kind == "dast_scan", jobs.c.status.in_(("queued", "running")))).scalar_one()
+            if busy:
+                raise BusyError(msg("scanning.web.errors.busy"))
+            self._save(record)
+            queue.enqueue(self.data_dir, "dast_scan", {"domain_id": domain["id"]}, run_id=run_id)
+        log.info("dast_scan_queued", extra={"run_id": run_id, "path": domain["host"], "user": requested_by})
+        return {"id": run_id, "status": "queued"}
+
     def enqueue_periodic(self, task: str) -> None:
         """A periodic task (NVD sync, advisory watch) for a worker to run: see runs/periodic.py."""
         queue.enqueue(self.data_dir, "periodic", {"task": task})
@@ -299,6 +332,8 @@ class ScanJobs:
             return self._execute_pr(job)
         if job.get("kind") == "image_scan":
             return self._execute_image(job)
+        if job.get("kind") == "dast_scan":
+            return self._execute_dast(job)
         run_id = job["run_id"]
         tokens = vault.unseal(job["tokens"], "job-tokens") if job.get("tokens") else {}
         record = load_run(self.data_dir, run_id)
@@ -374,6 +409,57 @@ class ScanJobs:
         except Exception as exc:  # noqa: BLE001
             log.error("análisis de imagen fallido: %s", traceback.format_exc().splitlines()[-1], extra={"run_id": run_id})
             self._fail(record, msg("runs.failure.image_internal"))
+            del exc
+
+    def _execute_dast(self, job: dict) -> None:
+        """Every guardrail again, now that the scan is about to reach the site: the feature is on, the runner can do
+        it, the domain's DNS proof is current and its TXT still published, and its name resolves to public addresses
+        only (the one ZAP gets pinned)."""
+        from pitangus.modules.scanning.engines import docker_problem, runner
+        from pitangus.modules.scanning.web import WebScanError, scan_domain
+        from pitangus.modules.sources.domains import DomainError, confirm_control, public_address
+        run_id = job["run_id"]
+        record = load_run(self.data_dir, run_id)
+        record["status"], record["started_at"] = "running", _now()
+
+        def progress(level: str, message) -> None:
+            record["progress"].append(_event(level, message))
+            self._save(record)
+            log.info(text(message, "en"), extra={"run_id": run_id, "step": level})
+
+        try:
+            if not settings.flag("PITANGUS_DAST_ENABLED"):
+                raise WebScanError(msg("scanning.web.errors.disabled"))
+            if runner() == "local":
+                raise WebScanError(msg("scanning.web.errors.needs_docker"))
+            if problem := docker_problem():
+                raise WebScanError(problem)
+            domain = confirm_control(self.data_dir, job["domain_id"])
+            host = domain["host"]
+            try:
+                address = public_address(host)
+            except DomainError as exc:
+                raise WebScanError(msg("scanning.web.errors.address", host=host, reason=exc.message)) from exc
+            progress("ok", msg("runs.progress.web_target", host=host, address=address))
+            scan = scan_domain(domain, address, data_dir=self.data_dir, progress=progress)
+            counts = _counts(scan["summary"])
+            progress("warn" if scan["status"] == "incomplete" else "ok",
+                     msg("runs.progress.finished_incomplete" if scan["status"] == "incomplete" else "runs.progress.finished", counts=counts))
+            final = save_repository_scan(self.data_dir, {**scan, "requested_by": record.get("requested_by"),
+                                                         **({"trigger": record["trigger"]} if record.get("trigger") else {}),
+                                                         "progress": record["progress"], "started_at": record["started_at"],
+                                                         "finished_at": _now()},
+                                         run_id=run_id, created_at=record["created_at"])
+            log.info("dast_scan_finished", extra={"run_id": run_id, "status": final["status"]})
+        except DomainError as exc:
+            log.warning("dast_scan_refused", extra={"run_id": run_id, "reason": str(exc)})
+            self._fail(record, exc.message)
+        except WebScanError as exc:
+            log.warning("dast_scan_refused", extra={"run_id": run_id, "reason": text(exc.message, "en")})
+            self._fail(record, exc.message)
+        except Exception as exc:  # noqa: BLE001
+            log.error("dast_scan_failed: %s", traceback.format_exc().splitlines()[-1], extra={"run_id": run_id})
+            self._fail(record, msg("runs.failure.dast_internal"))
             del exc
 
     def _revision(self, job: dict, record: dict) -> tuple[str | None, str | None]:

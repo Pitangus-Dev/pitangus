@@ -264,7 +264,8 @@
       "image_scan": "image analysis",
       "full_scan": "full repository analysis",
       "branch": "automatic re-analysis after a change on a watched branch",
-      "sarif_import": "import of {{tool}} findings"
+      "sarif_import": "import of {{tool}} findings",
+      "dast_scan": "passive web scan"
     },
     "findings_title_one": "1 new finding in {{asset}}",
     "findings_title_other": "{{count}} new findings in {{asset}}",

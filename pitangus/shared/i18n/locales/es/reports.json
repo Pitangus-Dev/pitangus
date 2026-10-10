@@ -194,6 +194,9 @@
     "identity_import": "importado de {{tool}} (SARIF)",
     "identity_import_commit": "importado de {{tool}} (SARIF) en el commit `{{commit}}`",
     "title_import": "Hallazgos importados · {{name}}",
+    "title_web": "Análisis web pasivo · {{name}}",
+    "identity_web": "`{{url}}` recorrido y leído por ZAP, sin ataques",
+    "status_line_web": "Estado: **{{status}}** · {{urls}} URL con hallazgos.",
     "run_status": {
       "queued": "en cola",
       "running": "en curso",
@@ -288,7 +291,8 @@
         }
       }
     },
-    "scope_import": "`{{name}}`, hallazgos reportados por {{tool}} e importados como SARIF; Pitangus no analizó el código en esta ejecución."
+    "scope_import": "`{{name}}`, hallazgos reportados por {{tool}} e importados como SARIF; Pitangus no analizó el código en esta ejecución.",
+    "scope_web": "`{{url}}`, recorrido y leído por ZAP sin ataques (análisis dinámico pasivo); no se analizaron el código ni las páginas detrás de un login."
   },
   "audit": {
     "status": {
@@ -837,7 +841,8 @@
       "pr_review": "Revisión de pull request",
       "asset_state": "Estado acumulado",
       "default": "Análisis",
-      "sarif_import": "Importación SARIF"
+      "sarif_import": "Importación SARIF",
+      "dast_scan": "Análisis web pasivo"
     },
     "subtitle_state": "Estado acumulado al {{date}}",
     "subtitle_scan": "Análisis del {{date}}",
