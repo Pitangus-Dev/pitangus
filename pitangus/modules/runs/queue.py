@@ -67,6 +67,13 @@ def pending(data_dir: Path) -> int:
                                   .where(jobs.c.tenant_id == TENANT, jobs.c.status.in_(("queued", "running")))).scalar_one()
 
 
+def waiting(data_dir: Path) -> int:
+    """Queued and not yet claimed by any worker."""
+    with db.transaction(data_dir) as connection:
+        return connection.execute(select(func.count()).select_from(jobs)
+                                  .where(jobs.c.tenant_id == TENANT, jobs.c.status == "queued")).scalar_one()
+
+
 def recover(data_dir: Path) -> list[dict]:
     """Running jobs of a worker that stopped renewing them: they are treated as interrupted. Returns which ones."""
     with db.transaction(data_dir) as connection:

@@ -190,15 +190,16 @@ class ScanJobs:
     def pending(self) -> int:
         return queue.pending(self.data_dir)
 
-    def _feed_batch(self) -> None:
+    def _feed_batch(self) -> bool:
+        """Queues the next repository or image of the active batch. False when there is nothing left to queue."""
         from pitangus.modules.runs import batches
         try:
             taken = batches.take_next(self.data_dir)
         except (OSError, ValueError):
             log.exception("no se pudo leer el lote activo")
-            return
+            return False
         if taken is None:
-            return
+            return False
         batch, index = taken
         item = batch["items"][index]
         try:
@@ -211,6 +212,20 @@ class ScanJobs:
             batches.attach(self.data_dir, batch["id"], index, run_id=queued["id"])
         except Exception as exc:  # noqa: BLE001 — a failing repository doesn't stop the batch
             batches.attach(self.data_dir, batch["id"], index, error=_reason(exc))
+        return True
+
+    def _feed_batches(self) -> None:
+        """Keeps the active batch feeding every worker that would otherwise sit idle, instead of one repository per
+        idle poll of the leader: with N workers, N repositories of a batch run at once. Work queued by hand keeps
+        precedence, since nothing is fed while as many jobs wait as there are workers."""
+        try:
+            room = max(1, len(queue.workers_alive(self.data_dir))) - queue.waiting(self.data_dir)
+        except Exception:  # noqa: BLE001 — the database may not be ready for a moment; the next poll retries
+            log.exception("no se pudo medir la cola")
+            return
+        for _ in range(room):
+            if not self._feed_batch():
+                return
 
     # --- worker --------------------------------------------------------------------
 
@@ -229,9 +244,9 @@ class ScanJobs:
                 self._stop.wait(self.idle_poll)
                 continue
             if job is None:
-                # With nothing pending, the next repository of the active batch (if any); leader only.
+                # With nothing pending, the active batch (if any) fills the queue; leader only.
                 if self.leader:
-                    self._feed_batch()
+                    self._feed_batches()
                 self._stop.wait(self.idle_poll)
                 continue
             error = None
@@ -262,8 +277,15 @@ class ScanJobs:
             log.exception("latido del worker fallido")
 
     def _beat_until(self, done: threading.Event) -> None:
-        while not done.wait(HEARTBEAT_SECONDS):
-            self._beat(recover=False)
+        """While a scan runs: renews its lease every HEARTBEAT_SECONDS and, on the leader, keeps the batch fed, so
+        the other workers don't wait for the leader's own scan to end."""
+        last = time.monotonic()
+        while not done.wait(self.idle_poll if self.leader else HEARTBEAT_SECONDS):
+            if time.monotonic() - last >= HEARTBEAT_SECONDS:
+                last = time.monotonic()
+                self._beat(recover=False)
+            if self.leader:
+                self._feed_batches()
 
     def _execute(self, job: dict) -> None:
         if job.get("kind") == "periodic":

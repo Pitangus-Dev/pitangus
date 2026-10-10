@@ -86,6 +86,46 @@ class ImageBatchTests(unittest.TestCase):
             self.assertEqual(batches.load(data, batch["id"])["items"][0]["run_id"], "3" * 32)
 
 
+class FeedingTests(unittest.TestCase):
+    """The leader keeps a batch feeding every free worker, and never crowds out work queued by hand."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.data = Path(self.directory.name)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def test_as_many_repositories_as_workers_without_anything_waiting(self):
+        from pitangus.modules.runs import queue
+        from pitangus.modules.runs.jobs import ScanJobs
+        for worker in ("a", "b", "c"):
+            queue.heartbeat(self.data, worker, docker=True, version="test")
+        batch = batches.create(self.data, [item(f"acme/{name}") for name in "12345"], by="ana", label="cinco")
+        with patch.object(ScanJobs, "__init__", lambda self, data_dir: setattr(self, "data_dir", data_dir)), \
+                patch.object(ScanJobs, "enqueue_repository_scan", side_effect=lambda **kw: {"id": kw["source_name"].encode().hex().ljust(32, "0")}) as enqueue:
+            jobs = ScanJobs(self.data)
+            jobs._feed_batches()
+            self.assertEqual(enqueue.call_count, 3)  # three workers alive and nothing waiting: three at once
+            # Two scans already waiting (launched by hand): only one more fits.
+            queue.enqueue(self.data, "scan", {})
+            queue.enqueue(self.data, "scan", {})
+            jobs._feed_batches()
+            self.assertEqual(enqueue.call_count, 4)
+            # As many waiting as workers: the batch yields.
+            queue.enqueue(self.data, "scan", {})
+            jobs._feed_batches()
+            self.assertEqual(enqueue.call_count, 4)
+            # The workers take what waits: the last repository goes, and the batch is done.
+            for worker in ("a", "b", "c"):
+                self.assertIsNotNone(queue.claim(self.data, worker))
+            jobs._feed_batches()
+            self.assertEqual(enqueue.call_count, 5)
+            jobs._feed_batches()
+            self.assertEqual(enqueue.call_count, 5)
+        self.assertEqual(batches.load(self.data, batch["id"])["status"], "done")
+
+
 class WorkerTests(unittest.TestCase):
     def test_the_real_worker_goes_through_the_whole_batch(self):
         """The worker takes the batch's repositories one by one when it has nothing else to do, until it is done."""
@@ -110,6 +150,9 @@ class WorkerTests(unittest.TestCase):
             while time.monotonic() < deadline and batches.load(data, batch["id"])["status"] == "running":
                 time.sleep(0.1)
             state = batches.summary(data, batches.load(data, batch["id"]))
+            # The worker thread must not outlive this test's database (its connections would be cut under the next test).
+            jobs.stop()
+            jobs._thread.join(10)
         self.assertEqual((state["status"], state["done"], state["failed"], state["high"]), ("done", 3, 0, 3))
 
 
