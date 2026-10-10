@@ -310,8 +310,16 @@ rules:
     self-signed-ssl: [cs-tls, wstg-cryp-01]
     untrusted-root-certificate: [cs-tls, wstg-cryp-01]
     mismatched-ssl-certificate: [cs-tls, wstg-cryp-01]
+    revoked-ssl-certificate: [cs-tls, wstg-cryp-01]
+    # Pitangus' own templates (pitangus/modules/scanning/rules/nuclei).
+    pitangus-directory-listing: [wstg-conf-04]
+    pitangus-json-credentials: [cs-secrets, wstg-info-05]
+    pitangus-sensitive-paths: [wstg-conf-04]
+    pitangus-api-description: [cs-rest]
+    pitangus-metadata-files: [wstg-conf-04]
   testssl:
     HSTS*: [cs-hsts, wstg-conf-07]
+    security_headers: [cs-http-headers]
     cipherlist_*: [cs-tls-cipher, cs-tls, wstg-cryp-01]
     _default: [cs-tls, wstg-cryp-01]
   zizmor:
