@@ -1,0 +1,51 @@
+id: pitangus-directory-listing
+
+info:
+  name: Open directory listing
+  author: pitangus
+  severity: medium
+  description: |
+    The server answers this URL with an automatic index of the files in a folder, so anyone can see and download
+    files that were never linked from the site.
+  remediation: |
+    Turn off automatic directory indexes in the web server or framework that serves this path, and keep in the
+    folder only the files meant to be public. See the referenced OWASP testing guide page for this check.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/02-Test_Application_Platform_Configuration
+    - https://cwe.mitre.org/data/definitions/548.html
+  classification:
+    cwe-id: CWE-548
+  metadata:
+    max-request: 1
+    pitangus-name-es: Listado de directorio abierto
+    pitangus-description-es: |
+      El servidor responde esta URL con un índice automático de los archivos de una carpeta: cualquiera puede ver y
+      descargar archivos que el sitio nunca enlazó.
+    pitangus-remediation-es: |
+      Desactiva los índices automáticos de directorio en el servidor web o el framework que sirve esta ruta, y deja
+      en la carpeta solo los archivos que deben ser públicos. Consulta la página de la guía de pruebas de OWASP
+      referenciada para este control.
+  tags: exposure,listing,misconfig,pitangus
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: header
+        words:
+          - "text/html"
+
+      - type: regex
+        part: body
+        regex:
+          - '(?i)<title>\s*(?:index of /|directory listing for /|listing directory /)'
+          - '(?i)<h1>\s*(?:index of /|directory listing for /)'
+        condition: or

@@ -18,6 +18,9 @@ back. A template is kept only when all of this holds:
 
 A CVE template must also read fixed paths only (no query string, no payload list): one that survives detects a version
 or an exposed file; one that would exploit the CVE doesn't.
+
+Pitangus' own templates (`rules/nuclei/`, ids `pitangus-…`) go through the same filter and the same page-level split,
+into a folder of their own next to the release's (`ensure_own`), mounted read-only beside it.
 """
 
 from __future__ import annotations
@@ -72,6 +75,8 @@ SAFE_TARGET = re.compile(r"[A-Za-z0-9/._~+@:!,-]*(?:\?[A-Za-z0-9_.~=&/,:+-]*)?")
 STATE = re.compile(r"(?i)(?:reset|delete|remove|disconnect|logout|logoff|unsubscribe|shutdown|reboot|restart|exec|cmd|eval|"
                    r"upload|import|update|install\.php\?|setup\.php\?|action=)")
 COMPLETE = ".complete"
+OWN = Path(__file__).resolve().parent / "rules" / "nuclei"
+OWN_PREFIX = "pitangus-"
 
 
 class TemplatesError(RuntimeError):
@@ -225,9 +230,15 @@ def ensure(cache_dir: Path, *, fetch=_download) -> tuple[Path, dict]:
         data = fetch()
     except OSError as exc:
         raise TemplatesError(f"nuclei templates download failed: {exc}") from exc
+    return folder, _build(cache_dir, folder, lambda staging: extract(data, staging))
+
+
+def _build(cache_dir: Path, folder: Path, fill) -> dict:
+    """`fill` writes a folder aside, which is renamed into place once complete (with its counts in `COMPLETE`)."""
+    marker = folder / COMPLETE
     staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=cache_dir))
     try:
-        counts = extract(data, staging)
+        counts = fill(staging)
         (staging / COMPLETE).write_text(json.dumps(counts), encoding="utf-8")
         for root, directories, files in os.walk(staging):
             for name in directories:
@@ -245,4 +256,50 @@ def ensure(cache_dir: Path, *, fetch=_download) -> tuple[Path, dict]:
     finally:
         if staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
-    return folder, counts
+    return counts
+
+
+def own_templates(root: Path = OWN) -> list[tuple[str, bytes]]:
+    """Pitangus' own templates: (path relative to `root`, as in the release's tree, and their bytes)."""
+    return [(path.relative_to(root).as_posix(), path.read_bytes()) for path in sorted(root.rglob("*.yaml")) if path.is_file()]
+
+
+def own_allowed(relative: str, data: bytes) -> dict | None:
+    """The template, when it is one of ours (`pitangus-…`) and passes the release's own filter."""
+    try:
+        document = yaml.safe_load(data)
+    except yaml.YAMLError:
+        return None
+    if not isinstance(document, dict) or not str(document.get("id") or "").startswith(OWN_PREFIX) or not allowed(relative, document):
+        return None
+    return document
+
+
+def ensure_own(cache_dir: Path, *, root: Path = OWN) -> tuple[Path | None, dict]:
+    """The folder with Pitangus' own templates that pass `allowed`, split in `hosts/` and `pages/` like the release's
+    (None when there are none), and its counts. Named after their digest, so a change builds a new one."""
+    templates = own_templates(root)
+    if not templates:
+        return None, {"hosts": 0, "pages": 0}
+    digest = hashlib.sha256(b"".join(relative.encode() + b"\0" + data + b"\0" for relative, data in templates)).hexdigest()[:16]
+    folder = cache_dir / f"pitangus-{digest}"
+    if (folder / COMPLETE).is_file():
+        try:
+            return folder, json.loads((folder / COMPLETE).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def fill(staging: Path) -> dict:
+        counts = {"hosts": 0, "pages": 0}
+        for relative, data in templates:
+            document = own_allowed(relative, data)
+            if document is None or any(part in ("", ".", "..") for part in PurePosixPath(relative).parts):
+                continue
+            for name in ("hosts", *(["pages"] if page_level(document) else [])):
+                target = staging / name / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+                counts[name] += 1
+        return counts
+    return folder, _build(cache_dir, folder, fill)

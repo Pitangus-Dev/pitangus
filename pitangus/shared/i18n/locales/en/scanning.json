@@ -672,7 +672,9 @@
         "reason": "nuclei's template {{template}} matched: {{title}}.",
         "no_templates": "The nuclei templates (release {{release}}) couldn't be downloaded or didn't match their checksum.",
         "detail_one": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} finding.",
-        "detail_other": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} findings."
+        "detail_other": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} findings.",
+        "detail_own_one": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} finding.",
+        "detail_own_other": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} findings."
       },
       "testssl": {
         "name": "TLS configuration (testssl.sh)",

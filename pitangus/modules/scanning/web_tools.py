@@ -37,7 +37,7 @@ from urllib.parse import urlsplit
 
 from pitangus.modules.scanning import nuclei_templates
 from pitangus.modules.scanning.engines import IMAGES, _base, _run, _stable, docker_problem, host_path, image_available, runner
-from pitangus.shared.i18n import msg
+from pitangus.shared.i18n import inline, msg
 from pitangus.shared.model import Finding, Message
 
 TOOLS = ("katana", "nuclei", "testssl", "httpx")
@@ -64,6 +64,7 @@ NUCLEI_STATS_SECONDS = 3600   # its statistics at the end only: the last line sa
 # What nuclei logs on stderr (not with -silent) when it gives up on a target or a template can't run; it still exits 0.
 NUCLEI_SKIPPED = re.compile(r"Skipped (\S+) from target list as found unresponsive")
 NUCLEI_UNEXECUTED = re.compile(r"Could not execute (?:request )?for (\S+?):? ")
+OWN_MOUNT = "/pitangus"   # Pitangus' own templates (`nuclei_templates.ensure_own`), read-only next to the release's
 NUCLEI_EXCLUDED_TYPES = "headless,code,javascript,file,dns,tcp,websocket,whois,workflow"
 
 TESTSSL_HOSTS_MAX = 3
@@ -285,10 +286,11 @@ def run_katana(seeds: list[str], hosts: list[str], pins: dict[str, str], work: P
 # --- nuclei ------------------------------------------------------------------------------------------------------
 
 
-def nuclei_arguments(folder: str, minutes: int) -> list[str]:
-    """Only the filtered templates (`nuclei_templates`), and nothing that could bring others back: no update, no
-    out-of-band server, no redirects, no private addresses, the excluded protocols and tags again."""
-    return ["-t", f"/templates/{folder}", "-l", f"{WORK}/targets.txt", "-r", f"{WORK}/{RESOLVERS}",
+def nuclei_arguments(folder: str, minutes: int, *, own: bool = False) -> list[str]:
+    """Only the filtered templates (`nuclei_templates`; with `own`, Pitangus' own too), and nothing that could bring
+    others back: no update, no out-of-band server, no redirects, no private addresses, the excluded protocols and tags
+    again."""
+    return ["-t", f"/templates/{folder}", *(["-t", f"{OWN_MOUNT}/{folder}"] if own else []), "-l", f"{WORK}/targets.txt", "-r", f"{WORK}/{RESOLVERS}",
             "-duc", "-ni", "-dr", "-lna", "-no-stdin", "-nc", "-jsonl", "-or", "-ot", "-stats", "-sj", "-si", str(NUCLEI_STATS_SECONDS),
             "-ept", NUCLEI_EXCLUDED_TYPES, "-etags", ",".join(sorted(nuclei_templates.DENY_TAGS)),
             "-rl", str(RATE), "-c", "10", "-bs", "5", "-timeout", "10", "-retries", "1", "-mt", f"{minutes}m"]
@@ -334,6 +336,9 @@ def parse_nuclei(output: str, hosts: list[str]) -> tuple[list[Finding], list[dic
         info = entry["info"]
         matcher = _clean(entry.get("matcher-name"), 200)
         name = _clean(info.get("name"), TITLE_MAX) or template
+        # Pitangus' own templates carry their Spanish text in `metadata`; the release's text stays as published.
+        own = template.startswith(nuclei_templates.OWN_PREFIX) and str(entry.get("template-path") or "").startswith(OWN_MOUNT + "/")
+        spanish = info.get("metadata") if own and isinstance(info.get("metadata"), dict) else {}
         tags = {tag.lower() for tag in _strings(info.get("tags"), 50)}
         severity = NUCLEI_SEVERITY.get(str(info.get("severity") or "").lower(), "info")
         # A version past its end of life is something to act on, not just a name: it stays a finding.
@@ -356,13 +361,20 @@ def parse_nuclei(output: str, hosts: list[str]) -> tuple[list[Finding], list[dic
         references = [item for item in _strings(info.get("reference"), REFERENCES_MAX) if item.startswith(("https://", "http://"))
                       and len(item) <= REFERENCE_MAX]
         description, remediation = _clean(info.get("description")), _clean(info.get("remediation"))
-        title = f"{name} ({matcher})" if matcher else name
-        finding = _base("dast", rule, title[:TITLE_MAX], location, 1, severity, tool="nuclei",
-                        reason=msg("scanning.web.tools.nuclei.reason", template=template, title=title),
-                        remediation=msg("scanning.sarif.remediation_help", tool="nuclei", help=remediation) if remediation
+        title = (f"{name} ({matcher})" if matcher else name)[:TITLE_MAX]
+        shown: Any = title
+        if own:
+            es = _clean(spanish.get("pitangus-name-es"), TITLE_MAX)
+            shown = inline({"en": title, "es": (f"{es} ({matcher})" if matcher else es)[:TITLE_MAX]})
+            description = inline({"en": description, "es": _clean(spanish.get("pitangus-description-es"))})
+            remediation = inline({"en": remediation, "es": _clean(spanish.get("pitangus-remediation-es"))})
+        finding = _base("dast", rule, title, location, 1, severity, tool="nuclei",
+                        reason=msg("scanning.web.tools.nuclei.reason", template=template, title=shown),
+                        remediation=remediation if own and remediation
+                        else msg("scanning.sarif.remediation_help", tool="nuclei", help=remediation) if remediation
                         else msg("scanning.web.remediation", tool="nuclei"),
-                        cwe=cwes, owasp="", confidence=7, digest=_stable("sarif", "nuclei", key))
-        finding["title"], finding["cve"], finding["owasp"] = title[:TITLE_MAX], cves, []
+                        cwe=cwes, owasp="", confidence=8 if own else 7, digest=_stable("sarif", "nuclei", key))
+        finding["title"], finding["cve"], finding["owasp"] = shown, cves, []
         finding["priority"]["factors"] = [msg("scanning.sarif.priority", tool="nuclei", severity=msg(f"scanning.severity.{severity}"))]
         finding["web"] = {"method": "GET", **({"parameter": matcher} if matcher else {}), **({"description": description} if description else {}),
                           **({"solution": remediation} if remediation else {}), **({"references": references} if references else {})}
@@ -404,6 +416,7 @@ def run_nuclei(roots: list[str], pages: list[str], hosts: list[str], pins: dict[
         templates, counts = nuclei_templates.ensure(cache_dir)
     except nuclei_templates.TemplatesError:
         return ToolRun("nuclei", "skipped", msg("scanning.web.tools.nuclei.no_templates", release=nuclei_templates.RELEASE)), []
+    own, own_counts = nuclei_templates.ensure_own(cache_dir)
     findings: list[Finding] = []
     technologies: list[dict] = []
     status, notes = "completed", 0
@@ -414,10 +427,12 @@ def run_nuclei(roots: list[str], pages: list[str], hosts: list[str], pins: dict[
         with TemporaryDirectory(prefix="nuclei-", dir=work) as temporary:
             folder = Path(temporary)
             _work(folder, {"targets.txt": "".join(f"{url}\n" for url in targets), RESOLVERS: f"{DEAD_RESOLVER}\n"})
-            arguments, entrypoint, stdin = _wrap("nuclei", nuclei_arguments(folder_name, minutes), headers)
+            mine = own is not None and (own / folder_name).is_dir()
+            arguments, entrypoint, stdin = _wrap("nuclei", nuclei_arguments(folder_name, minutes, own=mine), headers)
             try:
                 completed = _run("nuclei", arguments, None, network=True,
-                                 mounts=["-v", f"{host_path(folder)}:{WORK}:ro", "-v", f"{host_path(templates)}:/templates:ro"],
+                                 mounts=["-v", f"{host_path(folder)}:{WORK}:ro", "-v", f"{host_path(templates)}:/templates:ro",
+                                         *(["-v", f"{host_path(own)}:{OWN_MOUNT}:ro"] if mine and own is not None else [])],
                                  timeout=(minutes + 2) * 60, hosts={host: pins[host] for host in hosts}, pinned_only=True,
                                  entrypoint=entrypoint, stdin=stdin)
             except (subprocess.TimeoutExpired, OSError, ValueError):
@@ -433,8 +448,8 @@ def run_nuclei(roots: list[str], pages: list[str], hosts: list[str], pins: dict[
         findings += found
         technologies += detected
     unique = {finding["fingerprint"]: finding for finding in findings}
-    detail = msg("scanning.web.tools.nuclei.detail", release=nuclei_templates.RELEASE, templates=counts.get("hosts", 0),
-                 pages=len(documents), count=len(unique), rate=RATE)
+    detail = msg("scanning.web.tools.nuclei.detail_own", release=nuclei_templates.RELEASE, templates=counts.get("hosts", 0),
+                 own=own_counts.get("hosts", 0), pages=len(documents), count=len(unique), rate=RATE)
     return ToolRun("nuclei", status, detail, findings=list(unique.values()), duration=round(time.time() - started, 1),
                    unreached=sorted(unreached)), technologies
 
