@@ -38,7 +38,7 @@ function reviewBadge(pull: Pull, t: TFunction<'pulls'>) {
   if (review.status === 'failed') return <Badge variant="outline" className="border-danger-line text-danger">{t('badge.failed')}</Badge>
   if (!review.current) return <Badge variant="outline" className="border-warning-line text-warning">{t('badge.new_commits')}</Badge>
   const blocking = (review.severities.critical ?? 0) + (review.severities.high ?? 0)
-  return review.new === 0 ? <Badge variant="outline" className="border-brand/30 text-brand">{t('badge.clean')}</Badge>
+  return review.new === 0 ? <Badge variant="outline" className="border-success-line text-success">{t('badge.clean')}</Badge>
     : <Badge variant="outline" className={blocking ? 'border-danger-line text-danger' : 'border-warning-line text-warning'}>{t('badge.new', { count: review.new })}{blocking ? ` · ${t('badge.blocking', { count: blocking })}` : ''}</Badge>
 }
 
