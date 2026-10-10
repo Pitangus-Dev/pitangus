@@ -585,6 +585,13 @@
         "name": "Sign-in as test users",
         "detail_one": "{{signed_in}} of {{count}} test user signed in, checked before the crawl.",
         "detail_other": "{{signed_in}} of {{count}} test users signed in, checked before the crawl."
+      },
+      "with_seeds": "{{detail}} It also requested the {{count}} URLs katana found.",
+      "merge": {
+        "name": "One finding per problem",
+        "detail_one": "{{count}} report of the same problem at the same URL by another tool was folded into its finding, which lists every tool that saw it.",
+        "detail_other": "{{count}} reports of the same problem at the same URL by another tool were folded into their findings, which list every tool that saw them.",
+        "none": "No two tools reported the same problem at the same URL."
       }
     },
     "limitations": {
@@ -598,7 +605,12 @@
       "login_one": "Signed in as 1 test user, checked before the crawl. Pages it reached show what that account can see, not what other roles can, and a crawl capped in time may still miss some.",
       "login_other": "Signed in as {{count}} test users, each checked before the crawl. Pages reached show what those accounts can see, not what other roles can, and a crawl capped in time may still miss some.",
       "login_failed_one": "Couldn't sign in as {{names}}: what only that account sees wasn't analyzed, so its absence here proves nothing.",
-      "login_failed_other": "Couldn't sign in as {{names}}: what only those accounts see wasn't analyzed, so its absence here proves nothing."
+      "login_failed_other": "Couldn't sign in as {{names}}: what only those accounts see wasn't analyzed, so its absence here proves nothing.",
+      "tools_anonymous": "Only ZAP signed in as the test users: katana, nuclei, testssl.sh and httpx looked at the site anonymously.",
+      "tool_skipped": "{{tool}} didn't run in this scan, so what only it checks wasn't looked at.",
+      "tool_partial": "{{tool}} didn't finish: its part of this scan is incomplete, and what it missed isn't marked fixed.",
+      "nuclei": "nuclei ran detection templates only (exposed files, misconfigurations, versions, takeovers, TLS): templates that exploit, fuzz, guess passwords or call out-of-band servers were left out.",
+      "tls_capped": "testssl.sh checked the first {{max}} hosts of the scope only."
     },
     "errors": {
       "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
@@ -635,6 +647,59 @@
       "check_unreached": "its check page {{url}} couldn't be requested.",
       "zap_failed": "ZAP reports {{reason}}",
       "unconfirmed": "ZAP couldn't confirm that the sign-in worked."
+    },
+    "tools": {
+      "needs_docker": "Needs the Docker runner.",
+      "image_missing": "The {{tool}} image isn't on this server: run make engines.",
+      "timeout": "Stopped after {{minutes}} minutes.",
+      "failed": "{{tool}} didn't finish.",
+      "katana": {
+        "name": "Crawl (katana)",
+        "progress": "katana {{version}}: crawling the scope with a headless browser, for up to 2 minutes, to find the URLs ZAP and nuclei will read…",
+        "detail_one": "Crawled the scope's hosts with a headless browser, {{depth}} levels deep and for up to {{minutes}} minutes: {{count}} URL, handed to ZAP and nuclei.",
+        "detail_other": "Crawled the scope's hosts with a headless browser, {{depth}} levels deep and for up to {{minutes}} minutes: {{count}} URLs, handed to ZAP and nuclei.",
+        "detail_plain_one": "The browser couldn't start, so katana crawled the scope's hosts without it (links in the HTML and the scripts, no rendering), {{depth}} levels deep and for up to {{minutes}} minutes: {{count}} URL, handed to ZAP and nuclei.",
+        "detail_plain_other": "The browser couldn't start, so katana crawled the scope's hosts without it (links in the HTML and the scripts, no rendering), {{depth}} levels deep and for up to {{minutes}} minutes: {{count}} URLs, handed to ZAP and nuclei."
+      },
+      "nuclei": {
+        "name": "Detection templates (nuclei)",
+        "progress": "nuclei {{version}}: running detection-only templates on each host and on the crawled pages…",
+        "reason": "nuclei's template {{template}} matched: {{title}}.",
+        "no_templates": "The nuclei templates (release {{release}}) couldn't be downloaded or didn't match their checksum.",
+        "detail_one": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} finding.",
+        "detail_other": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} findings."
+      },
+      "testssl": {
+        "name": "TLS configuration (testssl.sh)",
+        "progress": "testssl.sh {{version}}: reading each host's TLS protocols, ciphers, certificate and HSTS…",
+        "detail_one": "Protocols, ciphers, certificate and HTTP security headers of {{hosts}}. {{count}} finding rated low or worse.",
+        "detail_other": "Protocols, ciphers, certificate and HTTP security headers of {{hosts}}. {{count}} findings rated low or worse.",
+        "detail_capped_one": "Protocols, ciphers, certificate and HTTP security headers of {{hosts}} (the first {{max}} of {{total}} hosts). {{count}} finding rated low or worse.",
+        "detail_capped_other": "Protocols, ciphers, certificate and HTTP security headers of {{hosts}} (the first {{max}} of {{total}} hosts). {{count}} findings rated low or worse."
+      },
+      "httpx": {
+        "name": "Technologies (httpx)",
+        "progress": "httpx {{version}}: naming the technologies each host answers with…",
+        "detail_one": "{{count}} technology named on the scope's hosts ({{hosts}}), shown on the domain's page.",
+        "detail_other": "{{count}} technologies named on the scope's hosts ({{hosts}}), shown on the domain's page."
+      }
+    },
+    "testssl": {
+      "reason": "testssl.sh rates {{check}} on {{host}} as a problem: {{finding}}",
+      "titles": {
+        "sslv2": "SSLv2 is offered",
+        "sslv3": "SSLv3 is offered",
+        "tls1": "TLS 1.0 is offered",
+        "tls1_1": "TLS 1.1 is offered",
+        "hsts": "HSTS is missing or too short",
+        "fs": "Forward secrecy isn't offered",
+        "expiration": "The certificate is expired or about to expire",
+        "trust": "The certificate chain isn't trusted",
+        "name": "The certificate doesn't match the host name",
+        "ciphers": "Weak cipher suites are offered ({{check}})",
+        "certificate": "Certificate problem ({{check}})",
+        "other": "TLS configuration problem ({{check}})"
+      }
     }
   },
   "discovery": {

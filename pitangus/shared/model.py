@@ -67,6 +67,7 @@ class Finding(TypedDict, total=False):
     reason: Message
     remediation: Message
     also_detected_by: list[str]
+    related_rules: list[str]   # equivalent rules of the engines that also reported it
     malicious: bool
     excluded_by: str | None
     excluded_reason: Message | None
@@ -121,4 +122,5 @@ class RunRecord(TypedDict, total=False):
     dependencies: list[dict[str, Any]]
     system_packages: list[dict[str, Any]]
     inventory: dict[str, Any]
+    web_inventory: dict[str, Any]  # dast_scan: the in-scope URLs its crawler found (no query strings)
     unused_dependencies: list[Any]

@@ -24,6 +24,12 @@ by digest. Pitangus neither links nor modifies their code: this is aggregation, 
 | [Checkov](https://github.com/bridgecrewio/checkov) | 3.3.19 | Apache-2.0 | IaC and pipelines | Keep the notices |
 | [zizmor](https://github.com/zizmorcore/zizmor) | 1.30.1 | MIT | GitHub Actions | Keep the copyright notice |
 | [subfinder](https://github.com/projectdiscovery/subfinder) | 2.16.0 | MIT | Related hosts of a domain, from passive sources (with web scans on) | Keep the copyright notice |
+| [ZAP](https://github.com/zaproxy/zaproxy) | 2.17.0 | Apache-2.0 | Passive web and API scans (with web scans on) | Keep the notices |
+| [katana](https://github.com/projectdiscovery/katana) | 1.7.0 | MIT | Crawl of a web scan's hosts, whose URLs feed ZAP and nuclei (with web scans on) | Keep the copyright notice |
+| [nuclei](https://github.com/projectdiscovery/nuclei) | 3.11.1 | MIT | Detection-only templates in web scans (with web scans on) | Keep the copyright notice |
+| [nuclei-templates](https://github.com/projectdiscovery/nuclei-templates) | 10.4.9 | MIT | The templates nuclei runs: downloaded by the worker from the release's archive (SHA-256 pinned), filtered to detection-only ones, never redistributed | Keep the copyright notice |
+| [testssl.sh](https://github.com/testssl/testssl.sh) | 3.2 (image of 2026-10-03) | GPL-2.0 | TLS configuration of a web scan's hosts (with web scans on) | Official image, unmodified, run as a separate process (aggregation, not a derivative work). If you redistribute the image, its source is the upstream project's; if it were modified and distributed, publish those changes under GPL-2.0 |
+| [httpx](https://github.com/projectdiscovery/httpx) | 1.12.0 | MIT | Technologies a web scan's hosts answer with (with web scans on) | Keep the copyright notice |
 
 None of these licenses restricts commercial use or use as a service (SaaS).
 

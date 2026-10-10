@@ -39,7 +39,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from urllib.parse import urlsplit
 
-from pitangus.modules.scanning import openapi_spec, sarif_import
+from pitangus.modules.scanning import openapi_spec, sarif_import, web_merge, web_tools
 from pitangus.modules.scanning.engines import IMAGES, _run, host_path, with_cause
 from pitangus.modules.sources import domains
 from pitangus.shared import log as logging_setup
@@ -61,6 +61,8 @@ PLAN = "/home/zap/plan.yaml"   # in that tmpfs: the plan carries the saved heade
 WORK = "/zap/wrk"
 REPORT = "zap.json"
 SPEC = "spec.json"
+SEEDS = "seeds.txt"         # the URLs katana found, for ZAP to request
+SEED_SECONDS = 2           # more time for ZAP per URL it is handed
 CONTEXT = "pitangus"
 SEVERITIES = ("critical", "high", "medium", "low", "info")
 SCRUB_MIN = 6               # shorter header values aren't secrets, and scrubbing them would mangle the findings
@@ -133,12 +135,14 @@ def _login_context(index: int, user: dict, urls: list[str], patterns: list[str])
             "users": [{"name": f"login-{index}", "credentials": credentials}]}
 
 
-def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=(), api: dict | None = None, users=()) -> dict:
+def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=(), api: dict | None = None, users=(),
+         seeds: str | None = None) -> dict:
     """The Automation Framework plan: inside a context of the scope's hosts only, a spider per listed host (plus the
     OpenAPI import in API mode) and the passive rules; with `headers`, a replacer that adds them to requests for
     those hosts only. `excluded`: hosts saved out of the domain's scope, kept out of the context even if a wildcard
     would match them. With `users` ({login_url, start, totp}), one more context per test user (the same hosts) that
-    signs in through a browser, and a spider (and the import) that runs as that user."""
+    signs in through a browser, and a spider (and the import) that runs as that user. `seeds`: a file (in the
+    container) of in-scope URLs the crawler found, each requested with a GET before the spider starts."""
     extra = [item for item in hosts if item != host]
     excluded = [item for item in excluded if item != host and item not in extra]
     patterns = [host_pattern(host), *(host_pattern(item) for item in extra), *(wildcard_pattern(item) for item in wildcards)]
@@ -149,6 +153,8 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
                      "rules": [{"description": f"pitangus header {index + 1}", "url": scope, "matchType": "req_header",
                                 "matchString": name, "matchRegex": False, "replacementString": value, "tokenProcessing": False}
                                for index, (name, value) in enumerate(headers)]})
+    if seeds:
+        jobs.append({"type": "import", "parameters": {"type": "url", "fileName": seeds}})
     # The spec adds the documented endpoints to the crawl, it doesn't replace it: a site and its API are one target.
     jobs.append({"type": "spider", "parameters": {"context": CONTEXT, "url": url, "maxDuration": SPIDER_MINUTES, "maxDepth": 5,
                                                   "threadCount": 2, "postForm": False, "acceptCookies": True}})
@@ -388,12 +394,21 @@ def _sign_in(users: list[dict], host: str, url: str, pins: dict[str, str], work:
             for login, report, segment in zip(logins, reports, _segments(output, len(users)))]
 
 
+def _tool_progress(report, run: web_tools.ToolRun) -> None:
+    level = "ok" if run.status == "completed" else "info" if run.status == "skipped" else "warn"
+    report(level, msg("scanning.progress.engine", engine=IMAGES[run.key]["name"], detail=run.detail))
+
+
 def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: dict | None = None,
-                headers=(), api: dict | None = None, excluded=(), users=()) -> RunRecord:
+                headers=(), api: dict | None = None, excluded=(), users=(), tools: dict | None = None) -> RunRecord:
     """One passive scan of a verified domain. `address`: the root's checked address, or {host: address} for every
     host of `scope` (`domains.scan_scope`). `headers`: (name, value) pairs to add to the scope's requests. `api`: the
     parsed definition (`openapi_spec.parse`) plus its `source`, for API mode. `excluded`: hosts saved out of scope.
-    `users`: test users to sign in as, with their secrets (`test_users.credentials`)."""
+    `users`: test users to sign in as, with their secrets (`test_users.credentials`). `tools`: the other tools of the
+    scan (`web_tools.readiness()`: None for each one that can run, else why it can't); without it, ZAP alone.
+
+    With them, in this order: katana crawls the scope and its URLs feed ZAP and nuclei; ZAP; nuclei; testssl.sh;
+    httpx. A tool that fails leaves its step partial and the scan goes on."""
     host, url = record["host"], start_url(record)
     scope = scope or {"hosts": [host], "wildcards": []}
     pins = dict(address) if isinstance(address, dict) else {host: address}
@@ -403,6 +418,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     passwords = {value for user in users for value in (user["password"], (user.get("totp") or {}).get("secret") or "") if len(value) >= SCRUB_MIN}
     secrets = sorted(set(secret_parts(headers)) | passwords, key=len, reverse=True)
     extra = [item for item in scope["hosts"] if item != host]
+    ready = dict(tools) if tools is not None else None
 
     def report(level: str, message) -> None:
         if progress:
@@ -410,6 +426,35 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
 
     meta = IMAGES["zap"]
     target = openapi_spec.target_url(api, host, scope["hosts"]) if api else ""
+    work = data_dir / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    patterns_hosts = {"hosts": scope["hosts"], "wildcards": scope["wildcards"],
+                      "excluded": [item for item in excluded if not domains.in_scope(item, {"hosts": scope["hosts"]})]}
+    # Before anything reaches the site: the whole plan, as it would be with every test user, refers to no stray variable.
+    _no_stray_variables(plan(host, url, **patterns_hosts, headers=headers, users=login_plan(users, host, url)[0],
+                             api={"file": f"{WORK}/{SPEC}", "target": target} if api else None, seeds=f"{WORK}/{SEEDS}"))
+    runs: dict[str, web_tools.ToolRun] = {}
+    inventory: list[str] = []
+    roots = list(dict.fromkeys([url, *(f"https://{item}/" for item in extra)]))
+
+    def tool(key: str, call) -> None:
+        if ready is None:
+            return
+        reason = ready.get(key, msg("scanning.web.tools.image_missing", tool=IMAGES[key]["name"]))
+        if reason is not None:
+            runs[key] = web_tools.skipped(key, reason)
+        else:
+            report("info", msg(f"scanning.web.tools.{key}.progress", version=IMAGES[key]["version"]))
+            runs[key] = call()
+        _tool_progress(report, runs[key])
+
+    def crawl():
+        run, urls = web_tools.run_katana(roots, scope["hosts"], pins, work, headers=headers, scrub=lambda value: scrub(value, secrets))
+        inventory.extend(urls)
+        return run
+
+    tool("katana", crawl)
+
     if api:
         report("info", msg("scanning.web.progress.starting_api", version=meta["version"], count=api["endpoints"], target=target))
     else:
@@ -421,15 +466,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     if users:
         report("info", msg("scanning.web.progress.login", count=len(users), names=", ".join(user["name"] for user in users),
                            minutes=LOGIN_SPIDER_MINUTES))
-    started = time.time()
-    work = data_dir / "work"
-    work.mkdir(parents=True, exist_ok=True)
-    patterns_hosts = {"hosts": scope["hosts"], "wildcards": scope["wildcards"],
-                      "excluded": [item for item in excluded if not domains.in_scope(item, {"hosts": scope["hosts"]})]}
     outcomes: list[dict] = []
-    # Before anything signs in: the whole plan, as it would be with every test user, refers to no stray variable.
-    _no_stray_variables(plan(host, url, **patterns_hosts, headers=headers, users=login_plan(users, host, url)[0],
-                             api={"file": f"{WORK}/{SPEC}", "target": target} if api else None))
     if users:
         outcomes = _sign_in(users, host, url, pins, work, patterns_hosts, secrets)
         for outcome in outcomes:
@@ -439,7 +476,9 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         # Who couldn't sign in isn't crawled as: it would only log in again and again, and vouch for nothing.
         users = [user for user, outcome in zip(users, outcomes) if outcome["status"] == "signed_in"]
     logins, environment = login_plan(users, host, url)
-    timeout = TIMEOUT + 60 * EXTRA_SPIDER_MINUTES * len(extra) + 60 * (LOGIN_SPIDER_MINUTES + 1) * len(users)
+    seeds = [item for item in inventory if item not in roots][:web_tools.ZAP_SEEDS_MAX]
+    timeout = TIMEOUT + 60 * EXTRA_SPIDER_MINUTES * len(extra) + 60 * (LOGIN_SPIDER_MINUTES + 1) * len(users) + (SEED_SECONDS * len(seeds))
+    zap_started = time.time()
     with TemporaryDirectory(prefix="web-", dir=work) as temporary:
         # ZAP's user must write in it, so it is open to everyone; its private parent keeps other local users out.
         shared = Path(temporary) / "wrk"
@@ -449,6 +488,10 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
             (shared / SPEC).write_text(openapi_spec.for_zap(api, target), encoding="utf-8")
             (shared / SPEC).chmod(0o644)
             options["api"] = {"file": f"{WORK}/{SPEC}", "target": target}
+        if seeds:
+            (shared / SEEDS).write_text("".join(f"{item}\n" for item in seeds), encoding="utf-8")
+            (shared / SEEDS).chmod(0o644)
+            options["seeds"] = f"{WORK}/{SEEDS}"
         planned = plan(host, url, **options)
         _no_stray_variables(planned)
         text = json.dumps(planned, indent=2) + "\n"
@@ -465,31 +508,54 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         _log.warning("zap_failed", extra={"reason": f"{host}: exit {completed.returncode}"})
         raise WebScanError(with_cause(msg("scanning.web.errors.failed"), _plan_failure(completed)))
     findings, version, results = findings_from(scrub(document, secrets), host, scope=scope)
-    coverage = coverage_key(api, headers, users)
     for finding in findings:
         # The import's generic advice names the next import; here, the next scan is what proves a fix.
         if is_msg(finding.get("remediation")) and finding["remediation"][MARK] == "scanning.sarif.remediation":
             finding["remediation"] = msg("scanning.web.remediation", tool=finding["tool"])
-        finding.setdefault("web", {})["coverage"] = coverage
     complete = completed.returncode == 0
-    failed = [outcome["name"] for outcome in outcomes if outcome["status"] != "signed_in"]
-    duration = round(time.time() - started, 1)
-    severities = {level: sum(1 for item in findings if item["severity"] == level) for level in SEVERITIES}
+    zap_duration = round(time.time() - zap_started, 1)
     report("ok" if complete else "warn", msg("scanning.progress.engine", engine=meta["name"],
                                              detail=msg("scanning.web.detail", count=len(findings), results=results)))
-    tool = {"name": "zap", "version": version or meta["version"], "image": meta["image"], "duration_s": duration}
+
+    technologies: list[dict] = []
+    tool("nuclei", lambda: _nuclei(roots, inventory, scope["hosts"], pins, work, data_dir, headers, secrets, technologies))
+    tool("testssl", lambda: web_tools.run_testssl(scope["hosts"], pins, work))
+
+    def fingerprint():
+        run, detected = web_tools.run_httpx(scope["hosts"], pins, work)
+        technologies.extend(detected)
+        return run
+
+    tool("httpx", fingerprint)
+    others = [finding for key in ("nuclei", "testssl") if key in runs for finding in runs[key].findings]
+    folded = 0
+    if others:
+        findings, folded = web_merge.merge([*findings, *others])
+    coverage = coverage_key(api, headers, users)
+    for finding in findings:
+        finding.setdefault("web", {})["coverage"] = coverage
+    failed = [outcome["name"] for outcome in outcomes if outcome["status"] != "signed_in"]
+    severities = {level: sum(1 for item in findings if item["severity"] == level) for level in SEVERITIES}
+    tool_meta = {"name": "zap", "version": version or meta["version"], "image": meta["image"], "duration_s": zap_duration}
+    zap_findings = sum(1 for item in findings if str(item.get("tool")).lower() == "zap")
     if api:
         first = {"id": "dast", "name": msg("scanning.web.steps.api.name"), "status": "completed" if complete else "partial",
-                 "detail": msg("scanning.web.steps.api.detail", count=api["endpoints"], target=target, findings=len(findings)), "tool": tool}
+                 "detail": msg("scanning.web.steps.api.detail", count=api["endpoints"], target=target, findings=zap_findings), "tool": tool_meta}
     else:
         first = {"id": "dast", "name": msg("scanning.web.steps.passive.name"), "status": "completed" if complete else "partial",
-                 "detail": msg("scanning.web.steps.passive.detail", host=host, minutes=SPIDER_MINUTES, count=len(findings)), "tool": tool}
+                 "detail": msg("scanning.web.steps.passive.detail", host=host, minutes=SPIDER_MINUTES, count=zap_findings), "tool": tool_meta}
+    if seeds:
+        first["detail"] = msg("scanning.web.steps.with_seeds", detail=first["detail"], count=len(seeds))
     if failed:
         first["status"] = "partial"
     steps: list[dict[str, Any]] = [
+        *([runs["katana"].step()] if "katana" in runs else []),
         first,
         *([{"id": "login", "name": msg("scanning.web.steps.login.name"), "status": "partial" if failed else "completed",
             "detail": msg("scanning.web.steps.login.detail", count=len(outcomes), signed_in=len(outcomes) - len(failed))}] if outcomes else []),
+        *(runs[key].step() for key in ("nuclei", "testssl", "httpx") if key in runs),
+        *([{"id": "dast-merge", "name": msg("scanning.web.steps.merge.name"), "status": "completed",
+            "detail": msg("scanning.web.steps.merge.detail", count=folded) if folded else msg("scanning.web.steps.merge.none")}] if others else []),
         {"id": "active", "name": msg("scanning.web.steps.active.name"), "status": "not_tested",
          "detail": msg("scanning.web.steps.active.detail")},
         {"id": "review", "name": msg("scanning.steps.review"), "status": "pending", "detail": msg("scanning.web.steps.review.detail")},
@@ -501,9 +567,20 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                    msg("scanning.web.limitations.api", count=api["endpoints"]) if api
                    else msg("scanning.web.limitations.spider", minutes=SPIDER_MINUTES),
                    *([msg("scanning.web.limitations.wildcards")] if scope["wildcards"] else []),
+                   *([msg("scanning.web.limitations.tools_anonymous")] if runs and users else []),
+                   *(msg("scanning.web.limitations.tool_skipped", tool=IMAGES[key]["name"]) for key, run in runs.items() if run.status == "skipped"),
+                   *(msg("scanning.web.limitations.tool_partial", tool=IMAGES[key]["name"]) for key, run in runs.items() if run.status == "partial"),
+                   *([msg("scanning.web.limitations.nuclei")] if "nuclei" in runs and runs["nuclei"].status != "skipped" else []),
+                   *([msg("scanning.web.limitations.tls_capped", max=web_tools.TESTSSL_HOSTS_MAX)]
+                     if "testssl" in runs and len(scope["hosts"]) > web_tools.TESTSSL_HOSTS_MAX else []),
                    msg("scanning.web.limitations.not_pentest")]
+    rows = web_tools.technologies_of(technologies)
     scanned: dict[str, Any] = {"hosts": scope["hosts"], "wildcards": scope["wildcards"], "headers": [name for name, _ in headers],
                                "test_users": [user["name"] for user in users], "coverage": coverage}
+    summary_tools = [{"name": "ZAP", "version": tool_meta["version"], "status": "completed" if complete else "inconclusive"}]
+    # A tool that didn't finish (or didn't run) is blind in this scan: what only it saw before isn't marked fixed.
+    summary_tools += [{"name": key, "version": IMAGES[key]["version"],
+                       "status": "completed" if run.status == "completed" else "inconclusive"} for key, run in runs.items()]
     result: RunRecord = {
         # A test user that couldn't sign in leaves the run incomplete: "no findings" behind its login proves nothing.
         "type": "dast_scan", "status": "completed" if complete and not failed else "incomplete",
@@ -515,8 +592,17 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                     "severities": severities,
                     "priorities": {action: sum(1 for item in findings if item["priority"]["action"] == action)
                                    for action in ("act", "attend", "track")},
-                    "kev": 0, "fixable": 0,
-                    "tools": [{"name": "ZAP", "version": tool["version"], "status": "completed" if complete else "inconclusive"}]}}
+                    "kev": 0, "fixable": 0, "tools": summary_tools,
+                    **({"technologies": rows} if "httpx" in runs or rows else {})}}
+    if "katana" in runs:
+        result["web_inventory"] = {"tool": "katana", "count": len(inventory), "urls": inventory}
     if api:
         result["api"] = {"sha256": api["sha256"], "endpoints": api["endpoints"], "source": api.get("source", "upload")}
     return result
+
+
+def _nuclei(roots, inventory, hosts, pins, work, data_dir, headers, secrets, technologies):
+    run, detected = web_tools.run_nuclei(roots, inventory, hosts, pins, work, data_dir / "nuclei-templates", headers=headers,
+                                         scrub=lambda value: scrub(value, secrets))
+    technologies.extend(detected)
+    return run

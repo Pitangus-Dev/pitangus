@@ -23,6 +23,26 @@ between minor versions: anything that changes behaviour is called out below.
 - **Domains list and page.** "Add domain" sits next to the page title, a search filters the list ("Showing N of M"),
   and the whole row opens the domain. The domain's Overview ends with a **Disconnect domain** section that says
   exactly what is deleted; the action left the page's "…" menu.
+- **Passive web scans run four more tools, still without attacking.** With their images pulled (`make engines` with
+  `PITANGUS_DAST_ENABLED=1`; each pinned by version and multi-arch digest), a `dast_scan` runs katana 1.7.0
+  (`projectdiscovery/katana`, a crawl with a headless browser whose in-scope URLs, without query strings, are stored
+  with the run as `web_inventory` and handed to ZAP through an `import` job and to nuclei), ZAP, nuclei 3.11.1
+  (`projectdiscovery/nuclei`) with nuclei-templates 10.4.9 downloaded once by the worker (SHA-256 pinned) and filtered
+  to detection-only templates (GET/HEAD, no body, no fuzzing, no out-of-band calls, no attack markers or tags; CVE
+  templates read fixed paths only), testssl.sh 3.2 (`ghcr.io/testssl/testssl.sh`, the project's own image; protocols,
+  ciphers, certificate, HSTS, no vulnerability checks) on the first 3 hosts, and httpx 1.12.0
+  (`projectdiscovery/httpx`), whose technologies land in the run's `summary.technologies` and on the domain's page
+  (`last_scan.technologies` in `GET /api/domains`). Every tool runs in the hardened container with the scan's pinned
+  addresses only, a dead resolver for ProjectDiscovery's own DNS client, at most 10 requests a second and a hard
+  timeout; katana and nuclei get the saved headers on standard input when the scan asked for them. Each tool has a
+  step (`dast-katana`, `dast-nuclei`, `dast-testssl`, `dast-httpx`: completed, partial or skipped with the reason); a
+  tool that fails leaves its step partial, the scan goes on and its earlier findings aren't marked fixed. When ZAP,
+  nuclei or testssl.sh report the same problem at the same URL (an explicit table: security headers, cookie flags,
+  HSTS, deprecated TLS and weak ciphers, certificate problems, exposed `.git` or `.env`) it's one finding with
+  `also_detected_by`, `related_rules` and each tool's evidence in `web.also`. The panel names every tool on the run and
+  its findings, shows what the other tools saw on a web finding, a **Skipped** step state, and the technologies on the
+  domain's page.
+
 - **Related hosts and a scope saved per domain.** Adding a domain (with `PITANGUS_DAST_ENABLED=1`) queues a discovery
   job: subfinder 2.16.0 (`projectdiscovery/subfinder`, pinned by digest, pulled by `make engines` with web scans on)
   asks passive sources for names under the domain, with no API keys and a hard timeout, in the usual hardened container.

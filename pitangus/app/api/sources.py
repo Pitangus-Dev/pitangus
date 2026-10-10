@@ -336,6 +336,10 @@ def _domain_rows(context: Context, records: list[dict]) -> list[dict]:
         counted[key] = counted.get(key, 0) + 1
         if row.get("type") == "dast_scan" and key not in latest:  # newest first
             latest[key] = {name: row.get(name) for name in ("id", "status", "created_at", "finished_at", "variant")}
+        technologies = (row.get("summary") or {}).get("technologies") if row.get("type") == "dast_scan" else None
+        if technologies is not None and key in latest and "technologies" not in latest[key]:
+            # What the newest scan that fingerprinted the hosts saw, and when.
+            latest[key]["technologies"] = {"items": technologies, "run_id": row.get("id"), "created_at": row.get("created_at")}
     rows = []
     for record in records:
         runs = counted.get(record["key"], 0)

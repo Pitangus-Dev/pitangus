@@ -47,8 +47,9 @@ from pitangus.shared.model import EngineResult, Finding
 
 RULES_DIR = paths.RULES_DIR
 ENGINE_TMPFS = "1g"
-# Opengrep's release binary unpacks its bundled runtime into /tmp and runs it from there.
-EXEC_FROM_TMP = {"opengrep"}
+# Opengrep's release binary unpacks its bundled runtime into /tmp and runs it from there; so does katana's browser
+# driver (go-rod's leakless helper).
+EXEC_FROM_TMP = {"opengrep", "katana"}
 IMAGES = {
     "trivy": {"name": "Trivy", "version": "0.75.0",
               "image": "aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"},
@@ -73,10 +74,21 @@ IMAGES = {
     # Hosts related to a verified domain, from passive sources (scanning/discovery.py): ~25 MB, Docker runner only.
     "subfinder": {"name": "subfinder", "version": "2.16.0",
                   "image": "projectdiscovery/subfinder:v2.16.0@sha256:c0f4683f91e8e30fbb5bf45051ef45e245ef48424b0d5bc99f8a72cb45163ea9"},
+    # The rest of a passive web scan (scanning/web_tools.py), Docker runner only: a crawler whose URLs feed ZAP and
+    # nuclei, nuclei with detection-only templates, TLS checks and technology fingerprints.
+    "katana": {"name": "katana", "version": "1.7.0",
+               "image": "projectdiscovery/katana:v1.7.0@sha256:4e9fce12c507e1ca455baf493e14b899db5f2e0ed22ba62591aa42300487a947"},
+    "nuclei": {"name": "nuclei", "version": "3.11.1",
+               "image": "projectdiscovery/nuclei:v3.11.1@sha256:582d5546902e67052097cb2d07296c642d50a1afc5e44623cb038845df9a32eb"},
+    # The testssl.sh project's own image (moved from drwetter/ to the testssl organization): the 3.2 branch, multi-arch.
+    "testssl": {"name": "testssl.sh", "version": "3.2",
+                "image": "ghcr.io/testssl/testssl.sh:3.2@sha256:51918b1e954df0acee8c08d3ad5ce306710e4fefe49ed0e0f92728ecf9e7ff34"},
+    "httpx": {"name": "httpx", "version": "1.12.0",
+              "image": "projectdiscovery/httpx:v1.12.0@sha256:f8275a7c6aaec187249df9eaf4ad9196f4677adfc6a51a47b4aaa1d4db4f8ffc"},
 }
 # Engines that reach the internet for a domain instead of reading a snapshot: pulled and listed only with
 # PITANGUS_DAST_ENABLED.
-WEB_ENGINES = frozenset({"zap", "subfinder"})
+WEB_ENGINES = frozenset({"zap", "subfinder", "katana", "nuclei", "testssl", "httpx"})
 # Languages with our own rules and the extensions that identify them in the snapshot.
 RULE_LANGUAGES = {
     "JavaScript": {".js", ".jsx", ".mjs", ".cjs"}, "TypeScript": {".ts", ".tsx"}, "Python": {".py"},
@@ -445,19 +457,21 @@ def writable_cache(preferred: Path) -> Path:
 def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool = False,
          mounts: list[str] | None = None, timeout: int = 900, env: dict[str, str] | None = None,
          secret_env: dict[str, str] | None = None, hosts: dict[str, str] | None = None,
-         image_user: bool = False, stdin: str | None = None, pinned_only: bool = False) -> subprocess.CompletedProcess:
+         image_user: bool = False, stdin: str | None = None, pinned_only: bool = False,
+         entrypoint: str | None = None) -> subprocess.CompletedProcess:
     """The engine's ephemeral container. `secret_env` travels through the Docker client's environment
     (`-e NAME` with no value), never on the command line, so it doesn't show in `ps` or in the logs.
     `hosts`: names the container resolves to a fixed address ({name: address}), already checked by the caller;
     `pinned_only`: those are the only names it resolves (its DNS server is its own loopback, where nothing answers).
     `image_user`: run as the image's own user (ZAP's Java takes its home from passwd), never with a snapshot.
-    `stdin`: text handed to the container on its standard input (secrets that must never land in a file)."""
+    `stdin`: text handed to the container on its standard input (secrets that must never land in a file).
+    `entrypoint`: the program to start instead of the image's own (a shell that reads that input first)."""
     if image_user and snapshot is not None:
         raise ValueError("an engine running as its image's user never mounts a snapshot")
     if pinned_only and not hosts:
         raise ValueError("pinned_only needs the pinned hosts")
     if runner() == "local":
-        if stdin is not None or pinned_only:
+        if stdin is not None or pinned_only or entrypoint is not None:
             raise ValueError("standard input and pinned-only resolution need the Docker runner")
         return _run_local(key, arguments, snapshot, mounts=mounts, timeout=timeout, env=env, secret_env=secret_env, network=network)
     environment = [part for name, value in (env or {}).items() for part in ("-e", f"{name}={value}")]
@@ -475,7 +489,8 @@ def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool
                *(["--dns", "127.0.0.1"] if pinned_only else []),
                # An image built here has no digest: never let Docker fetch that name from a registry instead.
                *([] if "@sha256:" in IMAGES[key]["image"] else ["--pull", "never"]),
-               *source, *environment, *(mounts or []), IMAGES[key]["image"], *arguments]
+               *source, *environment, *(mounts or []), *(["--entrypoint", entrypoint] if entrypoint else []),
+               IMAGES[key]["image"], *arguments]
     process_env = {**os.environ, **(secret_env or {})} if secret_env else None
     try:
         return subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=process_env, input=stdin)
