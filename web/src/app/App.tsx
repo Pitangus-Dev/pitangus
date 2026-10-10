@@ -2,11 +2,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { healthQuery, keys, runsQuery } from '@/shared/api/queries'
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import {
-  Boxes, ChevronRight, Clock3, GitPullRequest, Globe2, LayoutDashboard, Network,
-  Landmark, LogOut, Menu, Monitor, Moon, Play, PlugZap, Radar, ScrollText, SearchCheck, Shield, ShieldAlert, Sun, Layers3, UsersRound,
-  Bug,
-} from 'lucide-react'
+import { ChevronRight, Clock3, LogOut, Menu, Monitor, Moon, Play, Search, Sun } from 'lucide-react'
+import { navigation, visibleNavigation, type View } from '@/app/navigation'
+import { CommandPalette } from '@/app/command-palette'
+import { ShortcutsHelp } from '@/app/shortcuts-help'
+import { dialogOpen, isMac, useShortcuts } from '@/shared/lib/shortcuts'
+import { Keys } from '@/shared/ui/kbd'
 import { BrandLockup } from '@/shared/ui/brand-mark'
 import { BRAND } from '@/shared/lib/brand'
 import { CodeSources } from '@/features/sources/code-sources'
@@ -42,34 +43,10 @@ import { Button } from '@/shared/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/shared/ui/sheet'
 
-type View = 'overview' | 'analyses' | 'new' | 'findings' | 'coverage' | 'repositories' | 'images' | 'domains' | 'domain' | 'integrations' | 'account' | 'users' | 'pulls' | 'threats' | 'cves' | 'compliance' | 'policies'
 type Theme = 'system' | 'light' | 'dark'
 // Unknown or retired tabs (the old `access`, now part of the overview) open the overview.
 const domainTabOf = (tab: string | null): DomainTab => tab === 'findings' || tab === 'scans' || tab === 'scope' || tab === 'users' ? tab : 'overview'
 
-// Ley de Hick: tres grupos con nombre en vez de doce opciones seguidas.
-const navigation: { id: string; label: string; items: { id: View; label: string; icon: typeof Shield }[] }[] = [
-  { id: 'risk', label: 'groups.risk', items: [
-    { id: 'overview', label: 'items.overview', icon: LayoutDashboard },
-    { id: 'findings', label: 'items.findings', icon: ShieldAlert },
-    { id: 'threats', label: 'items.threats', icon: Network },
-    { id: 'coverage', label: 'items.coverage', icon: Radar },
-    { id: 'cves', label: 'items.cves', icon: Bug },
-    { id: 'compliance', label: 'items.compliance', icon: Landmark },
-  ] },
-  { id: 'scanning', label: 'groups.scanning', items: [
-    { id: 'analyses', label: 'items.analyses', icon: SearchCheck },
-    { id: 'repositories', label: 'items.repositories', icon: Layers3 },
-    { id: 'images', label: 'items.images', icon: Boxes },
-    { id: 'domains', label: 'items.domains', icon: Globe2 },
-    { id: 'pulls', label: 'items.pulls', icon: GitPullRequest },
-  ] },
-  { id: 'settings', label: 'groups.settings', items: [
-    { id: 'policies', label: 'items.policies', icon: ScrollText },
-    { id: 'integrations', label: 'items.integrations', icon: PlugZap },
-    { id: 'users', label: 'items.users', icon: UsersRound },
-  ] },
-]
 const DESCRIPTION: Partial<Record<View, string>> = {
   overview: 'descriptions.overview', analyses: 'descriptions.analyses', repositories: 'descriptions.repositories', images: 'descriptions.images',
   domains: 'descriptions.domains', integrations: 'descriptions.integrations', account: 'descriptions.account', users: 'descriptions.users',
@@ -179,13 +156,34 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
 
   // El asistente vive dentro de Análisis: la sección sigue marcada mientras se crea una ejecución.
   const activeNav: View = view === 'new' ? 'analyses' : view === 'domain' ? 'domains' : view
-  // Usuarios es solo para administradores; el servidor lo impone igualmente.
-  const nav = <nav aria-label={t('main')} className="space-y-5">{navigation.map(group => {
-    const items = group.items.filter(item => item.id !== 'users' || user.role === 'admin')
+  const admin = user.role === 'admin'
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [addDomainRequest, setAddDomainRequest] = useState(0)
+  // A new key remounts the list, which reads `add` from the address and opens its form.
+  const addDomain = () => { setAddDomainRequest(count => count + 1); setView('domains'); setMobileOpen(false); writeRoute('domains', { add: '1' }) }
+  const openPalette = () => { setMobileOpen(false); setPaletteOpen(true) }
+  useShortcuts({
+    // ⌘K closes the palette too, but doesn't open it over another dialog.
+    palette: () => setPaletteOpen(open => open ? false : !dialogOpen()),
+    help: () => setHelpOpen(true),
+    create: () => selectView('new'),
+    go: letter => {
+      const item = visibleNavigation(admin).flatMap(group => group.items).find(entry => entry.go === letter)
+      if (item) selectView(item.id)
+      return !!item
+    },
+  })
+  const paletteKeys = [isMac() ? '⌘' : 'Ctrl', 'K']
+  const search = <button type="button" onClick={openPalette} aria-keyshortcuts={isMac() ? 'Meta+K' : 'Control+K'}
+    className="flex min-h-8 w-full items-center gap-2 rounded-lg border border-app-line bg-app px-3 py-1.5 text-left text-sm text-app-muted transition hover:bg-app-soft hover:text-app-fg">
+    <Search aria-hidden className="size-4" /><span className="flex-1">{t('palette.trigger')}</span><Keys keys={paletteKeys} className="max-lg:hidden" />
+  </button>
+  const nav = <nav aria-label={t('main')} className="space-y-5">{visibleNavigation(admin).map(group => {
     const id = `nav-${group.id}`
     return <div key={group.id} role="group" aria-labelledby={id} className="space-y-1">
       <p id={id} className="px-3 pb-1 text-xs font-medium text-app-subtle">{t(group.label)}</p>
-      {items.map(item => <button key={item.id} onClick={() => selectView(item.id)} aria-current={activeNav === item.id ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${activeNav === item.id ? 'bg-panel font-medium text-app-fg shadow-[inset_2px_0_0_var(--brand)] ring-1 ring-app-line' : 'text-app-muted hover:bg-app-soft hover:text-app-fg'}`}><item.icon aria-hidden className="size-4" />{t(item.label)}</button>)}
+      {group.items.map(item => <button key={item.id} onClick={() => selectView(item.id)} title={t('shortcuts.go_hint', { key: item.go.toUpperCase() })} aria-current={activeNav === item.id ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${activeNav === item.id ? 'bg-panel font-medium text-app-fg shadow-[inset_2px_0_0_var(--brand)] ring-1 ring-app-line' : 'text-app-muted hover:bg-app-soft hover:text-app-fg'}`}><item.icon aria-hidden className="size-4" />{t(item.label)}</button>)}
     </div>
   })}</nav>
 
@@ -209,7 +207,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
     if (view === 'analyses') return <AnalysisList refreshKey={rows.length * 1000 + rows.filter(row => row.status === 'running' || row.status === 'queued').length} onOpen={id => openRun(id, 'findings')} onNew={() => selectView('new')} viewer={{ username: user.username, admin: user.role === 'admin' }} />
     if (view === 'repositories') return <CodeSources showRepositories runs={rows} onScan={scanSource} onImages={openImages} canManage={user.role === 'admin'} />
     if (view === 'images') return <Images key={readRoute().params.get('repo') ?? 'all'} admin={user.role === 'admin'} onOpenFindings={openAssetFindings} onNew={() => selectView('new')} />
-    if (view === 'domains') return <DomainList admin={user.role === 'admin'} onOpenDomain={openDomain} onNewScan={scanDomain} />
+    if (view === 'domains') return <DomainList key={addDomainRequest} admin={user.role === 'admin'} onOpenDomain={openDomain} onNewScan={scanDomain} />
     if (view === 'domain') return <Domain key={domainRoute.id} domainId={domainRoute.id} tab={domainRoute.tab} onTab={domainTab} user={user} onBack={() => selectView('domains')}
       onNewScan={scanDomain} onOpenRun={id => openRun(id, 'findings')} onImport={importResults} onOpenPolicies={() => selectView('policies')} />
     if (view === 'overview') return <Dashboard onOpenRun={id => openRun(id, 'findings')} onNew={() => selectView('new')} onNavigate={view => selectView(view as View)} onTracker={openTracker} />
@@ -227,8 +225,8 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   }
 
   return <div className="min-h-screen bg-app text-app-fg"><TopProgress /><div className="flex min-h-screen">
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-app-line bg-inset px-4 py-6 lg:flex"><div className="mb-7 px-2"><BrandLockup /></div>{nav}<div className="mt-auto">{userCard}</div></aside>
-    <div className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-app-line bg-app px-4 sm:px-8"><div className="flex items-center gap-3"><Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetTrigger render={<Button aria-label={t('open_navigation')} variant="ghost" size="icon" className="lg:hidden" />}><Menu /></SheetTrigger><SheetContent side="left" className="w-72 border-app-line bg-inset"><SheetHeader><SheetTitle className="text-left"><BrandLockup size={32} /></SheetTitle></SheetHeader><div className="space-y-6 px-3">{nav}{userCard}</div></SheetContent></Sheet><span className="hidden text-sm text-app-muted sm:inline">{t('workspace')}</span><ChevronRight className="hidden size-3 text-app-subtle sm:block" /><span className="text-sm font-medium">{currentTitle}</span></div><div className="flex items-center gap-3"><JiraBackgroundWork onNotice={toasts.push} /><LocaleSwitch /><Select value={theme} onValueChange={value => setTheme(value as Theme)}><SelectTrigger aria-label={t('theme.label')} size="sm" className="min-w-28 border-app-line bg-app-soft text-app-secondary sm:min-w-32">{theme === 'dark' ? <Moon className="size-3.5" /> : theme === 'light' ? <Sun className="size-3.5" /> : <Monitor className="size-3.5" />}<span className="min-w-0 flex-1 text-left">{theme === 'system' ? t('theme.system') : theme === 'light' ? t('theme.light') : t('theme.dark')}</span></SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="system">{t('theme.system')}</SelectItem><SelectItem value="light">{t('theme.light')}</SelectItem><SelectItem value="dark">{t('theme.dark')}</SelectItem></SelectContent></Select>{health.isPending ? <Bone className="hidden h-5 w-32 sm:block" /> : version && <Badge variant="outline" className="hidden border-app-line text-app-muted sm:inline-flex">{t('edition', { version })}</Badge>}<Button variant="outline" aria-label={t('items.new')} onClick={() => selectView('new')}><Play /><span className="hidden sm:inline">{t('items.new')}</span></Button></div></header>
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-app-line bg-inset px-4 py-6 lg:flex"><div className="mb-5 px-2"><BrandLockup /></div><div className="mb-5">{search}</div>{nav}<div className="mt-auto">{userCard}</div></aside>
+    <div className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-app-line bg-app px-4 sm:px-8"><div className="flex items-center gap-3"><Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetTrigger render={<Button aria-label={t('open_navigation')} variant="ghost" size="icon" className="lg:hidden" />}><Menu /></SheetTrigger><SheetContent side="left" className="w-72 border-app-line bg-inset"><SheetHeader><SheetTitle className="text-left"><BrandLockup size={32} /></SheetTitle></SheetHeader><div className="space-y-6 px-3">{search}{nav}{userCard}</div></SheetContent></Sheet><span className="hidden text-sm text-app-muted sm:inline">{t('workspace')}</span><ChevronRight className="hidden size-3 text-app-subtle sm:block" /><span className="text-sm font-medium">{currentTitle}</span></div><div className="flex items-center gap-3"><JiraBackgroundWork onNotice={toasts.push} /><LocaleSwitch /><Select value={theme} onValueChange={value => setTheme(value as Theme)}><SelectTrigger aria-label={t('theme.label')} size="sm" className="min-w-28 border-app-line bg-app-soft text-app-secondary sm:min-w-32">{theme === 'dark' ? <Moon className="size-3.5" /> : theme === 'light' ? <Sun className="size-3.5" /> : <Monitor className="size-3.5" />}<span className="min-w-0 flex-1 text-left">{theme === 'system' ? t('theme.system') : theme === 'light' ? t('theme.light') : t('theme.dark')}</span></SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="system">{t('theme.system')}</SelectItem><SelectItem value="light">{t('theme.light')}</SelectItem><SelectItem value="dark">{t('theme.dark')}</SelectItem></SelectContent></Select>{health.isPending ? <Bone className="hidden h-5 w-32 sm:block" /> : version && <Badge variant="outline" className="hidden border-app-line text-app-muted sm:inline-flex">{t('edition', { version })}</Badge>}<Button variant="outline" aria-label={t('items.new')} onClick={() => selectView('new')}><Play /><span className="hidden sm:inline">{t('items.new')}</span></Button></div></header>
     <main className="mx-auto max-w-[1520px] space-y-6 px-4 py-6 sm:px-8 sm:py-8">{view !== 'domain' && <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-2xl font-semibold tracking-tight">{currentTitle}</h1>{view !== 'new' && <p className="mt-1 max-w-2xl text-sm text-app-muted">{t(DESCRIPTION[view] ?? 'descriptions.default')}</p>}</div>{latest && view !== 'new' && <div className="flex items-center gap-2 text-xs text-app-subtle"><Clock3 className="size-3.5" />{t('last_run', { date: formatDate(latest.created_at) })}</div>}</div>}
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>}
       {/* Server text is fetched in the reader's language: remount views when it changes. */}
@@ -238,7 +236,11 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
         source: <a href={BRAND.repo} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline" />,
       }} /></footer>
     </main></div>
-  </div>{toasts.view}<UpdateNotice /></div>
+  </div>{toasts.view}<UpdateNotice />
+    <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} admin={admin} onView={selectView} onImport={importResults} onAddDomain={addDomain}
+      onHelp={() => setHelpOpen(true)} onOpenRun={id => void openRun(id, 'findings')} onOpenDomain={id => openDomain({ id })} onOpenAsset={openAssetFindings} />
+    <ShortcutsHelp open={helpOpen} onOpenChange={setHelpOpen} admin={admin} />
+  </div>
 }
 
 export default App

@@ -64,5 +64,58 @@
     "message": "Hay una versión nueva del panel. Recarga para usarla; guarda antes lo que tengas sin guardar.",
     "reload": "Recargar"
   },
-  "edition": "Autoalojado · v{{version}}"
+  "edition": "Autoalojado · v{{version}}",
+  "palette": {
+    "trigger": "Buscar…",
+    "title": "Búsqueda y comandos",
+    "search_label": "Busca páginas, análisis, repositorios y dominios",
+    "placeholder": "Busca páginas, análisis, repositorios, dominios…",
+    "results": "Resultados",
+    "groups": {
+      "actions": "Acciones",
+      "pages": "Páginas",
+      "recent_runs": "Análisis recientes",
+      "runs": "Análisis",
+      "assets": "Repositorios e imágenes",
+      "domains": "Dominios y APIs"
+    },
+    "actions": {
+      "new_scan": "Nuevo análisis",
+      "import_sarif": "Importar resultados SARIF",
+      "add_domain": "Añadir un dominio",
+      "connect_provider": "Conectar un proveedor de código",
+      "shortcuts": "Atajos de teclado"
+    },
+    "view_all": {
+      "runs": "Ver todos los análisis",
+      "repositories": "Ver todos los repositorios",
+      "domains": "Ver todos los dominios"
+    },
+    "open_findings_one": "{{count}} hallazgo abierto",
+    "open_findings_other": "{{count}} hallazgos abiertos",
+    "searching": "Buscando…",
+    "count_one": "{{count}} resultado",
+    "count_other": "{{count}} resultados",
+    "empty": "Nada coincide con «{{query}}».",
+    "hint": {
+      "move": "Moverte",
+      "open": "Abrir",
+      "close": "Cerrar"
+    }
+  },
+  "shortcuts": {
+    "title": "Atajos de teclado",
+    "description": "Funcionan en todo el panel, salvo mientras escribes en un campo o hay un diálogo abierto.",
+    "general": "Generales",
+    "pages": "Ir a una página (pulsa G y luego la letra)",
+    "palette": "Búsqueda y comandos",
+    "new_scan": "Nuevo análisis",
+    "help": "Ver estos atajos",
+    "go_hint": "Atajo: G y luego {{key}}",
+    "spoken": {
+      "command_k": "Comando K",
+      "control_k": "Control K",
+      "then": "G y luego {{key}}"
+    }
+  }
 }

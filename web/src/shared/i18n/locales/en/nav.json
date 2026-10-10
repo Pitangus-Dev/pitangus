@@ -64,5 +64,58 @@
     "message": "A new version of the panel is available. Reload to use it, but save any unsaved work first.",
     "reload": "Reload"
   },
-  "edition": "Self-hosted · v{{version}}"
+  "edition": "Self-hosted · v{{version}}",
+  "palette": {
+    "trigger": "Search…",
+    "title": "Search and commands",
+    "search_label": "Search pages, scans, repositories and domains",
+    "placeholder": "Search pages, scans, repositories, domains…",
+    "results": "Results",
+    "groups": {
+      "actions": "Actions",
+      "pages": "Pages",
+      "recent_runs": "Recent scans",
+      "runs": "Scans",
+      "assets": "Repositories and images",
+      "domains": "Domains & APIs"
+    },
+    "actions": {
+      "new_scan": "New scan",
+      "import_sarif": "Import SARIF results",
+      "add_domain": "Add a domain",
+      "connect_provider": "Connect a code provider",
+      "shortcuts": "Keyboard shortcuts"
+    },
+    "view_all": {
+      "runs": "View all scans",
+      "repositories": "View all repositories",
+      "domains": "View all domains"
+    },
+    "open_findings_one": "{{count}} open finding",
+    "open_findings_other": "{{count}} open findings",
+    "searching": "Searching…",
+    "count_one": "{{count}} result",
+    "count_other": "{{count}} results",
+    "empty": "Nothing matches “{{query}}”.",
+    "hint": {
+      "move": "Move",
+      "open": "Open",
+      "close": "Close"
+    }
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "description": "They work anywhere in the panel, except while you type in a field or a dialog is open.",
+    "general": "General",
+    "pages": "Go to a page (press G, then the letter)",
+    "palette": "Search and commands",
+    "new_scan": "New scan",
+    "help": "Show these shortcuts",
+    "go_hint": "Shortcut: G then {{key}}",
+    "spoken": {
+      "command_k": "Command K",
+      "control_k": "Control K",
+      "then": "G, then {{key}}"
+    }
+  }
 }

@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Globe2, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { domainsQuery, keys } from '@/shared/api/queries'
+import { readRoute, setRouteParam } from '@/shared/lib/route'
 import { formatDay } from '@/shared/i18n/format'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
@@ -25,7 +26,10 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
   const { t } = useTranslation('sources')
   const queryClient = useQueryClient()
   const addOpener = useRef<HTMLButtonElement>(null)
-  const [adding, setAdding] = useState(false)
+  // #/domains?add=1 (the command palette's "Add domain") opens the form once; the parameter goes away so Back and a
+  // refresh don't open it again.
+  const [adding, setAdding] = useState(() => admin && readRoute().params.get('add') === '1')
+  useEffect(() => { if (readRoute().params.has('add')) setRouteParam('add', null) }, [])
   const [verifying, setVerifying] = useState<Domain | null>(null)
   const [notice, setNotice] = useState('')
   const [search, setSearch] = useState('')

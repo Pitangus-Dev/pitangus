@@ -171,6 +171,11 @@ export const assetRunsQuery = (key: string, q: string) => queryOptions({
   queryKey: [...keys.runs, 'asset', key, q], staleTime: 30_000,
   queryFn: ({ signal }) => api.get<Page<RunRow>>(`/api/runs/page?${query({ asset: key, type: 'repository_scan,image_scan,dast_scan,pr_review,sarif_import', q: q || undefined, limit: 50 })}`, { signal }),
 })
+// The newest runs, or those matching `q`, for the command palette.
+export const runSearchQuery = (q: string, limit = 5) => queryOptions({
+  queryKey: [...keys.runs, 'search', q, limit], staleTime: 30_000,
+  queryFn: ({ signal }) => api.get<Page<RunRow>>(`/api/runs/page?${query({ q: q || undefined, limit })}`, { signal }),
+})
 
 // Jira: the credential's status is anyone's; routing and discovery are for administrators.
 export type JiraStatus = Response<'/api/integrations/jira'>
