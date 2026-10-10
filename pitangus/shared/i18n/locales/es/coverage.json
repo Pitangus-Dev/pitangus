@@ -35,5 +35,12 @@
   "no_engine": "ningún motor ejecutado cubre esta categoría en este repositorio",
   "with_findings_one": "{{reason}}. {{count}} hallazgo.",
   "with_findings_other": "{{reason}}. {{count}} hallazgos.",
-  "without_findings": "{{reason}}. Sin hallazgos."
+  "without_findings": "{{reason}}. Sin hallazgos.",
+  "web": {
+    "passive": "revisado de forma pasiva por {{tools}}",
+    "not_run": "las herramientas que lo revisan de forma pasiva no corrieron en este análisis",
+    "active": "requiere pruebas activas (ataques enviados al sitio), que este análisis pasivo no hace",
+    "design": "Diseño inseguro: requiere modelado de amenazas y revisión de arquitectura; un análisis desde fuera no lo muestra.",
+    "logging": "El registro y las alertas no se ven desde fuera de la aplicación: revísalos con el equipo que la opera."
+  }
 }

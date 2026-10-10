@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from pitangus.modules.reporting import dashboard
 from pitangus.modules.intel.advisories import _parse_nvd
-from pitangus.modules.scanning.coverage import owasp_coverage, rules_by_category
+from pitangus.modules.scanning.coverage import owasp_coverage, rules_by_category, web_owasp_coverage
 from pitangus.shared.i18n import localize
 from pitangus.modules.runs.store import list_runs, page_runs, save_repository_scan
 
@@ -121,6 +121,32 @@ class CoverageTests(unittest.TestCase):
                                                                        iac_files=0, secrets_ran=True, engines=False))}
         self.assertEqual(without["A03"]["status"], "not_tested")
         self.assertIn("reglas AST internas", without["A05"]["reason"])
+
+
+    def test_web_coverage_counts_what_a_passive_scan_checked(self):
+        steps = [{"id": "dast", "status": "completed"}, {"id": "dast-nuclei", "status": "completed"},
+                 {"id": "dast-testssl", "status": "skipped"}, {"id": "dast-versions", "status": "completed"},
+                 {"id": "active", "status": "not_tested"}]
+        findings = [{"tool": "zap", "owasp": ["A02:2025"]}, {"tool": "zap", "owasp": ["A02:2025", "A06:2025"]},
+                    {"tool": "nuclei", "owasp": ["A05:2025"]}]
+        rows = {item["id"]: item for item in localize(web_owasp_coverage(findings, steps), "en")}
+        self.assertEqual(rows["A02"]["status"], "partial")
+        self.assertEqual(rows["A02"]["findings"], 2)
+        self.assertIn("ZAP and nuclei", rows["A02"]["reason"])
+        self.assertIn("httpx + OSV", rows["A03"]["reason"])
+        # testssl.sh didn't run, but ZAP's passive rules still look at cookies and HSTS.
+        self.assertEqual(rows["A04"]["status"], "partial")
+        self.assertNotIn("testssl", rows["A04"]["reason"])
+        # A finding in a category no passive check is listed for still marks it as checked, by its tool.
+        self.assertEqual(rows["A05"]["status"], "partial")
+        self.assertIn("nuclei", rows["A05"]["reason"])
+        self.assertEqual(rows["A06"]["status"], "partial")
+        self.assertEqual(rows["A07"]["status"], "not_tested")
+        self.assertIn("active testing", rows["A07"]["reason"])
+        self.assertIn("outside the application", rows["A09"]["reason"])
+        nothing = {item["id"]: item for item in localize(web_owasp_coverage([], [{"id": "dast", "status": "skipped"}]), "es")}
+        self.assertEqual({item["status"] for item in nothing.values()}, {"not_tested"})
+        self.assertIn("no corrieron", nothing["A02"]["reason"])
 
 
 class DashboardTests(unittest.TestCase):

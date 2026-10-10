@@ -119,6 +119,17 @@ def delete_runs(data_dir: Path, run_ids: list[str]) -> int:
         return connection.execute(delete(runs).where(runs.c.tenant_id == TENANT, runs.c.id.in_([_check_id(item) for item in run_ids]))).rowcount
 
 
+def with_web_coverage(record: dict) -> dict:
+    """A web scan with its OWASP coverage, from its steps and its findings' categories. The categories come from the
+    findings' CWEs (findings/references.py), so it is also computed when a run is served: older web scans get it too."""
+    if record.get("type") != "dast_scan":
+        return record
+    from pitangus.modules.findings.references import owasp_of
+    from pitangus.modules.scanning.coverage import web_owasp_coverage
+    findings = [{**finding, "owasp": owasp_of(finding)} for finding in record.get("findings") or []]
+    return {**record, "owasp_coverage": web_owasp_coverage(findings, record.get("steps") or [])}
+
+
 def save_repository_scan(data_dir: Path, scan: RunRecord, *, run_id: str | None = None, created_at: str | None = None) -> RunRecord:
     return save_and_apply(data_dir, scan, run_id=run_id, created_at=created_at)[0]
 
@@ -135,6 +146,7 @@ def save_and_apply(data_dir: Path, scan: RunRecord, *, run_id: str | None = None
     from pitangus.modules.findings.kinds import FINDING_RUNS
     if record.get("type") in FINDING_RUNS:
         record = apply_to_record(data_dir, record, asset_key(record))
+    record = with_web_coverage(record)
     from pitangus.modules.findings.registry import apply
     report, sarif = render_repository_report(record), render_repository_sarif(record)
     # The run, the findings registry and the outbox entries land together or not at all.

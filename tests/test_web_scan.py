@@ -444,6 +444,10 @@ class ScrubTests(unittest.TestCase):
                          {"message": "JWT [redacted] in a page; cookie sessionid=[redacted] without HttpOnly", "env": "prod"})
 
 
+def text_rows(row):
+    return {**row, "reason": text(row["reason"], "es")}
+
+
 class CoverageTests(unittest.TestCase):
     """A web scan only marks fixed what a scan like it had seen, on a host it looked at."""
 
@@ -453,7 +457,7 @@ class CoverageTests(unittest.TestCase):
         self.data_dir = Path(self.directory.name)
         self.domain = verified_domain(self.data_dir, HOST)
 
-    def scan(self, findings, *, variant="baseline", coverage="baseline", hosts=(HOST,)):
+    def scan(self, findings, *, variant="baseline", coverage="baseline", hosts=(HOST,), steps=()):
         from pitangus.modules.runs.store import save_repository_scan
         base = web.findings_from(real(), HOST)[0][0]
         made = []
@@ -464,10 +468,30 @@ class CoverageTests(unittest.TestCase):
         return save_repository_scan(self.data_dir, {"type": "dast_scan", "status": "completed", "source": domains.source_for(self.domain),
                                                     "target": f"https://{HOST}/", "variant": variant, "findings": made, "context": "",
                                                     "scope": {"hosts": list(hosts), "wildcards": [], "coverage": coverage},
-                                                    "summary": summary, "steps": [], "limitations": [], "owasp_coverage": []})
+                                                    "summary": summary, "steps": list(steps), "limitations": [], "owasp_coverage": []})
 
     def states(self):
         return {digest: entry["status"] for digest, entry in findings_registry.load(self.data_dir, f"domain:{HOST}")["findings"].items()}
+
+    def test_a_web_scan_measures_owasp_coverage_with_the_tools_that_ran(self):
+        # ZAP's alerts carry CWEs, not categories: the category comes from OWASP's own CWE mapping.
+        steps = [{"id": "dast", "name": "ZAP", "status": "completed", "detail": ""},
+                 {"id": "dast-testssl", "name": "testssl.sh", "status": "completed", "detail": ""},
+                 {"id": "dast-nuclei", "name": "nuclei", "status": "skipped", "detail": ""}]
+        saved = self.scan([(f"https://{HOST}/a", "baseline")], steps=steps)
+        rows = {row["id"]: text_rows(row) for row in load_run(self.data_dir, saved["id"])["owasp_coverage"]}
+        self.assertEqual(len(rows), 10)
+        self.assertEqual(rows["A04"]["status"], "partial")
+        self.assertIn("testssl.sh", rows["A04"]["reason"])
+        self.assertEqual(rows["A02"]["status"], "partial")
+        self.assertNotIn("nuclei", rows["A02"]["reason"])  # skipped: it checked nothing
+        self.assertEqual(rows["A05"]["status"], "not_tested")
+        self.assertIn("pruebas activas", rows["A05"]["reason"])
+        self.assertIn("desde fuera", rows["A09"]["reason"])
+        self.assertNotIn("repositorio", " ".join(row["reason"] for row in rows.values()))
+        categories = [row for row in rows.values() if row["findings"]]
+        self.assertTrue(categories)  # the ZAP finding lands in its category, counted
+        self.assertTrue(all(row["status"] == "partial" for row in categories))
 
     def test_api_header_and_subdomain_findings_survive_a_scan_that_didnt_look_there(self):
         self.scan([(f"https://{HOST}/a", "baseline"), (f"https://{HOST}/admin", "baseline+headers"),

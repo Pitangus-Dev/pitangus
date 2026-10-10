@@ -97,3 +97,55 @@ def owasp_coverage(findings: list[dict], *, sast_ran: bool, sca_status: str, iac
         result.append({"id": identifier, "title": title, "status": status,
                        "rules": rules.get(identifier, 0), "findings": found, "reason": reason})
     return result
+
+
+# A passive web scan (ZAP baseline plus nuclei, testssl.sh and the version check) sees what the site returns, not how
+# it reacts to attacks. Each category lists the steps whose passive checks touch it: ZAP's passive rules (headers,
+# cookies, cross-domain policy, subresource integrity, error disclosure, vulnerable JavaScript libraries), nuclei's
+# exposure and misconfiguration templates, testssl.sh's TLS review and the versions httpx read, looked up in OSV.
+WEB_STEPS = {"dast": "zap", "dast-nuclei": "nuclei", "dast-testssl": "testssl", "dast-versions": "versions"}
+WEB_CHECKS = {
+    "A01": ("zap", "nuclei"),
+    "A02": ("zap", "nuclei"),
+    "A03": ("versions", "zap"),
+    "A04": ("testssl", "zap"),
+    "A08": ("zap",),
+    "A10": ("zap",),
+}
+WEB_OUTSIDE = {"A06": msg("coverage.web.design"), "A09": msg("coverage.web.logging")}
+RAN = ("completed", "partial")
+
+
+def _web_tool(key: str) -> str:
+    from pitangus.modules.scanning.engines import IMAGES
+    from pitangus.modules.scanning.web_versions import TOOL
+    return TOOL if key in ("versions", TOOL.lower()) else IMAGES.get(key, {}).get("name", key)
+
+
+def web_owasp_coverage(findings: list[dict], steps: list[dict]) -> list[dict]:
+    """OWASP Top 10:2025 coverage of a web scan, from the steps that ran and the categories of its findings (`owasp`,
+    filled from their CWEs when served). A category no step checks passively says it needs active testing."""
+    ran = {WEB_STEPS[step["id"]] for step in steps if step.get("id") in WEB_STEPS and step.get("status") in RAN}
+    per_category: dict[str, int] = {}
+    tools_of: dict[str, set[str]] = {}
+    for finding in findings:
+        tool = _web_tool(str(finding.get("tool") or "").lower()) if finding.get("tool") else ""
+        for category in dict.fromkeys(str(item)[:3] for item in finding.get("owasp") or []):
+            per_category[category] = per_category.get(category, 0) + 1
+            if tool:
+                tools_of.setdefault(category, set()).add(tool)
+    result = []
+    for identifier, title in WEB_TOP_10_2025:
+        found = per_category.get(identifier, 0)
+        checked = [_web_tool(key) for key in WEB_CHECKS.get(identifier, ()) if key in ran]
+        # A tool whose findings land in a category it isn't listed for still checked it.
+        tools = [*checked, *sorted(tools_of.get(identifier, set()) - set(checked))]
+        if tools:
+            reason = msg("coverage.web.passive", tools=and_list(tools))
+            reason = msg("coverage.with_findings", reason=reason, count=found) if found else msg("coverage.without_findings", reason=reason)
+            status = "partial"
+        else:
+            status = "not_tested"
+            reason = WEB_OUTSIDE.get(identifier) or (msg("coverage.web.not_run") if identifier in WEB_CHECKS else msg("coverage.web.active"))
+        result.append({"id": identifier, "title": title, "status": status, "rules": 0, "findings": found, "reason": reason})
+    return result

@@ -35,5 +35,12 @@
   "no_engine": "no engine that ran covers this category in this repository",
   "with_findings_one": "{{reason}}. {{count}} finding.",
   "with_findings_other": "{{reason}}. {{count}} findings.",
-  "without_findings": "{{reason}}. No findings."
+  "without_findings": "{{reason}}. No findings.",
+  "web": {
+    "passive": "checked passively by {{tools}}",
+    "not_run": "the tools that check it passively didn't run in this scan",
+    "active": "needs active testing (attacks sent to the site), which this passive scan doesn't run",
+    "design": "Insecure design: needs threat modeling and an architecture review; a scan from outside doesn't show it.",
+    "logging": "Logging and alerting can't be seen from outside the application: review them with the team that runs it."
+  }
 }

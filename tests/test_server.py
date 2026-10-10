@@ -196,6 +196,25 @@ class ServerTests(unittest.TestCase):
             _time.sleep(0.05)
         self.fail("el escaneo no terminó a tiempo")
 
+    def test_an_older_web_scan_is_served_with_its_owasp_coverage(self):
+        # Stored before web scans measured coverage: the run is served with it, computed from its steps and CWEs.
+        from pitangus.modules.runs.store import _persist
+        finding = {"fingerprint": "f" * 64, "finding_id": "f" * 16, "scanner": "dast", "tool": "zap", "rule_id": "10020",
+                   "title": "Missing Anti-clickjacking Header", "path": "https://pitangus.dev/", "line": 0, "severity": "medium",
+                   "cwe": [1021], "owasp": [], "cve": [], "ghsa": [], "priority": {"action": "track", "factors": []}}
+        record = {"id": "e" * 32, "type": "dast_scan", "status": "completed", "created_at": "2026-10-09T10:00:00+00:00",
+                  "source": {"id": "domain:pitangus.dev", "name": "pitangus.dev", "provider": "domain"}, "target": "https://pitangus.dev/",
+                  "steps": [{"id": "dast", "name": "ZAP", "status": "completed", "detail": ""}], "findings": [finding],
+                  "owasp_coverage": [], "limitations": [], "summary": {"candidates": 1, "severities": {"medium": 1}}}
+        _persist(self.data_dir, record, "")
+        status, payload = self.request("GET", f"/api/runs/{'e' * 32}", headers={"Accept-Language": "en"})
+        self.assertEqual(status, 200)
+        rows = {row["id"]: row for row in json.loads(payload)["owasp_coverage"]}
+        self.assertEqual(len(rows), 10)
+        self.assertEqual((rows["A06"]["status"], rows["A06"]["findings"]), ("partial", 1))  # CWE-1021 is A06 for OWASP
+        self.assertIn("checked passively by ZAP", rows["A02"]["reason"])
+        self.assertIn("active testing", rows["A05"]["reason"])
+
     def test_health_and_allowed_origins_follow_configuration(self):
         status, payload = self.request("GET", "/api/health")
         self.assertEqual(status, 200)
