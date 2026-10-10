@@ -36,13 +36,16 @@ const heading = (key: string) => screen.findByRole('heading', { level: 2, name: 
 const scan = (calls: Call[]) => calls.find(call => call.path === '/api/domains/scans')
 
 describe('choosing what to scan', () => {
-  it('offers four cards as one radio group, Code first, and moves with the arrow keys', async () => {
+  it('offers three cards as one radio group, Code first, and moves with the arrow keys', async () => {
     const { user } = setup()
     const group = await screen.findByRole('radiogroup', { name: tr('chooser.title') })
     const cards = within(group).getAllByRole('radio')
-    expect(cards.map(card => card.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'false'])
+    expect(cards.map(card => card.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
+    // Sites and APIs are one type: no separate API card.
+    expect(cards.map(card => card.getAttribute('aria-labelledby') && document.getElementById(card.getAttribute('aria-labelledby') as string)?.textContent))
+      .toEqual([tr('wizard.kinds.code.title'), tr('wizard.kinds.image.title'), tr('wizard.kinds.web.title')])
     expect(screen.queryByText('Opengrep')).toBeNull()
-    expect(screen.getByText(tr('wizard.kinds.code.benefit_2'))).toBeTruthy()
+    expect(screen.getByText(tr('wizard.kinds.web.line'))).toBeTruthy()
     cards[0].focus()
     await user.keyboard('{ArrowRight}')
     expect(screen.getByRole('radio', { name: tr('wizard.kinds.image.title') }).getAttribute('aria-checked')).toBe('true')
@@ -56,10 +59,10 @@ describe('choosing what to scan', () => {
     expect(await screen.findByText(tr('import.title'))).toBeTruthy()
   })
 
-  it('says web and API scans are off, and how an admin turns them on', async () => {
+  it('says web scans are off, and how an admin turns them on', async () => {
     setup({ dast: false })
     await waitFor(() => expect(screen.getByRole('radio', { name: tr('wizard.kinds.web.title') }).getAttribute('aria-disabled')).toBe('true'))
-    expect(screen.getAllByText(tr('chooser.off'))).toHaveLength(2)
+    expect(screen.getAllByText(tr('chooser.off'))).toHaveLength(1)
     expect(screen.getByText('PITANGUS_DAST_ENABLED=1')).toBeTruthy()
   })
 
@@ -110,7 +113,7 @@ describe('a code scan', () => {
   })
 })
 
-describe('a web scan', () => {
+describe('a web or API scan', () => {
   it('takes a verified domain, a scope with subdomains (DNS proof) and warns before going without headers', async () => {
     const { user, calls, done } = setup()
     await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
@@ -120,6 +123,10 @@ describe('a web scan', () => {
     expect(screen.getByRole('button', { name: tr('target.verify_for', { host: 'staging.example.com' }) })).toBeTruthy()
     expect(screen.getByRole('button', { name: tr('wizard.continue') }).hasAttribute('disabled')).toBe(true)
     await user.click(screen.getByRole('radio', { name: /app\.example\.com/ }))
+    // A web domain keeps the API spec folded away.
+    expect(screen.queryByLabelText(tr('spec.url_label'))).toBeNull()
+    await user.click(screen.getByRole('button', { name: tr('spec.add') }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: tr('spec.choose') }))
 
     await user.click(screen.getByRole('switch', { name: tr('scope.toggle') }))
     const field = screen.getByLabelText(tr('scope.add_label'))
@@ -134,12 +141,14 @@ describe('a web scan', () => {
     await heading('access.title')
     await proceed(user)
     const question = await screen.findByRole('alertdialog', { name: tr('skip.access.title') })
+    expect(within(question).getByText(tr('skip.access.text'))).toBeTruthy()
     await user.click(within(question).getByRole('button', { name: tr('skip.access.confirm') }))
 
     await heading('review.title')
-    expect(screen.getByText(tr('review.mode_passive'))).toBeTruthy()
     expect(screen.getByText(tr('review.scope_value', { host: 'app.example.com', count: 1 }))).toBeTruthy()
     expect(screen.getByText(tr('review.access_none'))).toBeTruthy()
+    expect(screen.queryByText(tr('review.spec'))).toBeNull()
+    expect(screen.getByText(tr('review.authorization'))).toBeTruthy()
     await user.click(screen.getByRole('button', { name: tr('launch.web') }))
     await vi.waitFor(() => expect(done).toHaveBeenCalledWith('run-web'))
     expect(scan(calls)).toEqual({ method: 'POST', path: '/api/domains/scans', action: 'scan-domain',
@@ -160,24 +169,24 @@ describe('a web scan', () => {
     await user.click(screen.getByRole('button', { name: tr('review.change_for', { label: tr('review.access') }) }))
     expect(await heading('access.title')).toBeTruthy()
   })
-})
 
-describe('an API scan', () => {
-  it('needs a spec, keeps a file or meta proof to its exact host and sends the saved headers', async () => {
+  it('on an API domain, nudges for the spec, keeps a file proof to its exact host and sends the spec and saved headers', async () => {
     const { user, calls } = setup({ domains: [API] })
-    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.api.title') }))
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
     await proceed(user)
     await user.click(await screen.findByRole('radio', { name: /api\.example\.com/ }))
     expect(screen.queryByRole('switch', { name: tr('scope.toggle') })).toBeNull()
     expect(screen.getByText(tr('scope.exact_only', { host: 'api.example.com' }))).toBeTruthy()
-    await proceed(user)
+    expect(screen.getByText(tr('spec.nudge'))).toBeTruthy()
 
-    await heading('spec.title')
-    expect(screen.getByRole('button', { name: tr('wizard.continue') }).hasAttribute('disabled')).toBe(true)
     await user.upload(document.getElementById('spec-file') as HTMLInputElement, new File(['{"swagger": "1.0"}'], 'old.json', { type: 'application/json' }))
     expect(await screen.findByText(tr('spec.invalid'))).toBeTruthy()
     await user.upload(document.getElementById('spec-file') as HTMLInputElement, new File([SPEC], 'openapi.json', { type: 'application/json' }))
     expect(await screen.findByText(new RegExp(tr('spec.summary', { version: '3.0.3', count: 3 })))).toBeTruthy()
+    expect(screen.queryByText(tr('spec.nudge'))).toBeNull()
+    expect(screen.getByText(tr('spec.instead'))).toBeTruthy()
+    // One source at a time: the URL waits while a file is loaded.
+    expect((screen.getByLabelText(tr('spec.url_label')) as HTMLInputElement).disabled).toBe(true)
     await proceed(user)
 
     await heading('access.title')
@@ -185,9 +194,32 @@ describe('an API scan', () => {
     expect(screen.getByText(tr('access.test_account'))).toBeTruthy()
     await proceed(user)
     await heading('review.title')
+    expect(screen.getByText(new RegExp(`openapi\\.json · ${tr('spec.summary', { version: '3.0.3', count: 3 })}`))).toBeTruthy()
     expect(screen.getByText(tr('review.access_value', { count: 1, names: 'Authorization' }))).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: tr('launch.api') }))
+    expect(screen.getByText(tr('review.schedule_without_spec'))).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: tr('launch.web') }))
     await vi.waitFor(() => expect(scan(calls)).toBeTruthy())
     expect(scan(calls)?.body).toEqual({ domain_id: API.id, mode: 'api', use_headers: true, spec: { filename: 'openapi.json', content_base64: btoa(SPEC) } })
+  })
+
+  it('refuses a spec URL outside the scope, allows none, and sends one in scope', async () => {
+    const { user, calls } = setup({ domains: [API] })
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
+    await proceed(user)
+    await user.click(await screen.findByRole('radio', { name: /api\.example\.com/ }))
+    const url = screen.getByLabelText(tr('spec.url_label'))
+    await user.type(url, 'https://evil.com/openapi.json')
+    expect(screen.getByText(tr('spec.url_foreign', { host: 'api.example.com' }))).toBeTruthy()
+    expect(screen.getByRole('button', { name: tr('wizard.continue') }).hasAttribute('disabled')).toBe(true)
+    await user.clear(url)
+    // Nothing given: still a valid scan, of what the crawler can reach.
+    expect(screen.getByRole('button', { name: tr('wizard.continue') }).hasAttribute('disabled')).toBe(false)
+    await user.type(url, 'https://api.example.com/openapi.json')
+    await proceed(user)
+    await heading('access.title')
+    await proceed(user)
+    await heading('review.title')
+    await user.click(screen.getByRole('button', { name: tr('launch.web') }))
+    await vi.waitFor(() => expect(scan(calls)?.body).toEqual({ domain_id: API.id, mode: 'api', use_headers: true, spec_url: 'https://api.example.com/openapi.json' }))
   })
 })

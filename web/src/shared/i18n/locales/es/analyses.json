@@ -11,9 +11,9 @@
     "import": "¿Ya tienes resultados de otra herramienta? <go>Importa un SARIF</go>",
     "import_tools": "ZAP, Nuclei, CodeQL, Semgrep, Strix y más",
     "off": "No está activado en este servidor",
-    "off_how": "Cómo activar los análisis web y de API",
+    "off_how": "Cómo activar los análisis web",
     "off_admin": "Define <mono>PITANGUS_DAST_ENABLED=1</mono> y reinicia el servidor.",
-    "admin_only": "Solo un admin puede lanzarlo: envía tráfico a un sitio en vivo."
+    "admin_only": "Solo un admin puede lanzarlo."
   },
   "wizard": {
     "continue": "Continuar",
@@ -25,7 +25,6 @@
       "repositories": "Repositorios",
       "images": "Imágenes",
       "target": "Objetivo",
-      "spec": "Especificación",
       "access": "Acceso",
       "context": "Contexto",
       "review": "Revisar y lanzar"
@@ -33,31 +32,15 @@
     "kinds": {
       "code": {
         "title": "Código",
-        "line": "Encuentra fallos, secretos filtrados y dependencias riesgosas antes de publicar.",
-        "benefit_1": "Código vulnerable en tu propia app",
-        "benefit_2": "Secretos subidos por error",
-        "benefit_3": "Dependencias, infraestructura y pipelines"
+        "line": "Fallos, secretos filtrados y dependencias riesgosas, antes de publicar."
       },
       "image": {
         "title": "Imagen de contenedor",
-        "line": "Mira qué trae una imagen antes de desplegarla.",
-        "benefit_1": "Paquetes con avisos conocidos",
-        "benefit_2": "Secretos olvidados en las capas",
-        "benefit_3": "Configuración riesgosa, como correr como root"
+        "line": "Lo que trae una imagen, antes de desplegarla."
       },
       "web": {
-        "title": "Aplicación web",
-        "line": "Mira qué le muestra tu sitio a cualquier visitante, sin atacarlo.",
-        "benefit_1": "Cabeceras de seguridad y cookies débiles",
-        "benefit_2": "Fugas de información y librerías desactualizadas",
-        "benefit_3": "Seguro en producción: solo navega"
-      },
-      "api": {
-        "title": "API",
-        "line": "Revisa cada endpoint de tu especificación OpenAPI, sin atacarla.",
-        "benefit_1": "Todos los endpoints documentados, no solo los enlazados",
-        "benefit_2": "Cabeceras, CORS y errores que filtran datos",
-        "benefit_3": "Seguro en producción: sin ataques"
+        "title": "Aplicación web o API",
+        "line": "Recorre tu sitio o API como un visitante. Nunca ataca."
       }
     },
     "back_to_types": "Volver a tipos de análisis"
@@ -115,21 +98,19 @@
     "title": "¿Algo que deba decir el informe?",
     "label": "Qué hace y qué te preocupa más",
     "placeholder": "Stack, cómo inician sesión, datos sensibles que maneja…",
-    "help": "Se guarda con el análisis y aparece en el informe como nota del equipo.",
+    "help": "Aparece en el informe como nota del equipo.",
     "counter": "{{length}}/{{max}}"
   },
   "target": {
-    "title": "¿Qué dominio?",
-    "choose": "Dominio a analizar",
+    "title": "¿Qué sitio o API?",
     "loading": "Cargando dominios",
-    "empty_title": "Aún no hay dominios",
-    "empty_text": "Añade un dominio que controles y verifícalo. Luego podrás analizarlo.",
+    "empty": "Añade un dominio que controles y verifícalo para analizarlo.",
     "add": "Añadir dominio",
     "verify": "Verificar",
     "verify_for": "Verificar {{host}}"
   },
   "scope": {
-    "toggle": "Ajustar alcance",
+    "toggle": "Incluir subdominios",
     "root": "Siempre en el alcance",
     "in": "Dentro",
     "out": "Fuera",
@@ -144,14 +125,17 @@
     "exact_only": "Solo se cubre {{host}}. Verifica por DNS para añadir subdominios."
   },
   "spec": {
-    "title": "¿Dónde está la especificación?",
-    "drop": "Suelta un archivo OpenAPI (JSON o YAML, hasta 5 MB)",
-    "choose": "Elegir un archivo",
+    "title": "Documentación de la API",
+    "optional": "(opcional)",
+    "add": "Añadir documentación de la API",
+    "nudge": "Una API tiene pocos enlaces que seguir: añade su especificación OpenAPI para que el análisis llame a cada endpoint documentado.",
+    "instead": "Con ella, el análisis llama a los endpoints documentados en vez de recorrer el sitio.",
+    "choose": "Subir archivo OpenAPI",
     "replace": "Reemplazar",
+    "remove": "Quitar {{name}}",
     "reading": "Leyendo el archivo…",
-    "tab_file": "Subir archivo",
-    "tab_url": "Desde una URL",
-    "url_label": "URL de la especificación",
+    "url_label": "O la URL de la especificación",
+    "url_file_loaded": "Quita el archivo para usar una URL.",
     "summary_one": "OpenAPI {{version}} · {{count}} endpoint",
     "summary_other": "OpenAPI {{version}} · {{count}} endpoints",
     "invalid": "Ese archivo no es una especificación OpenAPI 2 o 3.",
@@ -161,14 +145,14 @@
   },
   "access": {
     "title": "¿Necesita iniciar sesión?",
-    "text": "Envía cabeceras como una API key, un token o una cookie de sesión.",
-    "use_all": "Enviar las cabeceras guardadas en este análisis",
-    "test_account": "El rastreador sigue enlaces como este usuario. Usa una cuenta de prueba."
+    "text": "Un token, una API key o una cookie de sesión, enviados como cabecera.",
+    "use_all": "Enviar las cabeceras guardadas",
+    "test_account": "Navega como ese usuario: usa una cuenta de prueba."
   },
   "skip": {
     "access": {
       "title": "¿Analizar sin iniciar sesión?",
-      "text": "Solo se cubren las páginas públicas. Añade una cabecera para llegar a lo que está detrás del login.",
+      "text": "Solo se cubrirá lo público.",
       "confirm": "Solo páginas públicas",
       "back": "Añadir una cabecera"
     }
@@ -181,17 +165,13 @@
     "organization": "Organización",
     "images": "Imágenes",
     "registry": "Acceso al registro",
-    "spec": "Especificación",
-    "scope": "Alcance",
+    "spec": "Documentación de la API",
+    "spec_none": "Ninguna",
     "access": "Acceso",
     "context": "Contexto",
     "looks_for": "Qué busca",
-    "mode": "Modo",
-    "where": "Dónde",
     "change": "Cambiar",
     "change_for": "Cambiar {{label}}",
-    "where_value": "En este servidor · sin costo por análisis",
-    "mode_passive": "Pasivo: navega y lee, no envía ataques",
     "org_value_one": "{{name}} · {{count}} repositorio · unos {{duration}}",
     "org_value_other": "{{name}} · {{count}} repositorios · unos {{duration}}",
     "target_repositories": "{{total}} repositorios: {{names}}",
@@ -200,12 +180,10 @@
     "registry_public": "{{registry}}: acceso público",
     "scope_value_one": "{{host}} + {{count}} subdominio",
     "scope_value_other": "{{host}} + {{count}} subdominios",
-    "scope_root_only": "Solo {{host}}",
     "access_value_one": "{{count}} cabecera: {{names}}",
     "access_value_other": "{{count}} cabeceras: {{names}}",
     "access_none": "Solo páginas públicas",
     "no_context": "Sin contexto · <add>Añadir</add>",
-    "no_domain_context": "Sin contexto",
     "plan_failed": "No se pudo leer el repositorio; el servidor lo decide al ejecutar.",
     "looks": {
       "code": "tu código ({{languages}})",
@@ -220,9 +198,10 @@
     "osv_hint": "Envía nombres y versiones de paquetes (no código) a api.osv.dev. Apagado: no se revisan dependencias.",
     "batch_note": "Corre como un lote que puedes seguir y cancelar en Análisis.",
     "schedule": "Repetir cada semana",
-    "schedule_note": "Se guarda en el dominio. Cámbialo en su página.",
-    "waf_unknown": "¿Hay un firewall o WAF? Permite la IP pública de este servidor.",
-    "authorization": "Lánzalo solo contra sistemas tuyos o que puedas probar."
+    "schedule_without_spec": "Los análisis semanales recorren el sitio; no usan la documentación de la API.",
+    "waf_title": "¿Hay un firewall o WAF?",
+    "waf_text": "Permite la IP pública de este servidor o el análisis puede quedar bloqueado.",
+    "authorization": "Solo navega y lee; nunca ataca. Lánzalo solo contra sitios que tengas permiso de probar."
   },
   "details": {
     "title": "Detalles técnicos",
@@ -245,12 +224,7 @@
       "run": "La imagen nunca se ejecuta ni se construye",
       "source": "No se analiza el código fuente que la produjo (lanza un análisis de código sobre su repositorio)",
       "secrets": "No se guarda ningún valor secreto que aparezca, solo dónde se encontró"
-    },
-    "web_crawl": "Spider de ZAP sobre {{host}} unos minutos, siguiendo enlaces y el sitemap",
-    "api_operations": "Cada operación GET y HEAD de la especificación, llamada una vez a través de ZAP",
-    "web_rules": "Reglas pasivas de ZAP en cada respuesta",
-    "web_hosts": "Otros hosts se anotan, no se visitan",
-    "web_recheck": "La verificación del dominio se revisa otra vez antes de empezar"
+    }
   },
   "launch": {
     "queuing": "Encolando…",
@@ -260,8 +234,7 @@
     "organization_count": "Analizar la organización ({{total}})",
     "image": "Analizar imagen",
     "images": "Analizar {{total}} imágenes",
-    "web": "Iniciar análisis web",
-    "api": "Iniciar análisis de API"
+    "web": "Iniciar análisis"
   },
   "org": {
     "counting": "Contando repositorios…",

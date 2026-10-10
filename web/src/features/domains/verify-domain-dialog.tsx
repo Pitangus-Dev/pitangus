@@ -89,7 +89,6 @@ function VerifyBody({ domain, onClose, onVerified, onStartScan }: { domain: Doma
         <p className="text-xs text-app-muted">{t('domains.verify.exact_host', { host: domain.host })}</p>
       </TabsContent>
     </Tabs>
-    <p className="text-xs text-app-muted">{t('domains.verify.propagation')}</p>
     {failure && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger"><p>{failure.title}</p>{failure.detail && <p className="mt-1 text-xs">{failure.detail}</p>}</div>}
     <DialogFooter>
       <Button variant="ghost" onClick={onClose}>{t('domains.verify.later')}</Button>

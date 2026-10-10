@@ -9,19 +9,18 @@ import { useDebounced } from '@/shared/lib/useDebounced'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, dialogFullOnMobile } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
+import { Segmented } from '@/shared/ui/segmented'
 import type { Domain, DomainKind } from '@/features/domains/domains'
 
 const KINDS = [
-  { id: 'web', label: 'domains.kind.web', hint: 'domains.kind_hint.web' },
-  { id: 'api', label: 'domains.kind.api', hint: 'domains.kind_hint.api' },
-  { id: 'surface', label: 'domains.kind.surface', hint: 'domains.kind_hint.surface' },
+  { id: 'web', label: 'domains.kind.web' }, { id: 'api', label: 'domains.kind.api' }, { id: 'surface', label: 'domains.kind.surface' },
 ] as const
 const CONTEXT_MAX = 400
 // The server wants https with no port or query; here we only add the scheme people leave out.
 const normalize = (value: string) => { const trimmed = value.trim(); return !trimmed || /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}` }
 const probeable = (candidate: string) => /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+\/?[^\s?#]*$/i.test(candidate)
 
-// Registers a site or API; whether it answers is a hint, never a reason to refuse it.
+// Registers a site or API (one concept: the kind only tags it); whether it answers is a hint, never a reason to refuse it.
 export function AddDomainDialog({ open, onOpenChange, onAdded, initialKind = 'web' }: { open: boolean; onOpenChange: (open: boolean) => void; onAdded: (domain: Domain) => void; initialKind?: DomainKind }) {
   const { t } = useTranslation('sources')
   // The form lives inside the popup: closing unmounts it, so the next opening starts empty.
@@ -64,20 +63,18 @@ function AddDomainForm({ initialKind, onCancel, onAdded }: { initialKind: Domain
             : probeError ? <span className="text-warning">{probeError}</span> : null}
         </p>
       </div>
+      <div className="space-y-2">
+        <p aria-hidden className="text-sm text-app-secondary">{t('domains.add.kind')}</p>
+        <Segmented label={t('domains.add.kind')} value={kind} onChange={setKind} options={KINDS.map(item => ({ value: item.id, label: t(item.label) }))} />
+        {kind === 'surface' && <p className="text-xs text-app-muted">{t('domains.kind_hint.surface')}</p>}
+      </div>
       <details className="group">
-        <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-sm text-app-muted"><ChevronRight className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{t('domains.add.more')}</summary>
-        <div className="mt-4 space-y-4">
-          <fieldset className="space-y-2"><legend className="mb-2 text-sm text-app-secondary">{t('domains.add.kind')}</legend>
-            {KINDS.map(item => <label key={item.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 motion-safe:transition ${kind === item.id ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-inset hover:border-brand/30'}`}>
-              <input type="radio" name="domain-kind" value={item.id} checked={kind === item.id} onChange={() => setKind(item.id)} className="mt-0.5 accent-brand" />
-              <span><span className="block text-sm">{t(item.label)}</span><span className="text-xs text-app-muted">{t(item.hint)}</span></span></label>)}
-          </fieldset>
-          <div className="space-y-1.5">
-            <label htmlFor="domain-context" className="text-sm text-app-secondary">{t('domains.add.context')} <span className="text-app-muted">{t('domains.add.optional')}</span></label>
-            <textarea id="domain-context" rows={3} maxLength={CONTEXT_MAX} value={context} onChange={event => setContext(event.target.value)} aria-describedby="domain-context-help"
-              placeholder={t('domains.add.context_placeholder')} className="w-full rounded-xl border border-app-line bg-app-soft p-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
-            <p id="domain-context-help" className="text-xs text-app-muted">{t('domains.add.context_help')}</p>
-          </div>
+        <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-sm text-app-secondary"><ChevronRight className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{t('domains.add.more')}</summary>
+        <div className="mt-3 space-y-1.5">
+          <label htmlFor="domain-context" className="sr-only">{t('domains.add.context')}</label>
+          <textarea id="domain-context" rows={3} maxLength={CONTEXT_MAX} value={context} onChange={event => setContext(event.target.value)} aria-describedby="domain-context-help"
+            placeholder={t('domains.add.context_placeholder')} className="w-full rounded-xl border border-app-line bg-app-soft p-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
+          <p id="domain-context-help" className="text-xs text-app-muted">{t('domains.add.context_help')}</p>
         </div>
       </details>
       {register.error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger">{register.error.message}</p>}

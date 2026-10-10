@@ -32,23 +32,26 @@ export function StepFrame({ title, description, children, onBack, onSkip, onCont
   </section>
 }
 
-// Where the person is: a list beside the step from 1280 px (done steps take you back), one line with a bar below 768 px.
+// Where the person is: one light line of steps above the question (done steps take you back), a bar below 768 px.
 export function StepRail({ steps, current, onJump }: { steps: StepId[]; current: number; onJump: (index: number) => void }) {
   const { t } = useTranslation('analyses')
   const label = t(STEP_LABEL[steps[current]])
-  return <div className="order-first xl:order-none">
+  return <div>
     <div className="space-y-2 md:hidden">
       <p className="text-sm text-app-muted">{t('wizard.step_of', { current: current + 1, total: steps.length, label })}</p>
       <div role="progressbar" aria-label={t('wizard.progress')} aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={current + 1} aria-valuetext={t('wizard.step_of', { current: current + 1, total: steps.length, label })}
         className="h-1 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-brand motion-safe:transition-[width]" style={{ width: `${((current + 1) / steps.length) * 100}%` }} /></div>
     </div>
-    <ol aria-label={t('wizard.progress')} className="hidden space-y-1 md:block">{steps.map((id, index) => {
+    <ol aria-label={t('wizard.progress')} className="hidden flex-wrap items-center gap-x-2 gap-y-1 text-sm md:flex">{steps.map((id, index) => {
       const done = index < current
       const body = <><span className={`flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs ${index === current ? 'border-brand bg-brand/15 text-brand' : done ? 'border-brand/40 bg-brand/10 text-brand' : 'border-app-line text-app-muted'}`}>
         {done ? <Check className="size-3" aria-hidden /> : index + 1}</span>{t(STEP_LABEL[id])}</>
-      return <li key={id} aria-current={index === current ? 'step' : undefined}>{done
-        ? <button type="button" onClick={() => onJump(index)} className="flex min-h-8 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm text-app-secondary hover:bg-app-soft">{body}</button>
-        : <span className={`flex min-h-8 items-center gap-3 px-2 py-1.5 text-sm ${index === current ? 'font-medium text-app-fg' : 'text-app-muted'}`}>{body}</span>}</li>
+      return <li key={id} aria-current={index === current ? 'step' : undefined} className="flex items-center gap-2">
+        {index > 0 && <span aria-hidden className="h-px w-6 bg-app-line" />}
+        {done
+          ? <button type="button" onClick={() => onJump(index)} className="flex min-h-8 items-center gap-2 rounded-lg px-1.5 text-app-secondary hover:text-app-fg">{body}</button>
+          : <span className={`flex min-h-8 items-center gap-2 px-1.5 ${index === current ? 'font-medium text-app-fg' : 'text-app-muted'}`}>{body}</span>}
+      </li>
     })}</ol>
   </div>
 }

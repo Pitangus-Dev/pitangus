@@ -28,15 +28,14 @@
     "users": "Usuarios",
     "new": "Nuevo análisis",
     "account": "Cuenta",
-    "domains": "Dominios"
+    "domains": "Dominios y APIs"
   },
   "descriptions": {
     "overview": "Qué riesgos tiene tu código, sus dependencias y tus imágenes, por qué importan y cómo se corrigen.",
     "analyses": "Historial de análisis de este workspace, con su tipo, estado y resultados.",
-    "new": "Define el objetivo, declara el alcance y revisa qué se ejecuta antes de lanzar.",
     "repositories": "Conecta tus repositorios y elige el código que quieres analizar.",
     "images": "Las imágenes de contenedor que has analizado y el repositorio desde el que se construye cada una.",
-    "domains": "Sitios y APIs que controlas. Verifícalos para analizarlos.",
+    "domains": "Sitios y APIs que controlas. Verifícalos una vez y analízalos.",
     "integrations": "Administra los proveedores de código y consulta el estado de la IA.",
     "account": "Tu acceso: contraseña y segundo factor.",
     "users": "Invita a tu equipo, asigna roles y retira accesos.",

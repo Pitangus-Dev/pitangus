@@ -14,19 +14,18 @@ import { ContextStep } from '@/features/analyses/wizard/context-step'
 import { ImagesStep } from '@/features/analyses/wizard/images-step'
 import { RepositoriesStep, type CodeTarget } from '@/features/analyses/wizard/repositories-step'
 import { DetailList, LooksFor, OsvOption, ReviewStep, WafNote, type ReviewRow } from '@/features/analyses/wizard/review-step'
-import { SpecStep } from '@/features/analyses/wizard/spec-step'
 import { StepRail } from '@/features/analyses/wizard/step-frame'
 import { TargetStep, type WebTarget } from '@/features/analyses/wizard/target-step'
 import { TypeChooser } from '@/features/analyses/wizard/type-chooser'
-import { STEPS, duration, listing, referencesOf, registryOf, type Kind, type ScanPlan, type Spec } from '@/features/analyses/wizard/model'
+import { STEPS, duration, inScope, listing, referencesOf, registryOf, type Kind, type ScanPlan, type Spec } from '@/features/analyses/wizard/model'
 
 type Start = Kind | 'import' | null
-const KIND_TITLE = { code: 'wizard.kinds.code.title', image: 'wizard.kinds.image.title', web: 'wizard.kinds.web.title', api: 'wizard.kinds.api.title' } as const
+const KIND_TITLE = { code: 'wizard.kinds.code.title', image: 'wizard.kinds.image.title', web: 'wizard.kinds.web.title' } as const
 const CHOOSER = -1
 
 // New scan: choose what to check, answer one question per step, review and launch. Several repositories (or an
-// organization, or several images) become a batch that moves forward when the server is free; web and API scans take
-// one verified domain. A direct link brings a repository, or a domain with its scan type, already chosen.
+// organization, or several images) become a batch that moves forward when the server is free; a web scan takes one
+// verified domain, and an API spec when there is one. A direct link brings a repository or a domain already chosen.
 export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections, onCancel, initialSourceId, initialDomainId = null, initialKind = null, isAdmin }: {
   onComplete: (id: string) => Promise<void>; onBatchStarted: () => void; onManageConnections: () => void; onCancel: () => void
   initialSourceId: string | null; initialDomainId?: string | null; initialKind?: Start; isAdmin: boolean
@@ -52,12 +51,12 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const linked = useQuery({ ...sourceQuery<Source>(initialSourceId ?? ''), enabled: !!initialSourceId })
   const [seededSource, setSeededSource] = useState(false)
   if (!seededSource && linked.data) { setSeededSource(true); setCode({ ...code, sources: [linked.data] }) }
-  // From a domain's page: that domain chosen and, once it's verified, straight to the step after it.
+  // From a domain's page: that domain already chosen, on the first step so its scope and API spec stay in view.
   const [seededDomain, setSeededDomain] = useState(!initialDomainId)
   if (!seededDomain && domains.data) {
     setSeededDomain(true)
     const found = domains.data.items.find(item => item.id === initialDomainId)
-    if (found?.verified) { setTarget({ domain: found, scopeOpen: false, hosts: [] }); setStep(1) }
+    if (found?.verified) setTarget({ domain: found, scopeOpen: false, hosts: [] })
   }
 
   const steps = kind && kind !== 'import' ? STEPS[kind] : []
@@ -71,6 +70,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const hosts = target.scopeOpen ? target.hosts.filter(item => item.included).map(item => item.host) : []
   const headerNames = (domain?.headers ?? []).map(item => item.name)
   const sending = useHeaders && headerNames.length > 0
+  const specInvalid = spec?.mode === 'url' && !!domain && !inScope(spec.url, domain.host, hosts)
   const weeklyOn = weekly ?? domain?.schedule === 'weekly'
   const osv = !!plan.data?.osv_needed && allowOsv
 
@@ -81,9 +81,10 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
 
   const launch = useMutation({
     mutationFn: async (): Promise<string | null> => {
-      if ((kind === 'web' || kind === 'api') && domain) {
-        const source = kind === 'api' && spec ? spec.mode === 'file' ? { spec: { filename: spec.filename, content_base64: spec.content } } : { spec_url: spec.url } : {}
-        const queued = await api.post<QueuedDomainScan>('/api/domains/scans', 'scan-domain', { domain_id: domain.id, mode: kind, ...(hosts.length ? { hosts } : {}), use_headers: sending, ...source })
+      if (kind === 'web' && domain) {
+        // With a spec the server calls its documented endpoints (API mode) instead of crawling the site.
+        const source = spec ? spec.mode === 'file' ? { spec: { filename: spec.filename, content_base64: spec.content } } : { spec_url: spec.url } : {}
+        const queued = await api.post<QueuedDomainScan>('/api/domains/scans', 'scan-domain', { domain_id: domain.id, mode: spec ? 'api' : 'web', ...(hosts.length ? { hosts } : {}), use_headers: sending, ...source })
         // The scan is queued either way; a schedule that didn't save shows on the domain's page, not as a failed launch.
         if (weeklyOn !== (domain.schedule === 'weekly')) await apiPost('/api/domains/schedule', 'schedule-domain', { domain_id: domain.id, schedule: weeklyOn ? 'weekly' : null }).catch(() => null)
         void queryClient.invalidateQueries({ queryKey: keys.domains })
@@ -104,10 +105,9 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   })
 
   if (kind === 'import') return <SarifImport onOpenRun={onComplete} onBack={restart} />
-  if (!kind) return <TypeChooser choice={choice} onChoose={setChoice} onContinue={() => { setKind(choice); setStep(0) }} onImport={() => setKind('import')}
-    onCancel={onCancel} dast={domains.data?.dast} isAdmin={isAdmin} />
+  if (!kind) return <div className="max-w-3xl"><TypeChooser choice={choice} onChoose={setChoice} onContinue={() => { setKind(choice); setStep(0) }} onImport={() => setKind('import')}
+    onCancel={onCancel} dast={domains.data?.dast} isAdmin={isAdmin} /></div>
 
-  const where = { label: t('review.where'), value: t('review.where_value') }
   const typeRow = { label: t('review.type'), value: t(KIND_TITLE[kind]), step: CHOOSER }
   const contextIndex = steps.indexOf('context')
   const contextRow: ReviewRow = context.trim() ? { label: t('review.context'), value: context.trim(), step: contextIndex }
@@ -119,7 +119,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
       const value = code.mode === 'org' ? orgTotal ? t('review.org_value', { name: code.organization, count: orgTotal, duration: duration(t, orgTotal * 60) }) : code.organization
         : code.sources.length > 1 ? t('review.target_repositories', { total: code.sources.length, names }) : names
       const rows = [typeRow, { label: t(code.mode === 'org' ? 'review.organization' : 'review.repositories'), value, step: 0 },
-        { label: t('review.looks_for'), value: <LooksFor plan={plan.data} failed={plan.isError} batch={batch} osv={osv} /> }, contextRow, where]
+        { label: t('review.looks_for'), value: <LooksFor plan={plan.data} failed={plan.isError} batch={batch} osv={osv} /> }, contextRow]
       const label = code.mode === 'org' ? orgTotal ? t('launch.organization_count', { total: orgTotal }) : t('launch.organization')
         : code.sources.length > 1 ? t('launch.repositories', { total: code.sources.length }) : t('launch.code')
       return { rows, label,
@@ -136,7 +136,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
       const registriesUsed = Array.from(new Set(references.map(registryOf).filter((item): item is string => !!item)))
       const access = registriesUsed.map(host => registries?.some(entry => entry.registry === host) ? t('review.registry_saved', { registry: host }) : t('review.registry_public', { registry: host }))
       const value = references.length > 1 ? t('review.target_images', { total: references.length, names: listing(t, references) }) : references[0]
-      return { rows: [typeRow, { label: t('review.images'), value, step: 0 }, { label: t('review.registry'), value: access.join(' · '), step: 0 }, contextRow, where],
+      return { rows: [typeRow, { label: t('review.images'), value, step: 0 }, { label: t('review.registry'), value: access.join(' · '), step: 0 }, contextRow],
         label: references.length > 1 ? t('launch.images', { total: references.length }) : t('launch.image'),
         notes: batch ? <p className="text-sm text-app-muted">{t('review.batch_note')}</p> : undefined,
         details: <>
@@ -145,17 +145,15 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
           {batch && <p>{t('details.batch')}</p>}</> }
     }
     const host = domain?.host ?? ''
-    const specRow = spec ? spec.mode === 'file' ? `${spec.filename} · ${t('spec.summary', { version: spec.version, count: spec.endpoints })}` : spec.url : ''
-    const rows: ReviewRow[] = [typeRow, { label: t('review.target'), value: host, step: 0 },
-      ...(kind === 'api' ? [{ label: t('review.spec'), value: specRow, step: 1 }] : []),
-      { label: t('review.scope'), value: hosts.length ? t('review.scope_value', { host, count: hosts.length }) : t('review.scope_root_only', { host }), step: 0 },
+    const specValue = spec ? spec.mode === 'file' ? `${spec.filename} · ${t('spec.summary', { version: spec.version, count: spec.endpoints })}` : spec.url : t('review.spec_none')
+    const rows: ReviewRow[] = [typeRow,
+      { label: t('review.target'), value: hosts.length && !spec ? t('review.scope_value', { host, count: hosts.length }) : host, step: 0 },
+      ...(spec || domain?.kind === 'api' ? [{ label: t('review.spec'), value: specValue, step: 0 }] : []),
       { label: t('review.access'), value: sending ? t('review.access_value', { count: headerNames.length, names: formatList(headerNames) }) : t('review.access_none'), step: steps.indexOf('access') },
-      { label: t('review.context'), value: domain?.context || t('review.no_domain_context') },
-      { label: t('review.mode'), value: t('review.mode_passive') }, where]
-    return { rows, label: kind === 'api' ? t('launch.api') : t('launch.web'),
-      options: <Switch id="weekly-scan" checked={weeklyOn} onCheckedChange={setWeekly} label={t('review.schedule')} hint={t('review.schedule_note')} />,
-      notes: <WafNote />,
-      details: <DetailList title={t('details.runs')} items={[kind === 'api' ? t('details.api_operations') : t('details.web_crawl', { host }), t('details.web_rules'), t('details.web_hosts'), t('details.web_recheck')]} /> }
+      ...(domain?.context ? [{ label: t('review.context'), value: domain.context }] : [])]
+    return { rows, label: t('launch.web'),
+      options: <Switch id="weekly-scan" checked={weeklyOn} onCheckedChange={setWeekly} label={t('review.schedule')} hint={spec ? t('review.schedule_without_spec') : undefined} />,
+      notes: <WafNote />, details: undefined }
   }
 
   const view = (() => {
@@ -163,23 +161,22 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
     if (current === 'repositories') return <RepositoriesStep value={code} onChange={setCode} orgTotal={orgTotal} isAdmin={isAdmin} loading={!!initialSourceId && linked.isPending} batchBusy={!!activeBatch} onManageConnections={onManageConnections} {...frame} />
     if (current === 'images') return <ImagesStep text={imageText} onText={setImageText} registries={registries} batchBusy={!!activeBatch} onManageConnections={onManageConnections} {...frame} />
     if (current === 'context') return <ContextStep value={context} onChange={setContext} {...frame} />
-    if (current === 'target' && (kind === 'web' || kind === 'api')) return <TargetStep kind={kind} value={target} {...frame}
+    if (current === 'target') return <TargetStep value={target} spec={spec} onSpec={setSpec} specInvalid={specInvalid} {...frame}
       onChange={value => { if (value.domain?.id !== target.domain?.id) { setSpec(null); setUseHeaders(true); setWeekly(null) } setTarget(value) }} />
-    if (current === 'spec' && domain) return <SpecStep host={domain.host} scopeHosts={hosts} value={spec} onChange={setSpec} {...frame} />
     if (current === 'access' && domain) return <AccessStep domain={domain} useHeaders={useHeaders} onUseHeaders={setUseHeaders} {...frame} />
     if (current === 'review') {
       const content = review()
-      return <ReviewStep kind={kind} batch={batch} authorization={kind === 'web' || kind === 'api'} rows={content.rows} options={content.options} notes={content.notes} details={content.details}
+      return <ReviewStep kind={kind} batch={batch} rows={content.rows} options={content.options} notes={content.notes} details={content.details}
         error={launch.error?.message ?? ''} busy={launch.isPending} launchLabel={content.label} onChange={jump} onBack={back} onLaunch={() => { if (!launch.isPending) launch.mutate() }} />
     }
     return null
   })()
 
-  return <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_220px]">
+  return <div className="max-w-3xl space-y-8">
+    <StepRail steps={steps} current={step} onJump={setStep} />
     <div key={`${kind}-${current}`} className="min-w-0 space-y-4">
       {linked.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{linked.error.message}</p>}
       {view}
     </div>
-    <StepRail steps={steps} current={step} onJump={setStep} />
   </div>
 }

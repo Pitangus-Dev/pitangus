@@ -21,7 +21,10 @@ export function AccessStep({ domain, useHeaders, onUseHeaders, onBack, onContinu
   }
   return <StepFrame title={t('access.title')} description={t('access.text')} onBack={onBack} onSkip={() => void skip()} onContinue={() => sending ? onContinue() : void skip()}>
     <HeadersEditor domain={domain} admin adding={adding} onAddingChange={setAdding} />
-    {saved > 0 && <Switch id="use-headers" checked={useHeaders} onCheckedChange={onUseHeaders} label={t('access.use_all')} />}
-    {sending && <p role="status" className="text-sm text-warning">{t('access.test_account')}</p>}
+    {saved > 0 && <div className="space-y-1.5 pt-2">
+      <Switch id="use-headers" checked={useHeaders} onCheckedChange={onUseHeaders} label={t('access.use_all')} />
+      {/* The crawler follows GET links as that user (log out, delete…): a warning, not a hint. */}
+      <p role="status" className="pl-13 text-xs text-warning">{sending ? t('access.test_account') : ''}</p>
+    </div>}
   </StepFrame>
 }

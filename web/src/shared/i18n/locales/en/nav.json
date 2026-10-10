@@ -28,15 +28,14 @@
     "users": "Users",
     "new": "New scan",
     "account": "Account",
-    "domains": "Domains"
+    "domains": "Domains & APIs"
   },
   "descriptions": {
     "overview": "What risks your code, dependencies and images carry, why they matter and how to fix them.",
     "analyses": "Scan history for this workspace, with type, status and results.",
-    "new": "Choose the target, declare the scope and review what will run before you launch.",
     "repositories": "Connect your repositories and choose the code you want to scan.",
     "images": "The container images you've analyzed and the repository each is built from.",
-    "domains": "Sites and APIs you control. Verify them to scan them.",
+    "domains": "Sites and APIs you control. Verify once, then scan.",
     "integrations": "Manage code providers and check the AI status.",
     "account": "Your access: password and two-factor authentication.",
     "users": "Invite your team, assign roles and revoke access.",

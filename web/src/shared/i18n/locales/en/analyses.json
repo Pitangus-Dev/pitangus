@@ -11,9 +11,9 @@
     "import": "Already have results from another tool? <go>Import SARIF</go>",
     "import_tools": "ZAP, Nuclei, CodeQL, Semgrep, Strix and more",
     "off": "Not enabled on this server",
-    "off_how": "How to turn on web and API scans",
+    "off_how": "How to turn on web scans",
     "off_admin": "Set <mono>PITANGUS_DAST_ENABLED=1</mono> and restart the server.",
-    "admin_only": "Only an admin can launch it: it sends traffic to a live site."
+    "admin_only": "Only an admin can launch it."
   },
   "wizard": {
     "continue": "Continue",
@@ -25,7 +25,6 @@
       "repositories": "Repositories",
       "images": "Images",
       "target": "Target",
-      "spec": "API spec",
       "access": "Access",
       "context": "Context",
       "review": "Review and launch"
@@ -33,31 +32,15 @@
     "kinds": {
       "code": {
         "title": "Code",
-        "line": "Find flaws, leaked secrets and risky dependencies before they ship.",
-        "benefit_1": "Vulnerable code in your own app",
-        "benefit_2": "Secrets committed by mistake",
-        "benefit_3": "Dependencies, infrastructure and pipelines"
+        "line": "Flaws, leaked secrets and risky dependencies, before they ship."
       },
       "image": {
         "title": "Container image",
-        "line": "See what an image carries before you deploy it.",
-        "benefit_1": "Packages with known advisories",
-        "benefit_2": "Secrets left in the layers",
-        "benefit_3": "Risky settings, like running as root"
+        "line": "What an image carries, before you deploy it."
       },
       "web": {
-        "title": "Web application",
-        "line": "See what your site shows any visitor, without attacking it.",
-        "benefit_1": "Weak security headers and cookies",
-        "benefit_2": "Information leaks and outdated libraries",
-        "benefit_3": "Safe for production: it only browses"
-      },
-      "api": {
-        "title": "API",
-        "line": "Check every endpoint in your OpenAPI spec, without attacking it.",
-        "benefit_1": "All documented endpoints, not just linked ones",
-        "benefit_2": "Headers, CORS and leaky errors",
-        "benefit_3": "Safe for production: no attacks"
+        "title": "Web app or API",
+        "line": "Browses your site or API like a visitor. It never attacks."
       }
     },
     "back_to_types": "Back to scan types"
@@ -115,21 +98,19 @@
     "title": "Anything the report should say?",
     "label": "What it does and what worries you most",
     "placeholder": "Stack, how users sign in, sensitive data it handles…",
-    "help": "Saved with the scan and shown in the report as your team's note.",
+    "help": "Shown in the report as your team's note.",
     "counter": "{{length}}/{{max}}"
   },
   "target": {
-    "title": "Which domain?",
-    "choose": "Domain to scan",
+    "title": "Which site or API?",
     "loading": "Loading domains",
-    "empty_title": "No domains yet",
-    "empty_text": "Add a domain you control and verify it. Then you can scan it.",
+    "empty": "Add a domain you control and verify it to scan it.",
     "add": "Add domain",
     "verify": "Verify",
     "verify_for": "Verify {{host}}"
   },
   "scope": {
-    "toggle": "Adjust scope",
+    "toggle": "Include subdomains",
     "root": "Always in scope",
     "in": "In",
     "out": "Out",
@@ -144,14 +125,17 @@
     "exact_only": "Only {{host}} is covered. Verify by DNS to add subdomains."
   },
   "spec": {
-    "title": "Where's the API spec?",
-    "drop": "Drop an OpenAPI file (JSON or YAML, up to 5 MB)",
-    "choose": "Choose a file",
+    "title": "API documentation",
+    "optional": "(optional)",
+    "add": "Add API documentation",
+    "nudge": "An API has few links to follow: add its OpenAPI spec so the scan calls each documented endpoint.",
+    "instead": "With it, the scan calls the documented endpoints instead of browsing the site.",
+    "choose": "Upload OpenAPI file",
     "replace": "Replace",
+    "remove": "Remove {{name}}",
     "reading": "Reading the file…",
-    "tab_file": "Upload file",
-    "tab_url": "From a URL",
-    "url_label": "URL of the spec",
+    "url_label": "Or the spec's URL",
+    "url_file_loaded": "Remove the file to use a URL.",
     "summary_one": "OpenAPI {{version}} · {{count}} endpoint",
     "summary_other": "OpenAPI {{version}} · {{count}} endpoints",
     "invalid": "That file isn't an OpenAPI 2 or 3 spec.",
@@ -161,14 +145,14 @@
   },
   "access": {
     "title": "Does it need a login?",
-    "text": "Send headers like an API key, a token or a session cookie.",
-    "use_all": "Send the saved headers in this scan",
-    "test_account": "The crawler follows links as this user. Use a test account."
+    "text": "A token, API key or session cookie, sent as a header.",
+    "use_all": "Send the saved headers",
+    "test_account": "It browses as that user: use a test account."
   },
   "skip": {
     "access": {
       "title": "Scan without signing in?",
-      "text": "Only public pages will be covered. Add a header to reach what's behind the login.",
+      "text": "Only what's public will be covered.",
       "confirm": "Public pages only",
       "back": "Add a header"
     }
@@ -181,17 +165,13 @@
     "organization": "Organization",
     "images": "Images",
     "registry": "Registry access",
-    "spec": "API spec",
-    "scope": "Scope",
+    "spec": "API documentation",
+    "spec_none": "None",
     "access": "Access",
     "context": "Context",
     "looks_for": "What it looks for",
-    "mode": "Mode",
-    "where": "Where",
     "change": "Change",
     "change_for": "Change {{label}}",
-    "where_value": "On this server · no cost per scan",
-    "mode_passive": "Passive: browses and reads, sends no attacks",
     "org_value_one": "{{name}} · {{count}} repository · about {{duration}}",
     "org_value_other": "{{name}} · {{count}} repositories · about {{duration}}",
     "target_repositories": "{{total}} repositories: {{names}}",
@@ -200,12 +180,10 @@
     "registry_public": "{{registry}}: public access",
     "scope_value_one": "{{host}} + {{count}} subdomain",
     "scope_value_other": "{{host}} + {{count}} subdomains",
-    "scope_root_only": "{{host}} only",
     "access_value_one": "{{count}} header: {{names}}",
     "access_value_other": "{{count}} headers: {{names}}",
     "access_none": "Public pages only",
     "no_context": "None · <add>Add</add>",
-    "no_domain_context": "None",
     "plan_failed": "Couldn't read the repository; the server decides when it runs.",
     "looks": {
       "code": "your code ({{languages}})",
@@ -220,9 +198,10 @@
     "osv_hint": "Sends package names and versions (not code) to api.osv.dev. Off: dependencies aren't checked.",
     "batch_note": "Runs as a batch you can follow and cancel in Scans.",
     "schedule": "Repeat every week",
-    "schedule_note": "Saved to the domain. Change it on the domain page.",
-    "waf_unknown": "Behind a firewall or WAF? Allow this server's public IP.",
-    "authorization": "Launch only against systems you own or may test."
+    "schedule_without_spec": "Weekly scans browse the site; they don't use the API documentation.",
+    "waf_title": "Behind a firewall or WAF?",
+    "waf_text": "Allow this server's public IP, or the scan may be blocked.",
+    "authorization": "It only browses and reads, never attacks. Launch it only against sites you're allowed to test."
   },
   "details": {
     "title": "Technical details",
@@ -245,12 +224,7 @@
       "run": "The image is never run or built",
       "source": "The source code that produced it isn't scanned (run a code scan on its repository)",
       "secrets": "No secret value that turns up is stored, only where it was found"
-    },
-    "web_crawl": "ZAP spider on {{host}} for a few minutes, following links and the sitemap",
-    "api_operations": "Every GET and HEAD operation in the spec, called once through ZAP",
-    "web_rules": "ZAP passive rules on every response",
-    "web_hosts": "Other hosts are noted, not visited",
-    "web_recheck": "The domain's proof is checked again before it starts"
+    }
   },
   "launch": {
     "queuing": "Queuing…",
@@ -260,8 +234,7 @@
     "organization_count": "Scan the organization ({{total}})",
     "image": "Scan image",
     "images": "Scan {{total}} images",
-    "web": "Start web scan",
-    "api": "Start API scan"
+    "web": "Start scan"
   },
   "org": {
     "counting": "Counting repositories…",

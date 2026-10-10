@@ -16,10 +16,10 @@ import { useRemoveDomain } from '@/features/domains/use-remove-domain'
 import { TONE, kindOf, lastScanOf, untilOf, verification, type Domain } from '@/features/domains/domains'
 
 const PAGE = 25
-export type DomainTab = 'overview' | 'access' | 'findings' | 'scans'
+export type DomainTab = 'overview' | 'findings' | 'scans'
 
-// The sites and APIs a team controls: whether each one's proof is current, its last scan, open findings and schedule.
-// Administrators add, verify and remove; everyone else reads.
+// The sites and APIs a team controls, alike: kind as a tag, whether the proof is current, the last scan (and whether it
+// repeats weekly) and open findings. Administrators add, verify and remove; everyone else reads.
 export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean; onOpenDomain: (domain: Domain, tab?: DomainTab) => void; onNewScan: (domain: Domain) => void }) {
   const { t } = useTranslation('sources')
   const queryClient = useQueryClient()
@@ -51,35 +51,33 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
     {removal.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{removal.error.message}</p>}
     {domains.isError ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('domains.list.load_failed')}
         <Button size="xs" variant="outline" onClick={() => void domains.refetch()}>{t('common:actions.retry')}</Button></div>
-    : !domains.data ? <SkeletonTable rows={3} columns={5} label={t('domains.list.loading')} />
+    : !domains.data ? <SkeletonTable rows={3} columns={4} label={t('domains.list.loading')} />
     : !items.length ? <div className="flex flex-col items-center gap-3 py-14 text-center"><Globe2 className="size-7 text-app-muted" aria-hidden />
         <p className="font-medium">{t('domains.list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t('domains.list.empty_text')}</p>{admin && add}</div>
-    : <div className="overflow-x-auto rounded-xl border border-app-line"><table className={`w-full text-sm motion-safe:transition-opacity ${domains.isFetching ? 'opacity-70' : ''}`} aria-busy={domains.isFetching || undefined}>
+    : <div className="-mx-5 overflow-x-auto"><table className={`w-full text-sm motion-safe:transition-opacity ${domains.isFetching ? 'opacity-70' : ''}`} aria-busy={domains.isFetching || undefined}>
       <thead><tr className="border-b border-app-line text-left text-xs text-app-muted">
-        <th scope="col" className="px-4 py-3 font-normal">{t('domains.list.col_domain')}</th>
+        <th scope="col" className="px-5 py-3 font-normal">{t('domains.list.col_domain')}</th>
         <th scope="col" className="hidden px-3 py-3 font-normal md:table-cell">{t('domains.list.col_verification')}</th>
         <th scope="col" className="hidden px-3 py-3 font-normal md:table-cell">{t('domains.list.col_last_scan')}</th>
         <th scope="col" className="px-3 py-3 text-right font-normal">{t('domains.list.col_open')}</th>
-        <th scope="col" className="hidden px-3 py-3 font-normal md:table-cell">{t('domains.list.col_schedule')}</th>
-        <th scope="col" className="w-12 px-2 py-3"><span className="sr-only">{t('domains.list.col_actions')}</span></th>
+        <th scope="col" className="w-12 px-4 py-3"><span className="sr-only">{t('domains.list.col_actions')}</span></th>
       </tr></thead>
       <tbody>{shown.map(domain => {
         const state = verification(domain)
         const last = lastScanOf(domain)
         const chip = <span title={domain.verified ? untilOf(domain) : undefined} className={`rounded-md border px-1.5 text-xs ${TONE[state.tone]}`}>{state.label}</span>
         return <tr key={domain.id} className="border-b border-app-line last:border-0">
-          <td className="px-4 py-3"><div className="flex min-w-0 flex-col gap-1">
+          <td className="px-5 py-3"><div className="flex min-w-0 flex-col gap-1">
             <span className="flex min-w-0 flex-wrap items-center gap-2">
               <button type="button" onClick={() => onOpenDomain(domain)} className="min-h-6 truncate text-left font-medium text-app-fg underline-offset-2 hover:underline">{domain.host}</button>
-              <span className="rounded-md border border-app-line bg-inset px-1.5 text-xs text-app-muted">{kindOf(domain)}</span></span>
+              <span className="rounded-md border border-app-line px-1.5 text-xs text-app-muted">{kindOf(domain)}</span></span>
             <span className="md:hidden">{chip}</span></div></td>
           <td className="hidden px-3 py-3 md:table-cell">{chip}</td>
-          <td className="hidden px-3 py-3 text-xs text-app-muted md:table-cell">{last ? formatDay(last.created_at, { dateStyle: 'medium' }) : t('domains.list.never')}</td>
+          <td className="hidden px-3 py-3 text-xs text-app-muted md:table-cell">{last ? formatDay(last.created_at, { dateStyle: 'medium' }) : t('domains.list.never')}{domain.schedule === 'weekly' && <span className="block">{t('domains.list.weekly')}</span>}</td>
           <td className="px-3 py-3 text-right">{domain.open
             ? <button type="button" onClick={() => onOpenDomain(domain, 'findings')} aria-label={t('domains.list.open_for', { host: domain.host, count: domain.open })} className="min-h-6 min-w-6 font-mono text-app-fg underline-offset-2 hover:underline">{domain.open}</button>
             : <span className="font-mono text-app-muted">0</span>}</td>
-          <td className="hidden px-3 py-3 text-xs text-app-muted md:table-cell">{domain.schedule === 'weekly' ? t('domains.list.weekly') : '—'}</td>
-          <td className="px-2 py-2 text-right">{admin && <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.list.actions_for', { host: domain.host })} disabled={removal.isPending && removal.variables?.id === domain.id} />}><MoreHorizontal /></MenuTrigger>
+          <td className="px-4 py-2 text-right">{admin && <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.list.actions_for', { host: domain.host })} disabled={removal.isPending && removal.variables?.id === domain.id} />}><MoreHorizontal /></MenuTrigger>
             <MenuContent>
               {domain.kind !== 'surface' && <MenuItem onClick={() => onNewScan(domain)}>{t('domains.list.new_scan')}</MenuItem>}
               <MenuItem onClick={() => setVerifying(domain)}>{t('domains.list.verify')}</MenuItem>

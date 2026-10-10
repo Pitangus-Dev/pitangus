@@ -26,12 +26,13 @@ function render(admin = true, handler: Parameters<typeof mockApi>[0] = () => ({ 
 }
 
 describe('domains list', () => {
-  it('shows each domain with its proof, last scan, open findings and schedule', async () => {
+  it('lists sites and APIs alike, with the kind as a tag, the proof, last scan and schedule, and open findings', async () => {
     const { user, opened } = render()
     const table = await screen.findByRole('table')
     const columns = within(table).getAllByRole('columnheader').map(cell => cell.textContent)
-    expect(columns.slice(0, 5)).toEqual([tr('domains.list.col_domain'), tr('domains.list.col_verification'), tr('domains.list.col_last_scan'), tr('domains.list.col_open'), tr('domains.list.col_schedule')])
+    expect(columns.slice(0, 4)).toEqual([tr('domains.list.col_domain'), tr('domains.list.col_verification'), tr('domains.list.col_last_scan'), tr('domains.list.col_open')])
     const verified = within(table).getAllByRole('row').find(row => row.textContent?.includes('api.example.com')) as HTMLElement
+    expect(within(verified).getByText(tr('domains.kind.api'))).toBeTruthy()
     expect(within(verified).getAllByText(tr('domains.list.verified_by', { method: tr('domains.method.file') })).length).toBeGreaterThan(0)
     expect(within(verified).getByText(tr('domains.list.weekly'))).toBeTruthy()
     expect(screen.queryByText('domain:api.example.com')).toBeNull()
@@ -40,6 +41,7 @@ describe('domains list', () => {
     expect(opened).toEqual([[VERIFIED.id, 'findings'], [VERIFIED.id, undefined]])
     const pending = within(table).getAllByRole('row').find(row => row.textContent?.includes('app.example.com')) as HTMLElement
     expect(within(pending).getAllByText(tr('domains.list.pending')).length).toBeGreaterThan(0)
+    expect(within(pending).getByText(tr('domains.kind.web'))).toBeTruthy()
     expect(within(pending).getByText(tr('domains.list.never'))).toBeTruthy()
   })
 

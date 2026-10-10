@@ -45,7 +45,7 @@ describe('saved headers', () => {
 
     await waitFor(() => expect(calls.find(call => call.path === '/api/domains/headers')).toEqual({ method: 'POST', path: '/api/domains/headers', action: 'domain-headers',
       body: { domain_id: ID, op: 'save', name: 'Authorization', value: SECRET } }))
-    const row = (await screen.findByRole('cell', { name: 'Authorization' })).closest('tr') as HTMLElement
+    const row = (await screen.findByText('Authorization')).closest('li') as HTMLElement
     expect(within(row).getByText(tr('domains.access.masked'))).toBeTruthy()
     expect(document.body.textContent).not.toContain(SECRET)
     expect(document.body.textContent).not.toContain('hown')

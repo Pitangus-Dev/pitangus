@@ -24,7 +24,7 @@ export function ScopeEditor({ root, hosts, onChange, options }: { root: string; 
     onChange([...hosts, { host: entry.host, included: true }])
     setDraft(''); setError('')
   }
-  return <div className="space-y-3 rounded-xl border border-app-line bg-inset p-4">
+  return <div className="space-y-3 rounded-xl border border-app-line p-4">
     <ul className="divide-y divide-app-line">
       <li className="flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:justify-between"><span className="font-mono text-sm break-all">{root}</span><span className="text-xs text-app-muted">{t('scope.root')}</span></li>
       {hosts.map(item => <li key={item.host} className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
-import { formatDate } from '@/shared/i18n/format'
+import { formatDate, formatDay } from '@/shared/i18n/format'
 import type { SessionUser } from '@/features/auth/session'
 import type { DomainTab } from '@/features/domains/domain-list'
 import { mockApi } from '@/shared/test/api'
@@ -37,18 +37,21 @@ function setup() {
 }
 
 describe('a domain page', () => {
-  it('has a heading, its proof and four tabs', async () => {
+  it('has a heading, its kind and proof in one line, and three tabs with access in the overview', async () => {
     const { user } = setup()
     expect(await screen.findByRole('heading', { level: 1, name: 'app.example.com' })).toBeTruthy()
+    expect(screen.getByText(tr('domains.kind.web'))).toBeTruthy()
     expect(screen.getByText(tr('domains.list.verified_by', { method: tr('domains.method.meta') }))).toBeTruthy()
+    expect(screen.getByText(tr('domains.page.until', { date: formatDay('2026-12-31T00:00:00Z', { dateStyle: 'medium' }) }))).toBeTruthy()
     const tabs = screen.getAllByRole('tab').map(tab => tab.textContent)
-    expect(tabs).toEqual([tr('domains.page.tabs.overview'), tr('domains.page.tabs.access'), tr('domains.page.tabs.findings'), tr('domains.page.tabs.scans')])
-    // A meta proof covers the exact host only.
+    expect(tabs).toEqual([tr('domains.page.tabs.overview'), tr('domains.page.tabs.findings'), tr('domains.page.tabs.scans')])
+    // A meta proof covers the exact host only, and says so where it matters.
     expect(screen.getByText(tr('domains.page.scope_exact', { host: 'app.example.com' }))).toBeTruthy()
+    expect(screen.getByRole('button', { name: tr('domains.page.verify_dns') })).toBeTruthy()
     expect(screen.getByText('Shop front')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 2, name: tr('domains.page.access_title') })).toBeTruthy()
+    expect(within(screen.getByRole('list', { name: tr('domains.access.list_label') })).getByText('Cookie')).toBeTruthy()
 
-    await user.click(screen.getByRole('tab', { name: tr('domains.page.tabs.access') }))
-    expect(await screen.findByRole('cell', { name: 'Cookie' })).toBeTruthy()
     await user.click(screen.getByRole('tab', { name: tr('domains.page.tabs.findings') }))
     expect(await screen.findByText(tr('domains.page.findings_empty'))).toBeTruthy()
     expect(screen.getByRole('button', { name: tr('domains.page.import_results') })).toBeTruthy()

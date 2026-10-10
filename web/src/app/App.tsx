@@ -11,7 +11,7 @@ import { BrandLockup } from '@/shared/ui/brand-mark'
 import { BRAND } from '@/shared/lib/brand'
 import { CodeSources } from '@/features/sources/code-sources'
 import { DomainList, type DomainTab } from '@/features/domains/domain-list'
-import { scanKindOf, type Domain as DomainRow } from '@/features/domains/domains'
+import type { Domain as DomainRow } from '@/features/domains/domains'
 import { AnalysisList } from '@/features/analyses/analysis-list'
 import { AnalysisWizard } from '@/features/analyses/analysis-wizard'
 import { useToasts } from '@/features/analyses/use-toasts'
@@ -44,6 +44,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/sh
 
 type View = 'overview' | 'analyses' | 'new' | 'findings' | 'coverage' | 'repositories' | 'images' | 'domains' | 'domain' | 'integrations' | 'account' | 'users' | 'pulls' | 'threats' | 'cves' | 'compliance' | 'policies'
 type Theme = 'system' | 'light' | 'dark'
+// Unknown or retired tabs (the old `access`, now part of the overview) open the overview.
+const domainTabOf = (tab: string | null): DomainTab => tab === 'findings' || tab === 'scans' ? tab : 'overview'
 
 // Ley de Hick: tres grupos con nombre en vez de doce opciones seguidas.
 const navigation: { id: string; label: string; items: { id: View; label: string; icon: typeof Shield }[] }[] = [
@@ -69,7 +71,7 @@ const navigation: { id: string; label: string; items: { id: View; label: string;
   ] },
 ]
 const DESCRIPTION: Partial<Record<View, string>> = {
-  overview: 'descriptions.overview', analyses: 'descriptions.analyses', new: 'descriptions.new', repositories: 'descriptions.repositories', images: 'descriptions.images',
+  overview: 'descriptions.overview', analyses: 'descriptions.analyses', repositories: 'descriptions.repositories', images: 'descriptions.images',
   domains: 'descriptions.domains', integrations: 'descriptions.integrations', account: 'descriptions.account', users: 'descriptions.users',
   pulls: 'descriptions.pulls', cves: 'descriptions.cves', compliance: 'descriptions.compliance', threats: 'descriptions.threats',
   policies: 'descriptions.policies',
@@ -91,7 +93,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
       const route = readRoute()
       if (!route.view) return
       setView(route.view as View); setSelectedId(route.params.get('run'))
-      if (route.view === 'domain') setDomainRoute({ id: route.params.get('id') ?? '', tab: (route.params.get('tab') ?? 'overview') as DomainTab })
+      if (route.view === 'domain') setDomainRoute({ id: route.params.get('id') ?? '', tab: domainTabOf(route.params.get('tab')) })
     }
     window.addEventListener('popstate', sync)
     return () => window.removeEventListener('popstate', sync)
@@ -104,7 +106,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   // What the wizard starts with, also from the address (a domain's "New scan" or "Import results").
   const [wizardStart, setWizardStart] = useState(() => { const params = readRoute().params; return { domain: params.get('domain'), type: params.get('type') } })
-  const [domainRoute, setDomainRoute] = useState(() => { const params = readRoute().params; return { id: params.get('id') ?? '', tab: (params.get('tab') ?? 'overview') as DomainTab } })
+  const [domainRoute, setDomainRoute] = useState(() => { const params = readRoute().params; return { id: params.get('id') ?? '', tab: domainTabOf(params.get('tab')) } })
   const toasts = useToasts()
   // Aviso al terminar un análisis: se compara con el estado anterior de cada fila (el sondeo lo hace la consulta).
   const previous = useRef<Map<string, string>>(new Map())
@@ -171,7 +173,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   const scanSource = (id: string) => { setSelectedSource(id); setWizardStart({ domain: null, type: null }); setView('new'); setMobileOpen(false) }
   const openDomain = (domain: { id: string }, tab: DomainTab = 'overview') => { setDomainRoute({ id: domain.id, tab }); setView('domain'); writeRoute('domain', { id: domain.id, tab: tab === 'overview' ? null : tab }) }
   const domainTab = (tab: DomainTab) => { setDomainRoute(current => ({ ...current, tab })); writeRoute('domain', { id: domainRoute.id, tab: tab === 'overview' ? null : tab }, { replace: true }) }
-  const scanDomain = (domain: DomainRow) => { const type = scanKindOf(domain); setSelectedSource(null); setWizardStart({ domain: domain.id, type }); setView('new'); writeRoute('new', { domain: domain.id, type }) }
+  const scanDomain = (domain: DomainRow) => { setSelectedSource(null); setWizardStart({ domain: domain.id, type: 'web' }); setView('new'); writeRoute('new', { domain: domain.id, type: 'web' }) }
   const importResults = () => { setSelectedSource(null); setWizardStart({ domain: null, type: 'import' }); setView('new'); writeRoute('new', { type: 'import' }) }
   const completedRepositoryScan = async (id: string) => { await refresh(); await openRun(id, 'findings') }
 
@@ -199,7 +201,8 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
 
   const renderMain = () => {
     if (view === 'new') {
-      const type = wizardStart.type === 'code' || wizardStart.type === 'image' || wizardStart.type === 'web' || wizardStart.type === 'api' || wizardStart.type === 'import' ? wizardStart.type : null
+      // `api` is the old address of what is now one web scan for sites and APIs.
+      const type = wizardStart.type === 'api' ? 'web' : wizardStart.type === 'code' || wizardStart.type === 'image' || wizardStart.type === 'web' || wizardStart.type === 'import' ? wizardStart.type : null
       return <AnalysisWizard key={selectedSource ?? `${wizardStart.domain ?? ''}:${type ?? 'new'}`} initialSourceId={selectedSource} initialDomainId={wizardStart.domain} initialKind={type} isAdmin={user.role === 'admin'}
         onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onManageConnections={() => selectView('integrations')} onCancel={() => selectView('analyses')} />
     }
@@ -226,7 +229,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   return <div className="min-h-screen bg-app text-app-fg"><TopProgress /><div className="flex min-h-screen">
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-app-line bg-inset px-4 py-6 lg:flex"><div className="mb-9 px-2"><BrandLockup subtitle={t('tagline')} /></div>{nav}<div className="mt-auto">{userCard}</div></aside>
     <div className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-app-line bg-app px-4 backdrop-blur-md sm:px-8"><div className="flex items-center gap-3"><Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetTrigger render={<Button aria-label={t('open_navigation')} variant="ghost" size="icon" className="lg:hidden" />}><Menu /></SheetTrigger><SheetContent side="left" className="w-72 border-app-line bg-inset"><SheetHeader><SheetTitle className="text-left"><BrandLockup size={32} subtitle={t('tagline')} /></SheetTitle></SheetHeader><div className="space-y-6 px-3">{nav}{userCard}</div></SheetContent></Sheet><span className="hidden text-sm text-app-muted sm:inline">{t('workspace')}</span><ChevronRight className="hidden size-3 text-app-subtle sm:block" /><span className="text-sm font-medium">{currentTitle}</span></div><div className="flex items-center gap-3"><JiraBackgroundWork onNotice={toasts.push} /><LocaleSwitch /><Select value={theme} onValueChange={value => setTheme(value as Theme)}><SelectTrigger aria-label={t('theme.label')} size="sm" className="min-w-28 border-app-line bg-app-soft text-app-secondary sm:min-w-32">{theme === 'dark' ? <Moon className="size-3.5" /> : theme === 'light' ? <Sun className="size-3.5" /> : <Monitor className="size-3.5" />}<span className="min-w-0 flex-1 text-left">{theme === 'system' ? t('theme.system') : theme === 'light' ? t('theme.light') : t('theme.dark')}</span></SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-xl"><SelectItem value="system">{t('theme.system')}</SelectItem><SelectItem value="light">{t('theme.light')}</SelectItem><SelectItem value="dark">{t('theme.dark')}</SelectItem></SelectContent></Select>{health.isPending ? <Bone className="hidden h-5 w-32 sm:block" /> : version && <Badge variant="outline" className="hidden border-app-line text-app-muted sm:inline-flex">{t('edition', { version })}</Badge>}<Button aria-label={t('items.new')} onClick={() => selectView('new')} className="bg-primary text-primary-foreground hover:bg-primary/90"><Play /><span className="hidden sm:inline">{t('items.new')}</span></Button></div></header>
-    <main className="mx-auto max-w-[1520px] space-y-7 px-4 py-7 sm:px-8 sm:py-9">{view !== 'domain' && <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-brand"><span className="size-1.5 rounded-full bg-brand" />{t('eyebrow')}</div><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{currentTitle}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-app-muted">{t(DESCRIPTION[view] ?? 'descriptions.default')}</p></div>{latest && <div className="flex items-center gap-2 text-xs text-app-subtle"><Clock3 className="size-3.5" />{t('last_run', { date: formatDate(latest.created_at) })}</div>}</div>}
+    <main className="mx-auto max-w-[1520px] space-y-7 px-4 py-7 sm:px-8 sm:py-9">{view !== 'domain' && <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-brand"><span className="size-1.5 rounded-full bg-brand" />{t('eyebrow')}</div><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{currentTitle}</h1>{view !== 'new' && <p className="mt-2 max-w-2xl text-sm leading-6 text-app-muted">{t(DESCRIPTION[view] ?? 'descriptions.default')}</p>}</div>{latest && view !== 'new' && <div className="flex items-center gap-2 text-xs text-app-subtle"><Clock3 className="size-3.5" />{t('last_run', { date: formatDate(latest.created_at) })}</div>}</div>}
       {error && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>}
       {/* Server text is fetched in the reader's language: remount views when it changes. */}
       <Fragment key={i18n.language}>{renderMain()}</Fragment>

@@ -31,6 +31,3 @@ export function verification(domain: Domain): { label: string; tone: 'success' |
   return { label: i18n.t(domain.expired ? 'sources:domains.list.expired' : 'sources:domains.list.pending'), tone: 'warning' }
 }
 export const TONE = { success: 'border-success-line bg-success-soft text-success', warning: 'border-warning-line bg-warning-soft text-warning' } as const
-
-// The scan type a domain opens in the wizard: an API scan for APIs, a web scan otherwise.
-export const scanKindOf = (domain: Domain): 'web' | 'api' => domain.kind === 'api' ? 'api' : 'web'

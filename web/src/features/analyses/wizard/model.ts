@@ -1,7 +1,8 @@
 import type { TFunction } from 'i18next'
 
-export type Kind = 'code' | 'image' | 'web' | 'api'
-export type StepId = 'repositories' | 'images' | 'target' | 'spec' | 'access' | 'context' | 'review'
+// `web` covers sites and APIs alike: with an OpenAPI spec the server calls its endpoints instead of crawling.
+export type Kind = 'code' | 'image' | 'web'
+export type StepId = 'repositories' | 'images' | 'target' | 'access' | 'context' | 'review'
 export type ScanPlan = { languages: { name: string; files: number; rules: number }[]; runs: string[]; skips: string[]; osv_needed: boolean; files: number | null
   manifests: string[]; iac: string[]; pipelines?: string[] }
 export type Registry = { registry: string; username: string; last4: string }
@@ -14,10 +15,9 @@ export const STEPS: Record<Kind, StepId[]> = {
   code: ['repositories', 'context', 'review'],
   image: ['images', 'context', 'review'],
   web: ['target', 'access', 'review'],
-  api: ['target', 'spec', 'access', 'review'],
 }
 export const STEP_LABEL = {
-  repositories: 'wizard.steps.repositories', images: 'wizard.steps.images', target: 'wizard.steps.target', spec: 'wizard.steps.spec',
+  repositories: 'wizard.steps.repositories', images: 'wizard.steps.images', target: 'wizard.steps.target',
   access: 'wizard.steps.access', context: 'wizard.steps.context', review: 'wizard.steps.review',
 } as const
 // Optional steps can be skipped with a button; the rest need an answer.
