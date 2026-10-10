@@ -98,14 +98,14 @@ function LinkView({ token, onDone, onCancel }: { token: string; onDone: () => vo
       <p className="text-sm text-app-muted">{t('link.password_saved')}</p>
       <div className="space-y-1.5"><label htmlFor="link-code" className="text-xs text-app-muted">{t('fields.code')}</label><Input id="link-code" autoFocus required autoComplete="one-time-code" inputMode="numeric" maxLength={11} value={code} onChange={event => setCode(event.target.value)} className="border-app-line bg-app-soft font-mono tracking-widest" /></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-      <Button type="submit" disabled={busy} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}{t('link.verify_and_enter')}</Button>
+      <Button type="submit" disabled={busy} className="w-full">{busy ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}{t('link.verify_and_enter')}</Button>
     </form> : info ? <form className="space-y-4" onSubmit={submit}>
       <input type="text" autoComplete="username" value={info.username} readOnly hidden />
       <div className="space-y-1.5"><label htmlFor="link-password" className="text-xs text-app-muted">{t('fields.password')}</label><Input id="link-password" type="password" autoFocus required minLength={12} maxLength={256} autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} className="border-app-line bg-app-soft" /></div>
       <div className="space-y-1.5"><label htmlFor="link-confirm" className="text-xs text-app-muted">{t('fields.repeat_password')}</label><Input id="link-confirm" type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={confirm} onChange={event => setConfirm(event.target.value)} className="border-app-line bg-app-soft" /></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-      <Button type="submit" disabled={busy} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="animate-spin" /> : <KeyRound />}{t('link.save_and_enter')}</Button>
-    </form> : error ? <div className="space-y-3"><div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div><Button variant="outline" className="w-full border-app-line bg-app-soft" onClick={onCancel}>{t('link.go_to_sign_in')}</Button></div>
+      <Button type="submit" disabled={busy} className="w-full">{busy ? <LoaderCircle className="animate-spin" /> : <KeyRound />}{t('link.save_and_enter')}</Button>
+    </form> : error ? <div className="space-y-3"><div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div><Button variant="outline" className="w-full" onClick={onCancel}>{t('link.go_to_sign_in')}</Button></div>
       : <SkeletonCard lines={3} label={t('link.checking_label')} />}</CardContent></Card></Shell>
 }
 
@@ -142,12 +142,12 @@ function LoginView({ setupRequired, notice, onDone }: { setupRequired: boolean; 
       {setupRequired ? <SetupCard onDone={onDone} />
       : <Card className="border-app-line bg-panel"><CardHeader><CardTitle level={1} className="flex items-center gap-2">{challenge ? <><ShieldCheck className="size-4" />{t('login.second_factor')}</> : <><LockKeyhole className="size-4" />{t('login.title')}</>}</CardTitle><CardDescription>{challenge ? t('login.code_hint') : t('login.credentials_hint')}</CardDescription></CardHeader>
         <CardContent><form className="space-y-4" onSubmit={submit}>
-          {notice && !error && <div role="status" className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning">{notice}</div>}
+          {notice && !error && <div role="status" className="rounded-lg border border-attention-line bg-attention-soft px-3 py-2 text-xs text-attention">{notice}</div>}
           {challenge ? <div className="space-y-1.5"><label htmlFor="login-code" className="text-xs text-app-muted">{t('fields.code')}</label><Input id="login-code" autoFocus required autoComplete="one-time-code" inputMode="numeric" maxLength={11} value={code} onChange={event => setCode(event.target.value)} placeholder="123456" className="border-app-line bg-app-soft font-mono tracking-widest" /></div>
           : <><div className="space-y-1.5"><label htmlFor="login-user" className="text-xs text-app-muted">{t('fields.username')}</label><Input id="login-user" autoFocus required autoComplete="username" maxLength={40} value={username} onChange={event => setUsername(event.target.value)} className="border-app-line bg-app-soft" /></div>
             <div className="space-y-1.5"><label htmlFor="login-password" className="text-xs text-app-muted">{t('fields.password')}</label><Input id="login-password" type="password" required autoComplete="current-password" maxLength={256} value={password} onChange={event => setPassword(event.target.value)} className="border-app-line bg-app-soft" /></div></>}
           {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-          <Button type="submit" disabled={busy} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="animate-spin" /> : <KeyRound />}{challenge ? t('login.verify') : t('login.enter')}</Button>
+          <Button type="submit" disabled={busy} className="w-full">{busy ? <LoaderCircle className="animate-spin" /> : <KeyRound />}{challenge ? t('login.verify') : t('login.enter')}</Button>
           {challenge && <button type="button" onClick={() => { setChallenge(null); setCode(''); setError('') }} className="w-full text-center text-xs text-app-subtle hover:text-app-fg">{t('login.back_to_password')}</button>}
         </form></CardContent></Card>}
       <p className="text-center text-xs text-app-subtle">{t('login.forgot')}</p>
@@ -188,7 +188,7 @@ function SetupCard({ onDone }: { onDone: () => void }) {
       <div className="space-y-1.5"><label htmlFor="setup-password" className="text-xs text-app-muted">{t('setup.password')}</label><Input id="setup-password" type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} className="border-app-line bg-app-soft" /></div>
       <div className="space-y-1.5"><label htmlFor="setup-confirm" className="text-xs text-app-muted">{t('fields.repeat_password')}</label><Input id="setup-confirm" type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={confirm} onChange={event => setConfirm(event.target.value)} className="border-app-line bg-app-soft" /></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-      <Button type="submit" disabled={busy} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="animate-spin" /> : <KeyRound />}{t('setup.create')}</Button>
+      <Button type="submit" disabled={busy} className="w-full">{busy ? <LoaderCircle className="animate-spin" /> : <KeyRound />}{t('setup.create')}</Button>
       <p className="text-[11px] leading-4 text-app-subtle">{t('setup.next')}</p>
     </form></CardContent></Card>
 }

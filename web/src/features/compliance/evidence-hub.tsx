@@ -77,7 +77,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
   // A section of the page, not a card: the CRA kit can follow it, so it keeps its own heading.
   return <section aria-labelledby="evidence-title" className="space-y-6">
     <div className="space-y-1"><h2 id="evidence-title" className="text-base font-medium">{t('evidence.title')}</h2><p className="max-w-2xl text-sm text-app-muted">{t('evidence.description')}</p></div>
-      {!counts.assets ? <p className="text-sm text-app-muted">{t('evidence.none')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('evidence.new_scan')}</button></p> : <>
+      {!counts.assets ? <p className="text-sm text-app-muted">{t('evidence.none')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline underline-offset-2">{t('evidence.new_scan')}</button></p> : <>
         <div className="grid gap-6 xl:grid-cols-2">
           <ScopePicker scope={scope} accounts={counts.accounts} total={counts.assets} one={pickOne} step="1" onChange={next => { setScope(next); setError('') }} />
           <div className="min-w-0 space-y-2">

@@ -49,7 +49,7 @@ export function TriageActions({ current, canAccept, onPick, size = 'sm' }: { cur
   const Primary = icon[primary]
   return <div className="flex flex-wrap gap-1.5">
     <Button type="button" size={size} variant="outline" onClick={() => onPick(primary)} className="border-app-line bg-app-soft"><Primary />{t(VERB[primary])}</Button>
-    {rest.length > 0 && <Menu><MenuTrigger render={<Button type="button" size={size} variant="outline" className="border-app-line bg-app-soft" />}>{t('triage.more_states')}<ChevronDown className="size-3.5" /></MenuTrigger>
+    {rest.length > 0 && <Menu><MenuTrigger render={<Button type="button" size={size} variant="outline" />}>{t('triage.more_states')}<ChevronDown className="size-3.5" /></MenuTrigger>
       <MenuContent align="start">{rest.map(status => { const Icon = icon[status]; return <MenuItem key={status} onClick={() => onPick(status)}><Icon />{t(VERB[status])}</MenuItem> })}</MenuContent></Menu>}
   </div>
 }
@@ -101,7 +101,7 @@ export function TriageDialog({ runId = '', status, fingerprints = [], selections
       {selections && failed.length > 0 && <div role="alert" className="space-y-1 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">
         <p className="font-medium">{t('scope.triage_partial', { count: selections.length - failed.length, total: selections.length })}</p>
         <ul className="max-h-32 space-y-0.5 overflow-y-auto">{failed.map(part => <li key={part.asset}><span className="font-medium">{part.name}</span> · {part.error}</li>)}</ul></div>}
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || (needsReason(status) && reason.trim().length < 10)} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="motion-safe:animate-spin" />}{failed.length ? t('scope.triage_retry', { count: failed.length }) : t('common:actions.save')}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || (needsReason(status) && reason.trim().length < 10)}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{failed.length ? t('scope.triage_retry', { count: failed.length }) : t('common:actions.save')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }

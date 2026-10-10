@@ -32,7 +32,7 @@ export function RepositoriesStep({ value, onChange, orgTotal, isAdmin, batchBusy
   const toggle = (item: Source) => set({ sources: sources.some(entry => entry.id === item.id) ? sources.filter(entry => entry.id !== item.id) : [...sources, item] })
 
   // One line, and only when it applies.
-  const note = mode === 'repos' && sources.length > 1 && withoutApp.length ? <p role="status" className="text-sm text-warning">{t('repos.not_in_app', { names: listing(t, withoutApp.map(item => item.name)) })}</p>
+  const note = mode === 'repos' && sources.length > 1 && withoutApp.length ? <p role="status" className="text-sm text-attention">{t('repos.not_in_app', { names: listing(t, withoutApp.map(item => item.name)) })}</p>
     : mode === 'repos' && sources.length > BATCH_LIMIT ? <p role="status" className="text-sm text-danger">{t('repos.over_limit', { limit: BATCH_LIMIT })}</p>
     : batch && batchBusy ? <p role="status" className="text-sm text-app-muted">{t('repos.batch_busy')}</p>
     : batch ? <p role="status" className="text-sm text-app-muted">{t('repos.batch_note')}</p> : null

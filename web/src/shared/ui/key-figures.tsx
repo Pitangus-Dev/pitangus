@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { cn } from 'cn'
 
-export type FigureTone = 'danger' | 'warning' | 'attention' | 'success' | 'neutral'
-const TONE: Record<FigureTone, string> = { danger: 'text-danger', warning: 'text-warning', attention: 'text-attention', success: 'text-success', neutral: 'text-app-fg' }
+export type FigureTone = 'danger' | 'attention' | 'success' | 'neutral'
+const TONE: Record<FigureTone, string> = { danger: 'text-danger', attention: 'text-attention', success: 'text-success', neutral: 'text-app-fg' }
 
 // Headline numbers as one ruled row, not a grid of boxes: the same rule as the reports' `kpis`. Each figure spans three
 // rows of the parent grid (label, value, hint) through a subgrid, so a label that wraps moves every value in its row

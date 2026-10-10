@@ -34,7 +34,7 @@ const left = (iso: string, t: TFunction<'compliance'>) => {
   return hours < 0 ? t('due.overdue_hours', { count: whole }) : t('due.left_hours', { count: whole })
 }
 const STAGE_STYLE: Record<Stage['state'], string> = {
-  overdue: 'border-danger-line bg-danger-soft text-danger', pending: 'border-warning-line bg-warning-soft text-warning',
+  overdue: 'border-danger-line bg-danger-soft text-danger', pending: 'border-attention-line bg-attention-soft text-attention',
   waiting: 'border-app-line bg-app-soft text-app-muted', sent: 'border-app-line bg-app-soft text-brand',
 }
 
@@ -124,11 +124,11 @@ function Products({ counts, admin, onChange, onNew }: { counts: Counts; admin: b
     {counts.products > 0 && !(products.error && !products.items.length) && (!products.items.length && products.loading ? <SkeletonList rows={2} dense label={t('products.loading')} />
       : <div className="overflow-hidden rounded-xl border border-app-line"><ul aria-busy={products.loading} className={`divide-y divide-app-line motion-safe:transition-opacity ${products.loading ? 'opacity-60' : ''}`}>{products.items.map(product => <li key={product.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
       <span className="min-w-0"><span className="font-medium">{product.name}</span><span className="block truncate text-xs text-app-subtle">{product.support_until ? t('products.supported_until', { asset: product.asset, date: day(product.support_until) }) : product.asset}</span>
-        {!product.last_complete && <span className="block text-xs text-warning">{t('products.not_scanned')}</span>}</span>
+        {!product.last_complete && <span className="block text-xs text-attention">{t('products.not_scanned')}</span>}</span>
       {admin && <Button size="xs" variant="ghost" aria-label={t('products.remove', { name: product.name })} onClick={() => void onChange({ op: 'unproduct', key: product.key })}><X />{t('common:actions.remove')}</Button>}
     </li>)}</ul>
       {products.total > products.limit && <div className="border-t border-app-line"><Pagination total={products.total} limit={products.limit} offset={products.offset} onPrev={products.prev} onNext={products.next} noun={t('products.noun')} /></div>}</div>)}
-    {admin && !counts.assets && <p className="text-xs text-app-muted">{t('products.scan_first')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('products.new_scan')}</button></p>}
+    {admin && !counts.assets && <p className="text-xs text-app-muted">{t('products.scan_first')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline underline-offset-2">{t('products.new_scan')}</button></p>}
     {!admin && !counts.products && <p className="text-xs text-app-subtle">{t('products.admin_only')}</p>}
     {admin && !adding && counts.candidates > 0 && <Button size="sm" variant="outline" onClick={() => setAdding(true)} className="border-app-line bg-app-soft"><Plus />{t('products.mark')}</Button>}
     {adding && <form onSubmit={submit} className="grid gap-2 rounded-xl border border-app-line bg-inset p-3 sm:grid-cols-[1fr_1fr_10rem_auto] sm:items-end">
@@ -164,7 +164,7 @@ function EventCard({ event, admin, onChange }: { event: CraEvent; admin: boolean
     {event.state === 'to_assess' && <Assess event={event} admin={admin} onChange={onChange} />}
     {event.state === 'not_affected' && assessment && <p className="flex flex-wrap items-center gap-2 text-xs text-app-muted">
       <span>{t('assess.not_affected_by', { by: assessment.by ?? '—', date: assessment.at ? formatDate(assessment.at) : '—', reason: assessment.reason ?? '' })}</span>
-      {admin && <button type="button" aria-label={t('assess.reopen_label', { cve: event.cve })} onClick={() => void onChange({ op: 'reopen', event: event.id })} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('assess.reopen')}</button>}</p>}
+      {admin && <button type="button" aria-label={t('assess.reopen_label', { cve: event.cve })} onClick={() => void onChange({ op: 'reopen', event: event.id })} className="min-h-6 text-brand underline underline-offset-2">{t('assess.reopen')}</button>}</p>}
     {event.state === 'exploited' && assessment && <p className="text-xs text-app-muted">{assessment.legacy
       ? t('assess.legacy', { date: assessment.at ? formatDate(assessment.at) : '—' })
       : t('assess.exploited_by', { by: assessment.by ?? '—', date: assessment.at ? formatDate(assessment.at) : '—' })}</p>}
@@ -179,7 +179,7 @@ function EventCard({ event, admin, onChange }: { event: CraEvent; admin: boolean
 
 function StateChip({ state }: { state: CraEvent['state'] }) {
   const { t } = useTranslation('compliance')
-  const style = state === 'exploited' ? 'border-danger-line text-danger' : state === 'to_assess' ? 'border-warning-line text-warning' : 'border-app-line text-app-muted'
+  const style = state === 'exploited' ? 'border-danger-line text-danger' : state === 'to_assess' ? 'border-attention-line text-attention' : 'border-app-line text-app-muted'
   const label = state === 'exploited' ? t('state.exploited') : state === 'to_assess' ? t('state.to_assess') : t('state.not_affected')
   return <span className={`rounded border px-1.5 text-[11px] ${style}`}>{label}</span>
 }
@@ -212,7 +212,7 @@ function Assess({ event, admin, onChange }: { event: CraEvent; admin: boolean; o
       {mode === 'not_affected' ? <div className="space-y-1"><label htmlFor={`${id}-reason`} className="text-xs text-app-muted">{t('assess.reason')}</label>
         <textarea id={`${id}-reason`} required maxLength={500} rows={2} value={reason} onChange={formEvent => setReason(formEvent.target.value)} placeholder={t('assess.reason_placeholder')}
           aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="w-full resize-y rounded-lg border border-app-line bg-app px-3 py-2 text-sm text-app-fg" /></div>
-        : <p className="text-xs text-warning">{t('assess.exploited_help')}</p>}
+        : <p className="text-xs text-attention">{t('assess.exploited_help')}</p>}
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
       <div className="flex flex-wrap gap-2">
         <Button type="submit" size="sm" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{mode === 'not_affected' ? t('assess.confirm_not_affected') : t('assess.confirm_exploited')}</Button>

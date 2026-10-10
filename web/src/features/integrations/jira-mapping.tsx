@@ -42,7 +42,7 @@ export function MappingTable({ fields, variables, draft, errors, onChange, searc
         </tbody>
       </table>
     </div>
-    {rest.length > 0 && <button type="button" aria-expanded={more} onClick={() => setMore(!more)} className="inline-flex min-h-6 items-center gap-1 text-xs text-brand hover:underline">
+    {rest.length > 0 && <button type="button" aria-expanded={more} onClick={() => setMore(!more)} className="inline-flex min-h-6 items-center gap-1 text-xs text-brand underline underline-offset-2">
       <ChevronRight className={`size-3.5 transition motion-reduce:transition-none ${more ? 'rotate-90' : ''}`} />{more ? t('jira.mapping.fewer') : t('jira.mapping.more', { count: rest.length })}</button>}
     {blockedOptional.length > 0 && <details className="text-xs text-app-muted"><summary className="min-h-6 cursor-pointer py-1">{t('jira.mapping.unsupported_summary', { count: blockedOptional.length })}</summary>
       <p className="mt-1">{t('jira.mapping.unsupported_help')}</p>
@@ -110,7 +110,7 @@ function TemplateInput({ id, label, text, variables, invalid, describedBy, onCha
       className="w-full rounded-lg border border-app-line bg-app-soft px-2 py-1.5 font-mono text-xs text-app-fg aria-invalid:border-danger" />
     <div role="group" aria-label={t('jira.mapping.insert_label')} className="flex flex-wrap gap-1">{variables.map(variable => <button key={variable.key} type="button" title={variable.label}
       aria-label={t('jira.mapping.insert', { name: variable.label })} onClick={() => insert(variable.key)}
-      className="min-h-6 rounded border border-app-line bg-inset px-1.5 font-mono text-[11px] text-app-secondary hover:border-brand/40">{`{{${variable.key}}}`}</button>)}</div>
+      className="min-h-6 rounded border border-app-line bg-inset px-1.5 font-mono text-[11px] text-app-secondary hover:border-app-faint">{`{{${variable.key}}}`}</button>)}</div>
   </div>
 }
 

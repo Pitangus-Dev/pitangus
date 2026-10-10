@@ -198,7 +198,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
     <button onClick={() => selectView('account')} className={`flex w-full items-center gap-3 rounded-lg p-1 text-left transition hover:bg-app-soft ${view === 'account' ? 'text-brand' : ''}`}>
       <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-md border border-app-line bg-panel text-xs font-semibold text-app-secondary">{(Array.from(user.display_name)[0] ?? '').toUpperCase()}</span>
       <span className="min-w-0"><span className="block truncate text-sm font-medium">{user.display_name}</span><span className="block truncate text-xs text-app-subtle">{user.totp_enabled ? role : t('role_without_2fa', { role })}</span></span>
-      {!user.totp_enabled && <span role="img" aria-label={t('two_factor_off')} className="ml-auto size-2 shrink-0 rounded-full bg-warning" />}
+      {!user.totp_enabled && <span role="img" aria-label={t('two_factor_off')} className="ml-auto size-2 shrink-0 rounded-full bg-attention" />}
     </button>
     <Button variant="ghost" size="sm" onClick={() => void session.logout()} className="w-full justify-start text-app-muted"><LogOut />{t('auth:sign_out')}</Button>
   </div>

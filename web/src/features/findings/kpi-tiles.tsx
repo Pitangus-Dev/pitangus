@@ -18,5 +18,5 @@ export function KpiTiles({ kpis }: { kpis: FindingKpis }) {
 }
 
 function Tile({ label, value, tone, hint }: { label: string; value: number; tone: 'rose' | 'amber' | 'orange' | 'teal' | 'muted'; hint?: string }) {
-  return <KeyFigure label={label} value={value} hint={hint} tone={({ rose: 'danger', amber: 'warning', orange: 'attention', teal: 'success', muted: 'neutral' } as const)[tone]} />
+  return <KeyFigure label={label} value={value} hint={hint} tone={({ rose: 'danger', amber: 'attention', orange: 'attention', teal: 'success', muted: 'neutral' } as const)[tone]} />
 }

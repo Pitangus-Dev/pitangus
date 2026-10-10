@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowRight, CircleAlert, CircleCheck, ExternalLink } from 'lucide-react'
+import { CircleAlert, CircleCheck, ExternalLink } from 'lucide-react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { formatDate } from '@/shared/i18n/format'
@@ -25,7 +25,7 @@ export function RunHeader({ run, onNew }: { run: RepositoryRun; onNew: () => voi
   }
   if (run.type === 'pr_review' && run.pull_request) return <div className="space-y-3 rounded-lg border border-app-line bg-panel p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="mb-1 text-xs text-app-muted">{t('pr.eyebrow', { name: run.source?.name ?? '' })}</div><a href={run.pull_request.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xl font-semibold hover:underline">#{run.pull_request.number} {run.pull_request.title}<ExternalLink className="size-4 text-app-subtle" /></a><p className="mt-1 text-xs text-app-subtle">{run.pull_request.author} · {run.pull_request.head_ref} → {run.pull_request.base_ref} · commit <span className="font-mono">{run.pull_request.head_sha.slice(0, 7)}</span> · {t('pr.changed_files', { count: run.summary.changed_files ?? 0 })}</p></div>
-      {run.review && <Badge variant="outline" className={run.review.verdict.state === 'failure' ? 'border-transparent bg-danger-solid text-on-solid' : 'border-success-line text-success'}>{run.review.verdict.state === 'failure' ? t('pr.blocks') : t('pr.passes')} · {run.review.verdict.description}</Badge>}</div>
+      {run.review && <Badge variant="outline" className={run.review.verdict.state === 'failure' ? 'border-danger-line bg-danger-soft text-danger' : 'border-success-line text-success'}>{run.review.verdict.state === 'failure' ? t('pr.blocks') : t('pr.passes')} · {run.review.verdict.description}</Badge>}</div>
     <p className="text-sm text-app-muted">{run.summary.preexisting ? <Trans t={t} i18nKey="pr.scope_preexisting" count={run.summary.preexisting} components={{ strong: <strong /> }} /> : <Trans t={t} i18nKey="pr.scope" components={{ strong: <strong /> }} />}{run.review && !run.review.baseline_run ? ` ${t('pr.no_baseline')}` : ''}</p>
     {run.review?.delivery && <p className="text-xs text-app-subtle">{t('pr.delivery', { comment: run.review.delivery.comment ?? '—', status: run.review.delivery.status ?? '—' })}</p>}
   </div>
@@ -36,12 +36,12 @@ export function RunHeader({ run, onNew }: { run: RepositoryRun; onNew: () => voi
     <p className="mt-1 text-xs text-app-subtle">{formatDate(run.created_at)}{run.target ? <> · <span className="font-mono">{run.target}</span></> : null}</p>
     <p className="mt-2 text-sm text-app-muted">{t('web.help')}</p>
     {run.logins?.length ? <SignIns logins={run.logins} /> : null}
-  </div><Button variant="outline" onClick={onNew} className="shrink-0 border-app-line bg-app-soft">{t('scan.new')} <ArrowRight /></Button></div>
+  </div><Button variant="outline" onClick={onNew} className="shrink-0">{t('scan.new')}</Button></div>
   return <div className="flex flex-col gap-4 rounded-lg border border-app-line bg-panel p-5 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="mb-1 text-xs text-app-muted">{run.type === 'image_scan' ? t('scan.image') : t('scan.code')} · {({ github: 'GitHub', registry: t('scan.provider.registry'), local: t('scan.provider.local'), gitlab: 'GitLab' } as Record<string, string>)[run.source?.provider ?? 'local'] ?? run.source?.provider}</div><h2 className="truncate text-xl font-semibold">{run.source?.name ?? t('scan.repository')}</h2><p className="mt-1 text-xs text-app-subtle">{formatDate(run.created_at)} · {run.source?.image
         ? <><span className="font-mono">{run.source.image.reference}</span>{run.source.image.resolved_digest ? <> · {t('scan.digest')} <span className="font-mono">{run.source.image.resolved_digest.slice(7, 19)}</span></> : null}{run.source.image.os ? ` · ${run.source.image.os}` : ''} · {t('scan.user', { user: run.source.image.user ?? 'root' })}{run.summary.agreement ? ` · ${t('scan.agreement', { count: run.summary.agreement.both })}` : ''}</>
         : <>{run.source?.branch && <>{run.source.commit
           ? <Trans t={t} i18nKey="scan.branch_commit" values={{ branch: run.source.branch, commit: run.source.commit.slice(0, 7) }} components={{ code: <span className="font-mono" /> }} />
-          : <Trans t={t} i18nKey="scan.branch" values={{ branch: run.source.branch }} components={{ code: <span className="font-mono" /> }} />} · </>}{t('scan.snapshot')} <span className="font-mono">{run.source?.sha256?.slice(0, 12) ?? '—'}</span> · {t('scan.files', { count: run.summary.files ?? 0 })} · {t('scan.dependencies', { count: run.summary.dependencies ?? 0 })}</>}</p>{run.context && <p className="mt-2 text-sm text-app-muted">{run.context}</p>}</div><Button variant="outline" onClick={onNew} className="shrink-0 border-app-line bg-app-soft">{t('scan.new')} <ArrowRight /></Button></div>
+          : <Trans t={t} i18nKey="scan.branch" values={{ branch: run.source.branch }} components={{ code: <span className="font-mono" /> }} />} · </>}{t('scan.snapshot')} <span className="font-mono">{run.source?.sha256?.slice(0, 12) ?? '—'}</span> · {t('scan.files', { count: run.summary.files ?? 0 })} · {t('scan.dependencies', { count: run.summary.dependencies ?? 0 })}</>}</p>{run.context && <p className="mt-2 text-sm text-app-muted">{run.context}</p>}</div><Button variant="outline" onClick={onNew} className="shrink-0">{t('scan.new')}</Button></div>
 }
 
 // Whether each test user signed in, right where the results are read: a failed sign-in makes the coverage partial,
@@ -53,9 +53,9 @@ function SignIns({ logins }: { logins: SignIn[] }) {
     <ul aria-label={t('web.sign_ins')} className="space-y-1 text-sm">{logins.map(login => <li key={login.name} className="flex items-start gap-2">
       {login.status === 'signed_in'
         ? <><CircleCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden /><span className="text-app-secondary">{t('web.signed_in', { name: login.name })}</span></>
-        : <><CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden /><span className="text-app-secondary">{t('web.sign_in_failed', { name: login.name, reason: login.reason ?? '' })}</span></>}
+        : <><CircleAlert className="mt-0.5 size-4 shrink-0 text-attention" aria-hidden /><span className="text-app-secondary">{t('web.sign_in_failed', { name: login.name, reason: login.reason ?? '' })}</span></>}
     </li>)}</ul>
-    {failed && <p className="text-xs text-warning">{t('web.partial')}</p>}
+    {failed && <p className="text-xs text-attention">{t('web.partial')}</p>}
   </div>
 }
 
@@ -74,7 +74,7 @@ function ImportHeader({ run, onNew }: { run: RepositoryRun; onNew: () => void })
       ? commit ? <Trans t={t} i18nKey="scan.branch_commit" values={{ branch, commit: commit.slice(0, 7) }} components={{ code }} /> : <Trans t={t} i18nKey="scan.branch" values={{ branch }} components={{ code }} />
       : commit ? <Trans t={t} i18nKey="import.commit" values={{ commit: commit.slice(0, 7) }} components={{ code }} /> : null}</p>
     <p className="mt-2 text-sm text-app-muted">{trigger.scope === 'partial' ? t('import.help_partial', { tool }) : t('import.help_full', { tool })}</p>
-  </div><Button variant="outline" onClick={onNew} className="shrink-0 border-app-line bg-app-soft">{t('import.new')} <ArrowRight /></Button></div>
+  </div><Button variant="outline" onClick={onNew} className="shrink-0">{t('import.new')}</Button></div>
 }
 
 // The tools a web scan ran, in its order: ZAP and each of the others whose step wasn't skipped ("ZAP + katana + nuclei").

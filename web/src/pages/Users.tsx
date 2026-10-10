@@ -93,7 +93,7 @@ function InviteDialog({ open, onClose, onInvited }: { open: boolean; onClose: ()
       <div className="space-y-1.5"><label htmlFor="invite-name" className="text-xs text-app-muted">{t('invite_dialog.display_name')}</label><Input id="invite-name" maxLength={80} value={displayName} onChange={event => setDisplayName(event.target.value)} placeholder={t('invite_dialog.display_name_placeholder')} className="border-app-line bg-app-soft" /></div>
       <div className="space-y-1.5"><span className="text-xs text-app-muted">{t('invite_dialog.role')}</span><div role="radiogroup" aria-label={t('invite_dialog.role')} className="grid grid-cols-2 gap-2">{(['member', 'admin'] as const).map(value => <button key={value} type="button" role="radio" aria-checked={role === value} onClick={() => setRole(value)} className={`rounded-lg border p-3 text-left text-sm ${role === value ? 'border-app-fg bg-app-soft' : 'border-app-line bg-app-soft'}`}><span className="block font-medium">{t(roleLabel[value])}</span><span className="text-xs text-app-subtle">{t(roleHint[value])}</span></button>)}</div></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || username.trim().length < 3} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="animate-spin" />}{t('invite_dialog.submit')}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || username.trim().length < 3}>{busy && <LoaderCircle className="animate-spin" />}{t('invite_dialog.submit')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -106,6 +106,6 @@ function LinkDialog({ result, onClose }: { result: LinkResult | null; onClose: (
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-lg">
     <DialogHeader><DialogTitle>{t('link_dialog.title', { username: result.user.username })}</DialogTitle><DialogDescription>{t('link_dialog.description', { count: result.expires_in_hours })}</DialogDescription></DialogHeader>
     <code className="block rounded-lg bg-inset p-3 font-mono text-xs break-all text-app-secondary">{result.link}</code>
-    <DialogFooter><Button variant="outline" onClick={() => void copy()} className="border-app-line bg-app-soft">{copied ? <Check /> : <Copy />}{copied ? t('common:actions.copied') : t('link_dialog.copy')}</Button><span role="status" className="sr-only">{copied ? t('link_dialog.copied_to_clipboard') : ''}</span><Button onClick={onClose} className="bg-primary text-primary-foreground hover:bg-primary/90">{t('link_dialog.done')}</Button></DialogFooter>
+    <DialogFooter><Button variant="outline" onClick={() => void copy()} className="border-app-line bg-app-soft">{copied ? <Check /> : <Copy />}{copied ? t('common:actions.copied') : t('link_dialog.copy')}</Button><span role="status" className="sr-only">{copied ? t('link_dialog.copied_to_clipboard') : ''}</span><Button onClick={onClose}>{t('link_dialog.done')}</Button></DialogFooter>
   </DialogContent></Dialog>
 }

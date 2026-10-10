@@ -142,7 +142,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
                   {image.last_scan && <span>{image.reference ? ' · ' : ''}{t('images.last_scan', { date: formatDay(image.last_scan.created_at) })}</span>}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {image.analyzed && <Button size="sm" variant="outline" className="border-app-line bg-app-soft" aria-label={t('images.findings_for', { name: image.name })} onClick={() => onOpenFindings(image.key)}>{t('images.findings')}</Button>}
+                {image.analyzed && <Button size="sm" variant="outline" aria-label={t('images.findings_for', { name: image.name })} onClick={() => onOpenFindings(image.key)}>{t('images.findings')}</Button>}
                 {image.reference && <Button size="sm" variant={image.analyzed ? 'ghost' : 'outline'} className={image.analyzed ? '' : 'border-app-line bg-app-soft'} disabled={pending}
                   aria-label={state === 'queued' ? t('images.queued_for', { name: image.name }) : image.analyzed ? t('images.rescan_for', { name: image.name }) : t('images.scan_for', { name: image.name })}
                   onClick={() => { if (image.reference) void rescan(image.key, image.name, image.reference) }}>

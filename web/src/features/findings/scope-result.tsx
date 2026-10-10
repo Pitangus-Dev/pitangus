@@ -25,7 +25,7 @@ export function ScopeResult({ scope, name, tab, canAccept, canManage = canAccept
   return <div className="space-y-6">
     <FindingsTable findings={findings} kpis={scope.summary.kpis} header={<ScopeHeader scope={scope} name={name} />}
       aside={<>
-        {scope.truncated && <p role="status" className="rounded-xl border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning">{t('scope.truncated', { shown: formatNumber(findings.length), total: formatNumber(scope.total) })}</p>}
+        {scope.truncated && <p role="status" className="rounded-xl border border-attention-line bg-attention-soft px-4 py-3 text-sm text-attention">{t('scope.truncated', { shown: formatNumber(findings.length), total: formatNumber(scope.total) })}</p>}
         {scope.by_asset.length > 0 && <ScopeByAsset assets={scope.by_asset} onOpen={onOpenAsset} opening={opening} />}
       </>}
       column={{ label: t('scope.asset'), text: finding => finding.asset?.name ?? '',

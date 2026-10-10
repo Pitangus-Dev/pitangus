@@ -28,10 +28,10 @@ export const coversSubdomains = (domain: Domain) => domain.verified && proofOf(d
 export const lastScanOf = (domain: Domain) => (domain.last_scan ?? null) as LastScan | null
 export const untilOf = (domain: Domain) => domain.verified_until ? formatDay(domain.verified_until, { dateStyle: 'medium' }) : ''
 
-// The verification chip: success when the proof is current, warning when pending or lapsed.
-export function verification(domain: Domain): { label: string; tone: 'success' | 'warning' } {
+// The verification chip: success when the proof is current, attention when pending or lapsed.
+export function verification(domain: Domain): { label: string; tone: 'success' | 'attention' } {
   if (domain.verified) return { label: i18n.t('sources:domains.list.verified_by', { method: methodLabel(proofOf(domain)) }), tone: 'success' }
-  return { label: i18n.t(domain.expired ? 'sources:domains.list.expired' : 'sources:domains.list.pending'), tone: 'warning' }
+  return { label: i18n.t(domain.expired ? 'sources:domains.list.expired' : 'sources:domains.list.pending'), tone: 'attention' }
 }
 const HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
 // Same rule as the server: a host name strictly under the domain (the domain itself is always analyzed).
@@ -42,4 +42,4 @@ export function relatedEntry(value: string, root: string): { host: string } | { 
   if (!host.endsWith(`.${root}`)) return { error: 'foreign' }
   return { host }
 }
-export const TONE = { success: 'border-success-line bg-success-soft text-success', warning: 'border-warning-line bg-warning-soft text-warning' } as const
+export const TONE = { success: 'border-success-line bg-success-soft text-success', attention: 'border-attention-line bg-attention-soft text-attention' } as const

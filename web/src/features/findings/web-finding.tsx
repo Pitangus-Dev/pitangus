@@ -23,7 +23,7 @@ export function WebFinding({ finding }: { finding: RepositoryFinding }) {
       {showReason && <p className="whitespace-pre-line wrap-anywhere">{finding.reason}</p>}
       {web.description && <>
         <p className={`whitespace-pre-line wrap-anywhere ${showReason ? 'mt-1 text-xs text-app-muted' : ''} ${more ? '' : 'line-clamp-3'}`}>{web.description}</p>
-        {web.description.length > 240 && <button type="button" aria-expanded={more} onClick={() => setMore(value => !value)} className="mt-1 min-h-6 text-xs text-brand hover:underline">{more ? t('web.show_less') : t('web.show_more')}</button>}
+        {web.description.length > 240 && <button type="button" aria-expanded={more} onClick={() => setMore(value => !value)} className="mt-1 min-h-6 text-xs text-brand underline underline-offset-2">{more ? t('web.show_less') : t('web.show_more')}</button>}
       </>}
     </Section>
     <Section title={t('web.where')}>
@@ -51,7 +51,7 @@ export function WebFinding({ finding }: { finding: RepositoryFinding }) {
       <CodeBlock code={check} label={checkLabel} /><p className="mt-1 text-xs text-app-muted">{t('web.check_hint')}</p>
     </Section>}
     {references.length > 0 && <Section title={t('web.references')} note={said}>
-      <ul className="space-y-1 text-xs">{references.map(url => <li key={url} className="min-w-0"><a href={url} title={url} target="_blank" rel="noreferrer" className="inline-flex min-h-6 max-w-full items-center gap-1 text-brand hover:underline"><span className="truncate">{label(url)}</span><ExternalLink className="size-3 shrink-0" /><span className="sr-only">{t('web.new_tab')}</span></a></li>)}</ul>
+      <ul className="space-y-1 text-xs">{references.map(url => <li key={url} className="min-w-0"><a href={url} title={url} target="_blank" rel="noreferrer" className="inline-flex min-h-6 max-w-full items-center gap-1 text-brand underline underline-offset-2"><span className="truncate">{label(url)}</span><ExternalLink className="size-3 shrink-0" /><span className="sr-only">{t('web.new_tab')}</span></a></li>)}</ul>
     </Section>}
   </div>
 }

@@ -57,7 +57,7 @@ export function TargetBranches({ uid, name, saved, defaultBranch, admin, onSaved
       <Input ref={field} id={`${id}-input`} value={input} maxLength={200} spellCheck={false} autoComplete="off" disabled={busy}
         onChange={event => { setInput(event.target.value); setError('') }} placeholder={t('targets.placeholder')}
         aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} className="h-8 w-52 border-app-line bg-app-soft font-mono text-xs" />
-      <Button type="submit" size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={busy || !input.trim()}><Plus />{t('common:actions.add')}</Button>
+      <Button type="submit" size="sm" variant="outline" disabled={busy || !input.trim()}><Plus />{t('common:actions.add')}</Button>
       {dirty && <>
         <Button type="button" size="sm" disabled={busy} onClick={() => { setError(''); setAnnounce(''); mutation.mutate(draft) }}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('targets.save')}</Button>
         <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={discard}>{t('targets.discard')}</Button>

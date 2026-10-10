@@ -139,7 +139,7 @@ export function HBars({ rows, colorFor }: { rows: { label: string; value: number
   if (!rows.length) return null
   return <ul className="space-y-2.5">{rows.map(row => <li key={row.label} className="text-xs">
     <div className="flex items-baseline justify-between gap-3"><span className="min-w-0 break-words text-app-secondary" title={row.hint ?? row.label}>{row.label}</span><span className="shrink-0 font-medium tabular-nums text-app-fg">{row.value}</span></div>
-    <div className="mt-1 h-2 rounded-sm bg-app-soft"><div className="h-full rounded-sm" style={{ width: `${(100 * row.value) / max}%`, background: row.color ?? colorFor?.(row) ?? 'var(--seq-3)' }} /></div>
+    <div className="mt-1 h-2 rounded-sm bg-app-soft"><div className="h-full rounded-sm" style={{ width: `${(100 * row.value) / max}%`, background: row.color ?? colorFor?.(row) ?? 'var(--chart-neutral)' }} /></div>
   </li>)}</ul>
 }
 

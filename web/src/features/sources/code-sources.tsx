@@ -60,18 +60,18 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
   // The name keeps the width: branch, source and the images built from it go on a secondary line under it.
   const grid = 'md:grid-cols-[20px_minmax(12rem,1fr)_8.5rem_auto]'
   return <div className="space-y-5">
-    <p className="text-sm text-app-muted">{t('providers.accounts_connected', { count: installations.length })} · <a className="font-medium text-brand hover:underline" href="#/integrations">{t('providers.manage_github')}</a></p>
+    <p className="text-sm text-app-muted">{t('providers.accounts_connected', { count: installations.length })} · <a className="font-medium text-brand underline underline-offset-2" href="#/integrations">{t('providers.manage_github')}</a></p>
     {(error || sourcesError) && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-3 text-sm text-danger">{error || sourcesError}</div>}
-    {data?.providers.github?.error && <div role="alert" className="rounded-xl border border-warning-line bg-warning-soft p-3 text-sm text-warning">{data.providers.github.error}</div>}
+    {data?.providers.github?.error && <div role="alert" className="rounded-xl border border-attention-line bg-attention-soft p-3 text-sm text-attention">{data.providers.github.error}</div>}
 
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative w-full max-w-sm"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden /><Input aria-label={t('repositories.search')} placeholder={t('repositories.search_placeholder')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} className="border-app-line bg-app-soft pl-9" /></div>
       {data && <span className="text-xs text-app-muted">{t('common:count.repositories', { count: data.total })}{data.partial ? ` · ${t('repositories.partial')}` : ''}</span>}
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         <Button variant="outline" disabled={loading} onClick={() => reload(true)} className="border-app-line bg-app-soft"><RefreshCw className={loading ? 'motion-safe:animate-spin' : ''} /> {t('repositories.refresh')}</Button>
-        {canManage && accounts.length > 0 && <Menu><MenuTrigger render={<Button variant="outline" disabled={!!batch} className="border-app-line bg-app-soft" />}><Layers3 />{t('repositories.scan_organization')}<ChevronDown className="size-3.5" /></MenuTrigger>
+        {canManage && accounts.length > 0 && <Menu><MenuTrigger render={<Button variant="outline" disabled={!!batch} />}><Layers3 />{t('repositories.scan_organization')}<ChevronDown className="size-3.5" /></MenuTrigger>
           <MenuContent>{accounts.map(account => <MenuItem key={account} onClick={() => setOrganization(account)}>{account}</MenuItem>)}</MenuContent></Menu>}
-        {accounts.length > 0 && <Menu><MenuTrigger render={<Button variant="outline" className="border-app-line bg-app-soft" />}><FileCheck2 />{t('repositories.organization_report')}<ChevronDown className="size-3.5" /></MenuTrigger>
+        {accounts.length > 0 && <Menu><MenuTrigger render={<Button variant="outline" />}><FileCheck2 />{t('repositories.organization_report')}<ChevronDown className="size-3.5" /></MenuTrigger>
           <MenuContent>{accounts.map(account => <MenuItem key={account} onClick={() => setReportFor(account)}>{account}</MenuItem>)}</MenuContent></Menu>}
       </div>
     </div>
@@ -105,7 +105,7 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
               <span className="text-app-muted">{source.account ?? source.provider.toUpperCase()}</span>
               {onImages && source.uid && (images || (canManage && last)) ? <button type="button" onClick={() => onImages({ key: source.uid ?? '', name: source.name })}
                 aria-label={images ? t('images.count_for', { count: images, name: source.name }) : t('images.link_for', { name: source.name })}
-                className="min-h-6 whitespace-nowrap text-brand underline-offset-2 hover:underline">{images ? t('images.count', { count: images }) : t('images.link_from_repository')}</button> : null}
+                className="min-h-6 whitespace-nowrap text-brand underline underline-offset-2">{images ? t('images.count', { count: images }) : t('images.link_from_repository')}</button> : null}
             </div>
           </div>
           <span className="pl-6 text-xs text-app-muted md:pl-0">{last ? formatDay(last.created_at) : t('repositories.not_scanned')}</span>

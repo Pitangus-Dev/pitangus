@@ -59,12 +59,12 @@ export function Combobox({ value, placeholder, search, onSelect, label, emptyTex
 
   return <div ref={box} className={`relative ${className}`}>
     {!open ? <button ref={trigger} type="button" aria-label={`${label}: ${value?.label ?? placeholder}`} aria-haspopup="listbox" aria-invalid={invalid || undefined} aria-describedby={describedBy} onClick={() => { setOpen(true); window.setTimeout(() => input.current?.focus(), 0) }}
-      className="flex h-9 w-full items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-left text-sm hover:border-brand/40">
+      className="flex h-9 w-full items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-left text-sm hover:border-app-faint">
       <span className={`min-w-0 flex-1 truncate ${value ? '' : 'text-app-subtle'}`}>{value?.label ?? placeholder}</span>
       {value?.hint && <span className="hidden shrink-0 text-xs text-app-subtle sm:inline">{value.hint}</span>}
       <ChevronsUpDown className="size-3.5 shrink-0 text-app-subtle" />
     </button>
-      : <div className="flex h-9 items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 has-[input:focus-visible]:border-brand has-[input:focus-visible]:shadow-[inset_0_0_0_1px_var(--brand)]"><Search className="size-3.5 text-app-subtle" />
+      : <div className="flex h-9 items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 has-[input:focus-visible]:border-focus has-[input:focus-visible]:shadow-[inset_0_0_0_1px_var(--focus)]"><Search className="size-3.5 text-app-subtle" />
         <input ref={input} role="combobox" aria-label={label} aria-invalid={invalid || undefined} aria-describedby={describedBy} aria-expanded aria-controls={listId} aria-autocomplete="list" aria-activedescendant={options[active] ? `${listId}-${active}` : undefined} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={keys}
           data-bare placeholder={t('combobox.placeholder')} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />{loading && <LoaderCircle className="size-3.5 text-app-subtle motion-safe:animate-spin" />}</div>}
     {open && <div className="absolute z-30 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-app-line bg-panel p-1 shadow-md"><ul id={listId} role="listbox" aria-label={label}>

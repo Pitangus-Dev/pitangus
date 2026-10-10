@@ -73,14 +73,14 @@ export function RulesSection({ routing, backfills, onRemove }: { routing: JiraRo
   return <section aria-labelledby="jira-rules" className="space-y-3">
     <div className="flex flex-wrap items-end justify-between gap-2"><div><h4 id="jira-rules" className="text-sm font-semibold">{t('jira.rules.title')}</h4><p className="text-xs text-app-subtle">{t('jira.rules.help')}</p></div>
       <span className="flex flex-wrap items-center justify-end gap-2">{(full || routing.destinations.length === 0) && <span id="jira-rules-blocked" className="text-xs text-app-subtle">{full ? t('jira.rules.limit', { max: routing.limits.rules }) : t('jira.rules.needs_destination')}</span>}
-        <Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={full || routing.destinations.length === 0} aria-describedby={full || routing.destinations.length === 0 ? 'jira-rules-blocked' : undefined} onClick={() => { setNotice(''); setEditing('new') }}><Plus />{t('jira.rules.add')}</Button></span></div>
+        <Button size="sm" variant="outline" disabled={full || routing.destinations.length === 0} aria-describedby={full || routing.destinations.length === 0 ? 'jira-rules-blocked' : undefined} onClick={() => { setNotice(''); setEditing('new') }}><Plus />{t('jira.rules.add')}</Button></span></div>
     <p role="status" className="text-xs text-app-muted empty:hidden">{notice}</p>
     {error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</p>}
     <ol className="divide-y divide-app-line rounded-xl border border-app-line">{routing.rules.map((rule, index) => {
       const destination = destinationOf(routing, rule.destination)
       const backfill = backfills.find(item => item.rule === rule.id)
       return <li key={rule.id} className="flex items-start gap-3 px-3 py-2.5">
-        <span aria-hidden className="mt-0.5 w-5 shrink-0 text-right font-mono text-xs text-app-subtle">{index + 1}</span>
+        <span aria-hidden className="mt-0.5 w-5 shrink-0 text-right text-xs text-app-subtle tabular-nums">{index + 1}</span>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium"><span className="truncate">{rule.name}</span>
             {!rule.enabled && <span className="rounded border border-app-line px-1.5 text-[11px] font-normal text-app-muted">{t('jira.rules.off')}</span>}
@@ -155,7 +155,7 @@ function BackfillLine({ backfill }: { backfill: Backfill }) {
     ...(running ? [t('jira.backfill.pending', { count: backfill.pending })] : []),
   ].join(' · ')
   return <div className="mt-1 text-xs" role={running ? 'status' : undefined}>
-    <p className={backfill.failed ? 'text-warning' : 'text-app-muted'}>{running ? t('jira.backfill.running', { count: backfill.queued }) : t('jira.backfill.done', { count: backfill.queued, date: backfill.finished_at ? formatDate(backfill.finished_at) : '—' })} · {counts}{backfill.truncated ? ` · ${t('jira.backfill.truncated')}` : ''}</p>
+    <p className={backfill.failed ? 'text-attention' : 'text-app-muted'}>{running ? t('jira.backfill.running', { count: backfill.queued }) : t('jira.backfill.done', { count: backfill.queued, date: backfill.finished_at ? formatDate(backfill.finished_at) : '—' })} · {counts}{backfill.truncated ? ` · ${t('jira.backfill.truncated')}` : ''}</p>
     {backfill.last_error && <p className="text-danger">{t('jira.backfill.last_error', { error: backfill.last_error })}</p>}
   </div>
 }
@@ -235,7 +235,7 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
         {wantsBackfill && <div role="status" className="rounded-lg border border-app-line bg-panel px-3 py-2 text-xs">
           {previewCurrent && preview ? <p><PreviewText preview={preview.result} /></p>
             : <p className="text-app-muted">{preview ? t('jira.preview.outdated') : t('jira.preview.needed')}</p>}
-          {!previewCurrent && <Button type="button" size="xs" variant="outline" className="mt-2 border-app-line bg-app-soft" disabled={previewing} onClick={() => void runPreview()}>{previewing && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.preview.run')}</Button>}
+          {!previewCurrent && <Button type="button" size="xs" variant="outline" className="mt-2" disabled={previewing} onClick={() => void runPreview()}>{previewing && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.preview.run')}</Button>}
         </div>}
       </div>}
       {message && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{message}</div>}

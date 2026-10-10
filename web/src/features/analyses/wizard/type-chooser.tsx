@@ -1,6 +1,6 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowRight, Boxes, Code2, FileUp, Globe2 } from 'lucide-react'
+import { Boxes, Code2, FileUp, Globe2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { StepFrame } from '@/features/analyses/wizard/step-frame'
 import type { Kind } from '@/features/analyses/wizard/model'
@@ -34,7 +34,7 @@ export function TypeChooser({ choice, onChoose, onContinue, onImport, onCancel, 
   }
 
   return <StepFrame title={t('chooser.title')} onBack={onCancel} backLabel={t('common:actions.cancel')}
-    primary={<Button onClick={onContinue} disabled={off(choice) || adminOnly}>{t('wizard.continue')}<ArrowRight aria-hidden /></Button>}
+    primary={<Button onClick={onContinue} disabled={off(choice) || adminOnly}>{t('wizard.continue')}</Button>}
     note={adminOnly ? <p role="status" className="text-right text-xs text-app-muted">{t('chooser.admin_only')}</p> : undefined}>
     <div role="radiogroup" aria-labelledby="wizard-step-title" className="grid gap-3 md:grid-cols-3">
       {CARDS.map((card, index) => {

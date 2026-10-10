@@ -58,7 +58,7 @@ export function AccessStep({ domain, hosts, useHeaders, onUseHeaders, testUsers,
       {users.length < TEST_USERS_MAX ? <AddTestUserMenu onPick={method => setEditing({ method, user: null })} />
         : <p className="text-xs text-app-muted">{ts('domains.test_users.limit', { max: TEST_USERS_MAX })}</p>}
       {/* The crawler follows GET links as that user (log out, delete…): a warning, not a hint. Said once, for either. */}
-      <p role="status" className="text-xs text-warning">{chosen.length > 0 ? t('access.test_account') : ''}</p>
+      <p role="status" className="text-xs text-attention">{chosen.length > 0 ? t('access.test_account') : ''}</p>
     </section>
     <section aria-labelledby="access-headers" className="space-y-3 border-t border-app-line pt-5">
       <div className="space-y-1">
@@ -68,7 +68,7 @@ export function AccessStep({ domain, hosts, useHeaders, onUseHeaders, testUsers,
       <HeadersEditor domain={domain} admin adding={adding} onAddingChange={setAdding} />
       {saved > 0 && <div className="space-y-1.5 pt-2">
         <Switch id="use-headers" checked={useHeaders} onCheckedChange={onUseHeaders} label={t('access.use_all')} />
-        <p role="status" className="pl-13 text-xs text-warning">{sending && !chosen.length ? t('access.test_account') : ''}</p>
+        <p role="status" className="pl-13 text-xs text-attention">{sending && !chosen.length ? t('access.test_account') : ''}</p>
       </div>}
     </section>
     <TestUserDialog domain={domain} editing={editing} onClose={() => setEditing(null)}

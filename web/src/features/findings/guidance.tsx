@@ -13,7 +13,7 @@ export function OwaspGuidance({ links }: { links?: GuidanceLink[] | null }) {
   return <section aria-labelledby={heading} className="mt-3">
     <h3 id={heading} className="mb-1 text-xs font-medium text-app-muted">{t('guidance.title')}<span className="font-normal text-app-subtle"> · {t('guidance.hint')}</span></h3>
     <ul className="space-y-1 text-xs">{safe.map(link => <li key={link.url} className="min-w-0">
-      <a href={link.url} title={link.url} target="_blank" rel="noreferrer" className="inline-flex min-h-6 max-w-full items-center gap-1 text-brand hover:underline">
+      <a href={link.url} title={link.url} target="_blank" rel="noreferrer" className="inline-flex min-h-6 max-w-full items-center gap-1 text-brand underline underline-offset-2">
         <span className="truncate">{link.title}</span><ExternalLink aria-hidden className="size-3 shrink-0" /><span className="sr-only">{t('guidance.new_tab')}</span>
       </a>
     </li>)}</ul>

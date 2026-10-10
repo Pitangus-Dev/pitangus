@@ -4,8 +4,8 @@ import { cn } from 'cn'
 import { Button } from '@/shared/ui/button'
 import { Bone } from '@/shared/ui/loading'
 
-export type StatusTone = 'success' | 'warning' | 'danger' | 'muted'
-const TONE: Record<StatusTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', muted: 'text-app-muted' }
+export type StatusTone = 'success' | 'attention' | 'danger' | 'muted'
+const TONE: Record<StatusTone, string> = { success: 'text-success', attention: 'text-attention', danger: 'text-danger', muted: 'text-app-muted' }
 
 // A plain page section: small heading, one line of description, then its rows. No card around it.
 export function SettingsSection({ id, title, description, action, children }: { id: string; title: string; description?: ReactNode; action?: ReactNode; children: ReactNode }) {

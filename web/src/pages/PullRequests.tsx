@@ -36,10 +36,10 @@ function reviewBadge(pull: Pull, t: TFunction<'pulls'>) {
   if (!review) return <Badge variant="outline" className="border-app-line text-app-muted">{t('badge.not_reviewed')}</Badge>
   if (review.status === 'queued' || review.status === 'running') return <Badge variant="outline" className="border-info-line text-info"><LoaderCircle className="size-3 motion-safe:animate-spin" />{t('badge.reviewing')}</Badge>
   if (review.status === 'failed') return <Badge variant="outline" className="border-danger-line text-danger">{t('badge.failed')}</Badge>
-  if (!review.current) return <Badge variant="outline" className="border-warning-line text-warning">{t('badge.new_commits')}</Badge>
+  if (!review.current) return <Badge variant="outline" className="border-attention-line text-attention">{t('badge.new_commits')}</Badge>
   const blocking = (review.severities.critical ?? 0) + (review.severities.high ?? 0)
   return review.new === 0 ? <Badge variant="outline" className="border-success-line text-success">{t('badge.clean')}</Badge>
-    : <Badge variant="outline" className={blocking ? 'border-danger-line text-danger' : 'border-warning-line text-warning'}>{t('badge.new', { count: review.new })}{blocking ? ` · ${t('badge.blocking', { count: blocking })}` : ''}</Badge>
+    : <Badge variant="outline" className={blocking ? 'border-danger-line text-danger' : 'border-attention-line text-attention'}>{t('badge.new', { count: review.new })}{blocking ? ` · ${t('badge.blocking', { count: blocking })}` : ''}</Badge>
 }
 
 export function PullRequests({ user, onOpenRun }: { user: SessionUser; onOpenRun: (id: string) => void }) {
@@ -127,7 +127,7 @@ export function PullRequests({ user, onOpenRun }: { user: SessionUser; onOpenRun
       {settings?.enabled && settings.branch && <p className="text-xs text-app-subtle">{settings.branch_scan
         ? <Trans t={t} i18nKey="repo.branch_scanned" values={{ branch: settings.branch_scan.branch ?? settings.default_branch ?? '—', date: formatDate(settings.branch_scan.at), sha: settings.branch_scan.head_sha.slice(0, 7) }} components={{ code: <span className="font-mono" /> }} />
         : t('repo.branch_pending')}</p>}
-      {settings?.post_comment && !canWrite && admin && <p className="text-xs leading-5 text-warning"><Trans t={t} i18nKey="repo.missing_write" components={{ b: <strong /> }} /></p>}
+      {settings?.post_comment && !canWrite && admin && <p className="text-xs leading-5 text-attention"><Trans t={t} i18nKey="repo.missing_write" components={{ b: <strong /> }} /></p>}
       <details className="text-xs text-app-muted">
         <summary className="min-h-6 cursor-pointer py-1 text-app-subtle">{t('repo.help_title')}</summary>
         <ul className="mt-1.5 list-disc space-y-1 pl-5 leading-5">
@@ -138,11 +138,11 @@ export function PullRequests({ user, onOpenRun }: { user: SessionUser; onOpenRun
       </details>
     </section>
     {error && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>}
-    <p role="status" className="text-sm text-brand empty:hidden">{notice}</p>
+    <p role="status" className="text-sm text-success empty:hidden">{notice}</p>
     <div className="overflow-hidden rounded-xl border border-app-line bg-panel">
       <div className="flex items-center justify-between border-b border-app-line px-4 py-2 text-sm"><span className="font-medium">{listing ? t('list.title_count', { total: listing.pulls.length }) : t('list.title')}</span><Button size="sm" variant="ghost" onClick={() => void load()}><RefreshCw />{t('common:actions.refresh')}</Button></div>
       {!listing ? <SkeletonList rows={4} action label={t('loading.pulls')} />
-        : listing.pulls_error ? <p className="px-4 py-8 text-sm leading-6 text-warning">{listing.pulls_error}</p>
+        : listing.pulls_error ? <p className="px-4 py-8 text-sm leading-6 text-attention">{listing.pulls_error}</p>
         : listing.pulls.length === 0 ? <p className="px-4 py-10 text-center text-sm text-app-subtle">{t('list.empty')}</p>
         : <div className="divide-y divide-app-line">{listing.pulls.map(pull => <div key={pull.number} className="flex flex-wrap items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1"><a href={pull.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline"><GitPullRequest className="size-4 text-app-subtle" />#{pull.number} {pull.title}<ExternalLink className="size-3 text-app-subtle" /></a>
@@ -164,7 +164,7 @@ function PullActions({ pull, busy, disabled, onReview, onOpen }: { pull: Pull; b
   const rescan = !!review && review.current
   const viewable = rescan && review.status !== 'failed'
   return <div className="flex items-center gap-2">
-    {viewable && <Button size="sm" variant="outline" className="border-app-line bg-app-soft" onClick={() => onOpen(review.run_id)}>{t('list.view_result')}</Button>}
+    {viewable && <Button size="sm" variant="outline" onClick={() => onOpen(review.run_id)}>{t('list.view_result')}</Button>}
     <Button size="sm" variant={viewable ? 'ghost' : 'outline'} className={viewable ? '' : 'border-app-line bg-app-soft'} disabled={disabled} onClick={onReview}
       aria-label={rescan ? t('list.rescan_pr', { number: pull.number }) : t('list.review_pr', { number: pull.number })}>
       {busy ? <LoaderCircle className="motion-safe:animate-spin" /> : rescan ? <RotateCw /> : <Play />}{rescan ? t('list.rescan') : t('list.review_now')}</Button>
@@ -217,11 +217,11 @@ function WatchPanel({ admin, onChanged, onSelect, selected }: { admin: boolean; 
   ].join(' · ')
   // A column of the page with its own heading (how many are watched and how often): the list keeps its own border.
   return <section aria-labelledby="pr-watch-title" className="min-w-0 space-y-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="pr-watch-title" className="text-base font-medium">{t('watch.title', { total: data.enabled })}</h2><p className="mt-1 text-sm text-app-muted">{t('watch.description', { minutes: Math.round(data.interval / 60) })}{admin ? '' : ` ${t('watch.member_hint')}`}</p></div>
-    {admin && <Menu><MenuTrigger render={<Button size="sm" variant="outline" disabled={busy} className="border-app-line bg-app-soft" />}>{t('watch.bulk')}<ChevronDown className="size-3.5" /></MenuTrigger>
+    {admin && <Menu><MenuTrigger render={<Button size="sm" variant="outline" disabled={busy} />}>{t('watch.bulk')}<ChevronDown className="size-3.5" /></MenuTrigger>
       <MenuContent><MenuItem onClick={() => void enableAll()}>{t('watch.watch_all')}</MenuItem><MenuItem disabled={data.enabled === 0} onClick={() => void apply({ all: true }, false)}>{t('watch.unwatch_all')}</MenuItem></MenuContent></Menu>}</div>
     <div className="flex flex-wrap items-center gap-2"><div className="relative"><Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-app-subtle" /><Input aria-label={t('watch.search')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} placeholder={t('watch.search_placeholder')} className="h-8 w-56 border-app-line bg-app-soft pl-8 text-xs" /></div>
       <label className="flex items-center gap-2 text-xs text-app-muted"><input type="checkbox" className="size-4 accent-brand" checked={onlyEnabled} onChange={event => { setOnlyEnabled(event.target.checked); setPage(1) }} />{t('watch.only_watched')}</label>
-      {admin && picked.size > 0 && <><span className="text-xs text-app-muted">{t('watch.selected', { count: picked.size })}</span><Button size="sm" disabled={busy} onClick={() => void apply({ source_ids: [...picked] }, true)} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('watch.enable')}</Button><Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={busy} onClick={() => void apply({ source_ids: [...picked] }, false)}>{t('watch.disable')}</Button><Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>{t('watch.clear_selection')}</Button></>}</div>
+      {admin && picked.size > 0 && <><span className="text-xs text-app-muted">{t('watch.selected', { count: picked.size })}</span><Button size="sm" disabled={busy} onClick={() => void apply({ source_ids: [...picked] }, true)} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('watch.enable')}</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void apply({ source_ids: [...picked] }, false)}>{t('watch.disable')}</Button><Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>{t('watch.clear_selection')}</Button></>}</div>
     {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
     {data.partial && <p role="status" className="text-xs text-app-muted">{t('watch.partial')}</p>}
   <div className="max-h-96 overflow-y-auto rounded-xl border border-app-line bg-panel">

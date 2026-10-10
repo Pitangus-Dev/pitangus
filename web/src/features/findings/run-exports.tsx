@@ -32,8 +32,8 @@ export function RunExports({ run, status, onAudit }: { run: RepositoryRun; statu
     finally { setDownloading(null) }
   }
   return <>
-    <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={downloading !== null} className="border-app-line bg-app-soft" onClick={() => void exportFile('report.pdf')}><ArrowDownToLine />{downloading === 'report.pdf' ? t('export.preparing') : t('export.pdf')}</Button>
-      <Menu><MenuTrigger render={<Button variant="outline" size="sm" disabled={downloading !== null} className="border-app-line bg-app-soft" />}>{downloading && downloading !== 'report.pdf' ? t('export.preparing') : t('export.more')}<ChevronDown className="size-3.5" /></MenuTrigger>
+    <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={downloading !== null} onClick={() => void exportFile('report.pdf')}><ArrowDownToLine />{downloading === 'report.pdf' ? t('export.preparing') : t('export.pdf')}</Button>
+      <Menu><MenuTrigger render={<Button variant="outline" size="sm" disabled={downloading !== null} />}>{downloading && downloading !== 'report.pdf' ? t('export.preparing') : t('export.more')}<ChevronDown className="size-3.5" /></MenuTrigger>
         <MenuContent align="start"><MenuGroup label={t('export.audit_group')}><MenuItem onClick={onAudit}><FileCheck2 />{t('export.audit')}</MenuItem></MenuGroup>{RUN_EXPORTS.map(group => <MenuGroup key={group.label} label={t(group.label)}>{group.items.filter(([, artifact]) => artifact !== 'sbom.cdx.json' || sbomAvailable).map(([label, artifact]) => <MenuItem key={artifact} onClick={() => void exportFile(artifact)}>{t(label)}</MenuItem>)}</MenuGroup>)}</MenuContent></Menu></div>
     {error && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('export.error', { error })}</div>}
   </>

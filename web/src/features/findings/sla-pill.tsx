@@ -5,5 +5,5 @@ import { slaText, type Sla } from '@/features/findings/sla'
 export function SlaPill({ sla }: { sla: Sla | null | undefined }) {
   const { t } = useTranslation('findings')
   if (!sla || sla.state === 'ok') return null
-  return <span className={`mt-1 mr-1 inline-block rounded border px-1.5 text-[11px] ${sla.state === 'overdue' ? 'border-danger-line text-danger' : 'border-warning-line text-warning'}`} title={t('sla.pill_title', { count: sla.days, due: sla.due })}>{slaText(sla)}</span>
+  return <span className={`mt-1 mr-1 inline-block rounded border px-1.5 text-[11px] ${sla.state === 'overdue' ? 'border-danger-line text-danger' : 'border-attention-line text-attention'}`} title={t('sla.pill_title', { count: sla.days, due: sla.due })}>{slaText(sla)}</span>
 }

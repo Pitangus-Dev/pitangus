@@ -42,7 +42,7 @@ export function ScanBranchEditor({ source, onClose, onSaved }: { source: Source;
         aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} className="h-8 w-60 border-app-line bg-app-soft font-mono text-xs" />
       <Button type="submit" size="sm" disabled={mutation.isPending || draft.trim() === (source.scan_branch ?? '')}>{mutation.isPending && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
       <Button type="button" size="sm" variant="ghost" disabled={mutation.isPending} onClick={onClose}>{t('common:actions.cancel')}</Button>
-      {source.scan_branch && <Button type="button" size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={mutation.isPending} onClick={reset}>{t('repositories.branch.reset')}</Button>}
+      {source.scan_branch && <Button type="button" size="sm" variant="outline" disabled={mutation.isPending} onClick={reset}>{t('repositories.branch.reset')}</Button>}
     </div>
     <p id={`${id}-help`} className="text-xs text-app-subtle">{fallback ? t('repositories.branch.help', { branch: fallback }) : t('repositories.branch.help_unknown')}</p>
     {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}

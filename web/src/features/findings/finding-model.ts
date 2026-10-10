@@ -48,12 +48,9 @@ const TOOL_NAME: Record<string, string> = { trivy: 'Trivy', gitleaks: 'Gitleaks'
 export const toolName = (t: TFunction, tool: string) => tool === 'pitangus' ? t('findings:tool.pitangus') : TOOL_NAME[tool] ?? tool
 // The engine and, when another one confirmed it, that one too: "Trivy + Grype".
 export const toolsOf = (t: TFunction, finding: { tool?: string; also_detected_by?: string[] }) => [finding.tool, ...(finding.also_detected_by ?? [])].filter(Boolean).map(tool => toolName(t, tool as string)).join(' + ')
-export const severityClass = (severity: string) => ({
-  critical: 'border-transparent bg-danger-solid text-on-solid', high: 'border-attention-line bg-attention-soft text-attention',
-  medium: 'border-warning-line bg-warning-soft text-warning', low: 'border-info-line bg-info-soft text-info',
-}[severity] ?? 'border-app-line text-app-muted')
+export { severityClass } from '@/shared/ui/severity'
 export const actionClass = (action: string) => ({
-  act: 'border-transparent bg-danger-solid text-on-solid', attend: 'border-warning-line text-warning', track: 'border-app-line text-app-subtle',
+  act: 'border-danger-line bg-danger-soft text-danger', attend: 'border-attention-line text-attention', track: 'border-app-line text-app-subtle',
 }[action] ?? 'border-app-line text-app-subtle')
 
 // An asset's state as a run id (findings.registry.VIEW_PREFIX): what its findings are triaged and re-verified against.

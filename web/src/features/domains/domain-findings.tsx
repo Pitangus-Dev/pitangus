@@ -13,8 +13,8 @@ import { Skeleton } from '@/shared/ui/loading'
 import type { Domain } from '@/features/domains/domains'
 
 const SEVERITIES = [
-  ['critical', 'common:severity.critical', 'bg-danger-solid text-on-solid'], ['high', 'common:severity.high', 'bg-attention-soft text-attention'],
-  ['medium', 'common:severity.medium', 'bg-warning-soft text-warning'], ['low', 'common:severity.low', 'bg-info-soft text-info'],
+  ['critical', 'common:severity.critical', 'bg-danger-solid text-on-solid'], ['high', 'common:severity.high', 'bg-danger-soft text-danger'],
+  ['medium', 'common:severity.medium', 'bg-attention-soft text-attention'], ['low', 'common:severity.low', 'bg-info-soft text-info'],
 ] as const
 const NOTHING = () => {}
 
@@ -41,7 +41,7 @@ export function DomainFindings({ domain, user, onNewScan, onImport, onOpenPolici
   }
   return <div className="space-y-4">
     {open && <ul aria-label={t('domains.page.open_by_severity')} className="flex flex-wrap gap-2">{SEVERITIES.map(([level, label, tone]) =>
-      <li key={level} className={`rounded-lg px-2.5 py-1 text-sm ${tone}`}>{t(label)} <span className="font-mono">{open[level]}</span></li>)}</ul>}
+      <li key={level} className={`rounded-lg px-2.5 py-1 text-sm ${tone}`}>{t(label)} <span className="tabular-nums">{open[level]}</span></li>)}</ul>}
     <AssetFindings selection={selection} tab={tab} onTab={setTab} user={user} onNew={onNewScan} onOpenPolicies={onOpenPolicies} />
   </div>
 }

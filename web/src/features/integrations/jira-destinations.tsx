@@ -27,8 +27,8 @@ export function DestinationsSection({ routing, onRemove }: { routing: JiraRoutin
   return <section aria-labelledby="jira-destinations" className="space-y-3">
     <div className="flex flex-wrap items-end justify-between gap-2"><div><h4 id="jira-destinations" className="text-sm font-semibold">{t('jira.destinations.title')}</h4><p className="text-xs text-app-subtle">{t('jira.destinations.help')}</p></div>
       <span className="flex flex-wrap items-center justify-end gap-2">{full && <span id="jira-destinations-full" className="text-xs text-app-subtle">{t('jira.destinations.limit', { max: routing.limits.destinations })}</span>}
-        <Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={full} aria-describedby={full ? 'jira-destinations-full' : undefined} onClick={() => { setSaved(null); setEditing('new') }}><Plus />{t('jira.destinations.add')}</Button></span></div>
-    {saved && <div role="status" className={`rounded-lg border px-3 py-2 text-xs ${saved.warnings.length ? 'border-warning-line bg-warning-soft text-warning' : 'border-success-line bg-success-soft text-success'}`}>
+        <Button size="sm" variant="outline" disabled={full} aria-describedby={full ? 'jira-destinations-full' : undefined} onClick={() => { setSaved(null); setEditing('new') }}><Plus />{t('jira.destinations.add')}</Button></span></div>
+    {saved && <div role="status" className={`rounded-lg border px-3 py-2 text-xs ${saved.warnings.length ? 'border-attention-line bg-attention-soft text-attention' : 'border-success-line bg-success-soft text-success'}`}>
       <p className="font-medium">{saved.warnings.length ? t('jira.destinations.saved_warnings', { name: saved.name, count: saved.warnings.length }) : t('jira.destinations.saved', { name: saved.name })}</p>
       {saved.warnings.length > 0 && <ul className="mt-1 list-disc space-y-0.5 pl-4">{saved.warnings.map(item => <li key={`${item.field}:${item.error}`}>{saved.fields[item.field] ? `${saved.fields[item.field]}: ` : ''}{item.error}</li>)}</ul>}
     </div>}
@@ -39,7 +39,7 @@ export function DestinationsSection({ routing, onRemove }: { routing: JiraRoutin
         return <li key={destination.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
           <div className="min-w-0"><p className="truncate text-sm font-medium">{destination.name}</p>
             <p className="text-xs text-app-subtle"><span className="font-mono">{destinationTarget(destination)}</span> · {t('jira.destinations.fields', { count: Object.keys(destination.mapping).length })} · {count ? t('jira.destinations.used_by', { count }) : t('jira.destinations.unused')}</p>
-            {destination.legacy && <p className="mt-0.5 text-xs text-warning">{t('jira.destinations.legacy')}</p>}</div>
+            {destination.legacy && <p className="mt-0.5 text-xs text-attention">{t('jira.destinations.legacy')}</p>}</div>
           <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('jira.destinations.actions', { name: destination.name })} />}><MoreHorizontal /></MenuTrigger>
             <MenuContent><MenuItem onClick={() => { setSaved(null); setEditing(destination) }}>{t('common:actions.edit')}</MenuItem>
               <MenuItem disabled={count > 0} onClick={() => onRemove(destination)}>{count > 0 ? t('jira.destinations.remove_in_use') : t('common:actions.remove')}</MenuItem></MenuContent></Menu>
@@ -124,7 +124,7 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
       {project && issueType && <div className="space-y-2"><div><h5 className="text-sm font-medium">{t('jira.mapping.title')}</h5><p className="text-xs text-app-subtle">{t('jira.mapping.help')}</p></div>
         {fields.isError ? <p role="alert" className="text-xs text-danger">{fields.error.message}</p>
           : ready && draft ? <>
-            {fields.data.truncated && <p className="text-xs text-warning">{t('jira.mapping.truncated')}</p>}
+            {fields.data.truncated && <p className="text-xs text-attention">{t('jira.mapping.truncated')}</p>}
             <MappingTable key={`${project.key}:${issueType}`} fields={fields.data.fields} variables={variables.data} draft={draft} errors={errors} onChange={(field, entry) => setDraft({ ...draft, [field]: entry })} searchValues={searchValues} />
           </> : <SkeletonTable rows={4} columns={3} label={t('jira.mapping.loading')} />}</div>}
       {message && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{message}</div>}
@@ -145,7 +145,7 @@ function ProjectPicker({ value, onChange, labelledBy, invalid }: { value: Projec
   const items = pages.data?.pages.flatMap(page => page.items) ?? []
   const total = pages.data?.pages[0]?.total ?? 0
   if (!open && value) return <button type="button" aria-labelledby={labelledBy} aria-describedby={`${labelledBy}-value`} onClick={() => setOpen(true)} {...invalid}
-    className="flex h-8 w-full items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-left text-sm hover:border-brand/40">
+    className="flex h-8 w-full items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-left text-sm hover:border-app-faint">
     <span id={`${labelledBy}-value`} className="min-w-0 flex-1 truncate"><span className="font-mono">{value.key}</span> · {value.name}</span><ChevronDown className="size-3.5 text-app-subtle" /></button>
   return <div className="space-y-1.5">
     <div className="relative"><Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-app-subtle" />
@@ -160,7 +160,7 @@ function ProjectPicker({ value, onChange, labelledBy, invalid }: { value: Projec
     </ul>
     <div className="flex items-center justify-between gap-2 text-xs text-app-subtle">
       {items.length > 0 && <span>{t('jira.destinations.projects_shown', { shown: items.length, total })}</span>}
-      <span className="ml-auto flex gap-2">{pages.hasNextPage && <Button type="button" size="xs" variant="outline" className="border-app-line bg-app-soft" disabled={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>{t('jira.destinations.more_projects')}</Button>}
+      <span className="ml-auto flex gap-2">{pages.hasNextPage && <Button type="button" size="xs" variant="outline" disabled={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>{t('jira.destinations.more_projects')}</Button>}
         {value && <Button type="button" size="xs" variant="ghost" onClick={() => setOpen(false)}>{t('common:actions.cancel')}</Button>}</span>
     </div>
   </div>

@@ -13,8 +13,8 @@ export function Pager({ page, perPage, total, onPage, loading = false }: { page:
   if (total <= perPage) return null
   return <div className="flex items-center justify-between gap-3 text-xs text-app-muted">
     <span className="flex items-center gap-2">{loading && <LoaderCircle className="size-3.5 animate-spin" />}{t('pager.range', { from: formatNumber((page - 1) * perPage + 1), to: formatNumber(Math.min(page * perPage, total)), total: formatNumber(total) })}</span>
-    <div className="flex gap-2"><Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={page <= 1 || loading} onClick={() => onPage(page - 1)}>{t('pager.previous')}</Button>
-      <Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={page >= pages || loading} onClick={() => onPage(page + 1)}>{t('common:actions.next')}</Button></div>
+    <div className="flex gap-2"><Button size="sm" variant="outline" disabled={page <= 1 || loading} onClick={() => onPage(page - 1)}>{t('pager.previous')}</Button>
+      <Button size="sm" variant="outline" disabled={page >= pages || loading} onClick={() => onPage(page + 1)}>{t('common:actions.next')}</Button></div>
   </div>
 }
 

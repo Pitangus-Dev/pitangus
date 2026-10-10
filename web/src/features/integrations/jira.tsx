@@ -73,7 +73,7 @@ function Connection({ status, canManage }: { status: JiraStatus; canManage: bool
         <Field id="jira-token" label={t('jira.token')} type="password" autoComplete="new-password" minLength={16} value={form.token} onChange={set('token')} />
         {failure && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger sm:col-span-2">{failure}</div>}
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.submit')}</Button>
-          <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 text-xs text-brand hover:underline">{t('jira.create_token')} <ExternalLink className="size-3" /><span className="sr-only">{t('sources:new_tab')}</span></a></div>
+          <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 text-xs text-brand underline underline-offset-2">{t('jira.create_token')} <ExternalLink className="size-3" /><span className="sr-only">{t('sources:new_tab')}</span></a></div>
         <p className="text-xs leading-5 text-app-subtle sm:col-span-2">{t('jira.validate_note')}</p>
       </form> : null}
     <Dialog open={confirm} onOpenChange={setConfirm}><DialogContent className="max-w-md">

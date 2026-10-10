@@ -27,10 +27,10 @@ export function JiraFindingAction({ ticket, pending, availability, name, onCreat
   const { t } = useTranslation('integrations')
   const reason = useId()
   if (ticket) return <a href={ticket.url} target="_blank" rel="noopener noreferrer" aria-label={t('jira.finding.open_issue', { key: ticket.key })}
-    className="inline-flex min-h-6 items-center gap-1 font-mono text-xs text-brand hover:underline"><Ticket className="size-3" />{ticket.key}<ExternalLink className="size-3" /></a>
+    className="inline-flex min-h-6 items-center gap-1 font-mono text-xs text-brand underline underline-offset-2"><Ticket className="size-3" />{ticket.key}<ExternalLink className="size-3" /></a>
   if (!pending || !availability.ready) return null
   return <span className="inline-flex flex-wrap items-center gap-1.5">
-    <Button size="xs" variant="outline" className="border-app-line bg-app-soft" disabled={!!availability.blocked} aria-describedby={availability.blocked ? reason : undefined}
+    <Button size="xs" variant="outline" disabled={!!availability.blocked} aria-describedby={availability.blocked ? reason : undefined}
       aria-label={t('jira.finding.create_label', { name })} onClick={onCreate}><Ticket />{t('jira.finding.create')}</Button>
     {availability.blocked && <span id={reason} className="text-[11px] text-app-subtle">{availability.blocked}</span>}
   </span>
@@ -84,7 +84,7 @@ export function JiraExportDialog({ selection, findings, target, onClose, onDone 
     <DialogHeader><DialogTitle>{t('jira.export.title', { count: findings.length })}</DialogTitle><DialogDescription>{summary}</DialogDescription></DialogHeader>
     {links.length > 0 && <ul aria-label={t('jira.export.issues')} className="max-h-72 space-y-2 overflow-y-auto text-sm">{links.map(item => <li key={item.key ?? item.fingerprint} className="rounded-lg border border-app-line bg-inset px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-brand hover:underline">{item.key}<ExternalLink className="size-3" /></a> : <span className="font-mono">{item.key}</span>}
+        {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-brand underline underline-offset-2">{item.key}<ExternalLink className="size-3" /></a> : <span className="font-mono">{item.key}</span>}
         <span className="text-xs text-app-subtle">{item.state === 'created' ? t('jira.export.state.created_in', { project: item.project ?? '—' }) : t('jira.export.state.existing_in', { project: item.project ?? '—' })}</span>
       </div>
       <p className="mt-0.5 truncate text-xs text-app-muted">{item.covered.length > 1 ? t('jira.export.covers', { count: item.covered.length - 1, first: item.covered[0] }) : item.covered[0]}</p>

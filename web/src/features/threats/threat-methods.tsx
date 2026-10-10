@@ -59,13 +59,13 @@ export function GuidePanel({ methodology, onClose }: { methodology: Methodology;
     <p className="text-app-secondary">{guide.purpose}</p>
     <p className="text-xs leading-5 text-app-muted"><strong className="font-medium text-app-secondary">{t('guide.when')} </strong>{guide.when}</p>
     {guide.categories && <div className="space-y-2">{guide.categories.map(item => <div key={item.code} className="rounded-lg border border-app-line bg-inset px-3 py-2">
-      <p className="text-xs font-semibold"><span className="mr-1.5 inline-block min-w-6 rounded bg-app-soft px-1 text-center font-mono text-brand">{item.code}</span>{item.name}{item.original && item.original !== item.name && <span className="font-normal text-app-subtle"> · {item.original}</span>}</p>
+      <p className="text-xs font-semibold"><span className="mr-1.5 inline-block min-w-6 rounded-sm border border-app-line px-1 text-center">{item.code}</span>{item.name}{item.original && item.original !== item.name && <span className="font-normal text-app-subtle"> · {item.original}</span>}</p>
       <p className="mt-1 text-xs leading-5 text-app-muted">{item.question}{item.property && <span className="text-app-subtle"> {t('guide.property', { property: item.property.toLowerCase() })}</span>}</p>
     </div>)}</div>}
     <details open={!guide.categories}><summary className="cursor-pointer text-xs font-medium text-app-secondary">{t('guide.how')}</summary>
       <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-5 text-app-muted">{guide.steps.map(step => <li key={step}>{step}</li>)}</ol></details>
     {guide.tips.map(tip => <p key={tip} className="rounded-lg bg-app-soft px-3 py-2 text-xs leading-5 text-app-muted">{tip}</p>)}
-    {guide.source && <a href={guide.source.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand hover:underline">{guide.source.label}<ExternalLink className="size-3" /></a>}
+    {guide.source && <a href={guide.source.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand underline underline-offset-2">{guide.source.label}<ExternalLink className="size-3" /></a>}
   </aside>
 }
 
@@ -97,7 +97,7 @@ export function ManualThreatDialog({ model, initial, methodology, onClose, onSav
         <Field label={t('manual.owner')}><Input maxLength={80} value={draft.owner ?? ''} onChange={event => set({ owner: event.target.value })} className="h-8 border-app-line bg-app-soft" /></Field>
       </div>
       <Field label={t('manual.mitigation')}><textarea rows={2} maxLength={1500} value={draft.mitigation ?? ''} onChange={event => set({ mitigation: event.target.value })} className={area} /></Field>
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || !draft.title.trim()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="animate-spin" />}{t('common:actions.save')}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || !draft.title.trim()}>{busy && <LoaderCircle className="animate-spin" />}{t('common:actions.save')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -147,7 +147,7 @@ function Auto({ children }: { children: ReactNode }) {
   return <p className="rounded-lg border border-app-line bg-inset px-3 py-2 text-xs leading-5 text-app-muted">{children}</p>
 }
 function Go({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return <button type="button" onClick={onClick} className="text-brand hover:underline">{children}</button>
+  return <button type="button" onClick={onClick} className="text-brand underline underline-offset-2">{children}</button>
 }
 
 // ------------------------------------------------------------------ attack trees
@@ -210,7 +210,7 @@ function TreeEditor({ tree, model, onChange, onRemove }: { tree: AttackTree; mod
       <span className="text-xs text-app-subtle">{roots.length ? t('trees.paths', { open, count: roots.length }) : t('trees.no_paths')}</span>
       <Button size="xs" variant="ghost" onClick={onRemove} aria-label={t('trees.remove_tree')}><Trash2 /></Button></div>
     <div className="space-y-1.5">{roots.map(node => render(node, 0))}</div>
-    <Button size="sm" variant="outline" className="border-app-line bg-app-soft" onClick={() => addNode(null)}><Plus />{t('trees.path')}</Button>
+    <Button size="sm" variant="outline" onClick={() => addNode(null)}><Plus />{t('trees.path')}</Button>
   </div>
 }
 
@@ -248,12 +248,12 @@ export function AttackMappings({ model, setModel, catalog }: { model: Model; set
     </div>
     {proposals.length > 0 && <details className="rounded-lg border border-app-line bg-panel p-4"><summary className="cursor-pointer text-sm font-medium">{t('attack.suggestions', { count: proposals.length })}</summary>
       <p className="mt-1 text-xs text-app-subtle">{t('attack.suggestions_hint')}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">{proposals.map(({ id, component }) => <button key={`${id}:${component.id}`} onClick={() => add(id, component.id)} className="inline-flex items-center gap-1 rounded-lg border border-app-line bg-app-soft px-2 py-1 text-xs text-app-muted hover:border-brand/40 hover:text-brand"><Plus className="size-3" /><span className="font-mono">{id}</span> {techniqueName(techniques[id])} → {component.name}</button>)}</div>
+      <div className="mt-3 flex flex-wrap gap-1.5">{proposals.map(({ id, component }) => <button key={`${id}:${component.id}`} onClick={() => add(id, component.id)} className="inline-flex items-center gap-1 rounded-lg border border-app-line bg-app-soft px-2 py-1 text-xs text-app-muted hover:border-app-faint hover:underline"><Plus className="size-3" /><span className="font-mono">{id}</span> {techniqueName(techniques[id])} → {component.name}</button>)}</div>
     </details>}
     {rows.length === 0 ? <p className="rounded-xl border border-dashed border-app-line px-4 py-10 text-center text-sm text-app-subtle">{t('attack.empty')}</p>
       : <div className="divide-y divide-app-line overflow-hidden rounded-lg border border-app-line bg-panel">{rows.map((row, index) => { const item = techniques[row.technique]
         return <div key={`${row.technique}:${row.element}`} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_130px_minmax(0,1fr)_36px] md:items-start">
-          <div className="min-w-0"><a href={attackUrl(row.technique)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium hover:text-brand"><span className="font-mono text-xs text-app-subtle">{row.technique}</span>{techniqueName(item)}<ExternalLink className="size-3 text-app-subtle" /></a>
+          <div className="min-w-0"><a href={attackUrl(row.technique)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium hover:underline"><span className="font-mono text-xs text-app-subtle">{row.technique}</span>{techniqueName(item)}<ExternalLink className="size-3 text-app-subtle" /></a>
             <p className="text-[11px] text-app-subtle">{[techniqueName(item) !== item?.name ? item?.name : '', item?.tactics.map(key => tactics[key]).join(', ')].filter(Boolean).join(' · ')}</p></div>
           <p className="text-xs text-app-muted">{row.element ? label[row.element] ?? '—' : t('manual.whole_system')}</p>
           <SelectField aria-label={t('attack.status_label')} value={row.status} onValueChange={status => setRows(rows.map((entry, position) => position === index ? { ...entry, status: status as AttackMapping['status'] } : entry))} className={select} options={Object.entries(MAPPING_STATUS).map(([key, text]) => ({ value: key, label: t(text) }))} />

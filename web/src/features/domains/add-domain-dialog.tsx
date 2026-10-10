@@ -54,13 +54,13 @@ function AddDomainForm({ initialKind, onCancel, onAdded }: { initialKind: Domain
           <Input id="domain-url" required autoFocus value={url} onChange={event => setUrl(event.target.value)} placeholder={t('domains.add.placeholder')}
             aria-describedby="domain-url-probe" autoComplete="off" spellCheck={false} className="border-app-line bg-app-soft pr-10" />
           <span className="absolute top-1/2 right-3 -translate-y-1/2" aria-hidden>{checking ? <LoaderCircle className="size-4 text-app-muted motion-safe:animate-spin" />
-            : reach?.reachable ? <CircleCheck className="size-4 text-success" /> : reach || probeError ? <CircleAlert className="size-4 text-warning" /> : null}</span>
+            : reach?.reachable ? <CircleCheck className="size-4 text-success" /> : reach || probeError ? <CircleAlert className="size-4 text-attention" /> : null}</span>
         </div>
         <p id="domain-url-probe" role="status" className="min-h-4 text-xs">
           {checking ? <span className="text-app-muted">{t('domains.add.checking')}</span>
             : reach?.reachable ? <span className="text-success">{t('domains.add.reachable', { code: reach.http_status ?? 200 })}</span>
-            : reach ? <span className="text-warning">{t('domains.add.unreachable')} <span className="text-app-muted">{reach.detail}</span></span>
-            : probeError ? <span className="text-warning">{probeError}</span> : null}
+            : reach ? <span className="text-attention">{t('domains.add.unreachable')} <span className="text-app-muted">{reach.detail}</span></span>
+            : probeError ? <span className="text-attention">{probeError}</span> : null}
         </p>
       </div>
       <div className="space-y-2">

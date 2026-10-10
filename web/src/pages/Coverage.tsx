@@ -29,13 +29,13 @@ export function Coverage({ run, coverage, steps }: { run: RunRow | null; coverag
   return <div className="grid gap-8 xl:grid-cols-[1.15fr_1fr]">
     <section aria-labelledby="coverage-owasp" className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="coverage-owasp" className="text-base font-medium">OWASP Top 10:2025</h2>
-        <Badge variant="outline" className={partial >= 7 ? 'border-success-line text-success' : 'border-warning-line text-warning'}>{t('tested', { tested: partial, total: 10 })}</Badge></div>
+        <Badge variant="outline" className={partial >= 7 ? 'border-success-line text-success' : 'border-attention-line text-attention'}>{t('tested', { tested: partial, total: 10 })}</Badge></div>
       <p className="text-sm text-app-muted">{t('description')}</p>
       <ul className="divide-y divide-app-line rounded-xl border border-app-line bg-panel px-4">{coverage.map(item => <li key={item.id} className="flex items-start gap-3 py-3">
-        <span className={`mt-0.5 font-mono text-xs ${item.status === 'partial' ? 'text-brand' : 'text-app-subtle'}`}>{item.id}</span>
+        <span className={`mt-0.5 font-mono text-xs text-app-muted`}>{item.id}</span>
         <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2 text-sm">{item.title}{item.status === 'partial' && item.findings ? <Badge variant="outline" className="text-[11px]">{t('common:count.findings', { count: item.findings })}</Badge> : null}{item.rules ? <span className="text-[11px] text-app-subtle">{t('rules', { count: item.rules })}</span> : null}</div>
           <div className="text-xs leading-5 text-app-subtle">{item.reason}</div></div>
-        {item.status === 'partial' ? <CircleDashed aria-hidden className="size-4 shrink-0 text-brand" /> : item.status === 'inconclusive' ? <TriangleAlert aria-hidden className="size-4 shrink-0 text-warning" /> : <Clock3 aria-hidden className="size-4 shrink-0 text-app-subtle" />}
+        {item.status === 'partial' ? <CircleDashed aria-hidden className="size-4 shrink-0 text-attention" /> : item.status === 'inconclusive' ? <TriangleAlert aria-hidden className="size-4 shrink-0 text-attention" /> : <Clock3 aria-hidden className="size-4 shrink-0 text-app-subtle" />}
       </li>)}</ul>
     </section>
     <div className="min-w-0 space-y-8">

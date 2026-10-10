@@ -50,7 +50,7 @@ export function ScheduleSection({ domain, admin }: { domain: Domain; admin: bool
         <p className="text-sm text-app-fg">{describeRule(ruleOf(schedule))}</p>
         <p className="text-sm text-app-muted">{describeAccess(t, domain, accessOf(schedule))}</p>
         {schedule.next_run_at && <p className="text-sm text-app-muted">{t('domains.schedule.next', { date: formatRun(schedule.next_run_at) })}</p>}
-        {!domain.verified && <p className="text-xs text-warning">{t('domains.schedule.paused')}</p>}
+        {!domain.verified && <p className="text-xs text-attention">{t('domains.schedule.paused')}</p>}
         {domain.verified && schedule.note && <p className="text-xs text-app-muted">{schedule.note}</p>}
         {admin && <div className="flex flex-wrap gap-2 pt-2">
           <Button size="sm" variant="outline" data-focus="change" onClick={() => edit(ruleOf(schedule), editor)}>{t('domains.schedule.change')}</Button>

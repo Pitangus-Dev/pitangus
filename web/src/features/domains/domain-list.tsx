@@ -92,8 +92,8 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
             : domain.test_user_count ? <button type="button" onClick={() => onOpenDomain(domain, 'users')} aria-label={t('domains.list.login_for', { host: domain.host, count: domain.test_user_count })} className="min-h-6 text-left text-app-secondary underline-offset-2 hover:underline">{t('domains.list.login_count', { count: domain.test_user_count })}</button>
             : <span className="text-app-muted">{t('domains.list.login_none')}</span>}</td>
           <td className="px-3 py-3 text-right">{domain.open
-            ? <button type="button" onClick={() => onOpenDomain(domain, 'findings')} aria-label={t('domains.list.open_for', { host: domain.host, count: domain.open })} className="min-h-6 min-w-6 font-mono text-app-fg underline-offset-2 hover:underline">{domain.open}</button>
-            : <span className="font-mono text-app-muted">0</span>}</td>
+            ? <button type="button" onClick={() => onOpenDomain(domain, 'findings')} aria-label={t('domains.list.open_for', { host: domain.host, count: domain.open })} className="min-h-6 min-w-6 text-app-fg tabular-nums underline-offset-2 hover:underline">{domain.open}</button>
+            : <span className="text-app-muted tabular-nums">0</span>}</td>
           <td className="px-4 py-2 text-right">{admin && <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.list.actions_for', { host: domain.host })} disabled={removal.isPending && removal.variables?.id === domain.id} />}><MoreHorizontal /></MenuTrigger>
             <MenuContent>
               {domain.kind !== 'surface' && <MenuItem onClick={() => onNewScan(domain)}>{t('domains.list.new_scan')}</MenuItem>}

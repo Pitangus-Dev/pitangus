@@ -76,7 +76,7 @@ export function Notifications() {
           <Button variant="ghost" size="sm" aria-label={t('notifications.remove_label', { name: channel.name })} disabled={!!busy} onClick={() => void act('remove', channel)}>{busy === `remove:${channel.id}` && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.remove')}</Button></>} />)}
       {data.channels.length === 0 && <SettingsRow empty title={t('notifications.row.none')} meta={t('notifications.row.none_hint')} />}
     </SettingsRows>}
-    {secret && <div className="space-y-2 rounded-lg border border-warning-line bg-warning-soft p-3 text-xs text-warning">
+    {secret && <div className="space-y-2 rounded-lg border border-attention-line bg-attention-soft p-3 text-xs text-attention">
       <p className="font-medium">{t('notifications.secret_title')}</p>
       <CodeBlock code={secret} label={t('notifications.secret_label')} />
       <p>{t('notifications.secret_help')}</p>

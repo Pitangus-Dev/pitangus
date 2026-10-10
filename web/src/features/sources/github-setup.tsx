@@ -37,7 +37,7 @@ function CopyValue({ value }: { value: string }) {
 
 function Step({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
   return <li className="relative flex gap-3 pb-5 last:pb-0">
-    <span className="grid size-6 shrink-0 place-items-center rounded-full border border-app-line bg-app-soft font-mono text-[11px] text-app-secondary">{number}</span>
+    <span className="grid size-6 shrink-0 place-items-center rounded-full border border-app-line bg-app-soft text-[11px] text-app-secondary tabular-nums">{number}</span>
     <div className="min-w-0 flex-1 space-y-1.5 pt-0.5"><p className="text-sm font-medium">{title}</p><div className="space-y-1.5 text-xs leading-5 text-app-muted">{children}</div></div>
   </li>
 }
@@ -93,7 +93,7 @@ export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubS
       </Step>
       <Step number={4} title={t('github.steps.permissions.title')}>
         <p><Trans t={t} i18nKey="github.steps.permissions.intro" components={{ i: <em /> }} /></p>
-        <ul className="space-y-1">{Object.entries(status.required_permissions).map(([name, level]) => <li key={name} className="flex items-center justify-between gap-3 rounded-md border border-app-line px-2.5 py-1"><span className="text-app-secondary">{PERMISSION_LABEL[name] ?? name}</span><span className="font-mono text-[11px]">{LEVEL_LABEL[level] ?? level}</span></li>)}</ul>
+        <ul className="space-y-1">{Object.entries(status.required_permissions).map(([name, level]) => <li key={name} className="flex items-center justify-between gap-3 rounded-md border border-app-line px-2.5 py-1"><span className="text-app-secondary">{PERMISSION_LABEL[name] ?? name}</span><span className="text-xs text-app-muted">{LEVEL_LABEL[level] ?? level}</span></li>)}</ul>
         <p><Trans t={t} i18nKey="github.steps.permissions.outro" components={{ i: <em /> }} /></p>
       </Step>
       <Step number={5} title={t('github.steps.install_scope.title')}>
@@ -107,7 +107,7 @@ export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubS
     <form onSubmit={submit} className="space-y-4 self-start rounded-xl border border-app-line bg-panel p-4">
       <div><p className="text-sm font-medium">{t('github.form.title')}</p><p className="mt-1 text-xs leading-5 text-app-muted">{t('github.form.description')}</p></div>
       {!canManage && <p className="rounded-lg border border-app-line bg-app-soft px-3 py-2 text-xs text-app-muted">{t('github.form.admin_only')}</p>}
-      {status.source === 'environment' && <p className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning"><Trans t={t} i18nKey="github.form.env_missing" values={{ missing: status.missing.join(', ') }} components={{ code: <code className="font-mono" /> }} /></p>}
+      {status.source === 'environment' && <p className="rounded-lg border border-attention-line bg-attention-soft px-3 py-2 text-xs text-attention"><Trans t={t} i18nKey="github.form.env_missing" values={{ missing: status.missing.join(', ') }} components={{ code: <code className="font-mono" /> }} /></p>}
       <div className="space-y-1.5"><label htmlFor="github-app-id" className="text-xs text-app-muted">{t('github.form.app_id')}</label>
         <Input id="github-app-id" required inputMode="numeric" pattern="[1-9][0-9]{0,11}" maxLength={12} disabled={!canManage} value={appId} onChange={event => setAppId(event.target.value.replace(/\D/g, ''))} placeholder="123456" className="border-app-line bg-app-soft font-mono" /></div>
       <div className="space-y-1.5"><span className="text-xs text-app-muted">{t('github.form.private_key')}</span>
@@ -121,7 +121,7 @@ export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubS
             placeholder="-----BEGIN RSA PRIVATE KEY-----" className="mt-2 w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 font-mono text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50" /></details>
       </div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-      <Button type="submit" disabled={!canManage || busy || !appId || !pem} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="motion-safe:animate-spin" /> : <ShieldCheck />}{t('github.form.submit')}</Button>
+      <Button type="submit" disabled={!canManage || busy || !appId || !pem} className="w-full">{busy ? <LoaderCircle className="motion-safe:animate-spin" /> : <ShieldCheck />}{t('github.form.submit')}</Button>
       <p className="flex items-start gap-2 text-[11px] leading-4 text-app-subtle"><ShieldCheck className="mt-0.5 size-3 shrink-0" />{t('github.form.key_note')}</p>
     </form>
   </div>
@@ -214,17 +214,17 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
         <Button size="sm" disabled={busy || looking} onClick={() => void connect(offer.installation_id).then(ok => { if (ok) settle() })}>{t('github.install.connect')}</Button>
       </span>
     </div>}
-    {unknown && <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning"><span>{t('github.install.returned_unknown')}</span>
+    {unknown && <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-attention-line bg-attention-soft px-3 py-2 text-xs text-attention"><span>{t('github.install.returned_unknown')}</span>
       <button type="button" onClick={() => setUnknown(false)} className="shrink-0 font-medium underline-offset-2 hover:underline">{t('github.install.dismiss')}</button></div>}
     {review && (review.excess.length > 0 || review.missing.length > 0) && <PermissionWarning review={review} />}
     <ol className="ml-4 list-decimal space-y-1 text-xs leading-5 text-app-muted">
       <li><Trans t={t} i18nKey="github.install.step_install" components={{ b: STRONG }} /></li>
       <li><Trans t={t} i18nKey="github.install.step_detect" components={{ b: STRONG }} /></li>
     </ol>
-    {error && <div role="alert" className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning">{error}</div>}
+    {error && <div role="alert" className="rounded-lg border border-attention-line bg-attention-soft px-3 py-2 text-xs text-attention">{error}</div>}
     <div className="flex flex-wrap gap-2">
       {canManage ? <a href={`https://github.com/apps/${status.slug}/installations/new`} target="_blank" rel="noopener noreferrer" className={buttonVariants(offer ? { variant: 'outline', className: 'border-app-line bg-app-soft' } : { className: 'bg-primary text-primary-foreground hover:bg-primary/90' })}>{t('github.install.install')} <ExternalLink /><span className="sr-only">{t('new_tab')}</span></a>
-        : <Button disabled className="bg-primary text-primary-foreground">{t('github.install.install')} <ExternalLink /></Button>}
+        : <Button disabled>{t('github.install.install')} <ExternalLink /></Button>}
       <Button variant="outline" disabled={!canManage || busy || looking} onClick={() => void detect()} className="border-app-line bg-app-soft">{busy || looking ? <LoaderCircle className="motion-safe:animate-spin" /> : <RefreshCw />}{t('github.install.detect')}</Button>
     </div>
     {listed.length > 0 && <div className="space-y-2 rounded-lg border border-app-line bg-app-soft p-3">
@@ -248,6 +248,6 @@ export function PermissionWarning({ review }: { review: PermissionReview }) {
   if (review.excess.length) return <div role="alert" className="flex gap-2 rounded-lg border border-danger-line bg-danger-soft p-3 text-xs leading-5 text-danger"><TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
     <div><strong>{t('github.permission_warning.excess', { count: review.excess.length })}</strong> {t('github.permission_warning.excess_body')}<details className="mt-1"><summary className="cursor-pointer font-medium">{t('github.permission_warning.show')}</summary><p className="mt-1 break-words">{review.excess.map(name => `${name}: ${review.declared[name]}`).join(' · ')}</p></details></div></div>
   const permissions = review.missing.join(', ')
-  return <div className="flex gap-2 rounded-lg border border-warning-line bg-warning-soft p-3 text-xs leading-5 text-warning"><TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+  return <div className="flex gap-2 rounded-lg border border-attention-line bg-attention-soft p-3 text-xs leading-5 text-attention"><TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
     <span>{review.pending_acceptance.length ? t('github.permission_warning.missing_pending', { permissions }) : t('github.permission_warning.missing', { permissions })}</span></div>
 }

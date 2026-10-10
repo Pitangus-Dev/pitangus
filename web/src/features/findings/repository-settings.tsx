@@ -37,7 +37,7 @@ export function RepositorySettings({ assetKey, name, kind, canEdit, onOpenPolici
       {secrets && <RepositorySecrets assetKey={assetKey} name={name} canEdit={canEdit} onSaved={setNotice} />}
       <Button size="xs" variant="link" className="ml-auto px-0 text-app-muted" onClick={onOpenPolicies}>{t('repo_settings.deadlines')}</Button>
     </div>
-    <p role="status" className="mt-1 text-xs text-brand empty:hidden">{notice}</p>
+    <p role="status" className="mt-1 text-xs text-success empty:hidden">{notice}</p>
     {loading && <span role="status" className="sr-only">{t('common:state.loading')}</span>}
   </section>
 }

@@ -44,9 +44,9 @@ export function CodeProviders({ canManage }: { canManage: boolean }) {
   const installations = github?.installations ?? []
   const providerError = probe.data?.providers.github?.error
   const [status, tone, meta]: [string, StatusTone, string] = !github ? [error ? t('providers.row.unavailable') : '', 'danger', '']
-    : providerError ? [t('providers.row.unreachable'), 'warning', providerError]
+    : providerError ? [t('providers.row.unreachable'), 'attention', providerError]
     : github.connected ? [t('providers.row.connected', { count: installations.length }), 'success', installations.map(item => item.account ?? `#${item.installation_id}`).join(', ')]
-    : github.configured ? [t('providers.row.not_installed'), 'warning', github.name ?? github.slug]
+    : github.configured ? [t('providers.row.not_installed'), 'attention', github.name ?? github.slug]
     : [t('providers.status.not_configured'), 'muted', t('providers.github_tagline')]
   const label = !canManage ? t('providers.row.details') : github?.connected ? t('providers.row.manage') : github?.configured ? t('providers.row.finish') : t('providers.row.connect')
 

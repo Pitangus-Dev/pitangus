@@ -24,7 +24,7 @@ export function RunProgress({ run }: { run: RunningRun }) {
   return <Card className="overflow-hidden border-app-line bg-console">
     <div className="flex items-center justify-between gap-3 border-b border-app-line bg-console-top px-4 py-3 text-xs">
       <span className="flex items-center gap-2 font-mono text-app-muted"><Terminal className="size-3.5" />{live.source?.name ?? t('progress.scan')} · {live.id.slice(0, 8)}</span>
-      <span className={`flex items-center gap-1.5 ${active ? 'text-brand' : live.status === 'failed' ? 'text-danger' : 'text-app-muted'}`}>
+      <span className={`flex items-center gap-1.5 ${active ? 'text-info' : live.status === 'failed' ? 'text-danger' : 'text-app-muted'}`}>
         {active ? <LoaderCircle className="size-3.5 animate-spin" /> : live.status === 'failed' ? <CircleAlert className="size-3.5" /> : <CircleCheck className="size-3.5" />}
         {/* The seconds tick with every poll: only the change of state is announced. */}
         <span aria-hidden>{live.status === 'queued' ? t('common:run_status.queued') : live.status === 'running' ? t('progress.running', { seconds: elapsed }) : live.status === 'failed' ? t('progress.failed') : t('progress.done')}</span>
@@ -33,7 +33,7 @@ export function RunProgress({ run }: { run: RunningRun }) {
     </div>
     {/* 4.1.3: cada paso nuevo se anuncia; el nivel no depende solo del color (1.4.1). */}
     <CardContent role="log" aria-live="polite" aria-label={t('progress.log')} tabIndex={0} className="max-h-72 overflow-y-auto p-4 font-mono text-xs leading-6">
-      {(live.progress ?? []).map((event, index) => <div key={index} className="flex gap-3"><span className="shrink-0 text-app-subtle">{formatTime(event.at)}</span><span className={event.level === 'ok' ? 'text-success' : event.level === 'warn' ? 'text-warning' : event.level === 'error' ? 'text-danger' : 'text-app-secondary'}>{event.level === 'warn' ? <span className="font-semibold">{t('progress.warning')} </span> : event.level === 'error' ? <span className="font-semibold">{t('progress.error')} </span> : null}{event.message}</span></div>)}
+      {(live.progress ?? []).map((event, index) => <div key={index} className="flex gap-3"><span className="shrink-0 text-app-subtle">{formatTime(event.at)}</span><span className={event.level === 'ok' ? 'text-success' : event.level === 'warn' ? 'text-attention' : event.level === 'error' ? 'text-danger' : 'text-app-secondary'}>{event.level === 'warn' ? <span className="font-semibold">{t('progress.warning')} </span> : event.level === 'error' ? <span className="font-semibold">{t('progress.error')} </span> : null}{event.message}</span></div>)}
       {active && <div aria-hidden className="flex gap-3 text-app-subtle"><span className="shrink-0">{formatTime(now)}</span><span className="motion-safe:animate-pulse">…</span></div>}
       <div ref={bottom} />
     </CardContent>

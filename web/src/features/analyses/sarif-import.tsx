@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, CircleCheck, FileUp, LoaderCircle, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, CircleCheck, FileUp, LoaderCircle, SlidersHorizontal } from 'lucide-react'
 import { apiPost, type PostBody } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/http'
 import { keys } from '@/shared/api/queries'
@@ -137,7 +137,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
 
     <div className="flex items-center justify-between gap-3 border-t border-app-line pt-5">
       <Button variant="ghost" onClick={onBack}><ArrowLeft /> {t('wizard.back')}</Button>
-      <Button onClick={submit} disabled={!ready} className="bg-primary text-primary-foreground hover:bg-primary/90">{mutation.isPending ? <LoaderCircle className="motion-safe:animate-spin" /> : <FileUp />}{mutation.isPending ? t('import.submitting') : t('import.submit')}</Button>
+      <Button onClick={submit} disabled={!ready}>{mutation.isPending ? <LoaderCircle className="motion-safe:animate-spin" /> : <FileUp />}{mutation.isPending ? t('import.submitting') : t('import.submit')}</Button>
     </div>
   </div>
 }
@@ -154,11 +154,11 @@ function ImportResult({ result, scope, onOpenRun, onAnother, onBack }: { result:
         <span className="min-w-0"><span className="block truncate text-sm font-medium">{run.tool}{run.version ? <span className="font-normal text-app-subtle"> {run.version}</span> : null}</span>
           <span className="text-xs text-app-muted">{[t('import.result.findings', { count: run.findings }), t('import.result.opened', { count: run.opened }),
             ...(run.scope === 'full' ? [t('import.result.fixed', { count: run.fixed })] : []), ...(run.skipped ? [t('import.result.skipped', { count: run.skipped })] : [])].join(' · ')}</span></span>
-        <Button variant={single ? 'default' : 'outline'} size="sm" aria-label={t('import.result.open_label', { tool: run.tool })} onClick={() => void onOpenRun(run.id)} className={single ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border-app-line bg-panel'}>{t('import.result.open')} <ArrowRight /></Button>
+        <Button variant={single ? 'default' : 'outline'} size="sm" aria-label={t('import.result.open_label', { tool: run.tool })} onClick={() => void onOpenRun(run.id)} className={single ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border-app-line bg-panel'}>{t('import.result.open')}</Button>
       </li>)}</ul></CardContent></Card>
     <div className="flex items-center justify-between gap-3 border-t border-app-line pt-5">
       <Button variant="ghost" onClick={onBack}><ArrowLeft /> {t('wizard.back_to_types')}</Button>
-      <Button variant="outline" onClick={onAnother} className="border-app-line bg-app-soft"><FileUp />{t('import.result.another')}</Button>
+      <Button variant="outline" onClick={onAnother}><FileUp />{t('import.result.another')}</Button>
     </div>
   </div>
 }

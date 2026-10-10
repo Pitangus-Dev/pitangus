@@ -104,12 +104,12 @@ export function DomainScopeEditor({ domain, admin, autoSearch = false, onVerify,
       <div role="status" className="text-xs">
         {searching ? <p className="flex items-center gap-2 text-app-secondary"><LoaderCircle className="size-3.5 motion-safe:animate-spin" aria-hidden />{t('domains.scope.searching')}</p>
           : !discovery.available ? <p className="text-app-muted">{discovery.unavailable}</p>
-          : discovery.status === 'failed' ? <p className="text-warning">{discovery.note}</p>
+          : discovery.status === 'failed' ? <p className="text-attention">{discovery.note}</p>
           : discovery.status === 'done' && counts ? <p className="text-app-muted">{t('domains.scope.last_search', { date: last, kept: counts.kept, count: counts.found })}
             {counts.capped ? ` ${t('domains.scope.capped', { count: counts.capped, max: data.limit })}` : ''}</p>
           : null}
       </div>
-      {!covered && data.reason && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning">
+      {!covered && data.reason && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-attention-line bg-attention-soft px-4 py-3 text-sm text-attention">
         <span>{data.reason}</span>
         {admin && onVerify && <Button variant="outline" size="sm" onClick={onVerify}>{t('domains.page.verify_dns')}</Button>}
       </div>}

@@ -1,8 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useCallback, useState, type FormEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowRight, ExternalLink, Flame, LoaderCircle, Search, ShieldCheck, ShieldAlert, X } from 'lucide-react'
-import { sevColor } from '@/shared/charts/severity'
+import { ExternalLink, Flame, LoaderCircle, Search, ShieldCheck, ShieldAlert, X } from 'lucide-react'
+import { severityClass } from '@/shared/ui/severity'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -41,7 +41,7 @@ const percent = (value: number | null) => value === null ? '—' : formatPercent
 export function SeverityPill({ severity, score }: { severity: string | null; score?: number | null }) {
   const { t } = useTranslation('cves')
   if (!severity) return <Badge variant="outline" className="border-app-line text-[11px] text-app-subtle">{t('unscored')}</Badge>
-  return <Badge variant="outline" className="gap-1.5 border-app-line text-[11px] text-app-secondary"><span className="size-2 rounded-full" style={{ background: sevColor[severity] ?? 'var(--axis-line)' }} />{SEVERITY_LABEL[severity] ? t(SEVERITY_LABEL[severity]) : severity}{score !== undefined && score !== null ? <span className="font-mono text-app-muted">{score.toFixed(1)}</span> : null}</Badge>
+  return <Badge variant="outline" className={`gap-1.5 text-[11px] ${severityClass(severity)}`}>{SEVERITY_LABEL[severity] ? t(SEVERITY_LABEL[severity]) : severity}{score !== undefined && score !== null ? <span className="tabular-nums opacity-90">{score.toFixed(1)}</span> : null}</Badge>
 }
 
 type Filters = { q: string; severity: string; kev: boolean; mine: boolean; year: string; sort: string; page: number; size: number }
@@ -94,7 +94,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
         <form onSubmit={submit} className="space-y-2">
           <div className="flex gap-2"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" />
             <Input value={draft} onChange={event => setDraft(event.target.value)} maxLength={100} aria-label={t('search.label')} placeholder={t('search.placeholder')} className="h-9 border-app-line bg-app-soft pl-9" /></div>
-          <Button type="submit" className="h-9 bg-primary px-5 text-primary-foreground hover:bg-primary/90">{t('common:actions.search')}</Button></div>
+          <Button type="submit" className="h-9 px-5">{t('common:actions.search')}</Button></div>
           <div className="flex flex-wrap gap-2">
           <Select value={filters.severity || 'all'} onValueChange={value => apply({ severity: !value || value === 'all' ? '' : value })}><SelectTrigger aria-label={t('filters.severity')} className="h-9 min-w-44 border-app-line bg-app-soft">{t(SEVERITIES.find(([value]) => value === filters.severity)?.[1] ?? 'cves:filters.all_severities')}</SelectTrigger>
             <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{SEVERITIES.map(([value, label]) => <SelectItem key={value || 'all'} value={value || 'all'}>{t(label)}</SelectItem>)}</SelectContent></Select>
@@ -125,11 +125,11 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
                 <th className="w-16 px-3 py-2.5 text-right font-normal">EPSS</th><th className="w-28 px-3 py-2.5 font-normal">{t('table.published')}</th><th className="px-4 py-2.5 font-normal">{t('table.description')}</th></tr></thead>
               <tbody>{page.items.map(item => <tr key={item.id} onClick={() => show(item.id)} className="cursor-pointer border-b border-app-line align-top last:border-0 hover:bg-app-soft">
                 <td className="px-4 py-3 whitespace-nowrap"><button type="button" className="font-mono text-xs font-medium hover:underline" onClick={event => { event.stopPropagation(); show(item.id) }}>{item.id}</button>
-                  {item.kev && <span className="ml-2 inline-flex items-center gap-0.5 rounded bg-danger-solid px-1 py-0.5 align-middle text-[11px] font-semibold text-on-solid" title={t('table.kev_title')}><Flame className="size-2.5" />KEV</span>}
+                  {item.kev && <span className="ml-2 inline-flex items-center gap-0.5 rounded-sm border border-danger-line bg-danger-soft px-1 py-0.5 align-middle text-[11px] font-medium text-danger" title={t('table.kev_title')}><Flame className="size-2.5" />KEV</span>}
                   {item.affects && !filters.mine && <span className="mt-1 block w-fit rounded border border-danger-line px-1 text-[11px] text-danger" title={t('table.affects_title')}>{t('table.affects')}</span>}</td>
                 <td className="px-3 py-3"><SeverityPill severity={item.severity} /></td>
-                <td className="px-3 py-3 text-right font-mono text-xs tabular-nums">{item.score?.toFixed(1) ?? '—'}</td>
-                <td className="px-3 py-3 text-right font-mono text-xs tabular-nums">{percent(item.epss)}</td>
+                <td className="px-3 py-3 text-right text-xs tabular-nums">{item.score?.toFixed(1) ?? '—'}</td>
+                <td className="px-3 py-3 text-right text-xs tabular-nums">{percent(item.epss)}</td>
                 <td className="px-3 py-3 text-xs whitespace-nowrap text-app-muted">{day(item.published)}</td>
                 <td className="px-4 py-3 text-xs leading-5 text-app-muted"><span className="line-clamp-2">{item.description}</span></td>
               </tr>)}</tbody>
@@ -155,8 +155,8 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
           : mineTotal ? <Trans t={t} i18nKey="mine.count" count={mineTotal} values={{ value: formatNumber(mineTotal) }} components={{ strong: <strong className="text-app-fg tabular-nums" /> }} />
           : t('mine.cta')}</CardDescription></CardHeader>
         <CardContent>{mineTotal === null ? (error ? null : <Bone className="h-9" />)
-          : mineTotal ? <Button variant="outline" onClick={() => apply({ mine: !filters.mine })} className="w-full border-app-line bg-app-soft">{filters.mine ? t('mine.show_all') : t('mine.show_mine')} <ArrowRight /></Button>
-          : <Button variant="outline" onClick={onNew} className="w-full border-app-line bg-app-soft">{t('mine.new_scan')} <ArrowRight /></Button>}</CardContent></Card>
+          : mineTotal ? <Button variant="outline" onClick={() => apply({ mine: !filters.mine })} className="w-full border-app-line bg-app-soft">{filters.mine ? t('mine.show_all') : t('mine.show_mine')}</Button>
+          : <Button variant="outline" onClick={onNew} className="w-full">{t('mine.new_scan')}</Button>}</CardContent></Card>
       <Card className="border-app-line bg-panel"><CardHeader className="pb-2"><CardTitle className="text-base">{t('years.title')}</CardTitle><CardDescription className="text-xs">{overview ? t('years.local_count', { value: formatNumber(overview.count) }) : <Bone className="h-3 w-32" />}</CardDescription></CardHeader>
         {/* Ley de Hick: un selector con los años (y sus cifras) en lugar de una rejilla de ~30 botones. */}
         <CardContent>{overview?.years.length ? <Select value={filters.year || 'all'} onValueChange={value => apply({ year: !value || value === 'all' ? '' : value })}>
@@ -168,7 +168,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
           <span className="min-w-0"><span className="block font-mono text-xs font-medium">{item.id}</span><span className="block truncate text-[11px] text-app-muted" title={item.name ?? ''}>{item.name}</span></span>
           <span className="flex shrink-0 flex-col items-end gap-0.5 text-[11px] text-app-subtle">{formatCalendarDay(item.date_added)}{item.ransomware && <span className="text-danger">{t('kev.ransomware')}</span>}</span></button>)
           : !overview ? <SkeletonList rows={5} dense label={t('kev.loading')} /> : <p className="text-xs text-app-subtle">{t('kev.empty')}</p>}
-          <button type="button" onClick={() => apply({ kev: true, sort: 'published' })} className="mt-2 flex items-center gap-1 px-1.5 text-xs text-app-muted hover:text-app-fg">{t('kev.show_all')} <ArrowRight className="size-3" /></button></CardContent></Card>
+          <button type="button" onClick={() => apply({ kev: true, sort: 'published' })} className="mt-2 flex items-center gap-1 px-1.5 text-xs text-app-muted hover:text-app-fg">{t('kev.show_all')}</button></CardContent></Card>
     </aside>
     <CveSheet id={open} onClose={() => show(null)} />
   </div>
@@ -183,7 +183,7 @@ function SyncBanner({ overview }: { overview: CveOverview }) {
   const { t } = useTranslation('cves')
   const { sync } = overview
   return <div className="rounded-xl border border-app-line bg-panel px-4 py-3 text-sm">
-    <div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2">{sync.error ? <ShieldAlert className="size-4 text-warning" /> : <LoaderCircle className="size-4 animate-spin text-app-muted" />}
+    <div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2">{sync.error ? <ShieldAlert className="size-4 text-attention" /> : <LoaderCircle className="size-4 animate-spin text-app-muted" />}
       {sync.phase === 'pending' ? t('sync.preparing') : t('sync.downloading', { percent: formatPercent(sync.progress) })}</span>
       <span className="text-xs text-app-subtle">{sync.nvd_total ? t('sync.count_of', { value: formatNumber(overview.count), total: formatNumber(sync.nvd_total) }) : t('sync.count', { value: formatNumber(overview.count) })}</span></div>
     <div role="progressbar" aria-label={t('sync.aria')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sync.progress * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-brand transition-all" style={{ width: `${Math.max(2, sync.progress * 100)}%` }} /></div>
@@ -224,7 +224,7 @@ function CveSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
             {affected.error ? <p role="alert" className="text-sm text-danger">{affected.error}</p>
               : !affected.items.length && affected.loading ? <SkeletonList rows={2} dense label={t('sheet.loading_repos')} />
               : affected.total ? <div aria-busy={affected.loading} className={`space-y-1.5 motion-safe:transition-opacity ${affected.loading ? 'opacity-60' : ''}`}>{affected.items.map(asset => <div key={asset.asset} className="flex items-center justify-between gap-2 rounded-lg border border-app-line px-3 py-2 text-sm"><span className="min-w-0"><span className="block truncate font-medium">{asset.name}</span><span className="text-xs text-app-subtle">{asset.packages.join(', ')}</span></span>
-              {asset.open ? <Badge variant="outline" className="border-transparent bg-danger-solid text-[11px] text-on-solid">{t('sheet.open', { count: asset.open })}</Badge> : <Badge variant="outline" className="border-app-line text-[11px] text-app-muted"><ShieldCheck className="size-3" />{t('sheet.fixed')}</Badge>}</div>)}
+              {asset.open ? <Badge variant="outline" className="border-danger-line bg-danger-soft text-[11px] text-danger">{t('sheet.open', { count: asset.open })}</Badge> : <Badge variant="outline" className="border-app-line text-[11px] text-app-muted"><ShieldCheck className="size-3" />{t('sheet.fixed')}</Badge>}</div>)}
                 {affected.total > affected.limit && <div className="rounded-lg border border-app-line"><Pagination total={affected.total} limit={affected.limit} offset={affected.offset} onPrev={affected.prev} onNext={affected.next} noun={t('sheet.repos_noun')} /></div>}</div>
               : <p className="text-sm text-app-muted">{t('sheet.not_affected')}</p>}</section>
           {item.references.length > 0 && <section><h3 className="mb-1.5 text-xs font-medium text-app-muted">{t('sheet.references')}</h3><ul className="space-y-1">{item.references.map(reference => <li key={reference.url} className="flex items-start gap-1.5 text-xs"><ExternalLink className="mt-0.5 size-3 shrink-0 text-app-subtle" /><a href={reference.url} target="_blank" rel="noreferrer noopener" className="min-w-0 break-all text-app-secondary hover:underline">{reference.url}</a>{reference.tags[0] && <span className="shrink-0 text-app-subtle">{reference.tags[0]}</span>}</li>)}</ul></section>}
