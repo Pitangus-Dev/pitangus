@@ -11,15 +11,18 @@
         "budget": "A per-run budget and secret redaction",
         "no_code": "Source code is never sent without that consent"
       },
-      "saved_key": "You have a saved {{provider}} key (····{{last4}}). It isn't used until this feature is ready.",
-      "remove_key": "Remove key"
+      "saved_key": "a key saved earlier (····{{last4}}) is kept but not used",
+      "remove_key": "Remove key",
+      "soon": "Coming soon",
+      "plan_intro": "When it arrives, it will come with:"
     }
   },
   "jira": {
     "tagline": "Create issues from findings, in the project each repository belongs to",
     "status": {
       "connected": "Connected",
-      "not_configured": "Not set up"
+      "not_configured": "Not set up",
+      "unknown": "Couldn't check the connection"
     },
     "loading": "Loading the Jira connection",
     "routing_loading": "Loading destinations and rules",
@@ -322,6 +325,11 @@
       "explain_other": "Pitangus creates a new issue for each of these {{count}} findings and links it instead of the current one. The current issues stay in Jira, untouched.",
       "confirm_one": "Create {{count}} new issue",
       "confirm_other": "Create {{count}} new issues"
+    },
+    "row": {
+      "connect": "Connect",
+      "configure": "Configure",
+      "details": "Details"
     }
   },
   "notifications": {
@@ -363,6 +371,11 @@
     "threshold_label": "Findings from",
     "save": "Save channel",
     "url_note": "The URL is stored encrypted and never comes back to the browser.",
-    "links_note": "To have messages link to the finding, set PITANGUS_PUBLIC_URL to the panel's address."
+    "links_note": "To have messages link to the finding, set PITANGUS_PUBLIC_URL to the panel's address.",
+    "row": {
+      "active": "Active, nothing sent yet",
+      "none": "No channels yet",
+      "none_hint": "Add Slack, Teams or a webhook."
+    }
   }
 }

@@ -55,10 +55,10 @@ export function GitHubAppCreate({ canManage }: { canManage: boolean }) {
     mutation.mutate()
   }
 
-  return <form onSubmit={submit} aria-busy={busy || undefined} className="space-y-4 rounded-xl border border-brand/30 bg-panel p-4">
+  return <form onSubmit={submit} aria-busy={busy || undefined} className="space-y-4 rounded-lg border border-app-line p-4">
     <div className="flex items-start gap-3">
       <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-app-subtle" />
-      <div><h3 className="text-sm font-medium">{t('github.create.title')}</h3><p className="mt-1 text-xs leading-5 text-app-muted">{t('github.create.description')}</p></div>
+      <div><h4 className="text-sm font-medium">{t('github.create.title')}</h4><p className="mt-1 text-xs leading-5 text-app-muted">{t('github.create.description')}</p></div>
     </div>
     {!canManage && <p className="rounded-lg border border-app-line bg-app-soft px-3 py-2 text-xs text-app-muted">{t('github.form.admin_only')}</p>}
     <div className="grid gap-3 sm:grid-cols-2">

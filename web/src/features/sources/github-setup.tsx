@@ -126,8 +126,8 @@ export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubS
     </form>
   </div>
   // With the App mounted from the environment only the missing values can be fixed, by hand.
-  if (status.source === 'environment') return <div className="mt-4">{manual}</div>
-  return <div className="mt-4 space-y-4">
+  if (status.source === 'environment') return <div>{manual}</div>
+  return <div className="space-y-4">
     <GitHubAppCreate canManage={canManage} />
     <details className="group">
       <summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-sm font-medium"><ChevronRight className="size-4 text-app-subtle motion-safe:transition group-open:rotate-90" />{t('github.create.manual')}</summary>
@@ -199,14 +199,14 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
     scope: offer.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories') }) : ''
   const review = status.permissions
   const bold = { b: <strong className="font-medium" /> }
-  return <div className="mt-4 space-y-3">
-    <div className="flex items-start gap-2 rounded-lg border border-app-line bg-app-soft px-3 py-2.5 text-sm"><CircleCheck className="mt-0.5 size-4 shrink-0 text-brand" />
+  return <div className="space-y-3">
+    <div className="flex items-start gap-2 rounded-lg border border-app-line bg-app-soft px-3 py-2.5 text-sm"><CircleCheck className="mt-0.5 size-4 shrink-0 text-success" />
       <span>{status.owner
         ? <Trans t={t} i18nKey="github.install.verified_owner" values={{ name: status.name ?? status.slug, owner: status.owner }} components={bold} />
         : <Trans t={t} i18nKey="github.install.verified" values={{ name: status.name ?? status.slug }} components={bold} />} {status.connected ? t('github.install.next_connected') : t('github.install.next_first')}</span></div>
     <p role="status" className="sr-only">{offerText}</p>
     {offer && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-app-line bg-app-soft px-3 py-2.5 text-sm">
-      <span className="flex items-start gap-2"><CircleCheck className="mt-0.5 size-4 shrink-0 text-brand" /><Trans t={t} i18nKey="github.install.returned" values={{ account: offer.account ?? t('github.install.installation', { id: offer.installation_id }),
+      <span className="flex items-start gap-2"><CircleCheck className="mt-0.5 size-4 shrink-0 text-success" /><Trans t={t} i18nKey="github.install.returned" values={{ account: offer.account ?? t('github.install.installation', { id: offer.installation_id }),
         kind: offer.account_type === 'Organization' ? t('github.install.organization') : t('github.install.personal'),
         scope: offer.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories') }} components={bold} /></span>
       <span className="flex gap-2">
@@ -234,7 +234,7 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
         return <div key={item.installation_id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-app-line bg-panel px-3 py-2 text-sm">
           <div><p className="font-medium">{item.account ?? t('github.install.installation', { id: item.installation_id })}</p>
             <p className="text-xs text-app-muted">{item.account_type === 'Organization' ? t('github.install.organization') : t('github.install.personal')} · {item.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories')}</p></div>
-          <Button size="sm" variant={connected ? 'outline' : 'default'} disabled={busy || !canManage || connected} onClick={() => void connect(item.installation_id)}>
+          <Button size="sm" variant={connected ? 'outline' : 'ink'} disabled={busy || !canManage || connected} onClick={() => void connect(item.installation_id)}>
             {connected ? t('github.install.connected') : t('github.install.connect')}
           </Button>
         </div>

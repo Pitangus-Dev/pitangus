@@ -20,19 +20,11 @@
     "description": "Conecta la GitHub App a una o varias organizaciones y elige en GitHub los repositorios que se analizan.",
     "github_tagline": "GitHub App · lee el código y comenta en los pull requests",
     "status": {
-      "connected": "Conectado",
-      "not_connected": "Sin conectar",
       "not_configured": "Sin configurar"
     },
     "loading": "Cargando la conexión con GitHub",
     "accounts_connected_one": "{{count}} cuenta conectada",
     "accounts_connected_other": "{{count}} cuentas conectadas",
-    "field": {
-      "account": "Cuenta",
-      "scope": "Alcance",
-      "connected_by": "Conectó",
-      "installation": "Instalación"
-    },
     "organization_account": "{{account}} (organización)",
     "scope": {
       "selected": "Solo repositorios seleccionados",
@@ -45,13 +37,25 @@
     "forget_confirm": "Se borran de este servidor la clave y la conexión. En GitHub la App sigue existiendo: bórrala allí si ya no la usas.",
     "forget": "Olvidar la App",
     "use_other_app": "Usar otra GitHub App…",
-    "coming_soon": "Próximamente: {{names}}",
     "pending": {
       "gitlab": "Con un token de proyecto de solo lectura, para limitar el acceso a los proyectos que elijas.",
       "bitbucket": "Con un token de acceso de repositorio de solo lectura.",
       "azure": "Mediante Microsoft Entra ID, que es la vía que Microsoft admite desde 2025."
     },
-    "manage_github": "Gestionar integración de GitHub"
+    "manage_github": "Gestionar integración de GitHub",
+    "row": {
+      "connected_one": "Conectado · {{count}} cuenta",
+      "connected_other": "Conectado · {{count}} cuentas",
+      "not_installed": "La App existe, pero aún no está instalada en ninguna cuenta",
+      "unreachable": "Conectado, pero GitHub no responde",
+      "connect": "Conectar",
+      "finish": "Terminar de configurar",
+      "manage": "Gestionar",
+      "details": "Ver detalles",
+      "soon": "Próximamente",
+      "unavailable": "No se pudo comprobar la conexión"
+    },
+    "connected_by": "conectó {{name}}"
   },
   "repositories": {
     "title": "Repositorios",
@@ -211,7 +215,7 @@
     "token_last4": "token ····{{last4}}",
     "saved_by": "por {{name}}",
     "saved_on_by": "{{date}} por {{name}}",
-    "empty": "Ningún registro privado configurado.",
+    "empty": "Añade uno para analizar imágenes privadas.",
     "host": "Registro (host)",
     "username": "Usuario",
     "token": "Token de solo lectura",
@@ -245,7 +249,13 @@
         "token": "clave de una cuenta de servicio con Artifact Registry Reader"
       }
     },
-    "private_blocked": "Los registros de tu red interna (IP privada) están bloqueados para que nadie use el panel para llegar a servicios internos. Para permitirlos, arranca con <code>PITANGUS_ALLOW_PRIVATE_REGISTRIES=1</code>."
+    "private_blocked": "Los registros de tu red interna (IP privada) están bloqueados para que nadie use el panel para llegar a servicios internos. Para permitirlos, arranca con <code>PITANGUS_ALLOW_PRIVATE_REGISTRIES=1</code>.",
+    "add": "Añadir registro",
+    "remove_label": "Quitar las credenciales de {{host}}",
+    "row": {
+      "saved": "Credenciales guardadas",
+      "none": "Sin registros privados"
+    }
   },
   "domains": {
     "kind": {

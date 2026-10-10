@@ -11,15 +11,18 @@
         "budget": "Presupuesto por ejecución y redacción de secretos",
         "no_code": "Nunca se envía código fuente sin ese consentimiento"
       },
-      "saved_key": "Tienes guardada una clave de {{provider}} (····{{last4}}). No se usa hasta que esta función esté lista.",
-      "remove_key": "Retirar clave"
+      "saved_key": "hay una clave guardada antes (····{{last4}}) que se conserva pero no se usa",
+      "remove_key": "Retirar clave",
+      "soon": "Próximamente",
+      "plan_intro": "Cuando llegue, vendrá con:"
     }
   },
   "jira": {
     "tagline": "Crea incidencias desde los hallazgos, en el proyecto de cada repositorio",
     "status": {
       "connected": "Conectado",
-      "not_configured": "Sin configurar"
+      "not_configured": "Sin configurar",
+      "unknown": "No se pudo comprobar la conexión"
     },
     "loading": "Cargando la conexión con Jira",
     "routing_loading": "Cargando destinos y reglas",
@@ -322,6 +325,11 @@
       "explain_other": "Pitangus crea una incidencia nueva para cada uno de estos {{count}} hallazgos y la enlaza en lugar de la actual. Las actuales siguen en Jira, sin cambios.",
       "confirm_one": "Crear {{count}} incidencia nueva",
       "confirm_other": "Crear {{count}} incidencias nuevas"
+    },
+    "row": {
+      "connect": "Conectar",
+      "configure": "Configurar",
+      "details": "Ver detalles"
     }
   },
   "notifications": {
@@ -363,6 +371,11 @@
     "threshold_label": "Hallazgos desde",
     "save": "Guardar canal",
     "url_note": "La URL se guarda cifrada y nunca vuelve al navegador.",
-    "links_note": "Para que los mensajes enlacen al hallazgo, define PITANGUS_PUBLIC_URL con la dirección del panel."
+    "links_note": "Para que los mensajes enlacen al hallazgo, define PITANGUS_PUBLIC_URL con la dirección del panel.",
+    "row": {
+      "active": "Activo, aún no se ha enviado nada",
+      "none": "Todavía no hay canales",
+      "none_hint": "Añade Slack, Teams o un webhook."
+    }
   }
 }

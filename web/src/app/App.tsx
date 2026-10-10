@@ -205,7 +205,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
         onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onScheduled={id => openDomain({ id })} onManageConnections={() => selectView('integrations')} onCancel={() => selectView('analyses')} />
     }
     if (view === 'analyses') return <AnalysisList refreshKey={rows.length * 1000 + rows.filter(row => row.status === 'running' || row.status === 'queued').length} onOpen={id => openRun(id, 'findings')} onNew={() => selectView('new')} viewer={{ username: user.username, admin: user.role === 'admin' }} />
-    if (view === 'repositories') return <CodeSources showRepositories runs={rows} onScan={scanSource} onImages={openImages} canManage={user.role === 'admin'} />
+    if (view === 'repositories') return <CodeSources runs={rows} onScan={scanSource} onImages={openImages} canManage={user.role === 'admin'} />
     if (view === 'images') return <Images key={readRoute().params.get('repo') ?? 'all'} admin={user.role === 'admin'} onOpenFindings={openAssetFindings} onNew={() => selectView('new')} />
     if (view === 'domains') return <DomainList key={addDomainRequest} admin={user.role === 'admin'} onOpenDomain={openDomain} onNewScan={scanDomain} />
     if (view === 'domain') return <Domain key={domainRoute.id} domainId={domainRoute.id} tab={domainRoute.tab} onTab={domainTab} user={user} onBack={() => selectView('domains')}

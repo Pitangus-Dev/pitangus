@@ -20,19 +20,11 @@
     "description": "Connect the GitHub App to one or more organizations, then pick in GitHub which repositories get scanned.",
     "github_tagline": "GitHub App · reads the code and comments on pull requests",
     "status": {
-      "connected": "Connected",
-      "not_connected": "Not connected",
       "not_configured": "Not set up"
     },
     "loading": "Loading the GitHub connection",
     "accounts_connected_one": "{{count}} connected account",
     "accounts_connected_other": "{{count}} connected accounts",
-    "field": {
-      "account": "Account",
-      "scope": "Scope",
-      "connected_by": "Connected by",
-      "installation": "Installation"
-    },
     "organization_account": "{{account}} (organization)",
     "scope": {
       "selected": "Selected repositories only",
@@ -45,13 +37,25 @@
     "forget_confirm": "This removes the key and the connection from this server. The App still exists on GitHub: delete it there if you no longer need it.",
     "forget": "Forget the App",
     "use_other_app": "Use a different GitHub App…",
-    "coming_soon": "Coming soon: {{names}}",
     "pending": {
       "gitlab": "With a read-only project token, so access is limited to the projects you choose.",
       "bitbucket": "With a read-only repository access token.",
       "azure": "Through Microsoft Entra ID, the method Microsoft supports since 2025."
     },
-    "manage_github": "Manage the GitHub integration"
+    "manage_github": "Manage the GitHub integration",
+    "row": {
+      "connected_one": "Connected · {{count}} account",
+      "connected_other": "Connected · {{count}} accounts",
+      "not_installed": "App created, not installed on any account yet",
+      "unreachable": "Connected, but GitHub isn't answering",
+      "connect": "Connect",
+      "finish": "Finish setup",
+      "manage": "Manage",
+      "details": "Details",
+      "soon": "Coming soon",
+      "unavailable": "Couldn't check the connection"
+    },
+    "connected_by": "connected by {{name}}"
   },
   "repositories": {
     "title": "Repositories",
@@ -211,7 +215,7 @@
     "token_last4": "token ····{{last4}}",
     "saved_by": "by {{name}}",
     "saved_on_by": "{{date}} by {{name}}",
-    "empty": "No private registries configured.",
+    "empty": "Add one to scan private images.",
     "host": "Registry (host)",
     "username": "Username",
     "token": "Read-only token",
@@ -245,7 +249,13 @@
         "token": "key for a service account with Artifact Registry Reader"
       }
     },
-    "private_blocked": "Registries on your internal network (private IPs) are blocked so nobody can use the panel to reach internal services. To allow them, start the server with <code>PITANGUS_ALLOW_PRIVATE_REGISTRIES=1</code>."
+    "private_blocked": "Registries on your internal network (private IPs) are blocked so nobody can use the panel to reach internal services. To allow them, start the server with <code>PITANGUS_ALLOW_PRIVATE_REGISTRIES=1</code>.",
+    "add": "Add registry",
+    "remove_label": "Remove credentials for {{host}}",
+    "row": {
+      "saved": "Credentials saved",
+      "none": "No private registries"
+    }
   },
   "domains": {
     "kind": {

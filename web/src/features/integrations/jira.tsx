@@ -1,12 +1,12 @@
 import { useState, type ComponentProps, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { ExternalLink, LoaderCircle, PlugZap, Ticket } from 'lucide-react'
-import { Badge } from '@/shared/ui/badge'
+import { ExternalLink, LoaderCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
-import { SkeletonCard, SkeletonList } from '@/shared/ui/loading'
+import { SkeletonList } from '@/shared/ui/loading'
+import { SettingsRow, SettingsRows, SettingsSection } from '@/shared/ui/settings-list'
 import { apiPost } from '@/shared/api/client'
 import { jiraBackfillQuery, jiraRoutingQuery, jiraStatusQuery, keys, type JiraStatus } from '@/shared/api/queries'
 import { formatDate } from '@/shared/i18n/format'
@@ -14,15 +14,23 @@ import { DestinationsSection } from '@/features/integrations/jira-destinations'
 import { RoutingHistory, RulesSection } from '@/features/integrations/jira-rules'
 import type { JiraDestination, JiraRule } from '@/features/integrations/jira-routing'
 
-// Integrations → Jira: the connection and, for administrators, where each finding's issue goes.
-export function JiraCard({ canManage }: { canManage: boolean }) {
+// Integrations → Issue tracking: the Jira connection and, for administrators, where each finding's issue goes.
+export function IssueTracking({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation('integrations')
   const status = useQuery(jiraStatusQuery())
   const data = status.data
-  return <div className="space-y-5">
-    <ConnectionCard status={data} error={status.isError ? status.error.message : ''} canManage={canManage} />
-    {data?.configured && (canManage ? <Routing /> : <p className="text-sm text-app-muted">{memberSummary(data, t)}</p>)}
-  </div>
+  const configured = data?.configured ? data : null
+  const label = !canManage ? t('jira.row.details') : configured ? t('jira.row.configure') : t('jira.row.connect')
+  return <SettingsSection id="integrations-issues" title={t('page.issues_title')} description={t('page.issues_description')}>
+    {status.isError && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{status.error.message}</p>}
+    <SettingsRows>
+      <SettingsRow title="Jira Cloud" loading={data || status.isError ? undefined : t('jira.loading')}
+        status={configured ? t('jira.status.connected') : data ? t('jira.status.not_configured') : t('jira.status.unknown')} tone={configured ? 'success' : data ? 'muted' : 'danger'}
+        meta={!data ? undefined : configured ? [configured.site, canManage ? null : memberSummary(configured, t)].filter(Boolean).join(' · ') : canManage ? t('jira.tagline') : t('jira.admin_only')}
+        disclosure={data && (configured || canManage) ? { label,
+          content: <div className="space-y-6"><Connection status={data} canManage={canManage} />{configured && canManage && <Routing />}</div> } : undefined} />
+    </SettingsRows>
+  </SettingsSection>
 }
 
 const memberSummary = (status: JiraStatus, t: ReturnType<typeof useTranslation>['t']) => [
@@ -30,7 +38,7 @@ const memberSummary = (status: JiraStatus, t: ReturnType<typeof useTranslation>[
   status.automatic ? t('jira.summary.automatic') : t('jira.summary.manual_only'),
 ].join(' · ')
 
-function ConnectionCard({ status, error, canManage }: { status: JiraStatus | undefined; error: string; canManage: boolean }) {
+function Connection({ status, canManage }: { status: JiraStatus; canManage: boolean }) {
   const { t } = useTranslation('integrations')
   const queryClient = useQueryClient()
   const [form, setForm] = useState({ site: '', email: '', token: '' })
@@ -47,32 +55,27 @@ function ConnectionCard({ status, error, canManage }: { status: JiraStatus | und
     } catch (caught) { setFailure(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
   }
   const save = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!busy) void post({ action: 'save', ...form }) }
-  const configured = status?.configured ? status : null
+  const configured = status.configured ? status : null
   const configuredBy = !configured ? null
     : configured.saved_by && configured.saved_at ? t('jira.configured_by_on', { name: configured.saved_by, date: formatDate(configured.saved_at) })
     : configured.saved_by ? t('jira.configured_by', { name: configured.saved_by })
     : configured.saved_at ? t('jira.configured_on', { date: formatDate(configured.saved_at) }) : null
-  return <div className="rounded-xl border border-app-line bg-inset p-5">
-    <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><Ticket aria-hidden className="size-5 text-app-secondary" />
-      <div><h3 className="font-semibold">Jira Cloud</h3><p className="text-xs text-app-subtle">{configured?.site ?? t('jira.tagline')}</p></div></div>
-      {status && <Badge variant="outline" className={status.configured ? 'border-brand/30 text-brand' : 'border-app-line text-app-muted'}>{status.configured ? t('jira.status.connected') : t('jira.status.not_configured')}</Badge>}</div>
-    {error ? <p role="alert" className="mt-5 text-sm text-danger">{error}</p>
-      : !status ? <div className="mt-5"><SkeletonCard lines={2} label={t('jira.loading')} /></div>
-      : configured ? <div className="mt-5 space-y-3 text-sm text-app-muted">
-        <p>{[t('jira.account', { email: configured.email ?? '', last4: configured.last4 ?? '' }), configuredBy].filter(Boolean).join(' · ')}</p>
+  return <div>
+    {configured ? <div className="space-y-2 text-sm text-app-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2"><p>{[t('jira.account', { email: configured.email ?? '', last4: configured.last4 ?? '' }), configuredBy].filter(Boolean).join(' · ')}</p>
+          {canManage && <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirm(true)}>{t('jira.remove')}</Button>}</div>
         <p className="text-xs leading-5 text-app-subtle"><Trans t={t} i18nKey="jira.label_note" shouldUnescape components={{ code: <code className="font-mono" /> }} /></p>
         {failure && <p role="alert" className="text-xs text-danger">{failure}</p>}
-        {canManage && <Button variant="ghost" disabled={busy} onClick={() => setConfirm(true)}>{t('jira.remove')}</Button>}
       </div>
-      : canManage ? <form className="mt-5 grid gap-3 sm:grid-cols-2" onSubmit={save}>
+      : canManage ? <form className="grid gap-3 sm:grid-cols-2" onSubmit={save}>
         <Field id="jira-site" label={t('jira.site')} placeholder={t('jira.site_placeholder')} value={form.site} onChange={set('site')} />
         <Field id="jira-email" label={t('jira.email')} type="email" autoComplete="username" value={form.email} onChange={set('email')} />
         <Field id="jira-token" label={t('jira.token')} type="password" autoComplete="new-password" minLength={16} value={form.token} onChange={set('token')} />
         {failure && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger sm:col-span-2">{failure}</div>}
-        <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><Button type="submit" disabled={busy}>{busy ? <LoaderCircle className="motion-safe:animate-spin" /> : <PlugZap />}{t('jira.submit')}</Button>
-          <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand hover:underline">{t('jira.create_token')} <ExternalLink className="size-3" /></a></div>
+        <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.submit')}</Button>
+          <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 text-xs text-brand hover:underline">{t('jira.create_token')} <ExternalLink className="size-3" /><span className="sr-only">{t('sources:new_tab')}</span></a></div>
         <p className="text-xs leading-5 text-app-subtle sm:col-span-2">{t('jira.validate_note')}</p>
-      </form> : <p className="mt-5 text-sm text-app-muted">{t('jira.admin_only')}</p>}
+      </form> : null}
     <Dialog open={confirm} onOpenChange={setConfirm}><DialogContent className="max-w-md">
       <DialogHeader><DialogTitle>{t('jira.remove_title')}</DialogTitle><DialogDescription>{t('jira.remove_help')}</DialogDescription></DialogHeader>
       {failure && <p role="alert" className="text-xs text-danger">{failure}</p>}
