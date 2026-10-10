@@ -3,7 +3,7 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"
 
 import { Button } from "@/shared/ui/button"
-import { XIcon } from "lucide-react"
+import { XIcon } from "@phosphor-icons/react"
 import { useTranslation } from "react-i18next"
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {

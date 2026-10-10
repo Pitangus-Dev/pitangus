@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { GitBranch } from 'lucide-react'
+import { GitBranchIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
 import { api } from '@/shared/api/http'
@@ -43,7 +43,7 @@ export function ImageOrigin({ asset, admin, onChanged }: { asset: Image; admin: 
     : built.repository ? t('evidence.origin.label') : t('evidence.origin.label_unknown')) : ''
   // A plain secondary line of its row (Images) or under the picker (evidence): no box of its own.
   return <div className="space-y-2 text-xs text-app-muted">
-    <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><GitBranch className="size-3.5 text-app-subtle" aria-hidden />
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><GitBranchIcon className="size-3.5 text-app-subtle" aria-hidden />
       {built ? <><span>{t('evidence.origin.built_from')}</span><span className="font-mono text-app-secondary">{built.name}{built.revision ? ` @ ${built.revision.slice(0, 12)}` : ''}</span>
         <span>· {origin}</span></> : <span>{t('evidence.origin.none')}</span>}
       {admin && !editing && <Button ref={opener} size="xs" variant="ghost" onClick={() => setEditing(true)}>{built ? t('evidence.origin.change') : t('evidence.origin.link')}</Button>}

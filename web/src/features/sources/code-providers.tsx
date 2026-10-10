@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink } from 'lucide-react'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { api } from '@/shared/api/http'
 import { Button } from '@/shared/ui/button'
 import { buttonVariants } from '@/shared/ui/button-variants'
@@ -85,7 +85,7 @@ function Installation({ installation, canManage, busy, onDisconnect }: { install
     <div className="min-w-0"><p className="truncate text-sm">{installation.account_type === 'Organization' ? t('providers.organization_account', { account }) : account}</p>
       <p className="text-xs text-app-subtle">{[scope, t('providers.connected_by', { name: installation.connected_by ?? t('providers.unknown_person') }), <span key="id" className="font-mono">#{installation.installation_id}</span>]
         .filter(Boolean).flatMap((part, index) => index ? [' · ', part] : [part])}</p></div>
-    <div className="flex flex-wrap gap-1"><a href={manageUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ size: 'sm', variant: 'ghost' })}>{t('providers.change_repositories')} <ExternalLink /><span className="sr-only">{t('new_tab')}</span></a>
+    <div className="flex flex-wrap gap-1"><a href={manageUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ size: 'sm', variant: 'ghost' })}>{t('providers.change_repositories')} <ArrowSquareOutIcon /><span className="sr-only">{t('new_tab')}</span></a>
       {canManage && <Button size="sm" variant="ghost" disabled={busy} onClick={onDisconnect}>{t('providers.disconnect_account')}</Button>}</div>
   </li>
 }

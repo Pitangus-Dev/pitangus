@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, LoaderCircle, Ticket } from 'lucide-react'
+import { ArrowSquareOutIcon, CircleNotchIcon, TicketIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/shared/ui/popover'
 import { assetQuery, jiraBatchesQuery, keys, type JiraQueued } from '@/shared/api/queries'
 import { formatDate } from '@/shared/i18n/format'
 import { queueJira, toAnnounce, useJiraSettled } from '@/features/integrations/jira-batches'
 import { byAsset } from '@/shared/lib/selection'
+import { Notice } from '@/shared/ui/notice'
 
 type Notice = (tone: 'ok' | 'error', text: string) => void
 const doneOf = (batch: JiraQueued) => batch.created + batch.existing + batch.skipped + batch.failed
@@ -50,7 +51,7 @@ export function JiraBackgroundWork({ onNotice }: { onNotice: Notice }) {
   return <div className="flex">
     <Popover>
       <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={label} className="gap-1.5 text-app-secondary" />}>
-        {running.length ? <Ring value={total ? done / total : 0} /> : <Ticket className="size-3.5" />}
+        {running.length ? <Ring value={total ? done / total : 0} /> : <TicketIcon className="size-3.5" />}
         <span className="hidden tabular-nums sm:inline">{running.length ? t('jira.background.chip', { done, total }) : 'Jira'}</span>
       </PopoverTrigger>
       <PopoverContent>
@@ -106,7 +107,7 @@ export function BatchDetail({ batch }: { batch: JiraQueued }) {
         {linked.length > 0 && !forced && <Button size="xs" variant="ghost" aria-expanded={review} onClick={() => setReview(!review)}>{t('jira.background.review')}</Button>}</p>
       {review && !forced && <>
         <ul aria-label={t('jira.background.linked_list')} className="max-h-40 space-y-0.5 overflow-y-auto">{linked.map(item => <li key={item.fingerprint}>
-          {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 font-mono text-brand underline underline-offset-2">{item.key}<ExternalLink className="size-3" /></a> : <span className="font-mono">{item.key}</span>}</li>)}</ul>
+          {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 font-mono text-brand underline underline-offset-2">{item.key}<ArrowSquareOutIcon className="size-3" /></a> : <span className="font-mono">{item.key}</span>}</li>)}</ul>
         <ForceConfirm count={linked.length} confirming={confirming} busy={busy} onAsk={() => setConfirming(true)} onCancel={() => setConfirming(false)} onConfirm={() => void force()} />
       </>}
       {forced && <p ref={queuedNote} tabIndex={-1} role="status" className="text-app-muted">{t('jira.background.force_queued', { count: linked.length })}</p>}
@@ -119,11 +120,11 @@ export function BatchDetail({ batch }: { batch: JiraQueued }) {
 export function ForceConfirm({ count, confirming, busy, onAsk, onCancel, onConfirm }: { count: number; confirming: boolean; busy: boolean; onAsk: () => void; onCancel: () => void; onConfirm: () => void }) {
   const { t } = useTranslation('integrations')
   if (!confirming) return <Button size="xs" variant="outline" onClick={onAsk}>{t('jira.force.action', { count })}</Button>
-  return <div role="group" aria-label={t('jira.force.title')} className="space-y-2 rounded-lg border border-attention-line bg-attention-soft p-2.5 text-xs">
-    <p className="text-app-fg">{t('jira.force.explain', { count })}</p>
-    <div className="flex flex-wrap justify-end gap-2"><Button size="xs" variant="ghost" autoFocus onClick={onCancel}>{t('common:actions.cancel')}</Button>
-      <Button size="xs" disabled={busy} onClick={onConfirm}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.force.confirm', { count })}</Button></div>
-  </div>
+  return <div role="group" aria-label={t('jira.force.title')}><Notice tone="attention" className="text-xs">
+    <p>{t('jira.force.explain', { count })}</p>
+    <div className="mt-2 flex flex-wrap justify-end gap-2"><Button size="xs" variant="ghost" autoFocus onClick={onCancel}>{t('common:actions.cancel')}</Button>
+      <Button size="xs" disabled={busy} onClick={onConfirm}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.force.confirm', { count })}</Button></div>
+  </Notice></div>
 }
 
 function AssetLabel({ assetKey }: { assetKey: string }) {

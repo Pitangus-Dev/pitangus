@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileUp, Plus, X } from 'lucide-react'
+import { PlusIcon, UploadSimpleIcon, XIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { SPEC_MAX_BYTES, readSpec, toBase64, type Spec } from '@/features/analyses/wizard/model'
@@ -32,7 +32,7 @@ export function ApiDocs({ host, isApi, value, invalid, onChange }: {
     } finally { setReading(false) }
   }
 
-  if (!open) return <Button variant="ghost" onClick={() => { focusUpload.current = true; setOpen(true) }} className="-ml-3 text-app-secondary"><Plus aria-hidden />{t('spec.add')}</Button>
+  if (!open) return <Button variant="ghost" onClick={() => { focusUpload.current = true; setOpen(true) }} className="-ml-3 text-app-secondary"><PlusIcon aria-hidden />{t('spec.add')}</Button>
   const url = value?.mode === 'url' ? value.url : ''
   return <section aria-labelledby="api-docs-title" className="space-y-4">
     <div className="space-y-1">
@@ -43,11 +43,11 @@ export function ApiDocs({ host, isApi, value, invalid, onChange }: {
       <input ref={input} id="spec-file" type="file" accept=".json,.yaml,.yml,application/json,application/yaml" className="sr-only" tabIndex={-1} aria-label={t('spec.choose')}
         onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void read(file) }} />
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        <Button ref={upload} variant="outline" size="sm" disabled={reading} onClick={() => input.current?.click()}><FileUp aria-hidden />{value?.mode === 'file' ? t('spec.replace') : t('spec.choose')}</Button>
+        <Button ref={upload} variant="outline" size="sm" disabled={reading} onClick={() => input.current?.click()}><UploadSimpleIcon aria-hidden />{value?.mode === 'file' ? t('spec.replace') : t('spec.choose')}</Button>
         <span role="status" className="flex min-w-0 items-center gap-1">{reading ? <span className="text-app-muted">{t('spec.reading')}</span>
           : value?.mode === 'file' ? <><span className="truncate font-mono text-app-secondary">{value.filename}</span>
               <span className="text-app-muted">· {t('spec.summary', { version: value.version, count: value.endpoints })}</span></> : null}</span>
-        {value?.mode === 'file' && !reading && <Button variant="ghost" size="icon-sm" aria-label={t('spec.remove', { name: value.filename })} onClick={() => { focusUpload.current = true; onChange(null) }}><X /></Button>}
+        {value?.mode === 'file' && !reading && <Button variant="ghost" size="icon-sm" aria-label={t('spec.remove', { name: value.filename })} onClick={() => { focusUpload.current = true; onChange(null) }}><XIcon /></Button>}
       </div>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     </div>

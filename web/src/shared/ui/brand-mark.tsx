@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { BRAND } from '@/shared/lib/brand'
 
 // The approved Pitangus mark (great kiskadee head), served as is from public/assets. On light surfaces the head goes
-// on its own; on the dark theme its black would merge with the background, so it sits on the cream tile (the favicon).
+// on its own; on the dark theme its black would merge with the background, so it sits on its stone tile (pitangus-icon.svg, the favicon).
 export function BrandMark({ size = 40, className = '', decorative = false }: { size?: number; className?: string; decorative?: boolean }) {
   const { t } = useTranslation('ui')
   const alt = decorative ? '' : t('brand_mark', { name: BRAND.name })

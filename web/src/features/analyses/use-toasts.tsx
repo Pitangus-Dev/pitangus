@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { XIcon } from '@phosphor-icons/react'
 import { BRAND } from '@/shared/lib/brand'
 
 export function useToasts() {
@@ -23,7 +23,7 @@ export function useToasts() {
     <div key={item.id} role={item.tone === 'error' ? 'alert' : 'status'} onMouseEnter={() => hold(item.id)} onMouseLeave={() => schedule(item.id)} onFocus={() => hold(item.id)} onBlur={() => schedule(item.id)}
       className={`pointer-events-auto flex items-start gap-2 rounded-xl border px-4 py-3 text-sm shadow-md ${item.tone === 'ok' ? 'border-success-line bg-panel text-app-fg' : 'border-danger-line bg-panel text-danger'}`}>
       <span className="min-w-0 flex-1">{item.text}</span>
-      <button type="button" onClick={() => dismiss(item.id)} aria-label={t('progress.dismiss')} className="-m-1 grid size-6 shrink-0 place-items-center rounded-md text-app-muted hover:bg-app-soft hover:text-app-fg"><X className="size-3.5" /></button>
+      <button type="button" onClick={() => dismiss(item.id)} aria-label={t('progress.dismiss')} className="-m-1 grid size-6 shrink-0 place-items-center rounded-md text-app-muted hover:bg-app-soft hover:text-app-fg"><XIcon className="size-3.5" /></button>
     </div>)}</div>
   return { push, view }
 }

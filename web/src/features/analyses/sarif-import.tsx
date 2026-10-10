@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, CircleCheck, FileUp, LoaderCircle, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeftIcon, CheckCircleIcon, CircleNotchIcon, SlidersHorizontalIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import { apiPost, type PostBody } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/http'
 import { keys } from '@/shared/api/queries'
@@ -86,7 +86,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
     onAnother={() => { mutation.reset(); setPicked(null) }} onBack={onBack} />
 
   return <div className="space-y-6">
-    <Button variant="ghost" onClick={onBack}><ArrowLeft /> {t('wizard.back_to_types')}</Button>
+    <Button variant="ghost" onClick={onBack}><ArrowLeftIcon /> {t('wizard.back_to_types')}</Button>
     <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('import.title')}</CardTitle><CardDescription>{t('import.description')}</CardDescription></CardHeader><CardContent className="space-y-5">
       <div className="max-w-xl space-y-1.5"><span aria-hidden className="text-sm text-app-secondary">{t('import.asset')}</span>
         <AssetPicker value={asset} onChange={setAsset} onLoaded={loaded} label={t('import.asset')} placeholder={t('findings:page.asset_placeholder')} />
@@ -118,7 +118,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
       </div>
 
       <div className="space-y-3">
-        <Button type="button" size="sm" variant="outline" aria-expanded={more} aria-controls={`${id}-more`} onClick={() => setMore(!more)} className="w-fit border-app-line bg-app-soft"><SlidersHorizontal />{t('import.more')}</Button>
+        <Button type="button" size="sm" variant="outline" aria-expanded={more} aria-controls={`${id}-more`} onClick={() => setMore(!more)} className="w-fit border-app-line bg-app-soft"><SlidersHorizontalIcon />{t('import.more')}</Button>
         {more && <div id={`${id}-more`} className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1"><label htmlFor={`${id}-tool`} className="text-xs text-app-secondary">{t('import.tool')} <span className="text-app-subtle">{t('import.optional')}</span></label>
             <Input id={`${id}-tool`} value={tool} maxLength={100} onChange={event => setTool(event.target.value)} placeholder={picked?.tools[0] ?? ''} className="border-app-line bg-app-soft" />
@@ -136,8 +136,8 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
     </CardContent></Card>
 
     <div className="flex items-center justify-between gap-3 border-t border-app-line pt-5">
-      <Button variant="ghost" onClick={onBack}><ArrowLeft /> {t('wizard.back')}</Button>
-      <Button onClick={submit} disabled={!ready}>{mutation.isPending ? <LoaderCircle className="motion-safe:animate-spin" /> : <FileUp />}{mutation.isPending ? t('import.submitting') : t('import.submit')}</Button>
+      <Button variant="ghost" onClick={onBack}><ArrowLeftIcon /> {t('wizard.back')}</Button>
+      <Button onClick={submit} disabled={!ready}>{mutation.isPending ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <UploadSimpleIcon />}{mutation.isPending ? t('import.submitting') : t('import.submit')}</Button>
     </div>
   </div>
 }
@@ -149,7 +149,7 @@ function ImportResult({ result, scope, onOpenRun, onAnother, onBack }: { result:
   useEffect(() => { title.current?.focus() }, [])
   const single = result.runs.length === 1
   return <div className="space-y-6">
-    <Card className="border-app-line bg-panel"><CardHeader><CardTitle ref={title} tabIndex={-1} className="flex items-center gap-2"><CircleCheck className="size-5 text-success" />{t('import.result.title', { name: result.name })}</CardTitle><CardDescription>{scope === 'full' ? t('import.result.description_full') : t('import.result.description_partial')}</CardDescription></CardHeader>
+    <Card className="border-app-line bg-panel"><CardHeader><CardTitle ref={title} tabIndex={-1} className="flex items-center gap-2"><CheckCircleIcon className="size-5 text-success" />{t('import.result.title', { name: result.name })}</CardTitle><CardDescription>{scope === 'full' ? t('import.result.description_full') : t('import.result.description_partial')}</CardDescription></CardHeader>
       <CardContent><ul className="space-y-2">{result.runs.map(run => <li key={run.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-app-line bg-inset p-3">
         <span className="min-w-0"><span className="block truncate text-sm font-medium">{run.tool}{run.version ? <span className="font-normal text-app-subtle"> {run.version}</span> : null}</span>
           <span className="text-xs text-app-muted">{[t('import.result.findings', { count: run.findings }), t('import.result.opened', { count: run.opened }),
@@ -157,8 +157,8 @@ function ImportResult({ result, scope, onOpenRun, onAnother, onBack }: { result:
         <Button variant={single ? 'default' : 'outline'} size="sm" aria-label={t('import.result.open_label', { tool: run.tool })} onClick={() => void onOpenRun(run.id)} className={single ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border-app-line bg-panel'}>{t('import.result.open')}</Button>
       </li>)}</ul></CardContent></Card>
     <div className="flex items-center justify-between gap-3 border-t border-app-line pt-5">
-      <Button variant="ghost" onClick={onBack}><ArrowLeft /> {t('wizard.back_to_types')}</Button>
-      <Button variant="outline" onClick={onAnother}><FileUp />{t('import.result.another')}</Button>
+      <Button variant="ghost" onClick={onBack}><ArrowLeftIcon /> {t('wizard.back_to_types')}</Button>
+      <Button variant="outline" onClick={onAnother}><UploadSimpleIcon />{t('import.result.another')}</Button>
     </div>
   </div>
 }

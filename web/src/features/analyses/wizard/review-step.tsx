@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Boxes, ChevronRight, Code2, Globe2, Layers3, LoaderCircle } from 'lucide-react'
+import { CaretRightIcon, CircleNotchIcon, CodeIcon, GlobeIcon, PackageIcon, StackIcon } from '@phosphor-icons/react'
 import { formatList } from '@/shared/i18n/format'
 import { Button } from '@/shared/ui/button'
 import { Bone } from '@/shared/ui/loading'
@@ -9,7 +9,7 @@ import { AiAssistSlot, StepFrame } from '@/features/analyses/wizard/step-frame'
 import type { Kind, ScanPlan } from '@/features/analyses/wizard/model'
 
 export type ReviewRow = { label: string; value: ReactNode; step?: number }
-const ICON = { code: Code2, image: Boxes, web: Globe2 } as const
+const ICON = { code: CodeIcon, image: PackageIcon, web: GlobeIcon } as const
 
 // "What it looks for", from the server's plan of this repository, in words rather than engine names.
 export function LooksFor({ plan, failed, batch, osv }: { plan: ScanPlan | undefined; failed: boolean; batch: boolean; osv: boolean }) {
@@ -45,9 +45,9 @@ export function ReviewStep({ kind, rows, options, notes, details, error, busy, l
   onChange: (step: number) => void; onBack: () => void; onLaunch: () => void
 }) {
   const { t } = useTranslation('analyses')
-  const Icon = batch ? Layers3 : ICON[kind]
+  const Icon = batch ? StackIcon : ICON[kind]
   return <StepFrame title={t('review.title')} onBack={onBack}
-    primary={<Button onClick={onLaunch} disabled={busy}>{busy ? <LoaderCircle className="motion-safe:animate-spin" aria-hidden /> : <Icon aria-hidden />}{busy ? t('launch.queuing') : launchLabel}</Button>}
+    primary={<Button onClick={onLaunch} disabled={busy}>{busy ? <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden /> : <Icon aria-hidden />}{busy ? t('launch.queuing') : launchLabel}</Button>}
     note={<>
       {error && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>}
       {kind === 'web' && <p className="text-xs text-app-muted md:text-right">{t('review.authorization')}</p>}
@@ -68,7 +68,7 @@ export function OsvOption({ checked, onChange }: { checked: boolean; onChange: (
 // A small fold for what only some people need: closed, it's one muted line.
 function Foldout({ title, children }: { title: string; children: ReactNode }) {
   return <details className="group text-sm text-app-muted">
-    <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-app-secondary"><ChevronRight className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{title}</summary>
+    <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-app-secondary"><CaretRightIcon className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{title}</summary>
     <div className="mt-2 pl-5.5">{children}</div>
   </details>
 }

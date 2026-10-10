@@ -1,7 +1,7 @@
 import { useCallback, useState, type ReactNode, useId } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowDownToLine, LoaderCircle } from 'lucide-react'
+import { CircleNotchIcon, DownloadSimpleIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Select, SelectTrigger } from '@/shared/ui/select'
@@ -142,6 +142,6 @@ function Row({ name, hint, busy, waiting = false, unavailable = false, onClick }
     <span className="min-w-0"><span className="block text-sm font-medium">{name}</span><span id={hintId} className="block text-xs text-app-muted">{hint}</span></span>
     <Button size="sm" variant="outline" aria-describedby={hintId} aria-disabled={waiting || unavailable || undefined} aria-busy={busy || undefined} aria-label={t('evidence.download_label', { item: name })} onClick={() => { if (!unavailable) onClick() }}
       className={`border-app-line bg-app-soft ${(waiting && !busy) || unavailable ? 'opacity-60' : ''}`}>
-      {busy ? <LoaderCircle className="motion-safe:animate-spin" /> : <ArrowDownToLine />}{busy ? t('evidence.preparing') : t('evidence.download')}</Button>
+      {busy ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <DownloadSimpleIcon />}{busy ? t('evidence.preparing') : t('evidence.download')}</Button>
   </li>
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, Plus } from 'lucide-react'
+import { CircleNotchIcon, PlusIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { useConfirm } from '@/shared/ui/confirm'
 import { Input } from '@/shared/ui/input'
@@ -11,6 +11,7 @@ import { SkeletonList } from '@/shared/ui/loading'
 import { SettingsRow, SettingsRows, SettingsSection } from '@/shared/ui/settings-list'
 import { CodeBlock } from '@/features/findings/fix-guide'
 import { SelectField } from '@/shared/ui/select-field'
+import { Notice } from '@/shared/ui/notice'
 
 type Kind = 'slack' | 'teams' | 'webhook'
 type Channel = { id: string; kind: Kind; name: string; host: string; events: string[]; threshold: string; signed: boolean
@@ -64,7 +65,7 @@ export function Notifications() {
   const formId = 'notification-form'
   const firstField = useRef<HTMLInputElement>(null)
   return <SettingsSection id="integrations-notifications" title={t('notifications.title')} description={t('notifications.description')}
-    action={data && <Button size="sm" variant="outline" aria-expanded={adding} aria-controls={formId} onClick={() => { setAdding(!adding); if (!adding) window.setTimeout(() => firstField.current?.focus(), 0) }}><Plus />{t('notifications.add')}</Button>}>
+    action={data && <Button size="sm" variant="outline" aria-expanded={adding} aria-controls={formId} onClick={() => { setAdding(!adding); if (!adding) window.setTimeout(() => firstField.current?.focus(), 0) }}><PlusIcon />{t('notifications.add')}</Button>}>
     {!data && !error && <SkeletonList rows={2} dense label={t('notifications.loading')} />}
     {data && <SettingsRows>
       {data.channels.map(channel => <SettingsRow key={channel.id} title={channel.name}
@@ -72,15 +73,15 @@ export function Notifications() {
         tone={channel.last && !channel.last.ok ? 'danger' : 'success'}
         meta={[data.kinds[channel.kind], channel.host, list(channel.events.map(item => data.events[item] ?? item)), thresholdLabel(channel.threshold).toLowerCase(), channel.signed ? t('notifications.signed') : ''].filter(Boolean).join(' · ')}
         actions={<>
-          <Button variant="ghost" size="sm" aria-label={t('notifications.test_label', { name: channel.name })} disabled={!!busy} onClick={() => void act('test', channel)}>{busy === `test:${channel.id}` && <LoaderCircle className="motion-safe:animate-spin" />}{t('notifications.test')}</Button>
-          <Button variant="ghost" size="sm" aria-label={t('notifications.remove_label', { name: channel.name })} disabled={!!busy} onClick={() => void act('remove', channel)}>{busy === `remove:${channel.id}` && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.remove')}</Button></>} />)}
+          <Button variant="ghost" size="sm" aria-label={t('notifications.test_label', { name: channel.name })} disabled={!!busy} onClick={() => void act('test', channel)}>{busy === `test:${channel.id}` && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('notifications.test')}</Button>
+          <Button variant="ghost" size="sm" aria-label={t('notifications.remove_label', { name: channel.name })} disabled={!!busy} onClick={() => void act('remove', channel)}>{busy === `remove:${channel.id}` && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.remove')}</Button></>} />)}
       {data.channels.length === 0 && <SettingsRow empty title={t('notifications.row.none')} meta={t('notifications.row.none_hint')} />}
     </SettingsRows>}
-    {secret && <div className="space-y-2 rounded-lg border border-attention-line bg-attention-soft p-3 text-xs text-attention">
+    {secret && <Notice tone="attention" className="text-xs"><div className="space-y-2">
       <p className="font-medium">{t('notifications.secret_title')}</p>
       <CodeBlock code={secret} label={t('notifications.secret_label')} />
-      <p>{t('notifications.secret_help')}</p>
-      <Button size="sm" variant="ghost" onClick={() => setSecret(null)}>{t('notifications.secret_saved')}</Button></div>}
+      <p className="text-app-muted">{t('notifications.secret_help')}</p>
+      <Button size="sm" variant="outline" onClick={() => setSecret(null)}>{t('notifications.secret_saved')}</Button></div></Notice>}
     {data && <form id={formId} hidden={!adding} onSubmit={save} className="space-y-4 rounded-lg border border-app-line p-4">
       <fieldset className="space-y-2"><legend className="text-xs text-app-muted">{t('notifications.where')}</legend>
         <div className="grid gap-2 sm:grid-cols-3">{(Object.keys(data.kinds) as Kind[]).map(item => <label key={item} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${kind === item ? 'border-app-fg bg-app-soft' : 'border-app-line'}`}>
@@ -97,7 +98,7 @@ export function Notifications() {
           <SelectField id="notify-threshold" value={threshold} disabled={!events.includes('findings')} onValueChange={setThreshold} options={data.thresholds.map(item => ({ value: item, label: thresholdLabel(item) }))} /></div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={!!busy || !events.length}>{busy === 'save' && <LoaderCircle className="motion-safe:animate-spin" />}{t('notifications.save')}</Button>
+        <Button type="submit" disabled={!!busy || !events.length}>{busy === 'save' && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('notifications.save')}</Button>
         <Button type="button" variant="ghost" onClick={() => setAdding(false)}>{t('common:actions.cancel')}</Button>
         <span className="text-xs text-app-subtle">{t('notifications.url_note')}</span>
       </div>

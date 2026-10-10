@@ -1,14 +1,14 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Boxes, Code2, FileUp, Globe2 } from 'lucide-react'
+import { CodeIcon, GlobeIcon, PackageIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { StepFrame } from '@/features/analyses/wizard/step-frame'
 import type { Kind } from '@/features/analyses/wizard/model'
 
 const CARDS = [
-  { id: 'code', icon: Code2, title: 'wizard.kinds.code.title', line: 'wizard.kinds.code.line', points: 'wizard.kinds.code.points' },
-  { id: 'image', icon: Boxes, title: 'wizard.kinds.image.title', line: 'wizard.kinds.image.line', points: 'wizard.kinds.image.points' },
-  { id: 'web', icon: Globe2, title: 'wizard.kinds.web.title', line: 'wizard.kinds.web.line', points: 'wizard.kinds.web.points' },
+  { id: 'code', icon: CodeIcon, title: 'wizard.kinds.code.title', line: 'wizard.kinds.code.line', points: 'wizard.kinds.code.points' },
+  { id: 'image', icon: PackageIcon, title: 'wizard.kinds.image.title', line: 'wizard.kinds.image.line', points: 'wizard.kinds.image.points' },
+  { id: 'web', icon: GlobeIcon, title: 'wizard.kinds.web.title', line: 'wizard.kinds.web.line', points: 'wizard.kinds.web.points' },
 ] as const
 
 // What to check: three cards, one line each, and importing as a secondary link. A web scan (sites and APIs) sends
@@ -61,7 +61,7 @@ export function TypeChooser({ choice, onChoose, onContinue, onImport, onCancel, 
       <summary className="min-h-6 cursor-pointer">{t('chooser.off_how')}</summary>
       <p className="mt-1"><Trans t={t} i18nKey="chooser.off_admin" components={{ mono: <code className="font-mono text-app-secondary" /> }} /></p>
     </details>}
-    <p className="flex flex-wrap items-center gap-2 text-sm text-app-muted"><FileUp className="size-4 shrink-0" aria-hidden />
+    <p className="flex flex-wrap items-center gap-2 text-sm text-app-muted"><UploadSimpleIcon className="size-4 shrink-0" aria-hidden />
       <span><Trans t={t} i18nKey="chooser.import" components={{ go: <button type="button" onClick={onImport} className="min-h-6 font-medium text-brand underline underline-offset-2" /> }} /></span>
       <span className="text-xs">{t('chooser.import_tools')}</span></p>
   </StepFrame>

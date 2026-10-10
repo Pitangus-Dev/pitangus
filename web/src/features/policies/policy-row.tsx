@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { LucideIcon } from 'lucide-react'
+import type { Icon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Bone } from '@/shared/ui/loading'
 
 // One policy in one line: what it is, what it says now, and the action. Explanations live in the dialog or the help.
 export function PolicyRow({ icon: Icon, title, summary, action, notice, state = 'ready', onRetry }: {
-  icon: LucideIcon; title: string; summary?: ReactNode; action?: ReactNode; notice?: string
+  icon: Icon; title: string; summary?: ReactNode; action?: ReactNode; notice?: string
   state?: 'loading' | 'error' | 'ready'; onRetry?: () => void
 }) {
   const { t } = useTranslation('policies')

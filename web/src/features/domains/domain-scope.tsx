@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, Plus, RefreshCw, X } from 'lucide-react'
+import { ArrowsClockwiseIcon, CircleNotchIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
 import { apiPost, type PostBody } from '@/shared/api/client'
 import { api } from '@/shared/api/http'
 import { domainScopeQuery, keys, type DomainScope, type RelatedHost } from '@/shared/api/queries'
@@ -12,6 +12,7 @@ import { SkeletonList } from '@/shared/ui/loading'
 import { useConfirm } from '@/shared/ui/confirm'
 import { Segmented } from '@/shared/ui/segmented'
 import { relatedEntry, type Domain } from '@/features/domains/domains'
+import { Notice } from '@/shared/ui/notice'
 
 type Change = Omit<PostBody<'/api/domains/scope'>, 'domain_id'>
 type Placement = 'in_scope' | 'out_of_scope'
@@ -97,22 +98,22 @@ export function DomainScopeEditor({ domain, admin, autoSearch = false, onVerify,
           {editable && data.in_scope > 0 && <Button variant="link" size="sm" className="text-app-secondary" disabled={change.isPending}
             onClick={() => excludeAll(data.in_scope)}>{t('domains.scope.exclude_all')}</Button>}
           {admin && discovery.available && <Button variant="ghost" size="sm" disabled={searching} onClick={() => search.mutate()}>
-            <RefreshCw aria-hidden className={searching ? 'motion-safe:animate-spin' : undefined} />{t(discovery.status === 'idle' ? 'domains.scope.search' : 'domains.scope.search_again')}</Button>}
+            <ArrowsClockwiseIcon aria-hidden className={searching ? 'motion-safe:animate-spin' : undefined} />{t(discovery.status === 'idle' ? 'domains.scope.search' : 'domains.scope.search_again')}</Button>}
         </div>
       </div>
 
       <div role="status" className="text-xs">
-        {searching ? <p className="flex items-center gap-2 text-app-secondary"><LoaderCircle className="size-3.5 motion-safe:animate-spin" aria-hidden />{t('domains.scope.searching')}</p>
+        {searching ? <p className="flex items-center gap-2 text-app-secondary"><CircleNotchIcon className="size-3.5 motion-safe:animate-spin" aria-hidden />{t('domains.scope.searching')}</p>
           : !discovery.available ? <p className="text-app-muted">{discovery.unavailable}</p>
           : discovery.status === 'failed' ? <p className="text-attention">{discovery.note}</p>
           : discovery.status === 'done' && counts ? <p className="text-app-muted">{t('domains.scope.last_search', { date: last, kept: counts.kept, count: counts.found })}
             {counts.capped ? ` ${t('domains.scope.capped', { count: counts.capped, max: data.limit })}` : ''}</p>
           : null}
       </div>
-      {!covered && data.reason && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-attention-line bg-attention-soft px-4 py-3 text-sm text-attention">
+      {!covered && data.reason && <Notice tone="attention"><div className="flex flex-wrap items-center justify-between gap-3">
         <span>{data.reason}</span>
         {admin && onVerify && <Button variant="outline" size="sm" onClick={onVerify}>{t('domains.page.verify_dns')}</Button>}
-      </div>}
+      </div></Notice>}
       {covered && !admin && <p className="text-xs text-app-muted">{t('domains.scope.admin_only')}</p>}
 
       {hosts.length > FILTER_FROM && <div className="space-y-1">
@@ -135,7 +136,7 @@ export function DomainScopeEditor({ domain, admin, autoSearch = false, onVerify,
                 options={[{ value: 'out_of_scope', label: t('domains.scope.out') }, { value: 'in_scope', label: t('domains.scope.in') }]}
                 onChange={state => { if (!change.isPending) change.mutate({ op: 'set', host: item.host, state }) }} />
               {admin && item.origin === 'manual' && <Button variant="ghost" size="icon-sm" aria-label={t('domains.scope.remove', { host: item.host })} disabled={change.isPending}
-                onClick={() => change.mutate({ op: 'remove', host: item.host })}><X /></Button>}
+                onClick={() => change.mutate({ op: 'remove', host: item.host })}><XIcon /></Button>}
             </span>
           </li>)}</ul>}
 
@@ -146,7 +147,7 @@ export function DomainScopeEditor({ domain, admin, autoSearch = false, onVerify,
       {editable && (adding
         ? <AddHostForm root={domain.host} busy={change.isPending} error={change.error?.message ?? ''} onCancel={() => { setAdding(false); change.reset(); setRefocus('add') }}
             onAdd={host => change.mutate({ op: 'add', host })} />
-        : <Button ref={addButton} variant="outline" size="sm" onClick={() => { change.reset(); setAdding(true) }}><Plus aria-hidden />{t('domains.scope.add')}</Button>)}
+        : <Button ref={addButton} variant="outline" size="sm" onClick={() => { change.reset(); setAdding(true) }}><PlusIcon aria-hidden />{t('domains.scope.add')}</Button>)}
       <p className="text-xs text-app-muted">{t('domains.scope.passive_note')}</p>
     </section>
   </div>
@@ -175,7 +176,7 @@ function AddHostForm({ root, busy, error, onCancel, onAdd }: { root: string; bus
       <Input id={`scope-add-${root}`} ref={field} value={draft} onChange={event => { setDraft(event.target.value); setInvalid('') }} placeholder={`app.${root}`}
         autoComplete="off" spellCheck={false} maxLength={253} aria-invalid={!!message || undefined} aria-describedby={`scope-add-error-${root}`}
         className="min-w-0 flex-1 border-app-line bg-app-soft font-mono" />
-      <Button type="submit" disabled={busy || !draft.trim()}>{busy && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('common:actions.add')}</Button>
+      <Button type="submit" disabled={busy || !draft.trim()}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('common:actions.add')}</Button>
       <Button type="button" variant="ghost" onClick={onCancel}>{t('common:actions.cancel')}</Button>
     </div>
     <p id={`scope-add-error-${root}`} role="alert" className="text-xs text-danger">{message}</p>

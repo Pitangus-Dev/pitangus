@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Search } from 'lucide-react'
+import { MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { assetSearchQuery, domainsQuery, runSearchQuery } from '@/shared/api/queries'
 import { useDebounced } from '@/shared/lib/useDebounced'
 import { formatDate } from '@/shared/i18n/format'
@@ -134,7 +134,7 @@ function PaletteBody({ admin, onOpenChange, onView, onImport, onAddDomain, onHel
   return <>
     <DialogTitle className="sr-only">{t('palette.title')}</DialogTitle>
     <div className="flex items-center gap-2 border-b border-app-line px-4 has-[input:focus-visible]:border-app-fg">
-      <Search aria-hidden className="size-4 shrink-0 text-app-subtle" />
+      <MagnifyingGlassIcon aria-hidden className="size-4 shrink-0 text-app-subtle" />
       <label htmlFor={inputId} className="sr-only">{t('palette.search_label')}</label>
       <input id={inputId} autoFocus value={text} onChange={event => { setText(event.target.value); setActiveId(null) }} onKeyDown={onKeyDown}
         role="combobox" aria-expanded="true" aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeOption}

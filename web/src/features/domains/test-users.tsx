@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, LoaderCircle, MoreHorizontal, UserRound } from 'lucide-react'
+import { CaretDownIcon, CaretRightIcon, CircleNotchIcon, DotsThreeIcon, UserIcon } from '@phosphor-icons/react'
 import { apiPost } from '@/shared/api/client'
 import { keys, type DomainTestUser } from '@/shared/api/queries'
 import { formatDay } from '@/shared/i18n/format'
@@ -31,9 +31,9 @@ function useStore(domain: Domain) {
 }
 
 // "Add test user ▾": the two ways a scan can sign in. Codes by email and magic links need an inbox nobody here reads.
-export function AddTestUserMenu({ onPick, disabled, variant = 'outline' }: { onPick: (method: LoginMethod) => void; disabled?: boolean; variant?: 'outline' | 'brand' }) {
+export function AddTestUserMenu({ onPick, disabled, variant = 'outline' }: { onPick: (method: LoginMethod) => void; disabled?: boolean; variant?: 'outline' | 'default' }) {
   const { t } = useTranslation('sources')
-  return <Menu><MenuTrigger render={<Button variant={variant} size="sm" disabled={disabled} />}>{t('domains.test_users.add')}<ChevronDown className="size-3.5" aria-hidden /></MenuTrigger>
+  return <Menu><MenuTrigger render={<Button variant={variant} size="sm" disabled={disabled} />}>{t('domains.test_users.add')}<CaretDownIcon className="size-3.5" aria-hidden /></MenuTrigger>
     <MenuContent align="start">
       <MenuItem onClick={() => onPick('password')}>{t('domains.test_users.method.password')}</MenuItem>
       <MenuItem onClick={() => onPick('password_totp')}>{t('domains.test_users.method.password_totp')}</MenuItem>
@@ -108,7 +108,7 @@ function TestUserForm({ domain, editing, onCancel, onSaved }: { domain: Domain; 
         spellCheck={false} aria-describedby="test-user-totp-hint" className="border-app-line bg-app-soft font-mono" />
     </Field>}
     <details className="group">
-      <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-sm text-app-secondary"><ChevronRight className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{t('domains.test_users.advanced')}</summary>
+      <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-sm text-app-secondary"><CaretRightIcon className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{t('domains.test_users.advanced')}</summary>
       <div className="mt-3 space-y-4">
         <Field id="test-user-login-url" label={t('domains.test_users.login_url')} hint={t('domains.test_users.login_url_hint')}>
           <Input id="test-user-login-url" inputMode="url" maxLength={2000} value={loginUrl} onChange={event => setLoginUrl(event.target.value)} placeholder={`https://${domain.host}/login`}
@@ -137,7 +137,7 @@ function TestUserForm({ domain, editing, onCancel, onSaved }: { domain: Domain; 
     {save.error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger">{save.error.message}</p>}
     <DialogFooter>
       <Button type="button" variant="ghost" onClick={onCancel}>{t('common:actions.cancel')}</Button>
-      <Button type="submit" disabled={!ready || save.isPending}>{save.isPending && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('domains.test_users.save')}</Button>
+      <Button type="submit" disabled={!ready || save.isPending}>{save.isPending && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('domains.test_users.save')}</Button>
     </DialogFooter>
   </form>
 }
@@ -187,7 +187,7 @@ export function TestUsersPanel({ domain, admin }: { domain: Domain; admin: boole
           {user.notes && <p className="text-xs break-words text-app-muted">{user.notes}</p>}
         </div>
         <span className="hidden text-xs text-app-muted sm:block">{user.last_used_at ? t('domains.test_users.last_used', { date: formatDay(user.last_used_at, { dateStyle: 'medium' }) }) : t('domains.test_users.never_used')}</span>
-        <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.test_users.actions_for', { name: user.name })} disabled={remove.isPending && remove.variables?.id === user.id} />}><MoreHorizontal /></MenuTrigger>
+        <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.test_users.actions_for', { name: user.name })} disabled={remove.isPending && remove.variables?.id === user.id} />}><DotsThreeIcon /></MenuTrigger>
           <MenuContent>
             <MenuItem onClick={() => { setNotice(''); setEditing({ method: methodOf(user.method), user }) }}>{t('domains.test_users.edit')}</MenuItem>
             {user.method === 'password' && <MenuItem onClick={() => { setNotice(''); setEditing({ method: 'password_totp', user }) }}>{t('domains.test_users.add_totp')}</MenuItem>}
@@ -195,9 +195,9 @@ export function TestUsersPanel({ domain, admin }: { domain: Domain; admin: boole
           </MenuContent></Menu>
       </li>)}</ul>
     : <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <UserRound className="size-7 text-app-muted" aria-hidden />
+        <UserIcon className="size-7 text-app-muted" aria-hidden />
         <p className="text-sm text-app-muted">{t('domains.test_users.empty')}</p>
-        <AddTestUserMenu onPick={add} variant="brand" />
+        <AddTestUserMenu onPick={add} variant="default" />
       </div>}
     {admin && <TestUserDialog domain={domain} editing={editing} onClose={() => setEditing(null)}
       onSaved={user => setNotice(t('domains.test_users.saved', { name: user.name }))} />}

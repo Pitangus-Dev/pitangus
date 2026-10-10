@@ -5,7 +5,7 @@ import {
   type Connection, type Edge, type EdgeChange, type EdgeProps, type Node, type NodeChange, type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Check as CheckIcon, Globe2, LayoutGrid, Lock, Pencil, Plus, Square, Trash2, Undo2 } from 'lucide-react'
+import { ArrowCounterClockwiseIcon, CheckIcon, GlobeIcon, LockIcon, PencilSimpleIcon, PlusIcon, SquareIcon, SquaresFourIcon, TrashIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -102,8 +102,8 @@ function ComponentNode({ data, selected }: NodeProps<Node<ComponentData, 'compon
     <span className="line-clamp-2 text-[13px] leading-4 font-semibold text-app-fg">{component.name}</span>
     <span className={`mt-0.5 line-clamp-1 text-[11px] ${TEXT_TONE[tone]}`}>{component.technology || kindLabel}</span>
     {(component.internet_facing || sensitive || component.encrypted_at_rest) && <span className="mt-1 flex items-center gap-1.5 text-app-subtle">
-      {component.internet_facing && <Globe2 className="size-3" aria-label={t('canvas.internet_facing')} />}
-      {component.encrypted_at_rest && <Lock className="size-3" aria-label={t('canvas.encrypted_at_rest')} />}
+      {component.internet_facing && <GlobeIcon className="size-3" role="img" aria-hidden={false} aria-label={t('canvas.internet_facing')} />}
+      {component.encrypted_at_rest && <LockIcon className="size-3" role="img" aria-hidden={false} aria-label={t('canvas.encrypted_at_rest')} />}
       {sensitive && <span className="rounded bg-app-soft px-1 text-[11px] font-medium tracking-wide uppercase">{t('canvas.sensitive_data')}</span>}
     </span>}
   </div>
@@ -326,9 +326,9 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
         <Controls showInteractive={false} />
         <Panel position="bottom-right"><Legend model={model} setModel={setModel} /></Panel>
         <Panel position="top-left" className="flex flex-wrap gap-1.5">
-          <Select value={null} onValueChange={value => { if (value) addComponent(value as Kind) }}><SelectTrigger aria-label={t('canvas.add_component')} className="h-8 border-app-line bg-panel text-xs shadow-sm"><Plus className="size-3.5" /><SelectValue placeholder={t('canvas.component_placeholder')} /></SelectTrigger><SelectContent>{Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}<SelectItem value="custom">{t('canvas.other_kind')}</SelectItem></SelectContent></Select>
-          <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={addBoundary}><Square />{t('canvas.boundary')}</Button>
-          <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={tidy} title={t('canvas.tidy_hint')}><LayoutGrid />{t('canvas.tidy')}</Button>
+          <Select value={null} onValueChange={value => { if (value) addComponent(value as Kind) }}><SelectTrigger aria-label={t('canvas.add_component')} className="h-8 border-app-line bg-panel text-xs shadow-sm"><PlusIcon className="size-3.5" /><SelectValue placeholder={t('canvas.component_placeholder')} /></SelectTrigger><SelectContent>{Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}<SelectItem value="custom">{t('canvas.other_kind')}</SelectItem></SelectContent></Select>
+          <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={addBoundary}><SquareIcon />{t('canvas.boundary')}</Button>
+          <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={tidy} title={t('canvas.tidy_hint')}><SquaresFourIcon />{t('canvas.tidy')}</Button>
         </Panel>
       </ReactFlow>
     </div></ShiftContext.Provider>
@@ -361,8 +361,8 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
       <label className={field}><span className={label}>{t('inspector.protocol')}</span><SelectField value={item.protocol} onValueChange={protocol => update({ protocol })} className={select} options={catalog.protocols.map(protocol => ({ value: protocol, label: protocol.toUpperCase() }))} /></label>
       <div className={field} role="group" aria-label={t('inspector.data')}><span aria-hidden className={label}>{t('inspector.data')}</span><Chips value={item.data} options={catalog.classifications} onChange={data => update({ data })} /></div>
       <div className="space-y-1.5"><Check checked={item.authenticated} onChange={authenticated => update({ authenticated })}>{t('inspector.authenticated')}</Check><Check checked={item.encrypted} onChange={encrypted => update({ encrypted })}>{t('inspector.encrypted_in_transit')}</Check></div>
-      <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => update({ source: item.target, target: item.source })}><Undo2 />{t('inspector.reverse')}</Button>
-        <Button size="sm" variant="ghost" onClick={onRemove}><Trash2 />{t('common:actions.remove')}</Button></div>
+      <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => update({ source: item.target, target: item.source })}><ArrowCounterClockwiseIcon />{t('inspector.reverse')}</Button>
+        <Button size="sm" variant="ghost" onClick={onRemove}><TrashIcon />{t('common:actions.remove')}</Button></div>
     </aside>
   }
   if (node?.type === 'boundary') {
@@ -373,7 +373,7 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
       <label className={field}><span className={label}>{t('inspector.name')}</span><Input value={item.name} maxLength={80} onChange={event => setModel({ ...model, boundaries: model.boundaries.map(entry => entry.id === item.id ? { ...entry, name: event.target.value } : entry) })} className="h-8 border-app-line bg-app-soft" /></label>
       <ColorPicker label={t('inspector.boundary_color')} value={item.color} automatic={t('inspector.boundary_color_default')} onChange={color => setModel({ ...model, boundaries: model.boundaries.map(entry => entry.id === item.id ? { ...entry, color } : entry) })} />
       <p className="text-xs leading-5 text-app-subtle">{t('inspector.boundary_help')}</p>
-      <Button size="sm" variant="ghost" onClick={onRemove}><Trash2 />{t('inspector.remove_boundary')}</Button>
+      <Button size="sm" variant="ghost" onClick={onRemove}><TrashIcon />{t('inspector.remove_boundary')}</Button>
     </aside>
   }
   if (node?.type === 'component') {
@@ -399,7 +399,7 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
       <div className={field} role="group" aria-label={t('inspector.component_data')}><span aria-hidden className={label}>{t('inspector.component_data')}</span><Chips value={item.data} options={catalog.classifications} onChange={data => update({ data })} /></div>
       <div className="space-y-1.5"><Check checked={item.internet_facing} onChange={internet_facing => update({ internet_facing })}>{t('canvas.internet_facing')}</Check><Check checked={item.authenticates} onChange={authenticates => update({ authenticates })}>{t('inspector.authenticates')}</Check>
         {STORES.includes(item.kind === 'custom' ? item.custom_base ?? 'service' : item.kind) && <Check checked={item.encrypted_at_rest} onChange={encrypted_at_rest => update({ encrypted_at_rest })}>{t('canvas.encrypted_at_rest')}</Check>}</div>
-      <Button size="sm" variant="ghost" onClick={onRemove}><Trash2 />{t('inspector.remove_component')}</Button>
+      <Button size="sm" variant="ghost" onClick={onRemove}><TrashIcon />{t('inspector.remove_component')}</Button>
     </aside>
   }
   return <Help />
@@ -409,7 +409,7 @@ function Help() {
   const { t } = useTranslation('threats')
   return <aside className="space-y-3 rounded-lg border border-dashed border-app-line p-4 text-xs leading-5 text-app-subtle">
     <p className="text-sm font-medium text-app-secondary">{t('help.title')}</p>
-    <p><Plus className="mr-1 inline size-3" />{t('help.add')}</p>
+    <p><PlusIcon className="mr-1 inline size-3" />{t('help.add')}</p>
     <p>{t('help.flows')}</p>
     <p>{t('help.select')}</p>
     <p>{t('help.colors')}</p>
@@ -491,7 +491,7 @@ function Legend({ model, setModel }: { model: Model; setModel: (model: Model) =>
       return <button key={tone} type="button" data-legend={tone} onClick={() => open(tone)} title={t('canvas.legend_edit_hint')}
         aria-label={t('canvas.legend_edit', { label: label || t('legend.custom'), color })}
         className="flex min-h-6 items-center gap-1 rounded px-1 -mx-1 hover:bg-app-soft hover:text-app-fg">
-        {swatch(tone)}<span className={label ? '' : 'italic'}>{label || t('legend.custom')}</span><Pencil aria-hidden className="size-3 text-app-subtle" />
+        {swatch(tone)}<span className={label ? '' : 'italic'}>{label || t('legend.custom')}</span><PencilSimpleIcon aria-hidden className="size-3 text-app-subtle" />
       </button>
     })}
     <span className="flex items-center gap-1"><span aria-hidden className="inline-block w-4 border-t-[1.5px] border-dashed border-danger" />{t('canvas.unencrypted')}</span>

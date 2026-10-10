@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileCheck2, LoaderCircle } from 'lucide-react'
+import { CircleNotchIcon, FileTextIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Select, SelectTrigger } from '@/shared/ui/select'
 import { FrameworkOptions } from '@/features/findings/framework-options'
@@ -99,7 +99,7 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>}
       <p className="text-xs text-app-subtle">{t('audit.disclaimer')}</p>
       <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button type="submit" disabled={busy || (!portfolio && counts[scope] === 0)}>{busy ? <LoaderCircle className="animate-spin" /> : <FileCheck2 />}{busy ? t('audit.generating') : portfolio ? t('audit.generate_portfolio') : t('audit.generate', { count: counts[scope] })}</Button></DialogFooter>
+        <Button type="submit" disabled={busy || (!portfolio && counts[scope] === 0)}>{busy ? <CircleNotchIcon className="animate-spin" /> : <FileTextIcon />}{busy ? t('audit.generating') : portfolio ? t('audit.generate_portfolio') : t('audit.generate', { count: counts[scope] })}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }

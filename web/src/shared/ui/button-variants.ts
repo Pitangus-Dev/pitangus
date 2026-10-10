@@ -5,10 +5,9 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // primary: the ONE solid sulphur action of a view, ink text on it (10.6:1).
+        // primary: solid sulphur = do the main thing (the header's "New scan", a form's or dialog's primary action, an empty
+        // state's call to action), at most one per zone; ink text on it (10.6:1). Everything else is outline or ghost.
         default: "bg-sulphur text-on-sulphur hover:bg-[color-mix(in_srgb,var(--sulphur),var(--on-sulphur)_8%)]",
-        // brand (quiet): always-present actions (the header's "New scan") and an empty state's call to action.
-        brand: "border-sulphur-line bg-sulphur-soft text-foreground hover:bg-[color-mix(in_srgb,var(--sulphur-soft),var(--sulphur)_30%)]",
         outline:
           "border-input bg-card hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
         secondary:

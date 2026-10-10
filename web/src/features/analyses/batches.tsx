@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Layers3, LoaderCircle } from 'lucide-react'
+import { CircleNotchIcon, StackIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { useConfirm } from '@/shared/ui/confirm'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
@@ -29,8 +29,8 @@ export function BatchPanel({ active, last, onChanged, viewer }: { active: BatchS
   }
   return <div className="space-y-2 rounded-xl border border-app-line bg-inset p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="flex items-center gap-2 text-sm font-medium"><Layers3 className="size-4 text-brand" />{t('batch.running', { label: batch.label })}</p>
-      {(!viewer || viewer.admin || viewer.username === batch.by) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void cancel()}>{busy && <LoaderCircle className="animate-spin" />}{t('batch.cancel')}</Button>}
+      <p className="flex items-center gap-2 text-sm font-medium"><StackIcon className="size-4 text-brand" />{t('batch.running', { label: batch.label })}</p>
+      {(!viewer || viewer.admin || viewer.username === batch.by) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void cancel()}>{busy && <CircleNotchIcon className="animate-spin" />}{t('batch.cancel')}</Button>}
     </div>
     <div role="progressbar" aria-label={t('batch.progress_label', { done: finished, total: batch.total })} aria-valuemin={0} aria-valuemax={batch.total} aria-valuenow={finished}
       className="h-1.5 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-brand transition-all" style={{ width: `${Math.max(2, percent)}%` }} /></div>
@@ -64,6 +64,6 @@ export function OrganizationScanDialog({ account, onClose, onStarted }: { accoun
     <p className="rounded-lg border border-app-line bg-inset p-3 text-sm">{total === null ? t('org.counting') : <Trans t={t} i18nKey="org.estimate" count={total} values={{ duration: duration(t, total * 60) }} components={{ strong: <strong /> }} />}</p>
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
-      <Button disabled={busy || !total} onClick={() => void start()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="animate-spin" />}{total === null ? t('org.scan_pending') : t('org.scan', { count: total })}</Button></DialogFooter>
+      <Button disabled={busy || !total} onClick={() => void start()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <CircleNotchIcon className="animate-spin" />}{total === null ? t('org.scan_pending') : t('org.scan', { count: total })}</Button></DialogFooter>
   </DialogContent></Dialog>
 }

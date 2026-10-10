@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Globe2, MoreHorizontal, Plus, Search } from 'lucide-react'
+import { DotsThreeIcon, GlobeIcon, MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react'
 import { domainsQuery, keys } from '@/shared/api/queries'
 import { readRoute, setRouteParam } from '@/shared/lib/route'
 import { formatDay } from '@/shared/i18n/format'
@@ -15,6 +15,7 @@ import { VerifyDomainDialog } from '@/features/domains/verify-domain-dialog'
 import { useRemoveDomain } from '@/features/domains/use-remove-domain'
 import { TONE, kindOf, lastScanOf, untilOf, verification, type Domain } from '@/features/domains/domains'
 import { FREQUENCY } from '@/features/domains/schedule'
+import { Notice } from '@/shared/ui/notice'
 
 const PAGE = 25
 export type DomainTab = 'overview' | 'findings' | 'scans' | 'scope' | 'users'
@@ -50,21 +51,21 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
   return <div className="space-y-6">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div><h1 className="text-2xl font-semibold tracking-tight">{t('nav:items.domains')}</h1><p className="mt-1 max-w-2xl text-sm text-app-muted">{t('nav:descriptions.domains')}</p></div>
-      {admin && <Button ref={addOpener} onClick={() => setAdding(true)} className="self-start sm:self-auto"><Plus aria-hidden />{t('domains.list.add')}</Button>}
+      {admin && <Button ref={addOpener} onClick={() => setAdding(true)} className="self-start sm:self-auto"><PlusIcon aria-hidden />{t('domains.list.add')}</Button>}
     </div>
     <div className="space-y-4">
     {items.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="relative w-full sm:max-w-xs"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-muted" aria-hidden />
+      <div className="relative w-full sm:max-w-xs"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-muted" aria-hidden />
         <Input type="search" aria-label={t('domains.list.search')} placeholder={t('domains.list.search')} value={search} onChange={event => { setSearch(event.target.value); setOffset(0) }} className="border-app-line bg-app-soft pl-9" /></div>
       <p role="status" className="text-xs text-app-muted">{t('domains.list.showing', { shown: shown.length, total: items.length })}</p>
     </div>}
     {!admin && <p className="text-sm text-app-muted">{t('domains.list.read_only')}</p>}
-    <div role="status">{notice && <p className="rounded-xl border border-success-line bg-success-soft px-3 py-2 text-sm text-success">{notice}</p>}</div>
+    <div role="status">{notice && <Notice tone="ok">{notice}</Notice>}</div>
     {removal.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{removal.error.message}</p>}
     {domains.isError ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('domains.list.load_failed')}
         <Button size="xs" variant="outline" onClick={() => void domains.refetch()}>{t('common:actions.retry')}</Button></div>
     : !domains.data ? <SkeletonTable rows={3} columns={5} label={t('domains.list.loading')} />
-    : !items.length ? <div className="flex flex-col items-center gap-3 py-14 text-center"><Globe2 className="size-7 text-app-muted" aria-hidden />
+    : !items.length ? <div className="flex flex-col items-center gap-3 py-14 text-center"><GlobeIcon className="size-7 text-app-muted" aria-hidden />
         <p className="font-medium">{t('domains.list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t(admin ? 'domains.list.empty_text' : 'domains.list.empty_member')}</p></div>
     : !matching.length ? <p className="py-10 text-center text-sm text-app-muted">{t('domains.list.no_match', { query: search.trim() })}</p>
     : <div className="overflow-x-auto rounded-xl border border-app-line bg-panel"><table className={`w-full text-sm motion-safe:transition-opacity ${domains.isFetching ? 'opacity-70' : ''}`} aria-busy={domains.isFetching || undefined}>
@@ -94,7 +95,7 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
           <td className="px-3 py-3 text-right">{domain.open
             ? <button type="button" onClick={() => onOpenDomain(domain, 'findings')} aria-label={t('domains.list.open_for', { host: domain.host, count: domain.open })} className="min-h-6 min-w-6 text-app-fg tabular-nums underline-offset-2 hover:underline">{domain.open}</button>
             : <span className="text-app-muted tabular-nums">0</span>}</td>
-          <td className="px-4 py-2 text-right">{admin && <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.list.actions_for', { host: domain.host })} disabled={removal.isPending && removal.variables?.id === domain.id} />}><MoreHorizontal /></MenuTrigger>
+          <td className="px-4 py-2 text-right">{admin && <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.list.actions_for', { host: domain.host })} disabled={removal.isPending && removal.variables?.id === domain.id} />}><DotsThreeIcon /></MenuTrigger>
             <MenuContent>
               {domain.kind !== 'surface' && <MenuItem onClick={() => onNewScan(domain)}>{t('domains.list.new_scan')}</MenuItem>}
               <MenuItem onClick={() => setVerifying(domain)}>{t('domains.list.verify')}</MenuItem>

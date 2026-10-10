@@ -1,7 +1,7 @@
 import { useCallback, useId, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { XIcon } from '@phosphor-icons/react'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
 import { evidenceAssetsQuery } from '@/shared/api/queries'
@@ -39,7 +39,7 @@ export function ScopePicker({ scope, accounts, total, one, step, onChange }: { s
         className="flex max-w-full items-center gap-1 rounded-lg border border-app-line bg-inset py-0.5 pr-1 pl-2 text-xs">
         <span className="min-w-0 truncate">{item.name}</span><span className="shrink-0 text-app-subtle">· {item.image ? t('image') : t('repository')}</span>
         <button type="button" aria-label={t('remove', { name: item.name })} onClick={() => onChange({ ...scope, assets: scope.assets.filter(other => other.key !== item.key) })}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-app-muted hover:bg-app-soft hover:text-app-fg"><X className="size-3.5" /></button></li>)}</ul>}
+          className="grid size-6 shrink-0 place-items-center rounded-md text-app-muted hover:bg-app-soft hover:text-app-fg"><XIcon className="size-3.5" /></button></li>)}</ul>}
     </div>}
     {(scope.kind === 'account' || scope.kind === 'assets') && <label className="flex min-h-6 items-center gap-2 text-sm">
       <input type="checkbox" checked={scope.images} onChange={event => onChange({ ...scope, images: event.target.checked })} className="size-4 accent-brand" />

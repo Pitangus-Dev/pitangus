@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ExternalLink } from 'lucide-react'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { Badge } from '@/shared/ui/badge'
 import { formatCalendarDay, formatDate, formatNumber } from '@/shared/i18n/format'
 import { slaText } from '@/features/findings/sla'
@@ -57,7 +57,7 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
       : t('lifecycle.excluded'))}</span> : null}</p>}
     <TriageHistory state={finding.triage} />
     {advisory?.details && <details className="mt-3"><summary className="cursor-pointer text-xs text-app-muted">{t('detail.advisory_details')}</summary><p className="mt-2 text-xs leading-5 whitespace-pre-line text-app-muted">{advisory.details}</p></details>}
-    {advisory?.references.length ? <p className="mt-3 flex flex-wrap gap-x-3 text-xs">{advisory.references.slice(0, 4).map(url => <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand underline underline-offset-2">{new URL(url).hostname} <ExternalLink className="size-3" /></a>)}</p> : null}
+    {advisory?.references.length ? <p className="mt-3 flex flex-wrap gap-x-3 text-xs">{advisory.references.slice(0, 4).map(url => <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand underline underline-offset-2">{new URL(url).hostname} <ArrowSquareOutIcon className="size-3" /></a>)}</p> : null}
     <OwaspGuidance links={finding.guidance} />
   </div>
 }

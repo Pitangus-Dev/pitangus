@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Globe2, Plus } from 'lucide-react'
+import { GlobeIcon, PlusIcon } from '@phosphor-icons/react'
 import { domainsQuery, keys } from '@/shared/api/queries'
 import { Button } from '@/shared/ui/button'
 import { SkeletonList } from '@/shared/ui/loading'
@@ -31,14 +31,14 @@ export function TargetStep({ value, onChange, spec, onSpec, specInvalid, onBack,
   const selected = value.domain
   const pick = (domain: Domain) => onChange({ domain, scopeOpen: false })
   const refresh = () => void queryClient.invalidateQueries({ queryKey: keys.domains })
-  const addButton = <Button variant={items.length ? 'ghost' : 'default'} onClick={() => setAdding(true)} className={items.length ? 'text-app-secondary' : undefined}><Plus aria-hidden />{t('target.add')}</Button>
+  const addButton = <Button variant={items.length ? 'ghost' : 'default'} onClick={() => setAdding(true)} className={items.length ? 'text-app-secondary' : undefined}><PlusIcon aria-hidden />{t('target.add')}</Button>
 
   return <StepFrame title={t('target.title')} onBack={onBack} onContinue={onContinue} continueDisabled={!selected?.verified || specInvalid}>
     {domains.isPending ? <SkeletonList rows={3} dense label={t('target.loading')} />
       : domains.isError ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{domains.error.message}
           <Button size="xs" variant="outline" onClick={() => void domains.refetch()}>{t('common:actions.retry')}</Button></div>
       : !items.length ? <div className="flex flex-col items-center gap-3 py-12 text-center">
-          <Globe2 className="size-6 text-app-muted" aria-hidden /><p className="text-sm text-app-muted">{t('target.empty')}</p>{addButton}</div>
+          <GlobeIcon className="size-6 text-app-muted" aria-hidden /><p className="text-sm text-app-muted">{t('target.empty')}</p>{addButton}</div>
       : <div className="space-y-2">
           <div role="radiogroup" aria-labelledby="wizard-step-title" className="divide-y divide-app-line rounded-xl border border-app-line">{items.map(domain => {
             const on = selected?.id === domain.id

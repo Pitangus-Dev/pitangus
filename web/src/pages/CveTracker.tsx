@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useCallback, useState, type FormEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ExternalLink, Flame, LoaderCircle, Search, ShieldCheck, ShieldAlert, X } from 'lucide-react'
+import { ArrowSquareOutIcon, CircleNotchIcon, FlameIcon, MagnifyingGlassIcon, ShieldCheckIcon, ShieldWarningIcon, XIcon } from '@phosphor-icons/react'
 import { severityClass } from '@/shared/ui/severity'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -92,7 +92,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
       {overview && overview.sync.phase !== 'ready' && <SyncBanner overview={overview} />}
       <div className="space-y-3">
         <form onSubmit={submit} className="space-y-2">
-          <div className="flex gap-2"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" />
+          <div className="flex gap-2"><div className="relative min-w-0 flex-1"><MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" />
             <Input value={draft} onChange={event => setDraft(event.target.value)} maxLength={100} aria-label={t('search.label')} placeholder={t('search.placeholder')} className="h-9 border-app-line bg-app-soft pl-9" /></div>
           <Button type="submit" className="h-9 px-5">{t('common:actions.search')}</Button></div>
           <div className="flex flex-wrap gap-2">
@@ -125,7 +125,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
                 <th className="w-16 px-3 py-2.5 text-right font-normal">EPSS</th><th className="w-28 px-3 py-2.5 font-normal">{t('table.published')}</th><th className="px-4 py-2.5 font-normal">{t('table.description')}</th></tr></thead>
               <tbody>{page.items.map(item => <tr key={item.id} onClick={() => show(item.id)} className="cursor-pointer border-b border-app-line align-top last:border-0 hover:bg-app-soft">
                 <td className="px-4 py-3 whitespace-nowrap"><button type="button" className="font-mono text-xs font-medium hover:underline" onClick={event => { event.stopPropagation(); show(item.id) }}>{item.id}</button>
-                  {item.kev && <span className="ml-2 inline-flex items-center gap-0.5 rounded-sm border border-danger-line bg-danger-soft px-1 py-0.5 align-middle text-[11px] font-medium text-danger" title={t('table.kev_title')}><Flame className="size-2.5" />KEV</span>}
+                  {item.kev && <span className="ml-2 inline-flex items-center gap-0.5 rounded-sm border border-danger-line bg-danger-soft px-1 py-0.5 align-middle text-[11px] font-medium text-danger" title={t('table.kev_title')}><FlameIcon className="size-2.5" />KEV</span>}
                   {item.affects && !filters.mine && <span className="mt-1 block w-fit rounded border border-danger-line px-1 text-[11px] text-danger" title={t('table.affects_title')}>{t('table.affects')}</span>}</td>
                 <td className="px-3 py-3"><SeverityPill severity={item.severity} /></td>
                 <td className="px-3 py-3 text-right text-xs tabular-nums">{item.score?.toFixed(1) ?? '—'}</td>
@@ -134,7 +134,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
                 <td className="px-4 py-3 text-xs leading-5 text-app-muted"><span className="line-clamp-2">{item.description}</span></td>
               </tr>)}</tbody>
             </table>
-            {!page.items.length && <div className="flex flex-col items-center gap-2 py-12 text-center"><Search className="size-6 text-app-subtle" /><p className="font-medium">{filters.mine && !mineTotal ? t('empty.mine_title') : t('empty.title')}</p><p className="max-w-sm text-sm text-app-muted">{filters.mine && !mineTotal ? t('empty.mine_none') : filters.mine ? t('empty.mine_filtered') : overview?.count ? t('empty.fewer_words') : t('empty.downloading')}</p></div>}
+            {!page.items.length && <div className="flex flex-col items-center gap-2 py-12 text-center"><MagnifyingGlassIcon className="size-6 text-app-subtle" /><p className="font-medium">{filters.mine && !mineTotal ? t('empty.mine_title') : t('empty.title')}</p><p className="max-w-sm text-sm text-app-muted">{filters.mine && !mineTotal ? t('empty.mine_none') : filters.mine ? t('empty.mine_filtered') : overview?.count ? t('empty.fewer_words') : t('empty.downloading')}</p></div>}
           </div>}
         {page && page.total > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-app-line px-4 py-2.5 text-xs text-app-subtle">
           <span className="tabular-nums">{t('pagination.showing', { from: formatNumber(page.offset + 1), to: formatNumber(Math.min(page.offset + page.limit, page.total)), total: formatNumber(page.total) })}</span>
@@ -163,7 +163,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
             <SelectTrigger aria-label={t('years.aria', { year: filters.year || t('years.any') })} className="w-full border-app-line bg-app-soft">{filters.year ? t('years.option', { year: filters.year, value: formatNumber(overview.years.find(item => String(item.year) === filters.year)?.count ?? 0) }) : t('years.all')}</SelectTrigger>
             <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="all">{t('years.all')}</SelectItem>{overview.years.map(item => <SelectItem key={item.year} value={String(item.year)}>{t('years.option', { year: item.year, value: formatNumber(item.count) })}</SelectItem>)}</SelectContent></Select>
           : <div role="status" aria-label={t('years.loading')}><Bone className="h-9" /></div>}</CardContent></Card>
-      <Card className="border-app-line bg-panel"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><Flame className="size-4 text-danger" />{t('kev.title')}</CardTitle><CardDescription className="text-xs">{overview?.kev_total ? t('kev.latest_total', { value: formatNumber(overview.kev_total) }) : t('kev.latest')}</CardDescription></CardHeader>
+      <Card className="border-app-line bg-panel"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><FlameIcon className="size-4 text-danger" />{t('kev.title')}</CardTitle><CardDescription className="text-xs">{overview?.kev_total ? t('kev.latest_total', { value: formatNumber(overview.kev_total) }) : t('kev.latest')}</CardDescription></CardHeader>
         <CardContent className="space-y-0.5">{overview?.latest_kev.length ? overview.latest_kev.map(item => <button key={item.id} type="button" onClick={() => show(item.id)} className="flex w-full items-start justify-between gap-2 rounded-md px-1.5 py-1.5 text-left hover:bg-app-soft">
           <span className="min-w-0"><span className="block font-mono text-xs font-medium">{item.id}</span><span className="block truncate text-[11px] text-app-muted" title={item.name ?? ''}>{item.name}</span></span>
           <span className="flex shrink-0 flex-col items-end gap-0.5 text-[11px] text-app-subtle">{formatCalendarDay(item.date_added)}{item.ransomware && <span className="text-danger">{t('kev.ransomware')}</span>}</span></button>)
@@ -176,14 +176,14 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
 
 function Chip({ label, onClear }: { label: string; onClear: () => void }) {
   const { t } = useTranslation('cves')
-  return <span className="inline-flex items-center gap-1 rounded-full border border-app-line bg-app-soft py-0.5 pr-1 pl-2.5">{label}<button type="button" aria-label={t('filters.remove_chip', { label })} onClick={onClear} className="grid size-6 place-items-center rounded-full text-app-subtle hover:bg-accent hover:text-app-fg"><X className="size-3.5" /></button></span>
+  return <span className="inline-flex items-center gap-1 rounded-full border border-app-line bg-app-soft py-0.5 pr-1 pl-2.5">{label}<button type="button" aria-label={t('filters.remove_chip', { label })} onClick={onClear} className="grid size-6 place-items-center rounded-full text-app-subtle hover:bg-accent hover:text-app-fg"><XIcon className="size-3.5" /></button></span>
 }
 
 function SyncBanner({ overview }: { overview: CveOverview }) {
   const { t } = useTranslation('cves')
   const { sync } = overview
   return <div className="rounded-xl border border-app-line bg-panel px-4 py-3 text-sm">
-    <div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2">{sync.error ? <ShieldAlert className="size-4 text-attention" /> : <LoaderCircle className="size-4 animate-spin text-app-muted" />}
+    <div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2">{sync.error ? <ShieldWarningIcon className="size-4 text-attention" /> : <CircleNotchIcon className="size-4 animate-spin text-app-muted" />}
       {sync.phase === 'pending' ? t('sync.preparing') : t('sync.downloading', { percent: formatPercent(sync.progress) })}</span>
       <span className="text-xs text-app-subtle">{sync.nvd_total ? t('sync.count_of', { value: formatNumber(overview.count), total: formatNumber(sync.nvd_total) }) : t('sync.count', { value: formatNumber(overview.count) })}</span></div>
     <div role="progressbar" aria-label={t('sync.aria')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sync.progress * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-brand transition-all" style={{ width: `${Math.max(2, sync.progress * 100)}%` }} /></div>
@@ -212,9 +212,9 @@ function CveSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
             <Metric label="EPSS" value={percent(item.epss)} extra={item.epss_percentile !== null ? <span className="text-[11px] text-app-subtle">{t('sheet.percentile', { value: formatNumber(Math.round(item.epss_percentile * 100)) })}</span> : null} />
             <Metric label="CISA KEV" value={item.kev ? t('common:state.yes') : t('common:state.no')} extra={item.kev_detail ? <span className="text-[11px] text-app-subtle">{t('sheet.since', { date: formatCalendarDay(item.kev_detail.date_added) })}</span> : null} />
           </div>
-          {item.kev_detail && <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2.5 text-sm text-danger"><p className="flex items-center gap-2 font-medium"><Flame className="size-4" />{t('sheet.kev_known')}{item.kev_detail.ransomware ? ` · ${t('sheet.kev_ransomware')}` : ''}</p>
+          {item.kev_detail && <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2.5 text-sm text-danger"><p className="flex items-center gap-2 font-medium"><FlameIcon className="size-4" />{t('sheet.kev_known')}{item.kev_detail.ransomware ? ` · ${t('sheet.kev_ransomware')}` : ''}</p>
             <p className="mt-1 text-xs">{item.kev_detail.name}{item.kev_detail.due_date ? ` · ${t('sheet.federal_due', { date: formatCalendarDay(item.kev_detail.due_date) })}` : ''}</p></div>}
-          {!item.kev_detail && item.euvd?.exploited_since && <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2.5 text-sm text-danger"><p className="flex items-center gap-2 font-medium"><Flame className="size-4" />{t('sheet.enisa')}</p>
+          {!item.kev_detail && item.euvd?.exploited_since && <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2.5 text-sm text-danger"><p className="flex items-center gap-2 font-medium"><FlameIcon className="size-4" />{t('sheet.enisa')}</p>
             <p className="mt-1 text-xs">{t('sheet.enisa_since', { date: formatCalendarDay(item.euvd.exploited_since) })}</p></div>}
           {item.score_source === 'euvd' && <p className="text-xs text-app-subtle">{t('sheet.euvd_score')}</p>}
           <section><h3 className="mb-1.5 text-xs font-medium text-app-muted">{t('table.description')}</h3><p className="text-sm leading-6">{item.description}</p></section>
@@ -224,11 +224,11 @@ function CveSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
             {affected.error ? <p role="alert" className="text-sm text-danger">{affected.error}</p>
               : !affected.items.length && affected.loading ? <SkeletonList rows={2} dense label={t('sheet.loading_repos')} />
               : affected.total ? <div aria-busy={affected.loading} className={`space-y-1.5 motion-safe:transition-opacity ${affected.loading ? 'opacity-60' : ''}`}>{affected.items.map(asset => <div key={asset.asset} className="flex items-center justify-between gap-2 rounded-lg border border-app-line px-3 py-2 text-sm"><span className="min-w-0"><span className="block truncate font-medium">{asset.name}</span><span className="text-xs text-app-subtle">{asset.packages.join(', ')}</span></span>
-              {asset.open ? <Badge variant="outline" className="border-danger-line bg-danger-soft text-[11px] text-danger">{t('sheet.open', { count: asset.open })}</Badge> : <Badge variant="outline" className="border-app-line text-[11px] text-app-muted"><ShieldCheck className="size-3" />{t('sheet.fixed')}</Badge>}</div>)}
+              {asset.open ? <Badge variant="outline" className="border-danger-line bg-danger-soft text-[11px] text-danger">{t('sheet.open', { count: asset.open })}</Badge> : <Badge variant="outline" className="border-app-line text-[11px] text-app-muted"><ShieldCheckIcon className="size-3" />{t('sheet.fixed')}</Badge>}</div>)}
                 {affected.total > affected.limit && <div className="rounded-lg border border-app-line"><Pagination total={affected.total} limit={affected.limit} offset={affected.offset} onPrev={affected.prev} onNext={affected.next} noun={t('sheet.repos_noun')} /></div>}</div>
               : <p className="text-sm text-app-muted">{t('sheet.not_affected')}</p>}</section>
-          {item.references.length > 0 && <section><h3 className="mb-1.5 text-xs font-medium text-app-muted">{t('sheet.references')}</h3><ul className="space-y-1">{item.references.map(reference => <li key={reference.url} className="flex items-start gap-1.5 text-xs"><ExternalLink className="mt-0.5 size-3 shrink-0 text-app-subtle" /><a href={reference.url} target="_blank" rel="noreferrer noopener" className="min-w-0 break-all text-app-secondary hover:underline">{reference.url}</a>{reference.tags[0] && <span className="shrink-0 text-app-subtle">{reference.tags[0]}</span>}</li>)}</ul></section>}
-          <div className="flex flex-wrap gap-2 border-t border-app-line pt-4"><a href={`https://nvd.nist.gov/vuln/detail/${item.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-app-muted hover:text-app-fg">NVD <ExternalLink className="size-3" /></a><a href={`https://www.cve.org/CVERecord?id=${item.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-app-muted hover:text-app-fg">CVE.org <ExternalLink className="size-3" /></a>{item.euvd?.url && <a href={item.euvd.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-app-muted hover:text-app-fg">EUVD <ExternalLink className="size-3" /></a>}</div>
+          {item.references.length > 0 && <section><h3 className="mb-1.5 text-xs font-medium text-app-muted">{t('sheet.references')}</h3><ul className="space-y-1">{item.references.map(reference => <li key={reference.url} className="flex items-start gap-1.5 text-xs"><ArrowSquareOutIcon className="mt-0.5 size-3 shrink-0 text-app-subtle" /><a href={reference.url} target="_blank" rel="noreferrer noopener" className="min-w-0 break-all text-app-secondary hover:underline">{reference.url}</a>{reference.tags[0] && <span className="shrink-0 text-app-subtle">{reference.tags[0]}</span>}</li>)}</ul></section>}
+          <div className="flex flex-wrap gap-2 border-t border-app-line pt-4"><a href={`https://nvd.nist.gov/vuln/detail/${item.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-app-muted hover:text-app-fg">NVD <ArrowSquareOutIcon className="size-3" /></a><a href={`https://www.cve.org/CVERecord?id=${item.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-app-muted hover:text-app-fg">CVE.org <ArrowSquareOutIcon className="size-3" /></a>{item.euvd?.url && <a href={item.euvd.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-app-muted hover:text-app-fg">EUVD <ArrowSquareOutIcon className="size-3" /></a>}</div>
         </>}
       </div>
     </SheetContent>

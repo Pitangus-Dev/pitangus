@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { XIcon } from "lucide-react"
+import { XIcon } from "@phosphor-icons/react"
 import { useTranslation } from "react-i18next"
 import { cn } from "cn"
 

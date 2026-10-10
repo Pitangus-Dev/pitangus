@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, KeyRound, LoaderCircle, MoreHorizontal, ShieldCheck, ShieldOff, UserPlus } from 'lucide-react'
+import { CheckIcon, CircleNotchIcon, CopyIcon, DotsThreeIcon, KeyIcon, ShieldCheckIcon, ShieldSlashIcon, UserPlusIcon } from '@phosphor-icons/react'
 import type { SessionUser } from '@/features/auth/session'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -44,7 +44,7 @@ export function Users({ me }: { me: SessionUser }) {
 
   return <div className="space-y-5">
     <div className="flex flex-wrap items-start justify-between gap-3"><p className="max-w-2xl text-sm text-app-muted">{t('description')}{listing ? ` ${t(policyText[listing.totp_policy])}.` : ''}</p>
-      <Button onClick={() => setInviting(true)}><UserPlus />{t('invite')}</Button></div>
+      <Button onClick={() => setInviting(true)}><UserPlusIcon />{t('invite')}</Button></div>
     <div className="space-y-3">
         {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>}
         {!listing ? <SkeletonTable rows={4} columns={5} label={t('loading')} /> : <div className="overflow-x-auto rounded-xl border border-app-line bg-panel">
@@ -53,12 +53,12 @@ export function Users({ me }: { me: SessionUser }) {
               return <tr key={user.id} className={`border-b border-app-line last:border-b-0 ${user.disabled ? 'opacity-60' : ''}`}>
                 <td className="px-4 py-3"><div className="font-medium">{user.display_name}{self ? <span className="ml-2 text-xs font-normal text-app-subtle">{t('you')}</span> : null}</div><div className="text-xs text-app-subtle">@{user.username}{flags(user)}</div></td>
                 <td className="px-4 py-3"><Select value={user.role} disabled={self || !!busy} onValueChange={value => { if (value && value !== user.role) void act(user, { action: 'role', role: value }) }}><SelectTrigger size="sm" aria-label={t('role_of', { username: user.username })} className="min-w-36 border-app-line bg-app-soft">{t(roleLabel[user.role])}</SelectTrigger><SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="member">{t('role.member')}</SelectItem><SelectItem value="admin">{t('role.admin')}</SelectItem></SelectContent></Select></td>
-                <td className="px-4 py-3">{user.totp_enabled ? <Badge variant="outline" className="border-success-line text-success"><ShieldCheck className="size-3" />{t('totp_on')}</Badge> : <Badge variant="outline" className="border-app-line text-app-muted"><ShieldOff className="size-3" />{t('totp_off')}</Badge>}</td>
+                <td className="px-4 py-3">{user.totp_enabled ? <Badge variant="outline" className="border-success-line text-success"><ShieldCheckIcon className="size-3" />{t('totp_on')}</Badge> : <Badge variant="outline" className="border-app-line text-app-muted"><ShieldSlashIcon className="size-3" />{t('totp_off')}</Badge>}</td>
                 <td className="px-4 py-3 text-xs text-app-muted">{user.last_login_at ? formatDate(user.last_login_at) : t('never')}</td>
-                <td className="px-4 py-3"><Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" disabled={!!busy} aria-label={t('actions_for', { username: user.username })} />}>{busy === user.id ? <LoaderCircle className="animate-spin" /> : <MoreHorizontal />}</MenuTrigger>
+                <td className="px-4 py-3"><Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" disabled={!!busy} aria-label={t('actions_for', { username: user.username })} />}>{busy === user.id ? <CircleNotchIcon className="animate-spin" /> : <DotsThreeIcon />}</MenuTrigger>
                   <MenuContent>
-                    <MenuItem disabled={user.disabled} onClick={() => void act(user, { action: 'reset' })}><KeyRound />{user.has_password ? t('send_reset') : t('resend_invite')}</MenuItem>
-                    {user.totp_enabled && !self && <MenuItem onClick={() => void act(user, { action: 'reset_totp' })}><ShieldOff />{t('remove_totp')}</MenuItem>}
+                    <MenuItem disabled={user.disabled} onClick={() => void act(user, { action: 'reset' })}><KeyIcon />{user.has_password ? t('send_reset') : t('resend_invite')}</MenuItem>
+                    {user.totp_enabled && !self && <MenuItem onClick={() => void act(user, { action: 'reset_totp' })}><ShieldSlashIcon />{t('remove_totp')}</MenuItem>}
                     {!self && <MenuItem onClick={() => void act(user, { action: user.disabled ? 'enable' : 'disable' })}>{user.disabled ? t('enable') : t('disable')}</MenuItem>}
                   </MenuContent></Menu></td>
               </tr> })}</tbody></table>
@@ -93,7 +93,7 @@ function InviteDialog({ open, onClose, onInvited }: { open: boolean; onClose: ()
       <div className="space-y-1.5"><label htmlFor="invite-name" className="text-xs text-app-muted">{t('invite_dialog.display_name')}</label><Input id="invite-name" maxLength={80} value={displayName} onChange={event => setDisplayName(event.target.value)} placeholder={t('invite_dialog.display_name_placeholder')} className="border-app-line bg-app-soft" /></div>
       <div className="space-y-1.5"><span className="text-xs text-app-muted">{t('invite_dialog.role')}</span><div role="radiogroup" aria-label={t('invite_dialog.role')} className="grid grid-cols-2 gap-2">{(['member', 'admin'] as const).map(value => <button key={value} type="button" role="radio" aria-checked={role === value} onClick={() => setRole(value)} className={`rounded-lg border p-3 text-left text-sm ${role === value ? 'border-app-fg bg-app-soft' : 'border-app-line bg-app-soft'}`}><span className="block font-medium">{t(roleLabel[value])}</span><span className="text-xs text-app-subtle">{t(roleHint[value])}</span></button>)}</div></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || username.trim().length < 3}>{busy && <LoaderCircle className="animate-spin" />}{t('invite_dialog.submit')}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || username.trim().length < 3}>{busy && <CircleNotchIcon className="animate-spin" />}{t('invite_dialog.submit')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -106,6 +106,6 @@ function LinkDialog({ result, onClose }: { result: LinkResult | null; onClose: (
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-lg">
     <DialogHeader><DialogTitle>{t('link_dialog.title', { username: result.user.username })}</DialogTitle><DialogDescription>{t('link_dialog.description', { count: result.expires_in_hours })}</DialogDescription></DialogHeader>
     <code className="block rounded-lg bg-inset p-3 font-mono text-xs break-all text-app-secondary">{result.link}</code>
-    <DialogFooter><Button variant="outline" onClick={() => void copy()} className="border-app-line bg-app-soft">{copied ? <Check /> : <Copy />}{copied ? t('common:actions.copied') : t('link_dialog.copy')}</Button><span role="status" className="sr-only">{copied ? t('link_dialog.copied_to_clipboard') : ''}</span><Button onClick={onClose}>{t('link_dialog.done')}</Button></DialogFooter>
+    <DialogFooter><Button variant="outline" onClick={() => void copy()} className="border-app-line bg-app-soft">{copied ? <CheckIcon /> : <CopyIcon />}{copied ? t('common:actions.copied') : t('link_dialog.copy')}</Button><span role="status" className="sr-only">{copied ? t('link_dialog.copied_to_clipboard') : ''}</span><Button onClick={onClose}>{t('link_dialog.done')}</Button></DialogFooter>
   </DialogContent></Dialog>
 }

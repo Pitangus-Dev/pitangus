@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {} from '@/shared/i18n'
 import { runQuery } from '@/shared/api/queries'
-import { CircleAlert, CircleCheck, LoaderCircle, Terminal } from 'lucide-react'
+import { CheckCircleIcon, CircleNotchIcon, TerminalIcon, WarningIcon } from '@phosphor-icons/react'
 import { Card, CardContent } from '@/shared/ui/card'
 
 export type ProgressEvent = { at: string; level: 'info' | 'ok' | 'warn' | 'error'; message: string }
@@ -23,9 +23,9 @@ export function RunProgress({ run }: { run: RunningRun }) {
   const elapsed = live.started_at ? Math.max(0, Math.round((now - Date.parse(live.started_at)) / 1000)) : 0
   return <Card className="overflow-hidden border-app-line bg-console">
     <div className="flex items-center justify-between gap-3 border-b border-app-line bg-console-top px-4 py-3 text-xs">
-      <span className="flex items-center gap-2 font-mono text-app-muted"><Terminal className="size-3.5" />{live.source?.name ?? t('progress.scan')} · {live.id.slice(0, 8)}</span>
+      <span className="flex items-center gap-2 font-mono text-app-muted"><TerminalIcon className="size-3.5" />{live.source?.name ?? t('progress.scan')} · {live.id.slice(0, 8)}</span>
       <span className={`flex items-center gap-1.5 ${active ? 'text-info' : live.status === 'failed' ? 'text-danger' : 'text-app-muted'}`}>
-        {active ? <LoaderCircle className="size-3.5 animate-spin" /> : live.status === 'failed' ? <CircleAlert className="size-3.5" /> : <CircleCheck className="size-3.5" />}
+        {active ? <CircleNotchIcon className="size-3.5 animate-spin" /> : live.status === 'failed' ? <WarningIcon className="size-3.5" /> : <CheckCircleIcon className="size-3.5" />}
         {/* The seconds tick with every poll: only the change of state is announced. */}
         <span aria-hidden>{live.status === 'queued' ? t('common:run_status.queued') : live.status === 'running' ? t('progress.running', { seconds: elapsed }) : live.status === 'failed' ? t('progress.failed') : t('progress.done')}</span>
         <span role="status" className="sr-only">{live.status === 'queued' ? t('common:run_status.queued') : live.status === 'running' ? t('common:run_status.running') : live.status === 'failed' ? t('progress.failed') : t('progress.done')}</span>

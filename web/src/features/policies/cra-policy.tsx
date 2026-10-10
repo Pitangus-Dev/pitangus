@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Landmark, LoaderCircle, Power } from 'lucide-react'
+import { CircleNotchIcon, PowerIcon, ScalesIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { apiPost } from '@/shared/api/client'
@@ -43,8 +43,8 @@ export function CraPolicyRow({ canEdit }: { canEdit: boolean }) {
 
   const summary = policy && (policy.enabled ? t('cra.on') : t('cra.off')) + (policy.by && policy.at ? ` · ${t('cra.changed', { by: policy.by, date: formatDate(policy.at) })}` : '')
   return <>
-    <PolicyRow icon={Landmark} title={t('cra.title')} summary={summary} notice={notice} state={policy ? 'ready' : query.isError ? 'error' : 'loading'}
-      onRetry={() => void query.refetch()} action={canEdit && <Button size="sm" variant="outline" onClick={start}><Power />{policy?.enabled ? t('cra.turn_off') : t('cra.turn_on')}</Button>} />
+    <PolicyRow icon={ScalesIcon} title={t('cra.title')} summary={summary} notice={notice} state={policy ? 'ready' : query.isError ? 'error' : 'loading'}
+      onRetry={() => void query.refetch()} action={canEdit && <Button size="sm" variant="outline" onClick={start}><PowerIcon />{policy?.enabled ? t('cra.turn_off') : t('cra.turn_on')}</Button>} />
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
@@ -67,7 +67,7 @@ export function CraPolicyRow({ canEdit }: { canEdit: boolean }) {
           {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>{t('common:actions.cancel')}</Button>
-            <Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{next ? t('cra.turn_on') : t('cra.turn_off')}</Button>
+            <Button type="submit" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{next ? t('cra.turn_on') : t('cra.turn_off')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { FileUp, ShieldCheck } from 'lucide-react'
+import { ShieldCheckIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import type { SessionUser } from '@/features/auth/session'
 import { AssetFindings } from '@/features/findings/asset-findings'
 import { CURRENT, type AssetSelection } from '@/features/findings/asset-selection'
@@ -27,11 +27,11 @@ export function DomainFindings({ domain, user, onNewScan, onImport, onOpenPolici
   if (asset.isError) return <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{asset.error.message}
     <Button size="xs" variant="outline" onClick={() => void asset.refetch()}>{t('common:actions.retry')}</Button></div>
   if (!asset.data) return <div className="flex flex-col items-center gap-3 py-14 text-center">
-    <ShieldCheck className="size-7 text-app-muted" aria-hidden />
+    <ShieldCheckIcon className="size-7 text-app-muted" aria-hidden />
     <p className="max-w-md text-sm text-app-muted">{t('domains.page.findings_empty')}</p>
     <div className="flex flex-wrap justify-center gap-2">
       {user.role === 'admin' && domain.kind !== 'surface' && <Button onClick={onNewScan}>{t('domains.page.start_scan')}</Button>}
-      <Button variant="outline" onClick={onImport}><FileUp aria-hidden />{t('domains.page.import_results')}</Button>
+      <Button variant="outline" onClick={onImport}><UploadSimpleIcon aria-hidden />{t('domains.page.import_results')}</Button>
     </div>
   </div>
   const open = asset.data.open

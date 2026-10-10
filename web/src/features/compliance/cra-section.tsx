@@ -2,7 +2,7 @@ import { useCallback, useId, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Check, Clock3, Copy, ExternalLink, Flame, LoaderCircle, Plus, X } from 'lucide-react'
+import { ArrowSquareOutIcon, CheckIcon, CircleNotchIcon, ClockIcon, CopyIcon, FlameIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
@@ -94,7 +94,7 @@ function Help({ admin, reportingPage }: { admin: boolean; reportingPage: string 
       <li>{t('cra.help.kev')}</li>
       {!admin && <li>{t('cra.help.admin_only')}</li>}
     </ul>
-    <a href={reportingPage} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{t('cra.how_to_report')} <ExternalLink aria-hidden className="size-3" /></a>
+    <a href={reportingPage} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{t('cra.how_to_report')} <ArrowSquareOutIcon aria-hidden className="size-3" /></a>
   </Disclosure>
 }
 
@@ -125,19 +125,19 @@ function Products({ counts, admin, onChange, onNew }: { counts: Counts; admin: b
       : <div className="overflow-hidden rounded-xl border border-app-line"><ul aria-busy={products.loading} className={`divide-y divide-app-line motion-safe:transition-opacity ${products.loading ? 'opacity-60' : ''}`}>{products.items.map(product => <li key={product.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
       <span className="min-w-0"><span className="font-medium">{product.name}</span><span className="block truncate text-xs text-app-subtle">{product.support_until ? t('products.supported_until', { asset: product.asset, date: day(product.support_until) }) : product.asset}</span>
         {!product.last_complete && <span className="block text-xs text-attention">{t('products.not_scanned')}</span>}</span>
-      {admin && <Button size="xs" variant="ghost" aria-label={t('products.remove', { name: product.name })} onClick={() => void onChange({ op: 'unproduct', key: product.key })}><X />{t('common:actions.remove')}</Button>}
+      {admin && <Button size="xs" variant="ghost" aria-label={t('products.remove', { name: product.name })} onClick={() => void onChange({ op: 'unproduct', key: product.key })}><XIcon />{t('common:actions.remove')}</Button>}
     </li>)}</ul>
       {products.total > products.limit && <div className="border-t border-app-line"><Pagination total={products.total} limit={products.limit} offset={products.offset} onPrev={products.prev} onNext={products.next} noun={t('products.noun')} /></div>}</div>)}
     {admin && !counts.assets && <p className="text-xs text-app-muted">{t('products.scan_first')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline underline-offset-2">{t('products.new_scan')}</button></p>}
     {!admin && !counts.products && <p className="text-xs text-app-subtle">{t('products.admin_only')}</p>}
-    {admin && !adding && counts.candidates > 0 && <Button size="sm" variant="outline" onClick={() => setAdding(true)} className="border-app-line bg-app-soft"><Plus />{t('products.mark')}</Button>}
+    {admin && !adding && counts.candidates > 0 && <Button size="sm" variant="outline" onClick={() => setAdding(true)} className="border-app-line bg-app-soft"><PlusIcon />{t('products.mark')}</Button>}
     {adding && <form onSubmit={submit} className="grid gap-2 rounded-xl border border-app-line bg-inset p-3 sm:grid-cols-[1fr_1fr_10rem_auto] sm:items-end">
       <div className="text-xs text-app-muted"><span>{t('products.asset')}</span>
         <Combobox className="mt-1" label={t('products.asset')} placeholder={t('products.choose')} emptyText={t('products.no_candidates')} value={picked} search={search}
           onSelect={option => { setPicked(option); if (!name) setName(option.label) }} /></div>
       <label className="text-xs text-app-muted">{t('products.name')}<Input required maxLength={120} value={name} onChange={event => setName(event.target.value)} className="mt-1 h-9 border-app-line bg-app" /></label>
       <label className="text-xs text-app-muted">{t('products.support_until')}<Input type="date" value={until} onChange={event => setUntil(event.target.value)} className="mt-1 h-9 border-app-line bg-app" /></label>
-      <div className="flex gap-2"><Button type="submit" size="sm" disabled={!picked || !name.trim() || busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
+      <div className="flex gap-2"><Button type="submit" size="sm" disabled={!picked || !name.trim() || busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>{t('common:actions.cancel')}</Button></div>
     </form>}
   </div>
@@ -152,13 +152,13 @@ function EventCard({ event, admin, onChange }: { event: CraEvent; admin: boolean
   const assessment = event.assessment
   return <Card className="border-app-line bg-panel"><CardContent className="space-y-3 p-4">
     <div className="flex flex-wrap items-start justify-between gap-2">
-      <div className="min-w-0"><p className="flex flex-wrap items-center gap-2 font-medium"><Flame aria-hidden className={`size-4 ${event.state === 'not_affected' ? 'text-app-muted' : 'text-danger'}`} /><span className="font-mono text-sm">{event.cve}</span>
+      <div className="min-w-0"><p className="flex flex-wrap items-center gap-2 font-medium"><FlameIcon aria-hidden className={`size-4 ${event.state === 'not_affected' ? 'text-app-muted' : 'text-danger'}`} /><span className="font-mono text-sm">{event.cve}</span>
         <StateChip state={event.state} />
         {event.kev.ransomware && <span className="rounded border border-danger-line px-1.5 text-[11px] text-danger">{t('event.ransomware')}</span>}{event.status === 'fixed' && <span className="rounded border border-app-line px-1.5 text-[11px] text-success">{t('event.fixed')}</span>}</p>
         <p className="mt-0.5 text-sm text-app-muted">{event.product} · {event.packages.join(', ') || event.title}</p>
         <p className="text-xs text-app-subtle">{[event.kev.name, t('event.in_kev', { date: event.kev.date_added ? day(event.kev.date_added) : '—' }),
           event.aware_at ? t('event.clock', { date: formatDate(event.aware_at) }) : ''].filter(Boolean).join(' · ')}</p></div>
-      {draft && <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => void copy()} className="border-app-line bg-app-soft">{copied ? <Check /> : <Copy />}{copied ? t('common:actions.copied') : t('event.copy_draft')}</Button><span role="status" className="sr-only">{copied ? t('event.draft_copied') : ''}</span>
+      {draft && <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => void copy()} className="border-app-line bg-app-soft">{copied ? <CheckIcon /> : <CopyIcon />}{copied ? t('common:actions.copied') : t('event.copy_draft')}</Button><span role="status" className="sr-only">{copied ? t('event.draft_copied') : ''}</span>
         <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t('event.hide_draft') : t('event.view_draft')}</Button></div>}
     </div>
     {event.state === 'to_assess' && <Assess event={event} admin={admin} onChange={onChange} />}
@@ -169,7 +169,7 @@ function EventCard({ event, admin, onChange }: { event: CraEvent; admin: boolean
       ? t('assess.legacy', { date: assessment.at ? formatDate(assessment.at) : '—' })
       : t('assess.exploited_by', { by: assessment.by ?? '—', date: assessment.at ? formatDate(assessment.at) : '—' })}</p>}
     {event.stages.length > 0 && <ol className="grid gap-2 sm:grid-cols-3">{event.stages.map(stage => <li key={stage.id} className={`rounded-lg border px-3 py-2 text-xs ${STAGE_STYLE[stage.state]}`}>
-      <p className="flex items-center justify-between gap-2 font-medium"><span>{stage.label}</span>{stage.state === 'sent' ? <Check aria-hidden className="size-3.5" /> : <Clock3 aria-hidden className="size-3.5" />}</p>
+      <p className="flex items-center justify-between gap-2 font-medium"><span>{stage.label}</span>{stage.state === 'sent' ? <CheckIcon aria-hidden className="size-3.5" /> : <ClockIcon aria-hidden className="size-3.5" />}</p>
       <p className="mt-0.5">{stage.state === 'sent' && stage.sent ? t('stage.sent_by', { by: stage.sent.by, date: formatDate(stage.sent.at) }) : stage.due ? `${formatDate(stage.due)} · ${left(stage.due, t)}` : t('stage.waiting')}</p>
       {admin && stage.state !== 'waiting' && <button type="button" aria-label={stage.state === 'sent' ? t('stage.unmark_label', { stage: stage.label, cve: event.cve }) : t('stage.mark_label', { stage: stage.label, cve: event.cve })} onClick={() => void onChange({ op: 'mark', event: event.id, stage: stage.id, sent: stage.state !== 'sent' })} className="mt-1 min-h-6 underline-offset-2 hover:underline">{stage.state === 'sent' ? t('stage.unmark') : t('stage.mark')}</button>}
     </li>)}</ol>}
@@ -215,7 +215,7 @@ function Assess({ event, admin, onChange }: { event: CraEvent; admin: boolean; o
         : <p className="text-xs text-attention">{t('assess.exploited_help')}</p>}
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" size="sm" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{mode === 'not_affected' ? t('assess.confirm_not_affected') : t('assess.confirm_exploited')}</Button>
+        <Button type="submit" size="sm" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{mode === 'not_affected' ? t('assess.confirm_not_affected') : t('assess.confirm_exploited')}</Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => { setMode(null); setError('') }}>{t('common:actions.cancel')}</Button>
       </div>
     </form>}

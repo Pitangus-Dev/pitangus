@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, CircleAlert, CircleCheck, LoaderCircle } from 'lucide-react'
+import { CaretRightIcon, CheckCircleIcon, CircleNotchIcon, WarningIcon } from '@phosphor-icons/react'
 import { apiPost } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/http'
 import { domainProbeQuery } from '@/shared/api/queries'
@@ -53,8 +53,8 @@ function AddDomainForm({ initialKind, onCancel, onAdded }: { initialKind: Domain
         <div className="relative">
           <Input id="domain-url" required autoFocus value={url} onChange={event => setUrl(event.target.value)} placeholder={t('domains.add.placeholder')}
             aria-describedby="domain-url-probe" autoComplete="off" spellCheck={false} className="border-app-line bg-app-soft pr-10" />
-          <span className="absolute top-1/2 right-3 -translate-y-1/2" aria-hidden>{checking ? <LoaderCircle className="size-4 text-app-muted motion-safe:animate-spin" />
-            : reach?.reachable ? <CircleCheck className="size-4 text-success" /> : reach || probeError ? <CircleAlert className="size-4 text-attention" /> : null}</span>
+          <span className="absolute top-1/2 right-3 -translate-y-1/2" aria-hidden>{checking ? <CircleNotchIcon className="size-4 text-app-muted motion-safe:animate-spin" />
+            : reach?.reachable ? <CheckCircleIcon className="size-4 text-success" /> : reach || probeError ? <WarningIcon className="size-4 text-attention" /> : null}</span>
         </div>
         <p id="domain-url-probe" role="status" className="min-h-4 text-xs">
           {checking ? <span className="text-app-muted">{t('domains.add.checking')}</span>
@@ -69,7 +69,7 @@ function AddDomainForm({ initialKind, onCancel, onAdded }: { initialKind: Domain
         {kind === 'surface' && <p className="text-xs text-app-muted">{t('domains.kind_hint.surface')}</p>}
       </div>
       <details className="group">
-        <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-sm text-app-secondary"><ChevronRight className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{t('domains.add.more')}</summary>
+        <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-sm text-app-secondary"><CaretRightIcon className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{t('domains.add.more')}</summary>
         <div className="mt-3 space-y-1.5">
           <label htmlFor="domain-context" className="sr-only">{t('domains.add.context')}</label>
           <textarea id="domain-context" rows={3} maxLength={CONTEXT_MAX} value={context} onChange={event => setContext(event.target.value)} aria-describedby="domain-context-help"
@@ -80,7 +80,7 @@ function AddDomainForm({ initialKind, onCancel, onAdded }: { initialKind: Domain
       {register.error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger">{register.error.message}</p>}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>{t('common:actions.cancel')}</Button>
-        <Button type="submit" disabled={register.isPending || !url.trim()}>{register.isPending && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('domains.add.submit')}</Button>
+        <Button type="submit" disabled={register.isPending || !url.trim()}>{register.isPending && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('domains.add.submit')}</Button>
       </DialogFooter>
     </form>
 }

@@ -1,7 +1,7 @@
 import { useState, type ComponentProps, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { ExternalLink, LoaderCircle } from 'lucide-react'
+import { ArrowSquareOutIcon, CircleNotchIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
@@ -72,15 +72,15 @@ function Connection({ status, canManage }: { status: JiraStatus; canManage: bool
         <Field id="jira-email" label={t('jira.email')} type="email" autoComplete="username" value={form.email} onChange={set('email')} />
         <Field id="jira-token" label={t('jira.token')} type="password" autoComplete="new-password" minLength={16} value={form.token} onChange={set('token')} />
         {failure && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger sm:col-span-2">{failure}</div>}
-        <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.submit')}</Button>
-          <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 text-xs text-brand underline underline-offset-2">{t('jira.create_token')} <ExternalLink className="size-3" /><span className="sr-only">{t('sources:new_tab')}</span></a></div>
+        <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><Button type="submit" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.submit')}</Button>
+          <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 text-xs text-brand underline underline-offset-2">{t('jira.create_token')} <ArrowSquareOutIcon className="size-3" /><span className="sr-only">{t('sources:new_tab')}</span></a></div>
         <p className="text-xs leading-5 text-app-subtle sm:col-span-2">{t('jira.validate_note')}</p>
       </form> : null}
     <Dialog open={confirm} onOpenChange={setConfirm}><DialogContent className="max-w-md">
       <DialogHeader><DialogTitle>{t('jira.remove_title')}</DialogTitle><DialogDescription>{t('jira.remove_help')}</DialogDescription></DialogHeader>
       {failure && <p role="alert" className="text-xs text-danger">{failure}</p>}
       <DialogFooter><Button variant="ghost" onClick={() => setConfirm(false)}>{t('common:actions.cancel')}</Button>
-        <Button variant="destructive" disabled={busy} onClick={() => void post({ action: 'remove' })}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.remove')}</Button></DialogFooter>
+        <Button variant="destructive" disabled={busy} onClick={() => void post({ action: 'remove' })}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.remove')}</Button></DialogFooter>
     </DialogContent></Dialog>
   </div>
 }
@@ -124,7 +124,7 @@ function Routing() {
         <DialogDescription>{removing?.kind === 'destination' ? t('jira.destinations.remove_help') : t('jira.rules.remove_help')}</DialogDescription></DialogHeader>
       {error && <p role="alert" className="text-xs text-danger">{error}</p>}
       <DialogFooter><Button variant="ghost" onClick={() => setRemoving(null)}>{t('common:actions.cancel')}</Button>
-        <Button variant="destructive" disabled={busy} onClick={() => void remove()}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.remove')}</Button></DialogFooter>
+        <Button variant="destructive" disabled={busy} onClick={() => void remove()}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.remove')}</Button></DialogFooter>
     </DialogContent></Dialog>
   </div>
 }

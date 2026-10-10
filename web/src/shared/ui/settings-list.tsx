@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { CaretDownIcon } from '@phosphor-icons/react'
 import { cn } from 'cn'
 import { Button } from '@/shared/ui/button'
 import { Bone } from '@/shared/ui/loading'
@@ -45,7 +45,7 @@ export function SettingsRow({ title, status, tone = 'muted', meta, loading, acti
       {(actions || disclosure) && <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">
         {actions}
         {disclosure && <Button size="sm" variant="outline" aria-expanded={open} aria-controls={`${id}-panel`} aria-describedby={empty ? undefined : `${id}-title`} onClick={toggle}>
-          {disclosure.label}<ChevronDown className={cn('motion-safe:transition-transform', open && 'rotate-180')} /></Button>}
+          {disclosure.label}<CaretDownIcon className={cn('motion-safe:transition-transform', open && 'rotate-180')} /></Button>}
       </div>}
     </div>
     {disclosure && <div id={`${id}-panel`} hidden={!open} className="pt-4 pb-2">{disclosure.content}</div>}

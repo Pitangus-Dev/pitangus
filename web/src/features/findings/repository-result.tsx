@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { ChevronRight } from 'lucide-react'
+import { CaretRightIcon } from '@phosphor-icons/react'
 import { formatTime } from '@/shared/i18n/format'
 import { FindingsTable } from '@/features/findings/findings-table'
 import { RunHeader } from '@/features/findings/run-header'
@@ -30,13 +30,13 @@ export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage =
 
 function RunLog({ run, progress }: { run: RepositoryRun; progress: NonNullable<RepositoryRun['progress']> }) {
   const { t } = useTranslation('findings')
-  return <details className="group rounded-lg border border-app-line bg-panel"><summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium"><ChevronRight className="size-4 text-app-subtle motion-safe:transition group-open:rotate-90" />{t('log.title')}<span className="ml-2 text-xs font-normal text-app-subtle">{t('log.events', { count: progress.length })}{run.started_at && run.finished_at ? ` · ${t('log.seconds', { seconds: Math.round((Date.parse(run.finished_at) - Date.parse(run.started_at)) / 1000) })}` : ''}</span></summary><div className="space-y-1 px-5 pb-5 font-mono text-xs leading-6">{progress.map((event, index) => <div key={index} className="flex gap-3"><span className="shrink-0 text-app-subtle">{formatTime(event.at)}</span><span className={event.level === 'ok' ? 'text-brand' : event.level === 'warn' ? 'text-attention' : event.level === 'error' ? 'text-danger' : 'text-app-secondary'}>{event.message}</span></div>)}</div></details>
+  return <details className="group rounded-lg border border-app-line bg-panel"><summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium"><CaretRightIcon className="size-4 text-app-subtle motion-safe:transition group-open:rotate-90" />{t('log.title')}<span className="ml-2 text-xs font-normal text-app-subtle">{t('log.events', { count: progress.length })}{run.started_at && run.finished_at ? ` · ${t('log.seconds', { seconds: Math.round((Date.parse(run.finished_at) - Date.parse(run.started_at)) / 1000) })}` : ''}</span></summary><div className="space-y-1 px-5 pb-5 font-mono text-xs leading-6">{progress.map((event, index) => <div key={index} className="flex gap-3"><span className="shrink-0 text-app-subtle">{formatTime(event.at)}</span><span className={event.level === 'ok' ? 'text-brand' : event.level === 'warn' ? 'text-attention' : event.level === 'error' ? 'text-danger' : 'text-app-secondary'}>{event.message}</span></div>)}</div></details>
 }
 
 // Hidden when there are no steps: an asset's current state joins several runs and has none of its own.
 function RunCoverage({ run }: { run: RepositoryRun }) {
   const { t } = useTranslation('findings')
   if (!run.steps?.length) return null
-  return <details className="group rounded-lg border border-app-line bg-panel"><summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium"><ChevronRight className="size-4 text-app-subtle motion-safe:transition group-open:rotate-90" />{t('coverage.title')}<span className="ml-2 text-xs font-normal text-app-subtle">{t('coverage.steps', { done: run.steps.filter(step => step.status === 'completed' || step.status === 'partial').length, total: run.steps.length })}</span></summary>
+  return <details className="group rounded-lg border border-app-line bg-panel"><summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium"><CaretRightIcon className="size-4 text-app-subtle motion-safe:transition group-open:rotate-90" />{t('coverage.title')}<span className="ml-2 text-xs font-normal text-app-subtle">{t('coverage.steps', { done: run.steps.filter(step => step.status === 'completed' || step.status === 'partial').length, total: run.steps.length })}</span></summary>
     <StepList steps={run.steps} className="mx-5 mb-3 border-t border-app-line" /></details>
 }

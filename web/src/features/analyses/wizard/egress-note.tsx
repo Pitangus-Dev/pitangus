@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, LoaderCircle } from 'lucide-react'
+import { CheckIcon, CircleNotchIcon, CopyIcon } from '@phosphor-icons/react'
 import { api } from '@/shared/api/http'
 import { keys, type Egress } from '@/shared/api/queries'
 import { Button } from '@/shared/ui/button'
@@ -28,7 +28,7 @@ export function EgressNote({ egress, admin }: { egress: Egress | null | undefine
         <span>{t('review.egress.allow')}</span>
         <code className="font-mono text-xs break-all text-app-fg">{ips.join(', ')}</code>
         <Button type="button" size="xs" variant="ghost" aria-label={t('review.egress.copy_label')} onClick={() => void copy()}>
-          {copied === 'ok' ? <Check aria-hidden /> : <Copy aria-hidden />}{t('review.egress.copy')}</Button>
+          {copied === 'ok' ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}{t('review.egress.copy')}</Button>
       </p>
       <span role="status" className={copied === 'failed' ? 'text-xs text-danger' : 'sr-only'}>{copied === 'ok' ? t('review.egress.copied') : copied === 'failed' ? t('review.egress.copy_failed') : ''}</span>
     </div>
@@ -38,7 +38,7 @@ export function EgressNote({ egress, admin }: { egress: Egress | null | undefine
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-app-secondary">
       <span>{t('review.egress.unknown')}</span>
       <Button type="button" size="xs" variant="outline" disabled={detect.isPending} onClick={() => detect.mutate()}>
-        {detect.isPending && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('review.egress.detect')}</Button>
+        {detect.isPending && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('review.egress.detect')}</Button>
     </p>
     <p className="text-xs text-app-muted">{t('review.egress.detect_hint')}</p>
     {detect.isError && <p role="alert" className="text-xs text-danger">{detect.error.message}</p>}

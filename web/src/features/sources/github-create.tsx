@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { LoaderCircle, ShieldCheck, Info } from 'lucide-react'
+import { CircleNotchIcon, InfoIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { apiPost } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -57,7 +57,7 @@ export function GitHubAppCreate({ canManage }: { canManage: boolean }) {
 
   return <form onSubmit={submit} aria-busy={busy || undefined} className="space-y-4 rounded-lg border border-app-line p-4">
     <div className="flex items-start gap-3">
-      <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-app-subtle" />
+      <InfoIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-app-subtle" />
       <div><h4 className="text-sm font-medium">{t('github.create.title')}</h4><p className="mt-1 text-xs leading-5 text-app-muted">{t('github.create.description')}</p></div>
     </div>
     {!canManage && <p className="rounded-lg border border-app-line bg-app-soft px-3 py-2 text-xs text-app-muted">{t('github.form.admin_only')}</p>}
@@ -78,8 +78,8 @@ export function GitHubAppCreate({ canManage }: { canManage: boolean }) {
     {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
     <div className="flex flex-wrap items-center gap-3">
       <Button type="submit" disabled={!canManage} aria-disabled={busy || undefined}>
-        {busy && <LoaderCircle className="motion-safe:animate-spin" />}{busy ? t('github.create.opening') : t('github.create.submit')}</Button>
-      <p className="flex items-start gap-2 text-[11px] leading-4 text-app-subtle"><ShieldCheck className="mt-0.5 size-3 shrink-0" />{t('github.create.note')}</p>
+        {busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{busy ? t('github.create.opening') : t('github.create.submit')}</Button>
+      <p className="flex items-start gap-2 text-[11px] leading-4 text-app-subtle"><ShieldCheckIcon className="mt-0.5 size-3 shrink-0" />{t('github.create.note')}</p>
     </div>
   </form>
 }

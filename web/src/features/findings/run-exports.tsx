@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDownToLine, ChevronDown, FileCheck2 } from 'lucide-react'
+import { CaretDownIcon, DownloadSimpleIcon, FileTextIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Menu, MenuContent, MenuGroup, MenuItem, MenuTrigger } from '@/shared/ui/menu'
 import { api, query } from '@/shared/api/http'
@@ -32,9 +32,9 @@ export function RunExports({ run, status, onAudit }: { run: RepositoryRun; statu
     finally { setDownloading(null) }
   }
   return <>
-    <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={downloading !== null} onClick={() => void exportFile('report.pdf')}><ArrowDownToLine />{downloading === 'report.pdf' ? t('export.preparing') : t('export.pdf')}</Button>
-      <Menu><MenuTrigger render={<Button variant="outline" size="sm" disabled={downloading !== null} />}>{downloading && downloading !== 'report.pdf' ? t('export.preparing') : t('export.more')}<ChevronDown className="size-3.5" /></MenuTrigger>
-        <MenuContent align="start"><MenuGroup label={t('export.audit_group')}><MenuItem onClick={onAudit}><FileCheck2 />{t('export.audit')}</MenuItem></MenuGroup>{RUN_EXPORTS.map(group => <MenuGroup key={group.label} label={t(group.label)}>{group.items.filter(([, artifact]) => artifact !== 'sbom.cdx.json' || sbomAvailable).map(([label, artifact]) => <MenuItem key={artifact} onClick={() => void exportFile(artifact)}>{t(label)}</MenuItem>)}</MenuGroup>)}</MenuContent></Menu></div>
+    <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={downloading !== null} onClick={() => void exportFile('report.pdf')}><DownloadSimpleIcon />{downloading === 'report.pdf' ? t('export.preparing') : t('export.pdf')}</Button>
+      <Menu><MenuTrigger render={<Button variant="outline" size="sm" disabled={downloading !== null} />}>{downloading && downloading !== 'report.pdf' ? t('export.preparing') : t('export.more')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
+        <MenuContent align="start"><MenuGroup label={t('export.audit_group')}><MenuItem onClick={onAudit}><FileTextIcon />{t('export.audit')}</MenuItem></MenuGroup>{RUN_EXPORTS.map(group => <MenuGroup key={group.label} label={t(group.label)}>{group.items.filter(([, artifact]) => artifact !== 'sbom.cdx.json' || sbomAvailable).map(([label, artifact]) => <MenuItem key={artifact} onClick={() => void exportFile(artifact)}>{t(label)}</MenuItem>)}</MenuGroup>)}</MenuContent></Menu></div>
     {error && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('export.error', { error })}</div>}
   </>
 }

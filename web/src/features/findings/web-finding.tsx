@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink } from 'lucide-react'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { CodeBlock } from '@/features/findings/fix-guide'
 import { toolName, type RepositoryFinding } from '@/features/findings/finding-model'
 
@@ -32,7 +32,7 @@ export function WebFinding({ finding }: { finding: RepositoryFinding }) {
     </Section>
     {(web.evidence || web.attack) && <Section title={t('web.evidence')}>
       {web.evidence && <pre className="rounded-lg border border-app-line bg-inset p-3 font-mono text-xs leading-5 whitespace-pre-wrap text-app-secondary wrap-anywhere">{highlight
-        ? <>{highlight.before}<mark className="rounded-sm bg-attention-soft px-0.5 font-semibold text-attention">{highlight.match}</mark>{highlight.after}</>
+        ? <>{highlight.before}<mark className="rounded-sm bg-sulphur-soft px-0.5 font-semibold text-app-fg underline decoration-sulphur-line underline-offset-2">{highlight.match}</mark>{highlight.after}</>
         : web.evidence}</pre>}
       {web.evidence && highlight && <p className="mt-1 text-xs text-app-subtle">{t('web.highlighted')}</p>}
       {web.attack && web.attack !== web.evidence && <div className="mt-2"><p className="text-xs text-app-muted">{t('web.attack')}</p>
@@ -51,7 +51,7 @@ export function WebFinding({ finding }: { finding: RepositoryFinding }) {
       <CodeBlock code={check} label={checkLabel} /><p className="mt-1 text-xs text-app-muted">{t('web.check_hint')}</p>
     </Section>}
     {references.length > 0 && <Section title={t('web.references')} note={said}>
-      <ul className="space-y-1 text-xs">{references.map(url => <li key={url} className="min-w-0"><a href={url} title={url} target="_blank" rel="noreferrer" className="inline-flex min-h-6 max-w-full items-center gap-1 text-brand underline underline-offset-2"><span className="truncate">{label(url)}</span><ExternalLink className="size-3 shrink-0" /><span className="sr-only">{t('web.new_tab')}</span></a></li>)}</ul>
+      <ul className="space-y-1 text-xs">{references.map(url => <li key={url} className="min-w-0"><a href={url} title={url} target="_blank" rel="noreferrer" className="inline-flex min-h-6 max-w-full items-center gap-1 text-brand underline underline-offset-2"><span className="truncate">{label(url)}</span><ArrowSquareOutIcon className="size-3 shrink-0" /><span className="sr-only">{t('web.new_tab')}</span></a></li>)}</ul>
     </Section>}
   </div>
 }

@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, LoaderCircle, RefreshCw } from 'lucide-react'
+import { ArrowsClockwiseIcon, CheckIcon, CircleNotchIcon, CopyIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { api } from '@/shared/api/http'
 import { formatDate } from '@/shared/i18n/format'
@@ -25,7 +25,7 @@ export function CodeBlock({ code, label }: { code: string; label: string }) {
     <pre className="min-w-0 flex-1 rounded-lg border border-app-line bg-inset p-3 text-xs leading-5 whitespace-pre-wrap wrap-anywhere"><code className="font-mono text-app-secondary">{code}</code></pre>
     <button type="button" onClick={copy} aria-label={t('fix.copy_label', { label })} title={t('common:actions.copy')}
       className="mt-1.5 grid size-7 shrink-0 place-items-center rounded-md border border-app-line bg-panel text-app-muted hover:text-app-fg">
-      {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}</button>
+      {copied ? <CheckIcon className="size-3.5 text-success" /> : <CopyIcon className="size-3.5" />}</button>
     <span role="status" className="sr-only">{copied ? t('common:actions.copied') : ''}</span>
   </div>
 }
@@ -70,7 +70,7 @@ export function Reverify({ runId, fingerprint, verification, blocked, canVerify,
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p role="status" className="min-w-0 text-xs text-app-muted">
         {blocked ? blocked
-          : running ? <span className="inline-flex items-center gap-1.5"><LoaderCircle className="size-3.5 motion-safe:animate-spin" />{t('verify.running')}</span>
+          : running ? <span className="inline-flex items-center gap-1.5"><CircleNotchIcon className="size-3.5 motion-safe:animate-spin" />{t('verify.running')}</span>
           : state === 'fixed' ? <span className="font-medium text-success">{finished ? t('verify.fixed_at', { date: finished }) : t('verify.fixed')}</span>
           : state === 'present' ? <span className="font-medium text-attention">{finished ? t('verify.present_at', { date: finished }) : t('verify.present')}</span>
           : state === 'inconclusive' ? t('verify.inconclusive')
@@ -79,7 +79,7 @@ export function Reverify({ runId, fingerprint, verification, blocked, canVerify,
       </p>
       {/* aria-disabled en vez de disabled: el foco de teclado se queda en el botón mientras se verifica. */}
       {!blocked && canVerify && <Button size="sm" variant="outline" aria-disabled={busy || running} onClick={() => void start()} className="border-app-line bg-panel aria-disabled:opacity-60">
-        {busy ? <LoaderCircle className="motion-safe:animate-spin" /> : <RefreshCw />}{state && !running ? t('verify.again') : t('verify.start')}</Button>}
+        {busy ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <ArrowsClockwiseIcon />}{state && !running ? t('verify.again') : t('verify.start')}</Button>}
     </div>
     {error && <p role="alert" className="text-xs text-danger">{error}</p>}
   </div>

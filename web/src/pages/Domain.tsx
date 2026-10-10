@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Globe2, MoreHorizontal, Play, Radar, ShieldCheck } from 'lucide-react'
+import { DotsThreeIcon, GlobeIcon, ScanIcon, ShieldCheckIcon, TargetIcon } from '@phosphor-icons/react'
 import type { SessionUser } from '@/features/auth/session'
 import { AnalysisList } from '@/features/analyses/analysis-list'
 import { DomainFindings } from '@/features/domains/domain-findings'
@@ -44,7 +44,7 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('domains.list.load_failed')}
       <Button size="xs" variant="outline" onClick={() => void domains.refetch()}>{t('common:actions.retry')}</Button></div></div>
   if (!domain) return <div className="space-y-5"><Card className="border-app-line bg-panel"><CardContent className="flex flex-col items-center gap-3 py-14 text-center">
-    <Globe2 className="size-7 text-app-muted" aria-hidden /><h1 className="text-base font-medium">{t('domains.page.not_found')}</h1><Button variant="outline" onClick={onBack}>{t('domains.page.back')}</Button>
+    <GlobeIcon className="size-7 text-app-muted" aria-hidden /><h1 className="text-base font-medium">{t('domains.page.not_found')}</h1><Button variant="outline" onClick={onBack}>{t('domains.page.back')}</Button>
   </CardContent></Card></div>
 
   const state = verification(domain)
@@ -65,10 +65,10 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {scannable && (domain.verified
-          ? <Button onClick={() => onNewScan(domain)}><Play aria-hidden />{t('domains.page.new_scan')}</Button>
-          : <Button onClick={() => setVerifying(true)}><ShieldCheck aria-hidden />{t('domains.list.verify')}</Button>)}
+          ? <Button onClick={() => onNewScan(domain)}><ScanIcon aria-hidden />{t('domains.page.new_scan')}</Button>
+          : <Button onClick={() => setVerifying(true)}><ShieldCheckIcon aria-hidden />{t('domains.list.verify')}</Button>)}
         {/* Disconnecting lives at the bottom of the overview, where it says what goes with it. */}
-        {admin && (domain.verified || !scannable) && <Menu><MenuTrigger render={<Button variant="outline" size="icon" aria-label={t('domains.list.actions_for', { host: domain.host })} />}><MoreHorizontal /></MenuTrigger>
+        {admin && (domain.verified || !scannable) && <Menu><MenuTrigger render={<Button variant="outline" size="icon" aria-label={t('domains.list.actions_for', { host: domain.host })} />}><DotsThreeIcon /></MenuTrigger>
           <MenuContent><MenuItem onClick={() => setVerifying(true)}>{t(domain.verified ? 'domains.page.verify_again' : 'domains.list.verify')}</MenuItem></MenuContent></Menu>}
       </div>
     </div>
@@ -91,8 +91,8 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
       </TabsContent>}
       <TabsContent value="scans" className="pt-6">
         <AnalysisList asset={domain.key} refreshKey={runs.data?.length ?? 0} onOpen={onOpenRun} onNew={() => onNewScan(domain)} viewer={{ username: user.username, admin }}
-          empty={<div className="flex flex-col items-center gap-3 py-14 text-center"><Radar className="size-7 text-app-muted" aria-hidden /><p className="text-sm text-app-muted">{t('domains.page.scans_empty')}</p>
-            {scannable && <Button onClick={() => onNewScan(domain)}><Play aria-hidden />{t('domains.page.new_scan')}</Button>}</div>} />
+          empty={<div className="flex flex-col items-center gap-3 py-14 text-center"><TargetIcon className="size-7 text-app-muted" aria-hidden /><p className="text-sm text-app-muted">{t('domains.page.scans_empty')}</p>
+            {scannable && <Button onClick={() => onNewScan(domain)}><ScanIcon aria-hidden />{t('domains.page.new_scan')}</Button>}</div>} />
       </TabsContent>
     </Tabs>
     {admin && <VerifyDomainDialog domain={verifying ? domain : null} onOpenChange={open => { if (!open) setVerifying(false) }}

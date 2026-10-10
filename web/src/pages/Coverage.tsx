@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleDashed, Clock3, TriangleAlert } from 'lucide-react'
+import { CircleDashedIcon, ClockIcon, WarningIcon } from '@phosphor-icons/react'
 import { AssetPicker } from '@/features/sources/asset-picker'
 import type { Asset } from '@/features/sources/asset-option'
 import { StepList } from '@/features/findings/step-list'
@@ -35,7 +35,7 @@ export function Coverage({ run, coverage, steps }: { run: RunRow | null; coverag
         <span className={`mt-0.5 font-mono text-xs text-app-muted`}>{item.id}</span>
         <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2 text-sm">{item.title}{item.status === 'partial' && item.findings ? <Badge variant="outline" className="text-[11px]">{t('common:count.findings', { count: item.findings })}</Badge> : null}{item.rules ? <span className="text-[11px] text-app-subtle">{t('rules', { count: item.rules })}</span> : null}</div>
           <div className="text-xs leading-5 text-app-subtle">{item.reason}</div></div>
-        {item.status === 'partial' ? <CircleDashed aria-hidden className="size-4 shrink-0 text-attention" /> : item.status === 'inconclusive' ? <TriangleAlert aria-hidden className="size-4 shrink-0 text-attention" /> : <Clock3 aria-hidden className="size-4 shrink-0 text-app-subtle" />}
+        {item.status === 'partial' ? <CircleDashedIcon aria-hidden className="size-4 shrink-0 text-attention" /> : item.status === 'inconclusive' ? <WarningIcon aria-hidden className="size-4 shrink-0 text-attention" /> : <ClockIcon aria-hidden className="size-4 shrink-0 text-app-subtle" />}
       </li>)}</ul>
     </section>
     <div className="min-w-0 space-y-8">

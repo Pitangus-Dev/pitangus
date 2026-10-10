@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, TriangleAlert } from 'lucide-react'
+import { CircleNotchIcon, WarningIcon } from '@phosphor-icons/react'
 import type { SessionUser } from '@/features/auth/session'
 import { RunProgress } from '@/features/analyses/run-progress'
 import { assetOption, type Asset } from '@/features/sources/asset-option'
@@ -48,7 +48,7 @@ export function AssetPickers({ selection }: { selection: AssetSelection }) {
 function Failed({ message, busy, onRetry }: { message: string; busy: boolean; onRetry: () => void }) {
   const { t } = useTranslation('findings')
   return <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">
-    {message}<Button size="xs" variant="outline" disabled={busy} onClick={onRetry}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.retry')}</Button></p>
+    {message}<Button size="xs" variant="outline" disabled={busy} onClick={onRetry}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.retry')}</Button></p>
 }
 
 // One asset's findings: its current state (the registry: scans and pull requests together, by tab) with its own
@@ -86,7 +86,7 @@ export function AssetFindings({ selection, tab, onTab, user, onNew, onOpenPolici
     : <RepositoryResult key={`${run}:${tab}`} run={detail} onNew={onNew} canAccept={admin} canManage={admin} onChanged={reload} initialView={run === CURRENT && tab !== 'open' ? 'all' : 'active'} exportStatus={tab}
         focus={run === CURRENT && focus.repo === asset.key ? focus.finding : null} />
   return <>
-    {asset?.removed_at && <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger"><TriangleAlert className="mt-0.5 size-4 shrink-0" /><span>{t('page.removed', { date: formatDate(asset.removed_at) })}</span></div>}
+    {asset?.removed_at && <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger"><WarningIcon className="mt-0.5 size-4 shrink-0" /><span>{t('page.removed', { date: formatDate(asset.removed_at) })}</span></div>}
     {/* This asset's own settings in one strip: the findings list is what matters. Global policies live in Policies. */}
     {/* Excluded paths and secret entries are about files: a site's scope lives on its domain page. */}
     {run === CURRENT && asset && kind !== 'domain' && <RepositorySettings key={asset.key} assetKey={asset.key} name={asset.name} kind={kind}

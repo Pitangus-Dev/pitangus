@@ -1,7 +1,7 @@
 import { useCallback, useId, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowUp, LoaderCircle, MoreHorizontal, Plus, X } from 'lucide-react'
+import { ArrowDownIcon, ArrowUpIcon, CircleNotchIcon, DotsThreeIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
@@ -73,7 +73,7 @@ export function RulesSection({ routing, backfills, onRemove }: { routing: JiraRo
   return <section aria-labelledby="jira-rules" className="space-y-3">
     <div className="flex flex-wrap items-end justify-between gap-2"><div><h4 id="jira-rules" className="text-sm font-semibold">{t('jira.rules.title')}</h4><p className="text-xs text-app-subtle">{t('jira.rules.help')}</p></div>
       <span className="flex flex-wrap items-center justify-end gap-2">{(full || routing.destinations.length === 0) && <span id="jira-rules-blocked" className="text-xs text-app-subtle">{full ? t('jira.rules.limit', { max: routing.limits.rules }) : t('jira.rules.needs_destination')}</span>}
-        <Button size="sm" variant="outline" disabled={full || routing.destinations.length === 0} aria-describedby={full || routing.destinations.length === 0 ? 'jira-rules-blocked' : undefined} onClick={() => { setNotice(''); setEditing('new') }}><Plus />{t('jira.rules.add')}</Button></span></div>
+        <Button size="sm" variant="outline" disabled={full || routing.destinations.length === 0} aria-describedby={full || routing.destinations.length === 0 ? 'jira-rules-blocked' : undefined} onClick={() => { setNotice(''); setEditing('new') }}><PlusIcon />{t('jira.rules.add')}</Button></span></div>
     <p role="status" className="text-xs text-app-muted empty:hidden">{notice}</p>
     {error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</p>}
     <ol className="divide-y divide-app-line rounded-xl border border-app-line">{routing.rules.map((rule, index) => {
@@ -91,10 +91,10 @@ export function RulesSection({ routing, backfills, onRemove }: { routing: JiraRo
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           {!rule.default && <>
-            <Button size="icon-xs" variant="ghost" aria-label={t('jira.rules.move_up', { name: rule.name })} disabled={moving || index === 0} onClick={() => void move(rule, -1)}><ArrowUp /></Button>
-            <Button size="icon-xs" variant="ghost" aria-label={t('jira.rules.move_down', { name: rule.name })} disabled={moving || index === movable.length - 1} onClick={() => void move(rule, 1)}><ArrowDown /></Button>
+            <Button size="icon-xs" variant="ghost" aria-label={t('jira.rules.move_up', { name: rule.name })} disabled={moving || index === 0} onClick={() => void move(rule, -1)}><ArrowUpIcon /></Button>
+            <Button size="icon-xs" variant="ghost" aria-label={t('jira.rules.move_down', { name: rule.name })} disabled={moving || index === movable.length - 1} onClick={() => void move(rule, 1)}><ArrowDownIcon /></Button>
           </>}
-          <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('jira.rules.actions', { name: rule.name })} />}><MoreHorizontal /></MenuTrigger>
+          <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('jira.rules.actions', { name: rule.name })} />}><DotsThreeIcon /></MenuTrigger>
             <MenuContent><MenuItem onClick={() => { setNotice(''); setEditing(rule) }}>{t('common:actions.edit')}</MenuItem>
               {rule.mode === 'auto' && rule.enabled && rule.destination && <MenuItem onClick={() => { setError(''); setRefilling(rule) }}>{t('jira.rules.rerun_backfill')}</MenuItem>}
               {!rule.default && <MenuItem onClick={() => onRemove(rule)}>{t('common:actions.remove')}</MenuItem>}</MenuContent></Menu>
@@ -135,7 +135,7 @@ function BackfillConfirm({ rule, onClose, onStarted }: { rule: JiraRule; onClose
     <p role="status" className="text-sm text-app-muted">{preview ? <PreviewText preview={preview} /> : check.isPending ? t('jira.preview.checking') : null}</p>
     {(error || check.isError) && <p role="alert" className="text-xs text-danger">{error || check.error?.message}</p>}
     <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
-      <Button disabled={busy || !preview?.issues} onClick={() => void start()}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.rules.rerun_confirm', { count: preview?.issues ?? 0 })}</Button></DialogFooter>
+      <Button disabled={busy || !preview?.issues} onClick={() => void start()}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.rules.rerun_confirm', { count: preview?.issues ?? 0 })}</Button></DialogFooter>
   </DialogContent></Dialog>
 }
 
@@ -235,12 +235,12 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
         {wantsBackfill && <div role="status" className="rounded-lg border border-app-line bg-panel px-3 py-2 text-xs">
           {previewCurrent && preview ? <p><PreviewText preview={preview.result} /></p>
             : <p className="text-app-muted">{preview ? t('jira.preview.outdated') : t('jira.preview.needed')}</p>}
-          {!previewCurrent && <Button type="button" size="xs" variant="outline" className="mt-2" disabled={previewing} onClick={() => void runPreview()}>{previewing && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.preview.run')}</Button>}
+          {!previewCurrent && <Button type="button" size="xs" variant="outline" className="mt-2" disabled={previewing} onClick={() => void runPreview()}>{previewing && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.preview.run')}</Button>}
         </div>}
       </div>}
       {message && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{message}</div>}
       <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button type="submit" disabled={busy || previewing}>{(busy || previewing) && <LoaderCircle className="motion-safe:animate-spin" />}{wantsBackfill && previewCurrent && preview?.result.issues ? t('jira.rules.save_backfill', { count: preview.result.issues }) : t('jira.rules.save')}</Button></DialogFooter>
+        <Button type="submit" disabled={busy || previewing}>{(busy || previewing) && <CircleNotchIcon className="motion-safe:animate-spin" />}{wantsBackfill && previewCurrent && preview?.result.issues ? t('jira.rules.save_backfill', { count: preview.result.issues }) : t('jira.rules.save')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -266,7 +266,7 @@ function AssetsField({ label, value, max, onChange, error, invalid, describedBy 
 function RemoveAsset({ assetKey, onRemove }: { assetKey: string; onRemove: () => void }) {
   const { t } = useTranslation('integrations')
   const name = useQuery(assetQuery(assetKey)).data?.name ?? assetKey
-  return <button type="button" aria-label={t('jira.rules.remove_asset', { name })} onClick={onRemove} className="grid size-6 place-items-center rounded text-app-subtle hover:bg-app-soft hover:text-app-fg"><X className="size-3" /></button>
+  return <button type="button" aria-label={t('jira.rules.remove_asset', { name })} onClick={onRemove} className="grid size-6 place-items-center rounded text-app-subtle hover:bg-app-soft hover:text-app-fg"><XIcon className="size-3" /></button>
 }
 
 // Recent changes, newest first; ids are shown by the name they have now.

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatCalendarDay } from '@/shared/i18n/format'
-import { CheckCheck, ChevronDown, CircleDot, Clock3, LoaderCircle, RotateCcw, ShieldX, ThumbsUp, Wrench } from 'lucide-react'
+import { ArrowCounterClockwiseIcon, CaretDownIcon, ChecksIcon, CircleNotchIcon, ClockIcon, RecordIcon, ShieldSlashIcon, ThumbsUpIcon, WrenchIcon } from '@phosphor-icons/react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
@@ -17,7 +17,7 @@ const triageClass: Record<TriageStatus, string> = {
   false_positive: 'border-app-line bg-app-soft text-app-subtle line-through decoration-app-faint', accepted: 'border-app-line text-app-secondary',
   fixed: 'border-success-line text-success',
 }
-const icon: Record<TriageStatus, typeof CircleDot> = { open: RotateCcw, in_progress: Wrench, false_positive: ShieldX, accepted: ThumbsUp, fixed: CheckCheck }
+const icon: Record<TriageStatus, typeof RecordIcon> = { open: ArrowCounterClockwiseIcon, in_progress: WrenchIcon, false_positive: ShieldSlashIcon, accepted: ThumbsUpIcon, fixed: ChecksIcon }
 const VERB = {
   open: 'triage.verb.open', in_progress: 'triage.verb.in_progress', false_positive: 'triage.verb.false_positive', accepted: 'triage.verb.accepted', fixed: 'triage.verb.fixed',
 } as const satisfies Record<TriageStatus, string>
@@ -49,7 +49,7 @@ export function TriageActions({ current, canAccept, onPick, size = 'sm' }: { cur
   const Primary = icon[primary]
   return <div className="flex flex-wrap gap-1.5">
     <Button type="button" size={size} variant="outline" onClick={() => onPick(primary)} className="border-app-line bg-app-soft"><Primary />{t(VERB[primary])}</Button>
-    {rest.length > 0 && <Menu><MenuTrigger render={<Button type="button" size={size} variant="outline" />}>{t('triage.more_states')}<ChevronDown className="size-3.5" /></MenuTrigger>
+    {rest.length > 0 && <Menu><MenuTrigger render={<Button type="button" size={size} variant="outline" />}>{t('triage.more_states')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
       <MenuContent align="start">{rest.map(status => { const Icon = icon[status]; return <MenuItem key={status} onClick={() => onPick(status)}><Icon />{t(VERB[status])}</MenuItem> })}</MenuContent></Menu>}
   </div>
 }
@@ -101,7 +101,7 @@ export function TriageDialog({ runId = '', status, fingerprints = [], selections
       {selections && failed.length > 0 && <div role="alert" className="space-y-1 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">
         <p className="font-medium">{t('scope.triage_partial', { count: selections.length - failed.length, total: selections.length })}</p>
         <ul className="max-h-32 space-y-0.5 overflow-y-auto">{failed.map(part => <li key={part.asset}><span className="font-medium">{part.name}</span> · {part.error}</li>)}</ul></div>}
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || (needsReason(status) && reason.trim().length < 10)}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{failed.length ? t('scope.triage_retry', { count: failed.length }) : t('common:actions.save')}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || (needsReason(status) && reason.trim().length < 10)}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{failed.length ? t('scope.triage_retry', { count: failed.length }) : t('common:actions.save')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -112,7 +112,7 @@ export function TriageHistory({ state }: { state?: TriageState }) {
   if (!history.length) return null
   return <details className="mt-3"><summary className="cursor-pointer text-xs text-app-muted">{t('triage.history', { total: history.length })}</summary>
     <ol className="mt-2 space-y-1.5 border-l border-app-line pl-3 text-xs">{[...history].reverse().map((event, index) => <li key={index} className="text-app-muted">
-      <span className="flex items-center gap-1.5"><Clock3 className="size-3 text-app-subtle" /><span className="font-medium text-app-secondary">{t(TRIAGE_LABEL[event.status])}</span> · {event.by} · {formatDate(event.at)}{event.expires_at ? ` · ${t('triage.expires_on', { date: formatCalendarDay(event.expires_at) })}` : ''}</span>
+      <span className="flex items-center gap-1.5"><ClockIcon className="size-3 text-app-subtle" /><span className="font-medium text-app-secondary">{t(TRIAGE_LABEL[event.status])}</span> · {event.by} · {formatDate(event.at)}{event.expires_at ? ` · ${t('triage.expires_on', { date: formatCalendarDay(event.expires_at) })}` : ''}</span>
       {event.reason && <span className="block pl-4.5">{event.reason}</span>}{event.note && <span className="block pl-4.5 text-app-subtle">{event.note}</span>}
     </li>)}</ol></details>
 }

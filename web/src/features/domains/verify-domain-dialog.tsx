@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Download, LoaderCircle, ShieldCheck } from 'lucide-react'
+import { CircleNotchIcon, DownloadSimpleIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { apiPost } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/http'
 import { Button } from '@/shared/ui/button'
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { CopyField } from '@/features/domains/copy-field'
 import { proofOf, untilOf, type Domain, type ProofMethod } from '@/features/domains/domains'
+import { Notice } from '@/shared/ui/notice'
 
 const FILE_NAME = 'pitangus-verify.txt'
 
@@ -46,10 +47,9 @@ function VerifyBody({ domain, onClose, onVerified, onStartScan }: { domain: Doma
   const done = verify.data
 
   if (done) return <>
-    <div role="status" className="flex items-start gap-3 rounded-xl border border-success-line bg-success-soft p-4 text-sm text-success">
-      <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-      <span><span className="block font-medium">{t('domains.verify.done', { host: done.host })}</span><span>{t('domains.verify.until', { date: untilOf(done) })}</span></span>
-    </div>
+    <Notice role="status" tone="ok">
+      <span className="block font-medium">{t('domains.verify.done', { host: done.host })}</span><span className="text-app-muted">{t('domains.verify.until', { date: untilOf(done) })}</span>
+    </Notice>
     <DialogFooter>
       <Button variant="ghost" onClick={onClose}>{t('common:actions.close')}</Button>
       {onStartScan && done.kind !== 'surface' && <Button autoFocus onClick={() => { onClose(); onStartScan(done) }}>{t('domains.verify.start_scan')}</Button>}
@@ -80,7 +80,7 @@ function VerifyBody({ domain, onClose, onVerified, onStartScan }: { domain: Doma
         <p className="text-sm text-app-secondary">{t('domains.verify.file_intro')}</p>
         <CopyField label={t('domains.verify.path')} value={domain.verify_file_url ?? ''} />
         <CopyField label={t('domains.verify.content')} value={domain.verify_token ?? ''} />
-        <Button type="button" variant="outline" size="sm" onClick={() => download(domain.verify_token ?? '')}><Download aria-hidden />{t('domains.verify.download')}</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => download(domain.verify_token ?? '')}><DownloadSimpleIcon aria-hidden />{t('domains.verify.download')}</Button>
         <p className="text-xs text-app-muted">{t('domains.verify.exact_host', { host: domain.host })}</p>
       </TabsContent>
       <TabsContent value="meta" className="space-y-3 pt-3">
@@ -92,7 +92,7 @@ function VerifyBody({ domain, onClose, onVerified, onStartScan }: { domain: Doma
     {failure && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger"><p>{failure.title}</p>{failure.detail && <p className="mt-1 text-xs">{failure.detail}</p>}</div>}
     <DialogFooter>
       <Button variant="ghost" onClick={onClose}>{t('domains.verify.later')}</Button>
-      <Button disabled={verify.isPending} onClick={() => verify.mutate(method)}>{verify.isPending ? <LoaderCircle className="motion-safe:animate-spin" aria-hidden /> : <ShieldCheck aria-hidden />}{t('domains.verify.submit')}</Button>
+      <Button disabled={verify.isPending} onClick={() => verify.mutate(method)}>{verify.isPending ? <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden /> : <ShieldCheckIcon aria-hidden />}{t('domains.verify.submit')}</Button>
     </DialogFooter>
   </>
 }

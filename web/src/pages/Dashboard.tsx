@@ -4,7 +4,7 @@ import { GettingStarted } from '@/features/onboarding/getting-started'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatCalendarDay, formatDay, formatNumber, formatPercent } from '@/shared/i18n/format'
-import { Activity, ChevronDown, RefreshCw, ShieldAlert } from 'lucide-react'
+import { ArrowsClockwiseIcon, CaretDownIcon, PulseIcon, ShieldWarningIcon } from '@phosphor-icons/react'
 import { ActivityHeatmap, FoundVsFixed, HBars, PublishedBySeverity, SeverityBar, StackedSeverityBars } from '@/shared/charts/charts'
 import { sevName } from '@/shared/charts/severity'
 import { SEVERITY_CLASS } from '@/shared/ui/severity'
@@ -43,11 +43,11 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-app-muted">{t('summary.assets', { count: kpis.assets })} · {t('summary.runs', { count: kpis.runs_in_window })} · {t('summary.updated', { date: formatDate(data.generated_at) })}</p>
-      <div className="flex items-center gap-2"><Select value={String(days)} onValueChange={value => setDays(Number(value ?? 30))}><SelectTrigger size="sm" className="min-w-40 border-app-line bg-app-soft text-app-secondary">{t(WINDOWS.find(([value]) => value === days)?.[1] ?? 'window.days_30')}</SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{WINDOWS.map(([value, label]) => <SelectItem key={value} value={String(value)}>{t(label)}</SelectItem>)}</SelectContent></Select><Button variant="ghost" size="icon-sm" aria-label={t('common:actions.refresh')} onClick={() => void load()}><RefreshCw /></Button></div>
+      <div className="flex items-center gap-2"><Select value={String(days)} onValueChange={value => setDays(Number(value ?? 30))}><SelectTrigger size="sm" className="min-w-40 border-app-line bg-app-soft text-app-secondary">{t(WINDOWS.find(([value]) => value === days)?.[1] ?? 'window.days_30')}</SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{WINDOWS.map(([value, label]) => <SelectItem key={value} value={String(value)}>{t(label)}</SelectItem>)}</SelectContent></Select><Button variant="ghost" size="icon-sm" aria-label={t('common:actions.refresh')} onClick={() => void load()}><ArrowsClockwiseIcon /></Button></div>
     </div>
 
     <GettingStarted onNavigate={onNavigate} />
-    {empty && <Card className="border-app-line bg-panel"><CardContent className="flex flex-col items-center gap-3 py-12 text-center"><Activity className="size-7 text-app-subtle" /><p className="font-medium">{t('empty.title')}</p><p className="max-w-md text-sm text-app-muted">{t('empty.text')}</p><Button variant="outline" onClick={onNew}>{t('empty.new_analysis')}</Button></CardContent></Card>}
+    {empty && <Card className="border-app-line bg-panel"><CardContent className="flex flex-col items-center gap-3 py-12 text-center"><PulseIcon className="size-7 text-app-subtle" /><p className="font-medium">{t('empty.title')}</p><p className="max-w-md text-sm text-app-muted">{t('empty.text')}</p><Button variant="outline" onClick={onNew}>{t('empty.new_analysis')}</Button></CardContent></Card>}
 
     <KeyFigures>
       <Kpi label={t('kpi.score')} value={kpis.security_score.value} suffix="/100" hint={t('kpi.score_hint')} tone={kpis.security_score.value >= 80 ? 'teal' : kpis.security_score.value >= 50 ? 'amber' : 'rose'} />
@@ -77,7 +77,7 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
     <Card className="border-app-line bg-panel"><CardHeader className="pb-3"><CardTitle className="text-base">{t('activity.title')}</CardTitle><CardDescription className="text-xs">{t('activity.description')}</CardDescription></CardHeader>
       <CardContent className="flex flex-col gap-6 lg:flex-row lg:items-start"><div className="min-w-0 flex-1"><ActivityHeatmap days={data.activity} /></div><ActivityStats days={data.activity} /></CardContent></Card>
     <CyberNews news={data.cve_news} onTracker={onTracker} kev={<KevNews news={data.kev_news} onTracker={onTracker} />} />
-    {data.tools.length ? <p className="flex flex-wrap gap-3 text-xs text-app-subtle"><ShieldAlert className="size-3.5" />{t('tools', { tools: data.tools.map(tool => `${tool.name} ${tool.version} (${tool.status})`).join(' · ') })}</p> : null}
+    {data.tools.length ? <p className="flex flex-wrap gap-3 text-xs text-app-subtle"><ShieldWarningIcon className="size-3.5" />{t('tools', { tools: data.tools.map(tool => `${tool.name} ${tool.version} (${tool.status})`).join(' · ') })}</p> : null}
   </div>
 }
 
@@ -173,7 +173,7 @@ function Exploitability({ data, onMore }: { data: Exploitable; onMore: () => voi
   const visible = all ? rows : rows.slice(0, LIST)
   return <div className="text-sm">
     <div className={all ? 'max-h-80 overflow-y-auto pr-1' : ''} tabIndex={all ? 0 : undefined} role={all ? 'region' : undefined} aria-label={all ? t('exploitability.region') : undefined}>{visible.map(row => <Row key={row.key} left={<span className="min-w-0 truncate"><span className="font-mono text-xs">{row.cve}</span> <span className="text-app-muted">· {row.where}</span></span>} right={row.tag} />)}</div>
-    {rows.length > LIST && <button type="button" aria-expanded={all} onClick={() => setAll(value => !value)} className="mt-2 flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{all ? t('exploitability.show_less') : t('exploitability.show_all', { total: rows.length })}<ChevronDown className={`size-3 motion-safe:transition motion-safe:duration-150 ${all ? 'rotate-180' : ''}`} /></button>}
+    {rows.length > LIST && <button type="button" aria-expanded={all} onClick={() => setAll(value => !value)} className="mt-2 flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{all ? t('exploitability.show_less') : t('exploitability.show_all', { total: rows.length })}<CaretDownIcon className={`size-3 motion-safe:transition motion-safe:duration-150 ${all ? 'rotate-180' : ''}`} /></button>}
     {total > rows.length && all && <button type="button" onClick={onMore} className="mt-1 flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{t('exploitability.showing', { shown: rows.length, total })}</button>}
   </div>
 }

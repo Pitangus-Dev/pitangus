@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileCheck2 } from 'lucide-react'
+import { FileTextIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { formatNumber } from '@/shared/i18n/format'
 import { SCOPE_MAX } from '@/shared/lib/scope'
@@ -8,6 +8,7 @@ import type { ScopedFindings } from '@/shared/api/queries'
 import { FindingsTable } from '@/features/findings/findings-table'
 import { LifecycleSummary } from '@/features/findings/lifecycle-summary'
 import type { FindingTab, RepositoryFinding, ScopeAsset } from '@/features/findings/finding-model'
+import { Notice } from '@/shared/ui/notice'
 
 const ASSETS_SHOWN = 12
 
@@ -25,7 +26,7 @@ export function ScopeResult({ scope, name, tab, canAccept, canManage = canAccept
   return <div className="space-y-6">
     <FindingsTable findings={findings} kpis={scope.summary.kpis} header={<ScopeHeader scope={scope} name={name} />}
       aside={<>
-        {scope.truncated && <p role="status" className="rounded-xl border border-attention-line bg-attention-soft px-4 py-3 text-sm text-attention">{t('scope.truncated', { shown: formatNumber(findings.length), total: formatNumber(scope.total) })}</p>}
+        {scope.truncated && <Notice role="status" tone="attention">{t('scope.truncated', { shown: formatNumber(findings.length), total: formatNumber(scope.total) })}</Notice>}
         {scope.by_asset.length > 0 && <ScopeByAsset assets={scope.by_asset} onOpen={onOpenAsset} opening={opening} />}
       </>}
       column={{ label: t('scope.asset'), text: finding => finding.asset?.name ?? '',
@@ -67,7 +68,7 @@ function ScopeByAsset({ assets, onOpen, opening }: { assets: ScopeAsset[]; onOpe
 function ScopeExports({ assets, onAudit }: { assets: number; onAudit: () => void }) {
   const { t } = useTranslation('findings')
   return <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-    <Button variant="outline" size="sm" disabled={assets === 0 || assets > SCOPE_MAX} aria-describedby="scope-exports" className="border-app-line bg-app-soft" onClick={onAudit}><FileCheck2 />{t('export.audit')}</Button>
+    <Button variant="outline" size="sm" disabled={assets === 0 || assets > SCOPE_MAX} aria-describedby="scope-exports" className="border-app-line bg-app-soft" onClick={onAudit}><FileTextIcon />{t('export.audit')}</Button>
     <p id="scope-exports" className="text-xs text-app-subtle">{assets > SCOPE_MAX ? t('scope.audit_too_many', { max: formatNumber(SCOPE_MAX) }) : t('scope.exports_one')}</p>
   </div>
 }

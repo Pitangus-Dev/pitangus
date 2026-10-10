@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next'
 import { Trans, useTranslation } from 'react-i18next'
-import { CircleAlert, CircleCheck, ExternalLink } from 'lucide-react'
+import { ArrowSquareOutIcon, CheckCircleIcon, WarningIcon } from '@phosphor-icons/react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { formatDate } from '@/shared/i18n/format'
@@ -24,7 +24,7 @@ export function RunHeader({ run, onNew }: { run: RepositoryRun; onNew: () => voi
     </div>
   }
   if (run.type === 'pr_review' && run.pull_request) return <div className="space-y-3 rounded-lg border border-app-line bg-panel p-5">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="mb-1 text-xs text-app-muted">{t('pr.eyebrow', { name: run.source?.name ?? '' })}</div><a href={run.pull_request.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xl font-semibold hover:underline">#{run.pull_request.number} {run.pull_request.title}<ExternalLink className="size-4 text-app-subtle" /></a><p className="mt-1 text-xs text-app-subtle">{run.pull_request.author} · {run.pull_request.head_ref} → {run.pull_request.base_ref} · commit <span className="font-mono">{run.pull_request.head_sha.slice(0, 7)}</span> · {t('pr.changed_files', { count: run.summary.changed_files ?? 0 })}</p></div>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="mb-1 text-xs text-app-muted">{t('pr.eyebrow', { name: run.source?.name ?? '' })}</div><a href={run.pull_request.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xl font-semibold hover:underline">#{run.pull_request.number} {run.pull_request.title}<ArrowSquareOutIcon className="size-4 text-app-subtle" /></a><p className="mt-1 text-xs text-app-subtle">{run.pull_request.author} · {run.pull_request.head_ref} → {run.pull_request.base_ref} · commit <span className="font-mono">{run.pull_request.head_sha.slice(0, 7)}</span> · {t('pr.changed_files', { count: run.summary.changed_files ?? 0 })}</p></div>
       {run.review && <Badge variant="outline" className={run.review.verdict.state === 'failure' ? 'border-danger-line bg-danger-soft text-danger' : 'border-success-line text-success'}>{run.review.verdict.state === 'failure' ? t('pr.blocks') : t('pr.passes')} · {run.review.verdict.description}</Badge>}</div>
     <p className="text-sm text-app-muted">{run.summary.preexisting ? <Trans t={t} i18nKey="pr.scope_preexisting" count={run.summary.preexisting} components={{ strong: <strong /> }} /> : <Trans t={t} i18nKey="pr.scope" components={{ strong: <strong /> }} />}{run.review && !run.review.baseline_run ? ` ${t('pr.no_baseline')}` : ''}</p>
     {run.review?.delivery && <p className="text-xs text-app-subtle">{t('pr.delivery', { comment: run.review.delivery.comment ?? '—', status: run.review.delivery.status ?? '—' })}</p>}
@@ -52,8 +52,8 @@ function SignIns({ logins }: { logins: SignIn[] }) {
   return <div className="mt-3 space-y-1.5">
     <ul aria-label={t('web.sign_ins')} className="space-y-1 text-sm">{logins.map(login => <li key={login.name} className="flex items-start gap-2">
       {login.status === 'signed_in'
-        ? <><CircleCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden /><span className="text-app-secondary">{t('web.signed_in', { name: login.name })}</span></>
-        : <><CircleAlert className="mt-0.5 size-4 shrink-0 text-attention" aria-hidden /><span className="text-app-secondary">{t('web.sign_in_failed', { name: login.name, reason: login.reason ?? '' })}</span></>}
+        ? <><CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-success" aria-hidden /><span className="text-app-secondary">{t('web.signed_in', { name: login.name })}</span></>
+        : <><WarningIcon className="mt-0.5 size-4 shrink-0 text-attention" aria-hidden /><span className="text-app-secondary">{t('web.sign_in_failed', { name: login.name, reason: login.reason ?? '' })}</span></>}
     </li>)}</ul>
     {failed && <p className="text-xs text-attention">{t('web.partial')}</p>}
   </div>

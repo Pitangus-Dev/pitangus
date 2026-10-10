@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Check, Code2, LockKeyhole, Plus, Trash2 } from 'lucide-react'
+import { CheckIcon, CodeIcon, LockKeyIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react'
 import { sourceAccountsQuery, sourceCountQuery } from '@/shared/api/queries'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, dialogFullOnMobile } from '@/shared/ui/dialog'
@@ -51,17 +51,17 @@ export function RepositoriesStep({ value, onChange, orgTotal, isAdmin, batchBusy
       : sources.length
       ? <div className="space-y-2">
           <ul className="space-y-2">{sources.map(item => <li key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-app-line bg-inset p-3">
-            <span className="flex min-w-0 items-center gap-3"><Code2 className="size-4 shrink-0 text-brand" aria-hidden />
+            <span className="flex min-w-0 items-center gap-3"><CodeIcon className="size-4 shrink-0 text-brand" aria-hidden />
               <span className="min-w-0"><span className="block truncate text-sm font-medium">{item.name}</span>
                 <span className="text-xs text-app-muted">{item.provider.toUpperCase()} · {item.branch ?? t('repos.default_branch')}{sources.length > 1 && !item.installation_id ? ` · ${t('repos.not_in_app_badge')}` : ''}</span></span></span>
-            <Button aria-label={t('remove_item', { name: item.name })} variant="ghost" size="icon-sm" onClick={() => toggle(item)}><Trash2 /></Button>
+            <Button aria-label={t('remove_item', { name: item.name })} variant="ghost" size="icon-sm" onClick={() => toggle(item)}><TrashIcon /></Button>
           </li>)}</ul>
-          <Button variant="outline" onClick={() => setPicking(true)}><Plus aria-hidden />{t('repos.add_more')}</Button>
+          <Button variant="outline" onClick={() => setPicking(true)}><PlusIcon aria-hidden />{t('repos.add_more')}</Button>
         </div>
       : <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-app-line py-12 text-center">
-          <Code2 className="size-6 text-app-muted" aria-hidden /><p className="text-sm font-medium">{t('repos.empty_title')}</p>
+          <CodeIcon className="size-6 text-app-muted" aria-hidden /><p className="text-sm font-medium">{t('repos.empty_title')}</p>
           <p className="max-w-sm text-sm text-app-muted">{t('repos.empty_text')}</p>
-          <Button onClick={() => setPicking(true)}><Plus aria-hidden />{t('repos.add')}</Button>
+          <Button onClick={() => setPicking(true)}><PlusIcon aria-hidden />{t('repos.add')}</Button>
         </div>}
     {note}
     <SourceDialog open={picking} onOpenChange={setPicking} selected={sources.map(item => item.id)} onToggle={toggle} onManageConnections={onManageConnections} />
@@ -76,10 +76,10 @@ function SourceDialog({ open, onOpenChange, selected, onToggle, onManageConnecti
     <DialogHeader><DialogTitle>{t('repos.add')}</DialogTitle></DialogHeader>
     {open && <div className="max-h-[60vh] overflow-y-auto pr-1"><SourceSearch autoFocus onLoaded={loaded} render={item => { const on = selected.includes(item.id)
       return <button type="button" aria-pressed={on} onClick={() => onToggle(item)} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left motion-safe:transition ${on ? 'border-app-fg bg-app-soft' : 'border-app-line bg-inset hover:border-app-faint'}`}>
-        <Code2 className="size-4 shrink-0 text-app-muted" aria-hidden />
+        <CodeIcon className="size-4 shrink-0 text-app-muted" aria-hidden />
         <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{item.name}</span>
           <span className="text-xs text-app-muted">{item.provider.toUpperCase()} · {item.branch ?? t('repos.default_branch')}{item.installation_id ? '' : ` · ${t('repos.not_in_app_single')}`}</span></span>
-        {on ? <Check className="size-4 text-brand" aria-hidden /> : item.private ? <LockKeyhole className="size-4 text-app-muted" aria-hidden /> : null}</button> }} /></div>}
+        {on ? <CheckIcon className="size-4 text-brand" aria-hidden /> : item.private ? <LockKeyIcon className="size-4 text-app-muted" aria-hidden /> : null}</button> }} /></div>}
     {!connected && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-app-line bg-inset p-4 text-sm"><span className="text-app-muted">{t('repos.no_provider')}</span>
       <Button variant="outline" onClick={onManageConnections}>{t('repos.connect')}</Button></div>}
     <DialogFooter><span className="mr-auto text-xs text-app-muted">{t('repos.selected', { count: selected.length })}</span><Button onClick={() => onOpenChange(false)}>{t('repos.done')}</Button></DialogFooter>

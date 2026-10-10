@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { LoaderCircle, Plus } from 'lucide-react'
+import { CircleNotchIcon, PlusIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
@@ -50,12 +50,12 @@ export function Registries({ canManage }: { canManage: boolean }) {
   const firstField = useRef<HTMLInputElement>(null)
   return <SettingsSection id="integrations-registries" title={t('registries.title')}
     description={<Trans t={t} i18nKey="registries.description" components={{ b: <strong className="font-medium" /> }} />}
-    action={canManage && <Button size="sm" variant="outline" aria-expanded={adding} aria-controls={formId} onClick={() => { setAdding(!adding); if (!adding) window.setTimeout(() => firstField.current?.focus(), 0) }}><Plus />{t('registries.add')}</Button>}>
+    action={canManage && <Button size="sm" variant="outline" aria-expanded={adding} aria-controls={formId} onClick={() => { setAdding(!adding); if (!adding) window.setTimeout(() => firstField.current?.focus(), 0) }}><PlusIcon />{t('registries.add')}</Button>}>
     {!rows && !error && <SkeletonList rows={2} dense label={t('registries.loading')} />}
     {rows && <SettingsRows>
       {rows.map(row => <SettingsRow key={row.registry} title={<span className="font-mono">{row.registry}</span>} status={t('registries.row.saved')} tone="success"
         meta={[row.username, t('registries.token_last4', { last4: row.last4 }), saved(row)].filter(Boolean).join(' · ')}
-        actions={canManage && <Button variant="ghost" size="sm" aria-label={t('registries.remove_label', { host: row.registry })} disabled={!!busy} onClick={() => void remove(row.registry)}>{busy === row.registry && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.remove')}</Button>} />)}
+        actions={canManage && <Button variant="ghost" size="sm" aria-label={t('registries.remove_label', { host: row.registry })} disabled={!!busy} onClick={() => void remove(row.registry)}>{busy === row.registry && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.remove')}</Button>} />)}
       {rows.length === 0 && <SettingsRow empty title={t('registries.row.none')} meta={canManage ? t('registries.empty') : t('registries.admin_only')} />}
     </SettingsRows>}
     {canManage && <div id={formId} hidden={!adding} className="space-y-3 rounded-lg border border-app-line p-4">
@@ -63,7 +63,7 @@ export function Registries({ canManage }: { canManage: boolean }) {
         <div className="space-y-1.5"><label htmlFor="registry-host" className="text-xs text-app-muted">{t('registries.host')}</label><Input ref={firstField} id="registry-host" required value={registry} onChange={event => setRegistry(event.target.value)} maxLength={200} placeholder="ghcr.io" className="border-app-line bg-app-soft font-mono" /></div>
         <div className="space-y-1.5"><label htmlFor="registry-user" className="text-xs text-app-muted">{t('registries.username')}</label><Input id="registry-user" required value={username} onChange={event => setUsername(event.target.value)} maxLength={200} autoComplete="off" className="border-app-line bg-app-soft" /></div>
         <div className="space-y-1.5"><label htmlFor="registry-token" className="text-xs text-app-muted">{t('registries.token')}</label><Input id="registry-token" required type="password" autoComplete="new-password" value={token} onChange={event => setToken(event.target.value)} minLength={8} maxLength={4096} className="border-app-line bg-app-soft" /></div>
-        <div className="flex flex-wrap items-center gap-3 md:col-span-3"><Button type="submit" disabled={!!busy}>{busy === 'save' && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
+        <div className="flex flex-wrap items-center gap-3 md:col-span-3"><Button type="submit" disabled={!!busy}>{busy === 'save' && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
           <Button type="button" variant="ghost" onClick={() => setAdding(false)}>{t('common:actions.cancel')}</Button>
           <span className="text-xs text-app-subtle">{t('registries.stored_note')}</span></div>
       </form>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeftIcon, CheckIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { STEP_LABEL, type StepId } from '@/features/analyses/wizard/model'
 
@@ -21,7 +21,7 @@ export function StepFrame({ title, description, children, onBack, backLabel, onS
     {children}
     <div className="sticky bottom-0 z-10 -mx-4 space-y-2 border-t border-app-line bg-app px-4 py-3 sm:-mx-8 sm:px-8 md:static md:mx-0 md:bg-transparent md:px-0 md:pt-5 md:pb-0">
       <div className="flex items-center justify-between gap-3">
-        <Button variant="ghost" onClick={onBack}>{!backLabel && <ArrowLeft aria-hidden />}{backLabel ?? t('wizard.back')}</Button>
+        <Button variant="ghost" onClick={onBack}>{!backLabel && <ArrowLeftIcon aria-hidden />}{backLabel ?? t('wizard.back')}</Button>
         <div className="flex items-center gap-2">
           {onSkip && <Button variant="outline" onClick={onSkip}>{t('wizard.skip')}</Button>}
           {primary ?? (onContinue && <Button onClick={onContinue} disabled={continueDisabled}>{t('wizard.continue')}</Button>)}
@@ -45,7 +45,7 @@ export function StepRail({ steps, current, onJump, vertical = false }: { steps: 
     <ol aria-label={t('wizard.progress')} className={vertical ? 'hidden flex-col gap-1 text-sm xl:flex' : 'hidden flex-wrap items-center gap-x-2 gap-y-1 text-sm md:flex xl:hidden'}>{steps.map((id, index) => {
       const done = index < current
       const body = <><span className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs tabular-nums ${index === current ? 'border-app-fg bg-app-fg text-app' : done ? 'border-app-faint text-app-secondary' : 'border-app-line text-app-muted'}`}>
-        {done ? <Check className="size-3" aria-hidden /> : index + 1}</span>{t(STEP_LABEL[id])}</>
+        {done ? <CheckIcon className="size-3" aria-hidden /> : index + 1}</span>{t(STEP_LABEL[id])}</>
       return <li key={id} aria-current={index === current ? 'step' : undefined} className="flex items-center gap-2">
         {index > 0 && !vertical && <span aria-hidden className="h-px w-6 bg-app-line" />}
         {done

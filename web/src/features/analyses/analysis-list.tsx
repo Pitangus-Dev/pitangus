@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { formatDate } from '@/shared/i18n/format'
 import { usePaged } from '@/shared/lib/usePaged'
 import { Pagination } from '@/shared/ui/pagination'
-import { BellRing, Boxes, Code2, FileUp, GitPullRequest, Globe2, Plus, Radar, Search, ShieldCheck } from 'lucide-react'
+import { BellRingingIcon, CodeIcon, GitPullRequestIcon, GlobeIcon, MagnifyingGlassIcon, PackageIcon, PlusIcon, ShieldCheckIcon, TargetIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -20,7 +20,7 @@ const TYPE = { repository_scan: 'run_type.repository_scan', image_scan: 'run_typ
 const STATUS = { completed: 'common:run_status.completed', incomplete: 'common:run_status.incomplete', failed: 'common:run_status.failed', queued: 'common:run_status.queued', running: 'common:run_status.running' } as const
 const typeLabel = (t: T, type: string) => type in TYPE ? t(TYPE[type as keyof typeof TYPE]) : type
 const statusLabel = (t: T, status: string) => status in STATUS ? t(STATUS[status as keyof typeof STATUS]) : status
-const typeIcon = (type: string) => type === 'advisory_watch' ? BellRing : type === 'repository_scan' ? Code2 : type === 'image_scan' ? Boxes : type === 'dast_scan' ? Globe2 : type === 'pr_review' ? GitPullRequest : type === 'sarif_import' ? FileUp : ShieldCheck
+const typeIcon = (type: string) => type === 'advisory_watch' ? BellRingingIcon : type === 'repository_scan' ? CodeIcon : type === 'image_scan' ? PackageIcon : type === 'dast_scan' ? GlobeIcon : type === 'pr_review' ? GitPullRequestIcon : type === 'sarif_import' ? UploadSimpleIcon : ShieldCheckIcon
 const rowName = (t: T, row: AnalysisRow) => row.type === 'advisory_watch' || row.type === 'sarif_import' || row.type === 'dast_scan' ? row.source?.name ?? row.target ?? t('list.fallback.asset') : row.type === 'repository_scan' ? row.source?.name ?? t('list.fallback.repository') : row.type === 'image_scan' ? row.target ?? row.source?.name ?? t('list.fallback.image') : row.type === 'pr_review' ? row.target ?? row.source?.name ?? t('list.fallback.pull_request') : row.target ?? t('list.fallback.analysis')
 const rowIssues = (t: T, row: AnalysisRow) => { const count = row.summary.candidates ?? 0
   return { value: count, hint: row.type === 'pr_review' ? t('list.hint.pr_review', { count }) : row.type === 'advisory_watch' ? t('list.hint.advisory_watch', { count }) : t('list.hint.candidates', { count }) } }
@@ -42,7 +42,7 @@ export function AnalysisList({ refreshKey, onOpen, onNew, viewer, asset, empty }
   return <div className="space-y-5">
     {!asset && <BatchPanel active={batch} last={lastBatch} viewer={viewer} onChanged={() => void reloadBatches()} />}
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative min-w-0 flex-1 sm:max-w-xs"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" /><Input aria-label={t('list.search')} placeholder={t('list.search_placeholder')} value={query} onChange={event => setQuery(event.target.value)} className="border-app-line bg-app-soft pl-9" /></div>
+      <div className="relative min-w-0 flex-1 sm:max-w-xs"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" /><Input aria-label={t('list.search')} placeholder={t('list.search_placeholder')} value={query} onChange={event => setQuery(event.target.value)} className="border-app-line bg-app-soft pl-9" /></div>
       <Select value={status} onValueChange={value => setStatus(value ?? 'all')}><SelectTrigger aria-label={t('list.filter_status')} size="sm" className="min-w-40 border-app-line bg-app-soft text-app-secondary">{status === 'all' ? t('list.all_statuses') : statusLabel(t, status)}</SelectTrigger><SelectContent align="start" className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="all">{t('list.all_statuses')}</SelectItem><SelectItem value="running">{t('list.status_running')}</SelectItem><SelectItem value="completed">{t('common:run_status.completed')}</SelectItem><SelectItem value="incomplete">{t('common:run_status.incomplete')}</SelectItem><SelectItem value="failed">{t('common:run_status.failed')}</SelectItem></SelectContent></Select>
       {!asset && <Select value={type} onValueChange={value => setType(value ?? 'all')}><SelectTrigger aria-label={t('list.filter_type')} size="sm" className="min-w-44 border-app-line bg-app-soft text-app-secondary">{type === 'all' ? t('list.all_types') : typeLabel(t, type)}</SelectTrigger><SelectContent align="start" className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="all">{t('list.all_types')}</SelectItem><SelectItem value="repository_scan">{t('run_type.repository_scan')}</SelectItem><SelectItem value="image_scan">{t('run_type.image_scan')}</SelectItem><SelectItem value="dast_scan">{t('run_type.dast_scan')}</SelectItem><SelectItem value="pr_review">{t('run_type.pr_review')}</SelectItem><SelectItem value="advisory_watch">{t('run_type.advisory_watch')}</SelectItem><SelectItem value="sarif_import">{t('run_type.sarif_import')}</SelectItem></SelectContent></Select>}
     </div>
@@ -50,7 +50,7 @@ export function AnalysisList({ refreshKey, onOpen, onNew, viewer, asset, empty }
     {page.total === 0 && page.loading ? <SkeletonTable rows={6} columns={5} label={t('list.loading')} />
       : page.total === 0 && empty && !query.trim() && status === 'all' ? empty
       : page.total === 0
-      ? <div className="flex flex-col items-center gap-3 py-16 text-center"><Radar className="size-7 text-app-subtle" /><p className="font-medium">{t('list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t('list.empty_text')}</p><Button onClick={onNew} className="mt-1"><Plus /> {t('list.new')}</Button></div>
+      ? <div className="flex flex-col items-center gap-3 py-16 text-center"><TargetIcon className="size-7 text-app-subtle" /><p className="font-medium">{t('list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t('list.empty_text')}</p><Button onClick={onNew} className="mt-1"><PlusIcon /> {t('list.new')}</Button></div>
       : <div className="overflow-hidden rounded-xl border border-app-line bg-panel">
         <div className="hidden gap-3 border-b border-app-line px-4 py-3 text-xs text-app-subtle md:grid md:grid-cols-[100px_minmax(12rem,1fr)_110px_140px] lg:grid-cols-[110px_minmax(12rem,1fr)_150px_120px_150px]"><span>{t('list.columns.status')}</span><span>{t('list.columns.analysis')}</span><span className="hidden lg:block">{t('list.columns.type')}</span><span>{t('list.columns.findings')}</span><span>{t('list.columns.started')}</span></div>
         {visible.map(row => { const Icon = typeIcon(row.type); const issues = rowIssues(t, row)

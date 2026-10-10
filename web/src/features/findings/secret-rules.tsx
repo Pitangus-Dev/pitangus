@@ -1,7 +1,7 @@
 import { useCallback, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, Plus, Trash2, X } from 'lucide-react'
+import { CircleNotchIcon, PlusIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Disclosure } from '@/shared/ui/disclosure'
@@ -166,7 +166,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             {input('id', t('secret_rules.rule_id'), { placeholder: 'acme-api-token', maxLength: 60 })}
             <Button type="button" size="icon-sm" variant="ghost" onClick={() => set({ rules: form.rules.filter(item => item.key !== rule.key) })}
-              aria-label={t('secret_rules.remove_rule', { id: rule.id || index + 1 })} title={t('secret_rules.remove_rule', { id: rule.id || index + 1 })}><Trash2 /></Button>
+              aria-label={t('secret_rules.remove_rule', { id: rule.id || index + 1 })} title={t('secret_rules.remove_rule', { id: rule.id || index + 1 })}><TrashIcon /></Button>
           </div>
           {input('description', t('secret_rules.description'), { placeholder: t('secret_rules.description_placeholder'), maxLength: limits.description })}
           {input('regex', t('secret_rules.regex'), { placeholder: 'acme_[0-9a-f]{32}', mono: true, maxLength: limits.regex })}
@@ -175,7 +175,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
       })}
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" size="sm" variant="outline" disabled={form.rules.length >= limits.rules}
-          onClick={() => set({ rules: [...form.rules, { key: nextKey++, id: '', description: '', regex: '', keywords: '' }] })}><Plus />{t('secret_rules.add_rule')}</Button>
+          onClick={() => set({ rules: [...form.rules, { key: nextKey++, id: '', description: '', regex: '', keywords: '' }] })}><PlusIcon />{t('secret_rules.add_rule')}</Button>
         <span className="text-xs text-app-subtle">{t('secret_rules.rules_limit', { count: form.rules.length, max: limits.rules })}</span>
       </div>
     </Section>
@@ -185,7 +185,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
         emptyText={catalogQuery.isError ? t('secret_rules.builtin_failed') : catalog ? t('secret_rules.no_builtin_match') : t('common:state.loading')} onSelect={(option: ComboOption) => set({ disabled: [...form.disabled, option.id].sort() })} />
       {form.disabled.length > 0 && <ul className="flex flex-wrap gap-1.5">{form.disabled.map(rule => <li key={rule} className="flex items-center gap-1 rounded border border-app-line bg-app py-0.5 pr-0.5 pl-1.5 font-mono text-xs">
         {rule}<Button type="button" size="icon-xs" variant="ghost" aria-label={t('secret_rules.enable_rule', { rule })} title={t('secret_rules.enable_rule', { rule })}
-          onClick={() => set({ disabled: form.disabled.filter(item => item !== rule) })}><X /></Button></li>)}</ul>}
+          onClick={() => set({ disabled: form.disabled.filter(item => item !== rule) })}><XIcon /></Button></li>)}</ul>}
       {errorFor('disabled_rules') && <p id={`${id}-disabled-error`} tabIndex={-1} className="text-xs text-danger">{errorFor('disabled_rules')}</p>}
     </Section>
 
@@ -213,7 +213,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
     {general && <p role="alert" className="text-xs text-danger">{general}</p>}
     <DialogFooter>
       <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>{t('common:actions.cancel')}</Button>
-      <Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
+      <Button type="submit" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
     </DialogFooter>
   </form>
 }

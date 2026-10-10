@@ -1,7 +1,7 @@
 import { useCallback, useId, useState, type FormEvent, type RefObject } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle } from 'lucide-react'
+import { CircleNotchIcon } from '@phosphor-icons/react'
 import { apiPost, type PostResponse } from '@/shared/api/client'
 import { evidenceAssetsQuery, keys } from '@/shared/api/queries'
 import { Button } from '@/shared/ui/button'
@@ -81,7 +81,7 @@ export function AddImageDialog({ open, onOpenChange, admin, repository, onAdded,
       {error && <p id={`${id}-error`} role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger">{error}</p>}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t('common:actions.cancel')}</Button>
-        <Button type="submit" disabled={mutation.isPending || !reference.trim()}>{mutation.isPending && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('images.add.submit')}</Button>
+        <Button type="submit" disabled={mutation.isPending || !reference.trim()}>{mutation.isPending && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('images.add.submit')}</Button>
       </DialogFooter>
     </form>
   </DialogContent></Dialog>

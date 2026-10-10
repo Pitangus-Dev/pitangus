@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, MoreHorizontal, Plus } from 'lucide-react'
+import { CircleNotchIcon, DotsThreeIcon, PlusIcon } from '@phosphor-icons/react'
 import { apiPost } from '@/shared/api/client'
 import { keys, type DomainHeader } from '@/shared/api/queries'
 import { Button } from '@/shared/ui/button'
@@ -47,7 +47,7 @@ export function HeadersEditor({ domain, admin, adding, onAddingChange }: { domai
     {headers.length ? <ul aria-label={t('domains.access.list_label')} className="divide-y divide-app-line border-y border-app-line">{headers.map(header => <li key={header.name} className="flex min-h-11 items-center gap-3 py-1.5 text-sm">
         <span className="min-w-0 flex-1 font-mono break-all">{header.name}</span>
         <span className="font-mono text-app-muted"><span aria-hidden>{MASK}</span><span className="sr-only">{t('domains.access.masked')}</span></span>
-        <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.access.actions_for', { name: header.name })} />}><MoreHorizontal /></MenuTrigger>
+        <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('domains.access.actions_for', { name: header.name })} />}><DotsThreeIcon /></MenuTrigger>
           <MenuContent><MenuItem onClick={() => { onAddingChange(false); setReplacing(header.name) }}>{t('domains.access.replace')}</MenuItem>
             <MenuItem className="text-danger" onClick={() => remove(header)}>{t('domains.access.remove')}</MenuItem></MenuContent></Menu>
       </li>)}</ul>
@@ -55,7 +55,7 @@ export function HeadersEditor({ domain, admin, adding, onAddingChange }: { domai
     {formOpen
       ? <HeaderForm key={replacing ?? 'new'} fixedName={replacing} busy={change.isPending} error={change.error?.message ?? ''} onCancel={close}
           onSave={(name, value) => { setNotice(''); change.mutate({ op: 'save', name, value }) }} />
-      : headers.length < 10 && <Button variant="outline" size="sm" onClick={() => { setNotice(''); onAddingChange(true) }}><Plus aria-hidden />{t('domains.access.add')}</Button>}
+      : headers.length < 10 && <Button variant="outline" size="sm" onClick={() => { setNotice(''); onAddingChange(true) }}><PlusIcon aria-hidden />{t('domains.access.add')}</Button>}
   </div>
 }
 
@@ -80,7 +80,7 @@ function HeaderForm({ fixedName, busy, error, onCancel, onSave }: { fixedName: s
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     <div className="flex flex-wrap justify-end gap-2">
       <Button type="button" variant="ghost" size="sm" onClick={onCancel}>{t('common:actions.cancel')}</Button>
-      <Button type="submit" size="sm" disabled={busy || !name.trim() || !value}>{busy && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('domains.access.save')}</Button>
+      <Button type="submit" size="sm" disabled={busy || !name.trim() || !value}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('domains.access.save')}</Button>
     </div>
   </form>
 }

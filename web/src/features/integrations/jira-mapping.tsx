@@ -1,6 +1,6 @@
 import { useCallback, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, X } from 'lucide-react'
+import { CaretRightIcon, XIcon } from '@phosphor-icons/react'
 import { Input } from '@/shared/ui/input'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
@@ -43,7 +43,7 @@ export function MappingTable({ fields, variables, draft, errors, onChange, searc
       </table>
     </div>
     {rest.length > 0 && <button type="button" aria-expanded={more} onClick={() => setMore(!more)} className="inline-flex min-h-6 items-center gap-1 text-xs text-brand underline underline-offset-2">
-      <ChevronRight className={`size-3.5 transition motion-reduce:transition-none ${more ? 'rotate-90' : ''}`} />{more ? t('jira.mapping.fewer') : t('jira.mapping.more', { count: rest.length })}</button>}
+      <CaretRightIcon className={`size-3.5 transition motion-reduce:transition-none ${more ? 'rotate-90' : ''}`} />{more ? t('jira.mapping.fewer') : t('jira.mapping.more', { count: rest.length })}</button>}
     {blockedOptional.length > 0 && <details className="text-xs text-app-muted"><summary className="min-h-6 cursor-pointer py-1">{t('jira.mapping.unsupported_summary', { count: blockedOptional.length })}</summary>
       <p className="mt-1">{t('jira.mapping.unsupported_help')}</p>
       <ul className="mt-1 flex flex-wrap gap-1.5">{blockedOptional.map(field => <li key={field.id} className="rounded border border-app-line px-1.5 py-0.5">{field.name}</li>)}</ul></details>}
@@ -136,7 +136,7 @@ export function ValueSearch({ field, entry, label, invalid, describedBy, search,
       const name = entry.names[id] ?? id
       return <li key={id} className="inline-flex items-center gap-1 rounded-md border border-app-line bg-inset py-0.5 pr-0.5 pl-2 text-xs">{name}
         <button type="button" aria-label={t('jira.mapping.remove_value', { name })} onClick={() => onChange({ ...entry, values: entry.values.filter(item => item !== id) })}
-          className="grid size-6 place-items-center rounded text-app-subtle hover:bg-app-soft hover:text-app-fg"><X className="size-3" /></button></li>
+          className="grid size-6 place-items-center rounded text-app-subtle hover:bg-app-soft hover:text-app-fg"><XIcon className="size-3" /></button></li>
     })}</ul>}
   </div>
 }
