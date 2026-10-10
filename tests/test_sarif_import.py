@@ -195,6 +195,18 @@ class DastParserTests(unittest.TestCase):
         self.assertNotIn("hunter2", json.dumps(run["findings"]))
         self.assertEqual(len({item["fingerprint"] for item in run["findings"]}), 4)
 
+    def test_the_same_alert_on_the_root_with_and_without_its_slash_is_one_finding(self):
+        """ZAP reports `https://host` and `https://host/` apart (seen against pitangus.dev, 2026-10-10)."""
+        def result(uri):
+            return {"ruleId": "10055", "level": "warning", "message": {"text": "CSP: style-src unsafe-inline"},
+                    "locations": [{"physicalLocation": {"artifactLocation": {"uri": uri}}}]}
+        document = {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "ZAP", "rules": [{"id": "10055", "name": "CSP"}]}},
+                                                  "results": [result("https://pitangus.dev"), result("https://pitangus.dev/"),
+                                                              result("https://pitangus.dev/es/")]}]}
+        run = parse(document)[0]
+        self.assertEqual([item["path"] for item in run["findings"]], ["https://pitangus.dev/", "https://pitangus.dev/es/"])
+        self.assertEqual(run["results"], 3)
+
     def test_nuclei_export_reads_the_url_from_its_properties_not_the_template_path(self):
         run = parse(nuclei())[0]
         self.assertEqual((run["tool"], run["version"], len(run["findings"])), ("Nuclei", "v3.3.5", 3))
