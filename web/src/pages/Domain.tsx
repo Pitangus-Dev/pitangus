@@ -75,7 +75,7 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
     </div>
     {removal.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{removal.error.message}</p>}
     <Tabs value={tab === 'scope' && domain.kind === 'surface' ? 'overview' : tab} onValueChange={value => onTab(value as DomainTab)}>
-      <div className="overflow-x-auto"><TabsList variant="line" aria-label={t('domains.page.tabs_label')}>
+      <div className="overflow-x-auto border-b border-app-line"><TabsList variant="line" aria-label={t('domains.page.tabs_label')}>
         {TABS.filter(item => item.id !== 'scope' || domain.kind !== 'surface').map(item => <TabsTrigger key={item.id} value={item.id} className="min-h-8 px-3">{t(item.label)}</TabsTrigger>)}
       </TabsList></div>
       <TabsContent value="overview" className="pt-6">
