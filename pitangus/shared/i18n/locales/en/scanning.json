@@ -561,7 +561,8 @@
       "headers_one": "Requests to the scope carry 1 saved header: {{names}}.",
       "headers_other": "Requests to the scope carry {{count}} saved headers: {{names}}.",
       "login_one": "Signing in as 1 test user ({{names}}) through a browser, then crawling as it for up to {{minutes}} minutes.",
-      "login_other": "Signing in as {{count}} test users ({{names}}) through a browser, then crawling as each for up to {{minutes}} minutes."
+      "login_other": "Signing in as {{count}} test users ({{names}}) through a browser, then crawling as each for up to {{minutes}} minutes.",
+      "known_files": "Reading robots.txt and the sitemaps of {{hosts}} for more URLs to check…"
     },
     "detail": "{{count}} findings on the domain ({{results}} alerts read).",
     "remediation": "Fix it following {{tool}}'s guidance for this alert. The next web scan marks it fixed once it no longer reports it.",
@@ -594,6 +595,12 @@
         "detail_one": "{{count}} report of the same problem at the same URL by another tool was folded into its finding, which lists every tool that saw it.",
         "detail_other": "{{count}} reports of the same problem at the same URL by another tool were folded into their findings, which list every tool that saw them.",
         "none": "No two tools reported the same problem at the same URL."
+      },
+      "with_inventory": "{{detail}} Before its spider, it also requested {{count}} URLs of the inventory (katana's crawl, robots.txt, the sitemaps and the API definition).",
+      "inventory": {
+        "name": "URL inventory",
+        "detail_one": "{{count}} URL in scope, without query strings: {{katana}} from katana's crawl, {{robots}} from robots.txt, {{sitemap}} from the sitemaps, {{zap}} more from ZAP's spider and {{openapi}} from the API definition. nuclei read every page of it.",
+        "detail_other": "{{count}} URLs in scope, without query strings: {{katana}} from katana's crawl, {{robots}} from robots.txt, {{sitemap}} from the sitemaps, {{zap}} more from ZAP's spider and {{openapi}} from the API definition. nuclei read its pages."
       }
     },
     "limitations": {
@@ -673,8 +680,8 @@
         "no_templates": "The nuclei templates (release {{release}}) couldn't be downloaded or didn't match their checksum.",
         "detail_one": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} finding.",
         "detail_other": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} findings.",
-        "detail_own_one": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} finding.",
-        "detail_own_other": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} findings."
+        "detail_own_one": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} pages of the inventory, at most {{rate}} requests a second. {{count}} finding.",
+        "detail_own_other": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} pages of the inventory, at most {{rate}} requests a second. {{count}} findings."
       },
       "testssl": {
         "name": "TLS configuration (testssl.sh)",

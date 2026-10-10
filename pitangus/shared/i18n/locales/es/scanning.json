@@ -561,7 +561,8 @@
       "headers_one": "Las peticiones al alcance llevan 1 cabecera guardada: {{names}}.",
       "headers_other": "Las peticiones al alcance llevan {{count}} cabeceras guardadas: {{names}}.",
       "login_one": "Inicia sesión con 1 usuario de prueba ({{names}}) desde un navegador y recorre el sitio con él hasta {{minutes}} minutos.",
-      "login_other": "Inicia sesión con {{count}} usuarios de prueba ({{names}}) desde un navegador y recorre el sitio con cada uno hasta {{minutes}} minutos."
+      "login_other": "Inicia sesión con {{count}} usuarios de prueba ({{names}}) desde un navegador y recorre el sitio con cada uno hasta {{minutes}} minutos.",
+      "known_files": "Leyendo robots.txt y los sitemaps de {{hosts}} en busca de más URL que revisar…"
     },
     "detail": "{{count}} hallazgos en el dominio ({{results}} alertas leídas).",
     "remediation": "Corrígelo con la guía de {{tool}} para esta alerta. El próximo análisis web lo marca remediado cuando deje de reportarlo.",
@@ -594,6 +595,12 @@
         "detail_one": "{{count}} reporte del mismo problema en la misma URL hecho por otra herramienta se unió a su hallazgo, que lista todas las herramientas que lo vieron.",
         "detail_other": "{{count}} reportes del mismo problema en la misma URL hechos por otra herramienta se unieron a sus hallazgos, que listan todas las herramientas que los vieron.",
         "none": "Ninguna herramienta reportó el mismo problema en la misma URL que otra."
+      },
+      "with_inventory": "{{detail}} Antes de su spider también pidió {{count}} URL del inventario (el recorrido de katana, robots.txt, los sitemaps y la definición de la API).",
+      "inventory": {
+        "name": "Inventario de URL",
+        "detail_one": "{{count}} URL dentro del alcance, sin query strings: {{katana}} del recorrido de katana, {{robots}} de robots.txt, {{sitemap}} de los sitemaps, {{zap}} más del spider de ZAP y {{openapi}} de la definición de la API. nuclei leyó cada página.",
+        "detail_other": "{{count}} URL dentro del alcance, sin query strings: {{katana}} del recorrido de katana, {{robots}} de robots.txt, {{sitemap}} de los sitemaps, {{zap}} más del spider de ZAP y {{openapi}} de la definición de la API. nuclei leyó sus páginas."
       }
     },
     "limitations": {
@@ -673,8 +680,8 @@
         "no_templates": "Las plantillas de nuclei (versión {{release}}) no se pudieron descargar o no coincidieron con su checksum.",
         "detail_one": "{{templates}} plantillas de detección de la versión {{release}} en la raíz de cada host, y las de página sobre {{pages}} páginas recorridas, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgo.",
         "detail_other": "{{templates}} plantillas de detección de la versión {{release}} en la raíz de cada host, y las de página sobre {{pages}} páginas recorridas, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos.",
-        "detail_own_one": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas recorridas, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgo.",
-        "detail_own_other": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas recorridas, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos."
+        "detail_own_one": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas del inventario, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgo.",
+        "detail_own_other": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas del inventario, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos."
       },
       "testssl": {
         "name": "Configuración TLS (testssl.sh)",

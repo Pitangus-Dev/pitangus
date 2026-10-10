@@ -190,7 +190,9 @@ def _work(folder: Path, files: dict[str, str]) -> None:
 
 
 def katana_arguments(hosts: list[str], *, headless: bool = True) -> list[str]:
-    arguments = ["-list", f"{WORK}/seeds.txt", "-d", str(KATANA_DEPTH), "-jc", "-kf", "all", "-ct", f"{KATANA_MINUTES}m",
+    # No `-kf` (known files): with it, katana 1.7 drops links it also saw in robots.txt or a sitemap (pitangus.dev's
+    # /es/ went missing). robots.txt and the sitemaps are read by `web_seeds` instead.
+    arguments = ["-list", f"{WORK}/seeds.txt", "-d", str(KATANA_DEPTH), "-jc", "-ct", f"{KATANA_MINUTES}m",
                  "-fs", "fqdn", "-cs", host_regex(hosts), "-e", "private-ips", "-dr", "-iqp",
                  "-c", "4", "-p", "2", "-rl", str(RATE), "-timeout", "10", "-retry", "1", "-mrs", "2097152",
                  "-r", f"{WORK}/{RESOLVERS}", "-j", "-or", "-ob", "-silent", "-nc", "-duc"]
@@ -202,20 +204,31 @@ def katana_arguments(hosts: list[str], *, headless: bool = True) -> list[str]:
     return arguments
 
 
-def parse_katana(output: str, hosts: list[str]) -> list[str]:
-    """The in-scope URLs katana found (GET, not answered with an error), without query strings, sorted, at most INVENTORY_MAX."""
-    found: set[str] = set()
+def _katana_entries(output: str) -> list[tuple[dict, Any]]:
+    """katana's GET lines as (request, response), without those it asked for and never got: an error with no response,
+    unless another line was found on that URL (its headless browser reports a page that never went idle as an error,
+    after reading it)."""
+    entries: list[tuple[dict, Any, bool]] = []
+    sources: set[str] = set()
     for line in output.splitlines()[:50_000]:
         try:
             entry = json.loads(line)
         except ValueError:
             continue
         request = entry.get("request") if isinstance(entry, dict) else None
-        response = entry.get("response") if isinstance(entry, dict) else None
         if not isinstance(request, dict) or str(request.get("method") or "GET").upper() != "GET":
             continue
-        if entry.get("error") and not isinstance(response, dict):
-            continue  # asked for and never answered (a timeout, a refused connection)
+        response = entry.get("response")
+        entries.append((request, response, bool(entry.get("error")) and not isinstance(response, dict)))
+        if isinstance(request.get("source"), str):
+            sources.add(request["source"])
+    return [(request, response) for request, response, failed in entries if not failed or request.get("endpoint") in sources]
+
+
+def parse_katana(output: str, hosts: list[str]) -> list[str]:
+    """The in-scope URLs katana found (GET, not answered with an error), without query strings, sorted, at most INVENTORY_MAX."""
+    found: set[str] = set()
+    for request, response in _katana_entries(output):
         # A link the browser saw but didn't open has no response yet: ZAP and nuclei will ask for it.
         status = response.get("status_code") if isinstance(response, dict) else None
         if isinstance(status, int) and status >= 400:
@@ -227,21 +240,9 @@ def parse_katana(output: str, hosts: list[str]) -> list[str]:
 
 
 def katana_reached(output: str, hosts: list[str]) -> set[str]:
-    """The hosts katana got anything from: a line without an error. One that only errored (an unreachable seed) or
-    never shows up wasn't crawled, whatever katana's exit code says."""
-    reached: set[str] = set()
-    for line in output.splitlines()[:50_000]:
-        try:
-            entry = json.loads(line)
-        except ValueError:
-            continue
-        request = entry.get("request") if isinstance(entry, dict) else None
-        if not isinstance(request, dict) or (entry.get("error") and not isinstance(entry.get("response"), dict)):
-            continue
-        host = host_of(request.get("endpoint"))
-        if host in hosts:
-            reached.add(host)
-    return reached
+    """The hosts katana got anything from. One whose every line is an error with no response (an unreachable seed),
+    or that never shows up, wasn't crawled, whatever katana's exit code says."""
+    return {host for request, _ in _katana_entries(output) for host in [host_of(request.get("endpoint"))] if host in hosts}
 
 
 def _katana_once(seeds: list[str], hosts: list[str], pins: dict[str, str], work: Path, headers, headless: bool):
@@ -360,12 +361,13 @@ def parse_nuclei(output: str, hosts: list[str]) -> tuple[list[Finding], list[dic
         cves = sorted({item.upper() for item in _strings(classification.get("cve-id")) if re.fullmatch(r"(?i)CVE-\d{4}-\d{4,}", item)})
         references = [item for item in _strings(info.get("reference"), REFERENCES_MAX) if item.startswith(("https://", "http://"))
                       and len(item) <= REFERENCE_MAX]
-        description, remediation = _clean(info.get("description")), _clean(info.get("remediation"))
+        description: Any = _clean(info.get("description"))
+        remediation: Any = _clean(info.get("remediation"))
         title = (f"{name} ({matcher})" if matcher else name)[:TITLE_MAX]
         shown: Any = title
         if own:
             es = _clean(spanish.get("pitangus-name-es"), TITLE_MAX)
-            shown = inline({"en": title, "es": (f"{es} ({matcher})" if matcher else es)[:TITLE_MAX]})
+            shown = inline({"en": title, "es": (f"{es} ({matcher})" if matcher and es else es)[:TITLE_MAX]})
             description = inline({"en": description, "es": _clean(spanish.get("pitangus-description-es"))})
             remediation = inline({"en": remediation, "es": _clean(spanish.get("pitangus-remediation-es"))})
         finding = _base("dast", rule, title, location, 1, severity, tool="nuclei",

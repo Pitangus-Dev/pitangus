@@ -44,7 +44,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from urllib.parse import urlsplit
 
-from pitangus.modules.scanning import openapi_spec, sarif_import, web_merge, web_tools, web_versions
+from pitangus.modules.scanning import openapi_spec, sarif_import, web_merge, web_seeds, web_tools, web_versions
 from pitangus.modules.scanning.engines import IMAGES, _run, host_path, with_cause
 from pitangus.modules.sources import domains
 from pitangus.shared import log as logging_setup
@@ -70,7 +70,9 @@ PLAN = "/home/zap/plan.yaml"   # in that tmpfs: the plan carries the saved heade
 WORK = "/zap/wrk"
 REPORT = "zap.json"
 SPEC = "spec.json"
-SEEDS = "seeds.txt"         # the URLs katana found, for ZAP to request
+SEEDS = "seeds.txt"         # the inventory's URLs (katana, robots.txt, sitemaps, the definition), for ZAP to request
+EXPORT = "urls.txt"         # the URLs ZAP's spider reached, one a line, for the inventory
+EXPORT_MAX = 5_000_000
 SEED_SECONDS = 2           # more time for ZAP per URL it is handed
 CONTEXT = "pitangus"
 SEVERITIES = ("critical", "high", "medium", "low", "info")
@@ -187,14 +189,15 @@ def ajax_spider(context: str, url: str, *, user: str | None = None) -> dict:
 
 
 def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=(), api: dict | None = None, users=(),
-         seeds: str | None = None) -> dict:
+         seeds: str | None = None, export: str | None = None) -> dict:
     """The Automation Framework plan: the passive scanner's configuration, then inside a context of the scope's hosts
     only, a spider per listed host and the AJAX spider from `url` (plus the OpenAPI import in API mode) and the
     passive rules; with `headers`, a replacer that adds them to requests for
     those hosts only. `excluded`: hosts saved out of the domain's scope, kept out of the context even if a wildcard
     would match them. With `users` ({login_url, start, totp}), one more context per test user (the same hosts) that
     signs in through a browser, and a spider, an AJAX spider (and the import) that run as that user. `seeds`: a file (in the
-    container) of in-scope URLs the crawler found, each requested with a GET before the spider starts."""
+    container) of in-scope URLs the crawler found, each requested with a GET before the spider starts. `export`: a file
+    (in the container) where ZAP writes the URLs of its sites tree once it's done, for the scan's inventory."""
     extra = [item for item in hosts if item != host]
     excluded = [item for item in excluded if item != host and item not in extra]
     patterns = [host_pattern(host), *(host_pattern(item) for item in extra), *(wildcard_pattern(item) for item in wildcards)]
@@ -230,8 +233,10 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
         jobs += [{"type": "openapi", "parameters": {"apiFile": api["file"], "context": f"{CONTEXT}-login-{index}", "user": f"login-{index}",
                                                     "targetUrl": api["target"]}} for index in range(1, len(users) + 1)] \
             or [{"type": "openapi", "parameters": {"apiFile": api["file"], "context": CONTEXT, "targetUrl": api["target"]}}]
-    jobs += [{"type": "passiveScan-wait", "parameters": {"maxDuration": PASSIVE_MINUTES}},
-             {"type": "report", "parameters": {"template": "sarif-json", "reportDir": WORK, "reportFile": "zap"}}]
+    jobs.append({"type": "passiveScan-wait", "parameters": {"maxDuration": PASSIVE_MINUTES}})
+    if export:
+        jobs.append({"type": "export", "parameters": {"context": CONTEXT, "type": "url", "source": "sitestree", "fileName": export}})
+    jobs.append({"type": "report", "parameters": {"template": "sarif-json", "reportDir": WORK, "reportFile": "zap"}})
     return {"env": {"contexts": contexts, "parameters": {"failOnError": True, "failOnWarning": False, "progressToStdout": True}},
             "jobs": jobs}
 
@@ -367,6 +372,16 @@ def _plan_failure(completed: subprocess.CompletedProcess) -> subprocess.Complete
     return completed
 
 
+def _text(path: Path) -> str:
+    """A text file a tool wrote in its work folder, or "" when it's missing or too large."""
+    try:
+        if path.is_file() and not path.is_symlink() and path.stat().st_size <= EXPORT_MAX:
+            return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        pass
+    return ""
+
+
 def _read(path: Path) -> dict | None:
     try:
         if not path.is_file() or path.stat().st_size > sarif_import.MAX_BYTES:
@@ -462,8 +477,9 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     `users`: test users to sign in as, with their secrets (`test_users.credentials`). `tools`: the other tools of the
     scan (`web_tools.readiness()`: None for each one that can run, else why it can't); without it, ZAP alone.
 
-    With them, in this order: katana crawls the scope and its URLs feed ZAP and nuclei; ZAP; nuclei; testssl.sh;
-    httpx. A tool that fails leaves its step partial and the scan goes on."""
+    With them, in this order: katana crawls the scope; robots.txt and the sitemaps (and the definition's paths) add
+    their URLs (`web_seeds`); ZAP requests that inventory before its spider; what the spider reached joins it; nuclei
+    reads the whole inventory; testssl.sh; httpx. A tool that fails leaves its step partial and the scan goes on."""
     host, url = record["host"], start_url(record)
     scope = scope or {"hosts": [host], "wildcards": []}
     pins = dict(address) if isinstance(address, dict) else {host: address}
@@ -487,7 +503,8 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                       "excluded": [item for item in excluded if not domains.in_scope(item, {"hosts": scope["hosts"]})]}
     # Before anything reaches the site: the whole plan, as it would be with every test user, refers to no stray variable.
     _no_stray_variables(plan(host, url, **patterns_hosts, headers=headers, users=login_plan(users, host, url)[0],
-                             api={"file": f"{WORK}/{SPEC}", "target": target} if api else None, seeds=f"{WORK}/{SEEDS}"))
+                             api={"file": f"{WORK}/{SPEC}", "target": target} if api else None, seeds=f"{WORK}/{SEEDS}",
+                             export=f"{WORK}/{EXPORT}"))
     runs: dict[str, web_tools.ToolRun] = {}
     inventory: list[str] = []
     roots = list(dict.fromkeys([url, *(f"https://{item}/" for item in extra)]))
@@ -509,6 +526,15 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         return run
 
     tool("katana", crawl)
+    # The inventory is what nuclei reads: without it, ZAP's spider reads robots.txt and the sitemaps on its own.
+    inventoried = ready is not None and ready.get("nuclei", False) is None
+    sources: dict[str, list[str]] = {"katana": list(inventory)}
+    if inventoried:
+        report("info", msg("scanning.web.progress.known_files", hosts=", ".join(scope["hosts"])))
+        sources.update(web_seeds.known_files(scope["hosts"], pins))
+        if api:
+            sources["openapi"] = web_seeds.api_urls(api, target, scope["hosts"])
+        inventory[:] = web_seeds.merge(sources)[0]
 
     if api:
         report("info", msg("scanning.web.progress.starting_api", version=meta["version"], count=api["endpoints"], target=target))
@@ -549,6 +575,8 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
             (shared / SEEDS).write_text("".join(f"{item}\n" for item in seeds), encoding="utf-8")
             (shared / SEEDS).chmod(0o644)
             options["seeds"] = f"{WORK}/{SEEDS}"
+        if inventoried:
+            options["export"] = f"{WORK}/{EXPORT}"
         planned = plan(host, url, **options)
         _no_stray_variables(planned)
         text = json.dumps(planned, indent=2) + "\n"
@@ -559,6 +587,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         except OSError as exc:
             raise WebScanError(msg("scanning.web.errors.failed")) from exc
         document = _read(shared / REPORT)
+        exported = _text(shared / EXPORT)
     completed = subprocess.CompletedProcess(completed.args, completed.returncode, scrub(completed.stdout or "", secrets),
                                             scrub(completed.stderr or "", secrets))
     if document is None:
@@ -575,6 +604,11 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     report("ok" if complete else "warn", msg("scanning.progress.engine", engine=meta["name"],
                                              detail=msg("scanning.web.detail", count=len(findings), results=results)))
 
+    counts: dict[str, int] = {}
+    if inventoried:
+        sources["zap"] = web_seeds.zap_urls(scrub(exported, secrets), scope["hosts"])
+        merged, counts = web_seeds.merge(sources)
+        inventory[:] = merged
     technologies: list[dict] = []
     tool("nuclei", lambda: _nuclei(roots, inventory, scope["hosts"], pins, work, data_dir, headers, secrets, technologies))
     tool("testssl", lambda: web_tools.run_testssl(scope["hosts"], pins, work))
@@ -616,7 +650,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         first = {"id": "dast", "name": msg("scanning.web.steps.passive.name"), "status": "completed" if complete else "partial",
                  "detail": msg("scanning.web.steps.passive.detail", host=host, minutes=SPIDER_MINUTES, count=zap_findings), "tool": tool_meta}
     if seeds:
-        first["detail"] = msg("scanning.web.steps.with_seeds", detail=first["detail"], count=len(seeds))
+        first["detail"] = msg("scanning.web.steps.with_inventory", detail=first["detail"], count=len(seeds))
     ajax = [int(count) for count in re.findall(r"Job spiderAjax found (\d+) URLs", completed.stdout or "")]
     if ajax:
         first["detail"] = msg("scanning.web.steps.with_ajax", detail=first["detail"], count=sum(ajax), minutes=AJAX_MINUTES)
@@ -625,6 +659,10 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     steps: list[dict[str, Any]] = [
         *([runs["katana"].step()] if "katana" in runs else []),
         first,
+        *([{"id": "dast-inventory", "name": msg("scanning.web.steps.inventory.name"), "status": "completed",
+            "detail": msg("scanning.web.steps.inventory.detail", count=len(inventory), katana=counts.get("katana", 0),
+                          robots=counts.get("robots", 0), sitemap=counts.get("sitemap", 0), zap=counts.get("zap", 0),
+                          openapi=counts.get("openapi", 0))}] if inventoried else []),
         *([{"id": "login", "name": msg("scanning.web.steps.login.name"), "status": "partial" if failed else "completed",
             "detail": msg("scanning.web.steps.login.detail", count=len(outcomes), signed_in=len(outcomes) - len(failed))}] if outcomes else []),
         *(runs[key].step() for key in ("nuclei", "testssl", "httpx") if key in runs),
@@ -676,8 +714,8 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                                    for action in ("act", "attend", "track")},
                     "kev": 0, "fixable": 0, "tools": summary_tools,
                     **({"technologies": rows} if "httpx" in runs or rows else {})}}
-    if "katana" in runs:
-        result["web_inventory"] = {"tool": "katana", "count": len(inventory), "urls": inventory}
+    if inventoried:
+        result["web_inventory"] = {"sources": counts, "count": len(inventory), "urls": inventory}
     if api:
         result["api"] = {"sha256": api["sha256"], "endpoints": api["endpoints"], "source": api.get("source", "upload")}
     return result

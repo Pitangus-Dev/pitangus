@@ -213,6 +213,8 @@ def fake_tools(outputs: dict, *, calls: list | None = None, returncodes: dict | 
         if key == "zap":
             work = Path(mounts[0].rsplit(":", 2)[0])
             (work / web.REPORT).write_text(fixture("zap-2.17.sarif"))
+            if "zap_urls" in outputs:
+                (work / web.EXPORT).write_text(outputs["zap_urls"])
         if key == "testssl":
             work = Path(mounts[0].rsplit(":", 2)[0])
             report = command[command.index("--jsonfile") + 1].rsplit("/", 1)[-1]
@@ -512,8 +514,18 @@ class MergeTests(unittest.TestCase):
                 self.assertTrue(set(tools) <= set(web_merge.ORDER))
 
 
+def fake_site(files: dict[str, str], requested: list | None = None):
+    """`domains.https_get` answering the scan's robots.txt and sitemap requests from `files` (path → body), 404 otherwise."""
+    def get(host, address, path, *, limit, seconds):
+        if requested is not None:
+            requested.append((host, address, path))
+        body = files.get(path)
+        return (200, body.encode()) if body is not None else (404, b"")
+    return patch("pitangus.modules.sources.domains.https_get", side_effect=get)
+
+
 class PipelineTests(unittest.TestCase):
-    """katana → ZAP (with katana's URLs) → nuclei → testssl.sh → httpx, in one scan."""
+    """katana → robots.txt and sitemaps → ZAP (with the inventory) → nuclei over everything → testssl.sh → httpx."""
 
     def setUp(self):
         testenv.docker_runner(self)
@@ -528,26 +540,43 @@ class PipelineTests(unittest.TestCase):
         (cache / nuclei_templates.COMPLETE).write_text(json.dumps({"hosts": 2392, "pages": 833}))
         self.record = {"id": "a" * 24, "host": HOST, "url": f"https://{HOST}/", "kind": "web", "key": f"domain:{HOST}"}
         self.outputs = {"katana": fixture("katana-1.7.jsonl"), "nuclei": fixture("nuclei-3.11.jsonl"), "httpx": fixture("httpx-1.12.jsonl"),
-                        "testssl": fixture("testssl-3.2.json")}
+                        "testssl": fixture("testssl-3.2.json"),
+                        "zap_urls": f"https://{HOST}/\nhttps://{HOST}/robots.txt\nhttps://{HOST}/es/?utm=1\nhttps://evil.example/x\nnot a url\n"}
+        self.site = {"/robots.txt": fixture("robots-pitangus.dev.txt"), "/sitemap.xml": fixture("sitemap-pitangus.dev.xml")}
+        self.requested: list = []
 
     def scan(self, *, ready=None, **options):
         calls, inputs = [], []
-        with fake_tools(self.outputs, calls=calls, **options):
+        with fake_tools(self.outputs, calls=calls, **options), fake_site(self.site, self.requested):
             result = web.scan_domain(self.record, PINS["pitangus.dev"], data_dir=self.data_dir, tools=ready or dict.fromkeys(web_tools.TOOLS),
                                      progress=lambda level, message: inputs.append((level, text(message, "en"))))
         return result, calls, inputs
 
     def test_every_tool_runs_in_order_and_reports_its_step(self):
         result, calls, progress = self.scan()
-        # pitangus.dev's crawl found scripts only: no page for nuclei's page-level pass (ContainerTests runs it).
-        self.assertEqual([key for key, _, _ in calls], ["katana", "zap", "nuclei", "testssl", "httpx"])
+        # The crawl found /es/: nuclei's page-level pass reads it, after the pass on the host's root.
+        self.assertEqual([key for key, _, _ in calls], ["katana", "zap", "nuclei", "nuclei", "testssl", "httpx"])
         steps = [(step["id"], step["status"]) for step in result["steps"]]
-        self.assertEqual(steps, [("dast-katana", "completed"), ("dast", "completed"), ("dast-nuclei", "completed"), ("dast-testssl", "completed"),
-                                 ("dast-httpx", "completed"), ("dast-versions", "completed"), ("dast-merge", "completed"), ("active", "not_tested"),
+        self.assertEqual(steps, [("dast-katana", "completed"), ("dast", "completed"), ("dast-inventory", "completed"), ("dast-nuclei", "completed"),
+                                 ("dast-testssl", "completed"), ("dast-httpx", "completed"), ("dast-versions", "completed"), ("dast-merge", "completed"),
+                                 ("active", "not_tested"),
                                  ("review", "pending")])
         self.assertEqual(result["status"], "completed")
-        self.assertEqual(result["web_inventory"]["tool"], "katana")
-        self.assertIn(f"https://{HOST}/", result["web_inventory"]["urls"])
+        inventory = result["web_inventory"]
+        self.assertIn(f"https://{HOST}/", inventory["urls"])
+        self.assertIn(f"https://{HOST}/es/", inventory["urls"])
+        self.assertIn(f"https://{HOST}/robots.txt", inventory["urls"])  # only ZAP's spider had it
+        self.assertEqual(inventory["count"], len(inventory["urls"]))
+        self.assertEqual((inventory["sources"]["zap"], inventory["sources"]["robots"], inventory["sources"]["sitemap"]), (1, 0, 0))
+        self.assertTrue(all(url.startswith(f"https://{HOST}/") and "?" not in url for url in inventory["urls"]))
+        # robots.txt and the sitemap were asked from the pinned address, before ZAP.
+        self.assertEqual(self.requested, [(HOST, PINS[HOST], "/robots.txt"), (HOST, PINS[HOST], "/sitemap.xml")])
+        pages = next(given for key, command, given in calls if key == "nuclei" and "/templates/pages" in command)
+        self.assertIsNone(pages)
+        nuclei_pages = [command for key, command, _ in calls if key == "nuclei" and "/templates/pages" in command]
+        self.assertEqual(len(nuclei_pages), 1)
+        step = next(step for step in result["steps"] if step["id"] == "dast-inventory")
+        self.assertIn("from the sitemaps", text(step["detail"], "en"))
         self.assertTrue({"ZAP", "nuclei", "testssl"} <= {item["tool"] for item in result["findings"]})
         self.assertTrue(all(item["web"]["coverage"] == "baseline" for item in result["findings"]))
         self.assertIn("Cloudflare", {row["name"] for row in result["summary"]["technologies"]})
@@ -568,6 +597,10 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual({tool["name"]: tool["status"] for tool in result["summary"]["tools"]}["nuclei"], "inconclusive")
         limitations = " ".join(text(item, "en") for item in result["limitations"])
         self.assertIn("nuclei didn't finish", limitations)
+        # Without katana, the sitemap's /es/ still reaches ZAP; with neither, ZAP gets no list to import.
+        self.assertIn("import", [job["type"] for job in json.loads(next(given for key, _, given in calls if key == "zap"))["jobs"]])
+        self.site = {}
+        _, calls, _ = self.scan(raising={"katana": OSError("boom")})
         self.assertNotIn("import", [job["type"] for job in json.loads(next(given for key, _, given in calls if key == "zap"))["jobs"]])
 
     def test_nuclei_exiting_0_without_reaching_the_host_is_not_a_clean_result(self):
