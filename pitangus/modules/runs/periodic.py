@@ -85,13 +85,51 @@ def _domains(data_dir: Path, jobs) -> object:
     return domains.recheck(data_dir)
 
 
+def _joined(notes: list):
+    """Whole sentences, one after another (each is a message of its own)."""
+    from pitangus.shared.i18n import msg
+    if not notes:
+        return None
+    return notes[0] if len(notes) == 1 else msg("sources.domains.schedule.notes", first=notes[0], rest=_joined(notes[1:]))
+
+
+def _scheduled_options(data_dir: Path, record: dict) -> tuple[dict, list, list[str]]:
+    """What the scheduled scan of `record` asks for, checked now: the saved scope, the test users chosen with the
+    schedule that still exist and sign in inside that scope, and the saved headers if it sends them and some are
+    left. Whatever it leaves out comes back as notes, with the ids of users deleted since."""
+    from pitangus.modules.sources import domain_headers, domain_schedule, domain_scope, domains, test_users
+    from pitangus.modules.sources.domains import DomainError
+    from pitangus.shared.i18n import msg
+    access = domain_schedule.access(record["schedule"])
+    options: dict = {"mode": "web", "use_scope": True}
+    notes: list = []
+    try:
+        scope = domains.scan_scope(record, domain_scope.saved_hosts(data_dir, record))
+    except DomainError:
+        scope = {"hosts": [record["host"]], "wildcards": []}  # the worker refuses it again, with the reason
+    usable = test_users.still_usable(data_dir, record, access["test_users"], scope)
+    if usable["kept"]:
+        options["test_users"] = usable["kept"]
+    if usable["gone"]:
+        notes.append(msg("sources.domains.schedule.users_gone", count=len(usable["gone"])))
+    if usable["outside"]:
+        notes.append(msg("sources.domains.schedule.users_outside", count=len(usable["outside"]), names=", ".join(usable["outside"])))
+    if access["use_headers"]:
+        if domain_headers.count(record["id"]):
+            options["use_headers"] = True
+        else:
+            notes.append(msg("sources.domains.schedule.headers_gone"))
+    return options, notes, usable["gone"]
+
+
 def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> object:
     """Queues the scheduled passive web scan of the most overdue domain (one: web scans run one at a time). Locking
     the domain's row, queuing the scan and moving its schedule on are one transaction: a crash or a second round can
     neither queue a slot twice nor lose it. A domain whose proof lapsed is skipped with the reason and stays due;
     another web scan in progress leaves it for the next round; a domain already scanned that local day (by hand)
     moves on to its next run, so it is scanned at most once a day. Scheduled scans crawl the domain's own host
-    and the hosts saved in its scope (while its DNS proof covers them), without its saved headers."""
+    and the hosts saved in its scope (while its DNS proof covers them), signed in as the test users chosen with the
+    schedule and with its saved headers if it asked for them; what no longer fits is left out, with a note."""
     from pitangus.modules.runs.jobs import BusyError
     from pitangus.modules.runs.store import find_runs
     from pitangus.modules.sources import domain_schedule, domains
@@ -110,13 +148,17 @@ def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> objec
                 domains.schedule_moved(data_dir, record["id"], msg("sources.domains.schedule.already_today"),
                                        after=now, not_on=today, now=now)
                 continue
+            options, notes, gone = _scheduled_options(data_dir, record)
             try:
                 queued = jobs.enqueue_dast_scan(domain=record, requested_by="schedule", trigger={"kind": "schedule"},
-                                                options={"mode": "web", "use_scope": True})
+                                                options=options)
             except BusyError:
                 domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.busy"), now=now)
                 return {"queued": None, "waiting": record["host"]}
-            domains.schedule_queued(data_dir, record["id"], queued["id"], now=now)
+            domains.schedule_queued(data_dir, record["id"], queued["id"], now=now, note=_joined(notes), gone_users=gone)
+            if notes:
+                _log.warning("scheduled_scan_reduced", extra={"reason": f"{record['host']}: {len(gone)} test users gone, "
+                                                                        f"{len(options.get('test_users', []))} kept"})
             return {"queued": queued["id"], "host": record["host"]}
     return {"queued": None}
 

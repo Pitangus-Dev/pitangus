@@ -77,7 +77,13 @@
       "invalid_timezone": "{{zone}} isn't a time zone this server knows. Use an IANA name, such as America/Bogota or UTC",
       "lapsed": "Skipped: the domain's proof lapsed. Verify it again and the scheduled scan resumes at the next round",
       "busy": "Waiting: another web scan was queued or running; it is tried again at the next round",
-      "already_today": "Skipped: the domain was already scanned that day. The next scheduled scan runs as planned"
+      "already_today": "Skipped: the domain was already scanned that day. The next scheduled scan runs as planned",
+      "users_gone_one": "A test user chosen for this schedule was deleted: the scan runs without it",
+      "users_gone_other": "{{count}} test users chosen for this schedule were deleted: the scan runs without them",
+      "users_outside_one": "{{names}} signs in outside the saved scope: the scan runs without that test user",
+      "users_outside_other": "{{names}} sign in outside the saved scope: the scan runs without those test users",
+      "headers_gone": "The schedule sends the saved headers, but the domain has none now: the scan runs without them",
+      "notes": "{{first}}. {{rest}}"
     },
     "headers": {
       "invalid_request": "Invalid header request",

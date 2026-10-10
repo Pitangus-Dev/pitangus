@@ -77,7 +77,13 @@
       "invalid_timezone": "{{zone}} no es una zona horaria que este servidor conozca. Usa un nombre IANA, como America/Bogota o UTC",
       "lapsed": "Omitido: la prueba del dominio caducó. Verifícalo de nuevo y el análisis programado se reanuda en la siguiente ronda",
       "busy": "En espera: había otro análisis web en cola o en curso; se vuelve a intentar en la siguiente ronda",
-      "already_today": "Omitido: el dominio ya se analizó ese día. El siguiente análisis programado corre como estaba previsto"
+      "already_today": "Omitido: el dominio ya se analizó ese día. El siguiente análisis programado corre como estaba previsto",
+      "users_gone_one": "Se eliminó un usuario de prueba elegido para esta programación: el análisis se hace sin él",
+      "users_gone_other": "Se eliminaron {{count}} usuarios de prueba elegidos para esta programación: el análisis se hace sin ellos",
+      "users_outside_one": "{{names}} inicia sesión fuera del alcance guardado: el análisis se hace sin ese usuario de prueba",
+      "users_outside_other": "{{names}} inician sesión fuera del alcance guardado: el análisis se hace sin esos usuarios de prueba",
+      "headers_gone": "La programación envía las cabeceras guardadas, pero el dominio ya no tiene ninguna: el análisis se hace sin ellas",
+      "notes": "{{first}}. {{rest}}"
     },
     "headers": {
       "invalid_request": "Solicitud de cabecera inválida",

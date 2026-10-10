@@ -21,6 +21,9 @@ WEEKDAYS = range(1, 8)     # ISO: 1 is Monday, 7 is Sunday
 TIME = re.compile(r"([01]\d|2[0-3]):([0-5]\d)")
 ZONE = re.compile(r"[A-Za-z0-9_+\-]+(?:/[A-Za-z0-9_+\-]+){0,2}")
 LOOKAHEAD_DAYS = 70  # a monthly rule fires within 31 days; one skipped local day on top
+TIMING = ("frequency", "weekdays", "month_days", "time", "timezone")
+USER_ID = re.compile(r"[0-9a-f]{24}")
+USERS_MAX = 3        # test_users.PER_SCAN (that module imports this one's caller)
 
 
 class ScheduleError(ValueError):
@@ -44,18 +47,44 @@ def _days(values, allowed: range) -> list[int]:
     return sorted(set(values))
 
 
+def _users(values) -> list[str]:
+    if values is None:
+        return []
+    if not isinstance(values, list) or any(not isinstance(value, str) or not USER_ID.fullmatch(value) for value in values):
+        raise ScheduleError(msg("sources.domains.schedule.invalid"))
+    users = list(dict.fromkeys(values))
+    if len(users) > USERS_MAX:
+        raise ScheduleError(msg("sources.domains.test_users.too_many", max=USERS_MAX))
+    return users
+
+
 def normalize(rule) -> dict:
-    """The rule as stored: only the list its frequency uses, sorted and without repeats. Raises ScheduleError."""
+    """The rule as stored: only the list its frequency uses, sorted and without repeats, plus what the scan signs in
+    with (`test_users`, ids checked by the caller) and whether it sends the saved headers. Raises ScheduleError."""
     if not isinstance(rule, dict) or rule.get("frequency") not in FREQUENCIES:
         raise ScheduleError(msg("sources.domains.schedule.invalid"))
     if not isinstance(rule.get("time"), str) or not TIME.fullmatch(rule["time"]):
         raise ScheduleError(msg("sources.domains.schedule.invalid_time"))
     zone(rule.get("timezone"))
+    if not isinstance(rule.get("use_headers", False), bool):
+        raise ScheduleError(msg("sources.domains.schedule.invalid"))
     frequency = rule["frequency"]
     return {"frequency": frequency,
             "weekdays": _days(rule.get("weekdays"), WEEKDAYS) if frequency == "weekly" else [],
             "month_days": _days(rule.get("month_days"), MONTH_DAYS) if frequency == "monthly" else [],
-            "time": rule["time"], "timezone": rule["timezone"]}
+            "time": rule["time"], "timezone": rule["timezone"],
+            "test_users": _users(rule.get("test_users")), "use_headers": rule.get("use_headers", False)}
+
+
+def timing(rule: dict) -> dict:
+    """The part of a rule that decides when it fires (what the scan does is left out)."""
+    return {key: rule.get(key) for key in TIMING}
+
+
+def access(rule: dict) -> dict:
+    """What the scheduled scan signs in with and sends; a rule saved before these existed has neither."""
+    users = rule.get("test_users")
+    return {"test_users": list(users) if isinstance(users, list) else [], "use_headers": rule.get("use_headers") is True}
 
 
 def matches(rule: dict, day: date) -> bool:

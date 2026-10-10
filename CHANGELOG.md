@@ -9,6 +9,20 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Added
 
+- **Scheduled scans sign in as test users.** The schedule rule (`POST /api/domains/schedule`) takes `test_users` (up to
+  3 ids, each signing in on a host of the saved scope) and `use_headers` (409 without saved headers); the panel picks
+  them under the schedule in a web scan's review and on the domain's page. When the scan runs, a user deleted since is
+  dropped from the rule, one now outside the scope is left out of that run, and missing headers aren't sent: the scan
+  runs with the rest and the run and the schedule's note say what was left out. Stored in the existing
+  `schedule_rule` JSON (no migration); rules saved before read as no users and no headers.
+- **Outgoing address for sites that filter by IP.** New setting `PITANGUS_EGRESS_IPS` (IP addresses or CIDR ranges,
+  comma-separated, validated at start-up); `GET /api/domains` answers it as `egress`. Without it, an administrator can
+  detect the server's address once (`POST /api/domains/egress`: one HTTPS GET to `api.ipify.org`, no redirects, kept
+  in the settings documents). The review of a web scan shows "If your site filters by IP, allow …" with a copy button,
+  replacing the firewall/WAF fold.
+- **Domains list and page.** "Add domain" sits next to the page title, a search filters the list ("Showing N of M"),
+  and the whole row opens the domain. The domain's Overview ends with a **Disconnect domain** section that says
+  exactly what is deleted; the action left the page's "…" menu.
 - **Related hosts and a scope saved per domain.** Adding a domain (with `PITANGUS_DAST_ENABLED=1`) queues a discovery
   job: subfinder 2.16.0 (`projectdiscovery/subfinder`, pinned by digest, pulled by `make engines` with web scans on)
   asks passive sources for names under the domain, with no API keys and a hard timeout, in the usual hardened container.

@@ -1056,6 +1056,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/domains/egress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Egress Detect
+         * @description Asks a public echo service (https://api.ipify.org) once for the address this server is seen from, and keeps
+         *     it for the panel to show to site owners who filter by IP. Only on this explicit request, and only when the server
+         *     doesn't declare PITANGUS_EGRESS_IPS. One HTTPS GET, no redirects, 10 seconds and 64 bytes at most.
+         */
+        post: operations["domain_egress_detect_api_domains_egress_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/domains/verify": {
         parameters: {
             query?: never;
@@ -1130,8 +1152,9 @@ export interface paths {
         put?: never;
         /**
          * Domain Remove
-         * @description Removes a domain and its saved headers. What was scanned or imported against it (runs, findings, their triage
-         *     and tickets) goes with it, like a repository that left the installation: the panel says so before asking.
+         * @description Removes a domain with its saved headers, test users, related hosts (its scope) and scheduled scan. What was
+         *     scanned or imported against it (runs, findings, their triage and tickets) goes with it, like a repository that
+         *     left the installation: the panel says so before asking.
          */
         post: operations["domain_remove_api_domains_remove_post"];
         delete?: never;
@@ -1199,7 +1222,9 @@ export interface paths {
          *     at a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the
          *     local day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task
          *     queues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the
-         *     domain's own host and the hosts saved in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason.
+         *     domain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one
+         *     of those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the
+         *     scope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason.
          */
         post: operations["domain_schedule_api_domains_schedule_post"];
         delete?: never;
@@ -3059,7 +3084,7 @@ export interface components {
         };
         /**
          * DomainPage
-         * @description `dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED).
+         * @description `dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED); `egress`: where they leave from.
          */
         DomainPage: {
             /** Items */
@@ -3073,6 +3098,7 @@ export interface components {
              * @default false
              */
             dast: boolean;
+            egress?: components["schemas"]["Egress"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -3172,7 +3198,7 @@ export interface components {
          * @description When the passive web scan runs on its own: daily, on `weekdays` (1 Monday … 7 Sunday) or on `month_days`
          *     (1–28), at `time` (HH:MM) in `timezone` (IANA), at most once a day. `next_run_at` (UTC) is the moment the
          *     scheduler queues it; `last_run_at` and `last_run_id` say what it did last and `note`, when that slot was skipped,
-         *     why.
+         *     why. The scan signs in as `test_users` (ids, at most 3) and sends the saved headers with `use_headers`.
          */
         DomainSchedule: {
             /**
@@ -3188,6 +3214,13 @@ export interface components {
             time: string;
             /** Timezone */
             timezone: string;
+            /** Test Users */
+            test_users?: string[];
+            /**
+             * Use Headers
+             * @default false
+             */
+            use_headers: boolean;
             /** Next Run At */
             next_run_at?: string | null;
             /** Last Run At */
@@ -3276,6 +3309,22 @@ export interface components {
             limit: number;
             /** Per Scan */
             per_scan: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * Egress
+         * @description The public addresses web scans leave from, for sites that filter by IP: declared by the server
+         *     (`source` setting, PITANGUS_EGRESS_IPS), detected once by an administrator (`detected`, with `detected_at`), or
+         *     unknown (no `ips`).
+         */
+        Egress: {
+            /** Ips */
+            ips?: string[];
+            /** Source */
+            source?: ("setting" | "detected") | null;
+            /** Detected At */
+            detected_at?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -7325,6 +7374,47 @@ export interface operations {
             };
         };
     };
+    domain_egress_detect_api_domains_egress_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Egress"];
+                };
+            };
+            /** @description Declared by the server */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The echo service failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     domain_verify_api_domains_verify_post: {
         parameters: {
             query?: never;
@@ -7620,6 +7710,13 @@ export interface operations {
                         time: string;
                         /** Timezone */
                         timezone: string;
+                        /** Test Users */
+                        test_users?: string[];
+                        /**
+                         * Use Headers
+                         * @default false
+                         */
+                        use_headers?: boolean;
                     } | null;
                 };
             };
@@ -7634,8 +7731,15 @@ export interface operations {
                     "application/json": components["schemas"]["DomainRow"];
                 };
             };
-            /** @description Unknown domain */
+            /** @description Unknown domain or test user */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No saved headers, or a test user signing in outside the saved scope */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

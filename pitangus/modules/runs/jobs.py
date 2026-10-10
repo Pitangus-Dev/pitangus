@@ -476,11 +476,25 @@ class ScanJobs:
                 except DomainError as exc:
                     raise WebScanError(msg("scanning.web.errors.address", host=name, reason=exc.message)) from exc
             progress("ok", msg("runs.progress.web_target", host=host, address=pins[host]))
+            # A scheduled scan starts with nobody watching: what changed since it was queued is left out and said,
+            # rather than failing the whole scan.
+            scheduled = (record.get("trigger") or {}).get("kind") == "schedule"
             headers = domain_headers.values(domain["id"]) if job.get("use_headers") else []
             if job.get("use_headers") and not headers:
-                raise WebScanError(msg("scanning.web.errors.no_headers"))
+                if not scheduled:
+                    raise WebScanError(msg("scanning.web.errors.no_headers"))
+                progress("warn", msg("sources.domains.schedule.headers_gone"))
+            chosen = job.get("test_users") or []
+            if scheduled and chosen:
+                usable = test_users.still_usable(self.data_dir, domain, chosen, scope)
+                chosen = usable["kept"]
+                if usable["gone"]:
+                    progress("warn", msg("sources.domains.schedule.users_gone", count=len(usable["gone"])))
+                if usable["outside"]:
+                    progress("warn", msg("sources.domains.schedule.users_outside", count=len(usable["outside"]),
+                                         names=", ".join(usable["outside"])))
             try:
-                users = test_users.credentials(self.data_dir, domain, job.get("test_users") or [], scope)
+                users = test_users.credentials(self.data_dir, domain, chosen, scope)
             except test_users.TestUserError as exc:
                 raise WebScanError(exc.message) from exc
             api = None

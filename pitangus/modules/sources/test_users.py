@@ -276,6 +276,25 @@ def check_selection(data_dir: Path, record: dict, ids, scope: dict) -> list[dict
     return chosen
 
 
+def still_usable(data_dir: Path, record: dict, ids, scope: dict) -> dict:
+    """For a scheduled scan, which nobody is watching when it starts: the chosen users that still exist and sign in
+    on a host of `scope` (`kept`, ids), those deleted since (`gone`, ids) and those that now sign in outside it
+    (`outside`, names). Nothing raises: the scan runs with what is left and says what it left out."""
+    ids = [item for item in dict.fromkeys(ids or []) if isinstance(item, str)][:PER_SCAN]
+    if not ids:
+        return {"kept": [], "gone": [], "outside": []}
+    with db.transaction(data_dir) as connection:
+        rows = {row.id: row for row in _rows(connection, record["id"], ids)}
+    kept: list[dict] = []
+    outside: list[dict] = []
+    for item in ids:
+        if item in rows:
+            user = _shown(rows[item], {})
+            (kept if all(host in scope["hosts"] for host in reached_hosts(user)) else outside).append(user)
+    return {"kept": [user["id"] for user in kept], "gone": [item for item in ids if item not in rows],
+            "outside": [user["name"] for user in outside]}
+
+
 def credentials(data_dir: Path, record: dict, ids, scope: dict) -> list[dict]:
     """For the scan about to start, and only for it: each chosen user with its username, password and seed. Marks
     them used. Raises TestUserError when one was removed or no longer fits the scope."""

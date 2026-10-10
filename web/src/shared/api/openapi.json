@@ -3336,6 +3336,37 @@
         }
       }
     },
+    "/api/domains/egress": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Egress Detect",
+        "description": "Asks a public echo service (https://api.ipify.org) once for the address this server is seen from, and keeps\nit for the panel to show to site owners who filter by IP. Only on this explicit request, and only when the server\ndoesn't declare PITANGUS_EGRESS_IPS. One HTTPS GET, no redirects, 10 seconds and 64 bytes at most.",
+        "operationId": "domain_egress_detect_api_domains_egress_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Egress"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Declared by the server"
+          },
+          "429": {
+            "description": "Too many attempts"
+          },
+          "502": {
+            "description": "The echo service failed"
+          }
+        }
+      }
+    },
     "/api/domains/verify": {
       "post": {
         "tags": [
@@ -3497,7 +3528,7 @@
           "sources"
         ],
         "summary": "Domain Remove",
-        "description": "Removes a domain and its saved headers. What was scanned or imported against it (runs, findings, their triage\nand tickets) goes with it, like a repository that left the installation: the panel says so before asking.",
+        "description": "Removes a domain with its saved headers, test users, related hosts (its scope) and scheduled scan. What was\nscanned or imported against it (runs, findings, their triage and tickets) goes with it, like a repository that\nleft the installation: the panel says so before asking.",
         "operationId": "domain_remove_api_domains_remove_post",
         "requestBody": {
           "content": {
@@ -3835,7 +3866,7 @@
           "sources"
         ],
         "summary": "Domain Schedule",
-        "description": "Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,\nat a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the\nlocal day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task\nqueues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the\ndomain's own host and the hosts saved in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason.",
+        "description": "Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,\nat a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the\nlocal day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task\nqueues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the\ndomain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one\nof those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the\nscope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason.",
         "operationId": "domain_schedule_api_domains_schedule_post",
         "requestBody": {
           "content": {
@@ -3890,6 +3921,20 @@
                             "maxLength": 64,
                             "minLength": 1,
                             "title": "Timezone"
+                          },
+                          "test_users": {
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{24}$"
+                            },
+                            "type": "array",
+                            "maxItems": 3,
+                            "title": "Test Users"
+                          },
+                          "use_headers": {
+                            "type": "boolean",
+                            "title": "Use Headers",
+                            "default": false
                           }
                         },
                         "additionalProperties": false,
@@ -3933,7 +3978,10 @@
             }
           },
           "404": {
-            "description": "Unknown domain"
+            "description": "Unknown domain or test user"
+          },
+          "409": {
+            "description": "No saved headers, or a test user signing in outside the saved scope"
           }
         }
       }
@@ -10094,6 +10142,16 @@
             "type": "boolean",
             "title": "Dast",
             "default": false
+          },
+          "egress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Egress"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": true,
@@ -10104,7 +10162,7 @@
           "limit"
         ],
         "title": "DomainPage",
-        "description": "`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED)."
+        "description": "`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED); `egress`: where they leave from."
       },
       "DomainRemoved": {
         "properties": {
@@ -10413,6 +10471,19 @@
             "type": "string",
             "title": "Timezone"
           },
+          "test_users": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Test Users"
+          },
+          "use_headers": {
+            "type": "boolean",
+            "title": "Use Headers",
+            "default": false
+          },
           "next_run_at": {
             "anyOf": [
               {
@@ -10466,7 +10537,7 @@
           "timezone"
         ],
         "title": "DomainSchedule",
-        "description": "When the passive web scan runs on its own: daily, on `weekdays` (1 Monday … 7 Sunday) or on `month_days`\n(1–28), at `time` (HH:MM) in `timezone` (IANA), at most once a day. `next_run_at` (UTC) is the moment the\nscheduler queues it; `last_run_at` and `last_run_id` say what it did last and `note`, when that slot was skipped,\nwhy."
+        "description": "When the passive web scan runs on its own: daily, on `weekdays` (1 Monday … 7 Sunday) or on `month_days`\n(1–28), at `time` (HH:MM) in `timezone` (IANA), at most once a day. `next_run_at` (UTC) is the moment the\nscheduler queues it; `last_run_at` and `last_run_id` say what it did last and `note`, when that slot was skipped,\nwhy. The scan signs in as `test_users` (ids, at most 3) and sends the saved headers with `use_headers`."
       },
       "DomainScope": {
         "properties": {
@@ -10681,6 +10752,48 @@
         ],
         "title": "DomainTestUsers",
         "description": "The domain's test users after a change; `limit` per domain, `per_scan` a scan may sign in with."
+      },
+      "Egress": {
+        "properties": {
+          "ips": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Ips"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "setting",
+                  "detected"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "detected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected At"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "Egress",
+        "description": "The public addresses web scans leave from, for sites that filter by IP: declared by the server\n(`source` setting, PITANGUS_EGRESS_IPS), detected once by an administrator (`detected`, with `detected_at`), or\nunknown (no `ips`)."
       },
       "Euvd": {
         "properties": {

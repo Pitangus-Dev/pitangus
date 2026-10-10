@@ -106,7 +106,7 @@ def _schedule(row, now: datetime) -> dict | None:
     if not row.schedule:
         return None
     rule = row.schedule_rule if isinstance(row.schedule_rule, dict) else domain_schedule.legacy(row.schedule_next_at, now=now)
-    return {**rule, "next_run_at": _iso(row.schedule_next_at), "last_run_at": _iso(row.schedule_last_at),
+    return {**domain_schedule.timing(rule), **domain_schedule.access(rule), "next_run_at": _iso(row.schedule_next_at), "last_run_at": _iso(row.schedule_last_at),
             "last_run_id": row.schedule_last_run, "note": row.schedule_note}
 
 
@@ -464,8 +464,11 @@ def set_schedule(data_dir: Path, domain_id: str, rule: dict | None, *, now: date
     except ScheduleError as exc:
         raise DomainError(exc.message) from exc
     current = record["schedule"]
-    if current and current["next_run_at"] and {key: current[key] for key in rule} == rule:
-        return record
+    if current and current["next_run_at"] and domain_schedule.timing(current) == domain_schedule.timing(rule):
+        # Same moments: only what the scan does may change, and a due slot isn't lost.
+        if domain_schedule.access(current) == domain_schedule.access(rule):
+            return record
+        return _mark(data_dir, domain_id, schedule_rule=rule)
     not_on = domain_schedule.local_day(last_scan_at, rule) if last_scan_at else None
     return _mark(data_dir, domain_id, schedule=rule["frequency"], schedule_rule=rule, schedule_note=None,
                  schedule_next_at=domain_schedule.next_run(rule, now, not_on=not_on))
@@ -485,14 +488,18 @@ def due_scans(data_dir: Path, *, now: datetime | None = None, lock: bool = False
 
 
 def _rule(record: dict) -> dict:
-    return {key: record["schedule"][key] for key in ("frequency", "weekdays", "month_days", "time", "timezone")}
+    return {**domain_schedule.timing(record["schedule"]), **domain_schedule.access(record["schedule"])}
 
 
-def schedule_queued(data_dir: Path, domain_id: str, run_id: str, *, now: datetime | None = None) -> dict:
-    """The scheduled scan was queued now: the next one is the rule's next moment on a later local day."""
+def schedule_queued(data_dir: Path, domain_id: str, run_id: str, *, now: datetime | None = None, note=None,
+                    gone_users: list[str] | None = None) -> dict:
+    """The scheduled scan was queued now: the next one is the rule's next moment on a later local day. `note` says what
+    it left out; `gone_users`, test users deleted since they were chosen, leave the rule."""
     now = now or _now()
     rule = _rule(get_domain(data_dir, domain_id))
-    return _mark(data_dir, domain_id, schedule_last_at=now, schedule_last_run=run_id, schedule_note=None, schedule_rule=rule,
+    if gone_users:
+        rule["test_users"] = [user for user in rule["test_users"] if user not in gone_users]
+    return _mark(data_dir, domain_id, schedule_last_at=now, schedule_last_run=run_id, schedule_note=note, schedule_rule=rule,
                  schedule_next_at=domain_schedule.next_run(rule, now, not_on=domain_schedule.local_day(now, rule)))
 
 

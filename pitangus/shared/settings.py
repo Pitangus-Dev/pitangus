@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import ipaddress
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -22,7 +23,7 @@ TRUE, FALSE = ("1", "true", "yes", "on"), ("0", "false", "no", "off", "")
 @dataclass(frozen=True)
 class Setting:
     default: str = ""
-    kind: str = "text"  # text, flag, integer, choice, url, urls, key, token
+    kind: str = "text"  # text, flag, integer, choice, url, urls, key, token, addresses
     choices: tuple[str, ...] = ()
     minimum: int | None = None
     required: bool = False
@@ -68,6 +69,8 @@ SETTINGS: dict[str, Setting] = {
     "PITANGUS_ALLOW_PRIVATE_WEBHOOKS": Setting(kind="flag"),
     # Passive web scans (ZAP) of verified domains: off unless the operator turns them on
     "PITANGUS_DAST_ENABLED": Setting(kind="flag"),
+    # The public addresses (or CIDR ranges) web scans leave from, comma-separated: the panel tells site owners to allow them
+    "PITANGUS_EGRESS_IPS": Setting(kind="addresses"),
     # Engines started through the Docker socket mount folders by their path on the host
     "PITANGUS_HOST_DATA_DIR": Setting(),
     "PITANGUS_HOST_RULES_DIR": Setting(),
@@ -110,6 +113,30 @@ def items(name: str) -> list[str]:
     return [item.strip().rstrip("/") for item in _raw(name).split(",") if item.strip()]
 
 
+ADDRESSES_LIMIT = 16
+
+
+def _addresses(value: str) -> list[str]:
+    entries = [item.strip() for item in value.split(",") if item.strip()]
+    if len(entries) > ADDRESSES_LIMIT:
+        raise ValueError(f"at most {ADDRESSES_LIMIT} entries")
+    shown: list[str] = []
+    for entry in entries:
+        network = ipaddress.ip_network(entry, strict=False)
+        written = str(network.network_address) if network.num_addresses == 1 else str(network)
+        if written not in shown:
+            shown.append(written)
+    return shown
+
+
+def addresses(name: str) -> list[str]:
+    """IP addresses or CIDR ranges, normalized and without repeats; none if the value is invalid (start-up refuses it)."""
+    try:
+        return _addresses(_raw(name))
+    except ValueError:
+        return []
+
+
 def is_set(name: str) -> bool:
     return bool(os.environ.get(name, "").strip())
 
@@ -149,6 +176,11 @@ def _check(name: str, setting: Setting, environment: Mapping[str, str]):
             decoded = b""
         if len(decoded) != 32:
             return msg("cli.settings.invalid_key", name=name)
+    if setting.kind == "addresses":
+        try:
+            _addresses(value)
+        except ValueError:
+            return msg("cli.settings.invalid_addresses", name=name, value=value[:200], max=ADDRESSES_LIMIT)
     if setting.kind == "token" and len(value) < 32:
         return msg("cli.settings.short_token", name=name)
     return None

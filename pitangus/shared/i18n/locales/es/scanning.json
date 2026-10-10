@@ -644,5 +644,10 @@
     "image_missing": "La imagen de subfinder aún no está en este servidor: ejecuta make engines (o haz docker pull) y vuelve a buscar.",
     "timeout": "subfinder pasó de su límite de {{seconds}} segundos y se detuvo; vuelve a buscar más tarde.",
     "failed": "subfinder no terminó: comprueba que el servidor tenga salida a internet y vuelve a buscar."
+  },
+  "egress": {
+    "declared": "Este servidor declara sus direcciones de salida en {{name}}: cámbialas ahí.",
+    "unreachable": "El servicio que devuelve la IP no respondió. Inténtalo más tarde o configura PITANGUS_EGRESS_IPS en el servidor.",
+    "unexpected": "El servicio que devuelve la IP no respondió con una única dirección pública. Configura PITANGUS_EGRESS_IPS en el servidor."
   }
 }

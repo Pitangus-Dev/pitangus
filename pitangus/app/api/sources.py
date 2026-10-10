@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse, Response
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, model_validator
 
 from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, guard
 from pitangus.app.api.deps import problem
@@ -20,7 +20,7 @@ from pitangus.modules.integrations.github import (REQUIRED_PERMISSIONS, GitHubAp
                                                   install_url, installation_details, permission_review, save_credentials, verify_app)
 from pitangus.modules.integrations import github_manifest
 from pitangus.modules.integrations.installations import clear_github, github_connections, github_installations, save_github
-from pitangus.modules.scanning import openapi_spec
+from pitangus.modules.scanning import egress, openapi_spec
 from pitangus.modules.sources import assets as source_assets
 from pitangus.modules.sources import domain_headers, domain_scope, domains, test_users
 from pitangus.modules.sources.assets import with_scan_branches
@@ -199,12 +199,14 @@ class DomainSchedule(Open):
     """When the passive web scan runs on its own: daily, on `weekdays` (1 Monday … 7 Sunday) or on `month_days`
     (1–28), at `time` (HH:MM) in `timezone` (IANA), at most once a day. `next_run_at` (UTC) is the moment the
     scheduler queues it; `last_run_at` and `last_run_id` say what it did last and `note`, when that slot was skipped,
-    why."""
+    why. The scan signs in as `test_users` (ids, at most 3) and sends the saved headers with `use_headers`."""
     frequency: Literal["daily", "weekly", "monthly"]
     weekdays: list[int] = Field(default_factory=list, max_length=7)
     month_days: list[int] = Field(default_factory=list, max_length=28)
     time: str
     timezone: str
+    test_users: list[str] = Field(default_factory=list, max_length=test_users.PER_SCAN)
+    use_headers: bool = False
     next_run_at: str | None = None
     last_run_at: str | None = None
     last_run_id: str | None = None
@@ -265,12 +267,22 @@ class DomainRow(Open):
     open: int = 0
 
 
+class Egress(Open):
+    """The public addresses web scans leave from, for sites that filter by IP: declared by the server
+    (`source` setting, PITANGUS_EGRESS_IPS), detected once by an administrator (`detected`, with `detected_at`), or
+    unknown (no `ips`)."""
+    ips: list[str] = Field(default_factory=list, max_length=settings.ADDRESSES_LIMIT)
+    source: Literal["setting", "detected"] | None = None
+    detected_at: str | None = None
+
+
 class DomainPage(Open):
-    """`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED)."""
+    """`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED); `egress`: where they leave from."""
     items: list[DomainRow] = Field(max_length=domains.LIMIT)
     total: int
     limit: int
     dast: bool = False
+    egress: Egress | None = None
 
 
 class DomainCheck(Open):
@@ -342,7 +354,25 @@ def domain_list(context: Context = Depends(guard())) -> Any:
     """The registered domains (at most `limit`), with whether each one's proof is current and its scheduled scan."""
     records = domains.list_domains(context.data_dir)
     return context.render({"items": _domain_rows(context, records), "total": len(records), "limit": domains.LIMIT,
-                           "dast": settings.flag("PITANGUS_DAST_ENABLED")})
+                           "dast": settings.flag("PITANGUS_DAST_ENABLED"), "egress": egress.current(context.data_dir)})
+
+
+@router.post("/api/domains/egress", response_model=Egress, **AS_RETURNED,
+             responses={409: {"description": "Declared by the server"}, 429: {"description": "Too many attempts"},
+                        502: {"description": "The echo service failed"}})
+def domain_egress_detect(context: Context = Depends(guard(Policy(admin=True, action="detect-egress", body=64)))) -> Any:
+    """Asks a public echo service (https://api.ipify.org) once for the address this server is seen from, and keeps
+    it for the panel to show to site owners who filter by IP. Only on this explicit request, and only when the server
+    doesn't declare PITANGUS_EGRESS_IPS. One HTTPS GET, no redirects, 10 seconds and 64 bytes at most."""
+    _attempt(context, f"egress-detect:{context.user['username']}")
+    try:
+        found = egress.detect(context.data_dir, by=context.user["username"])
+    except egress.EgressError as exc:
+        declared = is_msg(exc.message) and exc.message[MARK] == "scanning.egress.declared"
+        raise ApiError(409 if declared else 502, exc.message) from exc
+    context.state.auth.throttle.succeeded(f"egress-detect:{context.user['username']}")
+    context.state.log.info("egress_detected", extra={"user": context.user["username"], "reason": ", ".join(found["ips"])})
+    return context.render(found)
 
 
 class DomainIn(BaseModel):
@@ -433,6 +463,8 @@ class ScheduleIn(BaseModel):
     month_days: list[Annotated[StrictInt, Field(ge=1, le=28)]] = Field(default_factory=list, max_length=28)
     time: StrictStr = Field(pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$")
     timezone: StrictStr = Field(min_length=1, max_length=64)
+    test_users: list[Annotated[StrictStr, Field(pattern="^[0-9a-f]{24}$")]] = Field(default_factory=list, max_length=test_users.PER_SCAN)
+    use_headers: StrictBool = False
 
     @model_validator(mode="after")
     def _days(self):
@@ -562,8 +594,9 @@ def domain_check(context: Context = Depends(guard(Policy(admin=True, action="che
              responses={404: {"description": "Unknown domain"}})
 def domain_remove(context: Context = Depends(guard(Policy(admin=True, action="remove-domain", body=256))),
                   data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
-    """Removes a domain and its saved headers. What was scanned or imported against it (runs, findings, their triage
-    and tickets) goes with it, like a repository that left the installation: the panel says so before asking."""
+    """Removes a domain with its saved headers, test users, related hosts (its scope) and scheduled scan. What was
+    scanned or imported against it (runs, findings, their triage and tickets) goes with it, like a repository that
+    left the installation: the panel says so before asking."""
     from pitangus.modules.runs import assets as run_assets
     from pitangus.modules.runs.store import find_runs
     record = _known(context, data.domain_id)
@@ -620,17 +653,32 @@ def domain_test_users_route(context: Context = Depends(guard(Policy(admin=True, 
 
 
 @router.post("/api/domains/schedule", response_model=DomainRow, openapi_extra=documented(DomainScheduleIn), **AS_RETURNED,
-             responses={404: {"description": "Unknown domain"}})
+             responses={404: {"description": "Unknown domain or test user"},
+                        409: {"description": "No saved headers, or a test user signing in outside the saved scope"}})
 def domain_schedule(context: Context = Depends(guard(Policy(admin=True, action="schedule-domain", body=1024))),
                     data: DomainScheduleIn = Depends(body(DomainScheduleIn, msg("sources.domains.invalid_request")))) -> Any:
     """Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,
     at a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the
     local day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task
     queues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the
-    domain's own host and the hosts saved in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason."""
+    domain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one
+    of those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the
+    scope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason."""
     from datetime import datetime
     from pitangus.modules.runs.store import find_runs
     record = _known(context, data.domain_id)
+    if data.schedule is not None:
+        if data.schedule.use_headers and not domain_headers.count(record["id"]):
+            raise ApiError(409, msg("scanning.web.errors.no_headers"))
+        if data.schedule.test_users:
+            try:
+                scope = domains.scan_scope(record, domain_scope.saved_hosts(context.data_dir, record))
+                test_users.check_selection(context.data_dir, record, list(data.schedule.test_users), scope)
+            except DomainError as exc:
+                raise ApiError(409, exc.message) from exc
+            except test_users.TestUserError as exc:
+                missing = is_msg(exc.message) and exc.message[MARK] == "sources.domains.test_users.not_found"
+                raise ApiError(404 if missing else 409, exc.message) from exc
     last = find_runs(context.data_dir, types=["dast_scan"], assets=[record["key"]], limit=1)
     try:
         record = domains.set_schedule(context.data_dir, data.domain_id, data.schedule.model_dump() if data.schedule else None,

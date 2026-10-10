@@ -69,8 +69,16 @@ class NextRunTests(unittest.TestCase):
 
     def test_rules_are_validated_and_normalized(self):
         self.assertEqual(rule("weekly", weekdays=[7, 1, 7], month_days=[3]), {"frequency": "weekly", "weekdays": [1, 7], "month_days": [],
-                                                                               "time": "09:00", "timezone": "UTC"})
+                                                                               "time": "09:00", "timezone": "UTC", "test_users": [],
+                                                                               "use_headers": False})
+        users = normalize({"frequency": "daily", "time": "09:00", "timezone": "UTC", "test_users": ["a" * 24, "b" * 24, "a" * 24],
+                           "use_headers": True})
+        self.assertEqual((users["test_users"], users["use_headers"]), (["a" * 24, "b" * 24], True))
         for bad in ({"frequency": "yearly"}, {"frequency": "daily", "time": "09:00", "timezone": ""},
+                    {"frequency": "daily", "time": "09:00", "timezone": "UTC", "test_users": ["../x"]},
+                    {"frequency": "daily", "time": "09:00", "timezone": "UTC", "test_users": "a" * 24},
+                    {"frequency": "daily", "time": "09:00", "timezone": "UTC", "test_users": ["a" * 24, "b" * 24, "c" * 24, "d" * 24]},
+                    {"frequency": "daily", "time": "09:00", "timezone": "UTC", "use_headers": "yes"},
                     {"frequency": "daily", "time": "09:00", "timezone": "Not/AZone"}, {"frequency": "daily", "time": "9am", "timezone": "UTC"},
                     {"frequency": "monthly", "month_days": [0], "time": "09:00", "timezone": "UTC"}, None):
             with self.subTest(bad=bad), self.assertRaises(ScheduleError):

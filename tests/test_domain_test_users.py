@@ -395,8 +395,8 @@ class WorkerTests(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def run_queued(self, options, calls):
-        queued = self.jobs.enqueue_dast_scan(domain=self.domain, requested_by="jefa", options=options)
+    def run_queued(self, options, calls, trigger=None):
+        queued = self.jobs.enqueue_dast_scan(domain=self.domain, requested_by="jefa", options=options, trigger=trigger)
         with db.transaction(self.data_dir) as connection:
             payload = connection.execute(select(jobs.c.payload).where(jobs.c.run_id == queued["id"])).scalar_one()
         with patch.object(domains, "lookup_txt", return_value=[self.domain["txt_value"]]), \
@@ -427,6 +427,19 @@ class WorkerTests(unittest.TestCase):
         record, _ = self.run_queued({"mode": "web", "test_users": [saved["id"]]}, calls)
         self.assertEqual((record["status"], calls), ("failed", []))
         self.assertIn("doesn't exist", text(record["progress"][-1]["message"], "en"))
+
+    def test_a_scheduled_scan_runs_without_what_was_removed_since_and_says_so(self):
+        kept = test_users.save(self.data_dir, self.domain, password_user())
+        gone = test_users.save(self.data_dir, self.domain, totp_user())
+        test_users.remove(self.data_dir, self.domain["id"], gone["id"])
+        calls = []
+        record, _ = self.run_queued({"mode": "web", "use_headers": True, "test_users": [kept["id"], gone["id"]]}, calls,
+                                    trigger={"kind": "schedule"})
+        self.assertNotEqual(record["status"], "failed", record["progress"])
+        self.assertEqual([login["name"] for login in record["logins"]], ["Admin user"])
+        warnings = [text(event["message"], "en") for event in record["progress"] if event["level"] == "warn"]
+        self.assertTrue(any("was deleted" in line for line in warnings), warnings)
+        self.assertTrue(any("headers" in line for line in warnings), warnings)
 
 
 class ApiTests(HttpCase):
@@ -505,6 +518,57 @@ class ApiTests(HttpCase):
                 status, answer, enqueue = scan(body)
                 self.assertEqual(status, expected, answer)
                 enqueue.assert_not_called()
+
+    def test_a_schedule_signs_in_as_test_users_of_its_scope_and_sends_headers_only_if_saved(self):
+        from pitangus.modules.sources import domain_headers, domain_schedule, domain_scope
+        self.assertEqual(domain_schedule.USERS_MAX, test_users.PER_SCAN)
+        mine = test_users.save(self.data_dir, self.domain, password_user())
+        docs = test_users.save(self.data_dir, self.domain, password_user(name="Docs", applies_to="docs.pitangus.dev"))
+        rule = {"frequency": "daily", "time": "09:00", "timezone": "UTC"}
+
+        def schedule(extra, role="admin"):
+            return self.send("/api/domains/schedule", "schedule-domain", {"domain_id": self.domain["id"], "schedule": {**rule, **extra}}, role=role)
+        self.assertEqual(schedule({"test_users": [mine["id"]]}, role="member")[0], 403)
+        for extra, expected in (({"test_users": [docs["id"]]}, 409), ({"test_users": ["f" * 24]}, 404),
+                                ({"test_users": ["nope"]}, 400), ({"test_users": ["a" * 24, "b" * 24, "c" * 24, "d" * 24]}, 400),
+                                ({"use_headers": True}, 409), ({"use_headers": "yes"}, 400)):
+            with self.subTest(extra=extra):
+                self.assertEqual(schedule(extra)[0], expected)
+        status, row, _ = schedule({"test_users": [mine["id"]]})
+        self.assertEqual((status, row["schedule"]["test_users"], row["schedule"]["use_headers"]), (200, [mine["id"]], False))
+        first = row["schedule"]["next_run_at"]
+        # Only what the scan does changes: the next run stays.
+        domain_headers.save(self.domain["id"], "Authorization", "Bearer abcdefgh12345678")
+        domain_scope.add_host(self.data_dir, self.domain["id"], "docs.pitangus.dev")
+        status, row, _ = schedule({"test_users": [mine["id"], docs["id"]], "use_headers": True})
+        self.assertEqual((status, row["schedule"]["test_users"], row["schedule"]["use_headers"], row["schedule"]["next_run_at"]),
+                         (200, [mine["id"], docs["id"]], True, first))
+
+    def test_the_periodic_task_leaves_out_users_deleted_or_outside_the_scope_with_a_note(self):
+        from datetime import datetime, timedelta, timezone
+        from unittest.mock import MagicMock
+        from pitangus.modules.runs import periodic
+        from pitangus.modules.sources import domain_scope
+        mine = test_users.save(self.data_dir, self.domain, password_user())
+        docs = test_users.save(self.data_dir, self.domain, password_user(name="Docs", applies_to="docs.pitangus.dev"))
+        gone = test_users.save(self.data_dir, self.domain, totp_user())
+        domain_scope.add_host(self.data_dir, self.domain["id"], "docs.pitangus.dev")
+        now = datetime.now(timezone.utc)
+        domains.set_schedule(self.data_dir, self.domain["id"], {"frequency": "daily", "time": "00:00", "timezone": "UTC",
+                                                                "test_users": [mine["id"], docs["id"], gone["id"]], "use_headers": True},
+                             now=now - timedelta(days=2))
+        test_users.remove(self.data_dir, self.domain["id"], gone["id"])
+        domain_scope.set_state(self.data_dir, self.domain["id"], "docs.pitangus.dev", "out_of_scope")
+        jobs_ = MagicMock()
+        jobs_.enqueue_dast_scan.return_value = {"id": "r" * 32, "status": "queued"}
+        self.assertEqual(periodic._domain_scans(self.data_dir, jobs_, now=now)["queued"], "r" * 32)
+        self.assertEqual(jobs_.enqueue_dast_scan.call_args.kwargs["options"], {"mode": "web", "use_scope": True, "test_users": [mine["id"]]})
+        schedule = domains.get_domain(self.data_dir, self.domain["id"])["schedule"]
+        note = text(schedule["note"], "en")
+        for part in ("was deleted", "Docs signs in outside", "none now"):
+            self.assertIn(part, note)
+        # The deleted user leaves the rule; the one outside the scope stays, for when the scope includes it again.
+        self.assertEqual((schedule["test_users"], schedule["use_headers"]), ([mine["id"], docs["id"]], True))
 
 
 if __name__ == "__main__":
