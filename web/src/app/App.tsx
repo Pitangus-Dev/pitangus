@@ -73,8 +73,10 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
       setView(route.view as View); setSelectedId(route.params.get('run'))
       if (route.view === 'domain') setDomainRoute({ id: route.params.get('id') ?? '', tab: domainTabOf(route.params.get('tab')) })
     }
+    // hashchange too: a link or an edited address in the same tab changes the hash without always firing popstate.
     window.addEventListener('popstate', sync)
-    return () => window.removeEventListener('popstate', sync)
+    window.addEventListener('hashchange', sync)
+    return () => { window.removeEventListener('popstate', sync); window.removeEventListener('hashchange', sync) }
   }, [])
   useEffect(() => { if (!readRoute().view) writeRoute(view, {}, { replace: true }) }, [view])
   // Cada vista empieza arriba: sin esto hereda el scroll de la anterior (p. ej. el CVE tracker abría al pie).
