@@ -614,7 +614,8 @@
       "nuclei": "nuclei ran detection templates only (exposed files, misconfigurations, versions, takeovers, TLS): templates that exploit, fuzz, guess passwords or call out-of-band servers were left out.",
       "tls_capped": "testssl.sh checked the first {{max}} hosts of the scope only.",
       "ajax": "The AJAX spider only follows links, in a browser, for {{minutes}} minutes: pages reached only through buttons, forms or typed input weren't opened.",
-      "versions": "Known vulnerabilities of exposed versions come from the version a response shows, not from testing it: a header can be rewritten and a backported fix keeps the old number, so confirm the version on the server first."
+      "versions": "Known vulnerabilities of exposed versions come from the version a response shows, not from testing it: a header can be rewritten and a backported fix keeps the old number, so confirm the version on the server first.",
+      "tool_unreached": "{{tool}} couldn't check {{hosts}}: its part of this scan is incomplete there, and what it reported before isn't marked fixed."
     },
     "errors": {
       "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
@@ -686,7 +687,8 @@
         "progress": "httpx {{version}}: naming the technologies each host answers with…",
         "detail_one": "{{count}} technology named on the scope's hosts ({{hosts}}), shown on the domain's page.",
         "detail_other": "{{count}} technologies named on the scope's hosts ({{hosts}}), shown on the domain's page."
-      }
+      },
+      "unreached": "{{detail}} It couldn't check {{hosts}} (no answer, or the address was refused), so finding nothing there proves nothing."
     },
     "testssl": {
       "reason": "testssl.sh rates {{check}} on {{host}} as a problem: {{finding}}",

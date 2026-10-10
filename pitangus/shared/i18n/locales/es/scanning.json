@@ -614,7 +614,8 @@
       "nuclei": "nuclei solo ejecutó plantillas de detección (archivos expuestos, configuraciones incorrectas, versiones, takeovers, TLS): quedaron fuera las que explotan, hacen fuzzing, prueban contraseñas o llaman a servidores externos.",
       "tls_capped": "testssl.sh revisó solo los primeros {{max}} hosts del alcance.",
       "ajax": "El spider AJAX solo sigue enlaces, en un navegador, durante {{minutes}} minutos: no abrió páginas a las que solo se llega con botones, formularios o texto escrito.",
-      "versions": "Las vulnerabilidades conocidas de versiones expuestas salen de la versión que muestra una respuesta, no de probarla: una cabecera puede reescribirse y un parche retroportado mantiene el número viejo, así que confirma primero la versión en el servidor."
+      "versions": "Las vulnerabilidades conocidas de versiones expuestas salen de la versión que muestra una respuesta, no de probarla: una cabecera puede reescribirse y un parche retroportado mantiene el número viejo, así que confirma primero la versión en el servidor.",
+      "tool_unreached": "{{tool}} no pudo revisar {{hosts}}: su parte del análisis quedó incompleta ahí, y lo que había reportado antes no se marca como remediado."
     },
     "errors": {
       "disabled": "Los análisis web están apagados en este servidor: define PITANGUS_DAST_ENABLED=1 en su entorno y reinícialo.",
@@ -686,7 +687,8 @@
         "progress": "httpx {{version}}: identificando las tecnologías con que responde cada host…",
         "detail_one": "{{count}} tecnología identificada en los hosts del alcance ({{hosts}}), visible en la página del dominio.",
         "detail_other": "{{count}} tecnologías identificadas en los hosts del alcance ({{hosts}}), visibles en la página del dominio."
-      }
+      },
+      "unreached": "{{detail}} No pudo revisar {{hosts}} (no hubo respuesta o se rechazó la dirección), así que no encontrar nada ahí no prueba nada."
     },
     "testssl": {
       "reason": "testssl.sh califica {{check}} en {{host}} como un problema: {{finding}}",

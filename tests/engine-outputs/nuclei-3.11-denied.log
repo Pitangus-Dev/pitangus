@@ -1,0 +1,22 @@
+
+                     __     _
+   ____  __  _______/ /__  (_)
+  / __ \/ / / / ___/ / _ \/ /
+ / / / / /_/ / /__/ /  __/ /
+/_/ /_/\__,_/\___/_/\___/_/   v3.11.1
+
+		projectdiscovery.io
+
+[ERR] Could not read nuclei-ignore file: open /tmp/.config/nuclei/.nuclei-ignore: no such file or directory
+[ERR] Could not read nuclei-ignore file: open /tmp/.config/nuclei/.nuclei-ignore: no such file or directory
+[INF] Current nuclei version: v3.11.1 (unknown) - remove '-duc' flag to enable update checks
+[INF] Current nuclei-templates version:  (unknown) - remove '-duc' flag to enable update checks
+[INF] New templates added in latest release: 0
+[INF] Templates loaded for current scan: 833
+[INF] Executing 833 signed templates from projectdiscovery/nuclei-templates
+[INF] Targets loaded for current scan: 1
+[INF] Templates clustered: 817 (Reduced 807 Requests)
+[INF] Skipped edge.pitangus.test:443 from target list as found unresponsive permanently: cause="denied address found for host" chain="got err while executing https://edge.pitangus.test/"
+{"duration":"0:00:01","errors":"20","hosts":"1","matched":"0","percent":"40","requests":"11","rps":"16","startedAt":"2026-10-10T20:56:32.497848553Z","templates":"833","total":"27"}
+[INF] Scan completed in 679.885028ms. No results found.
+{"duration":"0:00:01","errors":"20","hosts":"1","matched":"0","percent":"40","requests":"11","rps":"16","startedAt":"2026-10-10T20:56:32.497848553Z","templates":"833","total":"27"}

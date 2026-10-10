@@ -1,0 +1,22 @@
+
+                     __     _
+   ____  __  _______/ /__  (_)
+  / __ \/ / / / ___/ / _ \/ /
+ / / / / /_/ / /__/ /  __/ /
+/_/ /_/\__,_/\___/_/\___/_/   v3.11.1
+
+		projectdiscovery.io
+
+[ERR] Could not read nuclei-ignore file: open /tmp/.config/nuclei/.nuclei-ignore: no such file or directory
+[ERR] Could not read nuclei-ignore file: open /tmp/.config/nuclei/.nuclei-ignore: no such file or directory
+[INF] Current nuclei version: v3.11.1 (unknown) - remove '-duc' flag to enable update checks
+[INF] Current nuclei-templates version:  (unknown) - remove '-duc' flag to enable update checks
+[INF] New templates added in latest release: 0
+[INF] Templates loaded for current scan: 833
+[INF] Executing 833 signed templates from projectdiscovery/nuclei-templates
+[INF] Targets loaded for current scan: 2
+[INF] Templates clustered: 817 (Reduced 1614 Requests)
+{"duration":"0:00:05","errors":"0","hosts":"2","matched":"8","percent":"100","requests":"54","rps":"11","startedAt":"2026-10-10T20:57:08.223501746Z","templates":"833","total":"54"}
+[INF] Scan completed in 4.844582368s. 8 matches found.
+[INF] HTTP connections: 54 total, 12 new, 42 reused (77.8%)
+{"duration":"0:00:05","errors":"0","hosts":"2","matched":"8","percent":"100","requests":"54","rps":"11","startedAt":"2026-10-10T20:57:08.223501746Z","templates":"833","total":"54"}

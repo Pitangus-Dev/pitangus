@@ -195,9 +195,10 @@ class ArgumentTests(unittest.TestCase):
             self.assertNotIn(flag, arguments)
 
 
-def fake_tools(outputs: dict, *, calls: list | None = None, returncodes: dict | None = None, raising: dict | None = None):
+def fake_tools(outputs: dict, *, calls: list | None = None, returncodes: dict | None = None, raising: dict | None = None,
+               errors: dict | None = None):
     """`docker run` of the web tools: answers each image with its fixture (stdout, or testssl.sh's JSON report written
-    into its work folder), and ZAP with a real SARIF."""
+    into its work folder; `errors`: its stderr), and ZAP with a real SARIF."""
     images = {meta["image"]: key for key, meta in engines.IMAGES.items()}
 
     def run(command, **kwargs):
@@ -217,7 +218,7 @@ def fake_tools(outputs: dict, *, calls: list | None = None, returncodes: dict | 
             report = command[command.index("--jsonfile") + 1].rsplit("/", 1)[-1]
             (work / report).write_text(outputs.get("testssl", "[]"))
             return subprocess.CompletedProcess(command, (returncodes or {}).get(key, 0), "", "")
-        return subprocess.CompletedProcess(command, (returncodes or {}).get(key, 0), outputs.get(key, ""), "")
+        return subprocess.CompletedProcess(command, (returncodes or {}).get(key, 0), outputs.get(key, ""), (errors or {}).get(key, ""))
     return patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=run)
 
 
@@ -393,6 +394,77 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(web_tools.parse_httpx('{"host": "evil.example", "tech": ["X:1"]}', [HOST]), [])
 
 
+class SilentFailureTests(unittest.TestCase):
+    """A tool that exits 0 without reaching a host: the samples are real (nuclei 3.11, katana 1.7 and testssl.sh 3.2
+    with pitangus.dev pinned to 203.0.113.7, a documentation address nothing answers on, which nuclei's `-lna` also
+    refuses; edge.pitangus.test pinned to the container's loopback). Each exited 0 (testssl.sh 246) and printed no
+    finding."""
+
+    def setUp(self):
+        testenv.docker_runner(self)
+        which = patch.object(engines.shutil, "which", return_value="/usr/bin/docker")
+        which.start()
+        self.addCleanup(which.stop)
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.work = Path(self.directory.name)
+        self.cache = self.work / "templates"
+        (self.cache / f"v{nuclei_templates.RELEASE}" / "hosts").mkdir(parents=True)
+        (self.cache / f"v{nuclei_templates.RELEASE}" / "pages").mkdir(parents=True)
+        (self.cache / f"v{nuclei_templates.RELEASE}" / nuclei_templates.COMPLETE).write_text(json.dumps({"hosts": 1, "pages": 1}))
+
+    def test_nuclei_log_names_the_hosts_it_skipped_and_reads_its_last_statistics(self):
+        self.assertEqual(web_tools.nuclei_log(fixture("nuclei-3.11-skipped.log"), [HOST]), ({HOST}, True))
+        self.assertEqual(web_tools.nuclei_log(fixture("nuclei-3.11-denied.log"), [EDGE]), ({EDGE}, True))
+        self.assertEqual(web_tools.nuclei_log(fixture("nuclei-3.11-stats.log"), [HOST]), (set(), False))
+        # As nuclei 3 logs a template that couldn't run (pkg/tmplexec): the pass is incomplete, the host named.
+        unexecuted = f"[WRN] [tech-detect] Could not execute request for https://{HOST}/: context deadline exceeded\n"
+        self.assertEqual(web_tools.nuclei_log(unexecuted, [HOST]), ({HOST}, True))
+        self.assertEqual(web_tools.nuclei_log('{"percent":"74","errors":"3"}\n', [HOST]), (set(), True))
+        # A host outside the scope still leaves the pass incomplete, without being named.
+        self.assertEqual(web_tools.nuclei_log("[INF] Skipped evil.example:443 from target list as found unresponsive permanently\n", [HOST]),
+                         (set(), True))
+
+    def test_nuclei_that_skipped_a_host_is_partial_and_names_it(self):
+        with fake_tools({"nuclei": ""}, errors={"nuclei": fixture("nuclei-3.11-skipped.log")}):
+            run, _ = web_tools.run_nuclei([f"https://{HOST}/"], [f"https://{HOST}/es/"], [HOST], PINS, self.work, self.cache)
+        self.assertEqual((run.status, run.unreached), ("partial", [HOST]))
+        self.assertIn(f"couldn't check {HOST}", text(run.detail, "en"))
+        with fake_tools({"nuclei": ""}, errors={"nuclei": fixture("nuclei-3.11-stats.log")}):
+            clean, _ = web_tools.run_nuclei([f"https://{HOST}/"], [], [HOST], PINS, self.work, self.cache)
+        self.assertEqual((clean.status, clean.unreached), ("completed", []))
+
+    def test_nuclei_reports_progress_on_stderr_instead_of_staying_silent(self):
+        arguments = web_tools.nuclei_arguments("hosts", 10)
+        self.assertNotIn("-silent", arguments)
+        for flag in ("-stats", "-sj", "-nc", "-jsonl"):
+            self.assertIn(flag, arguments)
+
+    def test_katana_that_reached_nothing_is_partial(self):
+        output = fixture("katana-1.7-unreachable.jsonl")
+        self.assertEqual(web_tools.parse_katana(output, [HOST]), [])  # the errored seed isn't a URL found
+        self.assertEqual(web_tools.katana_reached(output, [HOST]), set())
+        self.assertEqual(web_tools.katana_reached(fixture("katana-1.7.jsonl"), [HOST]), {HOST})
+        with fake_tools({"katana": output}):
+            run, urls = web_tools.run_katana([f"https://{HOST}/"], [HOST], PINS, self.work, headless=False)
+        self.assertEqual((run.status, run.unreached, urls), ("partial", [HOST], []))
+
+    def test_testssl_that_couldnt_connect_is_partial(self):
+        document = json.loads(fixture("testssl-3.2-unreachable.json"))
+        self.assertFalse(web_tools.testssl_finished(document))
+        self.assertTrue(web_tools.testssl_finished(json.loads(fixture("testssl-3.2.json"))))
+        self.assertFalse(web_tools.testssl_finished([{"id": "scanTime", "finding": "Scan interrupted"}]))
+        with fake_tools({"testssl": fixture("testssl-3.2-unreachable.json")}, returncodes={"testssl": 246}):
+            run = web_tools.run_testssl([HOST], PINS, self.work)
+        self.assertEqual((run.status, run.unreached, run.findings), ("partial", [HOST], []))
+
+    def test_httpx_without_an_answer_is_partial(self):
+        self.assertEqual(web_tools.httpx_answered(fixture("httpx-1.12.jsonl"), [HOST]), {HOST})
+        with fake_tools({"httpx": ""}):
+            run, detected = web_tools.run_httpx([HOST], PINS, self.work)
+        self.assertEqual((run.status, run.unreached, detected), ("partial", [HOST], []))
+
+
 def finding(tool: str, rule: str, path: str, severity: str = "low", **extra) -> dict:
     return {"finding_id": rule[:16], "fingerprint": f"{tool}:{rule}:{path}", "scanner": "dast", "tool": tool, "rule_id": rule, "title": rule,
             "path": path, "line": 1, "severity": severity, "confidence": 6, "priority": {"action": "track", "factors": []}, **extra}
@@ -497,6 +569,16 @@ class PipelineTests(unittest.TestCase):
         limitations = " ".join(text(item, "en") for item in result["limitations"])
         self.assertIn("nuclei didn't finish", limitations)
         self.assertNotIn("import", [job["type"] for job in json.loads(next(given for key, _, given in calls if key == "zap"))["jobs"]])
+
+    def test_nuclei_exiting_0_without_reaching_the_host_is_not_a_clean_result(self):
+        self.outputs["nuclei"] = ""
+        result, _, _ = self.scan(errors={"nuclei": fixture("nuclei-3.11-skipped.log")})
+        step = next(step for step in result["steps"] if step["id"] == "dast-nuclei")
+        self.assertEqual(step["status"], "partial")
+        self.assertEqual({tool["name"]: tool["status"] for tool in result["summary"]["tools"]}["nuclei"], "inconclusive")
+        limitations = " ".join(text(item, "en") for item in result["limitations"])
+        self.assertIn(f"nuclei couldn't check {HOST}", limitations)
+        self.assertNotIn("nuclei didn't finish", limitations)
 
     def test_a_tool_without_its_image_is_skipped_with_the_reason(self):
         ready = {**dict.fromkeys(web_tools.TOOLS), "testssl": web.msg("scanning.web.tools.image_missing", tool="testssl.sh")}

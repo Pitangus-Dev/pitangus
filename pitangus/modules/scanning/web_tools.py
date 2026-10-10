@@ -60,6 +60,10 @@ ASSET = re.compile(r"(?i)\.(?:js|mjs|css|map|png|jpe?g|gif|svg|webp|avif|ico|wof
 
 NUCLEI_HOST_MINUTES = 10
 NUCLEI_PAGE_MINUTES = 3
+NUCLEI_STATS_SECONDS = 3600   # its statistics at the end only: the last line says how far it got
+# What nuclei logs on stderr (not with -silent) when it gives up on a target or a template can't run; it still exits 0.
+NUCLEI_SKIPPED = re.compile(r"Skipped (\S+) from target list as found unresponsive")
+NUCLEI_UNEXECUTED = re.compile(r"Could not execute (?:request )?for (\S+?):? ")
 NUCLEI_EXCLUDED_TYPES = "headless,code,javascript,file,dns,tcp,websocket,whois,workflow"
 
 TESTSSL_HOSTS_MAX = 3
@@ -98,12 +102,18 @@ REFERENCES_MAX, REFERENCE_MAX, TEXT_MAX, TITLE_MAX = 8, 300, 2000, 300
 
 
 class ToolRun:
-    """What one tool did in a scan: its step for the run and what it found."""
+    """What one tool did in a scan: its step for the run and what it found. `unreached`: the scope's hosts it couldn't
+    check (a tool that exits 0 without reaching a host is not a clean result for that host)."""
 
-    def __init__(self, key: str, status: str, detail, *, findings: list | None = None, duration: float | None = None):
+    def __init__(self, key: str, status: str, detail, *, findings: list | None = None, duration: float | None = None,
+                 unreached: list[str] | None = None):
         self.key, self.status, self.detail = key, status, detail
         self.findings: list[Finding] = findings or []
         self.duration = duration
+        self.unreached = sorted(set(unreached or []))
+        if self.unreached:
+            self.status = "partial"
+            self.detail = msg("scanning.web.tools.unreached", detail=detail, hosts=", ".join(self.unreached))
 
     def step(self) -> dict:
         meta = IMAGES[self.key]
@@ -146,6 +156,15 @@ def in_scope_url(value: Any, hosts: list[str]) -> str | None:
     if "${" in path:
         return None
     return f"https://{host}{path if path.startswith('/') else '/' + path}"
+
+
+def host_of(target: Any) -> str:
+    """The host name in what a tool prints as its target: a URL, `host:port` or a bare host."""
+    value = str(target or "").strip().strip("\"'")
+    value = value.split("://", 1)[-1].split("/", 1)[0].rsplit("@", 1)[-1]
+    if value.count(":") == 1:
+        value = value.rsplit(":", 1)[0]
+    return value.lower().rstrip(".")
 
 
 def _wrap(binary: str, arguments: list[str], headers) -> tuple[list[str], str | None, str | None]:
@@ -194,6 +213,8 @@ def parse_katana(output: str, hosts: list[str]) -> list[str]:
         response = entry.get("response") if isinstance(entry, dict) else None
         if not isinstance(request, dict) or str(request.get("method") or "GET").upper() != "GET":
             continue
+        if entry.get("error") and not isinstance(response, dict):
+            continue  # asked for and never answered (a timeout, a refused connection)
         # A link the browser saw but didn't open has no response yet: ZAP and nuclei will ask for it.
         status = response.get("status_code") if isinstance(response, dict) else None
         if isinstance(status, int) and status >= 400:
@@ -202,6 +223,24 @@ def parse_katana(output: str, hosts: list[str]) -> list[str]:
         if url:
             found.add(url)
     return sorted(found, key=lambda url: (url.count("/"), url))[:INVENTORY_MAX]
+
+
+def katana_reached(output: str, hosts: list[str]) -> set[str]:
+    """The hosts katana got anything from: a line without an error. One that only errored (an unreachable seed) or
+    never shows up wasn't crawled, whatever katana's exit code says."""
+    reached: set[str] = set()
+    for line in output.splitlines()[:50_000]:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        request = entry.get("request") if isinstance(entry, dict) else None
+        if not isinstance(request, dict) or (entry.get("error") and not isinstance(entry.get("response"), dict)):
+            continue
+        host = host_of(request.get("endpoint"))
+        if host in hosts:
+            reached.add(host)
+    return reached
 
 
 def _katana_once(seeds: list[str], hosts: list[str], pins: dict[str, str], work: Path, headers, headless: bool):
@@ -229,15 +268,18 @@ def run_katana(seeds: list[str], hosts: list[str], pins: dict[str, str], work: P
                            duration=round(time.time() - started, 1)), []
         except (OSError, ValueError):
             return ToolRun("katana", "partial", msg("scanning.web.tools.failed", tool="katana"), duration=round(time.time() - started, 1)), []
-        urls = parse_katana(scrub(completed.stdout or "")[:OUTPUT_MAX], hosts)
+        output = scrub(completed.stdout or "")[:OUTPUT_MAX]
+        urls = parse_katana(output, hosts)
         if urls or time.time() - attempt > KATANA_RETRY_SECONDS:
             break
     duration = round(time.time() - started, 1)
     if completed.returncode != 0 and not urls:
         return ToolRun("katana", "partial", msg("scanning.web.tools.failed", tool="katana"), duration=duration), []
     detail = "scanning.web.tools.katana.detail" if browser else "scanning.web.tools.katana.detail_plain"
+    reached = katana_reached(output, hosts)
+    seeded = sorted({host_of(url) for url in seeds} & set(hosts))
     return ToolRun("katana", "completed", msg(detail, count=len(urls), minutes=KATANA_MINUTES, depth=KATANA_DEPTH),
-                   duration=duration), urls
+                   duration=duration, unreached=[host for host in seeded if host not in reached]), urls
 
 
 # --- nuclei ------------------------------------------------------------------------------------------------------
@@ -247,7 +289,7 @@ def nuclei_arguments(folder: str, minutes: int) -> list[str]:
     """Only the filtered templates (`nuclei_templates`), and nothing that could bring others back: no update, no
     out-of-band server, no redirects, no private addresses, the excluded protocols and tags again."""
     return ["-t", f"/templates/{folder}", "-l", f"{WORK}/targets.txt", "-r", f"{WORK}/{RESOLVERS}",
-            "-duc", "-ni", "-dr", "-lna", "-no-stdin", "-nc", "-silent", "-jsonl", "-or", "-ot",
+            "-duc", "-ni", "-dr", "-lna", "-no-stdin", "-nc", "-jsonl", "-or", "-ot", "-stats", "-sj", "-si", str(NUCLEI_STATS_SECONDS),
             "-ept", NUCLEI_EXCLUDED_TYPES, "-etags", ",".join(sorted(nuclei_templates.DENY_TAGS)),
             "-rl", str(RATE), "-c", "10", "-bs", "5", "-timeout", "10", "-retries", "1", "-mt", f"{minutes}m"]
 
@@ -328,6 +370,30 @@ def parse_nuclei(output: str, hosts: list[str]) -> tuple[list[Finding], list[dic
     return findings, technologies
 
 
+def nuclei_log(log: str, hosts: list[str]) -> tuple[set[str], bool]:
+    """What nuclei's log says it couldn't do: the scope's hosts it skipped as unresponsive or where a template couldn't
+    run, and whether the pass is incomplete (any of those, or its last statistics short of 100%)."""
+    unreached: set[str] = set()
+    incomplete = False
+    percent: int | None = None
+    for line in log.splitlines()[:100_000]:
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                stats = json.loads(line)
+                if isinstance(stats, dict) and "percent" in stats:
+                    percent = int(str(stats["percent"]))
+            except ValueError:
+                pass
+            continue
+        match = NUCLEI_SKIPPED.search(line) or NUCLEI_UNEXECUTED.search(line)
+        if match:
+            incomplete = True
+            if (host := host_of(match.group(1))) in hosts:
+                unreached.add(host)
+    return unreached, incomplete or (percent is not None and percent < 100)
+
+
 def run_nuclei(roots: list[str], pages: list[str], hosts: list[str], pins: dict[str, str], work: Path, cache_dir: Path, *,
                headers=(), scrub=lambda text: text) -> tuple[ToolRun, list[dict]]:
     """Two passes: every allowed template on each host's root, then the page-level ones on the crawled URLs (one
@@ -341,6 +407,7 @@ def run_nuclei(roots: list[str], pages: list[str], hosts: list[str], pins: dict[
     findings: list[Finding] = []
     technologies: list[dict] = []
     status, notes = "completed", 0
+    unreached: set[str] = set()
     documents = [url for url in pages if url not in roots and not ASSET.search(urlsplit(url).path)][:PAGES_MAX]
     passes = [("hosts", roots, NUCLEI_HOST_MINUTES), *([("pages", documents, NUCLEI_PAGE_MINUTES)] if documents else [])]
     for folder_name, targets, minutes in passes:
@@ -358,13 +425,18 @@ def run_nuclei(roots: list[str], pages: list[str], hosts: list[str], pins: dict[
                 continue
         if completed.returncode != 0:
             status, notes = "partial", notes + 1
+        skipped, incomplete = nuclei_log(scrub(completed.stderr or "")[:OUTPUT_MAX], hosts)
+        unreached |= skipped
+        if incomplete:
+            status, notes = "partial", notes + 1
         found, detected = parse_nuclei(scrub(completed.stdout or "")[:OUTPUT_MAX], hosts)
         findings += found
         technologies += detected
     unique = {finding["fingerprint"]: finding for finding in findings}
     detail = msg("scanning.web.tools.nuclei.detail", release=nuclei_templates.RELEASE, templates=counts.get("hosts", 0),
                  pages=len(documents), count=len(unique), rate=RATE)
-    return ToolRun("nuclei", status, detail, findings=list(unique.values()), duration=round(time.time() - started, 1)), technologies
+    return ToolRun("nuclei", status, detail, findings=list(unique.values()), duration=round(time.time() - started, 1),
+                   unreached=sorted(unreached)), technologies
 
 
 # --- testssl.sh --------------------------------------------------------------------------------------------------
@@ -416,10 +488,22 @@ def parse_testssl(document: Any, host: str) -> list[Finding]:
     return findings
 
 
+def testssl_finished(document: Any) -> bool:
+    """Whether testssl.sh's report is of a finished scan: its closing `scanTime`, and no fatal `scanProblem` (it couldn't
+    connect) nor an interrupted scan, which it reports with that same `scanTime`."""
+    if not isinstance(document, list):
+        return False
+    items = [item for item in document[:5000] if isinstance(item, dict)]
+    if any(item.get("severity") == "FATAL" or item.get("id") == "scanProblem" for item in items):
+        return False
+    return any(item.get("id") == "scanTime" and "interrupted" not in str(item.get("finding") or "").lower() for item in items)
+
+
 def run_testssl(hosts: list[str], pins: dict[str, str], work: Path) -> ToolRun:
     started = time.time()
     findings: list[Finding] = []
     targets, failed = hosts[:TESTSSL_HOSTS_MAX], 0
+    unreached: list[str] = []
     for index, host in enumerate(targets):
         _pins_ok(pins, [host])
         with TemporaryDirectory(prefix="testssl-", dir=work) as temporary:
@@ -434,15 +518,16 @@ def run_testssl(hosts: list[str], pins: dict[str, str], work: Path) -> ToolRun:
                     if (folder / report).is_file() and (folder / report).stat().st_size < OUTPUT_MAX else None
             except (subprocess.TimeoutExpired, OSError, ValueError):
                 completed, document = None, None
-        if document is None or completed is None or not any(isinstance(item, dict) and item.get("id") == "scanTime" for item in document):
+        if completed is None or not testssl_finished(document):
             failed += 1
+            unreached.append(host)
         findings += parse_testssl(document, host)
     status = "partial" if failed or len(hosts) > len(targets) else "completed"
     detail = msg("scanning.web.tools.testssl.detail", hosts=", ".join(targets), count=len(findings))
     if len(hosts) > len(targets):
         detail = msg("scanning.web.tools.testssl.detail_capped", hosts=", ".join(targets), count=len(findings), max=TESTSSL_HOSTS_MAX,
                      total=len(hosts))
-    return ToolRun("testssl", status, detail, findings=findings, duration=round(time.time() - started, 1))
+    return ToolRun("testssl", status, detail, findings=findings, duration=round(time.time() - started, 1), unreached=unreached)
 
 
 # --- httpx -------------------------------------------------------------------------------------------------------
@@ -459,7 +544,16 @@ TECH = re.compile(r"^(?P<name>[^:]{1,80})(?::(?P<version>[0-9][0-9A-Za-z.+_-]{0,
 
 def parse_httpx(output: str, hosts: list[str]) -> list[dict]:
     """The technologies httpx names per host ("Nginx:1.25.3" → name and version), without repeats."""
-    found = []
+    return _httpx_lines(output, hosts)[0]
+
+
+def httpx_answered(output: str, hosts: list[str]) -> set[str]:
+    """The hosts httpx got an answer from: one it couldn't reach prints no line at all, and httpx still exits 0."""
+    return _httpx_lines(output, hosts)[1]
+
+
+def _httpx_lines(output: str, hosts: list[str]) -> tuple[list[dict], set[str]]:
+    found, answered = [], set()
     for line in output.splitlines()[:1000]:
         try:
             entry = json.loads(line)
@@ -475,11 +569,13 @@ def parse_httpx(output: str, hosts: list[str]) -> list[dict]:
                 continue
         if host not in hosts:
             continue
+        if entry.get("failed") is not True:
+            answered.add(host)
         for item in _strings(entry.get("tech"), 100):
             match = TECH.match(item)
             if match:
                 found.append({"name": match.group("name").strip(), "version": match.group("version"), "host": host})
-    return found
+    return found, answered
 
 
 def technologies_of(*groups: list[dict]) -> list[dict]:
@@ -517,11 +613,13 @@ def run_httpx(hosts: list[str], pins: dict[str, str], work: Path) -> tuple[ToolR
                              hosts={host: pins[host] for host in hosts}, pinned_only=True)
         except (subprocess.TimeoutExpired, OSError, ValueError):
             return ToolRun("httpx", "partial", msg("scanning.web.tools.failed", tool="httpx"), duration=round(time.time() - started, 1)), []
-    detected = parse_httpx((completed.stdout or "")[:OUTPUT_MAX], hosts)
+    output = (completed.stdout or "")[:OUTPUT_MAX]
+    detected = parse_httpx(output, hosts)
     status = "completed" if completed.returncode == 0 else "partial"
     names = technologies_of(detected)
+    answered = httpx_answered(output, hosts)
     return ToolRun("httpx", status, msg("scanning.web.tools.httpx.detail", count=len(names), hosts=", ".join(hosts)),
-                   duration=round(time.time() - started, 1)), detected
+                   duration=round(time.time() - started, 1), unreached=[host for host in hosts if host not in answered]), detected
 
 
 def skipped(key: str, reason) -> ToolRun:

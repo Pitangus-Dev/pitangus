@@ -646,7 +646,8 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                    *([msg("scanning.web.limitations.wildcards")] if scope["wildcards"] else []),
                    *([msg("scanning.web.limitations.tools_anonymous")] if runs and users else []),
                    *(msg("scanning.web.limitations.tool_skipped", tool=IMAGES[key]["name"]) for key, run in runs.items() if run.status == "skipped"),
-                   *(msg("scanning.web.limitations.tool_partial", tool=IMAGES[key]["name"]) for key, run in runs.items() if run.status == "partial"),
+                   *(msg("scanning.web.limitations.tool_unreached", tool=IMAGES[key]["name"], hosts=", ".join(run.unreached)) if run.unreached
+                     else msg("scanning.web.limitations.tool_partial", tool=IMAGES[key]["name"]) for key, run in runs.items() if run.status == "partial"),
                    *([msg("scanning.web.limitations.nuclei")] if "nuclei" in runs and runs["nuclei"].status != "skipped" else []),
                    *([msg("scanning.web.limitations.tls_capped", max=web_tools.TESTSSL_HOSTS_MAX)]
                      if "testssl" in runs and len(scope["hosts"]) > web_tools.TESTSSL_HOSTS_MAX else []),
