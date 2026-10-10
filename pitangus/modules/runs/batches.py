@@ -97,8 +97,20 @@ def cancel(data_dir: Path, batch_id: str, *, by: str) -> dict:
     return batch
 
 
+def _still_running(data_dir: Path, batch: dict) -> bool:
+    """Whether any of the batch's scans is still being queued, waiting or running."""
+    from pitangus.modules.runs.store import find_runs
+    if any(item.get("run_id") == "pending" for item in batch["items"]):
+        return True
+    ids = [item["run_id"] for item in batch["items"] if item.get("run_id")]
+    return any(run.get("status") in ("queued", "running") for run in find_runs(data_dir, ids=ids))
+
+
 def take_next(data_dir: Path) -> tuple[dict, int] | None:
-    """The next pending repository of the active batch (and marks it as taken). None if nothing is left."""
+    """The next pending repository of the active batch (and marks it as taken). None if nothing is left to take.
+
+    With several workers the last repositories are still running when nothing is left to take: the batch is only
+    done (and its notice sent) once every one of its scans has finished."""
     finished = None
     with documents.lock(data_dir, "batches"):
         batch = active(data_dir)
@@ -109,6 +121,8 @@ def take_next(data_dir: Path) -> tuple[dict, int] | None:
             batch["items"][index]["run_id"] = "pending"
             _write(data_dir, batch)
             return batch, index
+        if _still_running(data_dir, batch):
+            return None
         batch.update(status="done", finished_at=_now())
         _write(data_dir, batch)
         finished = batch

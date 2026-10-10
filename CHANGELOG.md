@@ -35,6 +35,9 @@ between minor versions: anything that changes behaviour is called out below.
   the queue was empty, so with several workers a batch advanced at the pace of one. It now keeps as many of its
   repositories queued as there are workers with nothing waiting, also while the leader itself is scanning; scans
   launched by hand keep precedence.
+- **A batch is "finished" when its last scan is.** With several workers, the batch was marked done, and its Slack or
+  Teams notice sent, as soon as its last repository was queued, while the last scans were still running, so the notice
+  could report fewer scans and findings than there were. It now waits for every scan of the batch to end.
 
 ## [0.12.2] - 2026-10-09
 
