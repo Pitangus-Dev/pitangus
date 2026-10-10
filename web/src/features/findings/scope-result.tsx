@@ -39,8 +39,8 @@ export function ScopeResult({ scope, name, tab, canAccept, canManage = canAccept
 
 function ScopeHeader({ scope, name }: { scope: ScopedFindings; name: string }) {
   const { t } = useTranslation('findings')
-  return <div className="space-y-2 rounded-2xl border border-app-line bg-panel p-5">
-    <div className="text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('scope.eyebrow', { count: scope.by_asset.length, value: formatNumber(scope.by_asset.length) })}</div>
+  return <div className="space-y-2 rounded-lg border border-app-line bg-panel p-5">
+    <div className="text-xs text-app-muted">{t('scope.eyebrow', { count: scope.by_asset.length, value: formatNumber(scope.by_asset.length) })}</div>
     <h2 className="truncate text-xl font-semibold">{name}</h2>
     <LifecycleSummary counts={scope.summary.lifecycle} />
     <p className="text-xs text-app-subtle">{t('scope.help')}</p>
@@ -51,7 +51,7 @@ function ScopeHeader({ scope, name }: { scope: ScopedFindings; name: string }) {
 function ScopeByAsset({ assets, onOpen, opening }: { assets: ScopeAsset[]; onOpen: (key: string) => void; opening: { pending: boolean; error: string } }) {
   const { t } = useTranslation('findings')
   const [all, setAll] = useState(false)
-  return <section aria-labelledby="scope-by-asset" className="space-y-3 rounded-2xl border border-app-line bg-panel p-5">
+  return <section aria-labelledby="scope-by-asset" className="space-y-3 rounded-lg border border-app-line bg-panel p-5">
     <div><h3 id="scope-by-asset" className="text-sm font-semibold">{t('scope.by_asset.title')}</h3><p className="text-xs text-app-subtle">{t('scope.by_asset.hint')}</p></div>
     <ul aria-busy={opening.pending || undefined} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{(all ? assets : assets.slice(0, ASSETS_SHOWN)).map(asset => <li key={asset.key} className="min-w-0">
       <button type="button" disabled={opening.pending} onClick={() => onOpen(asset.key)} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-app-line bg-inset px-3 py-2 text-left motion-safe:transition hover:bg-app-soft disabled:opacity-60">

@@ -222,7 +222,7 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
       </div>
       <fieldset className="space-y-2"><legend className="text-xs text-app-muted">{t('jira.rules.mode')}</legend>
         <div className="grid gap-2 sm:grid-cols-2">{(['manual', 'auto'] as const).map(mode => <label key={mode}
-          className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${draft.mode === mode ? 'border-brand/50 bg-brand/10' : 'border-app-line bg-app-soft'}`}>
+          className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${draft.mode === mode ? 'border-app-fg bg-app-soft' : 'border-app-line bg-app-soft'}`}>
           <input type="radio" name={`${id}-mode`} value={mode} checked={draft.mode === mode} onChange={() => set({ mode })} className="mt-0.5 size-4 accent-brand" />
           <span><span className="block text-sm font-medium">{mode === 'auto' ? t('jira.rules.mode_auto') : t('jira.rules.mode_manual')}</span>
             <span className="block text-xs text-app-muted">{mode === 'auto' ? t('jira.rules.mode_auto_help') : t('jira.rules.mode_manual_help')}</span></span></label>)}</div></fieldset>

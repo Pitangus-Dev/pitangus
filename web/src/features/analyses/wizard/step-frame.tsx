@@ -44,7 +44,7 @@ export function StepRail({ steps, current, onJump, vertical = false }: { steps: 
     </div>
     <ol aria-label={t('wizard.progress')} className={vertical ? 'hidden flex-col gap-1 text-sm xl:flex' : 'hidden flex-wrap items-center gap-x-2 gap-y-1 text-sm md:flex xl:hidden'}>{steps.map((id, index) => {
       const done = index < current
-      const body = <><span className={`flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs ${index === current ? 'border-brand bg-brand/15 text-brand' : done ? 'border-brand/40 bg-brand/10 text-brand' : 'border-app-line text-app-muted'}`}>
+      const body = <><span className={`flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs ${index === current ? 'border-app-fg bg-app-fg text-app' : done ? 'border-app-faint text-app-secondary' : 'border-app-line text-app-muted'}`}>
         {done ? <Check className="size-3" aria-hidden /> : index + 1}</span>{t(STEP_LABEL[id])}</>
       return <li key={id} aria-current={index === current ? 'step' : undefined} className="flex items-center gap-2">
         {index > 0 && !vertical && <span aria-hidden className="h-px w-6 bg-app-line" />}

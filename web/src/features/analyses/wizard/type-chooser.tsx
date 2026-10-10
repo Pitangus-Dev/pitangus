@@ -1,6 +1,6 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowRight, Boxes, Check, CircleCheck, Code2, FileUp, Globe2 } from 'lucide-react'
+import { ArrowRight, Boxes, Code2, FileUp, Globe2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { StepFrame } from '@/features/analyses/wizard/step-frame'
 import type { Kind } from '@/features/analyses/wizard/model'
@@ -45,15 +45,15 @@ export function TypeChooser({ choice, onChoose, onContinue, onImport, onCancel, 
         return <div key={card.id} ref={node => { cards.current[index] = node }} role="radio" aria-checked={selected} aria-disabled={disabled || undefined}
           aria-labelledby={`kind-${card.id}`} aria-describedby={points.length ? `kind-${card.id}-line kind-${card.id}-points` : `kind-${card.id}-line`} tabIndex={selected ? 0 : -1}
           onClick={() => { if (!disabled) onChoose(card.id) }} onKeyDown={event => move(event, card.id)}
-          className={`rounded-2xl border p-5 text-left motion-safe:transition ${disabled ? 'cursor-not-allowed border-dashed border-app-line' : selected ? 'cursor-pointer border-brand/60 bg-brand/[0.07]' : 'cursor-pointer border-app-line hover:border-brand/30'}`}>
-          <div className="flex items-start justify-between gap-3">
-            <card.icon aria-hidden className={`size-5 ${disabled ? 'text-app-muted' : 'text-brand'}`} />
-            <span aria-hidden className={`flex size-4 items-center justify-center rounded-full border ${selected ? 'border-brand bg-brand' : 'border-app-faint'}`}>{selected && <Check className="size-3 text-on-solid" />}</span>
+          className={`rounded-lg border p-4 text-left motion-safe:transition-colors ${disabled ? 'cursor-not-allowed border-dashed border-app-line' : selected ? 'cursor-pointer border-app-fg bg-app-soft' : 'cursor-pointer border-app-line hover:border-app-faint'}`}>
+          <div className="flex items-center gap-2.5">
+            <span aria-hidden className={`grid size-4 shrink-0 place-items-center rounded-full border ${selected ? 'border-app-fg' : 'border-app-faint'}`}>{selected && <span className="size-2 rounded-full bg-app-fg" />}</span>
+            <h3 id={`kind-${card.id}`} className={`text-sm font-semibold ${disabled ? 'text-app-muted' : ''}`}>{t(card.title)}</h3>
+            <card.icon aria-hidden className="ml-auto size-4 text-app-subtle" />
           </div>
-          <h3 id={`kind-${card.id}`} className={`mt-6 text-base font-semibold ${disabled ? 'text-app-muted' : ''}`}>{t(card.title)}</h3>
-          <p id={`kind-${card.id}-line`} className="mt-1 text-sm text-app-muted">{disabled ? t('chooser.off') : t(card.line)}</p>
-          {points.length > 0 && <ul id={`kind-${card.id}-points`} className="mt-4 space-y-1.5 text-sm text-app-secondary">{points.map(point =>
-            <li key={point} className="flex items-start gap-2"><CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-brand/70" />{point}</li>)}</ul>}
+          <p id={`kind-${card.id}-line`} className="mt-2 text-sm text-app-muted">{disabled ? t('chooser.off') : t(card.line)}</p>
+          {points.length > 0 && <ul id={`kind-${card.id}-points`} className="mt-3 space-y-1 border-t border-app-line pt-3 text-sm text-app-secondary">{points.map(point =>
+            <li key={point} className="flex gap-2"><span aria-hidden className="text-app-faint">–</span>{point}</li>)}</ul>}
         </div>
       })}
     </div>

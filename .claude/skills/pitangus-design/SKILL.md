@@ -21,6 +21,15 @@ If a rule conflicts with what the user asks for, ask; never break it silently.
 - **Loading**: skeletons shaped like the content (`Bone`, `SkeletonList`, `SkeletonTable`, `SkeletonTiles`, `SkeletonCard` from `shared/ui/loading.tsx`), announced once ("Loading…"). Never show a fake empty state while loading.
 - **Hick's law**: one primary action, the rest in a menu (`shared/ui/menu.tsx`); grouped navigation; advanced options behind "More options"/"More filters". Forms have defaults: the user can generate without touching anything.
 - **Long lists**: server-side pagination or search; never load everything.
+- **Look like a product, not a template** (the default shadcn look now reads as AI-made; `tests/test_ui_tokens.py` enforces the mechanical part):
+  - Radii are small: controls 6 px (`rounded-lg`), panels and dialogs 8 px (`rounded-xl`), badges 4 px (`rounded-sm`). No `rounded-2xl`/`3xl`/`4xl`; `rounded-full` only for status dots, radios and switches.
+  - Prefer tables, ruled rows and plain sections (`<section>` + small h2 + hairline) to cards. A card is for a self-contained object or a chart; never a card inside a card, never a grid of identical icon+title+bullets cards.
+  - Key figures in one ruled row (`KeyFigures`/`KeyFigure` from `shared/ui/key-figures.tsx`), never one box per number.
+  - Selection is an ink border on a soft neutral (`border-app-fg bg-app-soft`), not a brand tint. `brand` is for focus, links, the active item and the one primary action.
+  - One yellow primary button per view; a strong secondary uses `variant="ink"`, the rest `outline`/`ghost`.
+  - No decorative eyebrows (mono, uppercase, letter-spaced labels), no `tracking-[…]`, no sparkle icons, no icon inside a tinted box. Icons only where they carry meaning (navigation, file type, status), 16 px.
+  - Floating surfaces: hairline border plus `shadow-md` (dialogs `shadow-lg`); flat surfaces have no shadow. No `backdrop-blur`.
+  - Type: IBM Plex Sans / Plex Mono (the same as the PDFs); mono only for code, IDs, paths, versions, CVEs. Page titles `text-2xl`, one short line of description.
 
 ## 2. Reports (PDF and Markdown)
 

@@ -75,7 +75,7 @@ function SourceDialog({ open, onOpenChange, selected, onToggle, onManageConnecti
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className={`max-w-xl ${dialogFullOnMobile}`}>
     <DialogHeader><DialogTitle>{t('repos.add')}</DialogTitle></DialogHeader>
     {open && <div className="max-h-[60vh] overflow-y-auto pr-1"><SourceSearch autoFocus onLoaded={loaded} render={item => { const on = selected.includes(item.id)
-      return <button type="button" aria-pressed={on} onClick={() => onToggle(item)} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left motion-safe:transition ${on ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-inset hover:border-brand/30'}`}>
+      return <button type="button" aria-pressed={on} onClick={() => onToggle(item)} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left motion-safe:transition ${on ? 'border-app-fg bg-app-soft' : 'border-app-line bg-inset hover:border-app-faint'}`}>
         <Code2 className="size-4 shrink-0 text-app-muted" aria-hidden />
         <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{item.name}</span>
           <span className="text-xs text-app-muted">{item.provider.toUpperCase()} · {item.branch ?? t('repos.default_branch')}{item.installation_id ? '' : ` · ${t('repos.not_in_app_single')}`}</span></span>

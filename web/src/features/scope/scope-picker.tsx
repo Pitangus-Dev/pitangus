@@ -23,13 +23,13 @@ export function ScopePicker({ scope, accounts, total, one, step, onChange }: { s
   return <fieldset className="min-w-0 space-y-3">
     <legend className="mb-3 text-xs text-app-muted">{step && <span aria-hidden>{step} · </span>}{t('legend')}</legend>
     <div className="grid w-full grid-cols-2 gap-1 rounded-xl sm:flex sm:w-fit sm:max-w-full sm:flex-wrap border border-app-line bg-inset p-1">{kinds.map(([kind, label]) =>
-      <label key={kind} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm whitespace-nowrap has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${scope.kind === kind ? 'border-brand bg-brand/10 text-brand' : 'border-transparent text-app-muted hover:text-app-fg'}`}>
+      <label key={kind} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm whitespace-nowrap has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${scope.kind === kind ? 'border-app-fg bg-app-soft text-app-fg' : 'border-transparent text-app-muted hover:text-app-fg'}`}>
         <input type="radio" name={name} value={kind} checked={scope.kind === kind} onChange={() => onChange({ ...scope, kind })} className="sr-only" />{label}</label>)}</div>
     {scope.kind === 'one' && one}
     {scope.kind === 'account' && (accounts.length
       ? <div className="max-w-sm"><Select value={scope.account || null} onValueChange={value => { if (value) onChange({ ...scope, account: String(value) }) }}>
           <SelectTrigger aria-label={t('account')} className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{scope.account || t('choose_account')}</span></SelectTrigger>
-          <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-xl">{accounts.map(account => <SelectItem key={account} value={account}>{account}</SelectItem>)}</SelectContent>
+          <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{accounts.map(account => <SelectItem key={account} value={account}>{account}</SelectItem>)}</SelectContent>
         </Select></div>
       : <p className="text-xs text-app-muted">{t('no_accounts')}</p>)}
     {scope.kind === 'assets' && <div className="space-y-2">

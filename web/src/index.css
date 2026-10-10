@@ -1,7 +1,16 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./shared/ui/shadcn-tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-ext-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-ext-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-sans/latin-ext-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-ext-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+@import "@fontsource/ibm-plex-mono/latin-ext-500.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -44,7 +53,9 @@
     --color-knob: var(--knob);
     --color-skeleton: var(--skeleton);
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    /* IBM Plex, the same family as the PDF reports: one voice across panel and documents. */
+    --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -76,13 +87,14 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
+    /* Small radii on purpose (controls 6 px, panels 8 px): big rounded cards read as a template. */
+    --radius-sm: 4px;
+    --radius-md: 5px;
     --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+    --radius-xl: 8px;
+    --radius-2xl: 8px;
+    --radius-3xl: 8px;
+    --radius-4xl: 8px;
 }
 
 :root {
@@ -137,15 +149,15 @@
     --accent: oklch(0.972 0.008 88);
     --accent-foreground: oklch(0.219 0.008 84.6);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.91 0.01 88);
-    --input: oklch(0.91 0.01 88);
+    --border: oklch(0.885 0.011 86);
+    --input: oklch(0.885 0.011 86);
     --ring: var(--brand);   /* un solo color de foco en todo el panel */
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
+    --radius: 0.375rem;
     --sidebar: oklch(0.968 0.01 88);
     --sidebar-foreground: oklch(0.219 0.008 84.6);
     --sidebar-primary: oklch(0.219 0.008 84.6);

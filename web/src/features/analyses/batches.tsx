@@ -27,7 +27,7 @@ export function BatchPanel({ active, last, onChanged, viewer }: { active: BatchS
     try { await api.post('/api/repositories/batches/cancel', 'cancel-batch', { id: batch.id }); onChanged() }
     catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
   }
-  return <div className="space-y-2 rounded-xl border border-brand/30 bg-brand/[0.06] p-4">
+  return <div className="space-y-2 rounded-xl border border-app-line bg-inset p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="flex items-center gap-2 text-sm font-medium"><Layers3 className="size-4 text-brand" />{t('batch.running', { label: batch.label })}</p>
       {(!viewer || viewer.admin || viewer.username === batch.by) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void cancel()}>{busy && <LoaderCircle className="animate-spin" />}{t('batch.cancel')}</Button>}

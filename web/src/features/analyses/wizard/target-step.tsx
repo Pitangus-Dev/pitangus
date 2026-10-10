@@ -42,7 +42,7 @@ export function TargetStep({ value, onChange, spec, onSpec, specInvalid, onBack,
           <div role="radiogroup" aria-labelledby="wizard-step-title" className="divide-y divide-app-line rounded-xl border border-app-line">{items.map(domain => {
             const on = selected?.id === domain.id
             const state = verification(domain)
-            return <div key={domain.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 text-sm first:rounded-t-xl last:rounded-b-xl motion-safe:transition ${on ? 'bg-brand/10' : ''}`}>
+            return <div key={domain.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 text-sm first:rounded-t-lg last:rounded-b-lg motion-safe:transition ${on ? 'bg-app-soft' : ''}`}>
               <label className={`flex min-w-0 flex-1 items-center gap-3 ${domain.verified ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                 <input type="radio" name="web-target" value={domain.id} checked={on} disabled={!domain.verified} onChange={() => pick(domain)} className="size-4 accent-brand" />
                 <span className={`min-w-0 truncate font-medium ${domain.verified ? '' : 'text-app-muted'}`}>{domain.host}</span>

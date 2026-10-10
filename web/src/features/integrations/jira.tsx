@@ -53,7 +53,7 @@ function ConnectionCard({ status, error, canManage }: { status: JiraStatus | und
     : configured.saved_by ? t('jira.configured_by', { name: configured.saved_by })
     : configured.saved_at ? t('jira.configured_on', { date: formatDate(configured.saved_at) }) : null
   return <div className="rounded-xl border border-app-line bg-inset p-5">
-    <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><div className="rounded-xl bg-brand/10 p-2 text-brand"><Ticket className="size-5" /></div>
+    <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><Ticket aria-hidden className="size-5 text-app-secondary" />
       <div><h3 className="font-semibold">Jira Cloud</h3><p className="text-xs text-app-subtle">{configured?.site ?? t('jira.tagline')}</p></div></div>
       {status && <Badge variant="outline" className={status.configured ? 'border-brand/30 text-brand' : 'border-app-line text-app-muted'}>{status.configured ? t('jira.status.connected') : t('jira.status.not_configured')}</Badge>}</div>
     {error ? <p role="alert" className="mt-5 text-sm text-danger">{error}</p>

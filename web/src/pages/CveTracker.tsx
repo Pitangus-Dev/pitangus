@@ -97,9 +97,9 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
           <Button type="submit" className="h-9 bg-primary px-5 text-primary-foreground hover:bg-primary/90">{t('common:actions.search')}</Button></div>
           <div className="flex flex-wrap gap-2">
           <Select value={filters.severity || 'all'} onValueChange={value => apply({ severity: !value || value === 'all' ? '' : value })}><SelectTrigger aria-label={t('filters.severity')} className="h-9 min-w-44 border-app-line bg-app-soft">{t(SEVERITIES.find(([value]) => value === filters.severity)?.[1] ?? 'cves:filters.all_severities')}</SelectTrigger>
-            <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-xl">{SEVERITIES.map(([value, label]) => <SelectItem key={value || 'all'} value={value || 'all'}>{t(label)}</SelectItem>)}</SelectContent></Select>
+            <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{SEVERITIES.map(([value, label]) => <SelectItem key={value || 'all'} value={value || 'all'}>{t(label)}</SelectItem>)}</SelectContent></Select>
           <Select value={filters.sort} onValueChange={value => apply({ sort: value ?? 'published' })}><SelectTrigger aria-label={t('filters.sort')} className="h-9 min-w-36 border-app-line bg-app-soft">{t(SORTS.find(([value]) => value === filters.sort)?.[1] ?? 'cves:sort.published')}</SelectTrigger>
-            <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-xl">{SORTS.map(([value, label]) => <SelectItem key={value} value={value}>{t(label)}</SelectItem>)}</SelectContent></Select>
+            <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{SORTS.map(([value, label]) => <SelectItem key={value} value={value}>{t(label)}</SelectItem>)}</SelectContent></Select>
           <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-sm whitespace-nowrap"><input type="checkbox" checked={filters.kev} onChange={event => apply({ kev: event.target.checked })} className="size-3.5 accent-[var(--primary)]" />{t('filters.kev_only')}</label>
           <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-sm whitespace-nowrap"><input type="checkbox" checked={filters.mine} onChange={event => apply({ mine: event.target.checked })} className="size-3.5 accent-[var(--primary)]" />{t('filters.mine')}{mineTotal !== null ? <span className="text-xs text-app-subtle tabular-nums">({formatNumber(mineTotal)})</span> : null}</label>
           </div>
@@ -140,7 +140,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
           <span className="tabular-nums">{t('pagination.showing', { from: formatNumber(page.offset + 1), to: formatNumber(Math.min(page.offset + page.limit, page.total)), total: formatNumber(page.total) })}</span>
           <div className="flex items-center gap-2">
             <Select value={String(filters.size)} onValueChange={value => apply({ size: Number(value) })}><SelectTrigger size="sm" aria-label={t('pagination.per_page_label')} className="border-app-line bg-app-soft">{t('pagination.per_page', { size: filters.size })}</SelectTrigger>
-              <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-xl">{SIZES.map(size => <SelectItem key={size} value={String(size)}>{t('pagination.per_page', { size })}</SelectItem>)}</SelectContent></Select>
+              <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{SIZES.map(size => <SelectItem key={size} value={String(size)}>{t('pagination.per_page', { size })}</SelectItem>)}</SelectContent></Select>
             <Button variant="outline" size="sm" disabled={filters.page <= 1} onClick={() => apply({ page: filters.page - 1 })} className="border-app-line bg-app-soft">{t('pagination.previous')}</Button>
             <span className="tabular-nums">{formatNumber(filters.page)} / {formatNumber(pages)}</span>
             <Button variant="outline" size="sm" disabled={filters.page >= pages} onClick={() => apply({ page: filters.page + 1 })} className="border-app-line bg-app-soft">{t('common:actions.next')}</Button>
@@ -161,7 +161,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
         {/* Ley de Hick: un selector con los años (y sus cifras) en lugar de una rejilla de ~30 botones. */}
         <CardContent>{overview?.years.length ? <Select value={filters.year || 'all'} onValueChange={value => apply({ year: !value || value === 'all' ? '' : value })}>
             <SelectTrigger aria-label={t('years.aria', { year: filters.year || t('years.any') })} className="w-full border-app-line bg-app-soft">{filters.year ? t('years.option', { year: filters.year, value: formatNumber(overview.years.find(item => String(item.year) === filters.year)?.count ?? 0) }) : t('years.all')}</SelectTrigger>
-            <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-xl"><SelectItem value="all">{t('years.all')}</SelectItem>{overview.years.map(item => <SelectItem key={item.year} value={String(item.year)}>{t('years.option', { year: item.year, value: formatNumber(item.count) })}</SelectItem>)}</SelectContent></Select>
+            <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="all">{t('years.all')}</SelectItem>{overview.years.map(item => <SelectItem key={item.year} value={String(item.year)}>{t('years.option', { year: item.year, value: formatNumber(item.count) })}</SelectItem>)}</SelectContent></Select>
           : <div role="status" aria-label={t('years.loading')}><Bone className="h-9" /></div>}</CardContent></Card>
       <Card className="border-app-line bg-panel"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><Flame className="size-4 text-danger" />{t('kev.title')}</CardTitle><CardDescription className="text-xs">{overview?.kev_total ? t('kev.latest_total', { value: formatNumber(overview.kev_total) }) : t('kev.latest')}</CardDescription></CardHeader>
         <CardContent className="space-y-0.5">{overview?.latest_kev.length ? overview.latest_kev.map(item => <button key={item.id} type="button" onClick={() => show(item.id)} className="flex w-full items-start justify-between gap-2 rounded-md px-1.5 py-1.5 text-left hover:bg-app-soft">
@@ -207,7 +207,7 @@ function CveSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
         {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>}
         {!item && !error && <Skeleton rows={4} />}
         {item && <>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 divide-x divide-app-line border-y border-app-line">
             <Metric label={`CVSS${item.version ? ` ${item.version}` : ''}${item.score_source === 'euvd' ? ` · ${t('sheet.per_euvd')}` : ''}`} value={item.score?.toFixed(1) ?? '—'} extra={<SeverityPill severity={item.severity} />} />
             <Metric label="EPSS" value={percent(item.epss)} extra={item.epss_percentile !== null ? <span className="text-[11px] text-app-subtle">{t('sheet.percentile', { value: formatNumber(Math.round(item.epss_percentile * 100)) })}</span> : null} />
             <Metric label="CISA KEV" value={item.kev ? t('common:state.yes') : t('common:state.no')} extra={item.kev_detail ? <span className="text-[11px] text-app-subtle">{t('sheet.since', { date: item.kev_detail.date_added })}</span> : null} />
@@ -236,5 +236,5 @@ function CveSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
 }
 
 function Metric({ label, value, extra }: { label: string; value: string; extra?: React.ReactNode }) {
-  return <div className="rounded-lg border border-app-line bg-app-soft px-3 py-2.5"><div className="text-[11px] text-app-subtle">{label}</div><div className="mt-0.5 text-xl font-semibold tabular-nums">{value}</div><div className="mt-1">{extra}</div></div>
+  return <div className="min-w-0 px-3 py-2.5 first:pl-0"><div className="text-xs text-app-muted">{label}</div><div className="mt-0.5 text-xl font-semibold tabular-nums">{value}</div><div className="mt-1">{extra}</div></div>
 }

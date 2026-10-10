@@ -31,7 +31,7 @@ export function MethodPicker({ value, onChange }: { value: Methodology; onChange
   const { t } = useTranslation('threats')
   return <div role="radiogroup" aria-label={t('methods.picker_label')} className="grid gap-2 sm:grid-cols-2">
     {METHOD_ORDER.map(key => <button key={key} type="button" role="radio" aria-checked={value === key} onClick={() => onChange(key)}
-      className={`rounded-xl border p-3 text-left transition ${value === key ? 'border-brand/60 bg-brand/[0.07]' : 'border-app-line bg-app-soft hover:border-app-faint'}`}>
+      className={`rounded-xl border p-3 text-left transition ${value === key ? 'border-app-fg bg-app-soft' : 'border-app-line bg-app-soft hover:border-app-faint'}`}>
       <span className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{methodName(key)}</span>{key === 'stride' && <Badge variant="outline" className="border-app-line text-[11px] text-app-subtle">{t('methods.recommended')}</Badge>}</span>
       <span className="mt-1 block text-xs leading-5 text-app-muted">{guideOf(key).purpose}</span>
     </button>)}
@@ -53,13 +53,13 @@ export function MethodDialog({ current, onClose, onPick }: { current: Methodolog
 export function GuidePanel({ methodology, onClose }: { methodology: Methodology; onClose: () => void }) {
   const { t } = useTranslation('threats')
   const guide = guideOf(methodology)
-  return <aside aria-label={t('guide.title', { name: guide.name })} className="space-y-4 rounded-2xl border border-app-line bg-panel p-4 text-sm xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+  return <aside aria-label={t('guide.title', { name: guide.name })} className="space-y-4 rounded-lg border border-app-line bg-panel p-4 text-sm xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
     <div className="flex items-start justify-between gap-2"><p className="flex items-center gap-2 font-semibold"><BookOpen className="size-4 text-brand" />{t('guide.title', { name: guide.name })}</p>
       <Button size="icon-sm" variant="ghost" aria-label={t('guide.close')} onClick={onClose}><X /></Button></div>
     <p className="text-app-secondary">{guide.purpose}</p>
     <p className="text-xs leading-5 text-app-muted"><strong className="font-medium text-app-secondary">{t('guide.when')} </strong>{guide.when}</p>
     {guide.categories && <div className="space-y-2">{guide.categories.map(item => <div key={item.code} className="rounded-lg border border-app-line bg-inset px-3 py-2">
-      <p className="text-xs font-semibold"><span className="mr-1.5 inline-block min-w-6 rounded bg-brand/10 px-1 text-center font-mono text-brand">{item.code}</span>{item.name}{item.original && item.original !== item.name && <span className="font-normal text-app-subtle"> · {item.original}</span>}</p>
+      <p className="text-xs font-semibold"><span className="mr-1.5 inline-block min-w-6 rounded bg-app-soft px-1 text-center font-mono text-brand">{item.code}</span>{item.name}{item.original && item.original !== item.name && <span className="font-normal text-app-subtle"> · {item.original}</span>}</p>
       <p className="mt-1 text-xs leading-5 text-app-muted">{item.question}{item.property && <span className="text-app-subtle"> {t('guide.property', { property: item.property.toLowerCase() })}</span>}</p>
     </div>)}</div>}
     <details open={!guide.categories}><summary className="cursor-pointer text-xs font-medium text-app-secondary">{t('guide.how')}</summary>
@@ -205,7 +205,7 @@ function TreeEditor({ tree, model, onChange, onRemove }: { tree: AttackTree; mod
       {kids.map(kid => render(kid, depth + 1))}
     </div>
   }
-  return <div className="space-y-3 rounded-2xl border border-app-line bg-panel p-4">
+  return <div className="space-y-3 rounded-lg border border-app-line bg-panel p-4">
     <div className="flex flex-wrap items-center gap-2"><Target className="size-4 text-brand" /><Input aria-label={t('trees.goal')} value={tree.goal} maxLength={200} onChange={event => onChange({ ...tree, goal: event.target.value })} className="h-8 min-w-64 flex-1 border-app-line bg-app-soft font-medium" />
       <span className="text-xs text-app-subtle">{roots.length ? t('trees.paths', { open, count: roots.length }) : t('trees.no_paths')}</span>
       <Button size="xs" variant="ghost" onClick={onRemove} aria-label={t('trees.remove_tree')}><Trash2 /></Button></div>
@@ -238,7 +238,7 @@ export function AttackMappings({ model, setModel, catalog }: { model: Model; set
   }).slice(0, 24)
   const byTactic = Object.entries(tactics).map(([key, name]) => ({ key, name, items: Object.entries(techniques).filter(([, item]) => item.tactics[0] === key) })).filter(group => group.items.length)
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-app-line bg-panel p-4">
+    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-app-line bg-panel p-4">
       <label className="min-w-64 flex-1 space-y-1"><span className="text-[11px] font-medium text-app-muted">{t('attack.technique')}</span>
         <SelectField value={technique} onValueChange={setTechnique} className={select} placeholder={t('attack.choose_technique')}
           groups={byTactic.map(group => ({ label: `${group.name} (${group.key})`, options: group.items.map(([id, item]) => ({ value: id, label: `${id} · ${techniqueName(item) ?? ''}` })) }))} /></label>
@@ -246,12 +246,12 @@ export function AttackMappings({ model, setModel, catalog }: { model: Model; set
         <SelectField value={element} onValueChange={setElement} className={select} placeholder={t('manual.whole_system')} options={elements.map(item => ({ value: item.id, label: item.label }))} /></label>
       <Button size="sm" disabled={!technique} onClick={() => { add(technique, element); setTechnique('') }} className="bg-primary text-primary-foreground hover:bg-primary/90"><Plus />{t('attack.map')}</Button>
     </div>
-    {proposals.length > 0 && <details className="rounded-2xl border border-app-line bg-panel p-4"><summary className="cursor-pointer text-sm font-medium">{t('attack.suggestions', { count: proposals.length })}</summary>
+    {proposals.length > 0 && <details className="rounded-lg border border-app-line bg-panel p-4"><summary className="cursor-pointer text-sm font-medium">{t('attack.suggestions', { count: proposals.length })}</summary>
       <p className="mt-1 text-xs text-app-subtle">{t('attack.suggestions_hint')}</p>
       <div className="mt-3 flex flex-wrap gap-1.5">{proposals.map(({ id, component }) => <button key={`${id}:${component.id}`} onClick={() => add(id, component.id)} className="inline-flex items-center gap-1 rounded-lg border border-app-line bg-app-soft px-2 py-1 text-xs text-app-muted hover:border-brand/40 hover:text-brand"><Plus className="size-3" /><span className="font-mono">{id}</span> {techniqueName(techniques[id])} → {component.name}</button>)}</div>
     </details>}
     {rows.length === 0 ? <p className="rounded-xl border border-dashed border-app-line px-4 py-10 text-center text-sm text-app-subtle">{t('attack.empty')}</p>
-      : <div className="divide-y divide-app-line overflow-hidden rounded-2xl border border-app-line bg-panel">{rows.map((row, index) => { const item = techniques[row.technique]
+      : <div className="divide-y divide-app-line overflow-hidden rounded-lg border border-app-line bg-panel">{rows.map((row, index) => { const item = techniques[row.technique]
         return <div key={`${row.technique}:${row.element}`} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_130px_minmax(0,1fr)_36px] md:items-start">
           <div className="min-w-0"><a href={attackUrl(row.technique)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium hover:text-brand"><span className="font-mono text-xs text-app-subtle">{row.technique}</span>{techniqueName(item)}<ExternalLink className="size-3 text-app-subtle" /></a>
             <p className="text-[11px] text-app-subtle">{[techniqueName(item) !== item?.name ? item?.name : '', item?.tactics.map(key => tactics[key]).join(', ')].filter(Boolean).join(' · ')}</p></div>

@@ -65,7 +65,7 @@ function VerifyBody({ domain, onClose, onVerified, onStartScan }: { domain: Doma
   return <>
     <Tabs value={method} onValueChange={value => { setMethod(value as ProofMethod); verify.reset() }}>
       <TabsList aria-label={t('domains.verify.tabs_label')} className="w-full">
-        <TabsTrigger value="dns">{t('domains.verify.tab_dns')}<span className="rounded-full bg-brand/15 px-1.5 text-[11px] text-brand">{t('domains.verify.recommended')}</span></TabsTrigger>
+        <TabsTrigger value="dns">{t('domains.verify.tab_dns')}<span className="rounded-sm border border-app-line px-1 text-[11px] text-app-muted">{t('domains.verify.recommended')}</span></TabsTrigger>
         <TabsTrigger value="file">{t('domains.verify.tab_file')}</TabsTrigger>
         <TabsTrigger value="meta">{t('domains.verify.tab_meta')}</TabsTrigger>
       </TabsList>

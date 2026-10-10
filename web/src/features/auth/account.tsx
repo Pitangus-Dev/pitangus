@@ -70,7 +70,7 @@ export function Account({ user, onChanged, only }: { user: SessionUser; onChange
         : t('account.profile', { username: user.username, role })}</div></div>
       <Badge variant="outline" className={user.totp_enabled ? 'border-success-line text-success' : 'border-warning-line text-warning'}>{user.totp_enabled ? <><ShieldCheck className="size-3" />{t('account.totp_on')}</> : <><ShieldOff className="size-3" />{t('account.totp_off')}</>}</Badge>
     </CardContent></Card>}
-    {message && <div role={message.tone === 'error' ? 'alert' : 'status'} className={`xl:col-span-2 rounded-xl border px-4 py-3 text-sm ${message.tone === 'error' ? 'border-danger-line bg-danger-soft text-danger' : 'border-brand/30 bg-brand/10 text-brand'}`}>{message.text}</div>}
+    {message && <div role={message.tone === 'error' ? 'alert' : 'status'} className={`xl:col-span-2 rounded-xl border px-4 py-3 text-sm ${message.tone === 'error' ? 'border-danger-line bg-danger-soft text-danger' : 'border-success-line bg-success-soft text-success'}`}>{message.text}</div>}
 
     <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('account.totp_title')}</CardTitle><CardDescription>{t('account.totp_description')}</CardDescription></CardHeader><CardContent className="space-y-4">
       {backupCodes ? <div className="space-y-3"><p className="text-sm text-app-secondary"><Trans t={t} i18nKey="account.backup_intro" components={{ strong: <strong /> }} /></p>

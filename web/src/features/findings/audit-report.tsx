@@ -75,7 +75,7 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
       {portfolio ? <p className="rounded-lg border border-app-line bg-inset p-3 text-sm text-app-muted">{'assets' in target ? t(target.status === 'open' ? 'scope.audit_assets_open' : 'scope.audit_assets_all', { count: target.assets.length, value: formatNumber(target.assets.length) }) : t('audit.portfolio_scope')}</p>
       : <fieldset className="space-y-2"><legend className={label}>{t('audit.findings_legend')}</legend>
         <div className="grid gap-2 sm:grid-cols-3">{SCOPES.map(([id, text]) =>
-          <label key={id} className={`flex items-center gap-2 rounded-lg border p-3 text-sm ${counts[id] === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${scope === id ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-inset'}`}>
+          <label key={id} className={`flex items-center gap-2 rounded-lg border p-3 text-sm ${counts[id] === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${scope === id ? 'border-app-fg bg-app-soft' : 'border-app-line bg-inset'}`}>
             <input type="radio" name="scope" value={id} checked={scope === id} disabled={counts[id] === 0} onChange={() => setScope(id)} className="size-4 accent-brand" />{t(text)} · {counts[id]}</label>)}</div></fieldset>}
 
       <div className="grid gap-4 sm:grid-cols-2">

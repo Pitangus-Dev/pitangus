@@ -97,7 +97,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
         <label htmlFor={`${id}-file`} className="text-sm text-app-secondary">{t('import.file.label')} <span className="text-app-subtle">{t('import.file.hint', { max: MAX_MB })}</span></label>
         <input id={`${id}-file`} type="file" accept=".sarif,.json,application/json,application/sarif+json" aria-invalid={!!fileError} aria-describedby={`${id}-file-help`}
           onChange={event => void read(event.target.files?.[0])}
-          className="block w-full max-w-xl rounded-xl border border-app-line bg-app-soft p-2 text-sm text-app-secondary file:mr-3 file:min-h-6 file:rounded-lg file:border-0 file:bg-brand/15 file:px-3 file:py-1 file:text-sm file:font-medium file:text-brand" />
+          className="block w-full max-w-xl rounded-xl border border-app-line bg-app-soft p-2 text-sm text-app-secondary file:mr-3 file:min-h-6 file:rounded-lg file:border file:border-app-line file:bg-panel file:px-3 file:py-1 file:text-sm file:font-medium file:text-app-fg" />
         <div id={`${id}-file-help`}>
           {fileError ? <p role="alert" className="text-xs text-danger">{fileError}</p>
             : reading ? <p role="status" className="text-xs text-app-muted">{t('common:state.loading')}</p>
@@ -110,7 +110,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
         <span id={`${id}-scope`} className="text-sm text-app-secondary">{t('import.scope.label')}</span>
         <div role="radiogroup" aria-labelledby={`${id}-scope`} className="grid gap-2 sm:grid-cols-2">
           {([['full', t('import.scope.full'), t('import.scope.full_hint')], ['partial', t('import.scope.partial'), t('import.scope.partial_hint')]] as const).map(([value, title, hint]) =>
-            <label key={value} className={`flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3 text-sm ${scope === value ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-inset'}`}>
+            <label key={value} className={`flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3 text-sm ${scope === value ? 'border-app-fg bg-app-soft' : 'border-app-line bg-inset'}`}>
               <span className="flex items-center gap-2"><input type="radio" name={`${id}-scope`} value={value} checked={scope === value} onChange={() => setScope(value)} className="size-4 accent-brand" /><span className="font-medium">{title}</span></span>
               <span className="pl-6 text-xs text-app-muted">{hint}</span></label>)}
         </div>

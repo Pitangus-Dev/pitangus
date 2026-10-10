@@ -4,11 +4,12 @@ import { GettingStarted } from '@/features/onboarding/getting-started'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { formatDay, formatNumber, formatPercent } from '@/shared/i18n/format'
-import { Activity, ArrowRight, ChevronDown, Clock3, Flame, RefreshCw, ShieldAlert, Wrench } from 'lucide-react'
+import { Activity, ArrowRight, ChevronDown, RefreshCw, ShieldAlert } from 'lucide-react'
 import { ActivityHeatmap, FoundVsFixed, HBars, SeverityBar, StackedSeverityBars } from '@/shared/charts/charts'
 import { sevColor, sevName } from '@/shared/charts/severity'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
+import { KeyFigure, KeyFigures } from '@/shared/ui/key-figures'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
 import { Bone, Skeleton } from '@/shared/ui/loading'
@@ -39,20 +40,20 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-app-muted">{t('summary.assets', { count: kpis.assets })} · {t('summary.runs', { count: kpis.runs_in_window })} · {t('summary.updated', { date: formatDate(data.generated_at) })}</p>
-      <div className="flex items-center gap-2"><Select value={String(days)} onValueChange={value => setDays(Number(value ?? 30))}><SelectTrigger size="sm" className="min-w-40 border-app-line bg-app-soft text-app-secondary">{t(WINDOWS.find(([value]) => value === days)?.[1] ?? 'window.days_30')}</SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-xl">{WINDOWS.map(([value, label]) => <SelectItem key={value} value={String(value)}>{t(label)}</SelectItem>)}</SelectContent></Select><Button variant="ghost" size="icon-sm" aria-label={t('common:actions.refresh')} onClick={() => void load()}><RefreshCw /></Button></div>
+      <div className="flex items-center gap-2"><Select value={String(days)} onValueChange={value => setDays(Number(value ?? 30))}><SelectTrigger size="sm" className="min-w-40 border-app-line bg-app-soft text-app-secondary">{t(WINDOWS.find(([value]) => value === days)?.[1] ?? 'window.days_30')}</SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{WINDOWS.map(([value, label]) => <SelectItem key={value} value={String(value)}>{t(label)}</SelectItem>)}</SelectContent></Select><Button variant="ghost" size="icon-sm" aria-label={t('common:actions.refresh')} onClick={() => void load()}><RefreshCw /></Button></div>
     </div>
 
     <GettingStarted onNavigate={onNavigate} />
     {empty && <Card className="border-app-line bg-panel"><CardContent className="flex flex-col items-center gap-3 py-12 text-center"><Activity className="size-7 text-app-subtle" /><p className="font-medium">{t('empty.title')}</p><p className="max-w-md text-sm text-app-muted">{t('empty.text')}</p><Button variant="outline" onClick={onNew} className="border-app-line bg-app-soft">{t('empty.new_analysis')} <ArrowRight /></Button></CardContent></Card>}
 
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+    <KeyFigures>
       <Kpi label={t('kpi.score')} value={kpis.security_score.value} suffix="/100" hint={kpis.security_score.formula} tone={kpis.security_score.value >= 80 ? 'teal' : kpis.security_score.value >= 50 ? 'amber' : 'rose'} />
       <Kpi label={t('kpi.open')} value={kpis.open.total} hint={t('kpi.open_hint', { critical: kpis.open.critical, high: kpis.open.high })} tone={kpis.open.critical ? 'rose' : 'muted'} />
-      <Kpi label={t('kpi.overdue')} value={kpis.sla?.overdue ?? '—'} hint={kpis.sla ? t('kpi.due_soon', { count: kpis.sla.soon }) : t('kpi.no_due_dates')} tone={kpis.sla?.overdue ? 'rose' : 'muted'} icon={Clock3} />
-      <Kpi label={t('kpi.fixed')} value={kpis.fixed_in_window} hint={kpis.fix_rate !== null ? t('kpi.fix_rate', { rate: formatPercent(kpis.fix_rate / 100, 1) }) : t('kpi.no_comparable_runs')} tone="teal" icon={Wrench} />
+      <Kpi label={t('kpi.overdue')} value={kpis.sla?.overdue ?? '—'} hint={kpis.sla ? t('kpi.due_soon', { count: kpis.sla.soon }) : t('kpi.no_due_dates')} tone={kpis.sla?.overdue ? 'rose' : 'muted'} />
+      <Kpi label={t('kpi.fixed')} value={kpis.fixed_in_window} hint={kpis.fix_rate !== null ? t('kpi.fix_rate', { rate: formatPercent(kpis.fix_rate / 100, 1) }) : t('kpi.no_comparable_runs')} tone="teal" />
       <Kpi label={t('kpi.mttr')} value={kpis.mttr_days ?? '—'} suffix={kpis.mttr_days !== null ? ` ${t('kpi.days', { count: kpis.mttr_days })}` : ''} hint={t('kpi.mttr_hint')} tone="muted" />
-      <Kpi label={t('kpi.kev')} value={kpis.kev_open} hint={t('kpi.kev_hint')} tone={kpis.kev_open ? 'rose' : 'muted'} icon={Flame} />
-    </div>
+      <Kpi label={t('kpi.kev')} value={kpis.kev_open} hint={t('kpi.kev_hint')} tone={kpis.kev_open ? 'rose' : 'muted'} />
+    </KeyFigures>
 
     <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
       <Panel title={t('panels.new_per_day.title')} description={t('panels.new_per_day.description', { total: formatNumber(kpis.found_in_window) })}><StackedSeverityBars data={data.issues_over_time} /></Panel>
@@ -75,9 +76,8 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
   </div>
 }
 
-function Kpi({ label, value, suffix = '', hint, tone, icon: Icon }: { label: string; value: number | string; suffix?: string; hint: string; tone: 'rose' | 'amber' | 'teal' | 'muted'; icon?: typeof Flame }) {
-  const color = { rose: 'text-danger', amber: 'text-warning', teal: 'text-success', muted: 'text-app-fg' }[tone]
-  return <Card className="border-app-line bg-panel"><CardContent className="flex items-start justify-between p-4"><div className="min-w-0"><div className={`text-2xl font-semibold ${color}`}>{value}<span className="text-sm font-normal text-app-subtle">{suffix}</span></div><div className="mt-0.5 text-xs text-app-muted">{label}</div><div className="truncate text-[11px] text-app-subtle" title={hint}>{hint}</div></div>{Icon && <Icon className="size-4 shrink-0 text-app-subtle" />}</CardContent></Card>
+function Kpi({ label, value, suffix = '', hint, tone }: { label: string; value: number | string; suffix?: string; hint: string; tone: 'rose' | 'amber' | 'teal' | 'muted' }) {
+  return <KeyFigure label={label} value={value} suffix={suffix} hint={hint} tone={({ rose: 'danger', amber: 'warning', teal: 'success', muted: 'neutral' } as const)[tone]} />
 }
 // Novedades a dos columnas: a la izquierda las cifras y el «skyline» de severidad de los últimos
 // 30 días (la base local de NVD); a la derecha lo último publicado, con salida al tracker.

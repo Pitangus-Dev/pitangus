@@ -17,6 +17,6 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
   return <div role="radiogroup" aria-label={label} className={cn("inline-flex rounded-lg border border-app-line bg-app-soft p-0.5", className)}>
     {options.map((option, index) => <button key={option.value} ref={node => { buttons.current[index] = node }} type="button" role="radio" aria-checked={value === option.value}
       tabIndex={value === option.value ? 0 : -1} onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)}
-      className={cn("min-h-7 rounded-md px-3 text-sm", value === option.value ? "bg-panel font-medium text-app-fg shadow-sm" : "text-app-muted hover:text-app-fg")}>{option.label}</button>)}
+      className={cn("min-h-7 rounded-md px-3 text-sm", value === option.value ? "bg-panel font-medium text-app-fg ring-1 ring-app-fg" : "text-app-muted hover:text-app-fg")}>{option.label}</button>)}
   </div>
 }

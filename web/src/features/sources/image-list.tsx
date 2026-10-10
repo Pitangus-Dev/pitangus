@@ -120,7 +120,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div role="group" aria-label={t('images.filter')} className="flex flex-wrap gap-2">{tabs.map(tab => <Button key={tab} size="sm" variant="outline" aria-pressed={link === tab} onClick={() => choose(tab)}
-          className={link === tab ? 'border-brand/60 bg-brand/10 text-brand' : 'border-app-line bg-app-soft'}>
+          className={link === tab ? 'border-app-fg bg-app-soft text-app-fg' : 'border-app-line bg-app-soft'}>
           {t(`images.tabs.${tab}`)}{data ? ` · ${formatNumber(data.counts[tab])}` : ''}</Button>)}</div>
         <label className="relative w-full max-w-xs"><span className="sr-only">{t('images.search')}</span>
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden />

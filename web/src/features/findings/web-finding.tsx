@@ -56,8 +56,8 @@ function label(url: string) {
 
 function Section({ title, note, tone, children }: { title: string; note?: string; tone?: 'brand'; children: ReactNode }) {
   const heading = useId()
-  return <section aria-labelledby={heading} className={tone === 'brand' ? 'rounded-lg border border-brand/20 bg-brand/[0.04] p-3' : ''}>
-    <h3 id={heading} className={`mb-1 text-xs font-medium ${tone === 'brand' ? 'text-brand' : 'text-app-muted'}`}>{title}{note && <span className="font-normal text-app-subtle"> · {note}</span>}</h3>
+  return <section aria-labelledby={heading} className={tone === 'brand' ? 'rounded-lg border border-app-line bg-inset p-3' : ''}>
+    <h3 id={heading} className={`mb-1 text-xs font-medium ${tone === 'brand' ? 'text-app-fg' : 'text-app-muted'}`}>{title}{note && <span className="font-normal text-app-subtle"> · {note}</span>}</h3>
     <div className="text-sm text-app-secondary">{children}</div>
   </section>
 }

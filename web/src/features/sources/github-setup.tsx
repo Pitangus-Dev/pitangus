@@ -205,7 +205,7 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
         ? <Trans t={t} i18nKey="github.install.verified_owner" values={{ name: status.name ?? status.slug, owner: status.owner }} components={bold} />
         : <Trans t={t} i18nKey="github.install.verified" values={{ name: status.name ?? status.slug }} components={bold} />} {status.connected ? t('github.install.next_connected') : t('github.install.next_first')}</span></div>
     <p role="status" className="sr-only">{offerText}</p>
-    {offer && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand/40 bg-brand/5 px-3 py-2.5 text-sm">
+    {offer && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-app-line bg-app-soft px-3 py-2.5 text-sm">
       <span className="flex items-start gap-2"><CircleCheck className="mt-0.5 size-4 shrink-0 text-brand" /><Trans t={t} i18nKey="github.install.returned" values={{ account: offer.account ?? t('github.install.installation', { id: offer.installation_id }),
         kind: offer.account_type === 'Organization' ? t('github.install.organization') : t('github.install.personal'),
         scope: offer.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories') }} components={bold} /></span>

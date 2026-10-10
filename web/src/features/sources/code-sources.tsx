@@ -143,7 +143,7 @@ export function CodeSources({ showRepositories = false, onScan, onImages, runs =
           <Button size="sm" aria-pressed={accountFilter === ''} variant={accountFilter === '' ? 'default' : 'outline'} onClick={() => { setAccountFilter(''); setPage(1) }}>{t('repositories.all_organizations')}</Button>
           {accounts.map(account => <Button key={account} size="sm" aria-pressed={accountFilter === account} variant={accountFilter === account ? 'default' : 'outline'} onClick={() => { setAccountFilter(account); setPage(1) }}>{account}</Button>)}
         </div>}
-        {selected.size > 0 && <div className="sticky top-16 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-brand/30 bg-panel px-4 py-2.5 shadow-lg">
+        {selected.size > 0 && <div className="sticky top-16 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-brand/30 bg-panel px-4 py-2.5 shadow-md">
           <span className="text-sm font-medium">{t('repositories.selected', { count: selected.size })}</span>
           <Button size="sm" disabled={starting || !!batch || selected.size > 100} onClick={() => void startSelected()} className="bg-primary text-primary-foreground hover:bg-primary/90">{starting && <LoaderCircle className="animate-spin" />}{t('repositories.scan_selected')}</Button>
           {(batch || selected.size > 100) && <span className="text-xs text-app-muted">{batch ? t('repositories.batch_running') : t('repositories.batch_limit')}</span>}

@@ -29,6 +29,18 @@ class TokenTests(unittest.TestCase):
                     found.append(f"{path.relative_to(SOURCE)}:{number} {match.group(0)}")
         self.assertEqual(found, [], "Usa los tokens de web/src/index.css en lugar de colores sueltos:\n" + "\n".join(found[:40]))
 
+    def test_components_avoid_the_template_look(self):
+        # The default shadcn look (pill-shaped boxes, mono eyebrows, glows) reads as AI-made: see pitangus-design §1.
+        banned = re.compile(r"(?<![\w-])(?:[a-z0-9\[\]&=_.-]+:)*(?:rounded-(?:2xl|3xl|4xl)|tracking-\[[^\]]+\]|shadow-(?:xl|2xl)|"
+                            r"bg-brand/\[0\.0\d\]|backdrop-blur(?:-\w+)?)(?![\w-])|\bSparkles\b")
+        found = []
+        for path in sorted(SOURCE.rglob("*.tsx")):
+            if ".test." in path.name or path.name in EXEMPT:
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                found += [f"{path.relative_to(SOURCE)}:{number} {match.group(0)}" for match in banned.finditer(line)]
+        self.assertEqual(found, [], "Evita el aspecto de plantilla (pitangus-design §1):\n" + "\n".join(found[:40]))
+
 
 if __name__ == "__main__":
     unittest.main()

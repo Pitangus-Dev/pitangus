@@ -82,7 +82,7 @@ export function NotificationsCard() {
       {data && !formOpen && <Button variant="outline" onClick={() => setAdding(true)} className="border-app-line bg-app-soft"><Plus />{t('notifications.add')}</Button>}
       {data && formOpen && <form onSubmit={save} className="space-y-4 rounded-xl border border-app-line bg-inset p-4">
         <fieldset className="space-y-2"><legend className="text-xs text-app-muted">{t('notifications.where')}</legend>
-          <div className="grid gap-2 sm:grid-cols-3">{(Object.keys(data.kinds) as Kind[]).map(item => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm ${kind === item ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-panel'}`}>
+          <div className="grid gap-2 sm:grid-cols-3">{(Object.keys(data.kinds) as Kind[]).map(item => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm ${kind === item ? 'border-app-fg bg-app-soft' : 'border-app-line bg-panel'}`}>
             <input type="radio" name="notify-kind" value={item} checked={kind === item} onChange={() => setKind(item)} className="size-4 accent-brand" />{data.kinds[item]}</label>)}</div>
           <p className="text-xs text-app-subtle">{t(HINT[kind])}</p></fieldset>
         <div className="grid gap-3 md:grid-cols-2">

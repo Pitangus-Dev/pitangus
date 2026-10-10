@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 export type SelectOption = { value: string; label: string; lang?: string; disabled?: boolean }
 export type SelectOptionGroup = { label: string; options: SelectOption[] }
 
-export const selectPopup = "border border-app-line bg-panel p-1 text-app-fg shadow-xl"
+export const selectPopup = "border border-app-line bg-panel p-1 text-app-fg shadow-md"
 
 type SelectFieldProps = {
   value: string

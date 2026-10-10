@@ -14,7 +14,7 @@ function PopoverContent({ className, children, side = "bottom", align = "end", s
       <PopoverPrimitive.Positioner side={side} align={align} sideOffset={sideOffset} className="isolate z-50">
         <PopoverPrimitive.Popup
           data-slot="popover-content"
-          className={cn("max-h-(--available-height) w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-app-line bg-panel p-4 text-app-fg shadow-xl outline-none", className)}
+          className={cn("max-h-(--available-height) w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-app-line bg-panel p-4 text-app-fg shadow-md outline-none", className)}
           {...props}
         >
           {children}

@@ -5,13 +5,13 @@ import { useTranslation } from 'react-i18next'
 // Una función que se verá pronto pero que hoy no da resultados: siempre con la misma marca y en gris.
 export function SoonBadge({ className = '' }: { className?: string }) {
   const { t } = useTranslation('ui')
-  return <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-app-faint/60 px-2 py-0.5 text-[11px] font-medium tracking-wide text-app-subtle uppercase ${className}`}>
+  return <span className={`inline-flex shrink-0 items-center gap-1 rounded-sm border border-dashed border-app-faint/60 px-1.5 py-0.5 text-xs text-app-subtle ${className}`}>
     <Hammer className="size-3" />{t('soon.badge')}
   </span>
 }
 
 export function ComingSoonCard({ title, icon, description, plan, children }: { title: string; icon?: ReactNode; description: string; plan?: string[]; children?: ReactNode }) {
-  return <div className="rounded-xl border border-dashed border-app-line bg-inset/40 p-5 text-app-subtle">
+  return <div className="rounded-lg border border-dashed border-app-line p-5 text-app-subtle">
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-3 opacity-70">{icon}<h3 className="font-semibold text-app-muted">{title}</h3></div>
       <SoonBadge />

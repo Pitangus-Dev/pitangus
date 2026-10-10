@@ -111,7 +111,7 @@ function ComponentNode({ data, selected }: NodeProps<Node<ComponentData, 'compon
 
 function BoundaryNode({ data, selected }: NodeProps<Node<BoundaryData, 'boundary'>>) {
   const keepRatio = useContext(ShiftContext)
-  return <div className={`tm-boundary relative h-full w-full rounded-2xl border-2 border-dashed ${BOUNDARY_TONE[data.tone]} ${selected ? 'outline-2 outline-offset-2 outline-app-fg' : ''}`}>
+  return <div className={`tm-boundary relative h-full w-full rounded-lg border-2 border-dashed ${BOUNDARY_TONE[data.tone]} ${selected ? 'outline-2 outline-offset-2 outline-app-fg' : ''}`}>
     <NodeResizer isVisible minWidth={220} minHeight={140} keepAspectRatio={keepRatio} color="var(--brand)" lineClassName="tm-resize-line" handleClassName="tm-resize-handle" />
     <span className={`tm-drag absolute top-2 left-3 cursor-move rounded-md bg-panel px-1.5 py-0.5 text-xs font-semibold ${data.tone === 'neutral' ? 'text-app-muted' : TEXT_TONE[data.tone]}`}>{data.name}</span>
   </div>
@@ -313,7 +313,7 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
   const selectedNode = nodes.find(node => node.selected)
   // Con la guía abierta el panel de edición baja bajo el lienzo: el diagrama necesita el ancho.
   return <div className={`grid gap-4 ${compact ? '' : 'xl:grid-cols-[minmax(0,1fr)_320px]'}`}>
-    <ShiftContext.Provider value={shift}><div className="tm-canvas h-[640px] overflow-hidden rounded-2xl border border-app-line bg-inset">
+    <ShiftContext.Provider value={shift}><div className="tm-canvas h-[640px] overflow-hidden rounded-lg border border-app-line bg-inset">
       <ReactFlow<CanvasNode, Edge<FlowData, 'flow'>> ariaLabelConfig={ariaLabels} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
         onDelete={({ nodes: removed, edges: gone }) => remove(removed.map(node => node.id), gone.map(edge => edge.id))}
@@ -339,7 +339,7 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
 
 function Chips({ value, options, onChange }: { value: string[]; options: Record<string, string>; onChange: (next: string[]) => void }) {
   return <div className="flex flex-wrap gap-1">{Object.entries(options).map(([key, label]) => <button key={key} type="button" aria-pressed={value.includes(key)} onClick={() => onChange(value.includes(key) ? value.filter(item => item !== key) : [...value, key])}
-    className={`min-h-6 rounded border px-2 py-0.5 text-[11px] ${value.includes(key) ? 'border-brand/50 bg-brand/10 text-brand' : 'border-app-line text-app-subtle'}`}>{label}</button>)}</div>
+    className={`min-h-6 rounded border px-2 py-0.5 text-[11px] ${value.includes(key) ? 'border-app-fg bg-app-soft text-app-fg' : 'border-app-line text-app-subtle'}`}>{label}</button>)}</div>
 }
 
 function Check({ checked, onChange, children }: { checked: boolean; onChange: (value: boolean) => void; children: string }) {
@@ -355,7 +355,7 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
     if (!item) return <Help />
     const names = Object.fromEntries(model.components.map(entry => [entry.id, entry.name]))
     const update = (change: Partial<Flow>) => setModel({ ...model, flows: model.flows.map(entry => entry.id === item.id ? { ...entry, ...change } : entry) })
-    return <aside className="space-y-4 rounded-2xl border border-app-line bg-panel p-4">
+    return <aside className="space-y-4 rounded-lg border border-app-line bg-panel p-4">
       <div><p className="text-xs text-app-subtle">{t('inspector.flow')}</p><p className="text-sm font-semibold">{names[item.source]} → {names[item.target]}</p></div>
       <label className={field}><span className={label}>{t('inspector.flow_name')}</span><Input value={item.name ?? ''} maxLength={80} placeholder={t('inspector.flow_name_placeholder')} onChange={event => update({ name: event.target.value })} className="h-8 border-app-line bg-app-soft" /></label>
       <label className={field}><span className={label}>{t('inspector.protocol')}</span><SelectField value={item.protocol} onValueChange={protocol => update({ protocol })} className={select} options={catalog.protocols.map(protocol => ({ value: protocol, label: protocol.toUpperCase() }))} /></label>
@@ -368,7 +368,7 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
   if (node?.type === 'boundary') {
     const item = model.boundaries.find(entry => boundaryId(entry.id) === node.id)
     if (!item) return <Help />
-    return <aside className="space-y-4 rounded-2xl border border-app-line bg-panel p-4">
+    return <aside className="space-y-4 rounded-lg border border-app-line bg-panel p-4">
       <p className="text-xs text-app-subtle">{t('inspector.boundary_heading', { components: t('count.components', { count: item.components.length }) })}</p>
       <label className={field}><span className={label}>{t('inspector.name')}</span><Input value={item.name} maxLength={80} onChange={event => setModel({ ...model, boundaries: model.boundaries.map(entry => entry.id === item.id ? { ...entry, name: event.target.value } : entry) })} className="h-8 border-app-line bg-app-soft" /></label>
       <ColorPicker label={t('inspector.boundary_color')} value={item.color} automatic={t('inspector.boundary_color_default')} onChange={color => setModel({ ...model, boundaries: model.boundaries.map(entry => entry.id === item.id ? { ...entry, color } : entry) })} />
@@ -380,7 +380,7 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
     const item = model.components.find(entry => componentId(entry.id) === node.id)
     if (!item) return <Help />
     const update = (change: Partial<Component>) => setModel({ ...model, components: model.components.map(entry => entry.id === item.id ? { ...entry, ...change } : entry) })
-    return <aside className="space-y-4 rounded-2xl border border-app-line bg-panel p-4">
+    return <aside className="space-y-4 rounded-lg border border-app-line bg-panel p-4">
       <label className={field}><span className={label}>{t('inspector.name')}</span><Input value={item.name} maxLength={80} onChange={event => update({ name: event.target.value })} className="h-8 border-app-line bg-app-soft" /></label>
       <div className="grid grid-cols-2 gap-2">
         <label className={field}><span className={label}>{t('inspector.kind')}</span><Select value={item.kind} onValueChange={value => { if (value) update({ kind: value as Kind, custom_kind: value === 'custom' ? item.custom_kind || t('canvas.custom_kind_default') : '' }) }}><SelectTrigger aria-label={t('inspector.kind_label')} className="h-8 w-full border-app-line bg-app-soft text-xs"><SelectValue>{catalog.kinds[item.kind]}</SelectValue></SelectTrigger><SelectContent>{Object.entries(catalog.kinds).map(([key, text]) => <SelectItem key={key} value={key}>{text}</SelectItem>)}</SelectContent></Select></label>
@@ -407,7 +407,7 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
 
 function Help() {
   const { t } = useTranslation('threats')
-  return <aside className="space-y-3 rounded-2xl border border-dashed border-app-line p-4 text-xs leading-5 text-app-subtle">
+  return <aside className="space-y-3 rounded-lg border border-dashed border-app-line p-4 text-xs leading-5 text-app-subtle">
     <p className="text-sm font-medium text-app-secondary">{t('help.title')}</p>
     <p><Plus className="mr-1 inline size-3" />{t('help.add')}</p>
     <p>{t('help.flows')}</p>
@@ -435,7 +435,7 @@ function ColorPicker({ label, value, automatic, onChange }: { label: string; val
     <span id={`${label}-label`} className="text-[11px] font-medium text-app-muted">{label}</span>
     <div role="radiogroup" aria-labelledby={`${label}-label`} onKeyDown={move} className="flex flex-wrap items-center gap-1.5">
       <button type="button" role="radio" data-tone="auto" aria-checked={current === ''} tabIndex={current === '' ? 0 : -1} onClick={() => onChange('')}
-        className={`min-h-6 rounded border px-2 text-[11px] ${current === '' ? 'border-brand/60 bg-brand/10 text-brand' : 'border-app-line text-app-subtle'}`}>{t('inspector.automatic')}</button>
+        className={`min-h-6 rounded border px-2 text-[11px] ${current === '' ? 'border-app-fg bg-app-soft text-app-fg' : 'border-app-line text-app-subtle'}`}>{t('inspector.automatic')}</button>
       {TONES.map(tone => <button key={tone} type="button" role="radio" data-tone={tone} aria-checked={current === tone} tabIndex={current === tone ? 0 : -1}
         aria-label={t(TONE_NAMES[tone])} title={t(TONE_NAMES[tone])} onClick={() => onChange(tone)}
         className={`grid size-6 place-items-center rounded-md border-[1.5px] ${NODE_TONE[tone]} ${current === tone ? 'outline-2 outline-offset-1 outline-brand' : ''}`}>
