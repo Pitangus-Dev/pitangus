@@ -148,7 +148,7 @@ function PaletteBody({ admin, onOpenChange, onView, onImport, onAddDomain, onHel
           const selected = item.id === active?.id
           return <div key={item.id} id={optionId(item)} role="option" aria-selected={selected}
             onPointerMove={() => { if (!selected) setActiveId(item.id) }} onPointerDown={event => event.preventDefault()} onClick={item.run}
-            className={`flex min-h-8 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm ${selected ? 'bg-app-soft text-app-fg shadow-[inset_2px_0_0_var(--brand)] ring-1 ring-app-line' : 'text-app-secondary'}`}>
+            className={`flex min-h-8 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm ${selected ? 'bg-app-soft text-app-fg ring-1 ring-app-faint' : 'text-app-secondary'}`}>
             <span className="min-w-0 flex-1 truncate">{item.label}{item.opensDialog && '…'}</span>
             {item.hint && <span className="hidden max-w-[45%] truncate text-xs text-app-subtle sm:block">{item.hint}</span>}
             {item.keys && <Keys keys={item.keys} />}

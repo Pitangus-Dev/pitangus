@@ -287,6 +287,9 @@ body { min-width: 320px; }
     outline: none !important; border-color: var(--brand) !important; box-shadow: inset 0 0 0 1px var(--brand) !important;
 }
 input[data-bare]:focus-visible { outline: none !important; }
+/* Underlined tabs mark keyboard focus with the underline itself, in the brand colour, instead of a box around the tab. */
+[data-slot=tabs-list][data-variant=line] [data-slot=tabs-trigger]:focus-visible { outline: none !important; color: var(--app-fg); }
+[data-slot=tabs-list][data-variant=line] [data-slot=tabs-trigger]:focus-visible::after { opacity: 1; background: var(--brand); }
 /* Interruptores hechos con un checkbox oculto: el foco se dibuja en la pista visible. */
 .peer:focus-visible + .switch-track { outline: 2px solid var(--brand); outline-offset: 2px; }
 

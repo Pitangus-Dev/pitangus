@@ -183,7 +183,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
     const id = `nav-${group.id}`
     return <div key={group.id} role="group" aria-labelledby={id} className="space-y-1">
       <p id={id} className="px-3 pb-1 text-xs font-medium text-app-subtle">{t(group.label)}</p>
-      {group.items.map(item => <button key={item.id} onClick={() => selectView(item.id)} title={t('shortcuts.go_hint', { key: item.go.toUpperCase() })} aria-current={activeNav === item.id ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${activeNav === item.id ? 'bg-panel font-medium text-app-fg shadow-[inset_2px_0_0_var(--brand)] ring-1 ring-app-line' : 'text-app-muted hover:bg-app-soft hover:text-app-fg'}`}><item.icon aria-hidden className="size-4" />{t(item.label)}</button>)}
+      {group.items.map(item => <button key={item.id} onClick={() => selectView(item.id)} title={t('shortcuts.go_hint', { key: item.go.toUpperCase() })} aria-current={activeNav === item.id ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${activeNav === item.id ? 'bg-panel font-medium text-app-fg ring-1 ring-app-line [&>svg]:text-brand' : 'text-app-muted hover:bg-app-soft hover:text-app-fg'}`}><item.icon aria-hidden className="size-4" />{t(item.label)}</button>)}
     </div>
   })}</nav>
 
