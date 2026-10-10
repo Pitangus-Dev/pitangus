@@ -11,7 +11,7 @@ import { Disclosure } from '@/shared/ui/disclosure'
 export function Policies({ user }: { user: SessionUser }) {
   const { t } = useTranslation('policies')
   const admin = user.role === 'admin'
-  return <div className="max-w-4xl space-y-4">
+  return <div className="space-y-4">
     <Card className="border-app-line bg-panel"><CardContent className="divide-y divide-app-line p-0">
       <SlaPolicyRow canEdit={admin} />
       <SecretDefaultsRow canEdit={admin} />

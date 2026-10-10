@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Globe2, MoreHorizontal, Play, Radar, ShieldCheck } from 'lucide-react'
+import { Globe2, MoreHorizontal, Play, Radar, ShieldCheck } from 'lucide-react'
 import type { SessionUser } from '@/features/auth/session'
 import { AnalysisList } from '@/features/analyses/analysis-list'
 import { DomainFindings } from '@/features/domains/domain-findings'
@@ -39,15 +39,11 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
   const [verifying, setVerifying] = useState(false)
   const { ask, removal } = useRemoveDomain(onBack)
 
-  const crumbs = <nav aria-label={t('domains.page.breadcrumb')} className="flex items-center gap-1.5 text-sm text-app-muted">
-    <button type="button" onClick={onBack} className="min-h-6 underline-offset-2 hover:text-app-fg hover:underline">{t('domains.list.title')}</button>
-    {domain && <><ChevronRight className="size-3.5" aria-hidden /><span aria-current="page" className="truncate text-app-secondary">{domain.host}</span></>}
-  </nav>
-  if (domains.isPending) return <div className="space-y-5">{crumbs}<h1 className="sr-only">{t('domains.list.title')}</h1><Skeleton tiles={0} rows={4} /></div>
-  if (domains.isError) return <div className="space-y-5">{crumbs}<h1 className="sr-only">{t('domains.list.title')}</h1>
+  if (domains.isPending) return <div className="space-y-5"><h1 className="sr-only">{t('domains.list.title')}</h1><Skeleton tiles={0} rows={4} /></div>
+  if (domains.isError) return <div className="space-y-5"><h1 className="sr-only">{t('domains.list.title')}</h1>
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('domains.list.load_failed')}
       <Button size="xs" variant="outline" onClick={() => void domains.refetch()}>{t('common:actions.retry')}</Button></div></div>
-  if (!domain) return <div className="space-y-5">{crumbs}<Card className="border-app-line bg-panel"><CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+  if (!domain) return <div className="space-y-5"><Card className="border-app-line bg-panel"><CardContent className="flex flex-col items-center gap-3 py-14 text-center">
     <Globe2 className="size-7 text-app-muted" aria-hidden /><h1 className="text-base font-medium">{t('domains.page.not_found')}</h1><Button variant="outline" onClick={onBack}>{t('domains.page.back')}</Button>
   </CardContent></Card></div>
 
@@ -57,7 +53,7 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
   // A surface isn't scanned: no scope to reach, nobody to sign in as.
   const tabs = TABS.filter(item => (item.id !== 'scope' && item.id !== 'users') || domain.kind !== 'surface')
   return <div className="space-y-8">
-    {crumbs}
+    
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight break-all sm:text-4xl">{domain.host}</h1>
@@ -91,7 +87,7 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
         <TestUsersPanel domain={domain} admin={admin} />
       </TabsContent>}
       {domain.kind !== 'surface' && <TabsContent value="scope" className="pt-6">
-        <div className="max-w-3xl"><DomainScopeEditor domain={domain} admin={admin} autoSearch onVerify={() => setVerifying(true)} heading="h2" /></div>
+        <div><DomainScopeEditor domain={domain} admin={admin} autoSearch onVerify={() => setVerifying(true)} heading="h2" /></div>
       </TabsContent>}
       <TabsContent value="scans" className="pt-6">
         <AnalysisList asset={domain.key} refreshKey={runs.data?.length ?? 0} onOpen={onOpenRun} onNew={() => onNewScan(domain)} viewer={{ username: user.username, admin }}

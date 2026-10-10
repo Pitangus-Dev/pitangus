@@ -117,5 +117,6 @@
       "control_k": "Control K",
       "then": "G, then {{key}}"
     }
-  }
+  },
+  "breadcrumb": "Breadcrumb"
 }

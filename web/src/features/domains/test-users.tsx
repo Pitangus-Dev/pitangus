@@ -168,7 +168,7 @@ export function TestUsersPanel({ domain, admin }: { domain: Domain; admin: boole
   }).then(ok => { if (ok) { setNotice(''); remove.mutate(user) } })
   const add = (method: LoginMethod) => { setNotice(''); setEditing({ method, user: null }) }
 
-  return <section aria-labelledby="domain-test-users" className="max-w-3xl space-y-4">
+  return <section aria-labelledby="domain-test-users" className="space-y-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="space-y-1">
         <h2 id="domain-test-users" className="text-base font-semibold">{t('domains.test_users.title')}</h2>

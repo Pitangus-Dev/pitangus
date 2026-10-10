@@ -16,7 +16,7 @@ const AI_PROVIDERS = [{ id: 'openai', name: 'OpenAI' }, { id: 'anthropic', name:
 export function Integrations({ user }: { user: SessionUser }) {
   const { t } = useTranslation('integrations')
   const admin = user.role === 'admin'
-  return <div className="max-w-5xl space-y-10">
+  return <div className="space-y-10">
     {!admin && <p className="text-sm text-app-muted">{t('page.read_only')}</p>}
     <CodeProviders canManage={admin} />
     <Registries canManage={admin} />

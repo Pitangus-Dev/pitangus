@@ -131,7 +131,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
   })
 
   if (kind === 'import') return <SarifImport onOpenRun={onComplete} onBack={restart} />
-  if (!kind) return <div className="max-w-6xl"><TypeChooser choice={choice} onChoose={setChoice} onContinue={() => { setKind(choice); setStep(0) }} onImport={() => setKind('import')}
+  if (!kind) return <div><TypeChooser choice={choice} onChoose={setChoice} onContinue={() => { setKind(choice); setStep(0) }} onImport={() => setKind('import')}
     onCancel={onCancel} dast={domains.data?.dast} isAdmin={isAdmin} /></div>
 
   const typeRow = { label: t('review.type'), value: t(KIND_TITLE[kind]), step: CHOOSER }
@@ -202,7 +202,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
     return null
   })()
 
-  return <div className="grid max-w-6xl gap-8 xl:grid-cols-[minmax(0,1fr)_14rem]">
+  return <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_14rem]">
     <div className="min-w-0 space-y-8 xl:space-y-0">
       <div className="xl:hidden"><StepRail steps={steps} current={step} onJump={setStep} /></div>
       <div key={`${kind}-${current}`} className="min-w-0 space-y-4">

@@ -23,7 +23,7 @@ export function DomainOverview({ domain, admin, onVerify, onDisconnect, disconne
   const last = lastScanOf(domain)
   const added = domain.registered_at ? formatDay(domain.registered_at, { dateStyle: 'medium' }) : ''
   const scannable = domain.kind !== 'surface'
-  return <div className="max-w-3xl space-y-10">
+  return <div className="space-y-10">
     <dl className="border-y border-app-line">
       {domain.verified && !coversSubdomains(domain) && <Fact label={t('domains.page.scope')}><span className="flex flex-wrap items-center justify-between gap-3">
         <span>{t('domains.page.scope_exact', { host: domain.host })}</span>
