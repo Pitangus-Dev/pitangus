@@ -5,8 +5,12 @@
 - **User-facing text** exists in English (source) and Spanish, through the i18n catalogs: follow
   `.claude/skills/pitangus-i18n/SKILL.md` ("interpret, don't translate"; stored text is language-neutral). Use the
   `i18n-localizer` agent for localization work.
-- **Design.** Before creating or changing the panel (`web/src`), a report (PDF or Markdown), an export or the threat
-  diagram, follow `.claude/skills/pitangus-design/SKILL.md`, and run the `design-reviewer` agent before committing.
+- **Design.** The identity manual is `.claude/skills/pitangus-brand` (one meaning per color, light/dark tokens, type,
+  components, voice, prohibitions); never invent a style outside it. Before creating or changing the panel (`web/src`), a
+  report, an export, the diagram, the docs site or the landing, read it and `.claude/skills/pitangus-design/SKILL.md`;
+  use `frontend-design` for craft and self-critique (not to pick a new palette), `web-design-guidelines` to review UI
+  code, and `react-best-practices` / `composition-patterns` for React code. Check visuals at real widths (1440, 1920 and
+  390), light and dark. Run the `design-reviewer` agent before committing.
 - **Data.** Application state lives in PostgreSQL (tables per context in `modules/<ctx>/tables.py`; settings in
   `shared/documents.py`). On disk only: the master key file when `PITANGUS_MASTER_KEY` isn't set, and caches that
   rebuild themselves (`data/`). Never add state to disk or process memory: the API must run as several instances or
