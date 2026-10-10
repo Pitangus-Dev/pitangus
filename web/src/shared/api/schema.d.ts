@@ -1162,6 +1162,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/domains/test-users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Test Users Route
+         * @description Saves or removes an account web scans of the domain may sign in with (username and password, plus a TOTP seed
+         *     for `password_totp`). The username, password and seed are stored encrypted; the password and the seed are never
+         *     answered back.
+         */
+        post: operations["domain_test_users_route_api_domains_test_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/domains/schedule": {
         parameters: {
             query?: never;
@@ -1246,7 +1268,8 @@ export interface paths {
         /**
          * Domain Scan
          * @description Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD
-         *     operations of an OpenAPI definition (api), optionally over listed subdomains and with the domain's saved headers.
+         *     operations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and
+         *     signed in as some of its test users.
          *     Off unless the server sets PITANGUS_DAST_ENABLED; one at a time.
          */
         post: operations["domain_scan_api_domains_scans_post"];
@@ -3068,7 +3091,8 @@ export interface components {
          * DomainRow
          * @description A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`
          *     says which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,
-         *     `verify_file_url`, `verify_meta`) and the saved `headers` are only answered to administrators. `runs` and `open`
+         *     `verify_file_url`, `verify_meta`), the saved `headers` and the `test_users` are only answered to administrators;
+         *     everyone gets how many there are (`header_count`, `test_user_count`). `runs` and `open`
          *     say what was scanned or imported against it; `schedule` is null (off) or when its passive web scan runs on its
          *     own.
          */
@@ -3123,6 +3147,13 @@ export interface components {
              * @default 0
              */
             header_count: number;
+            /** Test Users */
+            test_users?: components["schemas"]["DomainTestUser"][] | null;
+            /**
+             * Test User Count
+             * @default 0
+             */
+            test_user_count: number;
             /**
              * Runs
              * @default 0
@@ -3192,6 +3223,56 @@ export interface components {
             /** Scope Limit */
             scope_limit: number;
             discovery: components["schemas"]["Discovery"];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainTestUser
+         * @description A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root
+         *     of the host it applies to; `last_used_at` is when a scan last signed in with it.
+         */
+        DomainTestUser: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "password" | "password_totp";
+            /** Username */
+            username: string;
+            /** Applies To */
+            applies_to: string;
+            /** Login Url */
+            login_url?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Last Used At */
+            last_used_at?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainTestUsers
+         * @description The domain's test users after a change; `limit` per domain, `per_scan` a scan may sign in with.
+         */
+        DomainTestUsers: {
+            /** Domain Id */
+            domain_id: string;
+            /** Test Users */
+            test_users: components["schemas"]["DomainTestUser"][];
+            /** Limit */
+            limit: number;
+            /** Per Scan */
+            per_scan: number;
         } & {
             [key: string]: unknown;
         };
@@ -7433,6 +7514,81 @@ export interface operations {
             };
         };
     };
+    domain_test_users_route_api_domains_test_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /**
+                     * Op
+                     * @enum {string}
+                     */
+                    op: "save" | "remove";
+                    /** Id */
+                    id?: string | null;
+                    /** Name */
+                    name?: string | null;
+                    /** Method */
+                    method?: ("password" | "password_totp") | null;
+                    /** Username */
+                    username?: string | null;
+                    /** Password */
+                    password?: string | null;
+                    totp?: {
+                        /** Secret */
+                        secret: string;
+                        /**
+                         * Digits
+                         * @default 6
+                         */
+                        digits?: number;
+                        /**
+                         * Period
+                         * @default 30
+                         */
+                        period?: number;
+                        /**
+                         * Algorithm
+                         * @default SHA1
+                         * @enum {string}
+                         */
+                        algorithm?: "SHA1" | "SHA256" | "SHA512";
+                    } | null;
+                    /** Login Url */
+                    login_url?: string | null;
+                    /** Notes */
+                    notes?: string | null;
+                    /** Applies To */
+                    applies_to?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainTestUsers"];
+                };
+            };
+            /** @description Unknown domain or test user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     domain_schedule_api_domains_schedule_post: {
         parameters: {
             query?: never;
@@ -7641,6 +7797,8 @@ export interface operations {
                      * @default false
                      */
                     use_headers?: boolean;
+                    /** Test Users */
+                    test_users?: string[];
                     spec?: {
                         /** Filename */
                         filename: string;
@@ -7669,7 +7827,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Web scans off, domain not verified, a host private, subdomains without a DNS proof, no saved headers, or one already running */
+            /** @description Web scans off, domain not verified, a host private, subdomains without a DNS proof, no saved headers, a test user signing in outside the scope, or one already running */
             409: {
                 headers: {
                     [name: string]: unknown;

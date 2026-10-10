@@ -559,7 +559,9 @@
       "starting_api": "ZAP {{version}}: importing {{count}} GET and HEAD operations of the OpenAPI definition against {{target}} and reading the responses (passive, no attacks)…",
       "scope": "Also in scope: {{hosts}}. Only hosts listed by name are reached; a wildcard widens the context but its hosts aren't resolved.",
       "headers_one": "Requests to the scope carry 1 saved header: {{names}}.",
-      "headers_other": "Requests to the scope carry {{count}} saved headers: {{names}}."
+      "headers_other": "Requests to the scope carry {{count}} saved headers: {{names}}.",
+      "login_one": "Signing in as 1 test user ({{names}}) through a browser, then crawling as it for up to {{minutes}} minutes.",
+      "login_other": "Signing in as {{count}} test users ({{names}}) through a browser, then crawling as each for up to {{minutes}} minutes."
     },
     "detail": "{{count}} findings on the domain ({{results}} alerts read).",
     "remediation": "Fix it following {{tool}}'s guidance for this alert. The next web scan marks it fixed once it no longer reports it.",
@@ -587,7 +589,9 @@
       "not_pentest": "This is an automated dynamic analysis, not a penetration test.",
       "headers": "Requests carried the domain's saved headers; whether they actually authenticated wasn't checked, so pages behind a login may still be missing.",
       "api": "Only the {{count}} GET and HEAD operations of the definition were requested, with example values: POST, PUT, PATCH and DELETE operations were left out, and endpoints the definition doesn't list weren't tried.",
-      "wildcards": "Hosts matched only by a wildcard weren't resolved, so they weren't analyzed: list a host by name to include it."
+      "wildcards": "Hosts matched only by a wildcard weren't resolved, so they weren't analyzed: list a host by name to include it.",
+      "login_one": "Signed in as 1 test user: ZAP detects the session and the logged-in check by itself, and whether the sign-in worked wasn't confirmed, so pages behind the login may still be missing. Pages it reached show what that account can see, not what other roles can.",
+      "login_other": "Signed in as {{count}} test users: ZAP detects the session and the logged-in check by itself, and whether each sign-in worked wasn't confirmed, so pages behind the login may still be missing. Pages reached show what those accounts can see, not what other roles can."
     },
     "errors": {
       "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
@@ -597,7 +601,8 @@
       "unreadable": "ZAP's report couldn't be read.",
       "busy": "A web scan is already queued or running; wait for it to finish.",
       "address": "{{host}} can't be scanned: {{reason}}",
-      "no_headers": "This domain has no saved headers: add them before asking for a scan that uses them."
+      "no_headers": "This domain has no saved headers: add them before asking for a scan that uses them.",
+      "variable": "A saved header or the API definition's server path contains ${, which ZAP would read as a variable: remove it and scan again."
     },
     "spec": {
       "empty": "The OpenAPI definition is empty.",

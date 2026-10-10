@@ -18,7 +18,7 @@ import { DetailList, LooksFor, OsvOption, ReviewStep, WafNote, type ReviewRow } 
 import { StepRail } from '@/features/analyses/wizard/step-frame'
 import { TargetStep, type WebTarget } from '@/features/analyses/wizard/target-step'
 import { TypeChooser } from '@/features/analyses/wizard/type-chooser'
-import { STEPS, duration, inScope, listing, referencesOf, registryOf, type Kind, type ScanPlan, type Spec } from '@/features/analyses/wizard/model'
+import { STEPS, USERS_PER_SCAN, duration, inScope, listing, referencesOf, registryOf, signInHost, type Kind, type ScanPlan, type Spec } from '@/features/analyses/wizard/model'
 
 type Start = Kind | 'import' | null
 const KIND_TITLE = { code: 'wizard.kinds.code.title', image: 'wizard.kinds.image.title', web: 'wizard.kinds.web.title' } as const
@@ -43,6 +43,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
   const [target, setTarget] = useState<WebTarget>({ domain: null, scopeOpen: false })
   const [spec, setSpec] = useState<Spec | null>(null)
   const [useHeaders, setUseHeaders] = useState(true)
+  const [testUsers, setTestUsers] = useState<string[]>([])
   const [allowOsv, setAllowOsv] = useState(false)
   const [schedulePlan, setSchedulePlan] = useState<SchedulePlan | null>(null)
 
@@ -74,6 +75,8 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
   const hosts = scopeOpen && savedScope?.covered ? savedScope.hosts.filter(item => item.state === 'in_scope').map(item => item.host) : []
   const headerNames = (domain?.headers ?? []).map(item => item.name)
   const sending = useHeaders && headerNames.length > 0
+  // Only users still saved, signing in on a host this scope reaches (the scope can change after they were picked).
+  const signingIn = (domain?.test_users ?? []).filter(user => testUsers.includes(user.id) && !signInHost(user, domain?.host ?? '', hosts)).slice(0, USERS_PER_SCAN)
   const specInvalid = spec?.mode === 'url' && !!domain && !inScope(spec.url, domain.host, hosts)
   // Until touched, the plan is the domain's own schedule (or none, with a default rule ready to switch on).
   const schedule: SchedulePlan = schedulePlan ?? { on: !!domain?.schedule, rule: domain?.schedule ? ruleOf(domain.schedule) : defaultRule(), alsoNow: true }
@@ -98,7 +101,8 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
         }
         // With a spec the server calls its documented endpoints (API mode) instead of crawling the site.
         const source = spec ? spec.mode === 'file' ? { spec: { filename: spec.filename, content_base64: spec.content } } : { spec_url: spec.url } : {}
-        const queued = await api.post<QueuedDomainScan>('/api/domains/scans', 'scan-domain', { domain_id: domain.id, mode: spec ? 'api' : 'web', ...(scopeOpen ? { use_scope: true } : {}), use_headers: sending, ...source })
+        const queued = await api.post<QueuedDomainScan>('/api/domains/scans', 'scan-domain', { domain_id: domain.id, mode: spec ? 'api' : 'web', ...(scopeOpen ? { use_scope: true } : {}), use_headers: sending,
+          ...(signingIn.length ? { test_users: signingIn.map(user => user.id) } : {}), ...source })
         // Saved after the scan, so its next run skips today. The scan is queued either way; a schedule that didn't save
         // shows on the domain's page, not as a failed launch.
         if (changed) await saveSchedule().catch(() => null)
@@ -160,11 +164,13 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
           {batch && <p>{t('details.batch')}</p>}</> }
     }
     const host = domain?.host ?? ''
+    const access = [...(signingIn.length ? [t('review.access_users', { names: formatList(signingIn.map(user => user.name)) })] : []),
+      ...(sending ? [t('review.access_value', { count: headerNames.length, names: formatList(headerNames) })] : [])]
     const specValue = spec ? spec.mode === 'file' ? `${spec.filename} · ${t('spec.summary', { version: spec.version, count: spec.endpoints })}` : spec.url : t('review.spec_none')
     const rows: ReviewRow[] = [typeRow,
       { label: t('review.target'), value: hosts.length ? t('review.scope_value', { host, count: hosts.length }) : host, step: 0 },
       ...(spec || domain?.kind === 'api' ? [{ label: t('review.spec'), value: specValue, step: 0 }] : []),
-      { label: t('review.access'), value: sending ? t('review.access_value', { count: headerNames.length, names: formatList(headerNames) }) : t('review.access_none'), step: steps.indexOf('access') },
+      { label: t('review.access'), value: access.length ? access.join(' · ') : t('review.access_none'), step: steps.indexOf('access') },
       ...(domain?.context ? [{ label: t('review.context'), value: domain.context }] : [])]
     return { rows, label: scanNow ? t('launch.web') : t('launch.schedule'),
       options: domain?.kind === 'surface' ? undefined : <ScheduleOption value={schedule} onChange={setSchedulePlan} lastScanAt={domain?.last_scan?.created_at as string | undefined}
@@ -178,8 +184,9 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
     if (current === 'images') return <ImagesStep text={imageText} onText={setImageText} registries={registries} batchBusy={!!activeBatch} onManageConnections={onManageConnections} {...frame} />
     if (current === 'context') return <ContextStep value={context} onChange={setContext} {...frame} />
     if (current === 'target') return <TargetStep value={target} spec={spec} onSpec={setSpec} specInvalid={specInvalid} {...frame}
-      onChange={value => { if (value.domain?.id !== target.domain?.id) { setSpec(null); setUseHeaders(true); setSchedulePlan(null) } setTarget(value) }} />
-    if (current === 'access' && domain) return <AccessStep domain={domain} useHeaders={useHeaders} onUseHeaders={setUseHeaders} {...frame} />
+      onChange={value => { if (value.domain?.id !== target.domain?.id) { setSpec(null); setUseHeaders(true); setTestUsers([]); setSchedulePlan(null) } setTarget(value) }} />
+    if (current === 'access' && domain) return <AccessStep domain={domain} hosts={hosts} useHeaders={useHeaders} onUseHeaders={setUseHeaders}
+      testUsers={testUsers} onTestUsers={setTestUsers} {...frame} />
     if (current === 'review') {
       const content = review()
       return <ReviewStep kind={kind} batch={batch} rows={content.rows} options={content.options} notes={content.notes} details={content.details}

@@ -292,7 +292,13 @@
       "removed": "{{host}} eliminado.",
       "added": "{{host}} añadido. Verifícalo para poder analizarlo.",
       "verified_notice": "{{host}} verificado hasta el {{date}}.",
-      "noun": "dominios"
+      "noun": "dominios",
+      "col_login": "Login",
+      "login_count_one": "{{count}} usuario",
+      "login_count_other": "{{count}} usuarios",
+      "login_none": "Ninguno",
+      "login_for_one": "{{count}} usuario de prueba de {{host}}",
+      "login_for_other": "{{count}} usuarios de prueba de {{host}}"
     },
     "add": {
       "title": "Añadir dominio o API",
@@ -346,7 +352,8 @@
         "overview": "Resumen",
         "findings": "Hallazgos",
         "scans": "Análisis",
-        "scope": "Alcance"
+        "scope": "Alcance",
+        "users": "Usuarios de prueba"
       },
       "new_scan": "Nuevo análisis",
       "verify_again": "Verificar de nuevo",
@@ -458,6 +465,52 @@
       "exclude_all_title": "¿Excluir todos los hosts?",
       "exclude_all_text_one": "{{count}} host deja de analizarse. Los análisis llegarán solo al propio dominio hasta que vuelvas a marcar hosts.",
       "exclude_all_text_other": "{{count}} hosts dejan de analizarse. Los análisis llegarán solo al propio dominio hasta que vuelvas a marcar hosts."
+    },
+    "test_users": {
+      "title": "Usuarios de prueba",
+      "text": "Cuentas de prueba reutilizables para este dominio. Elígelas al lanzar un análisis en lugar de volver a escribir las credenciales.",
+      "add": "Añadir usuario",
+      "method": {
+        "password": "Usuario y contraseña",
+        "password_totp": "App de autenticación (TOTP)"
+      },
+      "add_title": "Añadir usuario de prueba",
+      "edit_title": "Editar usuario de prueba",
+      "name": "Nombre",
+      "name_placeholder": "Usuario administrador…",
+      "username": "Usuario o correo",
+      "password": "Contraseña",
+      "keep_saved": "Déjala en blanco para conservar la guardada.",
+      "totp_secret": "Clave de la app de autenticación (secreto TOTP)",
+      "totp_hint": "La clave en base32 que aparece al configurar la app, a menudo en «¿No puedes escanear el código?».",
+      "advanced": "Avanzado: URL de login, alcance, notas",
+      "login_url": "URL de login (opcional)",
+      "login_url_hint": "Donde el análisis empieza a iniciar sesión. En blanco, abre la página de inicio del host de abajo y sigue el enlace de login que encuentre.",
+      "applies_to": "Se aplica a",
+      "applies_to_hint": "El host al que pertenece esta cuenta: el dominio o uno de sus subdominios.",
+      "notes": "Notas (opcional)",
+      "digits": "Dígitos",
+      "period": "El código dura",
+      "seconds_one": "{{count}} segundo",
+      "seconds_other": "{{count}} segundos",
+      "algorithm": "Algoritmo",
+      "saved_note": "Se guarda cifrado: la contraseña y la clave no se pueden volver a leer, solo reemplazar.",
+      "save": "Guardar usuario",
+      "saved": "{{name}} guardado.",
+      "removed": "{{name}} eliminado.",
+      "remove": "Eliminar",
+      "remove_title": "¿Eliminar {{name}}?",
+      "remove_text": "Los análisis dejan de iniciar sesión con él y su contraseña no se puede recuperar.",
+      "edit": "Editar",
+      "add_totp": "Añadir app de autenticación",
+      "actions_for": "Acciones de {{name}}",
+      "list_label": "Usuarios de prueba guardados",
+      "empty": "Aún no hay usuarios de prueba.",
+      "count_one": "{{count}} usuario de prueba guardado",
+      "count_other": "{{count}} usuarios de prueba guardados",
+      "last_used": "Usado por última vez el {{date}}",
+      "never_used": "Aún sin usar",
+      "limit": "Hasta {{max}} usuarios de prueba por dominio."
     }
   },
   "images": {

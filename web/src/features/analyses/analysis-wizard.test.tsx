@@ -193,6 +193,34 @@ describe('a web or API scan', () => {
     expect(calls.some(call => call.path === '/api/domains/schedule')).toBe(false)
   })
 
+  it('picks test users that sign in inside the scope, and offers to add one before going without any', async () => {
+    const admin = { id: 'd'.repeat(24), name: 'Admin user', method: 'password', username: 'qa@app.example.com', applies_to: 'app.example.com', login_url: null }
+    const docs = { id: 'e'.repeat(24), name: 'Docs editor', method: 'password_totp', username: 'docs', applies_to: 'docs.app.example.com', login_url: null }
+    const { user, calls } = setup({ domains: [{ ...DOMAIN, test_users: [admin, docs], test_user_count: 2 }] })
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
+    await proceed(user)
+    await user.click(await screen.findByRole('radio', { name: /app\.example\.com/ }))
+    await proceed(user)
+    await heading('access.title')
+    await proceed(user)
+    const question = await screen.findByRole('alertdialog', { name: tr('skip.access.title') })
+    await user.click(within(question).getByRole('button', { name: tr('skip.access.back') }))
+    expect(await screen.findByRole('dialog', { name: i18n.t('sources:domains.test_users.add_title') })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: i18n.t('common:actions.cancel') }))
+
+    // Docs signs in on a subdomain this scope doesn't reach.
+    const outside = screen.getByRole('checkbox', { name: /Docs editor/ })
+    expect(outside.hasAttribute('disabled')).toBe(true)
+    expect(screen.getByText(tr('access.user_outside', { host: 'docs.app.example.com' }))).toBeTruthy()
+    await user.click(screen.getByRole('checkbox', { name: /Admin user/ }))
+    await proceed(user)
+    await heading('review.title')
+    expect(screen.getByText(tr('review.access_users', { names: 'Admin user' }))).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: tr('launch.web') }))
+    await vi.waitFor(() => expect(scan(calls)).toBeTruthy())
+    expect(scan(calls)?.body).toEqual({ domain_id: DOMAIN.id, mode: 'web', use_headers: false, test_users: [admin.id] })
+  })
+
   it('jumps back to a step from its review row', async () => {
     const { user } = setup({ domains: [DOMAIN] })
     await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))

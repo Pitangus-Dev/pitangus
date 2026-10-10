@@ -14,7 +14,7 @@ const PENDING = { id: ID, host: 'app.example.com', url: 'https://app.example.com
   txt_name: '_pitangus.app.example.com', txt_value: 'pitangus-verify=abc123', verify_token: 'abc123', verify_file_url: 'https://app.example.com/.well-known/pitangus-verify.txt',
   verify_meta: '<meta name="pitangus-verify" content="abc123">', schedule: null, headers: [], header_count: 0, runs: 0, open: 0, last_scan: null }
 const VERIFIED = { ...PENDING, id: 'b'.repeat(24), host: 'api.example.com', key: 'domain:api.example.com', kind: 'api', verified: true, proof_method: 'file',
-  verified_at: '2026-10-02T00:00:00Z', verified_until: '2026-12-31T00:00:00Z', runs: 2, open: 5,
+  verified_at: '2026-10-02T00:00:00Z', verified_until: '2026-12-31T00:00:00Z', runs: 2, open: 5, test_user_count: 2,
   schedule: { frequency: 'monthly', weekdays: [], month_days: [1], time: '09:00', timezone: 'UTC', next_run_at: '2026-11-01T09:00:00Z' },
   last_scan: { id: 'run-1', status: 'completed', created_at: '2026-10-05T00:00:00Z', finished_at: null, variant: 'api' } }
 
@@ -27,11 +27,12 @@ function render(admin = true, handler: Parameters<typeof mockApi>[0] = () => ({ 
 }
 
 describe('domains list', () => {
-  it('lists sites and APIs alike, with the kind as a tag, the proof, last scan and schedule, and open findings', async () => {
+  it('lists sites and APIs alike, with the kind as a tag, the proof, last scan and schedule, test users, and open findings', async () => {
     const { user, opened } = render()
     const table = await screen.findByRole('table')
     const columns = within(table).getAllByRole('columnheader').map(cell => cell.textContent)
-    expect(columns.slice(0, 4)).toEqual([tr('domains.list.col_domain'), tr('domains.list.col_verification'), tr('domains.list.col_last_scan'), tr('domains.list.col_open')])
+    expect(columns.slice(0, 5)).toEqual([tr('domains.list.col_domain'), tr('domains.list.col_verification'), tr('domains.list.col_last_scan'), tr('domains.list.col_login'),
+      tr('domains.list.col_open')])
     const verified = within(table).getAllByRole('row').find(row => row.textContent?.includes('api.example.com')) as HTMLElement
     expect(within(verified).getByText(tr('domains.kind.api'))).toBeTruthy()
     expect(within(verified).getAllByText(tr('domains.list.verified_by', { method: tr('domains.method.file') })).length).toBeGreaterThan(0)
@@ -39,11 +40,13 @@ describe('domains list', () => {
     expect(screen.queryByText('domain:api.example.com')).toBeNull()
     await user.click(within(verified).getByRole('button', { name: tr('domains.list.open_for', { host: 'api.example.com', count: 5 }) }))
     await user.click(within(verified).getByRole('button', { name: 'api.example.com' }))
-    expect(opened).toEqual([[VERIFIED.id, 'findings'], [VERIFIED.id, undefined]])
+    await user.click(within(verified).getByRole('button', { name: tr('domains.list.login_for', { host: 'api.example.com', count: 2 }) }))
+    expect(opened).toEqual([[VERIFIED.id, 'findings'], [VERIFIED.id, undefined], [VERIFIED.id, 'users']])
     const pending = within(table).getAllByRole('row').find(row => row.textContent?.includes('app.example.com')) as HTMLElement
     expect(within(pending).getAllByText(tr('domains.list.pending')).length).toBeGreaterThan(0)
     expect(within(pending).getByText(tr('domains.kind.web'))).toBeTruthy()
     expect(within(pending).getByText(tr('domains.list.never'))).toBeTruthy()
+    expect(within(pending).getByText(tr('domains.list.login_none'))).toBeTruthy()
   })
 
   it('shows an empty state with one action', async () => {

@@ -21,6 +21,13 @@ export const STEP_LABEL = {
 // Optional steps can be skipped with a button; the rest need an answer.
 export const OPTIONAL: StepId[] = ['context', 'access']
 
+export const USERS_PER_SCAN = 3   // test users one web scan signs in with
+
+const hostOf = (url: string | null | undefined) => { try { return url ? new URL(url).hostname.toLowerCase() : '' } catch { return '' } }
+// A test user signs in on a host this scan must reach (the root, or a subdomain listed by name): the one that isn't, or null.
+export const signInHost = (user: { applies_to: string; login_url?: string | null }, root: string, hosts: string[]) =>
+  [user.applies_to, hostOf(user.login_url)].filter(Boolean).find(host => host !== root && !hosts.includes(host)) ?? null
+
 export const BATCH_LIMIT = 100   // repositories or images picked by hand per batch (a whole organization has no such cap)
 export const CONTEXT_MAX = 400
 export const SPEC_MAX_BYTES = 5 * 1024 * 1024

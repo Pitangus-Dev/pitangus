@@ -3614,6 +3614,209 @@
         }
       }
     },
+    "/api/domains/test-users": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Test Users Route",
+        "description": "Saves or removes an account web scans of the domain may sign in with (username and password, plus a TOTP seed\nfor `password_totp`). The username, password and seed are stored encrypted; the password and the seed are never\nanswered back.",
+        "operationId": "domain_test_users_route_api_domains_test_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  },
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "save",
+                      "remove"
+                    ],
+                    "title": "Op"
+                  },
+                  "id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{24}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Id"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80,
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Name"
+                  },
+                  "method": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "password",
+                          "password_totp"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Method"
+                  },
+                  "username": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Username"
+                  },
+                  "password": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1024,
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Password"
+                  },
+                  "totp": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "secret": {
+                            "type": "string",
+                            "maxLength": 300,
+                            "minLength": 16,
+                            "title": "Secret"
+                          },
+                          "digits": {
+                            "type": "integer",
+                            "title": "Digits",
+                            "default": 6
+                          },
+                          "period": {
+                            "type": "integer",
+                            "title": "Period",
+                            "default": 30
+                          },
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "SHA1",
+                              "SHA256",
+                              "SHA512"
+                            ],
+                            "title": "Algorithm",
+                            "default": "SHA1"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "secret"
+                        ],
+                        "title": "TotpIn",
+                        "description": "The TOTP seed in base32, as an authenticator app shows it, and its settings (30 s, 6 digits, SHA1 by default)."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "login_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Login Url"
+                  },
+                  "notes": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Notes"
+                  },
+                  "applies_to": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 260
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Applies To"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id",
+                  "op"
+                ],
+                "title": "DomainTestUserIn",
+                "description": "`save` adds a test user (no `id`) or changes one: a password or a TOTP seed left out keeps the saved one.\n`remove` deletes it (`id` only). `password_totp` needs `totp` when added or switched to."
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainTestUsers"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain or test user"
+          }
+        }
+      }
+    },
     "/api/domains/schedule": {
       "post": {
         "tags": [
@@ -3913,7 +4116,7 @@
           "sources"
         ],
         "summary": "Domain Scan",
-        "description": "Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD\noperations of an OpenAPI definition (api), optionally over listed subdomains and with the domain's saved headers.\nOff unless the server sets PITANGUS_DAST_ENABLED; one at a time.",
+        "description": "Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD\noperations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and\nsigned in as some of its test users.\nOff unless the server sets PITANGUS_DAST_ENABLED; one at a time.",
         "operationId": "domain_scan_api_domains_scans_post",
         "requestBody": {
           "content": {
@@ -3952,6 +4155,15 @@
                     "type": "boolean",
                     "title": "Use Headers",
                     "default": false
+                  },
+                  "test_users": {
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{24}$"
+                    },
+                    "type": "array",
+                    "maxItems": 3,
+                    "title": "Test Users"
                   },
                   "spec": {
                     "anyOf": [
@@ -4003,7 +4215,7 @@
                   "domain_id"
                 ],
                 "title": "DomainScanIn",
-                "description": "A passive scan of a verified domain. `mode`: web (crawl) or api (an OpenAPI definition: `spec`, uploaded, or\n`spec_url`, on a host of the scope). `use_scope`: include the hosts saved in the domain's scope (read again when\nthe scan starts); or `hosts`: subdomains listed for this scan only (`name` or `*.name`, at most 20). Both need a\nDNS proof. `use_headers`: send the domain's saved headers to the scope's hosts."
+                "description": "A passive scan of a verified domain. `mode`: web (crawl) or api (an OpenAPI definition: `spec`, uploaded, or\n`spec_url`, on a host of the scope). `use_scope`: include the hosts saved in the domain's scope (read again when\nthe scan starts); or `hosts`: subdomains listed for this scan only (`name` or `*.name`, at most 20). Both need a\nDNS proof. `use_headers`: send the domain's saved headers to the scope's hosts. `test_users`: ids of the domain's\ntest users to sign in as (at most 3), each with its own crawl; each must sign in on a host of that scope."
               }
             }
           },
@@ -4024,7 +4236,7 @@
             "description": "Unknown domain"
           },
           "409": {
-            "description": "Web scans off, domain not verified, a host private, subdomains without a DNS proof, no saved headers, or one already running"
+            "description": "Web scans off, domain not verified, a host private, subdomains without a DNS proof, no saved headers, a test user signing in outside the scope, or one already running"
           },
           "429": {
             "description": "Queue full"
@@ -10108,6 +10320,26 @@
             "title": "Header Count",
             "default": 0
           },
+          "test_users": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DomainTestUser"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Users"
+          },
+          "test_user_count": {
+            "type": "integer",
+            "title": "Test User Count",
+            "default": 0
+          },
           "runs": {
             "type": "integer",
             "title": "Runs",
@@ -10132,7 +10364,7 @@
           "expired"
         ],
         "title": "DomainRow",
-        "description": "A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`\nsays which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,\n`verify_file_url`, `verify_meta`) and the saved `headers` are only answered to administrators. `runs` and `open`\nsay what was scanned or imported against it; `schedule` is null (off) or when its passive web scan runs on its\nown."
+        "description": "A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`\nsays which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,\n`verify_file_url`, `verify_meta`), the saved `headers` and the `test_users` are only answered to administrators;\neveryone gets how many there are (`header_count`, `test_user_count`). `runs` and `open`\nsay what was scanned or imported against it; `schedule` is null (off) or when its passive web scan runs on its\nown."
       },
       "DomainSchedule": {
         "properties": {
@@ -10287,6 +10519,145 @@
         ],
         "title": "DomainScope",
         "description": "The domain's related hosts and its saved scope. `covered`: its proof lets them in (a current DNS proof);\notherwise `reason` says what's missing and nothing can be put in scope. `in_scope` counts the hosts saved in\n(at most `scope_limit`); at most `limit` hosts are kept."
+      },
+      "DomainTestUser": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "password",
+              "password_totp"
+            ],
+            "title": "Method"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "applies_to": {
+            "type": "string",
+            "title": "Applies To"
+          },
+          "login_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Login Url"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "method",
+          "username",
+          "applies_to"
+        ],
+        "title": "DomainTestUser",
+        "description": "A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root\nof the host it applies to; `last_used_at` is when a scan last signed in with it."
+      },
+      "DomainTestUsers": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "title": "Domain Id"
+          },
+          "test_users": {
+            "items": {
+              "$ref": "#/components/schemas/DomainTestUser"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Test Users"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "per_scan": {
+            "type": "integer",
+            "title": "Per Scan"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "domain_id",
+          "test_users",
+          "limit",
+          "per_scan"
+        ],
+        "title": "DomainTestUsers",
+        "description": "The domain's test users after a change; `limit` per domain, `per_scan` a scan may sign in with."
       },
       "Euvd": {
         "properties": {

@@ -90,6 +90,26 @@
     "discovery": {
       "interrupted": "The search for related hosts stopped without finishing; search again.",
       "busy": "A search for related hosts is already running for this domain."
+    },
+    "test_users": {
+      "invalid_request": "Invalid test user request",
+      "invalid_name": "A test user's name is one line of up to {{max}} characters",
+      "invalid_username": "The username or email is one line of up to {{max}} characters, without ${",
+      "invalid_password": "The password is one line of up to {{max}} characters, without ${",
+      "invalid_method": "Choose a sign-in method: username and password, or with an authenticator app (TOTP)",
+      "invalid_notes": "Notes take up to {{max}} characters",
+      "invalid_host": "{{host}} isn't a valid host",
+      "outside": "{{host}} isn't {{root}} or one of its subdomains",
+      "invalid_login_url": "The login URL is an HTTPS page, without a port or credentials in it",
+      "invalid_totp": "The TOTP secret is the base32 key the authenticator app shows (at least 16 characters)",
+      "invalid_totp_options": "TOTP codes have {{digits}} digits, last {{periods}} seconds and use {{algorithms}}",
+      "totp_required": "Add the TOTP secret to sign in with an authenticator app",
+      "password_required": "Add the password",
+      "name_taken": "There's already a test user named {{name}}",
+      "limit": "A domain keeps at most {{max}} test users",
+      "not_found": "That test user doesn't exist or was removed",
+      "too_many": "A scan signs in with at most {{max}} test users",
+      "not_in_scope": "{{name}} signs in on {{host}}, which isn't in this scan's scope: add it to the scope or pick another test user"
     }
   }
 }

@@ -90,6 +90,26 @@
     "discovery": {
       "interrupted": "La búsqueda de hosts relacionados se detuvo sin terminar; vuelve a buscar.",
       "busy": "Ya hay una búsqueda de hosts relacionados en curso para este dominio."
+    },
+    "test_users": {
+      "invalid_request": "Solicitud de usuario de prueba inválida",
+      "invalid_name": "El nombre de un usuario de prueba es una línea de hasta {{max}} caracteres",
+      "invalid_username": "El usuario o correo es una línea de hasta {{max}} caracteres, sin ${",
+      "invalid_password": "La contraseña es una línea de hasta {{max}} caracteres, sin ${",
+      "invalid_method": "Elige cómo inicia sesión: usuario y contraseña, o con app de autenticación (TOTP)",
+      "invalid_notes": "Las notas admiten hasta {{max}} caracteres",
+      "invalid_host": "{{host}} no es un host válido",
+      "outside": "{{host}} no es {{root}} ni uno de sus subdominios",
+      "invalid_login_url": "La URL de login es una página HTTPS, sin puerto ni credenciales",
+      "invalid_totp": "El secreto TOTP es la clave en base32 que muestra la app de autenticación (al menos 16 caracteres)",
+      "invalid_totp_options": "Los códigos TOTP tienen {{digits}} dígitos, duran {{periods}} segundos y usan {{algorithms}}",
+      "totp_required": "Añade el secreto TOTP para iniciar sesión con app de autenticación",
+      "password_required": "Añade la contraseña",
+      "name_taken": "Ya hay un usuario de prueba llamado {{name}}",
+      "limit": "Un dominio guarda como máximo {{max}} usuarios de prueba",
+      "not_found": "Ese usuario de prueba no existe o se eliminó",
+      "too_many": "Un análisis inicia sesión con {{max}} usuarios de prueba como máximo",
+      "not_in_scope": "{{name}} inicia sesión en {{host}}, que no está en el alcance de este análisis: añádelo al alcance o elige otro usuario de prueba"
     }
   }
 }

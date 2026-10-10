@@ -22,7 +22,7 @@ from pitangus.modules.integrations import github_manifest
 from pitangus.modules.integrations.installations import clear_github, github_connections, github_installations, save_github
 from pitangus.modules.scanning import openapi_spec
 from pitangus.modules.sources import assets as source_assets
-from pitangus.modules.sources import domain_headers, domain_scope, domains
+from pitangus.modules.sources import domain_headers, domain_scope, domains, test_users
 from pitangus.modules.sources.assets import with_scan_branches
 from pitangus.modules.sources.domains import DomainError
 from pitangus.modules.sources.repositories import SourceError, find_source, list_repositories, source_page, unavailable
@@ -211,10 +211,27 @@ class DomainSchedule(Open):
     note: str | None = None
 
 
+class DomainTestUser(Open):
+    """A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root
+    of the host it applies to; `last_used_at` is when a scan last signed in with it."""
+    id: str
+    name: str
+    method: Literal["password", "password_totp"]
+    username: str
+    applies_to: str
+    login_url: str | None = None
+    notes: str | None = None
+    created_by: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    last_used_at: str | None = None
+
+
 class DomainRow(Open):
     """A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`
     says which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,
-    `verify_file_url`, `verify_meta`) and the saved `headers` are only answered to administrators. `runs` and `open`
+    `verify_file_url`, `verify_meta`), the saved `headers` and the `test_users` are only answered to administrators;
+    everyone gets how many there are (`header_count`, `test_user_count`). `runs` and `open`
     say what was scanned or imported against it; `schedule` is null (off) or when its passive web scan runs on its
     own."""
     id: str
@@ -240,6 +257,8 @@ class DomainRow(Open):
     last_scan: dict[str, Any] | None = None
     headers: list[DomainHeader] | None = Field(None, max_length=domain_headers.LIMIT)
     header_count: int = 0
+    test_users: list[DomainTestUser] | None = Field(None, max_length=test_users.LIMIT)
+    test_user_count: int = 0
     runs: int = 0
     open: int = 0
 
@@ -276,6 +295,14 @@ class DomainHeaders(Open):
     limit: int
 
 
+class DomainTestUsers(Open):
+    """The domain's test users after a change; `limit` per domain, `per_scan` a scan may sign in with."""
+    domain_id: str
+    test_users: list[DomainTestUser] = Field(max_length=test_users.LIMIT)
+    limit: int
+    per_scan: int
+
+
 ADMIN_ONLY = ("txt_name", "txt_value", "verify_token", "verify_file_url", "verify_meta")
 SPEC_BASE64 = (openapi_spec.MAX_BYTES + 2) // 3 * 4
 SCAN_BODY = SPEC_BASE64 + 16_000  # a definition in base64 plus the rest of the request
@@ -287,6 +314,7 @@ def _domain_rows(context: Context, records: list[dict]) -> list[dict]:
     from pitangus.modules.findings import registry as findings_registry
     from pitangus.modules.runs.store import find_runs
     admin = (context.user or {}).get("role") == "admin"
+    accounts = test_users.counts(context.data_dir)
     counted: dict[str, int] = {}
     latest: dict[str, dict] = {}
     for row in find_runs(context.data_dir, assets=[record["key"] for record in records]):
@@ -301,6 +329,8 @@ def _domain_rows(context: Context, records: list[dict]) -> list[dict]:
         saved = domain_headers.list_headers(record["id"]) if admin else []
         rows.append({**shown, "runs": runs, "last_scan": latest.get(record["key"]),
                      "headers": saved if admin else None, "header_count": len(saved) if admin else domain_headers.count(record["id"]),
+                     "test_users": test_users.list_users(context.data_dir, record["id"]) if admin else None,
+                     "test_user_count": accounts.get(record["id"], 0),
                      "open": findings_registry.summarize(context.data_dir, record["key"])["open"] if runs else 0})
     return rows
 
@@ -353,6 +383,43 @@ class DomainHeaderIn(BaseModel):
         return self
 
 
+class TotpIn(BaseModel):
+    """The TOTP seed in base32, as an authenticator app shows it, and its settings (30 s, 6 digits, SHA1 by default)."""
+    model_config = ConfigDict(extra="forbid")
+    secret: StrictStr = Field(min_length=16, max_length=300)
+    digits: StrictInt = 6
+    period: StrictInt = 30
+    algorithm: Literal["SHA1", "SHA256", "SHA512"] = "SHA1"
+
+
+class DomainTestUserIn(BaseModel):
+    """`save` adds a test user (no `id`) or changes one: a password or a TOTP seed left out keeps the saved one.
+    `remove` deletes it (`id` only). `password_totp` needs `totp` when added or switched to."""
+    model_config = ConfigDict(extra="forbid")
+    domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
+    op: Literal["save", "remove"]
+    id: StrictStr | None = Field(None, pattern="^[0-9a-f]{24}$")
+    name: StrictStr | None = Field(None, min_length=1, max_length=test_users.NAME_MAX)
+    method: Literal["password", "password_totp"] | None = None
+    username: StrictStr | None = Field(None, min_length=1, max_length=test_users.USERNAME_MAX)
+    password: StrictStr | None = Field(None, min_length=1, max_length=test_users.PASSWORD_MAX)
+    totp: TotpIn | None = None
+    login_url: StrictStr | None = Field(None, max_length=test_users.URL_MAX)
+    notes: StrictStr | None = Field(None, max_length=test_users.NOTES_MAX)
+    applies_to: StrictStr | None = Field(None, max_length=260)
+
+    @model_validator(mode="after")
+    def _fields(self):
+        if self.op == "remove" and (self.id is None or any(value is not None for value in (
+                self.name, self.method, self.username, self.password, self.totp, self.login_url, self.notes, self.applies_to))):
+            raise ValueError("remove takes the id only")
+        if self.op == "save" and (self.name is None or self.method is None or self.username is None):
+            raise ValueError("save needs a name, a method and a username")
+        if self.method == "password" and self.totp is not None:
+            raise ValueError("a TOTP seed goes with password_totp only")
+        return self
+
+
 class ScheduleIn(BaseModel):
     """`weekdays` (1 Monday … 7 Sunday) go with weekly, `month_days` (1–28) with monthly; `time` is HH:MM in
     `timezone`, an IANA name (the browser's, by default)."""
@@ -390,13 +457,15 @@ class DomainScanIn(BaseModel):
     """A passive scan of a verified domain. `mode`: web (crawl) or api (an OpenAPI definition: `spec`, uploaded, or
     `spec_url`, on a host of the scope). `use_scope`: include the hosts saved in the domain's scope (read again when
     the scan starts); or `hosts`: subdomains listed for this scan only (`name` or `*.name`, at most 20). Both need a
-    DNS proof. `use_headers`: send the domain's saved headers to the scope's hosts."""
+    DNS proof. `use_headers`: send the domain's saved headers to the scope's hosts. `test_users`: ids of the domain's
+    test users to sign in as (at most 3), each with its own crawl; each must sign in on a host of that scope."""
     model_config = ConfigDict(extra="forbid")
     domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
     mode: Literal["web", "api"] = "web"
     hosts: list[Annotated[StrictStr, Field(max_length=260)]] = Field(default_factory=list, max_length=domains.SCOPE_LIMIT)
     use_scope: bool = False
     use_headers: bool = False
+    test_users: list[Annotated[StrictStr, Field(pattern="^[0-9a-f]{24}$")]] = Field(default_factory=list, max_length=test_users.PER_SCAN)
     spec: SpecIn | None = None
     spec_url: StrictStr | None = Field(None, max_length=2000)
 
@@ -519,6 +588,31 @@ def domain_headers_route(context: Context = Depends(guard(Policy(admin=True, act
     context.state.log.warning("domain_header_changed", extra={"user": context.user["username"],
                                                               "reason": f"{record['host']}: {data.op} {data.name}"})
     return context.render({"domain_id": record["id"], "headers": listed, "limit": domain_headers.LIMIT})
+
+
+@router.post("/api/domains/test-users", response_model=DomainTestUsers, openapi_extra=documented(DomainTestUserIn), **AS_RETURNED,
+             responses={404: {"description": "Unknown domain or test user"}})
+def domain_test_users_route(context: Context = Depends(guard(Policy(admin=True, action="domain-test-users", body=12_000))),
+                            data: DomainTestUserIn = Depends(body(DomainTestUserIn, msg("sources.domains.test_users.invalid_request")))) -> Any:
+    """Saves or removes an account web scans of the domain may sign in with (username and password, plus a TOTP seed
+    for `password_totp`). The username, password and seed are stored encrypted; the password and the seed are never
+    answered back."""
+    record = _known(context, data.domain_id)
+    try:
+        if data.op == "save":
+            fields = data.model_dump(exclude={"domain_id", "op"}, exclude_none=True)
+            name = test_users.save(context.data_dir, record, fields, by=context.user["username"])["name"]
+        else:
+            name = next((user["name"] for user in test_users.list_users(context.data_dir, record["id"]) if user["id"] == data.id), "")
+            test_users.remove(context.data_dir, record["id"], data.id)
+    except test_users.TestUserError as exc:
+        missing = is_msg(exc.message) and exc.message[MARK] == "sources.domains.test_users.not_found"
+        raise ApiError(404 if missing else 400, exc.message) from exc
+    # The test user's name only: neither its username nor anything secret reaches a log line.
+    context.state.log.warning("domain_test_user_changed", extra={"user": context.user["username"],
+                                                                 "reason": f"{record['host']}: {data.op} {name}"})
+    return context.render({"domain_id": record["id"], "test_users": test_users.list_users(context.data_dir, record["id"]),
+                           "limit": test_users.LIMIT, "per_scan": test_users.PER_SCAN})
 
 
 @router.post("/api/domains/schedule", response_model=DomainRow, openapi_extra=documented(DomainScheduleIn), **AS_RETURNED,
@@ -690,11 +784,18 @@ def _scan_options(context: Context, record: dict, data: DomainScanIn | None) -> 
             raise ApiError(409, msg("scanning.web.errors.address", host=host, reason=exc.message)) from exc
     if data.use_headers and not domain_headers.count(record["id"]):
         raise ApiError(409, msg("scanning.web.errors.no_headers"))
+    try:
+        chosen = test_users.check_selection(context.data_dir, record, list(data.test_users), scope)
+    except test_users.TestUserError as exc:
+        outside = is_msg(exc.message) and exc.message[MARK] == "sources.domains.test_users.not_in_scope"
+        raise ApiError(409 if outside else 400, exc.message) from exc
     options: dict[str, Any] = {"mode": data.mode, "use_headers": data.use_headers}
     if data.use_scope:
         options["use_scope"] = True
     else:
         options["hosts"] = [*scope["hosts"][1:], *scope["wildcards"]]
+    if chosen:
+        options["test_users"] = [user["id"] for user in chosen]
     try:
         if data.spec is not None:
             try:
@@ -732,19 +833,22 @@ def launch_domain_scan(context: Context, domain_id: str, *, trigger: dict | None
     except BusyError as exc:
         raise ApiError(409, exc.message) from exc
     context.state.log.warning("dast_scan_launched", extra={"user": context.user["username"],
-                                                           "reason": f"{record['host']} ({options['mode']}, {len(options.get('hosts') or [])} extra hosts)"})
+                                                           "reason": f"{record['host']} ({options['mode']}, {len(options.get('hosts') or [])} extra hosts, "
+                                                                     f"{len(options.get('test_users') or [])} test users)"})
     return {"run": queued, "domain": record}
 
 
 @router.post("/api/domains/scans", status_code=202, response_model=QueuedDomainScan, openapi_extra=documented(DomainScanIn),
              **AS_RETURNED, responses={404: {"description": "Unknown domain"},
                                        409: {"description": "Web scans off, domain not verified, a host private, subdomains "
-                                                             "without a DNS proof, no saved headers, or one already running"},
+                                                             "without a DNS proof, no saved headers, a test user signing in "
+                                                             "outside the scope, or one already running"},
                                        429: {"description": "Queue full"}})
 def domain_scan(context: Context = Depends(guard(Policy(admin=True, action="scan-domain", body=SCAN_BODY))),
                 data: DomainScanIn = Depends(body(DomainScanIn, msg("sources.domains.invalid_request")))) -> Any:
     """Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD
-    operations of an OpenAPI definition (api), optionally over listed subdomains and with the domain's saved headers.
+    operations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and
+    signed in as some of its test users.
     Off unless the server sets PITANGUS_DAST_ENABLED; one at a time."""
     launched = launch_domain_scan(context, data.domain_id, data=data)
     return context.render({"run_id": launched["run"]["id"], "run": launched["run"], "domain": _domain_rows(context, [launched["domain"]])[0]})

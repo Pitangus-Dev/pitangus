@@ -158,16 +158,23 @@
   },
   "access": {
     "title": "Does it need a login?",
-    "text": "A token, API key or session cookie, sent as a header.",
+    "text": "Sign in as a test user, or send a token, API key or session cookie as a header.",
     "use_all": "Send the saved headers",
-    "test_account": "It browses as that user: use a test account."
+    "test_account": "It browses as that user: use a test account.",
+    "optional": "(optional)",
+    "users_title": "Test users",
+    "users_text": "Signs in with these accounts to test what a logged-in user can reach. Each one gets its own crawl.",
+    "users_full": "A scan signs in with at most {{max}} test users.",
+    "user_outside": "Signs in on {{host}}, which isn't in this scan's scope.",
+    "headers_title": "Custom headers",
+    "headers_text": "A token, API key or session cookie, sent as a header."
   },
   "skip": {
     "access": {
-      "title": "Scan without signing in?",
-      "text": "Only what's public will be covered.",
+      "title": "No authentication provided",
+      "text": "Without a test user or a header, only what's public will be covered.",
       "confirm": "Public pages only",
-      "back": "Add a header"
+      "back": "Add test user"
     }
   },
   "review": {
@@ -213,7 +220,8 @@
     "schedule_without_spec": "Scheduled scans browse the site; they don't use the API documentation.",
     "waf_title": "Behind a firewall or WAF?",
     "waf_text": "Allow this server's public IP, or the scan may be blocked.",
-    "authorization": "It only browses and reads, never attacks. Launch it only against sites you're allowed to test."
+    "authorization": "It only browses and reads, never attacks. Launch it only against sites you're allowed to test.",
+    "access_users": "Signs in as {{names}}"
   },
   "details": {
     "title": "Technical details",

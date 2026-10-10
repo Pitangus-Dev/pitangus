@@ -48,14 +48,14 @@ function setup() {
 }
 
 describe('a domain page', () => {
-  it('has a heading, its kind and proof in one line, and four tabs with access in the overview', async () => {
+  it('has a heading, its kind and proof in one line, and five tabs with headers in the overview', async () => {
     const { user } = setup()
     expect(await screen.findByRole('heading', { level: 1, name: 'app.example.com' })).toBeTruthy()
     expect(screen.getByText(tr('domains.kind.web'))).toBeTruthy()
     expect(screen.getByText(tr('domains.list.verified_by', { method: tr('domains.method.meta') }))).toBeTruthy()
     expect(screen.getByText(tr('domains.page.until', { date: formatDay('2026-12-31T00:00:00Z', { dateStyle: 'medium' }) }))).toBeTruthy()
     const tabs = screen.getAllByRole('tab').map(tab => tab.textContent)
-    expect(tabs).toEqual([tr('domains.page.tabs.overview'), tr('domains.page.tabs.findings'), tr('domains.page.tabs.scans'), tr('domains.page.tabs.scope')])
+    expect(tabs).toEqual([tr('domains.page.tabs.overview'), tr('domains.page.tabs.findings'), tr('domains.page.tabs.scans'), tr('domains.page.tabs.scope'), tr('domains.page.tabs.users')])
     // A meta proof covers the exact host only, and says so where it matters.
     expect(screen.getByText(tr('domains.page.scope_exact', { host: 'app.example.com' }))).toBeTruthy()
     expect(screen.getByRole('button', { name: tr('domains.page.verify_dns') })).toBeTruthy()

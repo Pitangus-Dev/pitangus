@@ -405,7 +405,8 @@ def recheck(data_dir: Path, *, now: datetime | None = None) -> dict:
 
 
 def remove_domain(data_dir: Path, domain_id: str) -> dict:
-    """Deletes the row and its saved headers, and returns what it was (the caller purges the asset's runs, if any)."""
+    """Deletes the row (its test users go with it, by foreign key) and its saved headers, and returns what it was (the
+    caller purges the asset's runs, if any)."""
     from pitangus.modules.sources import domain_headers
     record = get_domain(data_dir, domain_id)
     with db.transaction(data_dir) as connection:

@@ -196,8 +196,8 @@ class ScanJobs:
         """Passive web or API scan of a verified domain (scanning/web.py). One at a time per instance: it reaches
         someone's application, so a second one waits for the first rather than doubling the load. Raises BusyError.
         `options` (already validated by the caller): mode, hosts or use_scope (the scope saved with the domain, read
-        when the scan starts), use_headers and, in API mode, the definition sealed with the master key (`spec`) or the
-        URL to fetch it from (`spec_url`). The worker checks everything again."""
+        when the scan starts), use_headers, test_users (ids) and, in API mode, the definition sealed with the master key
+        (`spec`) or the URL to fetch it from (`spec_url`). The worker checks everything again."""
         from sqlalchemy import func, select
         from pitangus.modules.runs.tables import jobs
         options = options or {}
@@ -218,7 +218,8 @@ class ScanJobs:
                 raise BusyError(msg("scanning.web.errors.busy"))
             self._save(record)
             queue.enqueue(self.data_dir, "dast_scan", {"domain_id": domain["id"], **{key: options[key] for key in
-                          ("mode", "hosts", "use_scope", "use_headers", "spec", "spec_url", "spec_sha256", "spec_endpoints")
+                          ("mode", "hosts", "use_scope", "use_headers", "test_users", "spec", "spec_url", "spec_sha256",
+                           "spec_endpoints")
                           if options.get(key) is not None}},
                           run_id=run_id)
         log.info("dast_scan_queued", extra={"run_id": run_id, "path": domain["host"], "user": requested_by})
@@ -440,7 +441,7 @@ class ScanJobs:
         from pitangus.modules.scanning import openapi_spec
         from pitangus.modules.scanning.engines import docker_problem, runner
         from pitangus.modules.scanning.web import WebScanError, scan_domain
-        from pitangus.modules.sources import domain_headers, domain_scope
+        from pitangus.modules.sources import domain_headers, domain_scope, test_users
         from pitangus.modules.sources.domains import DomainError, confirm_control, public_address, scan_scope
         run_id = job["run_id"]
         sealed = job.get("spec")
@@ -478,6 +479,10 @@ class ScanJobs:
             headers = domain_headers.values(domain["id"]) if job.get("use_headers") else []
             if job.get("use_headers") and not headers:
                 raise WebScanError(msg("scanning.web.errors.no_headers"))
+            try:
+                users = test_users.credentials(self.data_dir, domain, job.get("test_users") or [], scope)
+            except test_users.TestUserError as exc:
+                raise WebScanError(exc.message) from exc
             api = None
             if job.get("mode") == "api":
                 try:
@@ -490,7 +495,7 @@ class ScanJobs:
                 if api is None:
                     raise WebScanError(msg("scanning.web.spec.missing"))
             scan = scan_domain(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope, headers=headers, api=api,
-                               excluded=excluded)
+                               excluded=excluded, users=users)
             counts = _counts(scan["summary"])
             progress("warn" if scan["status"] == "incomplete" else "ok",
                      msg("runs.progress.finished_incomplete" if scan["status"] == "incomplete" else "runs.progress.finished", counts=counts))

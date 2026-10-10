@@ -158,16 +158,23 @@
   },
   "access": {
     "title": "¿Necesita iniciar sesión?",
-    "text": "Un token, una API key o una cookie de sesión, enviados como cabecera.",
+    "text": "Inicia sesión con un usuario de prueba, o envía un token, una API key o una cookie de sesión como cabecera.",
     "use_all": "Enviar las cabeceras guardadas",
-    "test_account": "Navega como ese usuario: usa una cuenta de prueba."
+    "test_account": "Navega como ese usuario: usa una cuenta de prueba.",
+    "optional": "(opcional)",
+    "users_title": "Usuarios de prueba",
+    "users_text": "Inicia sesión con estas cuentas para probar lo que alcanza un usuario con sesión. Cada una tiene su propio recorrido.",
+    "users_full": "Un análisis inicia sesión con {{max}} usuarios de prueba como máximo.",
+    "user_outside": "Inicia sesión en {{host}}, que no está en el alcance de este análisis.",
+    "headers_title": "Cabeceras personalizadas",
+    "headers_text": "Un token, una API key o una cookie de sesión, enviados como cabecera."
   },
   "skip": {
     "access": {
-      "title": "¿Analizar sin iniciar sesión?",
-      "text": "Solo se cubrirá lo público.",
+      "title": "No hay autenticación",
+      "text": "Sin un usuario de prueba ni una cabecera, solo se cubrirá lo público.",
       "confirm": "Solo páginas públicas",
-      "back": "Añadir una cabecera"
+      "back": "Añadir usuario de prueba"
     }
   },
   "review": {
@@ -213,7 +220,8 @@
     "schedule_without_spec": "Los análisis programados recorren el sitio; no usan la documentación de la API.",
     "waf_title": "¿Hay un firewall o WAF?",
     "waf_text": "Permite la IP pública de este servidor o el análisis puede quedar bloqueado.",
-    "authorization": "Solo navega y lee; nunca ataca. Lánzalo solo contra sitios que tengas permiso de probar."
+    "authorization": "Solo navega y lee; nunca ataca. Lánzalo solo contra sitios que tengas permiso de probar.",
+    "access_users": "Inicia sesión como {{names}}"
   },
   "details": {
     "title": "Detalles técnicos",

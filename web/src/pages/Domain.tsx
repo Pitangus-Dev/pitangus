@@ -8,6 +8,7 @@ import { DomainFindings } from '@/features/domains/domain-findings'
 import type { DomainTab } from '@/features/domains/domain-list'
 import { DomainOverview } from '@/features/domains/domain-overview'
 import { DomainScopeEditor } from '@/features/domains/domain-scope'
+import { TestUsersPanel } from '@/features/domains/test-users'
 import { TONE, kindOf, untilOf, verification, type Domain as DomainRow } from '@/features/domains/domains'
 import { useRemoveDomain } from '@/features/domains/use-remove-domain'
 import { VerifyDomainDialog } from '@/features/domains/verify-domain-dialog'
@@ -20,11 +21,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 
 const TABS: { id: DomainTab; label: string }[] = [
   { id: 'overview', label: 'domains.page.tabs.overview' }, { id: 'findings', label: 'domains.page.tabs.findings' }, { id: 'scans', label: 'domains.page.tabs.scans' },
-  { id: 'scope', label: 'domains.page.tabs.scope' },
+  { id: 'scope', label: 'domains.page.tabs.scope' }, { id: 'users', label: 'domains.page.tabs.users' },
 ]
 
-// One domain: its kind and proof in one line under the name, then its overview (with access), findings, scans and the
-// scope its scans reach. The scope has its own tab: discovery can list dozens of hosts, unlike the few rows of access.
+// One domain: its kind and proof in one line under the name, then its overview (with headers), findings, scans, the
+// scope its scans reach and the test users they sign in with. The scope has its own tab: discovery can list dozens of hosts, unlike the few rows of access.
 export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRun, onImport, onOpenPolicies }: {
   domainId: string; tab: DomainTab; onTab: (tab: DomainTab) => void; user: SessionUser; onBack: () => void; onNewScan: (domain: DomainRow) => void
   onOpenRun: (id: string) => void; onImport: () => void; onOpenPolicies: () => void
@@ -53,6 +54,8 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
   const state = verification(domain)
   const scannable = admin && domain.kind !== 'surface'
   const until = domain.verified ? untilOf(domain) : ''
+  // A surface isn't scanned: no scope to reach, nobody to sign in as.
+  const tabs = TABS.filter(item => (item.id !== 'scope' && item.id !== 'users') || domain.kind !== 'surface')
   return <div className="space-y-8">
     {crumbs}
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -74,9 +77,9 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
       </div>
     </div>
     {removal.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{removal.error.message}</p>}
-    <Tabs value={tab === 'scope' && domain.kind === 'surface' ? 'overview' : tab} onValueChange={value => onTab(value as DomainTab)}>
+    <Tabs value={tabs.some(item => item.id === tab) ? tab : 'overview'} onValueChange={value => onTab(value as DomainTab)}>
       <div className="overflow-x-auto border-b border-app-line"><TabsList variant="line" aria-label={t('domains.page.tabs_label')}>
-        {TABS.filter(item => item.id !== 'scope' || domain.kind !== 'surface').map(item => <TabsTrigger key={item.id} value={item.id} className="min-h-8 px-3">{t(item.label)}</TabsTrigger>)}
+        {tabs.map(item => <TabsTrigger key={item.id} value={item.id} className="min-h-8 px-3">{t(item.label)}</TabsTrigger>)}
       </TabsList></div>
       <TabsContent value="overview" className="pt-6">
         <DomainOverview domain={domain} admin={admin} onVerify={() => setVerifying(true)} />
@@ -84,6 +87,9 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
       <TabsContent value="findings" className="pt-6">
         <DomainFindings domain={domain} user={user} onNewScan={() => onNewScan(domain)} onImport={onImport} onOpenPolicies={onOpenPolicies} />
       </TabsContent>
+      {domain.kind !== 'surface' && <TabsContent value="users" className="pt-6">
+        <TestUsersPanel domain={domain} admin={admin} />
+      </TabsContent>}
       {domain.kind !== 'surface' && <TabsContent value="scope" className="pt-6">
         <div className="max-w-3xl"><DomainScopeEditor domain={domain} admin={admin} autoSearch onVerify={() => setVerifying(true)} heading="h2" /></div>
       </TabsContent>}

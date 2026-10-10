@@ -17,10 +17,10 @@ import { TONE, kindOf, lastScanOf, untilOf, verification, type Domain } from '@/
 import { FREQUENCY } from '@/features/domains/schedule'
 
 const PAGE = 25
-export type DomainTab = 'overview' | 'findings' | 'scans' | 'scope'
+export type DomainTab = 'overview' | 'findings' | 'scans' | 'scope' | 'users'
 
 // The sites and APIs a team controls, alike: kind as a tag, whether the proof is current, the last scan (and how often
-// it repeats, when scheduled) and open findings. Administrators add, verify and remove; everyone else reads.
+// it repeats, when scheduled), the test users its scans can sign in with and open findings. Administrators add, verify and remove; everyone else reads.
 export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean; onOpenDomain: (domain: Domain, tab?: DomainTab) => void; onNewScan: (domain: Domain) => void }) {
   const { t } = useTranslation('sources')
   const queryClient = useQueryClient()
@@ -52,7 +52,7 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
     {removal.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{removal.error.message}</p>}
     {domains.isError ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('domains.list.load_failed')}
         <Button size="xs" variant="outline" onClick={() => void domains.refetch()}>{t('common:actions.retry')}</Button></div>
-    : !domains.data ? <SkeletonTable rows={3} columns={4} label={t('domains.list.loading')} />
+    : !domains.data ? <SkeletonTable rows={3} columns={5} label={t('domains.list.loading')} />
     : !items.length ? <div className="flex flex-col items-center gap-3 py-14 text-center"><Globe2 className="size-7 text-app-muted" aria-hidden />
         <p className="font-medium">{t('domains.list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t('domains.list.empty_text')}</p>{admin && add}</div>
     : <div className="-mx-5 overflow-x-auto"><table className={`w-full text-sm motion-safe:transition-opacity ${domains.isFetching ? 'opacity-70' : ''}`} aria-busy={domains.isFetching || undefined}>
@@ -60,6 +60,7 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
         <th scope="col" className="px-5 py-3 font-normal">{t('domains.list.col_domain')}</th>
         <th scope="col" className="hidden px-3 py-3 font-normal md:table-cell">{t('domains.list.col_verification')}</th>
         <th scope="col" className="hidden px-3 py-3 font-normal md:table-cell">{t('domains.list.col_last_scan')}</th>
+        <th scope="col" className="hidden px-3 py-3 font-normal lg:table-cell">{t('domains.list.col_login')}</th>
         <th scope="col" className="px-3 py-3 text-right font-normal">{t('domains.list.col_open')}</th>
         <th scope="col" className="w-12 px-4 py-3"><span className="sr-only">{t('domains.list.col_actions')}</span></th>
       </tr></thead>
@@ -75,6 +76,9 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
             <span className="md:hidden">{chip}</span></div></td>
           <td className="hidden px-3 py-3 md:table-cell">{chip}</td>
           <td className="hidden px-3 py-3 text-xs text-app-muted md:table-cell">{last ? formatDay(last.created_at, { dateStyle: 'medium' }) : t('domains.list.never')}{domain.schedule && <span className="block">{t(FREQUENCY[domain.schedule.frequency])}</span>}</td>
+          <td className="hidden px-3 py-3 text-xs lg:table-cell">{domain.kind === 'surface' ? <span className="text-app-muted">—</span>
+            : domain.test_user_count ? <button type="button" onClick={() => onOpenDomain(domain, 'users')} aria-label={t('domains.list.login_for', { host: domain.host, count: domain.test_user_count })} className="min-h-6 text-left text-app-secondary underline-offset-2 hover:underline">{t('domains.list.login_count', { count: domain.test_user_count })}</button>
+            : <span className="text-app-muted">{t('domains.list.login_none')}</span>}</td>
           <td className="px-3 py-3 text-right">{domain.open
             ? <button type="button" onClick={() => onOpenDomain(domain, 'findings')} aria-label={t('domains.list.open_for', { host: domain.host, count: domain.open })} className="min-h-6 min-w-6 font-mono text-app-fg underline-offset-2 hover:underline">{domain.open}</button>
             : <span className="font-mono text-app-muted">0</span>}</td>

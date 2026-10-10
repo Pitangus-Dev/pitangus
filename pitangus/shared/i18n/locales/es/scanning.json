@@ -559,7 +559,9 @@
       "starting_api": "ZAP {{version}}: importando {{count}} operaciones GET y HEAD de la definición OpenAPI contra {{target}} y leyendo las respuestas (pasivo, sin ataques)…",
       "scope": "También en el alcance: {{hosts}}. Solo se alcanzan los hosts listados por nombre; un comodín amplía el contexto, pero sus hosts no se resuelven.",
       "headers_one": "Las peticiones al alcance llevan 1 cabecera guardada: {{names}}.",
-      "headers_other": "Las peticiones al alcance llevan {{count}} cabeceras guardadas: {{names}}."
+      "headers_other": "Las peticiones al alcance llevan {{count}} cabeceras guardadas: {{names}}.",
+      "login_one": "Inicia sesión con 1 usuario de prueba ({{names}}) desde un navegador y recorre el sitio con él hasta {{minutes}} minutos.",
+      "login_other": "Inicia sesión con {{count}} usuarios de prueba ({{names}}) desde un navegador y recorre el sitio con cada uno hasta {{minutes}} minutos."
     },
     "detail": "{{count}} hallazgos en el dominio ({{results}} alertas leídas).",
     "remediation": "Corrígelo con la guía de {{tool}} para esta alerta. El próximo análisis web lo marca remediado cuando deje de reportarlo.",
@@ -587,7 +589,9 @@
       "not_pentest": "Es un análisis dinámico automatizado, no una prueba de penetración.",
       "headers": "Las peticiones llevaron las cabeceras guardadas del dominio; no se comprobó que autenticaran de verdad, así que pueden faltar páginas detrás de un login.",
       "api": "Solo se pidieron las {{count}} operaciones GET y HEAD de la definición, con valores de ejemplo: quedaron fuera POST, PUT, PATCH y DELETE, y no se probaron endpoints que la definición no lista.",
-      "wildcards": "Los hosts que solo encajan con un comodín no se resolvieron y no se analizaron: lista un host por nombre para incluirlo."
+      "wildcards": "Los hosts que solo encajan con un comodín no se resolvieron y no se analizaron: lista un host por nombre para incluirlo.",
+      "login_one": "Inició sesión con 1 usuario de prueba: ZAP detecta por su cuenta la sesión y cómo saber si sigue dentro, y no se confirmó que el inicio de sesión funcionara, así que pueden faltar páginas detrás del login. Lo alcanzado muestra lo que ve esa cuenta, no lo que ven otros roles.",
+      "login_other": "Inició sesión con {{count}} usuarios de prueba: ZAP detecta por su cuenta la sesión y cómo saber si sigue dentro, y no se confirmó que cada inicio de sesión funcionara, así que pueden faltar páginas detrás del login. Lo alcanzado muestra lo que ven esas cuentas, no lo que ven otros roles."
     },
     "errors": {
       "disabled": "Los análisis web están apagados en este servidor: define PITANGUS_DAST_ENABLED=1 en su entorno y reinícialo.",
@@ -597,7 +601,8 @@
       "unreadable": "No se pudo leer el informe de ZAP.",
       "busy": "Ya hay un análisis web en cola o en curso; espera a que termine.",
       "address": "No se puede analizar {{host}}: {{reason}}",
-      "no_headers": "Este dominio no tiene cabeceras guardadas: añádelas antes de pedir un análisis que las use."
+      "no_headers": "Este dominio no tiene cabeceras guardadas: añádelas antes de pedir un análisis que las use.",
+      "variable": "Una cabecera guardada o la ruta del servidor de la definición de API contiene ${, que ZAP leería como una variable: quítalo y vuelve a analizar."
     },
     "spec": {
       "empty": "La definición OpenAPI está vacía.",
