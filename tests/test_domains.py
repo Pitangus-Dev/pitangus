@@ -85,9 +85,27 @@ class RegistryTests(unittest.TestCase):
         with patch("pitangus.modules.sources.domains.subprocess.run") as run:
             run.return_value.returncode = 0
             run.return_value.stdout = f'"{record["txt_value"]}"\n"other"\n'
-            self.assertEqual(domains.lookup_txt(record["txt_name"]), [record["txt_value"], "other"])
+            with patch.object(domains, "_nameservers", return_value=[]):
+                self.assertEqual(domains.lookup_txt(record["txt_name"]), [record["txt_value"], "other"])
         command = run.call_args.args[0]
         self.assertEqual((command[0], command[-2:], run.call_args.kwargs["env"]), ("dig", ["TXT", f"_pitangus.{HOST}"], {"PATH": "/usr/bin:/bin"}))
+
+    def test_the_lookup_asks_the_zones_own_nameservers_first(self):
+        """A resolver that cached "no such name" before the record existed must not hide it (dogfooding, 9-oct-2026)."""
+        asked = []
+
+        def dig(command, **kwargs):
+            asked.append(command[4:])
+            answer = {("NS", f"pitangus.{HOST}"): "", ("NS", HOST): "ns1.dns.example.\nns2.dns.example.\n; bad answer\n",
+                      ("@ns1.dns.example.", "TXT", f"_pitangus.pitangus.{HOST}"): '"pitangus-verify=x"\n'}.get(tuple(command[4:]))
+            return type("Result", (), {"returncode": 0 if answer is not None else 9, "stdout": answer or ""})()
+        with patch("pitangus.modules.sources.domains.subprocess.run", side_effect=dig):
+            self.assertEqual(domains.lookup_txt(f"_pitangus.pitangus.{HOST}"), ["pitangus-verify=x"])
+        self.assertEqual(asked, [["NS", f"pitangus.{HOST}"], ["NS", HOST], ["@ns1.dns.example.", "TXT", f"_pitangus.pitangus.{HOST}"]])
+        # Nameservers unreachable: the local resolver still answers.
+        with patch.object(domains, "_nameservers", return_value=["ns1.dns.example."]), \
+                patch.object(domains, "_dig", side_effect=lambda *args: None if args[0].startswith("@") else ['"v"']):
+            self.assertEqual(domains.lookup_txt(f"_pitangus.{HOST}"), ["v"])
 
     def test_the_domains_document_of_earlier_versions_becomes_rows(self):
         documents.save(self.data_dir, "domains", [
