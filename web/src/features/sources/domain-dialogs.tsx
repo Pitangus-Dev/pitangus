@@ -78,7 +78,7 @@ export function AddDomainDialog({ open, onOpenChange, onAdded }: { open: boolean
         <label htmlFor="domain-url" className="text-sm text-app-secondary">{t('domains.add.domain')}</label>
         <div className="relative">
           <Input id="domain-url" required autoFocus value={url} onChange={event => changeUrl(event.target.value)} placeholder={t('domains.add.placeholder')} className="border-app-line bg-app-soft pr-10" />
-          <span className="absolute top-1/2 right-3 -translate-y-1/2">{checking ? <LoaderCircle className="size-4 animate-spin text-app-subtle" /> : reach?.reachable ? <CircleCheck className="size-4 text-success" /> : reach ? <CircleAlert className="size-4 text-warning" /> : null}</span>
+          <span className="absolute top-1/2 right-3 -translate-y-1/2" aria-hidden>{checking ? <LoaderCircle className="size-4 motion-safe:animate-spin text-app-subtle" /> : reach?.reachable ? <CircleCheck className="size-4 text-success" /> : reach ? <CircleAlert className="size-4 text-warning" /> : null}</span>
         </div>
         {checking && <p className="text-xs text-app-subtle">{t('domains.add.checking')}</p>}
         {reach && <p className={`text-xs ${reach.reachable ? 'text-success' : 'text-warning'}`}>{reach.reachable ? t('domains.add.reachable') : reach.detail}{reach.reachable && reach.http_status ? ` · HTTPS ${reach.http_status}` : ''}</p>}
@@ -91,7 +91,7 @@ export function AddDomainDialog({ open, onOpenChange, onAdded }: { open: boolean
         </div>
       </details>
       {error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger">{error}</p>}
-      <DialogFooter><Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || !url.trim()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="animate-spin" />}{t('domains.add.title')}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || !url.trim()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('domains.add.title')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -114,12 +114,14 @@ export function VerifyDomainDialog({ domain, onOpenChange, onVerified }: { domai
     finally { setBusy(false) }
   }
   const records = [
-    { id: 'name', label: t('domains.verify.record_name'), copyLabel: t('domains.verify.copy_name'), value: domain.txt_name },
-    { id: 'value', label: t('domains.verify.record_value'), copyLabel: t('domains.verify.copy_value'), value: domain.txt_value },
+    { id: 'name', label: t('domains.verify.record_name'), copyLabel: t('domains.verify.copy_name'), value: domain.txt_name ?? '' },
+    { id: 'value', label: t('domains.verify.record_value'), copyLabel: t('domains.verify.copy_value'), value: domain.txt_value ?? '' },
   ]
   return <Dialog open onOpenChange={onOpenChange}><DialogContent className="max-w-xl">
-    <DialogHeader><DialogTitle>{t('domains.verify.title')}</DialogTitle><DialogDescription>{t('domains.verify.description')}</DialogDescription></DialogHeader>
-    <div className="flex items-start gap-3 rounded-xl border border-warning-line bg-warning-soft p-4 text-sm text-warning"><TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" /><span><Trans t={t} i18nKey="domains.verify.pending" values={{ host: domain.host }} components={{ b: <strong className="font-medium" /> }} /></span></div>
+    <DialogHeader><DialogTitle>{domain.verified ? t('domains.verify.title_verified', { host: domain.host }) : t('domains.verify.title', { host: domain.host })}</DialogTitle><DialogDescription>{t('domains.verify.description')}</DialogDescription></DialogHeader>
+    {domain.verified
+      ? <div className="flex items-start gap-3 rounded-xl border border-success-line bg-success-soft p-4 text-sm text-success"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden /><span><Trans t={t} i18nKey="domains.verify.current" values={{ host: domain.host }} components={{ b: <strong className="font-medium" /> }} /></span></div>
+      : <div className="flex items-start gap-3 rounded-xl border border-warning-line bg-warning-soft p-4 text-sm text-warning"><TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden /><span><Trans t={t} i18nKey={domain.expired ? 'domains.verify.expired' : 'domains.verify.pending'} values={{ host: domain.host }} components={{ b: <strong className="font-medium" /> }} /></span></div>}
     <div className="space-y-4 rounded-xl border border-app-line bg-inset p-4">
       <p className="text-sm text-app-muted"><Trans t={t} i18nKey="domains.verify.instructions" components={{ b: <strong className="font-medium text-app-secondary" /> }} /></p>
       {records.map(record => <div key={record.id} className="space-y-1.5"><span className="text-xs text-app-subtle">{record.label}</span><div className="flex items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 py-2"><code className="min-w-0 flex-1 break-all font-mono text-xs text-app-secondary">{record.value}</code><Button type="button" aria-label={record.copyLabel} variant="ghost" size="icon-sm" onClick={() => void copy(record.value)}>{copied === record.value ? <Check /> : <Copy />}</Button></div></div>)}
@@ -128,6 +130,6 @@ export function VerifyDomainDialog({ domain, onOpenChange, onVerified }: { domai
     </div>
     <p className="text-xs text-app-subtle">{t('domains.verify.no_tests')}</p>
     {error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger">{error}</p>}
-    <DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>{t('domains.verify.skip')}</Button><Button disabled={busy} onClick={() => void verify()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}{t('domains.verify.submit')}</Button></DialogFooter>
+    <DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>{domain.verified ? t('common:actions.close') : t('domains.verify.skip')}</Button><Button disabled={busy} onClick={() => void verify()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="motion-safe:animate-spin" aria-hidden /> : <ShieldCheck aria-hidden />}{domain.verified ? t('domains.verify.again') : t('domains.verify.submit')}</Button></DialogFooter>
   </DialogContent></Dialog>
 }

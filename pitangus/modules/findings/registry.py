@@ -408,7 +408,7 @@ def scoped_view(data_dir: Path, assets: list[dict], *, status: str = "open", lim
     whole: dict[str, list[dict]] = {}  # each asset's findings, every tab: what its fix guides look at
     for key in keys:
         name = rows[key].get("name") or names.get(key) or key
-        kind = rows[key].get("kind") or ("image" if key.startswith("image:") else "repository")
+        kind = rows[key].get("kind") or ("image" if key.startswith("image:") else "domain" if key.startswith("domain:") else "repository")
         found = sla.annotate(triage.annotate(data_dir, _record(key, name, entries[key]), decisions, guides=False)["findings"], days)
         whole[key] = found
         ticketed = links.get(key) or {}

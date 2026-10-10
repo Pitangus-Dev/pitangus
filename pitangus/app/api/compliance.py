@@ -271,7 +271,7 @@ class BuiltFrom(BaseModel):
 class EvidenceAsset(BaseModel):
     key: str
     name: str
-    kind: Literal["repository", "image"]
+    kind: Literal["repository", "image", "domain"]
     last_complete: str | None
     sbom: bool
     built_from: BuiltFrom | None = None

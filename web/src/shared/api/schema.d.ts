@@ -1032,6 +1032,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Domain List
+         * @description The registered domains (at most `limit`), with whether each one's TXT proof is current.
+         */
+        get: operations["domain_list_api_domains_get"];
+        put?: never;
+        /**
+         * Domain Register
+         * @description Registers an HTTPS domain and answers the TXT record that proves control of it. Nothing is tested.
+         */
+        post: operations["domain_register_api_domains_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Verify
+         * @description Looks the domain's TXT record up once. Seen, the domain is an asset for 90 days; a daily re-check extends or
+         *     withdraws the proof.
+         */
+        post: operations["domain_verify_api_domains_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Check
+         * @description Whether the domain answers over HTTPS: one HEAD to its already-resolved public address, no redirects. Only a
+         *     hint before registering; a domain that doesn't answer can still be registered.
+         */
+        post: operations["domain_check_api_domains_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Remove
+         * @description Removes a domain. What was imported against it (runs, findings, their triage and tickets) goes with it, like a
+         *     repository that left the installation: the panel says so before asking.
+         */
+        post: operations["domain_remove_api_domains_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/providers": {
         parameters: {
             query?: never;
@@ -2693,6 +2780,93 @@ export interface components {
             /** Deleted */
             deleted: boolean;
         };
+        /** DomainCheck */
+        DomainCheck: {
+            /** Host */
+            host: string;
+            /** Reachable */
+            reachable: boolean;
+            /** Status */
+            status: string;
+            /** Detail */
+            detail: string;
+            /** Http Status */
+            http_status?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** DomainPage */
+        DomainPage: {
+            /** Items */
+            items: components["schemas"]["DomainRow"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** DomainRemoved */
+        DomainRemoved: {
+            /** Id */
+            id: string;
+            /** Host */
+            host: string;
+            /** Runs Deleted */
+            runs_deleted: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainRow
+         * @description A registered domain. `verified` means its TXT proof is current (`verified_until` lies ahead); the TXT record
+         *     itself (`txt_name`, `txt_value`) is only answered to administrators. `runs` and `open` say what was imported
+         *     against it.
+         */
+        DomainRow: {
+            /** Id */
+            id: string;
+            /** Host */
+            host: string;
+            /** Url */
+            url: string;
+            /** Kind */
+            kind: string;
+            /** Context */
+            context: string;
+            /** Key */
+            key: string;
+            /** Verified */
+            verified: boolean;
+            /** Expired */
+            expired: boolean;
+            /** Registered At */
+            registered_at?: string | null;
+            /** Registered By */
+            registered_by?: string | null;
+            /** Verified At */
+            verified_at?: string | null;
+            /** Verified Until */
+            verified_until?: string | null;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Txt Name */
+            txt_name?: string | null;
+            /** Txt Value */
+            txt_value?: string | null;
+            /**
+             * Runs
+             * @default 0
+             */
+            runs: number;
+            /**
+             * Open
+             * @default 0
+             */
+            open: number;
+        } & {
+            [key: string]: unknown;
+        };
         /** Euvd */
         Euvd: {
             /** Id */
@@ -2722,7 +2896,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "repository" | "image";
+            kind: "repository" | "image" | "domain";
             /** Last Complete */
             last_complete: string | null;
             /** Sbom */
@@ -4126,7 +4300,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "repository" | "image";
+            kind: "repository" | "image" | "domain";
             /** Open */
             open: number;
             /** Critical */
@@ -4152,7 +4326,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "repository" | "image";
+            kind: "repository" | "image" | "domain";
         };
         /** ScopeSummary */
         ScopeSummary: {
@@ -6636,6 +6810,173 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CodeConnection"];
                 };
+            };
+        };
+    };
+    domain_list_api_domains_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainPage"];
+                };
+            };
+        };
+    };
+    domain_register_api_domains_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Url */
+                    url: string;
+                    /**
+                     * Kind
+                     * @default web
+                     * @enum {string}
+                     */
+                    kind?: "web" | "api" | "surface";
+                    /**
+                     * Context
+                     * @default
+                     */
+                    context?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainRow"];
+                };
+            };
+        };
+    };
+    domain_verify_api_domains_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainRow"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_check_api_domains_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Url */
+                    url: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainCheck"];
+                };
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_remove_api_domains_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainRemoved"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -29,7 +29,7 @@ export const ACTION_ORDER: Record<string, number> = { act: 0, attend: 1, track: 
 // Catalog keys by value; unknown values are shown as they come.
 export const SEVERITY_LABEL: Record<string, string> = { critical: 'common:severity.critical', high: 'common:severity.high', medium: 'common:severity.medium', low: 'common:severity.low', info: 'common:severity.info' }
 export const ACTION_LABEL: Record<string, string> = { act: 'common:priority.act', attend: 'common:priority.attend', track: 'common:priority.track' }
-export const SCANNER_LABEL: Record<string, string> = { sca: 'scanner.sca', sast: 'scanner.sast', secrets: 'scanner.secrets', iac: 'scanner.iac', cicd: 'scanner.cicd' }
+export const SCANNER_LABEL: Record<string, string> = { sca: 'scanner.sca', sast: 'scanner.sast', secrets: 'scanner.secrets', iac: 'scanner.iac', cicd: 'scanner.cicd', dast: 'scanner.dast' }
 export const labelOf = (t: TFunction, keys: Record<string, string>, value: string) => keys[value] ? t(keys[value]) : value
 const TOOL_NAME: Record<string, string> = { trivy: 'Trivy', gitleaks: 'Gitleaks', opengrep: 'Opengrep', grype: 'Grype', 'osv-scanner': 'OSV-Scanner', checkov: 'Checkov', zizmor: 'zizmor' }
 export const toolName = (t: TFunction, tool: string) => tool === 'pitangus' ? t('findings:tool.pitangus') : TOOL_NAME[tool] ?? tool

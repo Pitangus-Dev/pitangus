@@ -16,5 +16,6 @@
   "nothing": "Nada analizado coincide con este alcance",
   "image": "Imagen",
   "repository": "Repositorio",
+  "domain": "Dominio",
   "no_match": "Ningún repositorio o imagen analizado con ese nombre"
 }

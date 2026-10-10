@@ -28,7 +28,7 @@
     "users": "Users",
     "new": "New scan",
     "account": "Account",
-    "domains": "Web testing"
+    "domains": "Domains"
   },
   "descriptions": {
     "overview": "What risks your code, dependencies and images carry, why they matter and how to fix them.",
@@ -36,7 +36,7 @@
     "new": "Choose the target, declare the scope and review what will run before you launch.",
     "repositories": "Connect your repositories and choose the code you want to scan.",
     "images": "The container images you've analyzed and the repository each is built from.",
-    "domains": "This area doesn't produce real results yet; you'll see it here when it's ready.",
+    "domains": "Domains you own, proven by DNS, to bring the findings of your own ZAP or Nuclei runs. Dynamic testing from here is still in development.",
     "integrations": "Manage code providers and check the AI status.",
     "account": "Your access: password and two-factor authentication.",
     "users": "Invite your team, assign roles and revoke access.",
@@ -64,9 +64,8 @@
   },
   "dast": {
     "title": "Dynamic web and API application testing (DAST)",
-    "description": "Dynamic testing (DAST) against your running applications, only on domains you've proven you own.",
+    "description": "Pitangus running ZAP or Nuclei for you, only against the verified domains above. Until then, import the results of your own runs.",
     "plan": {
-      "dns": "Domain ownership verification through a DNS TXT record (already built; it turns on with the rest)",
       "scan": "Active scanning with ZAP or Nuclei in an isolated container, with rate and scope limits",
       "auth": "Sign-in to the application with a test account you declare",
       "evidence": "Findings with the request and response that prove them, in the same lifecycle as code findings"

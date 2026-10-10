@@ -16,7 +16,7 @@ export function ScopePicker({ scope, accounts, total, one, step, onChange }: { s
   const name = useId()
   const search = useCallback((q: string) => queryClient.fetchQuery(evidenceAssetsQuery(q)).then(page => ({
     options: page.items.filter(asset => !scope.assets.some(item => item.key === asset.key))
-      .map(asset => ({ id: asset.key, label: asset.name, hint: asset.kind === 'image' ? t('image') : t('repository'), image: asset.kind === 'image' })),
+      .map(asset => ({ id: asset.key, label: asset.name, hint: asset.kind === 'image' ? t('image') : asset.kind === 'domain' ? t('domain') : t('repository'), image: asset.kind === 'image' })),
     total: page.total })), [queryClient, scope.assets, t])
   const kinds: [Scope['kind'], string][] = [['one', t('one')], ['account', t('account')], ['assets', t('assets')],
     ['all', t('all', { count: total })]]

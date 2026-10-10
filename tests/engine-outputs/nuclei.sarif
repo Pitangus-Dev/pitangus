@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Nuclei",
+          "organization": "ProjectDiscovery",
+          "product": "Nuclei",
+          "fullName": "Nuclei v3.3.5",
+          "semanticVersion": "v3.3.5",
+          "informationUri": "https://github.com/projectdiscovery/nuclei/releases",
+          "downloadUri": "https://github.com/projectdiscovery/nuclei/releases",
+          "rules": [
+            {
+              "id": "http-missing-security-headers",
+              "name": "HTTP Missing Security Headers",
+              "shortDescription": {"text": "HTTP Missing Security Headers"},
+              "fullDescription": {"text": "This template searches for missing HTTP security headers. The impact of these missing headers can vary.\nMore details at\nhttps://cloud.projectdiscovery.io/public/http-missing-security-headers"},
+              "help": {
+                "text": "This template searches for missing HTTP security headers. The impact of these missing headers can vary.\nNuclei Template: http/misconfiguration/http-missing-security-headers.yaml\nReferences: https://owasp.org/www-project-secure-headers/\nMore details: https://cloud.projectdiscovery.io/public/http-missing-security-headers",
+                "markdown": "### HTTP Missing Security Headers\n- **Nuclei Template:** http/misconfiguration/http-missing-security-headers.yaml\n- References: https://owasp.org/www-project-secure-headers/"
+              },
+              "helpUri": "https://cloud.projectdiscovery.io/public/http-missing-security-headers",
+              "properties": {"security-severity": "1", "tags": ["security", "misconfig", "headers", "generic"]}
+            },
+            {
+              "id": "git-config",
+              "name": "Git Configuration File - Detect",
+              "shortDescription": {"text": "Git Configuration File - Detect"},
+              "fullDescription": {"text": "Git configuration file was detected.\nMore details at\nhttps://cloud.projectdiscovery.io/public/git-config"},
+              "help": {
+                "text": "Git configuration file was detected.\nImpact: An attacker can obtain sensitive information such as repository URLs and credentials.\nRemediation: Restrict access to the .git directory.\nNuclei Template: http/exposures/configs/git-config.yaml\nReferences: https://cwe.mitre.org/data/definitions/538.html\nMore details: https://cloud.projectdiscovery.io/public/git-config",
+                "markdown": "### Git Configuration File - Detect\n- **Impact:** An attacker can obtain sensitive information such as repository URLs and credentials.\n- **Remediation:** Restrict access to the .git directory."
+              },
+              "helpUri": "https://cloud.projectdiscovery.io/public/git-config",
+              "properties": {"security-severity": "5", "tags": ["security", "config", "git", "exposure", "external/cwe/cwe-538"]}
+            }
+          ]
+        }
+      },
+      "invocations": [{"executionSuccessful": true, "commandLine": "nuclei", "arguments": ["-u", "https://app.example.com", "-se", "nuclei.sarif"]}],
+      "results": [
+        {
+          "ruleId": "http-missing-security-headers",
+          "ruleIndex": 0,
+          "rule": {"id": "http-missing-security-headers", "index": 0},
+          "kind": "open",
+          "level": "none",
+          "message": {
+            "text": "HTTP Missing Security Headers (http-missing-security-headers) found on https://app.example.com\nTarget: https://app.example.com\nMatched At: https://app.example.com/?cachebust=1728489601\nIP: 93.184.216.34\nProtocol: http\nMatcher: strict-transport-security\nNuclei Template: http-missing-security-headers\nNuclei Template Path: http/misconfiguration/http-missing-security-headers.yaml\n\nReproduce:\n```bash\ncurl -X 'GET' -d '' -H 'Host: app.example.com' 'https://app.example.com'\n```",
+            "markdown": "**HTTP Missing Security Headers (http-missing-security-headers) found on https://app.example.com**"
+          },
+          "locations": [
+            {
+              "message": {"text": "https://app.example.com/?cachebust=1728489601"},
+              "physicalLocation": {
+                "artifactLocation": {"uri": "http/misconfiguration/http-missing-security-headers.yaml", "description": {"text": "https://app.example.com/?cachebust=1728489601"}}
+              }
+            }
+          ],
+          "properties": {"target": "https://app.example.com", "matched-at": "https://app.example.com/?cachebust=1728489601", "matcher": "strict-transport-security", "template-path": "http/misconfiguration/http-missing-security-headers.yaml"}
+        },
+        {
+          "ruleId": "http-missing-security-headers",
+          "ruleIndex": 0,
+          "rule": {"id": "http-missing-security-headers", "index": 0},
+          "kind": "open",
+          "level": "none",
+          "message": {
+            "text": "HTTP Missing Security Headers (http-missing-security-headers) found on https://app.example.com\nTarget: https://app.example.com\nMatched At: https://app.example.com/?cachebust=1728489601\nIP: 93.184.216.34\nProtocol: http\nMatcher: content-security-policy\nNuclei Template: http-missing-security-headers\nNuclei Template Path: http/misconfiguration/http-missing-security-headers.yaml",
+            "markdown": "**HTTP Missing Security Headers (http-missing-security-headers) found on https://app.example.com**"
+          },
+          "locations": [
+            {
+              "message": {"text": "https://app.example.com/?cachebust=1728489601"},
+              "physicalLocation": {
+                "artifactLocation": {"uri": "http/misconfiguration/http-missing-security-headers.yaml", "description": {"text": "https://app.example.com/?cachebust=1728489601"}}
+              }
+            }
+          ],
+          "properties": {"target": "https://app.example.com", "matched-at": "https://app.example.com/?cachebust=1728489601", "matcher": "content-security-policy", "template-path": "http/misconfiguration/http-missing-security-headers.yaml"}
+        },
+        {
+          "ruleId": "git-config",
+          "ruleIndex": 1,
+          "rule": {"id": "git-config", "index": 1},
+          "kind": "open",
+          "level": "note",
+          "message": {
+            "text": "Git Configuration File - Detect (git-config) found on https://app.example.com\nTarget: https://app.example.com\nMatched At: https://app.example.com/.git/config\nIP: 93.184.216.34\nProtocol: http\nNuclei Template: git-config\nNuclei Template Path: http/exposures/configs/git-config.yaml\nExtracted Results: [core], repositoryformatversion = 0",
+            "markdown": "**Git Configuration File - Detect (git-config) found on https://app.example.com**"
+          },
+          "locations": [
+            {
+              "message": {"text": "https://app.example.com/.git/config"},
+              "physicalLocation": {
+                "artifactLocation": {"uri": "http/exposures/configs/git-config.yaml", "description": {"text": "https://app.example.com/.git/config"}}
+              }
+            }
+          ],
+          "properties": {"target": "https://app.example.com", "matched-at": "https://app.example.com/.git/config", "extracted-results": ["[core]", "repositoryformatversion = 0"], "template-path": "http/exposures/configs/git-config.yaml"}
+        }
+      ]
+    }
+  ]
+}

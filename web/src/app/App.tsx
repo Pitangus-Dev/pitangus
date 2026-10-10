@@ -3,14 +3,15 @@ import { healthQuery, keys, runsQuery } from '@/shared/api/queries'
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import {
-  Boxes, ChevronRight, Clock3, GitPullRequest, LayoutDashboard, Network,
+  Boxes, ChevronRight, Clock3, GitPullRequest, Globe2, LayoutDashboard, Network,
   Landmark, LogOut, Menu, Monitor, Moon, Play, PlugZap, Radar, ScrollText, SearchCheck, Shield, ShieldAlert, Sun, Layers3, UserRound, UsersRound,
-  Bug,
+  Bug, Hammer,
 } from 'lucide-react'
 import { BrandLockup } from '@/shared/ui/brand-mark'
 import { BRAND } from '@/shared/lib/brand'
 import { CodeSources } from '@/features/sources/code-sources'
-import { ComingSoonPage } from '@/shared/ui/coming-soon'
+import { DomainList } from '@/features/sources/domain-list'
+import { ComingSoonCard } from '@/shared/ui/coming-soon'
 import { AnalysisList } from '@/features/analyses/analysis-list'
 import { AnalysisWizard } from '@/features/analyses/analysis-wizard'
 import { useToasts } from '@/features/analyses/use-toasts'
@@ -43,8 +44,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/sh
 type View = 'overview' | 'analyses' | 'new' | 'findings' | 'coverage' | 'repositories' | 'images' | 'domains' | 'integrations' | 'account' | 'users' | 'pulls' | 'threats' | 'cves' | 'compliance' | 'policies'
 type Theme = 'system' | 'light' | 'dark'
 
-// Ley de Hick: tres grupos con nombre en vez de once opciones seguidas. Lo que aún no funciona
-// (Pruebas web) no ocupa sitio en el menú; su página sigue existiendo para quien llegue por enlace.
+// Ley de Hick: tres grupos con nombre en vez de doce opciones seguidas. Dominios registra y verifica; el análisis
+// dinámico propio sigue en desarrollo y se dice ahí mismo.
 const navigation: { id: string; label: string; items: { id: View; label: string; icon: typeof Shield }[] }[] = [
   { id: 'risk', label: 'groups.risk', items: [
     { id: 'overview', label: 'items.overview', icon: LayoutDashboard },
@@ -58,6 +59,7 @@ const navigation: { id: string; label: string; items: { id: View; label: string;
     { id: 'analyses', label: 'items.analyses', icon: SearchCheck },
     { id: 'repositories', label: 'items.repositories', icon: Layers3 },
     { id: 'images', label: 'items.images', icon: Boxes },
+    { id: 'domains', label: 'items.domains', icon: Globe2 },
     { id: 'pulls', label: 'items.pulls', icon: GitPullRequest },
   ] },
   { id: 'settings', label: 'groups.settings', items: [
@@ -138,7 +140,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   useEffect(() => { if (runsResult.error) setError(runsResult.error instanceof Error ? runsResult.error.message : String(runsResult.error)) }, [runsResult.error])
   const latest = rows.find(row => row.type === 'repository_scan' || row.type === 'image_scan')
   const navLabel = navigation.flatMap(group => group.items).find(item => item.id === view)?.label
-  const currentTitle = view === 'new' ? t('items.new') : view === 'account' ? t('items.account') : navLabel ? t(navLabel) : view === 'domains' ? t('items.domains') : t('items.overview')
+  const currentTitle = view === 'new' ? t('items.new') : view === 'account' ? t('items.account') : navLabel ? t(navLabel) : t('items.overview')
 
   const openRun = useCallback(async (id: string, nextView: View = 'findings') => {
     setSelectedId(id)
@@ -188,7 +190,8 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
     if (view === 'analyses') return <AnalysisList refreshKey={rows.length * 1000 + rows.filter(row => row.status === 'running' || row.status === 'queued').length} onOpen={id => openRun(id, 'findings')} onNew={() => selectView('new')} viewer={{ username: user.username, admin: user.role === 'admin' }} />
     if (view === 'repositories') return <CodeSources showRepositories runs={rows} onScan={scanSource} onImages={openImages} canManage={user.role === 'admin'} />
     if (view === 'images') return <Images key={readRoute().params.get('repo') ?? 'all'} admin={user.role === 'admin'} onOpenFindings={openAssetFindings} onNew={() => selectView('new')} />
-    if (view === 'domains') return <ComingSoonPage title={t('dast.title')} description={t('dast.description')} plan={[t('dast.plan.dns'), t('dast.plan.scan'), t('dast.plan.auth'), t('dast.plan.evidence')]} />
+    if (view === 'domains') return <div className="space-y-5"><DomainList admin={user.role === 'admin'} onOpenFindings={openAssetFindings} />
+      <ComingSoonCard title={t('dast.title')} description={t('dast.description')} plan={[t('dast.plan.scan'), t('dast.plan.auth'), t('dast.plan.evidence')]} icon={<Hammer className="size-5" aria-hidden />} /></div>
     if (view === 'overview') return <Dashboard onOpenRun={id => openRun(id, 'findings')} onNew={() => selectView('new')} onNavigate={view => selectView(view as View)} onTracker={openTracker} />
     if (view === 'threats') return <ThreatModels user={user} onOpenRun={id => openRun(id, 'findings')} />
     if (view === 'cves') return <CveTracker onNew={() => selectView('new')} />

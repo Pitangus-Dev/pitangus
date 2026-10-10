@@ -125,6 +125,12 @@ def _brand_rename(data_dir: Path) -> int:
     return renamed
 
 
+def _domains_to_table(data_dir: Path) -> int:
+    """The `domains` document became a table, with how long each TXT proof counts."""
+    from pitangus.modules.sources import domains
+    return domains.import_document(data_dir)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("cra_opt_in", (), _cra_opt_in),
     Migration("seal_totp_seeds", (), _seal_totp_seeds),
@@ -133,6 +139,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("watch_and_registry_to_tables", (), _watch_and_registry_to_tables),
     Migration("jira_routing", (), _jira_routing),
     Migration("brand_rename", (), _brand_rename),
+    Migration("domains_to_table", (), _domains_to_table),
 )
 LATEST = len(MIGRATIONS)
 

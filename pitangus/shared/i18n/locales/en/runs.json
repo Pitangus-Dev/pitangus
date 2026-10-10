@@ -64,7 +64,9 @@
       "unknown_asset": "There's no asset named {{asset}}: scan it or connect its repository first",
       "ambiguous_asset": "Several assets are named {{asset}}: use the asset key",
       "invalid_scope": "The scope must be full or partial",
-      "invalid_commit": "Invalid commit: use its SHA (7 to 64 hexadecimal characters)"
+      "invalid_commit": "Invalid commit: use its SHA (7 to 64 hexadecimal characters)",
+      "domain_unverified": "{{host}} isn't verified: add its DNS TXT record and verify it in Domains before importing findings against it",
+      "unknown_domain": "No domain named {{host}} is registered: an administrator adds it in Domains and verifies it first"
     }
   },
   "triage": {

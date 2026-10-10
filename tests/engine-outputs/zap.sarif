@@ -1,0 +1,150 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "guid": "840570e4-2388-38c0-8afe-ed426f2f5199",
+          "informationUri": "https://www.zaproxy.org/",
+          "name": "ZAP",
+          "semanticVersion": "2.16.1",
+          "version": "2.16.1",
+          "supportedTaxonomies": [{"guid": "b000a760-3e52-3565-a35c-f61369da53b7", "name": "CWE"}],
+          "rules": [
+            {
+              "id": "40012",
+              "name": "Cross Site Scripting (Reflected)",
+              "shortDescription": {"text": "Cross Site Scripting (Reflected)"},
+              "fullDescription": {"text": "Cross-site Scripting (XSS) is an attack technique that involves echoing attacker-supplied code into a user's browser instance."},
+              "defaultConfiguration": {"level": "error"},
+              "helpUri": "https://www.zaproxy.org/docs/alerts/40012/",
+              "properties": {
+                "references": ["https://owasp.org/www-community/attacks/xss/", "https://cwe.mitre.org/data/definitions/79.html"],
+                "solution": {"text": "Phase: Architecture and Design\nUse a vetted library or framework that does not allow this weakness to occur or provides constructs that make this weakness easier to avoid."},
+                "confidence": "medium"
+              },
+              "relationships": [{"kinds": ["superset"], "target": {"guid": "5dd429c8-e5e3-37a8-bf40-f7b2d72a9085", "id": "79", "toolComponent": {"guid": "b000a760-3e52-3565-a35c-f61369da53b7", "name": "CWE"}}}]
+            },
+            {
+              "id": "10038",
+              "name": "Content Security Policy (CSP) Header Not Set",
+              "shortDescription": {"text": "Content Security Policy (CSP) Header Not Set"},
+              "fullDescription": {"text": "Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks, including Cross Site Scripting (XSS) and data injection attacks."},
+              "defaultConfiguration": {"level": "warning"},
+              "helpUri": "https://www.zaproxy.org/docs/alerts/10038/",
+              "properties": {
+                "references": ["https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP"],
+                "solution": {"text": "Ensure that your web server, application server, load balancer, etc. is configured to set the Content-Security-Policy header."},
+                "confidence": "high"
+              },
+              "relationships": [{"kinds": ["superset"], "target": {"guid": "0ad96b9a-0d8b-3e23-b0a9-2b4e6e4f8b2c", "id": "693", "toolComponent": {"guid": "b000a760-3e52-3565-a35c-f61369da53b7", "name": "CWE"}}}]
+            },
+            {
+              "id": "10010",
+              "name": "Cookie No HttpOnly Flag",
+              "shortDescription": {"text": "Cookie No HttpOnly Flag"},
+              "fullDescription": {"text": "A cookie has been set without the HttpOnly flag, which means that the cookie can be accessed by JavaScript."},
+              "defaultConfiguration": {"level": "note"},
+              "helpUri": "https://www.zaproxy.org/docs/alerts/10010/",
+              "properties": {
+                "references": ["https://owasp.org/www-community/HttpOnly"],
+                "solution": {"text": "Ensure that the HttpOnly flag is set for all cookies."},
+                "confidence": "medium"
+              },
+              "relationships": [{"kinds": ["superset"], "target": {"guid": "7a6a0d1e-6b10-3f0e-9e23-5c2b9c3d4e5f", "id": "1004", "toolComponent": {"guid": "b000a760-3e52-3565-a35c-f61369da53b7", "name": "CWE"}}}]
+            }
+          ]
+        }
+      },
+      "taxonomies": [
+        {
+          "guid": "b000a760-3e52-3565-a35c-f61369da53b7",
+          "name": "CWE",
+          "organization": "MITRE",
+          "shortDescription": {"text": "The MITRE Common Weakness Enumeration"},
+          "version": "4.8",
+          "taxa": [
+            {"guid": "5dd429c8-e5e3-37a8-bf40-f7b2d72a9085", "id": "79", "helpUri": "https://cwe.mitre.org/data/definitions/79.html"},
+            {"guid": "0ad96b9a-0d8b-3e23-b0a9-2b4e6e4f8b2c", "id": "693", "helpUri": "https://cwe.mitre.org/data/definitions/693.html"},
+            {"guid": "7a6a0d1e-6b10-3f0e-9e23-5c2b9c3d4e5f", "id": "1004", "helpUri": "https://cwe.mitre.org/data/definitions/1004.html"}
+          ]
+        }
+      ],
+      "results": [
+        {
+          "ruleId": "40012",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {"text": "Cross-site Scripting (XSS) is an attack technique that involves echoing attacker-supplied code into a user's browser instance."},
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {"uri": "https://app.example.com/greeting?name=%3C%2Fp%3E%3Cscript%3Ealert%281%29%3B%3C%2Fscript%3E%3Cp%3E"},
+                "region": {"startLine": 10, "snippet": {"text": "</p><script>alert(1);</script><p>"}}
+              },
+              "properties": {"attack": "</p><script>alert(1);</script><p>", "param": "name"}
+            }
+          ],
+          "webRequest": {
+            "protocol": "HTTP",
+            "version": "1.1",
+            "target": "https://app.example.com/greeting?name=%3C%2Fp%3E%3Cscript%3Ealert%281%29%3B%3C%2Fscript%3E%3Cp%3E",
+            "method": "GET",
+            "headers": {
+              "Cookie": "JSESSIONID=38AA1F7A61982DF1073D7F43A3707798; locale=de",
+              "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.e30.secret",
+              "Host": "app.example.com",
+              "User-Agent": "Mozilla/5.0"
+            },
+            "body": {}
+          },
+          "webResponse": {
+            "statusCode": 200,
+            "reasonPhrase": "",
+            "protocol": "HTTP",
+            "version": "1.1",
+            "headers": {"Content-Type": "text/html;charset=UTF-8", "Set-Cookie": "locale=de; HttpOnly; SameSite=strict"},
+            "body": {"text": "<!DOCTYPE HTML><html><body><p>XSS attackable parameter output: </p><script>alert(1);</script><p>!</p></body></html>"},
+            "noResponseReceived": false
+          }
+        },
+        {
+          "ruleId": "10038",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {"text": "Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks."},
+          "locations": [{"physicalLocation": {"artifactLocation": {"uri": "https://app.example.com/"}}}],
+          "webRequest": {"protocol": "HTTP", "version": "1.1", "target": "https://app.example.com/", "method": "GET", "headers": {"Host": "app.example.com"}, "body": {}},
+          "webResponse": {"statusCode": 200, "reasonPhrase": "", "protocol": "HTTP", "version": "1.1", "headers": {"Content-Type": "text/html"}, "body": {}, "noResponseReceived": false}
+        },
+        {
+          "ruleId": "10038",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {"text": "Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks."},
+          "locations": [{"physicalLocation": {"artifactLocation": {"uri": "https://app.example.com/hello?lang=en#top"}}}],
+          "webRequest": {"protocol": "HTTP", "version": "1.1", "target": "https://app.example.com/hello?lang=en", "method": "GET", "headers": {"Host": "app.example.com"}, "body": {}},
+          "webResponse": {"statusCode": 200, "reasonPhrase": "", "protocol": "HTTP", "version": "1.1", "headers": {"Content-Type": "text/html"}, "body": {}, "noResponseReceived": false}
+        },
+        {
+          "ruleId": "10010",
+          "ruleIndex": 2,
+          "level": "note",
+          "message": {"text": "A cookie has been set without the HttpOnly flag, which means that the cookie can be accessed by JavaScript."},
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {"uri": "https://app.example.com/login"},
+                "region": {"snippet": {"text": "Set-Cookie: session"}}
+              },
+              "properties": {"param": "session"}
+            }
+          ],
+          "webRequest": {"protocol": "HTTP", "version": "1.1", "target": "https://app.example.com/login", "method": "POST", "headers": {"Host": "app.example.com"}, "body": {"text": "user=ana&password=hunter2"}},
+          "webResponse": {"statusCode": 302, "reasonPhrase": "", "protocol": "HTTP", "version": "1.1", "headers": {"Set-Cookie": "session=4f3c9a1b; Secure"}, "body": {}, "noResponseReceived": false}
+        }
+      ]
+    }
+  ]
+}

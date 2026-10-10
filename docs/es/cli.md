@@ -94,9 +94,10 @@ make -s -C ~/pitangus scan DIR="$(git rev-parse --show-toplevel)" ARGS="--base o
 python -m pitangus import-sarif ARCHIVO [ARCHIVO...] --asset NOMBRE [--tool NOMBRE] [--partial] [--commit SHA] [--branch NOMBRE] [--server URL]
 ```
 
-Añade los hallazgos de cualquier herramienta que escriba SARIF 2.1.0 (Semgrep, CodeQL, Snyk, Trivy, Strix…) al
-registro de un activo que Pitangus ya conoce, por su clave o por su nombre (`owner/repo`). Desde ese momento siguen el
-mismo ciclo que los de Pitangus: triage, plazos, incidencias y avisos.
+Añade los hallazgos de cualquier herramienta que escriba SARIF 2.1.0 (Semgrep, CodeQL, Snyk, Trivy, Strix, ZAP,
+Nuclei…) al registro de un activo que Pitangus ya conoce, por su clave o por su nombre (`owner/repo`), o de un dominio
+verificado (`domain:app.example.com`, mira [Trae tu propio DAST](integraciones.md#trae-tu-propio-dast)). Desde ese
+momento siguen el mismo ciclo que los de Pitangus: triage, plazos, incidencias y avisos.
 
 - **Completa por defecto:** lo que esa misma herramienta deje de reportar queda remediado. Los análisis de Pitangus
   nunca remedian un hallazgo importado, porque sus motores no ven lo que encontró otra herramienta.

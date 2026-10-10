@@ -91,7 +91,7 @@
     "any_priority": "Any priority",
     "source": "Source",
     "any_source": "Any source",
-    "source_options": { "sca": "Dependencies", "sast": "Code", "iac": "Infrastructure", "cicd": "CI/CD pipelines", "secrets": "Secrets" },
+    "source_options": { "sca": "Dependencies", "sast": "Code", "iac": "Infrastructure", "cicd": "CI/CD pipelines", "secrets": "Secrets", "dast": "Web (DAST)" },
     "deadline": "Due date",
     "any_deadline": "Any due date",
     "deadline_options": { "overdue": "Overdue", "soon": "Overdue or due within 7 days" }
@@ -117,7 +117,7 @@
     "no_match_dismissed_other": "Nothing matches these filters · {{count}} dismissed in triage (change the status filter to see them).",
     "pagination_one": "items · {{count}} finding", "pagination_other": "items · {{count}} findings"
   },
-  "scanner": { "sca": "Dependency", "sast": "Code", "secrets": "Secret", "iac": "Infrastructure", "cicd": "CI/CD" },
+  "scanner": { "sca": "Dependency", "sast": "Code", "secrets": "Secret", "iac": "Infrastructure", "cicd": "CI/CD", "dast": "Web" },
   "tool": { "pitangus": "Pitangus rules" },
   "group": {
     "advisories_one": "{{count}} advisory", "advisories_other": "{{count}} advisories",
@@ -432,7 +432,7 @@
     "by_asset": {
       "title": "By asset",
       "hint": "Pending work in each asset, most critical first. Open one to see only its findings.",
-      "repository": "Repository", "image": "Image",
+      "repository": "Repository", "image": "Image", "domain": "Domain",
       "open": "show only this asset",
       "pending_one": "{{value}} pending", "pending_other": "{{value}} pending",
       "critical_one": "{{value}} critical", "critical_other": "{{value}} critical",

@@ -5,7 +5,7 @@ export type Sla = { days: number; due: string; days_left: number; state: 'overdu
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info'
 export type Action = 'act' | 'attend' | 'track'
 export type RunStatus = 'queued' | 'running' | 'completed' | 'incomplete' | 'failed'
-export type Summary = { files?: number; dependencies?: number; candidates?: number; sast?: number; secrets?: number; sca?: number; iac?: number; cicd?: number; severities?: Record<string, number>; priorities?: Record<string, number>; kev?: number; fixable?: number; tools?: { name: string; version: string; status: string }[] }
+export type Summary = { files?: number; dependencies?: number; candidates?: number; sast?: number; secrets?: number; sca?: number; iac?: number; cicd?: number; dast?: number; severities?: Record<string, number>; priorities?: Record<string, number>; kev?: number; fixable?: number; tools?: { name: string; version: string; status: string }[] }
 // Why a run exists: a branch push, new advisories, an import (with the tool and its scope)…
 export type RunTrigger = { kind: string; head_sha?: string; tool?: string; scope?: string; commit?: string; branch?: string }
 export type RunRow = { id: string; type: string; status: RunStatus | string; created_at: string; target?: string; variant?: string; context?: string; trigger?: RunTrigger; started_at?: string; finished_at?: string; source?: { name: string; provider: string; sha256?: string; files?: number }; summary: Summary }

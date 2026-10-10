@@ -19,6 +19,7 @@ export const keys = {
   evidenceAssets: ['evidence', 'assets'] as const,
   evidenceScope: ['evidence', 'scope'] as const,
   images: ['images'] as const,
+  domains: ['domains'] as const,
   secretRules: ['secret-rules'] as const,
   secretBuiltinRules: ['secret-rules', 'builtin'] as const,
   assetSecretsAll: ['secret-rules', 'asset'] as const,
@@ -77,6 +78,8 @@ export const imagesQuery = ({ q = '', link = 'all', repository = '', offset = 0,
   queryKey: [...keys.images, q, link, repository, offset, limit], staleTime: 30_000, placeholderData: keepPreviousData,
   queryFn: ({ signal }) => apiGet('/api/images', { q: q || undefined, link: link === 'all' ? undefined : link, repository: repository || undefined, offset, limit }, { signal }),
 })
+// The registered domains (at most 20) with whether each one's DNS TXT proof is current; administrators also get the record.
+export const domainsQuery = () => queryOptions({ queryKey: keys.domains, queryFn: ({ signal }) => apiGet('/api/domains', undefined, { signal }) })
 // Analyzed assets for the evidence hub's picker, searched by name on the server.
 export const evidenceAssetsQuery = (q: string, kind: '' | 'repository' | 'image' = '') => queryOptions({
   queryKey: [...keys.evidenceAssets, q, kind], staleTime: 30_000,

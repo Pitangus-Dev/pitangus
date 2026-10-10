@@ -15,6 +15,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Callable
 
+from pitangus.modules.sources.domains import RECHECK_SECONDS as DOMAIN_RECHECK_SECONDS
 from pitangus.shared import documents, settings
 from pitangus.shared import log as logging_setup
 
@@ -77,11 +78,18 @@ def _advisories(data_dir: Path, jobs) -> object:
     return advisory_watch.check(data_dir)
 
 
+def _domains(data_dir: Path, jobs) -> object:
+    """Looks up the TXT proof of every verified domain again (a few DNS queries: it runs wherever the round runs)."""
+    from pitangus.modules.sources import domains
+    return domains.recheck(data_dir)
+
+
 TASKS: dict[str, Task] = {
     "outbox": Task(lambda: 0, False, _outbox),
     "pull_requests": Task(lambda: settings.integer("PITANGUS_PR_POLL_SECONDS"), False, _pull_requests),
     "nvd": Task(lambda: NVD_EVERY if settings.flag("PITANGUS_CVE_SYNC") else -1, True, _nvd),
     "advisories": Task(lambda: 3600 * settings.integer("PITANGUS_ADVISORY_WATCH_HOURS") or -1, True, _advisories),
+    "domains": Task(lambda: DOMAIN_RECHECK_SECONDS, False, _domains),
 }
 
 
