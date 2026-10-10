@@ -133,12 +133,12 @@ function PaletteBody({ admin, onOpenChange, onView, onImport, onAddDomain, onHel
   const searching = needle.length > 0 && (q !== needle || runs.isFetching || assets.isFetching || domains.isFetching)
   return <>
     <DialogTitle className="sr-only">{t('palette.title')}</DialogTitle>
-    <div className="flex items-center gap-2 border-b border-app-line px-4">
+    <div className="flex items-center gap-2 border-b border-app-line px-4 has-[input:focus-visible]:border-app-fg">
       <Search aria-hidden className="size-4 shrink-0 text-app-subtle" />
       <label htmlFor={inputId} className="sr-only">{t('palette.search_label')}</label>
       <input id={inputId} autoFocus value={text} onChange={event => { setText(event.target.value); setActiveId(null) }} onKeyDown={onKeyDown}
         role="combobox" aria-expanded="true" aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeOption}
-        placeholder={t('palette.placeholder')} autoComplete="off" spellCheck={false}
+        data-bare placeholder={t('palette.placeholder')} autoComplete="off" spellCheck={false}
         className="h-12 min-w-0 flex-1 bg-transparent text-sm text-app-fg placeholder:text-app-subtle" />
     </div>
     <div id={listId} role="listbox" aria-label={t('palette.results')} className="min-h-0 flex-1 overflow-y-auto p-2">

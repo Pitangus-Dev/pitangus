@@ -281,9 +281,12 @@ body { min-width: 320px; }
 :focus-visible { --tw-ring-shadow: 0 0 #0000 !important; }
 /* Text fields draw it inside (a 2 px border in the brand colour): an outline outside gets clipped by scrolling lists
    and dialogs. Same 5.4:1 / 9.2:1 contrast. */
-:is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color]), textarea, [data-slot=select-trigger]):focus-visible {
+/* `data-bare`: a field that is the whole header of its container (the command palette's search) marks focus on that
+   container instead, so it doesn't draw a box inside a box. */
+:is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color], [data-bare]), textarea, [data-slot=select-trigger]):focus-visible {
     outline: none !important; border-color: var(--brand) !important; box-shadow: inset 0 0 0 1px var(--brand) !important;
 }
+input[data-bare]:focus-visible { outline: none !important; }
 /* Interruptores hechos con un checkbox oculto: el foco se dibuja en la pista visible. */
 .peer:focus-visible + .switch-track { outline: 2px solid var(--brand); outline-offset: 2px; }
 
