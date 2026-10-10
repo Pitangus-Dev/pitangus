@@ -3537,6 +3537,8 @@ export interface components {
             verification?: {
                 [key: string]: unknown;
             } | null;
+            /** Guidance */
+            guidance?: components["schemas"]["GuidanceLink"][] | null;
         } & {
             [key: string]: unknown;
         };
@@ -3601,6 +3603,19 @@ export interface components {
             }[] | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * GuidanceLink
+         * @description An OWASP page about a finding (`modules/findings/references.py`): a cheat sheet, its Top 10 category, an API
+         *     Security Top 10 risk or a Web Security Testing Guide test.
+         */
+        GuidanceLink: {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /** Kind */
+            kind: string;
         };
         /** Health */
         Health: {
@@ -4906,6 +4921,8 @@ export interface components {
             verification?: {
                 [key: string]: unknown;
             } | null;
+            /** Guidance */
+            guidance?: components["schemas"]["GuidanceLink"][] | null;
             asset: components["schemas"]["ScopeAssetRef"];
         } & {
             [key: string]: unknown;

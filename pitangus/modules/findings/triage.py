@@ -169,12 +169,13 @@ def annotate(data_dir: Path, record: RunRecord, decisions: dict | None = None, *
 
 def enrich(data_dir: Path, key: str, findings: list[Finding], *, among: list[Finding] | None = None,
            requested: dict | None = None, entries: dict | None = None) -> list[Finding]:
-    """Adds how to fix each finding and its requested verification. `among`: every finding of the asset, when
-    `findings` is only part of it (the fix that closes a package's advisories looks at all of them)."""
+    """Adds how to fix each finding, its OWASP guidance and its requested verification. `among`: every finding of the
+    asset, when `findings` is only part of it (the fix that closes a package's advisories looks at all of them)."""
     # Computed when served, so it improves without rescanning.
     from pitangus.modules.findings.fix_guide import attach
+    from pitangus.modules.findings.references import annotate as referenced
     from pitangus.modules.findings.verifications import annotate as verified
-    return verified(data_dir, key, attach(findings, among=among), requested=requested, entries=entries)
+    return verified(data_dir, key, referenced(attach(findings, among=among)), requested=requested, entries=entries)
 
 
 def is_active(finding: Mapping[str, Any]) -> bool:

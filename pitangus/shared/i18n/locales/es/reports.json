@@ -37,6 +37,7 @@
     "annex": "Anexo · Índice de vulnerabilidades ({{count}})",
     "method_coverage": "Método y cobertura",
     "references": "Referencias: {{list}}",
+    "owasp_guidance": "Guía OWASP: {{list}}",
     "kev_mark": "Explotación activa conocida (CISA KEV)",
     "malicious_mark": "Paquete malicioso conocido (OpenSSF)",
     "risk_label": "Riesgo:",

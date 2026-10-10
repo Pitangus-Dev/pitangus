@@ -46,6 +46,11 @@
     "partial": "Cobertura parcial: lo que solo ve esa cuenta no se analizó, así que pocos o ningún hallazgo ahí no significa que esté limpio.",
     "also_reported": "También lo reportaron"
   },
+  "guidance": {
+    "title": "Guía OWASP",
+    "hint": "cómo prevenir y probar este tipo de problema",
+    "new_tab": "(se abre en una pestaña nueva)"
+  },
   "import": {
     "eyebrow": "Importación SARIF · {{tool}}",
     "new": "Nuevo análisis",

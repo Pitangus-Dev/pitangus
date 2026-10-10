@@ -77,6 +77,7 @@ class Finding(TypedDict, total=False):
     fix: dict[str, Any]
     lifecycle: dict[str, Any]
     verification: dict[str, Any]
+    guidance: list[dict[str, Any]]  # OWASP pages for it (findings/references.py)
 
 
 class EngineResult(TypedDict, total=False):

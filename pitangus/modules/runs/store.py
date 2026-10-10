@@ -276,6 +276,11 @@ def _finding_block(finding: dict, locale: str, *, level: str = "###") -> list[st
     references = [url for url in [*(advisory.get("references") or []), *(web.get("references") or [])] if isinstance(url, str)][:4]
     if references:
         lines += ["", t("reports.common.references", locale, list=" · ".join(references))]
+    # After the tool's own references: the OWASP pages (titles and URLs from our curated mapping, never from the scan).
+    from pitangus.modules.findings.references import brief, guidance
+    links = finding.get("guidance") or guidance(finding)
+    if links:
+        lines += ["", t("reports.common.owasp_guidance", locale, list=" · ".join(f"[{link['title']}]({link['url']})" for link in brief(links)))]
     return lines + [""]
 
 

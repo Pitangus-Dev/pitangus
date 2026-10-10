@@ -19,6 +19,7 @@ from reportlab.platypus import KeepTogether, Paragraph, Spacer, Table, TableStyl
 from pitangus.modules.reporting.audit import status_label, status_of
 from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.fix_guide import guide
+from pitangus.modules.findings.references import brief, guidance, owasp_of
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
 from pitangus.modules.reporting.design import (ATTENTION, BRAND, CODE_BG, DANGER, INK, LINE, MONO, MUTED, ORDER, SEVERITY_INK, STYLE, SUCCESS,
                             WIDTH, GAP_STATES, build, built_from, bullets, chip, count, cover, coverage_gaps, day, disclaimer, h2,
@@ -90,7 +91,7 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
     head.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
     rows = [(t("reports.technical.sheet.status"), _t(status_label(status_of(item), locale))),
             (t("reports.technical.sheet.location"), f'<font name="{MONO}">{path(location(item), 70)}</font>')]
-    classification = ", ".join(f"CWE-{value}" for value in (item.get("cwe") or [])[:3])
+    classification = ", ".join([*(f"CWE-{value}" for value in (item.get("cwe") or [])[:3]), *owasp_of(cast(Finding, item))[:2]])
     if classification:
         rows.append((t("reports.technical.sheet.classification"), _t(classification)))
     if item.get("rule_id"):
@@ -129,6 +130,10 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
                   if str(url).startswith(("https://", "http://"))][:3]
     if references:
         story.append(Paragraph(_t(i18n.t("reports.common.references", locale, list=" · ".join(references)), 400), STYLE["note"]))
+    links = item.get("guidance") or guidance(cast(Finding, item))
+    if links:  # after the tool's own references
+        story.append(Paragraph(_t(i18n.t("reports.common.owasp_guidance", locale, list=" · ".join(
+            f"{link['title']} ({link['url']})" for link in brief(links))), 900), STYLE["note"]))
     # The heading and the facts never part; the rest may flow onto the next page.
     return [KeepTogether(story[:3]), *story[3:], Spacer(1, 16)]
 

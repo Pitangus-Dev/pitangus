@@ -1,0 +1,369 @@
+# OWASP guidance for findings: which OWASP page explains each kind of finding (findings/references.py).
+#
+# Links only: the pages are CC BY-SA and their text is never copied here or into a finding. Every URL was checked
+# against the published indexes when this file was last reviewed (`reviewed`); tests/test_finding_references.py
+# checks the shape, that every CWE our rules and engines emit resolves or is listed under `unmapped`, and that every
+# page is used.
+#
+# Sources:
+#   - OWASP Cheat Sheet Series, alphabetical index: https://cheatsheetseries.owasp.org/index.html
+#   - OWASP Top 10:2025, each category's "Mapped CWEs" list: https://top10.owasp.org/2025/
+#   - OWASP API Security Top 10 2023: https://api-security.owasp.org/editions/2023/en/0x11-t10/
+#   - OWASP Web Security Testing Guide v4.2 (stable test ids): https://wstg.owasp.org/v4.2/
+#
+# Order of a finding's guidance: its rule (tool + rule id), its framework or file; otherwise its CWEs (code and web
+# findings only: a CWE says little about a pipeline or a Terraform file) or its scanner; last, its Top 10 category.
+
+version: 1
+reviewed: "2026-10-10"
+
+pages:
+  # --- Cheat sheets (https://cheatsheetseries.owasp.org/cheatsheets/<name>.html) ---
+  cs-access-control: {kind: cheatsheet, title: Access Control Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html"}
+  cs-authentication: {kind: cheatsheet, title: Authentication Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"}
+  cs-authorization: {kind: cheatsheet, title: Authorization Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"}
+  cs-ci-cd: {kind: cheatsheet, title: CI/CD Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/CI_CD_Security_Cheat_Sheet.html"}
+  cs-clickjacking: {kind: cheatsheet, title: Clickjacking Defense Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html"}
+  cs-csp: {kind: cheatsheet, title: Content Security Policy Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html"}
+  cs-csrf: {kind: cheatsheet, title: Cross-Site Request Forgery Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"}
+  cs-crypto-storage: {kind: cheatsheet, title: Cryptographic Storage Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html"}
+  cs-deserialization: {kind: cheatsheet, title: Deserialization Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html"}
+  cs-docker: {kind: cheatsheet, title: Docker Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html"}
+  cs-dom-xss: {kind: cheatsheet, title: DOM based XSS Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html"}
+  cs-dos: {kind: cheatsheet, title: Denial of Service Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html"}
+  cs-error-handling: {kind: cheatsheet, title: Error Handling Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html"}
+  cs-file-upload: {kind: cheatsheet, title: File Upload Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html"}
+  cs-github-actions: {kind: cheatsheet, title: GitHub Actions Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/GitHub_Actions_Security_Cheat_Sheet.html"}
+  cs-html5: {kind: cheatsheet, title: HTML5 Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html"}
+  cs-http-headers: {kind: cheatsheet, title: HTTP Security Response Headers Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html"}
+  cs-hsts: {kind: cheatsheet, title: HTTP Strict Transport Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html"}
+  cs-iac: {kind: cheatsheet, title: Infrastructure as Code Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Infrastructure_as_Code_Security_Cheat_Sheet.html"}
+  cs-idor: {kind: cheatsheet, title: Insecure Direct Object Reference Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html"}
+  cs-injection: {kind: cheatsheet, title: Injection Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html"}
+  cs-input-validation: {kind: cheatsheet, title: Input Validation Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html"}
+  cs-jwt: {kind: cheatsheet, title: JSON Web Token Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html"}
+  cs-key-management: {kind: cheatsheet, title: Key Management Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html"}
+  cs-kubernetes: {kind: cheatsheet, title: Kubernetes Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Kubernetes_Security_Cheat_Sheet.html"}
+  cs-ldap: {kind: cheatsheet, title: LDAP Injection Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html"}
+  cs-logging: {kind: cheatsheet, title: Logging Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"}
+  cs-mass-assignment: {kind: cheatsheet, title: Mass Assignment Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html"}
+  cs-nosql: {kind: cheatsheet, title: NoSQL Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/NoSQL_Security_Cheat_Sheet.html"}
+  cs-os-command: {kind: cheatsheet, title: OS Command Injection Defense Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html"}
+  cs-password-storage: {kind: cheatsheet, title: Password Storage Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html"}
+  cs-pinning: {kind: cheatsheet, title: Pinning Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Pinning_Cheat_Sheet.html"}
+  cs-prototype-pollution: {kind: cheatsheet, title: Prototype Pollution Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Prototype_Pollution_Prevention_Cheat_Sheet.html"}
+  cs-query-parameterization: {kind: cheatsheet, title: Query Parameterization Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Query_Parameterization_Cheat_Sheet.html"}
+  cs-redirects: {kind: cheatsheet, title: Unvalidated Redirects and Forwards Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html"}
+  cs-rest: {kind: cheatsheet, title: REST Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html"}
+  cs-secrets: {kind: cheatsheet, title: Secrets Management Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"}
+  cs-session: {kind: cheatsheet, title: Session Management Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"}
+  cs-sql-injection: {kind: cheatsheet, title: SQL Injection Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"}
+  cs-ssrf: {kind: cheatsheet, title: Server-Side Request Forgery Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html"}
+  cs-ssti: {kind: cheatsheet, title: Server-Side Template Injection Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Template_Injection_Prevention_Cheat_Sheet.html"}
+  cs-supply-chain: {kind: cheatsheet, title: Software Supply Chain Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Software_Supply_Chain_Security_Cheat_Sheet.html"}
+  cs-third-party-js: {kind: cheatsheet, title: Third Party JavaScript Management Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Third_Party_Javascript_Management_Cheat_Sheet.html"}
+  cs-tls: {kind: cheatsheet, title: Transport Layer Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html"}
+  cs-tls-cipher: {kind: cheatsheet, title: TLS Cipher String Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/TLS_Cipher_String_Cheat_Sheet.html"}
+  cs-vulnerable-dependencies: {kind: cheatsheet, title: Vulnerable Dependency Management Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Vulnerable_Dependency_Management_Cheat_Sheet.html"}
+  cs-web-cache: {kind: cheatsheet, title: Web Cache Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Web_Cache_Security_Cheat_Sheet.html"}
+  cs-xs-leaks: {kind: cheatsheet, title: XS Leaks Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/XS_Leaks_Cheat_Sheet.html"}
+  cs-xss: {kind: cheatsheet, title: Cross Site Scripting Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"}
+  cs-xml: {kind: cheatsheet, title: XML Security Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/XML_Security_Cheat_Sheet.html"}
+  cs-xpath: {kind: cheatsheet, title: XPath Injection Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/XPath_Injection_Prevention_Cheat_Sheet.html"}
+  cs-xxe: {kind: cheatsheet, title: XML External Entity Prevention Cheat Sheet, url: "https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html"}
+
+  # --- OWASP API Security Top 10 2023 ---
+  api1: {kind: api_top10, title: "API1:2023 Broken Object Level Authorization", url: "https://api-security.owasp.org/editions/2023/en/0xa1-broken-object-level-authorization/"}
+  api2: {kind: api_top10, title: "API2:2023 Broken Authentication", url: "https://api-security.owasp.org/editions/2023/en/0xa2-broken-authentication/"}
+  api3: {kind: api_top10, title: "API3:2023 Broken Object Property Level Authorization", url: "https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/"}
+  api4: {kind: api_top10, title: "API4:2023 Unrestricted Resource Consumption", url: "https://api-security.owasp.org/editions/2023/en/0xa4-unrestricted-resource-consumption/"}
+  api5: {kind: api_top10, title: "API5:2023 Broken Function Level Authorization", url: "https://api-security.owasp.org/editions/2023/en/0xa5-broken-function-level-authorization/"}
+  api7: {kind: api_top10, title: "API7:2023 Server Side Request Forgery", url: "https://api-security.owasp.org/editions/2023/en/0xa7-server-side-request-forgery/"}
+  api8: {kind: api_top10, title: "API8:2023 Security Misconfiguration", url: "https://api-security.owasp.org/editions/2023/en/0xa8-security-misconfiguration/"}
+
+  # --- OWASP Web Security Testing Guide v4.2 (how to test it) ---
+  wstg-info-02: {kind: wstg, title: "WSTG-INFO-02 Fingerprint Web Server", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server/"}
+  wstg-info-05: {kind: wstg, title: "WSTG-INFO-05 Review Webpage Content for Information Leakage", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Webpage_Content_for_Information_Leakage/"}
+  wstg-conf-04: {kind: wstg, title: "WSTG-CONF-04 Review Old Backup and Unreferenced Files for Sensitive Information", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information/"}
+  wstg-conf-07: {kind: wstg, title: "WSTG-CONF-07 Test HTTP Strict Transport Security", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/07-Test_HTTP_Strict_Transport_Security/"}
+  wstg-athn-03: {kind: wstg, title: "WSTG-ATHN-03 Testing for Weak Lock Out Mechanism", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/04-Authentication_Testing/03-Testing_for_Weak_Lock_Out_Mechanism/"}
+  wstg-athn-04: {kind: wstg, title: "WSTG-ATHN-04 Testing for Bypassing Authentication Schema", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/04-Authentication_Testing/04-Testing_for_Bypassing_Authentication_Schema/"}
+  wstg-athn-06: {kind: wstg, title: "WSTG-ATHN-06 Testing for Browser Cache Weaknesses", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/04-Authentication_Testing/06-Testing_for_Browser_Cache_Weaknesses/"}
+  wstg-athz-01: {kind: wstg, title: "WSTG-ATHZ-01 Testing Directory Traversal File Include", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/05-Authorization_Testing/01-Testing_Directory_Traversal_File_Include/"}
+  wstg-athz-02: {kind: wstg, title: "WSTG-ATHZ-02 Testing for Bypassing Authorization Schema", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/05-Authorization_Testing/02-Testing_for_Bypassing_Authorization_Schema/"}
+  wstg-athz-04: {kind: wstg, title: "WSTG-ATHZ-04 Testing for Insecure Direct Object References", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/05-Authorization_Testing/04-Testing_for_Insecure_Direct_Object_References/"}
+  wstg-sess-02: {kind: wstg, title: "WSTG-SESS-02 Testing for Cookies Attributes", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/06-Session_Management_Testing/02-Testing_for_Cookies_Attributes/"}
+  wstg-sess-03: {kind: wstg, title: "WSTG-SESS-03 Testing for Session Fixation", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/06-Session_Management_Testing/03-Testing_for_Session_Fixation/"}
+  wstg-sess-05: {kind: wstg, title: "WSTG-SESS-05 Testing for Cross Site Request Forgery", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/06-Session_Management_Testing/05-Testing_for_Cross_Site_Request_Forgery/"}
+  wstg-sess-07: {kind: wstg, title: "WSTG-SESS-07 Testing Session Timeout", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/06-Session_Management_Testing/07-Testing_Session_Timeout/"}
+  wstg-inpv-01: {kind: wstg, title: "WSTG-INPV-01 Testing for Reflected Cross Site Scripting", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/01-Testing_for_Reflected_Cross_Site_Scripting/"}
+  wstg-inpv-02: {kind: wstg, title: "WSTG-INPV-02 Testing for Stored Cross Site Scripting", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/02-Testing_for_Stored_Cross_Site_Scripting/"}
+  wstg-inpv-05: {kind: wstg, title: "WSTG-INPV-05 Testing for SQL Injection", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05-Testing_for_SQL_Injection/"}
+  wstg-inpv-06: {kind: wstg, title: "WSTG-INPV-06 Testing for LDAP Injection", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/06-Testing_for_LDAP_Injection/"}
+  wstg-inpv-07: {kind: wstg, title: "WSTG-INPV-07 Testing for XML Injection", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/07-Testing_for_XML_Injection/"}
+  wstg-inpv-09: {kind: wstg, title: "WSTG-INPV-09 Testing for XPath Injection", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/09-Testing_for_XPath_Injection/"}
+  wstg-inpv-11: {kind: wstg, title: "WSTG-INPV-11 Testing for Code Injection", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/11-Testing_for_Code_Injection/"}
+  wstg-inpv-12: {kind: wstg, title: "WSTG-INPV-12 Testing for Command Injection", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/12-Testing_for_Command_Injection/"}
+  wstg-inpv-15: {kind: wstg, title: "WSTG-INPV-15 Testing for HTTP Splitting Smuggling", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/15-Testing_for_HTTP_Splitting_Smuggling/"}
+  wstg-inpv-18: {kind: wstg, title: "WSTG-INPV-18 Testing for Server-side Template Injection", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/18-Testing_for_Server-side_Template_Injection/"}
+  wstg-inpv-19: {kind: wstg, title: "WSTG-INPV-19 Testing for Server-Side Request Forgery", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/07-Input_Validation_Testing/19-Testing_for_Server-Side_Request_Forgery/"}
+  wstg-errh-01: {kind: wstg, title: "WSTG-ERRH-01 Testing For Improper Error Handling", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/08-Testing_for_Error_Handling/01-Testing_For_Improper_Error_Handling/"}
+  wstg-errh-02: {kind: wstg, title: "WSTG-ERRH-02 Testing for Stack Traces", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/08-Testing_for_Error_Handling/02-Testing_for_Stack_Traces/"}
+  wstg-cryp-01: {kind: wstg, title: "WSTG-CRYP-01 Testing for Weak Transport Layer Security", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/09-Testing_for_Weak_Cryptography/01-Testing_for_Weak_Transport_Layer_Security/"}
+  wstg-cryp-03: {kind: wstg, title: "WSTG-CRYP-03 Testing for Sensitive Information Sent via Unencrypted Channels", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/09-Testing_for_Weak_Cryptography/03-Testing_for_Sensitive_Information_Sent_via_Unencrypted_Channels/"}
+  wstg-cryp-04: {kind: wstg, title: "WSTG-CRYP-04 Testing for Weak Encryption", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/09-Testing_for_Weak_Cryptography/04-Testing_for_Weak_Encryption/"}
+  wstg-busl-09: {kind: wstg, title: "WSTG-BUSL-09 Test Upload of Malicious Files", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/10-Business_Logic_Testing/09-Test_Upload_of_Malicious_Files/"}
+  wstg-clnt-04: {kind: wstg, title: "WSTG-CLNT-04 Testing for Client-side URL Redirect", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/11-Client-side_Testing/04-Testing_for_Client-side_URL_Redirect/"}
+  wstg-clnt-07: {kind: wstg, title: "WSTG-CLNT-07 Testing Cross Origin Resource Sharing", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/11-Client-side_Testing/07-Testing_Cross_Origin_Resource_Sharing/"}
+  wstg-clnt-09: {kind: wstg, title: "WSTG-CLNT-09 Testing for Clickjacking", url: "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/11-Client-side_Testing/09-Testing_for_Clickjacking/"}
+
+# OWASP Top 10:2025, with each category's official "Mapped CWEs" list (no CWE is in two categories). Fills a finding's
+# `owasp` when its engine didn't set one, and adds the category page last.
+top10:
+  A01: {title: "A01:2025 Broken Access Control", url: "https://top10.owasp.org/2025/A01_2025-Broken_Access_Control/",
+        cwe: [22, 23, 36, 59, 61, 65, 200, 201, 219, 276, 281, 282, 283, 284, 285, 352, 359, 377, 379, 402, 424, 425, 441, 497, 538, 540, 548, 552, 566, 601, 615, 639, 668, 732, 749, 862, 863, 918, 922, 1275]}
+  A02: {title: "A02:2025 Security Misconfiguration", url: "https://top10.owasp.org/2025/A02_2025-Security_Misconfiguration/",
+        cwe: [5, 11, 13, 15, 16, 260, 315, 489, 526, 547, 611, 614, 776, 942, 1004, 1174]}
+  A03: {title: "A03:2025 Software Supply Chain Failures", url: "https://top10.owasp.org/2025/A03_2025-Software_Supply_Chain_Failures/",
+        cwe: [447, 1035, 1104, 1329, 1357, 1395]}
+  A04: {title: "A04:2025 Cryptographic Failures", url: "https://top10.owasp.org/2025/A04_2025-Cryptographic_Failures/",
+        cwe: [261, 296, 319, 320, 321, 322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 332, 334, 335, 336, 337, 338, 340, 342, 347, 523, 757, 759, 760, 780, 916, 1240, 1241]}
+  A05: {title: "A05:2025 Injection", url: "https://top10.owasp.org/2025/A05_2025-Injection/",
+        cwe: [20, 74, 76, 77, 78, 79, 80, 83, 86, 88, 89, 90, 91, 93, 94, 95, 96, 97, 98, 99, 103, 104, 112, 113, 114, 115, 116, 129, 159, 470, 493, 500, 564, 610, 643, 644, 917]}
+  A06: {title: "A06:2025 Insecure Design", url: "https://top10.owasp.org/2025/A06_2025-Insecure_Design/",
+        cwe: [73, 183, 256, 266, 269, 286, 311, 312, 313, 316, 362, 382, 419, 434, 436, 444, 451, 454, 472, 501, 522, 525, 539, 598, 602, 628, 642, 646, 653, 656, 657, 676, 693, 799, 807, 841, 1021, 1022, 1125]}
+  A07: {title: "A07:2025 Authentication Failures", url: "https://top10.owasp.org/2025/A07_2025-Authentication_Failures/",
+        cwe: [258, 259, 287, 288, 289, 290, 291, 293, 294, 295, 297, 298, 299, 300, 302, 303, 304, 305, 306, 307, 308, 309, 346, 350, 384, 521, 613, 620, 640, 798, 940, 941, 1390, 1391, 1392, 1393]}
+  A08: {title: "A08:2025 Software or Data Integrity Failures", url: "https://top10.owasp.org/2025/A08_2025-Software_or_Data_Integrity_Failures/",
+        cwe: [345, 353, 426, 427, 494, 502, 506, 509, 565, 784, 829, 830, 915, 926]}
+  A09: {title: "A09:2025 Security Logging and Alerting Failures", url: "https://top10.owasp.org/2025/A09_2025-Security_Logging_and_Alerting_Failures/",
+        cwe: [117, 221, 223, 532, 778]}
+  A10: {title: "A10:2025 Mishandling of Exceptional Conditions", url: "https://top10.owasp.org/2025/A10_2025-Mishandling_of_Exceptional_Conditions/",
+        cwe: [209, 215, 234, 235, 248, 252, 274, 280, 369, 390, 391, 394, 396, 397, 460, 476, 478, 484, 550, 636, 703, 754, 755, 756]}
+
+# CWE → pages. `api_top10` and `wstg` pages are kept only for code (sast) and web (dast) findings.
+cwe:
+  20: [cs-input-validation]
+  22: [cs-input-validation, wstg-athz-01]
+  23: [cs-input-validation, wstg-athz-01]
+  36: [cs-input-validation, wstg-athz-01]
+  73: [cs-input-validation, wstg-athz-01]
+  74: [cs-injection]
+  77: [cs-os-command, cs-injection, wstg-inpv-12]
+  78: [cs-os-command, cs-injection, wstg-inpv-12]
+  79: [cs-xss, cs-dom-xss, wstg-inpv-01, wstg-inpv-02]
+  80: [cs-xss, wstg-inpv-01]
+  83: [cs-xss, wstg-inpv-01]
+  89: [cs-sql-injection, cs-query-parameterization, wstg-inpv-05]
+  90: [cs-ldap, wstg-inpv-06]
+  91: [cs-xml, wstg-inpv-07]
+  93: [cs-injection, wstg-inpv-15]
+  94: [cs-injection, wstg-inpv-11]
+  95: [cs-injection, wstg-inpv-11]
+  98: [cs-input-validation, wstg-inpv-11]
+  113: [cs-injection, wstg-inpv-15]
+  116: [cs-xss, cs-injection]
+  117: [cs-logging]
+  200: [cs-error-handling, wstg-info-05]
+  201: [cs-error-handling, wstg-info-05]
+  209: [cs-error-handling, wstg-errh-01]
+  215: [cs-error-handling, wstg-errh-02]
+  250: [cs-access-control]
+  256: [cs-password-storage]
+  257: [cs-password-storage]
+  259: [cs-secrets]
+  264: [cs-authorization]
+  284: [cs-authorization, cs-access-control, wstg-athz-02]
+  285: [cs-authorization, wstg-athz-02, api5]
+  287: [cs-authentication, wstg-athn-04, api2]
+  290: [cs-authentication]
+  295: [cs-tls, cs-pinning, wstg-cryp-01]
+  297: [cs-tls, cs-pinning, wstg-cryp-01]
+  306: [cs-authentication, wstg-athn-04, api2]
+  307: [cs-authentication, wstg-athn-03, api2]
+  310: [cs-crypto-storage]
+  311: [cs-crypto-storage, cs-tls]
+  312: [cs-crypto-storage]
+  319: [cs-tls, cs-hsts, wstg-cryp-03]
+  321: [cs-key-management, cs-secrets]
+  326: [cs-crypto-storage, wstg-cryp-04]
+  327: [cs-crypto-storage, wstg-cryp-04]
+  328: [cs-crypto-storage, cs-password-storage, wstg-cryp-04]
+  330: [cs-crypto-storage]
+  338: [cs-crypto-storage]
+  345: [cs-third-party-js]
+  347: [cs-jwt]
+  349: [cs-web-cache]
+  352: [cs-csrf, wstg-sess-05]
+  384: [cs-session, wstg-sess-03]
+  400: [cs-dos, api4]
+  434: [cs-file-upload, wstg-busl-09]
+  444: [wstg-inpv-15]
+  470: [cs-injection]
+  489: [cs-error-handling, wstg-errh-02]
+  494: [cs-supply-chain]
+  497: [cs-http-headers, wstg-info-02]
+  502: [cs-deserialization]
+  506: [cs-supply-chain]
+  522: [cs-authentication, cs-password-storage]
+  525: [cs-http-headers, wstg-athn-06]
+  532: [cs-logging]
+  538: [wstg-conf-04]
+  548: [wstg-conf-04]
+  552: [wstg-conf-04]
+  565: [cs-session, wstg-sess-02]
+  601: [cs-redirects, wstg-clnt-04]
+  611: [cs-xxe, wstg-inpv-07]
+  613: [cs-session, wstg-sess-07]
+  614: [cs-session, wstg-sess-02]
+  615: [wstg-info-05]
+  639: [cs-idor, wstg-athz-04, api1]
+  643: [cs-xpath, wstg-inpv-09]
+  693: [cs-http-headers]
+  732: [cs-access-control]
+  755: [cs-error-handling]
+  770: [cs-dos, api4]
+  776: [cs-xxe]
+  798: [cs-secrets, cs-key-management]
+  829: [cs-third-party-js, cs-supply-chain]
+  862: [cs-authorization, wstg-athz-02, api5]
+  863: [cs-authorization, wstg-athz-02]
+  915: [cs-mass-assignment, api3]
+  916: [cs-password-storage]
+  917: [cs-injection]
+  918: [cs-ssrf, wstg-inpv-19, api7]
+  942: [cs-html5, wstg-clnt-07, api8]
+  943: [cs-nosql, cs-injection]
+  1004: [cs-session, wstg-sess-02]
+  1021: [cs-clickjacking, wstg-clnt-09]
+  1104: [cs-vulnerable-dependencies]
+  1275: [cs-session, wstg-sess-02]
+  1321: [cs-prototype-pollution]
+  1333: [cs-dos]
+  1336: [cs-ssti, wstg-inpv-18]
+  1357: [cs-supply-chain]
+  1395: [cs-vulnerable-dependencies]
+
+# CWEs our engines emit that no OWASP page explains well enough to link: the finding keeps its CWE and Top 10 links,
+# and the rule's own guidance. Each with why.
+unmapped:
+  377: insecure temporary file; no OWASP cheat sheet covers it
+  670: always-incorrect control flow (a pipeline condition); the rule's own documentation is the guidance
+  697: incorrect comparison (a pipeline condition); the rule's own documentation is the guidance
+  1188: insecure default; too broad to point at one page, the rule's own documentation is the guidance
+
+# Rule families: tool → rule id → pages. A trailing `*` matches a prefix. A ZAP alert variant ("10035-1") and a nuclei
+# matcher ("http-missing-security-headers:content-security-policy") fall back to their rule. `_default`: any other
+# rule of that tool.
+rules:
+  zap:
+    "10010": [cs-session, wstg-sess-02]          # cookie without HttpOnly
+    "10011": [cs-session, wstg-sess-02]          # cookie without Secure
+    "10054": [cs-session, wstg-sess-02]          # cookie without SameSite
+    "10029": [cs-session, wstg-sess-02]          # cookie poisoning
+    "90033": [cs-session, wstg-sess-02]          # loosely scoped cookie
+    "10015": [cs-http-headers, wstg-athn-06]     # cache-control
+    "10019": [cs-http-headers]                   # content-type missing
+    "10020": [cs-clickjacking, wstg-clnt-09]     # anti-clickjacking header
+    "10021": [cs-http-headers]                   # X-Content-Type-Options
+    "10035": [cs-hsts, wstg-conf-07]             # HSTS
+    "10036": [cs-http-headers, wstg-info-02]     # Server header version
+    "10037": [cs-http-headers, wstg-info-02]     # X-Powered-By
+    "10039": [cs-http-headers, wstg-info-02]     # X-Backend-Server
+    "10061": [cs-http-headers, wstg-info-02]     # X-AspNet-Version
+    "10052": [cs-http-headers, wstg-info-02]     # X-ChromeLogger-Data
+    "10056": [cs-http-headers, wstg-info-02]     # X-Debug-Token
+    "10027": [wstg-info-05]                      # suspicious comments
+    "10096": [wstg-info-05]                      # timestamp disclosure
+    "10038": [cs-csp]                            # CSP missing
+    "10055": [cs-csp]                            # CSP weak directive
+    "10063": [cs-http-headers]                   # Permissions-Policy
+    "10098": [cs-html5, wstg-clnt-07]            # CORS
+    "90004": [cs-xs-leaks, cs-http-headers]      # cross-origin isolation headers
+    "10017": [cs-third-party-js]                 # cross-domain script inclusion
+    "90003": [cs-third-party-js]                 # subresource integrity missing
+    "10202": [cs-csrf, wstg-sess-05]             # absence of anti-CSRF tokens
+    "40012": [cs-xss, wstg-inpv-01]              # reflected XSS
+    "40014": [cs-xss, wstg-inpv-02]              # persistent XSS
+    "40026": [cs-dom-xss]                        # DOM XSS
+    "40018": [cs-sql-injection, cs-query-parameterization, wstg-inpv-05]  # SQL injection
+    "40034": [wstg-conf-04]                      # .env leak
+    "40035": [wstg-conf-04]                      # hidden files
+    "40046": [cs-ssrf, wstg-inpv-19]             # SSRF
+    "90019": [cs-injection, wstg-inpv-11]        # server-side code injection
+    "90020": [cs-os-command, wstg-inpv-12]       # remote OS command injection
+    "90023": [cs-xxe, wstg-inpv-07]              # XXE
+    "6": [cs-input-validation, wstg-athz-01]     # path traversal
+  nuclei:
+    http-missing-security-headers: [cs-http-headers]
+    "http-missing-security-headers:content-security-policy": [cs-csp]
+    "http-missing-security-headers:strict-transport-security": [cs-hsts, wstg-conf-07]
+    "http-missing-security-headers:x-frame-options": [cs-clickjacking, wstg-clnt-09]
+    weak-hsts-detect: [cs-hsts, wstg-conf-07]
+    missing-cookie-samesite-strict: [cs-session, wstg-sess-02]
+    git-config: [wstg-conf-04]
+    laravel-env: [wstg-conf-04]
+    deprecated-tls: [cs-tls, wstg-cryp-01]
+    weak-cipher-suites: [cs-tls-cipher, cs-tls, wstg-cryp-01]
+    insecure-cipher-suite-detect: [cs-tls-cipher, cs-tls, wstg-cryp-01]
+    expired-ssl: [cs-tls, wstg-cryp-01]
+    self-signed-ssl: [cs-tls, wstg-cryp-01]
+    untrusted-root-certificate: [cs-tls, wstg-cryp-01]
+    mismatched-ssl-certificate: [cs-tls, wstg-cryp-01]
+  testssl:
+    HSTS*: [cs-hsts, wstg-conf-07]
+    cipherlist_*: [cs-tls-cipher, cs-tls, wstg-cryp-01]
+    _default: [cs-tls, wstg-cryp-01]
+  zizmor:
+    template-injection: [cs-github-actions, cs-ci-cd]
+    github-env: [cs-github-actions, cs-ci-cd]
+    unpinned-uses: [cs-github-actions, cs-supply-chain]
+    unpinned-images: [cs-github-actions, cs-supply-chain]
+    forbidden-uses: [cs-github-actions, cs-supply-chain]
+    hardcoded-container-credentials: [cs-secrets, cs-github-actions]
+    secrets-inherit: [cs-secrets, cs-github-actions]
+    overprovisioned-secrets: [cs-secrets, cs-github-actions]
+    unredacted-secrets: [cs-secrets, cs-github-actions]
+    cache-poisoning: [cs-github-actions, cs-ci-cd]
+    _default: [cs-github-actions, cs-ci-cd]
+  pitangus:
+    IMG-ENV-SECRET: [cs-secrets, cs-docker]
+    IMG-BUILD-SECRET: [cs-secrets, cs-docker]
+    IMG-BUILD-URL-CREDENTIAL: [cs-secrets, cs-docker]
+    IMG-*: [cs-docker]
+
+# The framework an IaC or pipeline finding names (Checkov's, zizmor's).
+frameworks:
+  Dockerfile: [cs-docker]
+  Kubernetes: [cs-kubernetes]
+  Helm: [cs-kubernetes]
+  Kustomize: [cs-kubernetes]
+  GitHub Actions: [cs-github-actions, cs-ci-cd]
+  GitLab CI: [cs-ci-cd]
+  Bitbucket Pipelines: [cs-ci-cd]
+  Azure Pipelines: [cs-ci-cd]
+  CircleCI: [cs-ci-cd]
+  Argo Workflows: [cs-ci-cd]
+  Terraform: [cs-iac]
+  CloudFormation: [cs-iac]
+  ARM: [cs-iac]
+  Bicep: [cs-iac]
+  Serverless: [cs-iac]
+  Ansible: [cs-iac]
+  OpenAPI: [cs-rest]
+
+# By the file, for IaC and pipeline findings without a framework (Trivy's): a regular expression on the path.
+paths:
+  - {pattern: '(^|/)(Dockerfile|Containerfile)[^/]*$|\.dockerfile$|^image-(config|history)(/|$)', pages: [cs-docker]}
+  - {pattern: '(^|/)\.github/workflows/', pages: [cs-github-actions, cs-ci-cd]}
+  - {pattern: '(^|/)\.gitlab-ci\.ya?ml$', pages: [cs-ci-cd]}
+  - {pattern: '\.(tf|tfvars|hcl)$', pages: [cs-iac]}
+
+# Last, by scanner; `cwe: true` uses the CWE pages above (code and web findings).
+scanners:
+  sast: {cwe: true, pages: []}
+  dast: {cwe: true, pages: []}
+  secrets: {cwe: false, pages: [cs-secrets]}
+  sca: {cwe: false, pages: [cs-vulnerable-dependencies, cs-supply-chain]}
+  iac: {cwe: false, pages: [cs-iac]}
+  cicd: {cwe: false, pages: [cs-ci-cd]}

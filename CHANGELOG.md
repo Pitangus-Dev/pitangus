@@ -9,6 +9,16 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Added
 
+- **OWASP guidance on every finding.** A curated, versioned mapping (`pitangus/modules/findings/references.yaml`,
+  reviewed against the published indexes) links each finding to OWASP Cheat Sheet Series pages, its OWASP Top 10:2025
+  category and, for code and web findings, the API Security Top 10 2023 risk and the WSTG v4.2 test that fit: by rule
+  (ZAP, nuclei, testssl.sh, zizmor and container image checks), framework or file, CWE (100 CWEs, among them every one
+  our rules and engines emit) and scanner. Served as `guidance: [{title, url, kind}]` on findings (computed when read,
+  so old runs get it too), shown under **OWASP guidance** in the finding's detail after the tool's own references, and
+  printed next to each finding's references in the technical PDF and the Markdown report. Links only; the tool's own
+  guidance stays first and verbatim. A finding whose engine set no OWASP category (nuclei, testssl.sh, imported SARIF
+  without tags) now gets its Top 10:2025 category from OWASP's CWE mapping when served; the technical PDF shows it next
+  to the CWE.
 - **Scheduled scans sign in as test users.** The schedule rule (`POST /api/domains/schedule`) takes `test_users` (up to
   3 ids, each signing in on a host of the saved scope) and `use_headers` (409 without saved headers); the panel picks
   them under the schedule in a web scan's review and on the domain's page. When the scan runs, a user deleted since is

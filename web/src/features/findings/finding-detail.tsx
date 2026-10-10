@@ -6,6 +6,7 @@ import { formatDate, formatNumber } from '@/shared/i18n/format'
 import { slaText } from '@/features/findings/sla'
 import { FixSection, Reverify } from '@/features/findings/fix-guide'
 import { WebFinding } from '@/features/findings/web-finding'
+import { OwaspGuidance } from '@/features/findings/guidance'
 import { TriageActions, TriageHistory } from '@/features/findings/triage'
 import { TRIAGE_LABEL, type TriageStatus } from '@/features/findings/triage-status'
 import { SEVERITY_LABEL, idOf, labelOf, locationOf, severityClass, statusOf, toolName, type RepositoryFinding } from '@/features/findings/finding-model'
@@ -56,6 +57,7 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
     <TriageHistory state={finding.triage} />
     {advisory?.details && <details className="mt-3"><summary className="cursor-pointer text-xs text-app-muted">{t('detail.advisory_details')}</summary><p className="mt-2 text-xs leading-5 whitespace-pre-line text-app-muted">{advisory.details}</p></details>}
     {advisory?.references.length ? <p className="mt-3 flex flex-wrap gap-x-3 text-xs">{advisory.references.slice(0, 4).map(url => <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand hover:underline">{new URL(url).hostname} <ExternalLink className="size-3" /></a>)}</p> : null}
+    <OwaspGuidance links={finding.guidance} />
   </div>
 }
 

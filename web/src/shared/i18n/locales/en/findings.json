@@ -46,6 +46,11 @@
     "partial": "Partial coverage: what only that account sees wasn't analyzed, so few or no findings there doesn't mean it's clean.",
     "also_reported": "Also reported by"
   },
+  "guidance": {
+    "title": "OWASP guidance",
+    "hint": "how to prevent and test this kind of issue",
+    "new_tab": "(opens in a new tab)"
+  },
   "import": {
     "eyebrow": "SARIF import · {{tool}}",
     "new": "New analysis",
