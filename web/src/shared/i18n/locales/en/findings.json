@@ -24,8 +24,8 @@
     "kind_web": "Web scan"
   },
   "web": {
-    "eyebrow": "Passive web scan · ZAP",
-    "help": "A passive scan: ZAP read the site's responses without attacking it. Each finding is a signal: confirm it in the application.",
+    "eyebrow": "Passive web scan · {{tools}}",
+    "help": "A passive scan: the tools read the site's responses without attacking it. Each finding is a signal: confirm it in the application.",
     "what": "What it is",
     "where": "Where",
     "evidence": "Evidence",
@@ -43,7 +43,8 @@
     "sign_ins": "Sign-in as test users",
     "signed_in": "Signed in as «{{name}}»",
     "sign_in_failed": "Couldn't sign in as «{{name}}»: {{reason}}",
-    "partial": "Partial coverage: what only that account sees wasn't analyzed, so few or no findings there doesn't mean it's clean."
+    "partial": "Partial coverage: what only that account sees wasn't analyzed, so few or no findings there doesn't mean it's clean.",
+    "also_reported": "Also reported by"
   },
   "import": {
     "eyebrow": "SARIF import · {{tool}}",
@@ -210,7 +211,8 @@
     "partial": "Partial",
     "not_tested": "Not tested",
     "inconclusive": "Inconclusive",
-    "pending": "Pending"
+    "pending": "Pending",
+    "skipped": "Skipped"
   },
   "export": {
     "pdf": "PDF report",

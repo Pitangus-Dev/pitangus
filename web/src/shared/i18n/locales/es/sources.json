@@ -389,7 +389,10 @@
       "import_results": "Importar resultados de otra herramienta",
       "scans_empty": "Aún no hay análisis.",
       "not_found": "Este dominio no existe o fue eliminado.",
-      "back": "Volver a dominios y APIs"
+      "back": "Volver a dominios y APIs",
+      "technologies": "Tecnologías",
+      "technologies_seen": "Según el análisis web del {{date}}.",
+      "technologies_none": "El último análisis web no identificó ninguna."
     },
     "schedule": {
       "title": "Análisis programado",

@@ -29,6 +29,11 @@ export function DomainOverview({ domain, admin, onVerify, onDisconnect, disconne
         <span>{t('domains.page.scope_exact', { host: domain.host })}</span>
         {admin && <Button variant="outline" size="sm" onClick={onVerify}>{t('domains.page.verify_dns')}</Button>}</span></Fact>}
       <Fact label={t('domains.page.last_scan')}>{last ? formatDay(last.created_at, { dateStyle: 'medium' }) : t('domains.list.never')}</Fact>
+      {last?.technologies && <Fact label={t('domains.page.technologies')}>{last.technologies.items.length
+        ? <ul aria-label={t('domains.page.technologies')} className="flex flex-wrap gap-1.5">{last.technologies.items.map(item => <li key={`${item.name}@${item.version ?? ''}`}
+          title={item.hosts.join(', ')} className="rounded-sm border border-app-line px-1.5 py-0.5 text-xs">{item.name}{item.version && <span className="ml-1 font-mono text-app-muted">{item.version}</span>}</li>)}</ul>
+        : t('domains.page.technologies_none')}
+        <span className="mt-1 block text-xs text-app-subtle">{t('domains.page.technologies_seen', { date: formatDay(last.technologies.created_at, { dateStyle: 'medium' }) })}</span></Fact>}
       {domain.context && <Fact label={t('domains.page.context')}>{domain.context}</Fact>}
       <Fact label={t('domains.page.added')}>{domain.registered_by ? t('domains.page.added_by', { date: added, user: domain.registered_by }) : added || '—'}</Fact>
     </dl>

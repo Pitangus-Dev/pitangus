@@ -2,7 +2,7 @@
   "tested": "{{tested}}/{{total}} with at least one check",
   "description": "Each category shows which engine or how many rules covered it and how many findings it produced. Untested categories say why.",
   "rules_one": "{{count}} rule", "rules_other": "{{count}} rules",
-  "step_status": { "completed": "Completed", "partial": "Partial", "not_tested": "Not tested", "inconclusive": "Inconclusive", "pending": "Pending" },
+  "step_status": { "completed": "Completed", "partial": "Partial", "not_tested": "Not tested", "inconclusive": "Inconclusive", "pending": "Pending", "skipped": "Skipped" },
   "run": { "title": "Run evaluated", "none": "No run selected", "pick": "Pick a run in Findings to see its coverage." },
   "not_covered": {
     "title": "What static analysis doesn't cover",

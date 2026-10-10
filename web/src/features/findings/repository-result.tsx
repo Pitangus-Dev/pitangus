@@ -7,7 +7,7 @@ import { RunHeader } from '@/features/findings/run-header'
 import { RunExports } from '@/features/findings/run-exports'
 import { labelOf, type FindingTab, type RepositoryRun } from '@/features/findings/finding-model'
 
-const STEP_LABEL: Record<string, string> = { completed: 'step.completed', partial: 'step.partial', not_tested: 'step.not_tested', inconclusive: 'step.inconclusive', pending: 'step.pending' }
+const STEP_LABEL: Record<string, string> = { completed: 'step.completed', partial: 'step.partial', not_tested: 'step.not_tested', inconclusive: 'step.inconclusive', pending: 'step.pending', skipped: 'step.skipped' }
 
 // The findings of one run or of one asset's current state (`asset_state`), with that asset's files, the run's log and
 // what each engine covered. `focus`: a finding to open (links from Jira issues carry its fingerprint).

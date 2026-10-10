@@ -389,7 +389,10 @@
       "import_results": "Import results from another tool",
       "scans_empty": "No scans yet.",
       "not_found": "This domain doesn't exist or was removed.",
-      "back": "Back to domains & APIs"
+      "back": "Back to domains & APIs",
+      "technologies": "Technologies",
+      "technologies_seen": "From the web scan of {{date}}.",
+      "technologies_none": "None named by the last web scan."
     },
     "schedule": {
       "title": "Scheduled scan",

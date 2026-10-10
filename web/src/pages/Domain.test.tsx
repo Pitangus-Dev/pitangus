@@ -28,11 +28,11 @@ const SCOPE = { domain_id: ID, root: 'app.example.com', covered: false, reason: 
   discovery: { status: 'done', requested_at: null, finished_at: '2026-10-09T00:00:00Z', note: null, counts: { found: 4, kept: 1, private: 2, unresolved: 1, new: 1, capped: 0 },
     available: true, unavailable: null } }
 
-function setup() {
+function setup(extra: Record<string, unknown> = {}) {
   let schedule: Record<string, unknown> | null = null
   const calls = mockApi(call => {
     if (call.path.startsWith('/api/domains/scope') || call.path === '/api/domains/discover') return { body: SCOPE }
-    if (call.path === '/api/domains' && call.method === 'GET') return { body: { items: [{ ...DOMAIN, schedule }], total: 1, limit: 20, dast: true } }
+    if (call.path === '/api/domains' && call.method === 'GET') return { body: { items: [{ ...DOMAIN, ...extra, schedule }], total: 1, limit: 20, dast: true } }
     if (call.path === '/api/domains/schedule') {
       const rule = (call.body as { schedule: Record<string, unknown> | null }).schedule
       schedule = rule && { ...rule, next_run_at: '2026-10-16T14:00:00Z' }
@@ -132,5 +132,14 @@ describe('a domain page', () => {
     await waitFor(() => expect(calls.filter(call => call.path === '/api/domains/schedule').at(-1)?.body).toEqual({ domain_id: ID, schedule: null }))
     expect(await screen.findByText(tr('domains.schedule.none'))).toBeTruthy()
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: tr('domains.schedule.set') })))
+  })
+
+  it('shows the technologies the last web scan named, with their versions and when', async () => {
+    const technologies = { run_id: 'r1', created_at: '2026-10-10T00:00:00Z', items: [{ name: 'Cloudflare', hosts: ['app.example.com'] },
+      { name: 'Nginx', version: '1.27.5', hosts: ['app.example.com'] }] }
+    setup({ last_scan: { id: 'r1', status: 'completed', created_at: '2026-10-10T00:00:00Z', technologies } })
+    const list = await screen.findByRole('list', { name: tr('domains.page.technologies') })
+    expect(within(list).getAllByRole('listitem').map(item => item.textContent)).toEqual(['Cloudflare', 'Nginx1.27.5'])
+    expect(screen.getByText(tr('domains.page.technologies_seen', { date: formatDay('2026-10-10T00:00:00Z', { dateStyle: 'medium' }) }))).toBeTruthy()
   })
 })

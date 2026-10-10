@@ -1,10 +1,11 @@
+import type { TFunction } from 'i18next'
 import { Trans, useTranslation } from 'react-i18next'
 import { ArrowRight, CircleAlert, CircleCheck, ExternalLink } from 'lucide-react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { formatDate } from '@/shared/i18n/format'
 import { LifecycleSummary } from '@/features/findings/lifecycle-summary'
-import type { RepositoryRun, SignIn } from '@/features/findings/finding-model'
+import { toolName, type RepositoryRun, type SignIn } from '@/features/findings/finding-model'
 
 // What the findings below are: an asset's current state, a pull request review, an import from another tool or a scan.
 export function RunHeader({ run, onNew }: { run: RepositoryRun; onNew: () => void }) {
@@ -23,7 +24,7 @@ export function RunHeader({ run, onNew }: { run: RepositoryRun; onNew: () => voi
   </div>
   if (run.type === 'sarif_import') return <ImportHeader run={run} onNew={onNew} />
   if (run.type === 'dast_scan') return <div className="flex flex-col gap-4 rounded-lg border border-app-line bg-panel p-5 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0">
-    <div className="mb-1 text-xs text-app-muted">{t('web.eyebrow')}</div>
+    <div className="mb-1 text-xs text-app-muted">{t('web.eyebrow', { tools: webTools(t, run) })}</div>
     <h2 className="truncate text-xl font-semibold">{run.source?.name ?? run.target ?? '—'}</h2>
     <p className="mt-1 text-xs text-app-subtle">{formatDate(run.created_at)}{run.target ? <> · <span className="font-mono">{run.target}</span></> : null}</p>
     <p className="mt-2 text-sm text-app-muted">{t('web.help')}</p>
@@ -67,4 +68,10 @@ function ImportHeader({ run, onNew }: { run: RepositoryRun; onNew: () => void })
       : commit ? <Trans t={t} i18nKey="import.commit" values={{ commit: commit.slice(0, 7) }} components={{ code }} /> : null}</p>
     <p className="mt-2 text-sm text-app-muted">{trigger.scope === 'partial' ? t('import.help_partial', { tool }) : t('import.help_full', { tool })}</p>
   </div><Button variant="outline" onClick={onNew} className="shrink-0 border-app-line bg-app-soft">{t('import.new')} <ArrowRight /></Button></div>
+}
+
+// The tools a web scan ran, in its order: ZAP and each of the others whose step wasn't skipped ("ZAP + katana + nuclei").
+function webTools(t: TFunction, run: RepositoryRun) {
+  const others = (run.steps ?? []).filter(step => step.id.startsWith('dast-') && step.id !== 'dast-merge' && step.status !== 'skipped')
+  return [toolName(t, 'zap'), ...others.map(step => toolName(t, step.id.slice('dast-'.length)))].join(' + ')
 }

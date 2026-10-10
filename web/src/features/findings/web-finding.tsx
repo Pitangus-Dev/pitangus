@@ -38,6 +38,12 @@ export function WebFinding({ finding }: { finding: RepositoryFinding }) {
       {web.attack && web.attack !== web.evidence && <div className="mt-2"><p className="text-xs text-app-muted">{t('web.attack')}</p>
         <pre className="mt-1 rounded-lg border border-app-line bg-inset p-3 font-mono text-xs leading-5 whitespace-pre-wrap text-app-secondary wrap-anywhere">{web.attack}</pre></div>}
     </Section>}
+    {web.also?.length ? <Section title={t('web.also_reported')}>
+      <ul className="space-y-2 text-xs">{web.also.map(item => <li key={`${item.tool}:${item.rule_id}`} className="min-w-0">
+        <p><span className="font-medium text-app-fg">{toolName(t, item.tool)}</span>{item.title ? ` · ${item.title}` : ''} · <code className="font-mono text-app-muted">{item.rule_id}</code></p>
+        {item.evidence && <pre className="mt-1 rounded-lg border border-app-line bg-inset p-2 font-mono text-xs leading-5 whitespace-pre-wrap text-app-secondary wrap-anywhere">{item.evidence}</pre>}
+      </li>)}</ul>
+    </Section> : null}
     <Section title={t('web.how_to_fix')} note={web.solution ? said : undefined} tone="brand">
       <p className="whitespace-pre-line wrap-anywhere">{web.solution || finding.remediation}</p>
     </Section>

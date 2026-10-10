@@ -24,8 +24,8 @@
     "kind_web": "Análisis web"
   },
   "web": {
-    "eyebrow": "Análisis web pasivo · ZAP",
-    "help": "Análisis pasivo: ZAP leyó las respuestas del sitio sin atacarlo. Cada hallazgo es una señal: confírmalo en la aplicación.",
+    "eyebrow": "Análisis web pasivo · {{tools}}",
+    "help": "Análisis pasivo: las herramientas leyeron las respuestas del sitio sin atacarlo. Cada hallazgo es una señal: confírmalo en la aplicación.",
     "what": "Qué es",
     "where": "Dónde",
     "evidence": "Evidencia",
@@ -43,7 +43,8 @@
     "sign_ins": "Inicio de sesión con usuarios de prueba",
     "signed_in": "Sesión iniciada como «{{name}}»",
     "sign_in_failed": "No pudo iniciar sesión como «{{name}}»: {{reason}}",
-    "partial": "Cobertura parcial: lo que solo ve esa cuenta no se analizó, así que pocos o ningún hallazgo ahí no significa que esté limpio."
+    "partial": "Cobertura parcial: lo que solo ve esa cuenta no se analizó, así que pocos o ningún hallazgo ahí no significa que esté limpio.",
+    "also_reported": "También lo reportaron"
   },
   "import": {
     "eyebrow": "Importación SARIF · {{tool}}",
@@ -210,7 +211,8 @@
     "partial": "Parcial",
     "not_tested": "No probado",
     "inconclusive": "Inconcluso",
-    "pending": "Pendiente"
+    "pending": "Pendiente",
+    "skipped": "Omitido"
   },
   "export": {
     "pdf": "Informe PDF",

@@ -46,6 +46,21 @@ describe('web findings', () => {
     expect(links).not.toContain('javascript:alert(1)')
   })
 
+  it('list every tool that reported the same problem, with what each one saw', async () => {
+    mockApi(() => undefined)
+    const user = userEvent.setup()
+    const hsts = { ...CSP, rule_id: '10035', title: 'Strict-Transport-Security Header Not Set', also_detected_by: ['nuclei', 'testssl'],
+      web: { ...CSP.web, also: [{ tool: 'nuclei', rule_id: 'http-missing-security-headers:strict-transport-security', title: 'HTTP Missing Security Headers (strict-transport-security)' },
+        { tool: 'testssl', rule_id: 'HSTS', title: 'HSTS is missing or too short', evidence: 'not offered' }] } }
+    renderWithQueries(<RepositoryResult run={{ ...RUN, findings: [hsts] }} onNew={() => {}} onChanged={() => {}} canAccept />)
+    expect(screen.getAllByText('ZAP + nuclei + testssl.sh').length).toBeGreaterThan(0)  // the row names every tool
+    await user.click(screen.getByRole('button', { name: /Strict-Transport-Security Header Not Set/ }))
+    const section = screen.getByRole('region', { name: i18n.t('findings:web.also_reported') })
+    expect(section.textContent).toContain('testssl.sh')
+    expect(section.textContent).toContain('http-missing-security-headers:strict-transport-security')
+    expect(screen.getByText('not offered')).toBeTruthy()
+  })
+
   it('still read well when stored before the scanner text was kept', async () => {
     mockApi(() => undefined)
     const user = userEvent.setup()

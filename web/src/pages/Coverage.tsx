@@ -9,7 +9,7 @@ import { Badge } from '@/shared/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { formatDate, type OwaspCoverage, type RunRow, type ScanStep } from '@/shared/lib/types'
 
-const STEP_STATUS = { completed: 'step_status.completed', partial: 'step_status.partial', not_tested: 'step_status.not_tested', inconclusive: 'step_status.inconclusive', pending: 'step_status.pending' } as const
+const STEP_STATUS = { completed: 'step_status.completed', partial: 'step_status.partial', not_tested: 'step_status.not_tested', inconclusive: 'step_status.inconclusive', pending: 'step_status.pending', skipped: 'step_status.skipped' } as const
 
 // Cobertura de la ejecución seleccionada: qué motores corrieron y qué categorías OWASP tocaron, con números.
 export function Coverage({ run, coverage, steps }: { run: RunRow | null; coverage: OwaspCoverage[]; steps: ScanStep[] }) {

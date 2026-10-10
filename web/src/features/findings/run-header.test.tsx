@@ -18,6 +18,14 @@ describe('web scan header', () => {
     expect(screen.getByText(tr('web.partial'))).toBeTruthy()
   })
 
+  it('names the tools that ran, leaving out the skipped ones', () => {
+    const steps = [{ id: 'dast-katana', name: 'Crawl (katana)', status: 'completed', detail: '' }, { id: 'dast', name: 'ZAP', status: 'completed', detail: '' },
+      { id: 'dast-nuclei', name: 'nuclei', status: 'partial', detail: '' }, { id: 'dast-testssl', name: 'testssl.sh', status: 'skipped', detail: '' },
+      { id: 'dast-merge', name: 'One finding per problem', status: 'completed', detail: '' }]
+    render(<RunHeader run={{ ...RUN, steps }} onNew={() => {}} />)
+    expect(screen.getByText(tr('web.eyebrow', { tools: 'ZAP + katana + nuclei' }))).toBeTruthy()
+  })
+
   it('says nothing about sign-in for an anonymous scan, nor partial coverage when every sign-in worked', () => {
     const { unmount } = render(<RunHeader run={RUN} onNew={() => {}} />)
     expect(screen.queryByRole('list', { name: tr('web.sign_ins') })).toBeNull()

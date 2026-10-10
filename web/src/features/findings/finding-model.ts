@@ -18,7 +18,9 @@ export type ScopeAsset = components['schemas']['ScopeAssetCounts']
 export type FindingKpis = components['schemas']['FindingKpis']
 export type LifecycleCounts = Pick<components['schemas']['LifecycleCounts'], 'open' | 'fixed' | 'suppressed' | 'from_pr'> & { excluded?: number }
 // A web finding: the request that proved it and what the scanner says about its rule, as published (sarif_import._web).
-export type WebDetail = { method?: string; parameter?: string; evidence?: string; attack?: string; description?: string; solution?: string; references?: string[]; wasc?: number[] }
+// `also`: what each other tool that reported the same problem at this URL saw (web_merge.py).
+export type WebDetail = { method?: string; parameter?: string; evidence?: string; attack?: string; description?: string; solution?: string; references?: string[]; wasc?: number[]
+  also?: { tool: string; rule_id: string; title?: string; evidence?: string }[] }
 export type RepositoryFinding = { finding_id: string; fingerprint: string; scanner: string; tool?: string; also_detected_by?: string[]; related_rules?: string[]; framework?: string; rule_id: string; title: string; path: string; line: number; severity: string; confidence: number; verdict: string; cwe: number[]; cve: string[]; ghsa: string[]; owasp: string[]; reason: string; remediation: string; package?: Package | null; advisory?: Advisory | null; kev?: { date_added: string | null; due_date: string | null; ransomware: boolean; name: string | null } | null; epss?: { score: number; percentile: number } | null; priority?: Priority; triage?: TriageState; ticket?: TicketLink; lifecycle?: Lifecycle; source?: AdvisorySource | null; fix?: FixGuide | null; verification?: Verification | null; sla?: Sla | null; malicious?: boolean; asset?: ScopeAssetRef; web?: WebDetail }
 export type ScanStep = { id: string; name: string; status: string; detail: string }
 export type PullReview = { baseline_run: string | null; gate: string; verdict: { state: 'success' | 'failure'; description: string; blocking: number }; delivery: { comment?: string; status?: string } }
@@ -38,7 +40,8 @@ export const SEVERITY_LABEL: Record<string, string> = { critical: 'common:severi
 export const ACTION_LABEL: Record<string, string> = { act: 'common:priority.act', attend: 'common:priority.attend', track: 'common:priority.track' }
 export const SCANNER_LABEL: Record<string, string> = { sca: 'scanner.sca', sast: 'scanner.sast', secrets: 'scanner.secrets', iac: 'scanner.iac', cicd: 'scanner.cicd', dast: 'scanner.dast' }
 export const labelOf = (t: TFunction, keys: Record<string, string>, value: string) => keys[value] ? t(keys[value]) : value
-const TOOL_NAME: Record<string, string> = { trivy: 'Trivy', gitleaks: 'Gitleaks', opengrep: 'Opengrep', grype: 'Grype', 'osv-scanner': 'OSV-Scanner', checkov: 'Checkov', zizmor: 'zizmor' }
+const TOOL_NAME: Record<string, string> = { trivy: 'Trivy', gitleaks: 'Gitleaks', opengrep: 'Opengrep', grype: 'Grype', 'osv-scanner': 'OSV-Scanner', checkov: 'Checkov', zizmor: 'zizmor',
+  zap: 'ZAP', katana: 'katana', nuclei: 'nuclei', testssl: 'testssl.sh', httpx: 'httpx' }
 export const toolName = (t: TFunction, tool: string) => tool === 'pitangus' ? t('findings:tool.pitangus') : TOOL_NAME[tool] ?? tool
 // The engine and, when another one confirmed it, that one too: "Trivy + Grype".
 export const toolsOf = (t: TFunction, finding: { tool?: string; also_detected_by?: string[] }) => [finding.tool, ...(finding.also_detected_by ?? [])].filter(Boolean).map(tool => toolName(t, tool as string)).join(' + ')

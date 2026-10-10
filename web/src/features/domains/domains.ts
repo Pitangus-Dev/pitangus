@@ -6,7 +6,10 @@ export type DomainKind = 'web' | 'api' | 'surface'
 export type ProofMethod = 'dns' | 'file' | 'meta'
 // A registered domain as the API answers it; how to prove it and the saved header names only come to administrators.
 export type Domain = DomainRow
-export type LastScan = { id: string; status: string; created_at: string; finished_at?: string | null; variant?: string }
+// What httpx named on the scope's hosts (scanning/web_tools.py), from the newest web scan that looked.
+export type Technology = { name: string; version?: string; hosts: string[] }
+export type LastScan = { id: string; status: string; created_at: string; finished_at?: string | null; variant?: string
+  technologies?: { items: Technology[]; run_id: string; created_at: string } }
 
 // Getters so the label follows the current language wherever it's read.
 export const kindLabel: Record<DomainKind, string> = {

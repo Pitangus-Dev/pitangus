@@ -2,7 +2,7 @@
   "tested": "{{tested}}/{{total}} con alguna prueba",
   "description": "Cada categoría dice qué motor o cuántas reglas la cubrieron y cuántos hallazgos produjo. Lo no probado dice por qué.",
   "rules_one": "{{count}} regla", "rules_other": "{{count}} reglas",
-  "step_status": { "completed": "Completado", "partial": "Parcial", "not_tested": "No probado", "inconclusive": "Inconcluso", "pending": "Pendiente" },
+  "step_status": { "completed": "Completado", "partial": "Parcial", "not_tested": "No probado", "inconclusive": "Inconcluso", "pending": "Pendiente", "skipped": "Omitido" },
   "run": { "title": "Ejecución evaluada", "none": "Sin ejecución seleccionada", "pick": "Elige una ejecución en Hallazgos para ver su cobertura." },
   "not_covered": {
     "title": "Qué no cubre un análisis estático",
