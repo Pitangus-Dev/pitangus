@@ -3,7 +3,7 @@ import { cn } from 'cn'
 import { labelOf } from '@/features/findings/finding-model'
 import type { ScanStep } from '@/shared/lib/types'
 
-const STEP_LABEL: Record<string, string> = { completed: 'step.completed', partial: 'step.partial', not_tested: 'step.not_tested', inconclusive: 'step.inconclusive', pending: 'step.pending', skipped: 'step.skipped' }
+const STEP_LABEL: Record<string, string> = { completed: 'step.completed', partial: 'step.partial', not_tested: 'step.not_tested', inconclusive: 'step.inconclusive', pending: 'step.pending', skipped: 'step.skipped', failed: 'step.failed' }
 const STEP_TONE: Record<string, string> = { completed: 'text-success', partial: 'text-warning', inconclusive: 'text-warning', failed: 'text-danger' }
 
 // What each engine of a run did, as ruled rows: name and detail on the left, the status as coloured text on the right.

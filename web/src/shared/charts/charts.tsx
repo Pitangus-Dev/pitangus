@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { sevColor, sevName } from '@/shared/charts/severity'
-import { formatDay, formatNumber } from '@/shared/i18n/format'
+import { formatDay, formatList, formatNumber } from '@/shared/i18n/format'
 
 // Gráficas SVG sin dependencias. Marcas finas, huecos de 2 px entre segmentos, rejilla recesiva,
 // leyenda siempre que haya ≥ 2 series, etiquetas directas selectivas y capa de hover con tooltip.
@@ -89,12 +89,13 @@ const PUBLISHED = ['critical', 'high', 'medium', 'low', 'none'] as const
 export function PublishedBySeverity({ counts, days }: { counts: Record<string, number>; days: number }) {
   const { t } = useTranslation('charts')
   const name = (level: string) => level === 'none' ? t('unscored') : sevName[level]
-  const color = (level: string) => level === 'none' ? 'var(--axis-line)' : sevColor[level]
+  const color = (level: string) => level === 'none' ? 'var(--app-subtle)' : sevColor[level]
   const total = PUBLISHED.reduce((sum, level) => sum + (counts[level] ?? 0), 0)
-  const breakdown = PUBLISHED.map(level => `${name(level)} ${counts[level] ?? 0}`).join(', ')
+  const count = (level: string) => t('severity_count', { severity: name(level), count: formatNumber(counts[level] ?? 0) })
+  const breakdown = formatList(PUBLISHED.map(count))
   return <div className="space-y-3">
-    <div className="flex h-3 w-full overflow-hidden rounded-md bg-app-soft" role="img" aria-label={t('published_by_severity', { days, total, breakdown })}>
-      {total ? PUBLISHED.map(level => (counts[level] ?? 0) > 0 ? <div key={level} title={`${name(level)}: ${counts[level]}`} style={{ width: `${(100 * counts[level]) / total}%`, background: color(level) }} className="border-r-2 border-panel last:border-r-0" /> : null) : null}
+    <div className="flex h-3 w-full overflow-hidden rounded-md bg-app-soft" role="img" aria-label={t('published_by_severity', { days, total: formatNumber(total), breakdown })}>
+      {total ? PUBLISHED.map(level => (counts[level] ?? 0) > 0 ? <div key={level} title={count(level)} style={{ width: `${(100 * counts[level]) / total}%`, background: color(level) }} className="border-r-2 border-panel last:border-r-0" /> : null) : null}
     </div>
     <ul aria-hidden className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">{PUBLISHED.map(level => <li key={level} className="flex items-center gap-1.5">
       <span className="inline-block size-2.5 shrink-0 rounded-sm" style={{ background: color(level) }} /><span className="text-app-muted">{name(level)}</span>

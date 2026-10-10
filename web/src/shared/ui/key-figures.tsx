@@ -11,8 +11,8 @@ export function KeyFigures({ children, className }: { children: ReactNode; class
   return <dl className={cn('grid grid-cols-2 border-t border-app-line xl:border-b sm:grid-cols-3 xl:auto-cols-fr xl:grid-flow-col xl:grid-cols-none xl:grid-rows-[auto_auto_auto]', className)}>{children}</dl>
 }
 
-export function KeyFigure({ label, value, suffix, hint, title, tone = 'neutral' }: { label: string; value: ReactNode; suffix?: string; hint?: string; title?: string; tone?: FigureTone }) {
-  return <div title={title} className="row-span-3 grid min-w-0 grid-rows-subgrid content-start border-app-line py-3 pr-4 max-xl:border-b xl:border-l xl:px-4 xl:first:border-l-0 xl:first:pl-0">
+export function KeyFigure({ label, value, suffix, hint, tone = 'neutral' }: { label: string; value: ReactNode; suffix?: string; hint?: string; tone?: FigureTone }) {
+  return <div className="row-span-3 grid min-w-0 grid-rows-subgrid content-start border-app-line py-3 pr-4 max-xl:border-b xl:border-l xl:px-4 xl:first:border-l-0 xl:first:pl-0">
     <dt className="self-end text-xs text-balance text-app-muted">{label}</dt>
     <dd className={cn('mt-1 text-2xl font-semibold tabular-nums', TONE[tone])}>{value}{suffix && <span className="text-sm font-normal text-app-subtle">{suffix}</span>}</dd>
     {hint && <dd className="mt-0.5 line-clamp-2 text-xs text-app-subtle">{hint}</dd>}

@@ -8,6 +8,7 @@ import { Activity, ArrowRight, ChevronDown, RefreshCw, ShieldAlert } from 'lucid
 import { ActivityHeatmap, FoundVsFixed, HBars, PublishedBySeverity, SeverityBar, StackedSeverityBars } from '@/shared/charts/charts'
 import { sevColor, sevName } from '@/shared/charts/severity'
 import { Badge } from '@/shared/ui/badge'
+import { Disclosure } from '@/shared/ui/disclosure'
 import { Button } from '@/shared/ui/button'
 import { KeyFigure, KeyFigures } from '@/shared/ui/key-figures'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -48,13 +49,15 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
     {empty && <Card className="border-app-line bg-panel"><CardContent className="flex flex-col items-center gap-3 py-12 text-center"><Activity className="size-7 text-app-subtle" /><p className="font-medium">{t('empty.title')}</p><p className="max-w-md text-sm text-app-muted">{t('empty.text')}</p><Button variant="outline" onClick={onNew} className="border-app-line bg-app-soft">{t('empty.new_analysis')} <ArrowRight /></Button></CardContent></Card>}
 
     <KeyFigures>
-      <Kpi label={t('kpi.score')} value={kpis.security_score.value} suffix="/100" hint={t('kpi.score_hint')} title={t('kpi.score_formula', { formula: kpis.security_score.formula })} tone={kpis.security_score.value >= 80 ? 'teal' : kpis.security_score.value >= 50 ? 'amber' : 'rose'} />
+      <Kpi label={t('kpi.score')} value={kpis.security_score.value} suffix="/100" hint={t('kpi.score_hint')} tone={kpis.security_score.value >= 80 ? 'teal' : kpis.security_score.value >= 50 ? 'amber' : 'rose'} />
       <Kpi label={t('kpi.open')} value={kpis.open.total} hint={t('kpi.open_hint', { critical: kpis.open.critical, high: kpis.open.high })} tone={kpis.open.critical ? 'rose' : 'muted'} />
       <Kpi label={t('kpi.overdue')} value={kpis.sla?.overdue ?? '—'} hint={kpis.sla ? t('kpi.due_soon', { count: kpis.sla.soon }) : t('kpi.no_due_dates')} tone={kpis.sla?.overdue ? 'rose' : 'muted'} />
       <Kpi label={t('kpi.fixed')} value={kpis.fixed_in_window} hint={kpis.fix_rate !== null ? t('kpi.fix_rate', { rate: formatPercent(kpis.fix_rate / 100, 1) }) : t('kpi.no_comparable_runs')} tone="teal" />
       <Kpi label={t('kpi.mttr')} value={kpis.mttr_days ?? '—'} suffix={kpis.mttr_days !== null ? ` ${t('kpi.days', { count: kpis.mttr_days })}` : ''} hint={t('kpi.mttr_hint')} tone="muted" />
       <Kpi label={t('kpi.kev')} value={kpis.kev_open} hint={t('kpi.kev_hint')} tone={kpis.kev_open ? 'rose' : 'muted'} />
     </KeyFigures>
+    {/* The score is a summary, not a measurement: how it is computed stays one click away. */}
+    <Disclosure summary={t('kpi.score_how')} className="-mt-3" summaryClassName="text-xs text-app-muted"><p className="text-xs leading-5 text-app-muted">{kpis.security_score.formula}</p></Disclosure>
 
     <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
       <Panel title={t('panels.new_per_day.title')} description={t('panels.new_per_day.description', { total: formatNumber(kpis.found_in_window) })}><StackedSeverityBars data={data.issues_over_time} /></Panel>
@@ -77,8 +80,8 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
   </div>
 }
 
-function Kpi({ label, value, suffix = '', hint, title, tone }: { label: string; value: number | string; suffix?: string; hint: string; title?: string; tone: 'rose' | 'amber' | 'teal' | 'muted' }) {
-  return <KeyFigure label={label} value={value} suffix={suffix} hint={hint} title={title} tone={({ rose: 'danger', amber: 'warning', teal: 'success', muted: 'neutral' } as const)[tone]} />
+function Kpi({ label, value, suffix = '', hint, tone }: { label: string; value: number | string; suffix?: string; hint: string; tone: 'rose' | 'amber' | 'teal' | 'muted' }) {
+  return <KeyFigure label={label} value={value} suffix={suffix} hint={hint} tone={({ rose: 'danger', amber: 'warning', teal: 'success', muted: 'neutral' } as const)[tone]} />
 }
 // News in columns: on the left the counts and the last 30 days by severity (the local NVD copy); next to them the
 // latest published, with a way into the tracker.
@@ -121,7 +124,7 @@ function KevNews({ news, onTracker }: { news: DashboardData['kev_news']; onTrack
   return <Card className="border-app-line bg-panel lg:col-span-2 xl:col-span-1"><CardHeader className="pb-3"><CardTitle className="text-base">{t('kev.title')}</CardTitle><CardDescription className="text-xs">{t('kev.description', { version: news.catalog_version ?? '—' })}</CardDescription></CardHeader>
     <CardContent>
       <div className="mb-3 flex gap-6"><Hero value={news.added_7d} label={t('kev.added_7d')} /><Hero value={news.added_30d} label={t('kev.added_30d')} /></div>
-      <div className="divide-y divide-app-line text-sm">{news.items.slice(0, LIST).map(item => <button key={item.cve} type="button" onClick={() => onTracker(item.cve)} className="flex w-full items-start justify-between gap-3 py-2 text-left hover:bg-app-soft/60"><span className="min-w-0"><span className="font-mono text-xs text-brand">{item.cve}</span><span className="block truncate text-xs text-app-muted" title={item.name ?? ''}>{item.name}</span></span><span className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-app-subtle">{item.date_added ? formatCalendarDay(item.date_added) : ''}{item.affects && <Badge variant="outline" className="border-transparent bg-danger-solid text-[11px] text-on-solid">{t('news.affects_you')}</Badge>}{item.ransomware && <span className="text-danger">ransomware</span>}</span></button>)}</div>
+      <div className="divide-y divide-app-line text-sm">{news.items.slice(0, LIST).map(item => <button key={item.cve} type="button" onClick={() => onTracker(item.cve)} className="flex w-full items-start justify-between gap-3 py-2 text-left hover:bg-app-soft/60"><span className="min-w-0"><span className="font-mono text-xs text-brand">{item.cve}</span><span className="block truncate text-xs text-app-muted" title={item.name ?? ''}>{item.name}</span></span><span className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-app-subtle">{item.date_added ? formatCalendarDay(item.date_added) : ''}{item.affects && <Badge variant="outline" className="border-transparent bg-danger-solid text-[11px] text-on-solid">{t('news.affects_you')}</Badge>}{item.ransomware && <span className="text-danger">{t('cves:kev.ransomware')}</span>}</span></button>)}</div>
       <More shown={LIST} total={news.items.length} label={t('kev.more')} onClick={() => onTracker()} />
     </CardContent>
   </Card>

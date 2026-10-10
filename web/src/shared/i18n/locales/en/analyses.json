@@ -396,7 +396,7 @@
     "severity_count": "{{severity}}: {{value}}",
     "noun": "scans",
     "findings_pending": "analyzing…",
-    "findings_none_failed": "No findings: the run failed"
+    "findings_none_failed": "No result: the run failed"
   },
   "progress": {
     "scan": "scan",

@@ -58,8 +58,6 @@
     "connected_by": "connected by {{name}}"
   },
   "repositories": {
-    "title": "Repositories",
-    "description": "Repositories granted across every connected organization.",
     "refresh": "Refresh list",
     "scan_organization": "Scan organization",
     "organization_report": "Organization report",
@@ -78,7 +76,6 @@
     "select_one": "Select {{name}}",
     "columns": {
       "repository": "Repository",
-      "origin": "Source",
       "last_scan": "Last scan",
       "action": "Action",
       "branch": "Branch"

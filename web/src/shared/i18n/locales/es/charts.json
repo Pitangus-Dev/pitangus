@@ -23,5 +23,6 @@
   "more": "Más",
   "unscored": "Sin puntuar",
   "today": "hoy",
-  "published_by_severity": "CVE publicados en los últimos {{days}} días por severidad: {{total}} en total; {{breakdown}}."
+  "published_by_severity": "CVE publicados en los últimos {{days}} días por severidad: {{total}} en total; {{breakdown}}.",
+  "severity_count": "{{severity}}: {{count}}"
 }

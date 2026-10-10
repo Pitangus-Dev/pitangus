@@ -11,7 +11,7 @@
     "new_analysis": "New scan"
   },
   "kpi": {
-    "score": "Score", "score_hint": "drops with open critical and KEV findings", "score_formula": "How it is computed: {{formula}}",
+    "score": "Score", "score_hint": "drops with what is open, most with critical and KEV", "score_how": "How the score is computed",
     "open": "Open", "open_hint": "{{critical}} critical · {{high}} high",
     "overdue": "Overdue", "due_soon_one": "{{count}} due in the next 7 days", "due_soon_other": "{{count}} due in the next 7 days",
     "no_due_dates": "no due dates",

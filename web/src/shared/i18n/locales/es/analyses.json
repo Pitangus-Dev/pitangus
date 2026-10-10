@@ -396,7 +396,7 @@
     "severity_count": "{{severity}}: {{value}}",
     "noun": "análisis",
     "findings_pending": "analizando…",
-    "findings_none_failed": "Sin hallazgos: la ejecución falló"
+    "findings_none_failed": "Sin resultado: la ejecución falló"
   },
   "progress": {
     "scan": "escaneo",

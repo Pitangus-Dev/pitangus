@@ -224,7 +224,8 @@
     "not_tested": "Not tested",
     "inconclusive": "Inconclusive",
     "pending": "Pending",
-    "skipped": "Skipped"
+    "skipped": "Skipped",
+    "failed": "Failed"
   },
   "export": {
     "pdf": "PDF report",
