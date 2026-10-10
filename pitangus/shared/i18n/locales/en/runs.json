@@ -26,7 +26,8 @@
     "comment_posted": "Comment posted on the PR.",
     "comment_failed": "Couldn't comment on the PR: {{reason}}",
     "no_comment_permission": "The result wasn't posted to GitHub: the App can't write to pull requests.",
-    "branch_commit": "Scanning branch {{branch}} at commit {{sha}}"
+    "branch_commit": "Scanning branch {{branch}} at commit {{sha}}",
+    "queued_api": "Queued: passive API scan of {{host}}."
   },
   "failure": {
     "restart": "The server restarted while this run was in progress, so it was interrupted. Run it again.",

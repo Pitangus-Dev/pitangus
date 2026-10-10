@@ -441,33 +441,40 @@ def writable_cache(preferred: Path) -> Path:
 def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool = False,
          mounts: list[str] | None = None, timeout: int = 900, env: dict[str, str] | None = None,
          secret_env: dict[str, str] | None = None, hosts: dict[str, str] | None = None,
-         image_user: bool = False) -> subprocess.CompletedProcess:
+         image_user: bool = False, stdin: str | None = None, pinned_only: bool = False) -> subprocess.CompletedProcess:
     """The engine's ephemeral container. `secret_env` travels through the Docker client's environment
     (`-e NAME` with no value), never on the command line, so it doesn't show in `ps` or in the logs.
-    `hosts`: names the container resolves to a fixed address ({name: address}), already checked by the caller.
-    `image_user`: run as the image's own user (ZAP's Java takes its home from passwd), never with a snapshot."""
+    `hosts`: names the container resolves to a fixed address ({name: address}), already checked by the caller;
+    `pinned_only`: those are the only names it resolves (its DNS server is its own loopback, where nothing answers).
+    `image_user`: run as the image's own user (ZAP's Java takes its home from passwd), never with a snapshot.
+    `stdin`: text handed to the container on its standard input (secrets that must never land in a file)."""
     if image_user and snapshot is not None:
         raise ValueError("an engine running as its image's user never mounts a snapshot")
+    if pinned_only and not hosts:
+        raise ValueError("pinned_only needs the pinned hosts")
     if runner() == "local":
+        if stdin is not None or pinned_only:
+            raise ValueError("standard input and pinned-only resolution need the Docker runner")
         return _run_local(key, arguments, snapshot, mounts=mounts, timeout=timeout, env=env, secret_env=secret_env, network=network)
     environment = [part for name, value in (env or {}).items() for part in ("-e", f"{name}={value}")]
     environment += [part for name in (secret_env or {}) for part in ("-e", name)]
     source = ["-v", f"{host_path(snapshot)}:/src:ro"] if snapshot is not None else []
     docker = shutil.which("docker")
     name = f"pitangus-{key}-{uuid.uuid4().hex[:12]}"
-    command = [docker, "run", "--rm", "--name", name, "--label", "pitangus.engine=1",
+    command = [docker, "run", "--rm", *(["-i"] if stdin is not None else []), "--name", name, "--label", "pitangus.engine=1",
                "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                # Only /tmp (HOME) and the mounted folders are writable; the tmpfs counts against --memory.
                "--read-only", "--tmpfs", f"/tmp:rw,{'exec' if key in EXEC_FROM_TMP else 'noexec'},nosuid,nodev,size={ENGINE_TMPFS}",
                *([] if image_user else engine_user()), "--pids-limit", "512", "--memory", "3g", "--cpus", "2",
                "--network", "bridge" if network else "none",
                *[part for host, address in (hosts or {}).items() for part in ("--add-host", f"{host}:{address}")],
+               *(["--dns", "127.0.0.1"] if pinned_only else []),
                # An image built here has no digest: never let Docker fetch that name from a registry instead.
                *([] if "@sha256:" in IMAGES[key]["image"] else ["--pull", "never"]),
                *source, *environment, *(mounts or []), IMAGES[key]["image"], *arguments]
     process_env = {**os.environ, **(secret_env or {})} if secret_env else None
     try:
-        return subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=process_env)
+        return subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=process_env, input=stdin)
     except subprocess.TimeoutExpired:
         # The timeout only kills the docker client: the engine container would keep its CPU and memory.
         try:

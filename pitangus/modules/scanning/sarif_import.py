@@ -17,6 +17,11 @@ are merged, because an import of a tool is what later proves that tool's finding
   which carry request-specific values. Nuclei puts the template path where the URI belongs and the URL in its
   properties; both are read. Only the method, the parameter and a bounded evidence are kept (`web`): never the
   request or response the tool attached, which carry cookies and authorization headers.
+* **Strix** (AI pentest agents): a finding without a code location comes anchored to `SECURITY.md` with
+  `properties.synthetic_location`; it takes the URL of the endpoint it is about (`properties.strix.target` plus the
+  route of `properties.strix.endpoint`, "GET /api/users/{id}"), so it is a web finding; one with a code location stays
+  a code finding. Its own severity label wins over the score, and its coverage results (`properties.strix.
+  coverage_outcome`: checked, not applicable or left for a follow-up) are not findings.
 * Text written by the tool (titles, messages, help) is kept as published and only shown inside our own sentences.
 """
 
@@ -131,8 +136,39 @@ def _web_location(result: dict, uri: Any) -> str:
     return ""
 
 
+def _endpoint(result: dict) -> tuple[str, str]:
+    """(method, route or URL) of a result about an endpoint: Strix's `properties.strix.endpoint` ("GET /api/users")
+    or a logical location of kind `endpoint`."""
+    strix = _dict(_dict(result.get("properties")).get("strix"))
+    endpoint = strix.get("endpoint")
+    if not isinstance(endpoint, str) or not endpoint.strip():
+        endpoint = next((item.get("fullyQualifiedName") for location in _list(result.get("locations"))
+                         for item in map(_dict, _list(_dict(location).get("logicalLocations")))
+                         if item.get("kind") == "endpoint" and isinstance(item.get("fullyQualifiedName"), str)), "")
+    parts = str(endpoint or "").strip().split(None, 1)
+    if len(parts) == 2 and parts[0].isalpha() and parts[0].isupper() and len(parts[0]) <= 10:
+        return parts[0], parts[1].strip()
+    method = strix.get("method")
+    return clean_name(method, 10).upper() if isinstance(method, str) else "", str(endpoint or "").strip()
+
+
+def _endpoint_url(result: dict) -> str:
+    """The URL a result about an endpoint is at (Strix: its `target` joined with the endpoint's route)."""
+    _, route = _endpoint(result)
+    if url := _url(route):
+        return url
+    target = _dict(_dict(result.get("properties")).get("strix")).get("target")
+    base = _url(target) if isinstance(target, str) else ""
+    if not base:
+        return ""
+    origin = "/".join(base.split("/", 3)[:3])
+    return _url(origin + route) if route.startswith("/") else base
+
+
 def _location(result: dict, artifacts: list, *, web: bool = False) -> tuple[str, int, str]:
-    """(path, line, normalized snippet) of the result's first physical location; a web finding's path is its URL."""
+    """(path, line, normalized snippet) of the result's first physical location; a web finding's path is its URL.
+    A location the tool marks as a placeholder (Strix anchors findings without one to SECURITY.md) gives way to the
+    endpoint the result is about."""
     physical = _dict(_dict((_list(result.get("locations")) or [{}])[0]).get("physicalLocation"))
     artifact = _dict(physical.get("artifactLocation"))
     uri = artifact.get("uri")
@@ -142,7 +178,8 @@ def _location(result: dict, artifacts: list, *, web: bool = False) -> tuple[str,
     region = _dict(physical.get("region"))
     line = region.get("startLine")
     snippet = _text(_dict(region.get("snippet")).get("text"), MESSAGE_MAX) or _text(_dict(physical.get("contextRegion")).get("snippet"), MESSAGE_MAX)
-    path = (_web_location(result, uri) if web else "") or _url(uri) or _path(uri)
+    endpoint = _endpoint_url(result) if _dict(result.get("properties")).get("synthetic_location") is True else ""
+    path = endpoint or (_web_location(result, uri) if web else "") or _url(uri) or _path(uri)
     return path, line if isinstance(line, int) and not isinstance(line, bool) and 0 < line < 10_000_000 else 1, " ".join(snippet.split())
 
 
@@ -164,12 +201,16 @@ def redact(value: str) -> str:
 def _web(result: dict, snippet: str) -> dict[str, Any]:
     """What is kept of the request that proved a web finding: method, parameter and bounded evidence. The request
     and response the tool attached are dropped whole: they carry cookies and authorization headers."""
-    method = clean_name(_dict(result.get("webRequest")).get("method"), 10).upper()
+    method = clean_name(_dict(result.get("webRequest")).get("method"), 10).upper() or _endpoint(result)[0]
     return {**({"method": method} if method else {}), **({"parameter": _parameter(result)} if _parameter(result) else {}),
             **({"evidence": redact(snippet)[:EVIDENCE_MAX]} if snippet else {})}
 
 
 def _severity(result: dict, rule: dict) -> str:
+    # Strix keeps its own five-level label next to the score (its "info" would otherwise read as low).
+    label = str(_dict(_dict(result.get("properties")).get("strix")).get("severity") or "").lower()
+    if label in ("critical", "high", "medium", "low", "info"):
+        return label
     for properties in (_dict(result.get("properties")), _dict(rule.get("properties"))):
         raw = properties.get("security-severity")
         try:
@@ -235,7 +276,10 @@ def _rule(result: dict, rules: dict[str, dict], components: list[dict]) -> tuple
 
 def _suppressed(result: dict) -> bool:
     kind = result.get("kind", "fail")
-    if kind in ("pass", "notApplicable", "informational") or result.get("baselineState") == "absent":
+    # Strix records what it covered as results too (`properties.strix.coverage_outcome`): an area it checked or left for
+    # a follow-up is not a finding. A plain `open` is (Nuclei marks every finding so).
+    coverage = _dict(_dict(result.get("properties")).get("strix")).get("coverage_outcome")
+    if kind in ("pass", "notApplicable", "informational") or coverage or result.get("baselineState") == "absent":
         return True
     return any(_dict(item).get("status", "accepted") == "accepted" for item in _list(result.get("suppressions")))
 
@@ -266,6 +310,8 @@ def _finding(result: dict, rule: dict, rule_id: str, tool: str, location: tuple[
     properties = _dict(rule.get("properties"))
     # ZAP keeps the fix under `properties.solution`; `help` and `fullDescription` describe the problem.
     help_text = _text(rule.get("help"), MESSAGE_MAX) or _text(properties.get("solution"), MESSAGE_MAX) or _text(rule.get("fullDescription"), MESSAGE_MAX)
+    if web:  # a pentest tool's help retells the request it made (Strix: description + impact + remediation)
+        help_text, title = redact(help_text), redact(title)
     precision = str(properties.get("precision") or properties.get("confidence") or "").lower()
     finding = _base(scanner, rule_id, title, path, line, severity, tool=tool,
                     reason=msg("scanning.sarif.reason", tool=tool, message=message or title),

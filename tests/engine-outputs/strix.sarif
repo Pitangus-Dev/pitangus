@@ -1,0 +1,480 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Strix",
+          "informationUri": "https://strix.ai",
+          "rules": [
+            {
+              "id": "CWE-639",
+              "name": "Broken access control: any user reads other users' profiles (IDOR)",
+              "shortDescription": {
+                "text": "Broken access control: any user reads other users' profiles (IDOR)"
+              },
+              "fullDescription": {
+                "text": "The profile endpoint returns any user's record for any authenticated session. The request was replayed with Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.c3RyaXgtdGVzdA.sig and the id of another account."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The profile endpoint returns any user's record for any authenticated session. The request was replayed with Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.c3RyaXgtdGVzdA.sig and the id of another account.\n\nEvery user's email, phone and address can be read by any signed-in user.\n\nCheck that the requested id belongs to the session's user (or that the user is an administrator) before answering.",
+                "markdown": "The profile endpoint returns any user's record for any authenticated session. The request was replayed with Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.c3RyaXgtdGVzdA.sig and the id of another account.\n\nEvery user's email, phone and address can be read by any signed-in user.\n\nCheck that the requested id belongs to the session's user (or that the user is an administrator) before answering."
+              },
+              "properties": {
+                "security-severity": "9.1",
+                "tags": [
+                  "security",
+                  "CWE-639",
+                  "stride:I",
+                  "stride:E"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/639.html"
+            },
+            {
+              "id": "CWE-307",
+              "name": "No rate limiting on the login endpoint",
+              "shortDescription": {
+                "text": "No rate limiting on the login endpoint"
+              },
+              "fullDescription": {
+                "text": "Two hundred failed logins in a minute were all answered 401, with no delay, lockout or CAPTCHA."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "Two hundred failed logins in a minute were all answered 401, with no delay, lockout or CAPTCHA.\n\nThrottle failed sign-ins per account and per address.",
+                "markdown": "Two hundred failed logins in a minute were all answered 401, with no delay, lockout or CAPTCHA.\n\nThrottle failed sign-ins per account and per address."
+              },
+              "properties": {
+                "security-severity": "5.5",
+                "tags": [
+                  "security",
+                  "CWE-307",
+                  "stride:S"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/307.html"
+            },
+            {
+              "id": "CWE-89",
+              "name": "SQL injection in the order search",
+              "shortDescription": {
+                "text": "SQL injection in the order search"
+              },
+              "fullDescription": {
+                "text": "The search term reaches the SQL string unescaped."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The search term reaches the SQL string unescaped.\n\nUse a parameterized query.",
+                "markdown": "The search term reaches the SQL string unescaped.\n\nUse a parameterized query."
+              },
+              "properties": {
+                "security-severity": "8.0",
+                "tags": [
+                  "security",
+                  "CWE-89",
+                  "stride:T",
+                  "stride:I"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/89.html"
+            },
+            {
+              "id": "CWE-200",
+              "name": "Server version disclosed in response headers",
+              "shortDescription": {
+                "text": "Server version disclosed in response headers"
+              },
+              "fullDescription": {
+                "text": "Every response carries Server: nginx/1.18.0 (Ubuntu); Set-Cookie: session=4f0c2b1e9a77d3c5; Path=/"
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "Every response carries Server: nginx/1.18.0 (Ubuntu); Set-Cookie: session=4f0c2b1e9a77d3c5; Path=/\n\nSet server_tokens off.",
+                "markdown": "Every response carries Server: nginx/1.18.0 (Ubuntu); Set-Cookie: session=4f0c2b1e9a77d3c5; Path=/\n\nSet server_tokens off."
+              },
+              "properties": {
+                "security-severity": "1.0",
+                "tags": [
+                  "security",
+                  "CWE-200",
+                  "stride:I"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/200.html"
+            },
+            {
+              "id": "strix-coverage/ssrf",
+              "name": "SSRF",
+              "shortDescription": {
+                "text": "Coverage: SSRF"
+              },
+              "fullDescription": {
+                "text": "Coverage of SSRF across the assessed attack surface."
+              },
+              "defaultConfiguration": {
+                "level": "none"
+              },
+              "help": {
+                "text": "Coverage of SSRF across the assessed attack surface.",
+                "markdown": "Coverage of SSRF across the assessed attack surface."
+              },
+              "properties": {
+                "tags": [
+                  "coverage"
+                ]
+              }
+            },
+            {
+              "id": "strix-coverage/xxe",
+              "name": "XXE",
+              "shortDescription": {
+                "text": "Coverage: XXE"
+              },
+              "fullDescription": {
+                "text": "Coverage of XXE across the assessed attack surface."
+              },
+              "defaultConfiguration": {
+                "level": "none"
+              },
+              "help": {
+                "text": "Coverage of XXE across the assessed attack surface.",
+                "markdown": "Coverage of XXE across the assessed attack surface."
+              },
+              "properties": {
+                "tags": [
+                  "coverage"
+                ]
+              }
+            },
+            {
+              "id": "strix-coverage/business-logic",
+              "name": "Business logic",
+              "shortDescription": {
+                "text": "Coverage: Business logic"
+              },
+              "fullDescription": {
+                "text": "Coverage of Business logic across the assessed attack surface."
+              },
+              "defaultConfiguration": {
+                "level": "none"
+              },
+              "help": {
+                "text": "Coverage of Business logic across the assessed attack surface.",
+                "markdown": "Coverage of Business logic across the assessed attack surface."
+              },
+              "properties": {
+                "tags": [
+                  "coverage"
+                ]
+              }
+            }
+          ],
+          "version": "1.7.0"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-639",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "Broken access control: any user reads other users' profiles (IDOR)\n\nThe profile endpoint returns any user's record for any authenticated session. The request was replayed with Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.c3RyaXgtdGVzdA.sig and the id of another account."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET /api/users/{id}",
+                  "kind": "endpoint"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "f45e2b21c627c0b825c886ae3a6e46a4d643c5b530ce1c17e4339b322da0e504"
+          },
+          "properties": {
+            "security-severity": "9.1",
+            "strix_vuln_class_hash": "0ea4de78ee2f7916c3adc8b35fadc584d685618d4bf6ca5b5f791d87c5d1e496",
+            "synthetic_location": true,
+            "strix": {
+              "id": "vuln-0001",
+              "severity": "critical",
+              "cvss": 9.1,
+              "timestamp": "2026-10-09 18:02:11 UTC",
+              "target": "https://app.example.com",
+              "endpoint": "GET /api/users/{id}",
+              "method": "GET",
+              "cwe": "CWE-639",
+              "impact": "Every user's email, phone and address can be read by any signed-in user.",
+              "remediation_steps": "Check that the requested id belongs to the session's user (or that the user is an administrator) before answering.",
+              "confidence": "high",
+              "poc": {
+                "description": "Two accounts; the second reads the first's profile by changing the id.",
+                "script_available": true
+              }
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-307",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "No rate limiting on the login endpoint\n\nTwo hundred failed logins in a minute were all answered 401, with no delay, lockout or CAPTCHA."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "POST /api/auth/login",
+                  "kind": "endpoint"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "0dab6ae318fa59ad344b1513a0382ee6da1719c49fab7cc0cb35a8734734485d"
+          },
+          "properties": {
+            "security-severity": "5.5",
+            "strix_vuln_class_hash": "c1b9f42998fa9c702ae63e1d7dd99a7a38d2f72be042d4b79b627d0314625117",
+            "synthetic_location": true,
+            "strix": {
+              "id": "vuln-0002",
+              "severity": "medium",
+              "timestamp": "2026-10-09 18:09:40 UTC",
+              "target": "https://app.example.com",
+              "endpoint": "POST /api/auth/login",
+              "method": "POST",
+              "cwe": "CWE-307",
+              "remediation_steps": "Throttle failed sign-ins per account and per address.",
+              "confidence": "medium"
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 2,
+          "level": "error",
+          "message": {
+            "text": "SQL injection in the order search\n\nThe search term reaches the SQL string unescaped."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/orders/search.py"
+                },
+                "region": {
+                  "startLine": 42,
+                  "endLine": 42,
+                  "snippet": {
+                    "text": "cursor.execute(f\"SELECT * FROM orders WHERE ref LIKE '%{term}%'\")"
+                  }
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "42421e40ebbf17bd75857fb24184b557de47eb997e86713c8584e9fa24ff6197"
+          },
+          "properties": {
+            "security-severity": "8.0",
+            "strix_vuln_class_hash": "2c4a8d481ea24f3cbbb218ab86f3e15b0aa52755d575ddf3807b5c091ee515ef",
+            "strix": {
+              "id": "vuln-0003",
+              "severity": "high",
+              "timestamp": "2026-10-09 18:15:03 UTC",
+              "cwe": "CWE-89",
+              "remediation_steps": "Use a parameterized query.",
+              "confidence": "high"
+            }
+          },
+          "fixes": [
+            {
+              "description": {
+                "text": "Use a parameterized query."
+              },
+              "artifactChanges": [
+                {
+                  "artifactLocation": {
+                    "uri": "app/orders/search.py"
+                  },
+                  "replacements": [
+                    {
+                      "deletedRegion": {
+                        "startLine": 42,
+                        "endLine": 42
+                      },
+                      "insertedContent": {
+                        "text": "cursor.execute(\"SELECT * FROM orders WHERE ref LIKE %s\", (f\"%{term}%\",))\n"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "ruleId": "CWE-200",
+          "ruleIndex": 3,
+          "level": "note",
+          "message": {
+            "text": "Server version disclosed in response headers\n\nEvery response carries Server: nginx/1.18.0 (Ubuntu); Set-Cookie: session=4f0c2b1e9a77d3c5; Path=/"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "https://app.example.com",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "3cb180320d2350d9271b85a84bfbb56d0802b7fc5e82c2464f0cf15ca92691c2"
+          },
+          "properties": {
+            "security-severity": "1.0",
+            "strix_vuln_class_hash": "40bc37c1f8e1d029330dad02d62c0106b5a9cb3bf488801bfbd753b576eac310",
+            "synthetic_location": true,
+            "strix": {
+              "id": "vuln-0004",
+              "severity": "info",
+              "timestamp": "2026-10-09 18:20:55 UTC",
+              "target": "https://app.example.com",
+              "cwe": "CWE-200",
+              "remediation_steps": "Set server_tokens off.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "ruleId": "strix-coverage/ssrf",
+          "ruleIndex": 4,
+          "kind": "pass",
+          "level": "none",
+          "message": {
+            "text": "SSRF — no_issue_found: POST /api/webhooks"
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "POST /api/webhooks"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "strix": {
+              "coverage_outcome": "no_issue_found",
+              "risk_area": "SSRF",
+              "surface": "POST /api/webhooks",
+              "recorded_by": "agent-2",
+              "source": "agent_reported"
+            }
+          }
+        },
+        {
+          "ruleId": "strix-coverage/xxe",
+          "ruleIndex": 5,
+          "kind": "notApplicable",
+          "level": "none",
+          "message": {
+            "text": "XXE — not_applicable: the whole API (no XML parsing)"
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "the whole API (no XML parsing)"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "strix": {
+              "coverage_outcome": "not_applicable",
+              "risk_area": "XXE",
+              "surface": "the whole API (no XML parsing)",
+              "recorded_by": "agent-2",
+              "source": "agent_reported"
+            }
+          }
+        },
+        {
+          "ruleId": "strix-coverage/business-logic",
+          "ruleIndex": 6,
+          "kind": "open",
+          "level": "none",
+          "message": {
+            "text": "Business logic — needs_follow_up: checkout coupons"
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "checkout coupons"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "strix": {
+              "coverage_outcome": "needs_follow_up",
+              "risk_area": "Business logic",
+              "surface": "checkout coupons",
+              "recorded_by": "agent-2",
+              "source": "agent_reported"
+            }
+          }
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true
+        }
+      ],
+      "properties": {
+        "syntheticLocationCount": 3
+      }
+    }
+  ]
+}

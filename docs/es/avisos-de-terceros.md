@@ -112,6 +112,7 @@ técnico, no asesoría legal.
 | cffi (dependencia de cryptography) | MIT-0 |
 | pycparser (dependencia de cffi) | BSD-3-Clause |
 | ReportLab | BSD (licencia propia de ReportLab Inc., de tipo BSD) |
+| PyYAML | MIT |
 
 **Panel web** (lo que viaja compilado en `pitangus/app/static`): React y React DOM (MIT), @xyflow/react (MIT),
 @base-ui/react (MIT), lucide-react (ISC), class-variance-authority (Apache-2.0), qrcode (MIT),

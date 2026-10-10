@@ -51,6 +51,32 @@
       "reachable": "Respuesta HTTPS {{code}} desde {{address}}."
     },
     "invalid_request": "Solicitud de dominio inválida",
-    "too_many_attempts": "Demasiados intentos con este dominio; vuelve a intentarlo en {{seconds}} s"
+    "too_many_attempts": "Demasiados intentos con este dominio; vuelve a intentarlo en {{seconds}} s",
+    "invalid_method": "El método de verificación es dns, file o meta",
+    "proof_unreachable": "No se pudo llegar a {{host}} por HTTPS para comprobar su prueba; vuelve a intentarlo más tarde",
+    "redirected": "{{url}} respondió con una redirección ({{code}}): la prueba debe servirla ese mismo host, sin redirecciones",
+    "file_missing": "{{url}} no contiene el token de este dominio: publica el archivo con el token y comprueba que responda 200",
+    "meta_missing": "La página principal de {{host}} no tiene la etiqueta meta pitangus-verify con el token de este dominio",
+    "proof_gone_file": "El archivo de verificación de {{host}} ya no está publicado y el dominio dejó de contar como verificado: vuelve a publicarlo y verifícalo",
+    "proof_gone_meta": "La etiqueta meta de verificación de {{host}} ya no está y el dominio dejó de contar como verificado: vuelve a añadirla y verifícalo",
+    "scope": {
+      "too_many": "Un análisis admite como máximo {{max}} hosts adicionales",
+      "invalid_host": "{{host}} no es un nombre de host válido (usa nombre.ejemplo.com o *.ejemplo.com)",
+      "outside": "{{host}} no es {{root}} ni uno de sus subdominios",
+      "needs_dns": "No se puede analizar {{host}}: {{root}} se verificó con un archivo o una etiqueta meta, que solo prueban ese host. Verifícalo con el registro TXT en DNS para incluir subdominios"
+    },
+    "schedule": {
+      "invalid": "La programación es semanal o ninguna",
+      "lapsed": "Omitido: la prueba del dominio caducó. Verifícalo de nuevo y el análisis semanal se reanuda en la siguiente ronda",
+      "busy": "En espera: había otro análisis web en cola o en curso; se vuelve a intentar en la siguiente ronda"
+    },
+    "headers": {
+      "invalid_request": "Solicitud de cabecera inválida",
+      "invalid_name": "El nombre de una cabecera solo admite letras, dígitos y !#$%&'*+.^_`|~-, hasta 64 caracteres",
+      "denied_name": "{{name}} la fija la propia conexión y no se puede guardar",
+      "invalid_value": "El valor de una cabecera es ASCII imprimible en una sola línea, hasta {{max}} caracteres",
+      "limit": "Un dominio guarda como máximo {{max}} cabeceras",
+      "not_found": "No hay ninguna cabecera guardada con el nombre {{name}}"
+    }
   }
 }

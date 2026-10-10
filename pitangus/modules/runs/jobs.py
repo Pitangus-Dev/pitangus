@@ -192,17 +192,21 @@ class ScanJobs:
         log.info("análisis de imagen encolado", extra={"run_id": run_id, "path": image["reference"]})
         return {"id": run_id, "status": "queued"}
 
-    def enqueue_dast_scan(self, *, domain: dict, requested_by: str, trigger: dict | None = None) -> dict:
-        """Passive web scan of a verified domain (scanning/web.py). One at a time per instance: it reaches someone's
-        application, so a second one waits for the first rather than doubling the load. Raises BusyError."""
+    def enqueue_dast_scan(self, *, domain: dict, requested_by: str, trigger: dict | None = None, options: dict | None = None) -> dict:
+        """Passive web or API scan of a verified domain (scanning/web.py). One at a time per instance: it reaches
+        someone's application, so a second one waits for the first rather than doubling the load. Raises BusyError.
+        `options` (already validated by the caller): mode, hosts, use_headers and, in API mode, the definition sealed
+        with the master key (`spec`) or the URL to fetch it from (`spec_url`). The worker checks everything again."""
         from sqlalchemy import func, select
         from pitangus.modules.runs.tables import jobs
+        options = options or {}
+        api = options.get("mode") == "api"
         run_id = uuid.uuid4().hex
         record = {"schema_version": "0.3.0", "id": run_id, "type": "dast_scan", "status": "queued", "created_at": _now(),
-                  "target": domain["url"], "variant": "baseline", "source": domain_source(domain),
+                  "target": domain["url"], "variant": "api" if api else "baseline", "source": domain_source(domain),
                   "requested_by": requested_by, "context": "", "summary": {"candidates": 0, "files": 0, "dependencies": 0},
                   "steps": [], "findings": [], "owasp_coverage": [], "limitations": [],
-                  "progress": [_event("info", msg("runs.progress.queued_web", host=domain["host"]))]}
+                  "progress": [_event("info", msg("runs.progress.queued_api" if api else "runs.progress.queued_web", host=domain["host"]))]}
         if trigger:
             record["trigger"] = trigger
         with db.transaction(self.data_dir) as connection:
@@ -212,7 +216,9 @@ class ScanJobs:
             if busy:
                 raise BusyError(msg("scanning.web.errors.busy"))
             self._save(record)
-            queue.enqueue(self.data_dir, "dast_scan", {"domain_id": domain["id"]}, run_id=run_id)
+            queue.enqueue(self.data_dir, "dast_scan", {"domain_id": domain["id"], **{key: options[key] for key in
+                          ("mode", "hosts", "use_headers", "spec", "spec_url", "spec_sha256", "spec_endpoints") if options.get(key) is not None}},
+                          run_id=run_id)
         log.info("dast_scan_queued", extra={"run_id": run_id, "path": domain["host"], "user": requested_by})
         return {"id": run_id, "status": "queued"}
 
@@ -413,12 +419,18 @@ class ScanJobs:
 
     def _execute_dast(self, job: dict) -> None:
         """Every guardrail again, now that the scan is about to reach the site: the feature is on, the runner can do
-        it, the domain's DNS proof is current and its TXT still published, and its name resolves to public addresses
-        only (the one ZAP gets pinned)."""
+        it, the domain's proof is current and still published, the scope is still allowed by that proof, and every
+        host of it resolves to public addresses only (the ones ZAP gets pinned). The API definition, sealed in the
+        job, is opened and removed from it before anything else can fail."""
+        from pitangus.modules.scanning import openapi_spec
         from pitangus.modules.scanning.engines import docker_problem, runner
         from pitangus.modules.scanning.web import WebScanError, scan_domain
-        from pitangus.modules.sources.domains import DomainError, confirm_control, public_address
+        from pitangus.modules.sources import domain_headers
+        from pitangus.modules.sources.domains import DomainError, confirm_control, public_address, scan_scope
         run_id = job["run_id"]
+        sealed = job.get("spec")
+        if sealed:
+            queue.drop_from_payload(self.data_dir, run_id, "spec")
         record = load_run(self.data_dir, run_id)
         record["status"], record["started_at"] = "running", _now()
 
@@ -436,12 +448,29 @@ class ScanJobs:
                 raise WebScanError(problem)
             domain = confirm_control(self.data_dir, job["domain_id"])
             host = domain["host"]
-            try:
-                address = public_address(host)
-            except DomainError as exc:
-                raise WebScanError(msg("scanning.web.errors.address", host=host, reason=exc.message)) from exc
-            progress("ok", msg("runs.progress.web_target", host=host, address=address))
-            scan = scan_domain(domain, address, data_dir=self.data_dir, progress=progress)
+            scope = scan_scope(domain, job.get("hosts") or [])
+            pins = {}
+            for name in scope["hosts"]:
+                try:
+                    pins[name] = public_address(name)
+                except DomainError as exc:
+                    raise WebScanError(msg("scanning.web.errors.address", host=name, reason=exc.message)) from exc
+            progress("ok", msg("runs.progress.web_target", host=host, address=pins[host]))
+            headers = domain_headers.values(domain["id"]) if job.get("use_headers") else []
+            if job.get("use_headers") and not headers:
+                raise WebScanError(msg("scanning.web.errors.no_headers"))
+            api = None
+            if job.get("mode") == "api":
+                try:
+                    if sealed:
+                        api = {**vault.unseal(sealed, "dast-spec"), "source": "upload"}
+                    elif job.get("spec_url"):
+                        api = {**openapi_spec.fetch(job["spec_url"], pins), "source": "url"}
+                except openapi_spec.SpecError as exc:
+                    raise WebScanError(exc.message) from exc
+                if api is None:
+                    raise WebScanError(msg("scanning.web.spec.missing"))
+            scan = scan_domain(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope, headers=headers, api=api)
             counts = _counts(scan["summary"])
             progress("warn" if scan["status"] == "incomplete" else "ok",
                      msg("runs.progress.finished_incomplete" if scan["status"] == "incomplete" else "runs.progress.finished", counts=counts))

@@ -51,6 +51,32 @@
       "reachable": "HTTPS response {{code}} from {{address}}."
     },
     "invalid_request": "Invalid domain request",
-    "too_many_attempts": "Too many attempts for this domain; try again in {{seconds}} s"
+    "too_many_attempts": "Too many attempts for this domain; try again in {{seconds}} s",
+    "invalid_method": "Use dns, file or meta as the verification method",
+    "proof_unreachable": "Couldn't reach {{host}} over HTTPS to check its proof; try again later",
+    "redirected": "{{url}} answered with a redirect ({{code}}): the proof must be served by that exact host, without redirects",
+    "file_missing": "{{url}} doesn't contain this domain's token: publish the file with the token in it and make sure it answers 200",
+    "meta_missing": "The homepage of {{host}} has no pitangus-verify meta tag with this domain's token",
+    "proof_gone_file": "The verification file of {{host}} is gone, so it no longer counts as verified: publish it again and verify",
+    "proof_gone_meta": "The verification meta tag of {{host}} is gone, so it no longer counts as verified: add it again and verify",
+    "scope": {
+      "too_many": "A scan lists at most {{max}} extra hosts",
+      "invalid_host": "{{host}} isn't a valid host name (use name.example.com or *.example.com)",
+      "outside": "{{host}} isn't {{root}} or one of its subdomains",
+      "needs_dns": "{{host}} can't be scanned: {{root}} was verified with a file or a meta tag, which proves that host only. Verify it with the DNS TXT record to include subdomains"
+    },
+    "schedule": {
+      "invalid": "The schedule is weekly or off",
+      "lapsed": "Skipped: the domain's proof lapsed. Verify it again and the weekly scan resumes at the next round",
+      "busy": "Waiting: another web scan was queued or running; it is tried again at the next round"
+    },
+    "headers": {
+      "invalid_request": "Invalid header request",
+      "invalid_name": "Header names use letters, digits and !#$%&'*+.^_`|~- only, up to 64 characters",
+      "denied_name": "{{name}} is set by the connection itself and can't be saved",
+      "invalid_value": "Header values are printable ASCII on one line, up to {{max}} characters",
+      "limit": "A domain keeps at most {{max}} headers",
+      "not_found": "There's no saved header named {{name}}"
+    }
   }
 }

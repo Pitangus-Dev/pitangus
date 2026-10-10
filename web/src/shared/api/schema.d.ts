@@ -1041,13 +1041,13 @@ export interface paths {
         };
         /**
          * Domain List
-         * @description The registered domains (at most `limit`), with whether each one's TXT proof is current.
+         * @description The registered domains (at most `limit`), with whether each one's proof is current and its weekly scan.
          */
         get: operations["domain_list_api_domains_get"];
         put?: never;
         /**
          * Domain Register
-         * @description Registers an HTTPS domain and answers the TXT record that proves control of it. Nothing is tested.
+         * @description Registers an HTTPS domain and answers the ways to prove control of it. Nothing is tested.
          */
         post: operations["domain_register_api_domains_post"];
         delete?: never;
@@ -1067,10 +1067,32 @@ export interface paths {
         put?: never;
         /**
          * Domain Verify
-         * @description Looks the domain's TXT record up once. Seen, the domain is an asset for 90 days; a daily re-check extends or
-         *     withdraws the proof.
+         * @description Asks for the proof once: the TXT record (dns), the well-known file (file) or the homepage's meta tag (meta).
+         *     Seen, the domain is an asset for 90 days; a daily re-check of the same proof extends or withdraws it.
          */
         post: operations["domain_verify_api_domains_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Probe
+         * @description Checks a URL before registering it: whether its name resolves to public addresses only (nothing is sent
+         *     otherwise) and whether it answers over HTTPS with a valid certificate. One HEAD to the already-resolved address,
+         *     no redirects. Only a hint: a domain that doesn't answer can still be registered.
+         */
+        post: operations["domain_probe_api_domains_probe_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1088,8 +1110,7 @@ export interface paths {
         put?: never;
         /**
          * Domain Check
-         * @description Whether the domain answers over HTTPS: one HEAD to its already-resolved public address, no redirects. Only a
-         *     hint before registering; a domain that doesn't answer can still be registered.
+         * @description The same probe as `/api/domains/probe` (kept for earlier panels).
          */
         post: operations["domain_check_api_domains_check_post"];
         delete?: never;
@@ -1109,10 +1130,54 @@ export interface paths {
         put?: never;
         /**
          * Domain Remove
-         * @description Removes a domain. What was imported against it (runs, findings, their triage and tickets) goes with it, like a
-         *     repository that left the installation: the panel says so before asking.
+         * @description Removes a domain and its saved headers. What was scanned or imported against it (runs, findings, their triage
+         *     and tickets) goes with it, like a repository that left the installation: the panel says so before asking.
          */
         post: operations["domain_remove_api_domains_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/headers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Headers Route
+         * @description Saves or removes a request header that web scans of the domain may send (API keys, bearer tokens, session
+         *     cookies). Stored encrypted; never answered back: the list carries names, the last four characters of long values
+         *     and when each was saved.
+         */
+        post: operations["domain_headers_route_api_domains_headers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Schedule
+         * @description Turns the weekly passive web scan of the domain on or off. The first one is queued at the next hourly round of
+         *     the periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host, without its
+         *     saved headers, and a domain whose proof lapsed is skipped with the reason.
+         */
+        post: operations["domain_schedule_api_domains_schedule_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1130,8 +1195,9 @@ export interface paths {
         put?: never;
         /**
          * Domain Scan
-         * @description Queues a passive web scan (ZAP: spider and passive rules, never an attack) of a verified domain. Off unless the
-         *     server sets PITANGUS_DAST_ENABLED; one at a time.
+         * @description Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD
+         *     operations of an OpenAPI definition (api), optionally over listed subdomains and with the domain's saved headers.
+         *     Off unless the server sets PITANGUS_DAST_ENABLED; one at a time.
          */
         post: operations["domain_scan_api_domains_scans_post"];
         delete?: never;
@@ -2801,18 +2867,57 @@ export interface components {
             /** Deleted */
             deleted: boolean;
         };
-        /** DomainCheck */
+        /**
+         * DomainCheck
+         * @description The probe before registering: `public` is false when the name resolves to a private or reserved address (and
+         *     nothing was sent), null when it doesn't resolve; `https` and `reachable` mean a valid certificate and an answer.
+         */
         DomainCheck: {
             /** Host */
             host: string;
             /** Reachable */
             reachable: boolean;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "reachable" | "dns_error" | "private_address" | "tls_error" | "unreachable";
             /** Detail */
             detail: string;
             /** Http Status */
             http_status?: number | null;
+            /**
+             * Https
+             * @default false
+             */
+            https: boolean;
+            /** Public */
+            public?: boolean | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainHeader
+         * @description A saved request header: its name, the last four characters of a long value and when it was saved.
+         */
+        DomainHeader: {
+            /** Name */
+            name: string;
+            /** Last4 */
+            last4?: string | null;
+            /** Saved At */
+            saved_at?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** DomainHeaders */
+        DomainHeaders: {
+            /** Domain Id */
+            domain_id: string;
+            /** Headers */
+            headers: components["schemas"]["DomainHeader"][];
+            /** Limit */
+            limit: number;
         } & {
             [key: string]: unknown;
         };
@@ -2848,9 +2953,11 @@ export interface components {
         };
         /**
          * DomainRow
-         * @description A registered domain. `verified` means its TXT proof is current (`verified_until` lies ahead); the TXT record
-         *     itself (`txt_name`, `txt_value`) is only answered to administrators. `runs` and `open` say what was imported
-         *     against it.
+         * @description A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`
+         *     says which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,
+         *     `verify_file_url`, `verify_meta`) and the saved `headers` are only answered to administrators. `runs` and `open`
+         *     say what was scanned or imported against it; `schedule` is null or `weekly`, with the next and last scheduled
+         *     scan and, when the last one was skipped, why (`schedule_note`).
          */
         DomainRow: {
             /** Id */
@@ -2879,10 +2986,39 @@ export interface components {
             verified_until?: string | null;
             /** Checked At */
             checked_at?: string | null;
+            /** Proof Method */
+            proof_method?: ("dns" | "file" | "meta") | null;
             /** Txt Name */
             txt_name?: string | null;
             /** Txt Value */
             txt_value?: string | null;
+            /** Verify Token */
+            verify_token?: string | null;
+            /** Verify File Url */
+            verify_file_url?: string | null;
+            /** Verify Meta */
+            verify_meta?: string | null;
+            /** Schedule */
+            schedule?: "weekly" | null;
+            /** Schedule Next At */
+            schedule_next_at?: string | null;
+            /** Schedule Last At */
+            schedule_last_at?: string | null;
+            /** Schedule Last Run */
+            schedule_last_run?: string | null;
+            /** Schedule Note */
+            schedule_note?: string | null;
+            /** Last Scan */
+            last_scan?: {
+                [key: string]: unknown;
+            } | null;
+            /** Headers */
+            headers?: components["schemas"]["DomainHeader"][] | null;
+            /**
+             * Header Count
+             * @default 0
+             */
+            header_count: number;
             /**
              * Runs
              * @default 0
@@ -3983,8 +4119,13 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** QueuedDomainScan */
+        /**
+         * QueuedDomainScan
+         * @description `run_id` is the queued run (also in `run`, with its status).
+         */
         QueuedDomainScan: {
+            /** Run Id */
+            run_id: string;
             /** Run */
             run: {
                 [key: string]: unknown;
@@ -6922,6 +7063,12 @@ export interface operations {
                 "application/json": {
                     /** Domain Id */
                     domain_id: string;
+                    /**
+                     * Method
+                     * @default dns
+                     * @enum {string}
+                     */
+                    method?: "dns" | "file" | "meta";
                 };
             };
         };
@@ -6941,6 +7088,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_probe_api_domains_probe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Url */
+                    url: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainCheck"];
+                };
             };
             /** @description Too many attempts */
             429: {
@@ -7019,6 +7200,85 @@ export interface operations {
             };
         };
     };
+    domain_headers_route_api_domains_headers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /**
+                     * Op
+                     * @enum {string}
+                     */
+                    op: "save" | "remove";
+                    /** Name */
+                    name: string;
+                    /** Value */
+                    value?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainHeaders"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_schedule_api_domains_schedule_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /** Schedule */
+                    schedule: "weekly" | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainRow"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     domain_scan_api_domains_scans_post: {
         parameters: {
             query?: never;
@@ -7031,6 +7291,27 @@ export interface operations {
                 "application/json": {
                     /** Domain Id */
                     domain_id: string;
+                    /**
+                     * Mode
+                     * @default web
+                     * @enum {string}
+                     */
+                    mode?: "web" | "api";
+                    /** Hosts */
+                    hosts?: string[];
+                    /**
+                     * Use Headers
+                     * @default false
+                     */
+                    use_headers?: boolean;
+                    spec?: {
+                        /** Filename */
+                        filename: string;
+                        /** Content Base64 */
+                        content_base64: string;
+                    } | null;
+                    /** Spec Url */
+                    spec_url?: string | null;
                 };
             };
         };
@@ -7051,7 +7332,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Web scans off, domain not verified or private, or one already running */
+            /** @description Web scans off, domain not verified, a host private, subdomains without a DNS proof, no saved headers, or one already running */
             409: {
                 headers: {
                     [name: string]: unknown;

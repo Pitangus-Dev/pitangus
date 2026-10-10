@@ -44,5 +44,12 @@ domain_registry = Table(
     Column("verified_at", DateTime(timezone=True)),
     Column("verified_until", DateTime(timezone=True)),
     Column("checked_at", DateTime(timezone=True)),
+    # Which proof made it verified (dns · file · meta); only a DNS proof covers the host's subdomains.
+    Column("proof_method", Text, nullable=False, server_default="dns"),
+    Column("schedule", Text),  # null · weekly: a passive web scan queued by the periodic task
+    Column("schedule_next_at", DateTime(timezone=True)),
+    Column("schedule_last_at", DateTime(timezone=True)),
+    Column("schedule_last_run", String(32)),
+    Column("schedule_note", JSONB),  # why the last scheduled scan was skipped (a stored message)
     UniqueConstraint("tenant_id", "host", name="uq_domain_registry_host"),
 )

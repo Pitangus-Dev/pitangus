@@ -555,7 +555,11 @@
   },
   "web": {
     "progress": {
-      "starting": "ZAP {{version}}: recorriendo {{host}} hasta {{minutes}} minutos y leyendo sus respuestas (pasivo, sin ataques)…"
+      "starting": "ZAP {{version}}: recorriendo {{host}} hasta {{minutes}} minutos y leyendo sus respuestas (pasivo, sin ataques)…",
+      "starting_api": "ZAP {{version}}: importando {{count}} operaciones GET y HEAD de la definición OpenAPI contra {{target}} y leyendo las respuestas (pasivo, sin ataques)…",
+      "scope": "También en el alcance: {{hosts}}. Solo se alcanzan los hosts listados por nombre; un comodín amplía el contexto, pero sus hosts no se resuelven.",
+      "headers_one": "Las peticiones al alcance llevan 1 cabecera guardada: {{names}}.",
+      "headers_other": "Las peticiones al alcance llevan {{count}} cabeceras guardadas: {{names}}."
     },
     "detail": "{{count}} hallazgos en el dominio ({{results}} alertas leídas).",
     "remediation": "Corrígelo con la guía de {{tool}} para esta alerta. El próximo análisis web lo marca remediado cuando deje de reportarlo.",
@@ -570,13 +574,20 @@
       },
       "review": {
         "detail": "Las alertas pasivas son señales: confirma cada una contra la aplicación y su despliegue antes de actuar."
+      },
+      "api": {
+        "name": "Análisis pasivo de API (ZAP)",
+        "detail": "{{count}} operaciones GET y HEAD de la definición OpenAPI pedidas en {{target}} y después las reglas pasivas de ZAP sobre cada respuesta. {{findings}} hallazgos."
       }
     },
     "limitations": {
       "passive": "Análisis pasivo: ZAP solo leyó las respuestas a peticiones normales. No probó inyecciones ni otros ataques, así que no verlos aquí no demuestra nada.",
       "unauthenticated": "Sin iniciar sesión: las páginas detrás de un login no se alcanzaron.",
       "spider": "El spider se detiene a los {{minutes}} minutos: un sitio grande no se cubre entero y lo que no alcanzó no se analizó.",
-      "not_pentest": "Es un análisis dinámico automatizado, no una prueba de penetración."
+      "not_pentest": "Es un análisis dinámico automatizado, no una prueba de penetración.",
+      "headers": "Las peticiones llevaron las cabeceras guardadas del dominio; no se comprobó que autenticaran de verdad, así que pueden faltar páginas detrás de un login.",
+      "api": "Solo se pidieron las {{count}} operaciones GET y HEAD de la definición, con valores de ejemplo: quedaron fuera POST, PUT, PATCH y DELETE, y no se probaron endpoints que la definición no lista.",
+      "wildcards": "Los hosts que solo encajan con un comodín no se resolvieron y no se analizaron: lista un host por nombre para incluirlo."
     },
     "errors": {
       "disabled": "Los análisis web están apagados en este servidor: define PITANGUS_DAST_ENABLED=1 en su entorno y reinícialo.",
@@ -585,7 +596,24 @@
       "timeout": "ZAP pasó del límite de {{minutes}} minutos y el análisis se detuvo.",
       "unreadable": "No se pudo leer el informe de ZAP.",
       "busy": "Ya hay un análisis web en cola o en curso; espera a que termine.",
-      "address": "No se puede analizar {{host}}: {{reason}}"
+      "address": "No se puede analizar {{host}}: {{reason}}",
+      "no_headers": "Este dominio no tiene cabeceras guardadas: añádelas antes de pedir un análisis que las use."
+    },
+    "spec": {
+      "empty": "La definición OpenAPI está vacía.",
+      "too_large": "La definición OpenAPI pasa de {{max}} MB o está anidada demasiado.",
+      "type": "Sube la definición OpenAPI como archivo .json, .yaml o .yml.",
+      "not_base64": "La definición OpenAPI debe llegar en base64.",
+      "unreadable": "La definición OpenAPI no es JSON ni YAML válido (no se aceptan anclas ni alias de YAML).",
+      "not_openapi": "No es una definición OpenAPI 3.x ni Swagger 2.0 con rutas.",
+      "remote_ref": "La definición OpenAPI referencia otro documento ($ref fuera de ella); júntala primero en un solo archivo.",
+      "no_operations": "La definición OpenAPI no tiene operaciones GET ni HEAD, y un análisis pasivo solo envía esas.",
+      "too_many_operations": "La definición OpenAPI tiene más de {{max}} operaciones GET y HEAD.",
+      "bad_url": "La URL de la definición debe ser HTTPS, sin usuario, puerto ni fragmento.",
+      "url_outside": "{{host}} no es un host de este análisis: la definición solo se descarga del dominio o de un subdominio listado por nombre.",
+      "fetch_failed": "No se pudo descargar la definición OpenAPI de {{url}}.",
+      "fetch_status": "{{url}} respondió {{code}} en vez de la definición OpenAPI (no se siguen redirecciones).",
+      "missing": "El modo API necesita una definición OpenAPI."
     }
   }
 }

@@ -26,7 +26,8 @@
     "comment_posted": "Comentario publicado en el PR.",
     "comment_failed": "No se pudo comentar en el PR: {{reason}}",
     "no_comment_permission": "El resultado no se publicó en GitHub: la App no tiene permiso de escritura en pull requests.",
-    "branch_commit": "Se analiza la rama {{branch}} en el commit {{sha}}"
+    "branch_commit": "Se analiza la rama {{branch}} en el commit {{sha}}",
+    "queued_api": "En cola: análisis pasivo de la API de {{host}}."
   },
   "failure": {
     "restart": "El servidor se reinició mientras corría esta ejecución y quedó interrumpida. Vuelve a lanzarla.",

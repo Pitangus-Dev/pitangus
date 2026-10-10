@@ -555,7 +555,11 @@
   },
   "web": {
     "progress": {
-      "starting": "ZAP {{version}}: crawling {{host}} for up to {{minutes}} minutes and reading its responses (passive, no attacks)…"
+      "starting": "ZAP {{version}}: crawling {{host}} for up to {{minutes}} minutes and reading its responses (passive, no attacks)…",
+      "starting_api": "ZAP {{version}}: importing {{count}} GET and HEAD operations of the OpenAPI definition against {{target}} and reading the responses (passive, no attacks)…",
+      "scope": "Also in scope: {{hosts}}. Only hosts listed by name are reached; a wildcard widens the context but its hosts aren't resolved.",
+      "headers_one": "Requests to the scope carry 1 saved header: {{names}}.",
+      "headers_other": "Requests to the scope carry {{count}} saved headers: {{names}}."
     },
     "detail": "{{count}} findings on the domain ({{results}} alerts read).",
     "remediation": "Fix it following {{tool}}'s guidance for this alert. The next web scan marks it fixed once it no longer reports it.",
@@ -570,13 +574,20 @@
       },
       "review": {
         "detail": "Passive alerts are signals: confirm each one against the application and its deployment before acting."
+      },
+      "api": {
+        "name": "Passive API analysis (ZAP)",
+        "detail": "{{count}} GET and HEAD operations of the OpenAPI definition requested at {{target}}, then ZAP's passive rules over every response. {{findings}} findings."
       }
     },
     "limitations": {
       "passive": "Passive analysis: ZAP only read the responses to ordinary requests. Injections and other attacks weren't tried, so not seeing them here proves nothing.",
       "unauthenticated": "Without signing in: pages behind a login weren't reached.",
       "spider": "The spider stops after {{minutes}} minutes: a large site isn't covered whole, and pages it didn't reach weren't analyzed.",
-      "not_pentest": "This is an automated dynamic analysis, not a penetration test."
+      "not_pentest": "This is an automated dynamic analysis, not a penetration test.",
+      "headers": "Requests carried the domain's saved headers; whether they actually authenticated wasn't checked, so pages behind a login may still be missing.",
+      "api": "Only the {{count}} GET and HEAD operations of the definition were requested, with example values: POST, PUT, PATCH and DELETE operations were left out, and endpoints the definition doesn't list weren't tried.",
+      "wildcards": "Hosts matched only by a wildcard weren't resolved, so they weren't analyzed: list a host by name to include it."
     },
     "errors": {
       "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
@@ -585,7 +596,24 @@
       "timeout": "ZAP went past the {{minutes}}-minute limit and the scan was stopped.",
       "unreadable": "ZAP's report couldn't be read.",
       "busy": "A web scan is already queued or running; wait for it to finish.",
-      "address": "{{host}} can't be scanned: {{reason}}"
+      "address": "{{host}} can't be scanned: {{reason}}",
+      "no_headers": "This domain has no saved headers: add them before asking for a scan that uses them."
+    },
+    "spec": {
+      "empty": "The OpenAPI definition is empty.",
+      "too_large": "The OpenAPI definition goes past {{max}} MB or is nested too deep.",
+      "type": "Upload the OpenAPI definition as a .json, .yaml or .yml file.",
+      "not_base64": "The OpenAPI definition must arrive in base64.",
+      "unreadable": "The OpenAPI definition isn't valid JSON or YAML (YAML anchors and aliases aren't accepted).",
+      "not_openapi": "This isn't an OpenAPI 3.x or Swagger 2.0 definition with paths.",
+      "remote_ref": "The OpenAPI definition references another document ($ref outside it); bundle it into one file first.",
+      "no_operations": "The OpenAPI definition has no GET or HEAD operations, and a passive scan only sends those.",
+      "too_many_operations": "The OpenAPI definition has more than {{max}} GET and HEAD operations.",
+      "bad_url": "The definition's URL must be HTTPS, with no user, port or fragment.",
+      "url_outside": "{{host}} isn't a host of this scan: the definition is fetched only from the domain or a subdomain listed by name.",
+      "fetch_failed": "Couldn't download the OpenAPI definition from {{url}}.",
+      "fetch_status": "{{url}} answered {{code}} instead of the OpenAPI definition (redirects aren't followed).",
+      "missing": "API mode needs an OpenAPI definition."
     }
   }
 }

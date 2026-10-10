@@ -20,14 +20,15 @@ from pitangus.modules.integrations.github import (REQUIRED_PERMISSIONS, GitHubAp
                                                   install_url, installation_details, permission_review, save_credentials, verify_app)
 from pitangus.modules.integrations import github_manifest
 from pitangus.modules.integrations.installations import clear_github, github_connections, github_installations, save_github
+from pitangus.modules.scanning import openapi_spec
 from pitangus.modules.sources import assets as source_assets
-from pitangus.modules.sources import domains
+from pitangus.modules.sources import domain_headers, domains
 from pitangus.modules.sources.assets import with_scan_branches
 from pitangus.modules.sources.domains import DomainError
 from pitangus.modules.sources.repositories import SourceError, find_source, list_repositories, source_page, unavailable
 from pitangus.modules.runs.jobs import BusyError
 from pitangus.shared import log as logging_setup, settings
-from pitangus.shared.i18n import msg, t, text
+from pitangus.shared.i18n import MARK, is_msg, msg, t, text
 
 router = APIRouter(tags=["sources"])
 
@@ -182,15 +183,24 @@ def connect_code(context: Context = Depends(guard(Policy(admin=True, action="con
 
 
 # --- Domains --------------------------------------------------------------------------------------------------------
-# A registered domain whose DNS TXT proof is current is the asset `domain:<host>` that `import-sarif` accepts for
-# findings of web scanners (ZAP, Nuclei…). Nothing here scans anything: the only outgoing traffic is one DNS TXT
-# lookup when verifying and one single-hop HTTPS HEAD when an administrator probes a domain before adding it, both
-# behind the administrator role and the progressive lock-out.
+# A registered domain whose proof is current (DNS TXT, a well-known file or a meta tag) is the asset `domain:<host>`
+# that `import-sarif` accepts for findings of web scanners (ZAP, Nuclei, Strix…) and that passive web and API scans
+# reach. Everything here is for administrators, and the outgoing lookups (DNS, one HTTPS GET or HEAD to an address
+# checked as public, no redirects) count against the progressive lock-out.
+
+class DomainHeader(Open):
+    """A saved request header: its name, the last four characters of a long value and when it was saved."""
+    name: str
+    last4: str | None = None
+    saved_at: str | None = None
+
 
 class DomainRow(Open):
-    """A registered domain. `verified` means its TXT proof is current (`verified_until` lies ahead); the TXT record
-    itself (`txt_name`, `txt_value`) is only answered to administrators. `runs` and `open` say what was imported
-    against it."""
+    """A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`
+    says which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,
+    `verify_file_url`, `verify_meta`) and the saved `headers` are only answered to administrators. `runs` and `open`
+    say what was scanned or imported against it; `schedule` is null or `weekly`, with the next and last scheduled
+    scan and, when the last one was skipped, why (`schedule_note`)."""
     id: str
     host: str
     url: str
@@ -204,8 +214,20 @@ class DomainRow(Open):
     verified_at: str | None = None
     verified_until: str | None = None
     checked_at: str | None = None
+    proof_method: Literal["dns", "file", "meta"] | None = None
     txt_name: str | None = None
     txt_value: str | None = None
+    verify_token: str | None = None
+    verify_file_url: str | None = None
+    verify_meta: str | None = None
+    schedule: Literal["weekly"] | None = None
+    schedule_next_at: str | None = None
+    schedule_last_at: str | None = None
+    schedule_last_run: str | None = None
+    schedule_note: str | None = None
+    last_scan: dict[str, Any] | None = None
+    headers: list[DomainHeader] | None = Field(None, max_length=domain_headers.LIMIT)
+    header_count: int = 0
     runs: int = 0
     open: int = 0
 
@@ -219,11 +241,15 @@ class DomainPage(Open):
 
 
 class DomainCheck(Open):
+    """The probe before registering: `public` is false when the name resolves to a private or reserved address (and
+    nothing was sent), null when it doesn't resolve; `https` and `reachable` mean a valid certificate and an answer."""
     host: str
     reachable: bool
-    status: str
+    status: Literal["reachable", "dns_error", "private_address", "tls_error", "unreachable"]
     detail: str
     http_status: int | None = None
+    https: bool = False
+    public: bool | None = None
 
 
 class DomainRemoved(Open):
@@ -232,25 +258,44 @@ class DomainRemoved(Open):
     runs_deleted: int
 
 
+class DomainHeaders(Open):
+    domain_id: str
+    headers: list[DomainHeader] = Field(max_length=domain_headers.LIMIT)
+    limit: int
+
+
+ADMIN_ONLY = ("txt_name", "txt_value", "verify_token", "verify_file_url", "verify_meta")
+SPEC_BASE64 = (openapi_spec.MAX_BYTES + 2) // 3 * 4
+SCAN_BODY = SPEC_BASE64 + 16_000  # a definition in base64 plus the rest of the request
+
+
 def _domain_rows(context: Context, records: list[dict]) -> list[dict]:
-    """Rows for the reader: what was imported against each domain, and the TXT record for administrators only."""
+    """Rows for the reader: what was scanned or imported against each domain, its latest web scan, and what proves
+    it and the saved headers for administrators only."""
     from pitangus.modules.findings import registry as findings_registry
     from pitangus.modules.runs.store import find_runs
     admin = (context.user or {}).get("role") == "admin"
     counted: dict[str, int] = {}
+    latest: dict[str, dict] = {}
     for row in find_runs(context.data_dir, assets=[record["key"] for record in records]):
-        counted[row.get("asset_key") or source_assets.asset_key(row)] = counted.get(row.get("asset_key") or source_assets.asset_key(row), 0) + 1
+        key = row.get("asset_key") or source_assets.asset_key(row)
+        counted[key] = counted.get(key, 0) + 1
+        if row.get("type") == "dast_scan" and key not in latest:  # newest first
+            latest[key] = {name: row.get(name) for name in ("id", "status", "created_at", "finished_at", "variant")}
     rows = []
     for record in records:
         runs = counted.get(record["key"], 0)
-        shown = {name: value for name, value in record.items() if admin or name not in ("txt_name", "txt_value")}
-        rows.append({**shown, "runs": runs, "open": findings_registry.summarize(context.data_dir, record["key"])["open"] if runs else 0})
+        shown = {name: value for name, value in record.items() if admin or name not in ADMIN_ONLY}
+        saved = domain_headers.list_headers(record["id"]) if admin else []
+        rows.append({**shown, "runs": runs, "last_scan": latest.get(record["key"]),
+                     "headers": saved if admin else None, "header_count": len(saved) if admin else domain_headers.count(record["id"]),
+                     "open": findings_registry.summarize(context.data_dir, record["key"])["open"] if runs else 0})
     return rows
 
 
 @router.get("/api/domains", response_model=DomainPage, **AS_RETURNED)
 def domain_list(context: Context = Depends(guard())) -> Any:
-    """The registered domains (at most `limit`), with whether each one's TXT proof is current."""
+    """The registered domains (at most `limit`), with whether each one's proof is current and its weekly scan."""
     records = domains.list_domains(context.data_dir)
     return context.render({"items": _domain_rows(context, records), "total": len(records), "limit": domains.LIMIT,
                            "dast": settings.flag("PITANGUS_DAST_ENABLED")})
@@ -268,9 +313,66 @@ class DomainIdIn(BaseModel):
     domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
 
 
+class DomainVerifyIn(BaseModel):
+    """`method`: dns (the TXT record, the default), file (`/.well-known/pitangus-verify.txt`) or meta (the
+    homepage's `<meta name="pitangus-verify">`). Only a DNS proof lets scans include subdomains."""
+    model_config = ConfigDict(extra="forbid")
+    domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
+    method: Literal["dns", "file", "meta"] = "dns"
+
+
 class DomainCheckIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     url: StrictStr = Field(max_length=300)
+
+
+class DomainHeaderIn(BaseModel):
+    """`save` adds or replaces a header (by name, case-insensitive); `remove` deletes it (no `value`)."""
+    model_config = ConfigDict(extra="forbid")
+    domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
+    op: Literal["save", "remove"]
+    name: StrictStr = Field(min_length=1, max_length=64)
+    value: StrictStr | None = Field(None, max_length=domain_headers.VALUE_MAX + 64)
+
+    @model_validator(mode="after")
+    def _value(self):
+        if (self.op == "save") != (self.value is not None):
+            raise ValueError("value goes with save only")
+        return self
+
+
+class DomainScheduleIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
+    schedule: Literal["weekly"] | None
+
+
+class SpecIn(BaseModel):
+    """An OpenAPI 3.x or Swagger 2.0 definition, JSON or YAML, at most 5 MB once decoded."""
+    model_config = ConfigDict(extra="forbid")
+    filename: StrictStr = Field(min_length=1, max_length=200)
+    content_base64: StrictStr = Field(min_length=4, max_length=SPEC_BASE64)
+
+
+class DomainScanIn(BaseModel):
+    """A passive scan of a verified domain. `mode`: web (crawl) or api (an OpenAPI definition: `spec`, uploaded, or
+    `spec_url`, on a host of the scope). `hosts`: subdomains to include (`name` or `*.name`, at most 20; DNS proofs
+    only). `use_headers`: send the domain's saved headers to the scope's hosts."""
+    model_config = ConfigDict(extra="forbid")
+    domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
+    mode: Literal["web", "api"] = "web"
+    hosts: list[Annotated[StrictStr, Field(max_length=260)]] = Field(default_factory=list, max_length=domains.SCOPE_LIMIT)
+    use_headers: bool = False
+    spec: SpecIn | None = None
+    spec_url: StrictStr | None = Field(None, max_length=2000)
+
+    @model_validator(mode="after")
+    def _spec(self):
+        if self.mode == "web" and (self.spec is not None or self.spec_url is not None):
+            raise ValueError("a definition goes with api mode only")
+        if self.mode == "api" and (self.spec is None) == (self.spec_url is None):
+            raise ValueError("api mode takes either spec or spec_url")
+        return self
 
 
 def _attempt(context: Context, scope: str) -> None:
@@ -280,10 +382,17 @@ def _attempt(context: Context, scope: str) -> None:
         raise ApiError(429, msg("sources.domains.too_many_attempts", seconds=wait), retry_in=wait)
 
 
+def _known(context: Context, domain_id: str) -> dict:
+    try:
+        return domains.get_domain(context.data_dir, domain_id)
+    except DomainError as exc:
+        raise ApiError(404, exc.message) from exc
+
+
 @router.post("/api/domains", response_model=DomainRow, openapi_extra=documented(DomainIn), **AS_RETURNED)
 def domain_register(context: Context = Depends(guard(Policy(admin=True, action="register-domain", body=2048))),
                     data: DomainIn = Depends(body(DomainIn, msg("sources.domains.invalid_request")))) -> Any:
-    """Registers an HTTPS domain and answers the TXT record that proves control of it. Nothing is tested."""
+    """Registers an HTTPS domain and answers the ways to prove control of it. Nothing is tested."""
     try:
         record = domains.register_domain(context.data_dir, data.url, data.kind, data.context, by=context.user["username"])
     except DomainError as exc:
@@ -292,35 +401,27 @@ def domain_register(context: Context = Depends(guard(Policy(admin=True, action="
     return context.render(_domain_rows(context, [record])[0])
 
 
-@router.post("/api/domains/verify", response_model=DomainRow, openapi_extra=documented(DomainIdIn), **AS_RETURNED,
+@router.post("/api/domains/verify", response_model=DomainRow, openapi_extra=documented(DomainVerifyIn), **AS_RETURNED,
              responses={404: {"description": "Unknown domain"}, 429: {"description": "Too many attempts"}})
 def domain_verify(context: Context = Depends(guard(Policy(admin=True, action="verify-domain", body=256))),
-                  data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
-    """Looks the domain's TXT record up once. Seen, the domain is an asset for 90 days; a daily re-check extends or
-    withdraws the proof."""
-    try:
-        domains.get_domain(context.data_dir, data.domain_id)
-    except DomainError as exc:
-        raise ApiError(404, exc.message) from exc
+                  data: DomainVerifyIn = Depends(body(DomainVerifyIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Asks for the proof once: the TXT record (dns), the well-known file (file) or the homepage's meta tag (meta).
+    Seen, the domain is an asset for 90 days; a daily re-check of the same proof extends or withdraws it."""
+    _known(context, data.domain_id)
     _attempt(context, f"domain-verify:{data.domain_id}")
     try:
-        record = domains.verify_domain(context.data_dir, data.domain_id)
+        record = domains.verify_domain(context.data_dir, data.domain_id, data.method)
     except DomainError as exc:
         raise ApiError(400, exc.message) from exc
     context.state.auth.throttle.succeeded(f"domain-verify:{data.domain_id}")
-    context.state.log.info("domain_verified", extra={"user": context.user["username"], "reason": record["host"]})
+    context.state.log.info("domain_verified", extra={"user": context.user["username"], "reason": f"{record['host']} ({data.method})"})
     return context.render(_domain_rows(context, [record])[0])
 
 
-@router.post("/api/domains/check", response_model=DomainCheck, openapi_extra=documented(DomainCheckIn), **AS_RETURNED,
-             responses={429: {"description": "Too many attempts"}})
-def domain_check(context: Context = Depends(guard(Policy(admin=True, action="check-domain", body=1024))),
-                 data: DomainCheckIn = Depends(body(DomainCheckIn, msg("sources.domains.invalid_request")))) -> Any:
-    """Whether the domain answers over HTTPS: one HEAD to its already-resolved public address, no redirects. Only a
-    hint before registering; a domain that doesn't answer can still be registered."""
+def _probe(context: Context, url: str) -> dict:
     _attempt(context, f"domain-check:{context.user['username']}")
     try:
-        result = domains.check_reachability(data.url)
+        result = domains.check_reachability(url)
     except DomainError as exc:
         raise ApiError(400, exc.message) from exc
     if result["reachable"]:
@@ -328,64 +429,157 @@ def domain_check(context: Context = Depends(guard(Policy(admin=True, action="che
     return context.render(result)
 
 
+@router.post("/api/domains/probe", response_model=DomainCheck, openapi_extra=documented(DomainCheckIn), **AS_RETURNED,
+             responses={429: {"description": "Too many attempts"}})
+def domain_probe(context: Context = Depends(guard(Policy(admin=True, action="probe-domain", body=1024))),
+                 data: DomainCheckIn = Depends(body(DomainCheckIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Checks a URL before registering it: whether its name resolves to public addresses only (nothing is sent
+    otherwise) and whether it answers over HTTPS with a valid certificate. One HEAD to the already-resolved address,
+    no redirects. Only a hint: a domain that doesn't answer can still be registered."""
+    return _probe(context, data.url)
+
+
+@router.post("/api/domains/check", response_model=DomainCheck, openapi_extra=documented(DomainCheckIn), **AS_RETURNED,
+             responses={429: {"description": "Too many attempts"}})
+def domain_check(context: Context = Depends(guard(Policy(admin=True, action="check-domain", body=1024))),
+                 data: DomainCheckIn = Depends(body(DomainCheckIn, msg("sources.domains.invalid_request")))) -> Any:
+    """The same probe as `/api/domains/probe` (kept for earlier panels)."""
+    return _probe(context, data.url)
+
+
 @router.post("/api/domains/remove", response_model=DomainRemoved, openapi_extra=documented(DomainIdIn), **AS_RETURNED,
              responses={404: {"description": "Unknown domain"}})
 def domain_remove(context: Context = Depends(guard(Policy(admin=True, action="remove-domain", body=256))),
                   data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
-    """Removes a domain. What was imported against it (runs, findings, their triage and tickets) goes with it, like a
-    repository that left the installation: the panel says so before asking."""
+    """Removes a domain and its saved headers. What was scanned or imported against it (runs, findings, their triage
+    and tickets) goes with it, like a repository that left the installation: the panel says so before asking."""
     from pitangus.modules.runs import assets as run_assets
     from pitangus.modules.runs.store import find_runs
-    try:
-        record = domains.get_domain(context.data_dir, data.domain_id)
-    except DomainError as exc:
-        raise ApiError(404, exc.message) from exc
+    record = _known(context, data.domain_id)
     deleted = run_assets.purge(context.data_dir, record["key"]) if find_runs(context.data_dir, assets=[record["key"]], limit=1) else 0
     domains.remove_domain(context.data_dir, data.domain_id)
     context.state.log.warning("domain_removed", extra={"user": context.user["username"], "reason": f"{record['host']}: {deleted} runs"})
     return {"id": record["id"], "host": record["host"], "runs_deleted": deleted}
 
 
+@router.post("/api/domains/headers", response_model=DomainHeaders, openapi_extra=documented(DomainHeaderIn), **AS_RETURNED,
+             responses={404: {"description": "Unknown domain"}})
+def domain_headers_route(context: Context = Depends(guard(Policy(admin=True, action="domain-headers", body=6000))),
+                         data: DomainHeaderIn = Depends(body(DomainHeaderIn, msg("sources.domains.headers.invalid_request")))) -> Any:
+    """Saves or removes a request header that web scans of the domain may send (API keys, bearer tokens, session
+    cookies). Stored encrypted; never answered back: the list carries names, the last four characters of long values
+    and when each was saved."""
+    record = _known(context, data.domain_id)
+    try:
+        if data.op == "save":
+            listed = domain_headers.save(record["id"], data.name, data.value, by=context.user["username"])
+        else:
+            listed = domain_headers.remove(record["id"], data.name)
+    except domain_headers.HeaderError as exc:
+        raise ApiError(400, exc.message) from exc
+    # The header's name only: its value never reaches a log line.
+    context.state.log.warning("domain_header_changed", extra={"user": context.user["username"],
+                                                              "reason": f"{record['host']}: {data.op} {data.name}"})
+    return context.render({"domain_id": record["id"], "headers": listed, "limit": domain_headers.LIMIT})
+
+
+@router.post("/api/domains/schedule", response_model=DomainRow, openapi_extra=documented(DomainScheduleIn), **AS_RETURNED,
+             responses={404: {"description": "Unknown domain"}})
+def domain_schedule(context: Context = Depends(guard(Policy(admin=True, action="schedule-domain", body=256))),
+                    data: DomainScheduleIn = Depends(body(DomainScheduleIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Turns the weekly passive web scan of the domain on or off. The first one is queued at the next hourly round of
+    the periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host, without its
+    saved headers, and a domain whose proof lapsed is skipped with the reason."""
+    _known(context, data.domain_id)
+    try:
+        record = domains.set_schedule(context.data_dir, data.domain_id, data.schedule)
+    except DomainError as exc:
+        raise ApiError(400, exc.message) from exc
+    context.state.log.info("domain_schedule_changed", extra={"user": context.user["username"],
+                                                             "reason": f"{record['host']}: {data.schedule or 'off'}"})
+    return context.render(_domain_rows(context, [record])[0])
+
+
 class QueuedDomainScan(Open):
+    """`run_id` is the queued run (also in `run`, with its status)."""
+    run_id: str
     run: dict[str, Any]
     domain: DomainRow
 
 
-def launch_domain_scan(context: Context, domain_id: str, *, trigger: dict | None = None) -> dict:
-    """Queues a passive web scan of a verified domain; the worker checks everything again before it starts."""
+def _scan_options(context: Context, record: dict, data: DomainScanIn | None) -> dict:
+    """Everything the request asks for, validated before anything is queued; the worker checks it all again."""
+    import base64
+    import binascii
+    from pitangus.shared import vault
+    if data is None:
+        return {"mode": "web"}
+    try:
+        scope = domains.scan_scope(record, list(data.hosts))
+    except DomainError as exc:
+        needs_dns = is_msg(exc.message) and exc.message[MARK] == "sources.domains.scope.needs_dns"
+        raise ApiError(409 if needs_dns else 400, exc.message) from exc
+    for host in scope["hosts"]:
+        try:
+            domains.public_address(host)
+        except DomainError as exc:
+            raise ApiError(409, msg("scanning.web.errors.address", host=host, reason=exc.message)) from exc
+    if data.use_headers and not domain_headers.count(record["id"]):
+        raise ApiError(409, msg("scanning.web.errors.no_headers"))
+    options: dict[str, Any] = {"mode": data.mode, "hosts": [*scope["hosts"][1:], *scope["wildcards"]], "use_headers": data.use_headers}
+    try:
+        if data.spec is not None:
+            try:
+                raw = base64.b64decode(data.spec.content_base64, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise openapi_spec.SpecError(msg("scanning.web.spec.not_base64")) from exc
+            parsed = openapi_spec.parse(raw, data.spec.filename)
+            options.update(spec=vault.seal({key: parsed[key] for key in ("document", "version", "server", "sha256", "endpoints")}, "dast-spec"),
+                           spec_sha256=parsed["sha256"], spec_endpoints=parsed["endpoints"])
+        elif data.spec_url is not None:
+            openapi_spec.check_url(data.spec_url, scope["hosts"])
+            options["spec_url"] = data.spec_url.strip()
+    except openapi_spec.SpecError as exc:
+        raise ApiError(400, exc.message) from exc
+    return options
+
+
+def launch_domain_scan(context: Context, domain_id: str, *, trigger: dict | None = None, data: DomainScanIn | None = None) -> dict:
+    """Queues a passive web or API scan of a verified domain; the worker checks everything again before it starts."""
     from pitangus.app.api.repositories import QUEUE_LIMIT
     if not settings.flag("PITANGUS_DAST_ENABLED"):
         raise ApiError(409, msg("scanning.web.errors.disabled"))
-    try:
-        record = domains.get_domain(context.data_dir, domain_id)
-    except DomainError as exc:
-        raise ApiError(404, exc.message) from exc
+    record = _known(context, domain_id)
     if not record["verified"]:
         raise ApiError(409, msg("sources.domains.not_verified", host=record["host"]))
     try:
         domains.public_address(record["host"])
     except DomainError as exc:
         raise ApiError(409, msg("scanning.web.errors.address", host=record["host"], reason=exc.message)) from exc
+    options = _scan_options(context, record, data)
     if context.state.jobs.pending() >= QUEUE_LIMIT:
         raise ApiError(429, msg("api.queue_full"))
     try:
-        queued = context.state.jobs.enqueue_dast_scan(domain=record, requested_by=context.user["username"], trigger=trigger)
+        queued = context.state.jobs.enqueue_dast_scan(domain=record, requested_by=context.user["username"], trigger=trigger, options=options)
     except BusyError as exc:
         raise ApiError(409, exc.message) from exc
-    context.state.log.warning("dast_scan_launched", extra={"user": context.user["username"], "reason": record["host"]})
+    context.state.log.warning("dast_scan_launched", extra={"user": context.user["username"],
+                                                           "reason": f"{record['host']} ({options['mode']}, {len(options.get('hosts') or [])} extra hosts)"})
     return {"run": queued, "domain": record}
 
 
-@router.post("/api/domains/scans", status_code=202, response_model=QueuedDomainScan, openapi_extra=documented(DomainIdIn),
+@router.post("/api/domains/scans", status_code=202, response_model=QueuedDomainScan, openapi_extra=documented(DomainScanIn),
              **AS_RETURNED, responses={404: {"description": "Unknown domain"},
-                                       409: {"description": "Web scans off, domain not verified or private, or one already running"},
+                                       409: {"description": "Web scans off, domain not verified, a host private, subdomains "
+                                                             "without a DNS proof, no saved headers, or one already running"},
                                        429: {"description": "Queue full"}})
-def domain_scan(context: Context = Depends(guard(Policy(admin=True, action="scan-domain", body=256))),
-                data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
-    """Queues a passive web scan (ZAP: spider and passive rules, never an attack) of a verified domain. Off unless the
-    server sets PITANGUS_DAST_ENABLED; one at a time."""
-    launched = launch_domain_scan(context, data.domain_id)
-    return context.render({"run": launched["run"], "domain": _domain_rows(context, [launched["domain"]])[0]})
+def domain_scan(context: Context = Depends(guard(Policy(admin=True, action="scan-domain", body=SCAN_BODY))),
+                data: DomainScanIn = Depends(body(DomainScanIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD
+    operations of an OpenAPI definition (api), optionally over listed subdomains and with the domain's saved headers.
+    Off unless the server sets PITANGUS_DAST_ENABLED; one at a time."""
+    launched = launch_domain_scan(context, data.domain_id, data=data)
+    return context.render({"run_id": launched["run"]["id"], "run": launched["run"], "domain": _domain_rows(context, [launched["domain"]])[0]})
 
 
 # --- AI providers ---------------------------------------------------------------------------------------------------

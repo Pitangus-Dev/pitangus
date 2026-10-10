@@ -43,6 +43,10 @@ def nuclei() -> dict:
     return json.loads(NUCLEI.read_text())
 
 
+def strix() -> dict:
+    return json.loads((Path(__file__).resolve().parent / "engine-outputs" / "strix.sarif").read_text())
+
+
 def verified_domain(data_dir: Path, host: str = HOST, *, verified: bool = True) -> dict:
     """A registered domain whose TXT proof was seen (without asking DNS)."""
     from pitangus.modules.sources import domains
@@ -603,6 +607,39 @@ class CliTests(unittest.TestCase):
                                     environment={"PITANGUS_IMPORT_TOKEN": TOKEN})
         self.assertEqual(code, 2)
         self.assertIn("404", err)
+
+
+class StrixTests(unittest.TestCase):
+    """Strix (AI pentest agents) writes SARIF with `strix/report/sarif.py`: endpoint findings anchored to SECURITY.md,
+    code findings at their file, and coverage results next to them (fixture built after Strix 1.7.0's writer)."""
+
+    def test_endpoint_findings_land_at_their_url_and_coverage_is_not_a_finding(self):
+        (run,) = parse(strix())
+        self.assertEqual((run["tool"], run["version"], run["results"], run["skipped"], len(run["findings"])), ("Strix", "1.7.0", 7, 3, 4))
+        idor, login, sqli, banner = run["findings"]
+        self.assertEqual((idor["scanner"], idor["severity"], idor["path"], idor["cwe"], idor["web"]["method"]),
+                         ("dast", "critical", f"https://{HOST}/api/users/{{id}}", [639], "GET"))
+        self.assertEqual((login["path"], login["severity"], login["web"]["method"]), (f"https://{HOST}/api/auth/login", "medium", "POST"))
+        self.assertEqual((sqli["scanner"], sqli["severity"], sqli["path"], sqli["line"], sqli["cwe"]), ("sast", "high", "app/orders/search.py", 42, [89]))
+        self.assertEqual((banner["scanner"], banner["severity"], banner["path"]), ("dast", "info", f"https://{HOST}/"))
+        self.assertFalse(any(item["path"] == "SECURITY.md" for item in run["findings"]))
+        stored = json.dumps(run["findings"])
+        for leaked in ("eyJhbGciOiJIUzI1NiJ9.c3RyaXgtdGVzdA.sig", "4f0c2b1e9a77d3c5", "curl ..."):
+            self.assertNotIn(leaked, stored)
+        # Fingerprints come from Strix's own partial fingerprints: a reworded title or message is the same finding.
+        reworded = strix()
+        reworded["runs"][0]["results"][0]["message"]["text"] = "IDOR on the profile endpoint"
+        self.assertEqual(parse(reworded)[0]["findings"][0]["fingerprint"], idor["fingerprint"])
+
+    def test_an_import_into_the_verified_domain_keeps_web_and_code_findings_apart(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        data_dir = Path(directory.name)
+        verified_domain(data_dir, HOST)
+        outcome = import_sarif(data_dir, strix(), asset=DOMAIN_KEY, requested_by="ci")
+        self.assertEqual((outcome["runs"][0]["tool"], outcome["runs"][0]["opened"]), ("Strix", 4))
+        entries = registry.load(data_dir, DOMAIN_KEY)["findings"].values()
+        self.assertEqual(sorted(entry["finding"]["scanner"] for entry in entries), ["dast", "dast", "dast", "sast"])
 
 
 if __name__ == "__main__":

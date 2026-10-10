@@ -43,8 +43,9 @@ def _security_headers(response, port: int) -> None:
 # FastAPI reads a typed route's body before its guard runs: cap it here, by the declared length, before anything
 # is read (the server never reads more than Content-Length). Each route then applies its own, smaller limit.
 MAX_BODY = 1_000_000
-# The only routes allowed more: SARIF imports (a large repository's results).
-LARGE_BODIES = dict.fromkeys(imports.PATHS, imports.MAX_BYTES)
+# The only routes allowed more: SARIF imports (a large repository's results) and web scans that bring an OpenAPI
+# definition (5 MB in base64).
+LARGE_BODIES = {**dict.fromkeys(imports.PATHS, imports.MAX_BYTES), "/api/domains/scans": sources.SCAN_BODY}
 
 
 def _body_problem(request: Request) -> int | None:

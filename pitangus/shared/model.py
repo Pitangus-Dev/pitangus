@@ -108,6 +108,8 @@ class RunRecord(TypedDict, total=False):
     trigger: dict[str, Any]
     pull_request: dict[str, Any]
     review: dict[str, Any]
+    scope: dict[str, Any]      # dast_scan: hosts, wildcards, header names (never values) and coverage key
+    api: dict[str, Any]        # dast_scan in API mode: the definition's SHA-256, operations and source
     steps: list[dict[str, Any]]
     findings: list[Finding]
     excluded_findings: list[Finding]

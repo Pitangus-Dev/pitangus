@@ -23,6 +23,7 @@ _log = logging_setup.get("periodic")
 STATE = "periodic"
 NVD_BUDGET = 600  # seconds of NVD sync per round: a worker job, never a request
 NVD_EVERY = 900   # longer than the budget: rounds never pile up behind each other
+DOMAIN_SCAN_SECONDS = 3600  # how often due weekly web scans are looked for
 
 
 @dataclass(frozen=True)
@@ -84,12 +85,37 @@ def _domains(data_dir: Path, jobs) -> object:
     return domains.recheck(data_dir)
 
 
+def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> object:
+    """Queues the weekly passive web scan of the most overdue domain (one: web scans run one at a time). A domain
+    whose proof lapsed is skipped with the reason and stays due; another web scan in progress leaves it for the next
+    round. Scheduled scans crawl the domain's own host, without its saved headers."""
+    from pitangus.modules.runs.jobs import BusyError
+    from pitangus.modules.sources import domains
+    from pitangus.shared.i18n import msg
+    now = now or datetime.now(timezone.utc)
+    for record in domains.due_scans(data_dir, now=now):
+        if not record["verified"]:
+            domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.lapsed"), now=now)
+            _log.warning("scheduled_scan_skipped", extra={"reason": f"{record['host']}: proof lapsed"})
+            continue
+        try:
+            queued = jobs.enqueue_dast_scan(domain=record, requested_by="schedule", trigger={"kind": "schedule"},
+                                            options={"mode": "web"})
+        except BusyError:
+            domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.busy"), now=now)
+            return {"queued": None, "waiting": record["host"]}
+        domains.schedule_queued(data_dir, record["id"], queued["id"], now=now)
+        return {"queued": queued["id"], "host": record["host"]}
+    return {"queued": None}
+
+
 TASKS: dict[str, Task] = {
     "outbox": Task(lambda: 0, False, _outbox),
     "pull_requests": Task(lambda: settings.integer("PITANGUS_PR_POLL_SECONDS"), False, _pull_requests),
     "nvd": Task(lambda: NVD_EVERY if settings.flag("PITANGUS_CVE_SYNC") else -1, True, _nvd),
     "advisories": Task(lambda: 3600 * settings.integer("PITANGUS_ADVISORY_WATCH_HOURS") or -1, True, _advisories),
     "domains": Task(lambda: DOMAIN_RECHECK_SECONDS, False, _domains),
+    "domain_scans": Task(lambda: DOMAIN_SCAN_SECONDS if settings.flag("PITANGUS_DAST_ENABLED") else -1, False, _domain_scans),
 }
 
 

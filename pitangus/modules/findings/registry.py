@@ -34,6 +34,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -129,6 +130,24 @@ def unseen(finding: dict, blind: set[str]) -> bool:
     """Every engine that sees `finding` was blind in the scan, so not finding it there proves nothing."""
     engines = {str(name).lower() for name in [finding.get("tool"), *(finding.get("also_detected_by") or [])] if name}
     return bool(engines) and engines <= blind
+
+
+def covers(scan: dict, finding: dict) -> bool:
+    """Whether a web scan looked where `finding` was seen: the same kind of scan (anonymous crawl, crawl with saved
+    headers, or one API definition: `web.coverage`) on a host of its scope. Other runs cover everything they cover."""
+    if scan.get("type") != "dast_scan":
+        return True
+    scope = scan.get("scope") or {}
+    if ((finding.get("web") or {}).get("coverage") or "baseline") != (scope.get("coverage") or "baseline"):
+        return False
+    hosts = scope.get("hosts")
+    if not hosts:
+        return True
+    try:
+        host = (urlsplit(str(finding.get("path") or "")).hostname or "").lower()
+    except ValueError:
+        return False
+    return host in hosts or any(host.endswith(pattern[1:]) for pattern in scope.get("wildcards") or [])
 
 
 def _clean(finding: dict) -> dict:
@@ -240,7 +259,7 @@ def apply(data_dir: Path, record: RunRecord) -> dict:
         complete = record.get("status") == "completed"
         blind = blind_engines(record)
         for digest, entry in entries.items():
-            if digest in present or not complete or unseen(entry.get("finding") or {}, blind):
+            if digest in present or not complete or unseen(entry.get("finding") or {}, blind) or not covers(record, entry.get("finding") or {}):
                 continue
             # A withheld secret that a complete scan no longer sees, even without the filters, is gone.
             if entry["status"] != "open" and not (record["type"] in FULL_SCANS and _withheld(entry) and digest not in excluded_now):
