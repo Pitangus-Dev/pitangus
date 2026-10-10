@@ -159,18 +159,48 @@ def register_domain(data_dir: Path, url: str, kind: str = "web", context: str = 
     return get_domain(data_dir, domain_id)
 
 
-def lookup_txt(name: str) -> list[str] | None:
-    """The TXT values published under `name`, or None when DNS couldn't be asked (a failure proves nothing)."""
-    if not re.fullmatch(r"[a-z0-9_](?:[a-z0-9_.-]{0,252})", name):
-        return None
+NAMESERVER = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,62}\.)+[a-z0-9-]{1,63}\.?")
+
+
+def _dig(*args: str) -> list[str] | None:
+    """`dig +short` lines, or None when it couldn't answer. Arguments are fixed or validated: no shell, fixed PATH."""
     try:
-        result = subprocess.run(["dig", "+short", "+time=4", "+tries=1", "TXT", name], capture_output=True,
+        result = subprocess.run(["dig", "+short", "+time=4", "+tries=1", *args], capture_output=True,
                                 text=True, timeout=8, check=False, env={"PATH": "/usr/bin:/bin"})
     except (OSError, subprocess.TimeoutExpired):
         return None
-    if result.returncode != 0:
+    return result.stdout.splitlines() if result.returncode == 0 else None
+
+
+def _nameservers(name: str) -> list[str]:
+    """The authoritative nameservers of the zone that holds `name`: the closest parent with an NS record."""
+    labels = name.split(".")
+    for start in range(1, len(labels) - 1):
+        servers = [line.strip().lower() for line in (_dig("NS", ".".join(labels[start:])) or [])]
+        servers = [server for server in servers if NAMESERVER.fullmatch(server)]
+        if servers:
+            return servers[:4]
+    return []
+
+
+def lookup_txt(name: str) -> list[str] | None:
+    """The TXT values published under `name`, or None when DNS couldn't be asked (a failure proves nothing).
+
+    Asked to the zone's own nameservers first: a resolver that looked before the record existed keeps that "no such
+    name" for the zone's negative TTL (30 minutes on Cloudflare), and the record would seem missing long after it was
+    published. The local resolver is the fallback, for networks that only allow DNS through it."""
+    if not re.fullmatch(r"[a-z0-9_](?:[a-z0-9_.-]{0,252})", name):
         return None
-    return [line.strip().strip('"').replace('" "', '') for line in result.stdout.splitlines()]
+    lines = None
+    for server in _nameservers(name):
+        lines = _dig(f"@{server}", "TXT", name)
+        if lines is not None:
+            break
+    if lines is None:
+        lines = _dig("TXT", name)
+    if lines is None:
+        return None
+    return [line.strip().strip('"').replace('" "', '') for line in lines]
 
 
 def _mark(data_dir: Path, domain_id: str, **values) -> dict:

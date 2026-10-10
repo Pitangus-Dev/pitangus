@@ -31,6 +31,14 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Fixed
 
+- **Verifying a domain asks its own nameservers.** It went through the local resolver, which keeps a "no such name" for
+  the zone's negative TTL (30 minutes on Cloudflare): a domain verified a little too early stayed "TXT not found" long
+  after the record was published. It now asks the zone's authoritative nameservers first, and the local resolver only
+  if they can't be reached.
+- **The ZAP recipe in "Bring your own DAST" works as written.** Run with `--user "$(id -u)"`, ZAP couldn't create its
+  home folder and stopped at once; it now runs as its own user over a writable folder, the image is pinned
+  (2.17.0 by digest), and the import points at `zap.json`, the file the `sarif-json` template actually writes. Tried
+  end to end against a real domain.
 - **An organization batch now uses every worker.** The leader fed the batch one repository at a time, and only while
   the queue was empty, so with several workers a batch advanced at the pace of one. It now keeps as many of its
   repositories queued as there are workers with nothing waiting, also while the leader itself is scanning; scans

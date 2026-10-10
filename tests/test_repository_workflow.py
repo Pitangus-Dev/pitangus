@@ -251,7 +251,8 @@ class RepositoryWorkflowTests(unittest.TestCase):
                     register_domain(root, url)
             record = register_domain(root, "https://app.example.com/path")
             self.assertFalse(record["verified"])
-            with patch("pitangus.modules.sources.domains.subprocess.run") as run:
+            with patch("pitangus.modules.sources.domains.subprocess.run") as run, \
+                    patch("pitangus.modules.sources.domains._nameservers", return_value=[]):
                 run.return_value.returncode = 0
                 run.return_value.stdout = f'"{record["txt_value"]}"\n'
                 verified = verify_domain(root, record["id"])

@@ -99,14 +99,16 @@ jobs:
                 reportDir: /zap/wrk
                 reportFile: zap
           EOF
-          docker run --rm --user "$(id -u)" -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+          # ZAP runs as its own user (zap): the folder must accept its writes
+          chmod a+w .
+          docker run --rm -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2 \
             zap.sh -cmd -autorun /zap/wrk/zap.yaml
-          ls zap.*   # the template names the file; point `import-sarif` at it
+          # the sarif-json template writes zap.json
       - uses: Pitangus-Dev/pitangus@v0.12.2
         if: always()
         with:
           scan: false
-          import-sarif: zap.sarif
+          import-sarif: zap.json
           asset: domain:app.example.com
           server: https://pitangus.example.com
           token: ${{ secrets.PITANGUS_IMPORT_TOKEN }}
