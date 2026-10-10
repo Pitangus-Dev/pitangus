@@ -9,6 +9,31 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Added
 
+- **Domains: more ways to prove control, and a probe.** Besides the DNS TXT record, `POST /api/domains/verify` takes
+  `method: "file"` (`https://<host>/.well-known/pitangus-verify.txt` with the token) or `"meta"` (`<meta
+  name="pitangus-verify" content="<token>">` in the homepage), fetched once from the host's checked public address
+  (certificate validated, no redirects, 10 s and 64 KB at most). The method that proved it is stored and the daily
+  re-check asks for the same one. Only a DNS proof covers subdomains. `POST /api/domains/probe` checks a URL before
+  registering it (`host`, `reachable`, `https`, `status`, `public`); `/api/domains/check` stays as an alias.
+- **Passive web scans: scope, headers, API mode and a weekly schedule.** `POST /api/domains/scans` takes `mode`
+  (`web` or `api`), `hosts` (up to 20 subdomains or `*.` wildcards of a DNS-verified domain; each listed host must
+  resolve to public addresses and is pinned, wildcards only widen ZAP's context), `use_headers` and, in API mode, an
+  OpenAPI 3.x / Swagger 2.0 definition (`spec`, JSON or YAML up to 5 MB in base64, or `spec_url` on a host of the
+  scope); it answers `202` with `run_id`. API mode imports only the definition's GET and HEAD operations (others are
+  dropped before ZAP sees it), aimed at the domain, refuses remote `$ref` and YAML aliases, and keeps only the
+  definition's SHA-256 and operation count (`dast_scan` with `variant: "api"`). Request headers per domain (`POST
+  /api/domains/headers`, at most 10, encrypted in the vault, never answered back) are added by ZAP's replacer to the
+  scope's requests only; the plan now reaches ZAP on its standard input into a memory-only folder, and the values are
+  scrubbed from what ZAP returns. ZAP's container gets `--dns 127.0.0.1`: only pinned names resolve. A weekly passive
+  scan per domain (`POST /api/domains/schedule`) is queued by a new periodic task (`domain_scans`, hourly, only with
+  `PITANGUS_DAST_ENABLED`); a lapsed proof or a running web scan is recorded as the reason it was skipped, and
+  `GET /api/domains` shows the next and last scheduled scan and the latest web scan. A web scan only marks fixed what
+  a scan like it had seen (same mode, definition and use of headers) on a host it looked at. Migration `0011` adds
+  the proof method and the schedule columns. New runtime dependency: PyYAML (MIT).
+- **Strix SARIF.** `import-sarif` places Strix's endpoint findings (anchored to `SECURITY.md` in its SARIF) at the
+  endpoint's URL with its method, keeps Strix's severity label, and skips its coverage results; code findings stay at
+  their file. Help texts of web findings are redacted like their messages.
+
 - **Passive web scan of a verified domain**, launched from the panel (New analysis → Web application) or with
   `POST /api/domains/scans` (administrators). ZAP 2.17, pinned by digest, crawls the domain for up to 2 minutes and
   runs its passive rules over every response; no active scan, no AJAX spider, no form submissions. Off unless the

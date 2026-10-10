@@ -52,9 +52,12 @@ The two gaps people ask about most:
   CodeQL is free for public repositories and, through GitHub Advanced Security, for private ones; running its CLI
   elsewhere is governed by the GitHub CodeQL Terms. The same step with Semgrep is in
   [cli.md](cli.md#other-tools-results).
-- **Dynamic testing.** Pitangus runs a [passive web scan](features.md#passive-web-scan) with ZAP of a verified
-  domain (crawl and read, never attack) when the server sets `PITANGUS_DAST_ENABLED=1`. For anything deeper (active
-  scans, sign-in, APIs, Nuclei), run the scanner yourself, against systems you own, and import its SARIF against the
+- **Dynamic testing.** Pitangus runs [passive web and API scans](features.md#passive-web-scan) with ZAP of a
+  verified domain (crawl and read, or the GET and HEAD operations of an OpenAPI definition; never attack) when the
+  server sets `PITANGUS_DAST_ENABLED=1`: on demand or weekly, over listed subdomains when the domain has a DNS proof,
+  and with request headers saved for the domain (API keys, bearer tokens, cookies). The domain can be proved with a DNS
+  TXT record, a file under `/.well-known/` or a meta tag. For anything deeper (active scans, form sign-in, Nuclei, an
+  AI pentest such as Strix), run the scanner yourself, against systems you own, and import its SARIF against the
   verified domain: see [Bring your own DAST](#bring-your-own-dast) below.
 
 ### Bring your own DAST
@@ -134,6 +137,8 @@ Nuclei writes SARIF with `-se` ([options](https://docs.projectdiscovery.io/tools
 ```
 
 What Pitangus does with it: findings of a web scanner get `scanner: dast`; the location is the URL without its query string or fragment (a session token or a cache-buster in the URL must not turn the same alert into a new finding on every run); the fingerprint is rule, URL and parameter name, never the evidence; and only the method, the parameter and a bounded evidence are kept, never the request or response ZAP attaches (they carry cookies and authorization headers). Nuclei puts the template path where SARIF expects a file and the URL in the result's properties; Pitangus reads the URL. One run with both tools is fine: each tool only marks fixed what it reported itself.
+
+**Strix** ([usestrix/strix](https://github.com/usestrix/strix), Apache-2.0: AI agents that try to exploit what they find) writes `findings.sarif` next to its other reports. Import it against the verified domain like any other SARIF (`import-sarif: strix_runs/<run>/findings.sarif`, `asset: domain:app.example.com`). A finding about an endpoint arrives anchored to `SECURITY.md`; Pitangus places it at the endpoint's URL instead (the run's target plus the route, `GET /api/users/{id}` → `https://app.example.com/api/users/{id}`, with the method kept), so it's a web finding. A finding with a code location stays a code finding at its file and line. Strix's own severity label is kept (its `info` doesn't become `low`), the CWE comes from its rule, the fingerprint from its partial fingerprints (a reworded title is the same finding), and the areas it records as covered or left for a follow-up aren't findings. Credentials retold in its descriptions are redacted like any web finding's; the proof-of-concept script never comes in the SARIF.
 
 **Only against systems you own or are authorized to test.** The TXT record proves control of the DNS zone to Pitangus; it isn't an authorization to test anything, and Pitangus doesn't check that you have one. Active scanning (ZAP's active scan, Nuclei's `-dast` fuzzing) can damage data and trip defenses: run it only where you're allowed to, outside production unless you know what you're doing, and keep the plan passive otherwise. This stays an *analysis*, not a pentest.
 
