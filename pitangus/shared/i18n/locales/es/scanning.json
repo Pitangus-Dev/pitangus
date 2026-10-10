@@ -713,7 +713,9 @@
         "name": "El certificado no corresponde al nombre del host",
         "ciphers": "Se ofrecen suites de cifrado débiles ({{check}})",
         "certificate": "Problema con el certificado ({{check}})",
-        "other": "Problema de configuración TLS ({{check}})"
+        "other": "Problema de configuración TLS ({{check}})",
+        "certificate_family_one": "Problema con el certificado ({{checks}})",
+        "certificate_family_other": "{{count}} problemas con el certificado ({{checks}})"
       }
     },
     "versions": {

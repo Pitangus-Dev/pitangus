@@ -713,7 +713,9 @@
         "name": "The certificate doesn't match the host name",
         "ciphers": "Weak cipher suites are offered ({{check}})",
         "certificate": "Certificate problem ({{check}})",
-        "other": "TLS configuration problem ({{check}})"
+        "other": "TLS configuration problem ({{check}})",
+        "certificate_family_one": "Certificate problem ({{checks}})",
+        "certificate_family_other": "{{count}} certificate problems ({{checks}})"
       }
     },
     "versions": {

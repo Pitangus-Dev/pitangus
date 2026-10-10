@@ -379,11 +379,38 @@ class ParserTests(unittest.TestCase):
         self.assertIn("ECDHE-ECDSA-AES128-SHA", findings[0]["web"]["evidence"])
         self.assertEqual((findings[0]["tool"], findings[0]["path"], findings[0]["cwe"]), ("testssl", f"https://{HOST}/", [310]))
         edge = {item["rule_id"]: item for item in web_tools.parse_testssl(json.loads(fixture("testssl-3.2-edge.json")), EDGE)}
-        self.assertEqual(edge["cert_chain_of_trust"]["severity"], "critical")
+        # Every certificate problem is one finding for the host, at the worst severity, with each check in its evidence.
+        certificate = edge["certificate"]
+        self.assertEqual(certificate["severity"], "critical")
+        for check in ("cert_chain_of_trust: failed (self signed)", "cert_expirationStatus", "cert_revocation", "cert_trust", "cert_subjectAltName"):
+            self.assertIn(check, certificate["web"]["evidence"])
+        self.assertIn("6 certificate problems", text(certificate["title"], "en"))
+        self.assertFalse({"cert_chain_of_trust", "cert_trust", "cert_expirationStatus", "cert_notAfter"} & set(edge))
         self.assertEqual(edge["HSTS"]["severity"], "low")
+        self.assertEqual(edge["security_headers"]["severity"], "medium")
         self.assertFalse({"engine_problem", "scanTime", "service"} & set(edge))
         self.assertFalse(any(rule.startswith("cipher-") for rule in edge))
         self.assertEqual(web_tools.parse_testssl({"not": "a list"}, HOST), [])
+
+    def test_testssl_ids_lose_their_certificate_suffix(self):
+        # As testssl.sh 3.2 names them for pitangus.dev (two server certificates, two intermediates each); severities raised.
+        document = [{"id": "cert_chain_of_trust <hostCert#1>", "severity": "CRITICAL", "finding": "failed (chain incomplete)."},
+                    {"id": "cert_chain_of_trust <hostCert#2>", "severity": "OK", "finding": "passed."},
+                    {"id": "intermediate_cert_expiration <#2> <hostCert#1>", "severity": "MEDIUM", "finding": "expires < 20 days"},
+                    {"id": "cert_validityPeriod <hostCert#2>", "severity": "LOW", "finding": "398 days"},
+                    {"id": "cipherlist_OBSOLETED <hostCert#1>", "severity": "LOW", "finding": "offered"},
+                    {"id": "cipherlist_OBSOLETED <hostCert#2>", "severity": "LOW", "finding": "offered"},
+                    {"id": "scanTime", "severity": "WARN", "finding": "60"}]
+        self.assertEqual(web_tools.testssl_check("intermediate_cert_expiration <#2> <hostCert#1>"), ("intermediate_cert_expiration", "hostCert#1 #2"))
+        found = {item["rule_id"]: item for item in web_tools.parse_testssl(document, HOST)}
+        self.assertEqual(set(found), {"certificate", "cipherlist_OBSOLETED"})
+        evidence = found["certificate"]["web"]["evidence"]
+        self.assertIn("cert_chain_of_trust (hostCert#1): failed (chain incomplete).", evidence)
+        self.assertIn("intermediate_cert_expiration (hostCert#1 #2): expires < 20 days", evidence)
+        self.assertNotIn("<#", evidence)
+        self.assertNotIn("<hostCert", evidence)
+        self.assertEqual(found["certificate"]["severity"], "critical")
+        self.assertIn("hostCert#2", found["cipherlist_OBSOLETED"]["web"]["evidence"])
 
     def test_httpx_names_technologies_with_their_versions(self):
         detected = web_tools.parse_httpx(fixture("httpx-1.12.jsonl"), [HOST, EDGE])
@@ -489,6 +516,21 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(only["web"]["also"][1]["evidence"], "not offered")
         self.assertEqual(only["web"]["evidence"], "no header")
 
+    def test_testssl_header_summary_and_certificate_family_fold_into_the_other_tools_findings(self):
+        csp = finding("ZAP", "10038", f"https://{HOST}/", "medium")
+        frame = finding("ZAP", "10020", f"https://{HOST}/", "medium")
+        headers = finding("testssl", "security_headers", f"https://{HOST}/", "medium", web={"evidence": "--"})
+        merged, folded = web_merge.merge([headers, frame, csp])
+        self.assertEqual((len(merged), folded), (2, 1))
+        self.assertEqual(next(item for item in merged if item["rule_id"] == "10038")["also_detected_by"], ["testssl"])
+        alone, folded = web_merge.merge([finding("testssl", "security_headers", f"https://{HOST}/")])
+        self.assertEqual((len(alone), folded), (1, 0))  # nothing to fold into: it stays, as testssl.sh's
+        nuclei = finding("nuclei", "self-signed-ssl", f"https://{HOST}/", "medium")
+        certificate = finding("testssl", "certificate", f"https://{HOST}", "critical", web={"evidence": "cert_chain_of_trust: failed"})
+        (only,), folded = web_merge.merge([certificate, nuclei])
+        self.assertEqual((only["fingerprint"], only["severity"], folded), (nuclei["fingerprint"], "critical", 1))
+        self.assertEqual(only["web"]["also"][0]["evidence"], "cert_chain_of_trust: failed")
+
     def test_different_urls_problems_or_the_same_tool_twice_stay_apart(self):
         cases = [
             [finding("ZAP", "10035", f"https://{HOST}/"), finding("nuclei", "http-missing-security-headers:strict-transport-security", f"https://{HOST}/es/")],
@@ -505,7 +547,7 @@ class MergeTests(unittest.TestCase):
 
     def test_the_mapping_names_rules_each_tool_really_reports(self):
         self.assertEqual(web_merge.family_of(finding("ZAP", "10035-1", f"https://{HOST}/")), "hsts-missing")
-        self.assertEqual(web_merge.family_of(finding("testssl", "cert_chain_of_trust", f"https://{HOST}/")),
+        self.assertEqual(web_merge.family_of(finding("testssl", "certificate", f"https://{HOST}/")),
                          web_merge.family_of(finding("nuclei", "self-signed-ssl", f"https://{HOST}/")))
         self.assertIsNone(web_merge.family_of(finding("nuclei", "HSTS", f"https://{HOST}/")))  # a rule counts for its own tool only
         for family, tools in web_merge.EQUIVALENT.items():

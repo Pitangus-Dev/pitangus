@@ -91,7 +91,12 @@ TESTSSL_TITLE = {
     "FS": "scanning.web.testssl.titles.fs", "cert_expirationStatus": "scanning.web.testssl.titles.expiration",
     "cert_chain_of_trust": "scanning.web.testssl.titles.trust", "cert_trust": "scanning.web.testssl.titles.name",
 }
-TESTSSL_FAMILY_TITLE = (("cipherlist_", "scanning.web.testssl.titles.ciphers"), ("cert_", "scanning.web.testssl.titles.certificate"))
+TESTSSL_FAMILY_TITLE = (("cipherlist_", "scanning.web.testssl.titles.ciphers"),)
+# With several certificates (RSA and ECDSA) or intermediates, testssl.sh suffixes an id with which one: `<hostCert#1>`, `<#2>`.
+TESTSSL_QUALIFIER = re.compile(r"\s*<([^<>]{1,40})>")
+# Every certificate check (chain of trust, revocation, expiry, lifetime, an intermediate's…) is one finding per host.
+TESTSSL_CERTIFICATE = ("cert_", "certs_", "certificate_", "intermediate_cert")
+SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 NUCLEI_SEVERITY = {"critical": "critical", "high": "high", "medium": "medium", "low": "low", "info": "info"}
 TECH_ROOT = "/http/technologies/"
 # Informational results that describe rather than flag (the TLS versions offered, the certificate's issuer and names).
@@ -473,31 +478,47 @@ def _testssl_title(identifier: str):
     return msg("scanning.web.testssl.titles.other", check=identifier)
 
 
+def testssl_check(identifier: str) -> tuple[str, str]:
+    """(the check, which certificate it is about): `cert_notAfter <#1> <hostCert#2>` → ("cert_notAfter", "hostCert#2 #1")."""
+    qualifiers = TESTSSL_QUALIFIER.findall(identifier)
+    return TESTSSL_QUALIFIER.sub("", identifier).strip(), " ".join(reversed(qualifiers))
+
+
 def parse_testssl(document: Any, host: str) -> list[Finding]:
-    """testssl.sh's JSON (flat list) as findings: only what it rates LOW or worse, one per check; the per-cipher lines
-    of a weak family are folded into that family's finding as its evidence."""
+    """testssl.sh's JSON (flat list) as findings: only what it rates LOW or worse, one per check (a check repeated per
+    certificate is one, its lines in the evidence); every certificate problem is a single `certificate` finding per
+    host with each check as evidence; the per-cipher lines of a weak family are folded into that family's finding."""
     if not isinstance(document, list):
         return []
     path = f"https://{host}/"
     ciphers = [str(item.get("finding") or "").split()[2] for item in document[:5000]
                if isinstance(item, dict) and str(item.get("id") or "").startswith("cipher-") and item.get("severity") in TESTSSL_SEVERITY
                and len(str(item.get("finding") or "").split()) > 2]
-    findings: list[Finding] = []
+    checks: dict[str, list[tuple[str, str, str, dict]]] = {}
     for item in document[:5000]:
         if not isinstance(item, dict):
             continue
-        identifier = _clean(item.get("id"), 100)
+        identifier, which = testssl_check(_clean(item.get("id"), 100))
         severity = TESTSSL_SEVERITY.get(str(item.get("severity") or ""))
         if not identifier or severity is None or TESTSSL_SKIPPED.match(identifier):
             continue
-        text = _clean(item.get("finding"), 500)
-        evidence = text + (" · " + ", ".join(ciphers[:20]) if identifier.startswith("cipherlist_") and ciphers else "")
-        cwes = sorted({int(number) for number in re.findall(r"(?i)cwe-0*(\d{1,5})", str(item.get("cwe") or ""))})
-        cves = sorted({value.upper() for value in re.findall(r"(?i)CVE-\d{4}-\d{4,}", str(item.get("cve") or ""))})
-        finding = _base("dast", identifier, _testssl_title(identifier), path, 1, severity, tool="testssl",
-                        reason=msg("scanning.web.testssl.reason", check=identifier, host=host, finding=text),
+        rule = "certificate" if identifier.startswith(TESTSSL_CERTIFICATE) else identifier
+        checks.setdefault(rule, []).append((identifier, which, severity, item))
+    findings: list[Finding] = []
+    for rule, lines in checks.items():
+        severity = min((severity for _, _, severity, _ in lines), key=lambda value: SEVERITY_RANK[value])
+        parts = [f"{identifier}{f' ({which})' if which else ''}: {_clean(item.get('finding'), 300)}" for identifier, which, _, item in lines]
+        text = "; ".join(parts) if rule == "certificate" or len(lines) > 1 else _clean(lines[0][3].get("finding"), 500)
+        evidence = text + (" · " + ", ".join(ciphers[:20]) if rule.startswith("cipherlist_") and ciphers else "")
+        cwes = sorted({int(number) for *_, item in lines for number in re.findall(r"(?i)cwe-0*(\d{1,5})", str(item.get("cwe") or ""))})
+        cves = sorted({value.upper() for *_, item in lines for value in re.findall(r"(?i)CVE-\d{4}-\d{4,}", str(item.get("cve") or ""))})
+        named = sorted(dict.fromkeys(identifier for identifier, *_ in lines))
+        title = (msg("scanning.web.testssl.titles.certificate_family", checks=", ".join(named[:6]), count=len(named)) if rule == "certificate"
+                 else _testssl_title(rule))
+        finding = _base("dast", rule, title, path, 1, severity, tool="testssl",
+                        reason=msg("scanning.web.testssl.reason", check=", ".join(named[:6]), host=host, finding=text[:500]),
                         remediation=msg("scanning.web.remediation", tool="testssl.sh"),
-                        cwe=cwes, owasp="", confidence=8, digest=_stable("sarif", "testssl", "\x1f".join((identifier, path, ""))))
+                        cwe=cwes, owasp="", confidence=8, digest=_stable("sarif", "testssl", "\x1f".join((rule, path, ""))))
         finding["cve"] = cves
         finding["priority"]["factors"] = [msg("scanning.sarif.priority", tool="testssl.sh", severity=msg(f"scanning.severity.{severity}"))]
         finding["web"] = {"evidence": evidence[:TEXT_MAX]}

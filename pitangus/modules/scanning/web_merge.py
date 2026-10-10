@@ -5,6 +5,9 @@ the same URL (scheme, host and path; a TLS check is about its host's root). Noth
 alone: a CWE covers many different checks. The first tool in `ORDER` keeps the finding (its fingerprint, title and
 text); the others are listed in `also_detected_by`, their rules in `related_rules`, and what each saw stays in
 `web.also` (tool, rule, title and evidence). The severity is the highest of them, and agreement adds confidence.
+
+A rule may sit in several rows: testssl.sh's `security_headers` sums up every missing header, so it folds into the
+first of ZAP's (or nuclei's) header findings at the same URL.
 """
 
 from __future__ import annotations
@@ -17,15 +20,17 @@ from pitangus.shared.model import Finding
 ORDER = ("zap", "nuclei", "testssl")
 RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 NUCLEI_HEADERS = "http-missing-security-headers:"
+TESTSSL_HEADERS = frozenset({"security_headers"})
 # family → {tool: rule ids}. ZAP's are its alert ids (pluginId) as its SARIF names them.
 EQUIVALENT: dict[str, dict[str, frozenset[str]]] = {
     "hsts-missing": {"zap": frozenset({"10035"}), "nuclei": frozenset({NUCLEI_HEADERS + "strict-transport-security"}),
                      "testssl": frozenset({"HSTS"})},
     "hsts-weak": {"nuclei": frozenset({"weak-hsts-detect", "weak-hsts-detect:hsts-header"}), "testssl": frozenset({"HSTS_time"})},
-    "csp-missing": {"zap": frozenset({"10038"}), "nuclei": frozenset({NUCLEI_HEADERS + "content-security-policy"})},
-    "clickjacking": {"zap": frozenset({"10020"}), "nuclei": frozenset({NUCLEI_HEADERS + "x-frame-options"})},
-    "nosniff-missing": {"zap": frozenset({"10021"}), "nuclei": frozenset({NUCLEI_HEADERS + "x-content-type-options"})},
-    "permissions-policy-missing": {"zap": frozenset({"10063"}), "nuclei": frozenset({NUCLEI_HEADERS + "permissions-policy"})},
+    "csp-missing": {"zap": frozenset({"10038"}), "nuclei": frozenset({NUCLEI_HEADERS + "content-security-policy"}), "testssl": TESTSSL_HEADERS},
+    "clickjacking": {"zap": frozenset({"10020"}), "nuclei": frozenset({NUCLEI_HEADERS + "x-frame-options"}), "testssl": TESTSSL_HEADERS},
+    "nosniff-missing": {"zap": frozenset({"10021"}), "nuclei": frozenset({NUCLEI_HEADERS + "x-content-type-options"}), "testssl": TESTSSL_HEADERS},
+    "permissions-policy-missing": {"zap": frozenset({"10063"}), "nuclei": frozenset({NUCLEI_HEADERS + "permissions-policy"}),
+                                   "testssl": TESTSSL_HEADERS},
     "cookie-samesite": {"zap": frozenset({"10054"}), "nuclei": frozenset({"missing-cookie-samesite-strict"})},
     # A server's version (ZAP 10036, 10037) has no twin: nuclei's version templates name technologies, not findings.
     # ZAP's Hidden File Finder (40035) and .env leak (40034) are active rules: they match an imported ZAP run only.
@@ -35,27 +40,36 @@ EQUIVALENT: dict[str, dict[str, frozenset[str]]] = {
     "tls-weak-ciphers": {"nuclei": frozenset({"weak-cipher-suites", "insecure-cipher-suite-detect"}),
                          "testssl": frozenset({"cipherlist_NULL", "cipherlist_aNULL", "cipherlist_EXPORT", "cipherlist_LOW",
                                               "cipherlist_3DES_IDEA", "cipherlist_OBSOLETED"})},
-    "certificate-expired": {"nuclei": frozenset({"expired-ssl"}), "testssl": frozenset({"cert_expirationStatus"})},
-    "certificate-untrusted": {"nuclei": frozenset({"self-signed-ssl", "untrusted-root-certificate"}),
-                              "testssl": frozenset({"cert_chain_of_trust"})},
-    "certificate-name": {"nuclei": frozenset({"mismatched-ssl-certificate"}), "testssl": frozenset({"cert_trust"})},
+    # testssl.sh's certificate checks are one finding per host (web_tools.parse_testssl), every check in its evidence.
+    "certificate": {"nuclei": frozenset({"expired-ssl", "self-signed-ssl", "untrusted-root-certificate", "mismatched-ssl-certificate",
+                                         "revoked-ssl-certificate"}),
+                    "testssl": frozenset({"certificate"})},
 }
-_FAMILY = {(tool, rule): family for family, tools in EQUIVALENT.items() for tool, rules in tools.items() for rule in rules}
+_FAMILIES: dict[tuple[str, str], tuple[str, ...]] = {}
+for _family, _tools in EQUIVALENT.items():
+    for _name, _rules in _tools.items():
+        for _rule in _rules:
+            _FAMILIES[(_name, _rule)] = (*_FAMILIES.get((_name, _rule), ()), _family)
 
 
 def _tool(finding: Finding) -> str:
     return str(finding.get("tool") or "").lower()  # ZAP's SARIF names itself "ZAP"
 
 
-def family_of(finding: Finding) -> str | None:
+def families_of(finding: Finding) -> tuple[str, ...]:
     rule = str(finding.get("rule_id") or "")
     tool = _tool(finding)
-    family = _FAMILY.get((tool, rule))
-    if family is None and tool == "nuclei" and ":" in rule:
-        family = _FAMILY.get((tool, rule.split(":", 1)[0]))
-    if family is None and tool == "zap" and "-" in rule:  # an alert's variant (10035-1) of its rule
-        family = _FAMILY.get((tool, rule.split("-", 1)[0]))
-    return family
+    families = _FAMILIES.get((tool, rule), ())
+    if not families and tool == "nuclei" and ":" in rule:
+        families = _FAMILIES.get((tool, rule.split(":", 1)[0]), ())
+    if not families and tool == "zap" and "-" in rule:  # an alert's variant (10035-1) of its rule
+        families = _FAMILIES.get((tool, rule.split("-", 1)[0]), ())
+    return families
+
+
+def family_of(finding: Finding) -> str | None:
+    families = families_of(finding)
+    return families[0] if families else None
 
 
 def _location(finding: Finding) -> str:
@@ -70,12 +84,11 @@ def merge(findings: list[Finding]) -> tuple[list[Finding], int]:
     primary: dict[tuple[str, str], Finding] = {}
     folded = 0
     for finding in ordered:
-        family = family_of(finding)
-        key = (family, _location(finding)) if family else None
-        twin = primary.get(key) if key else None
-        if twin is None or _tool(twin) == _tool(finding):
-            if key and twin is None:
-                primary[key] = finding
+        keys = [(family, _location(finding)) for family in families_of(finding)]
+        twin = next((primary[key] for key in keys if key in primary and _tool(primary[key]) != _tool(finding)), None)
+        if twin is None:
+            for key in keys:
+                primary.setdefault(key, finding)
             kept.append(finding)
             continue
         folded += 1
