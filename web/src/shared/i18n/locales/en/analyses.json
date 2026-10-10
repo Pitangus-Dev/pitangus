@@ -134,18 +134,8 @@
   },
   "scope": {
     "toggle": "Include subdomains",
-    "root": "Always in scope",
-    "in": "In",
-    "out": "Out",
-    "row_label": "Scope of {{host}}",
-    "add_label": "Add a host or wildcard",
-    "add": "Add",
-    "remove": "Remove {{host}}",
-    "foreign": "{{host}} isn't under {{domain}}.",
-    "invalid": "{{host}} isn't a host name. Use name.example.com or *.example.com.",
-    "already_root": "That's the domain itself: it's always in scope.",
-    "too_many": "Up to {{max}} extra hosts per scan.",
-    "exact_only": "Only {{host}} is covered. Verify by DNS to add subdomains."
+    "exact_only": "Only {{host}} is covered. Verify by DNS to add subdomains.",
+    "toggle_hint": "The hosts you mark Analyze are saved with the domain for its next scans."
   },
   "spec": {
     "title": "API documentation",

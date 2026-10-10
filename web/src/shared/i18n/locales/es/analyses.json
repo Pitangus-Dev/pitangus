@@ -134,18 +134,8 @@
   },
   "scope": {
     "toggle": "Incluir subdominios",
-    "root": "Siempre en el alcance",
-    "in": "Dentro",
-    "out": "Fuera",
-    "row_label": "Alcance de {{host}}",
-    "add_label": "Añade un host o comodín",
-    "add": "Añadir",
-    "remove": "Quitar {{host}}",
-    "foreign": "{{host}} no está bajo {{domain}}.",
-    "invalid": "{{host}} no es un nombre de host. Usa nombre.ejemplo.com o *.ejemplo.com.",
-    "already_root": "Ese es el propio dominio: siempre está en el alcance.",
-    "too_many": "Hasta {{max}} hosts extra por análisis.",
-    "exact_only": "Solo se cubre {{host}}. Verifica por DNS para añadir subdominios."
+    "exact_only": "Solo se cubre {{host}}. Verifica por DNS para añadir subdominios.",
+    "toggle_hint": "Los hosts que marques como Analizar se guardan con el dominio para sus próximos análisis."
   },
   "spec": {
     "title": "Documentación de la API",

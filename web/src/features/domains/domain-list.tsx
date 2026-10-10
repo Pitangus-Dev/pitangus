@@ -16,7 +16,7 @@ import { useRemoveDomain } from '@/features/domains/use-remove-domain'
 import { TONE, kindOf, lastScanOf, untilOf, verification, type Domain } from '@/features/domains/domains'
 
 const PAGE = 25
-export type DomainTab = 'overview' | 'findings' | 'scans'
+export type DomainTab = 'overview' | 'findings' | 'scans' | 'scope'
 
 // The sites and APIs a team controls, alike: kind as a tag, whether the proof is current, the last scan (and whether it
 // repeats weekly) and open findings. Administrators add, verify and remove; everyone else reads.

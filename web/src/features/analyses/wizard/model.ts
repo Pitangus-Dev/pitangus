@@ -8,8 +8,6 @@ export type ScanPlan = { languages: { name: string; files: number; rules: number
 export type Registry = { registry: string; username: string; last4: string }
 // An OpenAPI definition read in the browser (sent base64 with the scan) or a URL the scanner fetches itself.
 export type Spec = { mode: 'file'; filename: string; content: string; version: string; endpoints: number } | { mode: 'url'; url: string }
-// A host added to the scope by hand (`name` or `*.name`), in or out of this scan.
-export type ScopeHost = { host: string; included: boolean }
 
 export const STEPS: Record<Kind, StepId[]> = {
   code: ['repositories', 'context', 'review'],
@@ -25,7 +23,6 @@ export const OPTIONAL: StepId[] = ['context', 'access']
 
 export const BATCH_LIMIT = 100   // repositories or images picked by hand per batch (a whole organization has no such cap)
 export const CONTEXT_MAX = 400
-export const SCOPE_MAX = 20
 export const SPEC_MAX_BYTES = 5 * 1024 * 1024
 
 // Same rule as the server: optional registry (with a dot, a port or localhost), lowercase repository, tag or digest.
@@ -38,16 +35,6 @@ export const referencesOf = (text: string) => Array.from(new Set(text.split('\n'
 export const listing = (t: TFunction<'analyses'>, names: string[], limit = 3) => names.length <= limit ? names.join(', ') : t('listing_more', { names: names.slice(0, limit).join(', '), rest: names.length - limit })
 export const duration = (t: TFunction<'analyses'>, seconds: number) => seconds < 5400 ? t('duration.minutes', { value: Math.max(1, Math.round(seconds / 60)) }) : t('duration.hours', { value: Math.round(seconds / 3600) })
 
-// `name` or `*.name` under `root` (the root itself is always in scope and isn't listed).
-const HOST = /^(\*\.)?([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
-export function scopeEntry(value: string, root: string): { host: string } | { error: 'invalid' | 'foreign' | 'root' } {
-  const host = value.trim().toLowerCase().replace(/\.$/, '')
-  if (!HOST.test(host)) return { error: 'invalid' }
-  const bare = host.replace(/^\*\./, '')
-  if (bare === root && !host.startsWith('*.')) return { error: 'root' }
-  if (bare !== root && !bare.endsWith(`.${root}`)) return { error: 'foreign' }
-  return { host }
-}
 export const inScope = (url: string, root: string, hosts: string[]) => {
   try {
     const { protocol, hostname } = new URL(url)

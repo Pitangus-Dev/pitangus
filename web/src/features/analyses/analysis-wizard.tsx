@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { apiPost } from '@/shared/api/client'
 import { api } from '@/shared/api/http'
-import { domainsQuery, keys, registriesQuery, repositoryPlanQuery, sourceCountQuery, sourceQuery, type QueuedDomainScan } from '@/shared/api/queries'
+import { domainScopeQuery, domainsQuery, keys, registriesQuery, repositoryPlanQuery, sourceCountQuery, sourceQuery, type QueuedDomainScan } from '@/shared/api/queries'
 import { formatList } from '@/shared/i18n/format'
 import { Switch } from '@/shared/ui/switch'
 import type { Source } from '@/features/sources/sources'
@@ -39,7 +39,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const [code, setCode] = useState<CodeTarget>({ mode: 'repos', sources: [], organization: '' })
   const [imageText, setImageText] = useState('')
   const [context, setContext] = useState('')
-  const [target, setTarget] = useState<WebTarget>({ domain: null, scopeOpen: false, hosts: [] })
+  const [target, setTarget] = useState<WebTarget>({ domain: null, scopeOpen: false })
   const [spec, setSpec] = useState<Spec | null>(null)
   const [useHeaders, setUseHeaders] = useState(true)
   const [allowOsv, setAllowOsv] = useState(false)
@@ -56,7 +56,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   if (!seededDomain && domains.data) {
     setSeededDomain(true)
     const found = domains.data.items.find(item => item.id === initialDomainId)
-    if (found?.verified) setTarget({ domain: found, scopeOpen: false, hosts: [] })
+    if (found?.verified) setTarget({ domain: found, scopeOpen: false })
   }
 
   const steps = kind && kind !== 'import' ? STEPS[kind] : []
@@ -67,7 +67,10 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
   const single = kind === 'code' && code.mode === 'repos' && code.sources.length === 1 ? code.sources[0].id : null
   const plan = useQuery({ ...repositoryPlanQuery<ScanPlan>(single ?? ''), enabled: !!single })
   const batch = kind === 'code' ? code.mode === 'org' || code.sources.length > 1 : kind === 'image' && references.length > 1
-  const hosts = target.scopeOpen ? target.hosts.filter(item => item.included).map(item => item.host) : []
+  // With the switch on, the scan reaches the hosts saved in the domain's scope (the server reads them again when it starts).
+  const scopeOpen = kind === 'web' && !!domain && target.scopeOpen
+  const savedScope = useQuery({ ...domainScopeQuery(domain?.id ?? ''), enabled: scopeOpen }).data
+  const hosts = scopeOpen && savedScope?.covered ? savedScope.hosts.filter(item => item.state === 'in_scope').map(item => item.host) : []
   const headerNames = (domain?.headers ?? []).map(item => item.name)
   const sending = useHeaders && headerNames.length > 0
   const specInvalid = spec?.mode === 'url' && !!domain && !inScope(spec.url, domain.host, hosts)
@@ -84,7 +87,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onManageConnections
       if (kind === 'web' && domain) {
         // With a spec the server calls its documented endpoints (API mode) instead of crawling the site.
         const source = spec ? spec.mode === 'file' ? { spec: { filename: spec.filename, content_base64: spec.content } } : { spec_url: spec.url } : {}
-        const queued = await api.post<QueuedDomainScan>('/api/domains/scans', 'scan-domain', { domain_id: domain.id, mode: spec ? 'api' : 'web', ...(hosts.length ? { hosts } : {}), use_headers: sending, ...source })
+        const queued = await api.post<QueuedDomainScan>('/api/domains/scans', 'scan-domain', { domain_id: domain.id, mode: spec ? 'api' : 'web', ...(scopeOpen ? { use_scope: true } : {}), use_headers: sending, ...source })
         // The scan is queued either way; a schedule that didn't save shows on the domain's page, not as a failed launch.
         if (weeklyOn !== (domain.schedule === 'weekly')) await apiPost('/api/domains/schedule', 'schedule-domain', { domain_id: domain.id, schedule: weeklyOn ? 'weekly' : null }).catch(() => null)
         void queryClient.invalidateQueries({ queryKey: keys.domains })

@@ -11,10 +11,11 @@ import { TONE, coversSubdomains, kindOf, verification, type Domain } from '@/fea
 import { VerifyDomainDialog } from '@/features/domains/verify-domain-dialog'
 import { ApiDocs } from '@/features/analyses/wizard/api-docs'
 import { StepFrame } from '@/features/analyses/wizard/step-frame'
-import { ScopeEditor } from '@/features/analyses/wizard/scope-editor'
-import type { ScopeHost, Spec } from '@/features/analyses/wizard/model'
+import { DomainScopeEditor } from '@/features/domains/domain-scope'
+import type { Spec } from '@/features/analyses/wizard/model'
 
-export type WebTarget = { domain: Domain | null; scopeOpen: boolean; hosts: ScopeHost[] }
+// `scopeOpen`: the scan includes the hosts saved in the domain's scope (edited here, saved on the domain).
+export type WebTarget = { domain: Domain | null; scopeOpen: boolean }
 
 // One verified domain, its scope and, optionally, its API documentation. Unverified domains stay listed with a way to
 // verify them here; the server checks the proof, the addresses and the switch again before anything is sent.
@@ -28,7 +29,7 @@ export function TargetStep({ value, onChange, spec, onSpec, specInvalid, onBack,
   const [verifying, setVerifying] = useState<Domain | null>(null)
   const items = (domains.data?.items ?? []).filter(domain => domain.kind !== 'surface')
   const selected = value.domain
-  const pick = (domain: Domain) => onChange({ domain, scopeOpen: false, hosts: [] })
+  const pick = (domain: Domain) => onChange({ domain, scopeOpen: false })
   const refresh = () => void queryClient.invalidateQueries({ queryKey: keys.domains })
   const addButton = <Button variant={items.length ? 'ghost' : 'default'} onClick={() => setAdding(true)} className={items.length ? 'text-app-secondary' : undefined}><Plus aria-hidden />{t('target.add')}</Button>
 
@@ -59,8 +60,9 @@ export function TargetStep({ value, onChange, spec, onSpec, specInvalid, onBack,
     {selected?.verified && <div className="space-y-8 pt-2">
       {coversSubdomains(selected)
         ? <div className="space-y-3">
-            <Switch id="scope-toggle" checked={value.scopeOpen} onCheckedChange={scopeOpen => onChange({ ...value, scopeOpen })} label={t('scope.toggle')} />
-            {value.scopeOpen && <ScopeEditor root={selected.host} hosts={value.hosts} onChange={hosts => onChange({ ...value, hosts })} />}
+            <Switch id="scope-toggle" checked={value.scopeOpen} onCheckedChange={scopeOpen => onChange({ ...value, scopeOpen })} label={t('scope.toggle')}
+              hint={value.scopeOpen ? t('scope.toggle_hint') : undefined} />
+            {value.scopeOpen && <DomainScopeEditor key={selected.id} domain={selected} admin autoSearch />}
           </div>
         : <p className="text-sm text-app-muted">{t('scope.exact_only', { host: selected.host })}</p>}
       <ApiDocs key={selected.id} host={selected.host} isApi={selected.kind === 'api'} value={spec} invalid={specInvalid} onChange={onSpec} />

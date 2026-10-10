@@ -45,7 +45,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/sh
 type View = 'overview' | 'analyses' | 'new' | 'findings' | 'coverage' | 'repositories' | 'images' | 'domains' | 'domain' | 'integrations' | 'account' | 'users' | 'pulls' | 'threats' | 'cves' | 'compliance' | 'policies'
 type Theme = 'system' | 'light' | 'dark'
 // Unknown or retired tabs (the old `access`, now part of the overview) open the overview.
-const domainTabOf = (tab: string | null): DomainTab => tab === 'findings' || tab === 'scans' ? tab : 'overview'
+const domainTabOf = (tab: string | null): DomainTab => tab === 'findings' || tab === 'scans' || tab === 'scope' ? tab : 'overview'
 
 // Ley de Hick: tres grupos con nombre en vez de doce opciones seguidas.
 const navigation: { id: string; label: string; items: { id: View; label: string; icon: typeof Shield }[] }[] = [

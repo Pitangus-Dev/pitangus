@@ -21,6 +21,8 @@ export const keys = {
   images: ['images'] as const,
   domains: ['domains'] as const,
   domainProbe: (url: string) => ['domain-probe', url] as const,
+  // Under `domains`: whatever refreshes the domains refreshes their scope too.
+  domainScope: (id: string) => ['domains', 'scope', id] as const,
   registries: ['registries'] as const,
   repositoryPlan: (sourceId: string) => ['repository-plan', sourceId] as const,
   sourceAccounts: ['sources', 'accounts'] as const,
@@ -91,6 +93,14 @@ export type DomainHeader = components['schemas']['DomainHeader']
 export type DomainProbe = components['schemas']['DomainCheck']
 export type QueuedDomainScan = components['schemas']['QueuedDomainScan']
 export const domainsQuery = () => queryOptions({ queryKey: keys.domains, queryFn: ({ signal }) => apiGet('/api/domains', undefined, { signal }) })
+// A domain's related hosts, its saved scope and its last discovery round; polled while a round is queued or running.
+export type DomainScope = components['schemas']['DomainScope']
+export type RelatedHost = components['schemas']['RelatedHost']
+export const domainScopeQuery = (domainId: string) => queryOptions({
+  queryKey: keys.domainScope(domainId),
+  queryFn: ({ signal }) => apiGet('/api/domains/scope', { domain_id: domainId }, { signal }),
+  refetchInterval: query => active(query.state.data?.discovery.status) ? 3000 : false,
+})
 // The probe before registering (does it resolve publicly and answer over HTTPS?), cached per URL so typing back is free.
 export const domainProbeQuery = (url: string) => queryOptions({
   queryKey: keys.domainProbe(url), staleTime: 60_000, retry: false,

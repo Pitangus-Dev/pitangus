@@ -30,4 +30,13 @@ export function verification(domain: Domain): { label: string; tone: 'success' |
   if (domain.verified) return { label: i18n.t('sources:domains.list.verified_by', { method: methodLabel(proofOf(domain)) }), tone: 'success' }
   return { label: i18n.t(domain.expired ? 'sources:domains.list.expired' : 'sources:domains.list.pending'), tone: 'warning' }
 }
+const HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
+// Same rule as the server: a host name strictly under the domain (the domain itself is always analyzed).
+export function relatedEntry(value: string, root: string): { host: string } | { error: 'invalid' | 'foreign' | 'root' } {
+  const host = value.trim().toLowerCase().replace(/\.$/, '')
+  if (host === root) return { error: 'root' }
+  if (!HOST.test(host) || host.length > 253) return { error: 'invalid' }
+  if (!host.endsWith(`.${root}`)) return { error: 'foreign' }
+  return { host }
+}
 export const TONE = { success: 'border-success-line bg-success-soft text-success', warning: 'border-warning-line bg-warning-soft text-warning' } as const

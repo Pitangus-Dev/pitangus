@@ -7,6 +7,7 @@ import { AnalysisList } from '@/features/analyses/analysis-list'
 import { DomainFindings } from '@/features/domains/domain-findings'
 import type { DomainTab } from '@/features/domains/domain-list'
 import { DomainOverview } from '@/features/domains/domain-overview'
+import { DomainScopeEditor } from '@/features/domains/domain-scope'
 import { TONE, kindOf, untilOf, verification, type Domain as DomainRow } from '@/features/domains/domains'
 import { useRemoveDomain } from '@/features/domains/use-remove-domain'
 import { VerifyDomainDialog } from '@/features/domains/verify-domain-dialog'
@@ -19,9 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 
 const TABS: { id: DomainTab; label: string }[] = [
   { id: 'overview', label: 'domains.page.tabs.overview' }, { id: 'findings', label: 'domains.page.tabs.findings' }, { id: 'scans', label: 'domains.page.tabs.scans' },
+  { id: 'scope', label: 'domains.page.tabs.scope' },
 ]
 
-// One domain: its kind and proof in one line under the name, then its overview (with access), findings and scans.
+// One domain: its kind and proof in one line under the name, then its overview (with access), findings, scans and the
+// scope its scans reach. The scope has its own tab: discovery can list dozens of hosts, unlike the few rows of access.
 export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRun, onImport, onOpenPolicies }: {
   domainId: string; tab: DomainTab; onTab: (tab: DomainTab) => void; user: SessionUser; onBack: () => void; onNewScan: (domain: DomainRow) => void
   onOpenRun: (id: string) => void; onImport: () => void; onOpenPolicies: () => void
@@ -71,9 +74,9 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
       </div>
     </div>
     {removal.isError && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{removal.error.message}</p>}
-    <Tabs value={tab} onValueChange={value => onTab(value as DomainTab)}>
+    <Tabs value={tab === 'scope' && domain.kind === 'surface' ? 'overview' : tab} onValueChange={value => onTab(value as DomainTab)}>
       <div className="overflow-x-auto"><TabsList variant="line" aria-label={t('domains.page.tabs_label')}>
-        {TABS.map(item => <TabsTrigger key={item.id} value={item.id} className="min-h-8 px-3">{t(item.label)}</TabsTrigger>)}
+        {TABS.filter(item => item.id !== 'scope' || domain.kind !== 'surface').map(item => <TabsTrigger key={item.id} value={item.id} className="min-h-8 px-3">{t(item.label)}</TabsTrigger>)}
       </TabsList></div>
       <TabsContent value="overview" className="pt-6">
         <DomainOverview domain={domain} admin={admin} onVerify={() => setVerifying(true)} />
@@ -81,6 +84,9 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
       <TabsContent value="findings" className="pt-6">
         <DomainFindings domain={domain} user={user} onNewScan={() => onNewScan(domain)} onImport={onImport} onOpenPolicies={onOpenPolicies} />
       </TabsContent>
+      {domain.kind !== 'surface' && <TabsContent value="scope" className="pt-6">
+        <div className="max-w-3xl"><DomainScopeEditor domain={domain} admin={admin} autoSearch onVerify={() => setVerifying(true)} heading="h2" /></div>
+      </TabsContent>}
       <TabsContent value="scans" className="pt-6">
         <AnalysisList asset={domain.key} refreshKey={runs.data?.length ?? 0} onOpen={onOpenRun} onNew={() => onNewScan(domain)} viewer={{ username: user.username, admin }}
           empty={<div className="flex flex-col items-center gap-3 py-14 text-center"><Radar className="size-7 text-app-muted" aria-hidden /><p className="text-sm text-app-muted">{t('domains.page.scans_empty')}</p>

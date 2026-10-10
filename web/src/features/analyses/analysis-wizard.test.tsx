@@ -14,11 +14,32 @@ const DOMAIN = { id: 'a'.repeat(24), host: 'app.example.com', url: 'https://app.
 const UNVERIFIED = { ...DOMAIN, id: 'b'.repeat(24), host: 'staging.example.com', url: 'https://staging.example.com/', key: 'domain:staging.example.com', verified: false, proof_method: null }
 const API = { ...DOMAIN, id: 'c'.repeat(24), host: 'api.example.com', url: 'https://api.example.com/', kind: 'api', key: 'domain:api.example.com', proof_method: 'file',
   headers: [{ name: 'Authorization', last4: 'cret', saved_at: '2026-10-01T00:00:00Z' }], header_count: 1 }
+type Related = { host: string; state: 'in_scope' | 'out_of_scope'; origin: 'discovered' | 'manual'; first_seen: string; last_seen: string | null }
+const discovery = (status: string) => ({ status, requested_at: null, finished_at: status === 'done' ? '2026-10-09T00:00:00Z' : null, note: null,
+  counts: status === 'done' ? { found: 3, kept: 1, private: 1, unresolved: 1, new: 1, capped: 0 } : null, available: true, unavailable: null })
+const scopeOf = (hosts: Related[], status: string) => ({ domain_id: DOMAIN.id, root: DOMAIN.host, covered: true, reason: null, hosts,
+  in_scope: hosts.filter(item => item.state === 'in_scope').length, limit: 100, scope_limit: 20, discovery: discovery(status) })
 const SPEC = JSON.stringify({ openapi: '3.0.3', info: { title: 'Shop', version: '1' }, paths: { '/items': { get: {}, post: {} }, '/items/{id}': { parameters: [], get: {} } } })
 
 function setup({ admin = true, dast = true, domains = [DOMAIN, UNVERIFIED] as unknown[], source = null as string | null } = {}) {
+  // The domain's saved scope: never searched until the switch asks for it, then one public host found, out of scope.
+  let related: Related[] = []
+  let status = 'idle'
   const calls = mockApi(call => {
     if (call.path === '/api/domains') return { body: { items: domains, total: domains.length, limit: 20, dast } }
+    if (call.path.startsWith('/api/domains/scope') && call.method === 'GET') return { body: scopeOf(related, status) }
+    if (call.path === '/api/domains/discover') {
+      status = 'done'
+      related = [{ host: 'docs.app.example.com', state: 'out_of_scope', origin: 'discovered', first_seen: '2026-10-09T00:00:00Z', last_seen: '2026-10-09T00:00:00Z' }]
+      return { status: 202, body: scopeOf(related, 'running') }
+    }
+    if (call.path === '/api/domains/scope') {
+      const body = call.body as { op: string; host: string; state?: Related['state'] }
+      if (body.op === 'add' && body.host.endsWith('.evil.com')) return { status: 400, body: { error: 'outside' } }
+      if (body.op === 'add') related = [...related, { host: body.host, state: 'in_scope', origin: 'manual', first_seen: '2026-10-09T00:00:00Z', last_seen: null }]
+      if (body.op === 'set') related = related.map(item => item.host === body.host ? { ...item, state: body.state ?? item.state } : item)
+      return { body: scopeOf(related, status) }
+    }
     if (call.path === '/api/domains/scans') return { status: 202, body: { run_id: 'run-web', run: { id: 'run-web', status: 'queued' }, domain: DOMAIN } }
     if (call.path.startsWith('/api/sources')) return { body: { sources: [SOURCE], total: 1 } }
     if (call.path.startsWith('/api/repositories/plan')) return { body: PLAN }
@@ -114,7 +135,7 @@ describe('a code scan', () => {
 })
 
 describe('a web or API scan', () => {
-  it('takes a verified domain, a scope with subdomains (DNS proof) and warns before going without headers', async () => {
+  it('takes a verified domain, the scope saved on it (DNS proof) and warns before going without headers', async () => {
     const { user, calls, done } = setup()
     await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.web.title') }))
     await proceed(user)
@@ -129,13 +150,25 @@ describe('a web or API scan', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: tr('spec.choose') }))
 
     await user.click(screen.getByRole('switch', { name: tr('scope.toggle') }))
-    const field = screen.getByLabelText(tr('scope.add_label'))
+    expect(screen.getByText(tr('scope.toggle_hint'))).toBeTruthy()
+    // Never searched: opening the scope starts the search, and what it finds starts excluded.
+    expect(await screen.findByText(i18n.t('sources:domains.scope.root'))).toBeTruthy()
+    const row = await screen.findByRole('radiogroup', { name: i18n.t('sources:domains.scope.row_label', { host: 'docs.app.example.com' }) })
+    expect(calls.filter(call => call.path === '/api/domains/discover')).toEqual([{ method: 'POST', path: '/api/domains/discover', action: 'discover-domain', body: { domain_id: DOMAIN.id } }])
+    expect(within(row).getByRole('radio', { name: i18n.t('sources:domains.scope.out') }).getAttribute('aria-checked')).toBe('true')
+    await user.click(within(row).getByRole('radio', { name: i18n.t('sources:domains.scope.in') }))
+    await waitFor(() => expect(calls.find(call => call.path === '/api/domains/scope' && call.method === 'POST')?.body)
+      .toEqual({ domain_id: DOMAIN.id, op: 'set', host: 'docs.app.example.com', state: 'in_scope' }))
+    await waitFor(() => expect(within(row).getByRole('radio', { name: i18n.t('sources:domains.scope.in') }).getAttribute('aria-checked')).toBe('true'))
+    // A host typed by hand must be under the domain.
+    await user.click(screen.getByRole('button', { name: i18n.t('sources:domains.scope.add') }))
+    const field = screen.getByLabelText(i18n.t('sources:domains.scope.add_label', { domain: 'app.example.com' }))
     await user.type(field, 'evil.com{Enter}')
-    expect(screen.getByText(tr('scope.foreign', { host: 'evil.com', domain: 'app.example.com' }))).toBeTruthy()
+    expect(screen.getByText(i18n.t('sources:domains.scope.foreign', { host: 'evil.com', domain: 'app.example.com' }))).toBeTruthy()
     await user.clear(field)
     await user.type(field, 'shop.app.example.com{Enter}')
-    const row = screen.getByRole('radiogroup', { name: tr('scope.row_label', { host: 'shop.app.example.com' }) })
-    expect(within(row).getByRole('radio', { name: tr('scope.in') }).getAttribute('aria-checked')).toBe('true')
+    const added = await screen.findByRole('radiogroup', { name: i18n.t('sources:domains.scope.row_label', { host: 'shop.app.example.com' }) })
+    expect(within(added).getByRole('radio', { name: i18n.t('sources:domains.scope.in') }).getAttribute('aria-checked')).toBe('true')
 
     await proceed(user)
     await heading('access.title')
@@ -145,14 +178,14 @@ describe('a web or API scan', () => {
     await user.click(within(question).getByRole('button', { name: tr('skip.access.confirm') }))
 
     await heading('review.title')
-    expect(screen.getByText(tr('review.scope_value', { host: 'app.example.com', count: 1 }))).toBeTruthy()
+    expect(screen.getByText(tr('review.scope_value', { host: 'app.example.com', count: 2 }))).toBeTruthy()
     expect(screen.getByText(tr('review.access_none'))).toBeTruthy()
     expect(screen.queryByText(tr('review.spec'))).toBeNull()
     expect(screen.getByText(tr('review.authorization'))).toBeTruthy()
     await user.click(screen.getByRole('button', { name: tr('launch.web') }))
     await vi.waitFor(() => expect(done).toHaveBeenCalledWith('run-web'))
     expect(scan(calls)).toEqual({ method: 'POST', path: '/api/domains/scans', action: 'scan-domain',
-      body: { domain_id: DOMAIN.id, mode: 'web', hosts: ['shop.app.example.com'], use_headers: false } })
+      body: { domain_id: DOMAIN.id, mode: 'web', use_scope: true, use_headers: false } })
     expect(calls.some(call => call.path === '/api/domains/schedule')).toBe(false)
   })
 

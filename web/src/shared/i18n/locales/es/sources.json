@@ -346,7 +346,8 @@
       "tabs": {
         "overview": "Resumen",
         "findings": "Hallazgos",
-        "scans": "Análisis"
+        "scans": "Análisis",
+        "scope": "Alcance"
       },
       "new_scan": "Nuevo análisis",
       "verify_again": "Verificar de nuevo",
@@ -392,6 +393,42 @@
       "remove": "Eliminar",
       "remove_title": "¿Eliminar {{name}}?",
       "confirm_remove": "Los análisis dejan de enviarla y su valor no se puede recuperar."
+    },
+    "scope": {
+      "loading": "Cargando hosts relacionados…",
+      "root": "Siempre se analiza",
+      "related_one": "Hosts relacionados ({{count}})",
+      "related_other": "Hosts relacionados ({{count}})",
+      "list_label": "Hosts relacionados",
+      "in": "Analizar",
+      "out": "Excluir",
+      "row_label": "Alcance de {{host}}",
+      "exclude_all": "Excluir todos",
+      "search": "Buscar hosts",
+      "search_again": "Buscar de nuevo",
+      "searching": "Buscando hosts relacionados…",
+      "empty": "Aún no hay hosts relacionados. Búscalos o añade uno a mano.",
+      "empty_manual": "Aún no hay hosts relacionados. Añade uno a mano.",
+      "filter": "Filtrar hosts",
+      "no_match": "Ningún host coincide.",
+      "manual": "Añadido a mano",
+      "seen": "Visto por última vez el {{date}}",
+      "remove": "Quitar {{host}}",
+      "add": "Añadir host",
+      "add_label": "Un host bajo {{domain}}",
+      "foreign": "{{host}} no está bajo {{domain}}.",
+      "invalid": "{{host}} no es un nombre de host. Usa nombre.ejemplo.com.",
+      "already_root": "Ese es el propio dominio: siempre se analiza.",
+      "count": "{{count}} de {{max}} hosts analizados además del dominio.",
+      "passive_note": "Encontrados en fuentes públicas (registros de certificados, DNS pasivo); no se envía nada a estos hosts hasta que un análisis los incluya. Los hosts nuevos empiezan excluidos.",
+      "last_search_one": "Búsqueda del {{date}}: {{count}} nombre encontrado, {{kept}} con direcciones públicas.",
+      "last_search_other": "Búsqueda del {{date}}: {{count}} nombres encontrados, {{kept}} con direcciones públicas.",
+      "capped_one": "{{count}} más no se listó: un dominio guarda como máximo {{max}} hosts.",
+      "capped_other": "{{count}} más no se listaron: un dominio guarda como máximo {{max}} hosts.",
+      "admin_only": "Solo quien administra cambia el alcance.",
+      "exclude_all_title": "¿Excluir todos los hosts?",
+      "exclude_all_text_one": "{{count}} host deja de analizarse. Los análisis llegarán solo al propio dominio hasta que vuelvas a marcar hosts.",
+      "exclude_all_text_other": "{{count}} hosts dejan de analizarse. Los análisis llegarán solo al propio dominio hasta que vuelvas a marcar hosts."
     }
   },
   "images": {

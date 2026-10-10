@@ -346,7 +346,8 @@
       "tabs": {
         "overview": "Overview",
         "findings": "Findings",
-        "scans": "Scans"
+        "scans": "Scans",
+        "scope": "Scope"
       },
       "new_scan": "New scan",
       "verify_again": "Verify again",
@@ -392,6 +393,42 @@
       "remove": "Remove",
       "remove_title": "Remove {{name}}?",
       "confirm_remove": "Scans stop sending it, and its value can't be recovered."
+    },
+    "scope": {
+      "loading": "Loading related hosts…",
+      "root": "Always analyzed",
+      "related_one": "Related hosts ({{count}})",
+      "related_other": "Related hosts ({{count}})",
+      "list_label": "Related hosts",
+      "in": "Analyze",
+      "out": "Exclude",
+      "row_label": "Scope of {{host}}",
+      "exclude_all": "Exclude all",
+      "search": "Search for hosts",
+      "search_again": "Search again",
+      "searching": "Searching for related hosts…",
+      "empty": "No related hosts yet. Search for them or add one by hand.",
+      "empty_manual": "No related hosts yet. Add one by hand.",
+      "filter": "Filter hosts",
+      "no_match": "No host matches.",
+      "manual": "Added by hand",
+      "seen": "Last seen {{date}}",
+      "remove": "Remove {{host}}",
+      "add": "Add host",
+      "add_label": "A host under {{domain}}",
+      "foreign": "{{host}} isn't under {{domain}}.",
+      "invalid": "{{host}} isn't a host name. Use name.example.com.",
+      "already_root": "That's the domain itself: it's always analyzed.",
+      "count": "{{count}} of {{max}} hosts analyzed besides the domain.",
+      "passive_note": "Found in public sources (certificate logs, passive DNS); nothing is sent to these hosts until a scan includes them. New hosts start excluded.",
+      "last_search_one": "Searched {{date}}: {{count}} name found, {{kept}} with public addresses.",
+      "last_search_other": "Searched {{date}}: {{count}} names found, {{kept}} with public addresses.",
+      "capped_one": "{{count}} more wasn't listed: a domain keeps {{max}} hosts at most.",
+      "capped_other": "{{count}} more weren't listed: a domain keeps {{max}} hosts at most.",
+      "admin_only": "Only administrators change the scope.",
+      "exclude_all_title": "Exclude every host?",
+      "exclude_all_text_one": "{{count}} host stops being analyzed. Scans will reach the domain itself only, until you mark hosts again.",
+      "exclude_all_text_other": "{{count}} hosts stop being analyzed. Scans will reach the domain itself only, until you mark hosts again."
     }
   },
   "images": {
