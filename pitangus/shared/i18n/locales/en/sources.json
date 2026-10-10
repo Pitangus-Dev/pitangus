@@ -63,7 +63,13 @@
       "too_many": "A scan lists at most {{max}} extra hosts",
       "invalid_host": "{{host}} isn't a valid host name (use name.example.com or *.example.com)",
       "outside": "{{host}} isn't {{root}} or one of its subdomains",
-      "needs_dns": "{{host}} can't be scanned: {{root}} was verified with a file or a meta tag, which proves that host only. Verify it with the DNS TXT record to include subdomains"
+      "needs_dns": "{{host}} can't be scanned: {{root}} was verified with a file or a meta tag, which proves that host only. Verify it with the DNS TXT record to include subdomains",
+      "unverified": "Verify {{host}} first: only a verified domain's subdomains can be included",
+      "dns_only": "Verify with DNS to include subdomains",
+      "root": "{{host}} is the domain itself: it's always analyzed",
+      "unknown_host": "{{host}} isn't among this domain's related hosts",
+      "hosts_full": "A domain keeps at most {{max}} related hosts",
+      "not_manual": "{{host}} was found by discovery and stays listed: exclude it instead"
     },
     "schedule": {
       "invalid": "The schedule is weekly or off",
@@ -77,6 +83,10 @@
       "invalid_value": "Header values are printable ASCII on one line, up to {{max}} characters",
       "limit": "A domain keeps at most {{max}} headers",
       "not_found": "There's no saved header named {{name}}"
+    },
+    "discovery": {
+      "interrupted": "The search for related hosts stopped without finishing; search again.",
+      "busy": "A search for related hosts is already running for this domain."
     }
   }
 }

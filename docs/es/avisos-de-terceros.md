@@ -23,6 +23,7 @@ oficiales fijadas por digest. Pitangus no enlaza su código ni lo modifica: es a
 | [Grype](https://github.com/anchore/grype) | 0.120.0 | Apache-2.0 | Segunda opinión en imágenes | Conservar avisos |
 | [Checkov](https://github.com/bridgecrewio/checkov) | 3.3.19 | Apache-2.0 | IaC y pipelines | Conservar avisos |
 | [zizmor](https://github.com/zizmorcore/zizmor) | 1.30.1 | MIT | GitHub Actions | Conservar aviso de copyright |
+| [subfinder](https://github.com/projectdiscovery/subfinder) | 2.16.0 | MIT | Hosts relacionados de un dominio, desde fuentes pasivas (con los análisis web activos) | Conservar aviso de copyright |
 
 Ninguna de estas licencias limita el uso comercial ni el uso como servicio (SaaS).
 

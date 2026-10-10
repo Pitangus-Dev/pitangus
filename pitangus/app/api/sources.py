@@ -22,7 +22,7 @@ from pitangus.modules.integrations import github_manifest
 from pitangus.modules.integrations.installations import clear_github, github_connections, github_installations, save_github
 from pitangus.modules.scanning import openapi_spec
 from pitangus.modules.sources import assets as source_assets
-from pitangus.modules.sources import domain_headers, domains
+from pitangus.modules.sources import domain_headers, domain_scope, domains
 from pitangus.modules.sources.assets import with_scan_branches
 from pitangus.modules.sources.domains import DomainError
 from pitangus.modules.sources.repositories import SourceError, find_source, list_repositories, source_page, unavailable
@@ -356,18 +356,22 @@ class SpecIn(BaseModel):
 
 class DomainScanIn(BaseModel):
     """A passive scan of a verified domain. `mode`: web (crawl) or api (an OpenAPI definition: `spec`, uploaded, or
-    `spec_url`, on a host of the scope). `hosts`: subdomains to include (`name` or `*.name`, at most 20; DNS proofs
-    only). `use_headers`: send the domain's saved headers to the scope's hosts."""
+    `spec_url`, on a host of the scope). `use_scope`: include the hosts saved in the domain's scope (read again when
+    the scan starts); or `hosts`: subdomains listed for this scan only (`name` or `*.name`, at most 20). Both need a
+    DNS proof. `use_headers`: send the domain's saved headers to the scope's hosts."""
     model_config = ConfigDict(extra="forbid")
     domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
     mode: Literal["web", "api"] = "web"
     hosts: list[Annotated[StrictStr, Field(max_length=260)]] = Field(default_factory=list, max_length=domains.SCOPE_LIMIT)
+    use_scope: bool = False
     use_headers: bool = False
     spec: SpecIn | None = None
     spec_url: StrictStr | None = Field(None, max_length=2000)
 
     @model_validator(mode="after")
     def _spec(self):
+        if self.use_scope and self.hosts:
+            raise ValueError("use_scope or hosts, not both")
         if self.mode == "web" and (self.spec is not None or self.spec_url is not None):
             raise ValueError("a definition goes with api mode only")
         if self.mode == "api" and (self.spec is None) == (self.spec_url is None):
@@ -398,6 +402,8 @@ def domain_register(context: Context = Depends(guard(Policy(admin=True, action="
     except DomainError as exc:
         raise ApiError(400, exc.message) from exc
     context.state.log.info("domain_registered", extra={"user": context.user["username"], "reason": record["host"]})
+    if settings.flag("PITANGUS_DAST_ENABLED"):
+        context.state.jobs.enqueue_discovery(domain=record)
     return context.render(_domain_rows(context, [record])[0])
 
 
@@ -488,8 +494,8 @@ def domain_headers_route(context: Context = Depends(guard(Policy(admin=True, act
 def domain_schedule(context: Context = Depends(guard(Policy(admin=True, action="schedule-domain", body=256))),
                     data: DomainScheduleIn = Depends(body(DomainScheduleIn, msg("sources.domains.invalid_request")))) -> Any:
     """Turns the weekly passive web scan of the domain on or off. The first one is queued at the next hourly round of
-    the periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host, without its
-    saved headers, and a domain whose proof lapsed is skipped with the reason."""
+    the periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host and the hosts saved
+    in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason."""
     _known(context, data.domain_id)
     try:
         record = domains.set_schedule(context.data_dir, data.domain_id, data.schedule)
@@ -498,6 +504,125 @@ def domain_schedule(context: Context = Depends(guard(Policy(admin=True, action="
     context.state.log.info("domain_schedule_changed", extra={"user": context.user["username"],
                                                              "reason": f"{record['host']}: {data.schedule or 'off'}"})
     return context.render(_domain_rows(context, [record])[0])
+
+
+class RelatedHost(Open):
+    """A host under the domain: `state` says whether its scans reach it; `origin` whether discovery found it or
+    someone added it; `last_seen` is the last discovery that found it."""
+    host: str
+    state: Literal["in_scope", "out_of_scope"]
+    origin: Literal["discovered", "manual"]
+    first_seen: str | None = None
+    last_seen: str | None = None
+    changed_by: str | None = None
+
+
+class DiscoveryCounts(Open):
+    found: int = 0
+    kept: int = 0
+    private: int = 0
+    unresolved: int = 0
+    new: int = 0
+    capped: int = 0
+
+
+class Discovery(Open):
+    """The last discovery round: `note` says why it failed or couldn't run; `available` is false when this server
+    doesn't run discovery at all (web scans off), with the reason in `unavailable`."""
+    status: Literal["idle", "queued", "running", "done", "failed"]
+    requested_at: str | None = None
+    finished_at: str | None = None
+    note: str | None = None
+    counts: DiscoveryCounts | None = None
+    available: bool = False
+    unavailable: str | None = None
+
+
+class DomainScope(Open):
+    """The domain's related hosts and its saved scope. `covered`: its proof lets them in (a current DNS proof);
+    otherwise `reason` says what's missing and nothing can be put in scope. `in_scope` counts the hosts saved in
+    (at most `scope_limit`); at most `limit` hosts are kept."""
+    domain_id: str
+    root: str
+    covered: bool
+    reason: str | None = None
+    hosts: list[RelatedHost] = Field(max_length=domain_scope.HOSTS_LIMIT)
+    in_scope: int
+    limit: int
+    scope_limit: int
+    discovery: Discovery
+
+
+class DomainScopeIn(BaseModel):
+    """`set` puts a listed host in or out of scope (`host`, `state`); `add` lists a host under the domain by hand, in
+    scope; `remove` forgets a host added by hand; `exclude_all` puts every host out of scope."""
+    model_config = ConfigDict(extra="forbid")
+    domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
+    op: Literal["set", "add", "remove", "exclude_all"]
+    host: StrictStr | None = Field(None, max_length=253)
+    state: Literal["in_scope", "out_of_scope"] | None = None
+
+    @model_validator(mode="after")
+    def _fields(self):
+        if (self.op != "exclude_all") != (self.host is not None) or (self.op == "set") != (self.state is not None):
+            raise ValueError("set takes host and state; add and remove take host; exclude_all takes neither")
+        return self
+
+
+def _scope_view(context: Context, domain_id: str) -> dict:
+    shown = domain_scope.view(context.data_dir, domain_id)
+    off = None if settings.flag("PITANGUS_DAST_ENABLED") else msg("scanning.discovery.disabled")
+    shown["discovery"] = {**shown["discovery"], "available": off is None, "unavailable": off}
+    return context.render(shown)
+
+
+@router.get("/api/domains/scope", response_model=DomainScope, **AS_RETURNED, responses={404: {"description": "Unknown domain"}})
+def domain_scope_read(domain_id: str = Query(pattern="^[0-9a-f]{24}$"), context: Context = Depends(guard())) -> Any:
+    """The hosts related to a domain (found by discovery or added by hand), which of them its scans reach, whether its
+    proof lets any in, and the last discovery round."""
+    _known(context, domain_id)
+    return _scope_view(context, domain_id)
+
+
+@router.post("/api/domains/scope", response_model=DomainScope, openapi_extra=documented(DomainScopeIn), **AS_RETURNED,
+             responses={404: {"description": "Unknown domain"},
+                        409: {"description": "The domain's proof doesn't cover subdomains (only a current DNS proof does)"}})
+def domain_scope_change(context: Context = Depends(guard(Policy(admin=True, action="domain-scope", body=512))),
+                        data: DomainScopeIn = Depends(body(DomainScopeIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Saves the domain's scope, one host at a time: its scans (by hand or scheduled) reach the hosts saved in it.
+    Nothing is sent to any host here."""
+    record = _known(context, data.domain_id)
+    user = context.user["username"]
+    try:
+        if data.op == "set":
+            domain_scope.set_state(context.data_dir, record["id"], data.host, data.state or "", by=user)
+        elif data.op == "add":
+            domain_scope.add_host(context.data_dir, record["id"], data.host, by=user)
+        elif data.op == "remove":
+            domain_scope.remove_host(context.data_dir, record["id"], data.host)
+        else:
+            domain_scope.exclude_all(context.data_dir, record["id"], by=user)
+    except DomainError as exc:
+        raise ApiError(409 if exc.message == domain_scope.coverage_reason(record) else 400, exc.message) from exc
+    context.state.log.info("domain_scope_changed", extra={"user": user, "reason": f"{record['host']}: {data.op} {data.host or ''} {data.state or ''}".strip()})
+    return _scope_view(context, record["id"])
+
+
+@router.post("/api/domains/discover", status_code=202, response_model=DomainScope, openapi_extra=documented(DomainIdIn), **AS_RETURNED,
+             responses={404: {"description": "Unknown domain"},
+                        409: {"description": "Web scans off on this server, or a discovery already queued or running"}})
+def domain_discover(context: Context = Depends(guard(Policy(admin=True, action="discover-domain", body=256))),
+                    data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
+    """Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,
+    archives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are
+    listed out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources."""
+    record = _known(context, data.domain_id)
+    if not settings.flag("PITANGUS_DAST_ENABLED"):
+        raise ApiError(409, msg("scanning.discovery.disabled"))
+    if not context.state.jobs.enqueue_discovery(domain=record):
+        raise ApiError(409, msg("sources.domains.discovery.busy"))
+    context.state.log.info("domain_discovery_requested", extra={"user": context.user["username"], "reason": record["host"]})
+    return _scope_view(context, record["id"])
 
 
 class QueuedDomainScan(Open):
@@ -515,7 +640,7 @@ def _scan_options(context: Context, record: dict, data: DomainScanIn | None) -> 
     if data is None:
         return {"mode": "web"}
     try:
-        scope = domains.scan_scope(record, list(data.hosts))
+        scope = domains.scan_scope(record, domain_scope.saved_hosts(context.data_dir, record) if data.use_scope else list(data.hosts))
     except DomainError as exc:
         needs_dns = is_msg(exc.message) and exc.message[MARK] == "sources.domains.scope.needs_dns"
         raise ApiError(409 if needs_dns else 400, exc.message) from exc
@@ -526,7 +651,11 @@ def _scan_options(context: Context, record: dict, data: DomainScanIn | None) -> 
             raise ApiError(409, msg("scanning.web.errors.address", host=host, reason=exc.message)) from exc
     if data.use_headers and not domain_headers.count(record["id"]):
         raise ApiError(409, msg("scanning.web.errors.no_headers"))
-    options: dict[str, Any] = {"mode": data.mode, "hosts": [*scope["hosts"][1:], *scope["wildcards"]], "use_headers": data.use_headers}
+    options: dict[str, Any] = {"mode": data.mode, "use_headers": data.use_headers}
+    if data.use_scope:
+        options["use_scope"] = True
+    else:
+        options["hosts"] = [*scope["hosts"][1:], *scope["wildcards"]]
     try:
         if data.spec is not None:
             try:

@@ -63,7 +63,13 @@
       "too_many": "Un análisis admite como máximo {{max}} hosts adicionales",
       "invalid_host": "{{host}} no es un nombre de host válido (usa nombre.ejemplo.com o *.ejemplo.com)",
       "outside": "{{host}} no es {{root}} ni uno de sus subdominios",
-      "needs_dns": "No se puede analizar {{host}}: {{root}} se verificó con un archivo o una etiqueta meta, que solo prueban ese host. Verifícalo con el registro TXT en DNS para incluir subdominios"
+      "needs_dns": "No se puede analizar {{host}}: {{root}} se verificó con un archivo o una etiqueta meta, que solo prueban ese host. Verifícalo con el registro TXT en DNS para incluir subdominios",
+      "unverified": "Primero verifica {{host}}: solo se pueden incluir subdominios de un dominio verificado",
+      "dns_only": "Verifica con DNS para incluir subdominios",
+      "root": "{{host}} es el propio dominio: siempre se analiza",
+      "unknown_host": "{{host}} no está entre los hosts relacionados de este dominio",
+      "hosts_full": "Un dominio guarda como máximo {{max}} hosts relacionados",
+      "not_manual": "{{host}} lo encontró la búsqueda y sigue en la lista: exclúyelo en su lugar"
     },
     "schedule": {
       "invalid": "La programación es semanal o ninguna",
@@ -77,6 +83,10 @@
       "invalid_value": "El valor de una cabecera es ASCII imprimible en una sola línea, hasta {{max}} caracteres",
       "limit": "Un dominio guarda como máximo {{max}} cabeceras",
       "not_found": "No hay ninguna cabecera guardada con el nombre {{name}}"
+    },
+    "discovery": {
+      "interrupted": "La búsqueda de hosts relacionados se detuvo sin terminar; vuelve a buscar.",
+      "busy": "Ya hay una búsqueda de hosts relacionados en curso para este dominio."
     }
   }
 }

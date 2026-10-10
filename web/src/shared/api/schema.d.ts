@@ -1174,10 +1174,58 @@ export interface paths {
         /**
          * Domain Schedule
          * @description Turns the weekly passive web scan of the domain on or off. The first one is queued at the next hourly round of
-         *     the periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host, without its
-         *     saved headers, and a domain whose proof lapsed is skipped with the reason.
+         *     the periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host and the hosts saved
+         *     in its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason.
          */
         post: operations["domain_schedule_api_domains_schedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Domain Scope Read
+         * @description The hosts related to a domain (found by discovery or added by hand), which of them its scans reach, whether its
+         *     proof lets any in, and the last discovery round.
+         */
+        get: operations["domain_scope_read_api_domains_scope_get"];
+        put?: never;
+        /**
+         * Domain Scope Change
+         * @description Saves the domain's scope, one host at a time: its scans (by hand or scheduled) reach the hosts saved in it.
+         *     Nothing is sent to any host here.
+         */
+        post: operations["domain_scope_change_api_domains_scope_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Discover
+         * @description Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,
+         *     archives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are
+         *     listed out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources.
+         */
+        post: operations["domain_discover_api_domains_discover_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2868,6 +2916,69 @@ export interface components {
             deleted: boolean;
         };
         /**
+         * Discovery
+         * @description The last discovery round: `note` says why it failed or couldn't run; `available` is false when this server
+         *     doesn't run discovery at all (web scans off), with the reason in `unavailable`.
+         */
+        Discovery: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "queued" | "running" | "done" | "failed";
+            /** Requested At */
+            requested_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Note */
+            note?: string | null;
+            counts?: components["schemas"]["DiscoveryCounts"] | null;
+            /**
+             * Available
+             * @default false
+             */
+            available: boolean;
+            /** Unavailable */
+            unavailable?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** DiscoveryCounts */
+        DiscoveryCounts: {
+            /**
+             * Found
+             * @default 0
+             */
+            found: number;
+            /**
+             * Kept
+             * @default 0
+             */
+            kept: number;
+            /**
+             * Private
+             * @default 0
+             */
+            private: number;
+            /**
+             * Unresolved
+             * @default 0
+             */
+            unresolved: number;
+            /**
+             * New
+             * @default 0
+             */
+            new: number;
+            /**
+             * Capped
+             * @default 0
+             */
+            capped: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * DomainCheck
          * @description The probe before registering: `public` is false when the name resolves to a private or reserved address (and
          *     nothing was sent), null when it doesn't resolve; `https` and `reachable` mean a valid certificate and an answer.
@@ -3029,6 +3140,33 @@ export interface components {
              * @default 0
              */
             open: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainScope
+         * @description The domain's related hosts and its saved scope. `covered`: its proof lets them in (a current DNS proof);
+         *     otherwise `reason` says what's missing and nothing can be put in scope. `in_scope` counts the hosts saved in
+         *     (at most `scope_limit`); at most `limit` hosts are kept.
+         */
+        DomainScope: {
+            /** Domain Id */
+            domain_id: string;
+            /** Root */
+            root: string;
+            /** Covered */
+            covered: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Hosts */
+            hosts: components["schemas"]["RelatedHost"][];
+            /** In Scope */
+            in_scope: number;
+            /** Limit */
+            limit: number;
+            /** Scope Limit */
+            scope_limit: number;
+            discovery: components["schemas"]["Discovery"];
         } & {
             [key: string]: unknown;
         };
@@ -4216,6 +4354,33 @@ export interface components {
             saved_at?: string | null;
             /** Saved By */
             saved_by?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * RelatedHost
+         * @description A host under the domain: `state` says whether its scans reach it; `origin` whether discovery found it or
+         *     someone added it; `last_seen` is the last discovery that found it.
+         */
+        RelatedHost: {
+            /** Host */
+            host: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "in_scope" | "out_of_scope";
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "discovered" | "manual";
+            /** First Seen */
+            first_seen?: string | null;
+            /** Last Seen */
+            last_seen?: string | null;
+            /** Changed By */
+            changed_by?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -7279,6 +7444,135 @@ export interface operations {
             };
         };
     };
+    domain_scope_read_api_domains_scope_get: {
+        parameters: {
+            query: {
+                domain_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainScope"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_scope_change_api_domains_scope_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /**
+                     * Op
+                     * @enum {string}
+                     */
+                    op: "set" | "add" | "remove" | "exclude_all";
+                    /** Host */
+                    host?: string | null;
+                    /** State */
+                    state?: ("in_scope" | "out_of_scope") | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainScope"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The domain's proof doesn't cover subdomains (only a current DNS proof does) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_discover_api_domains_discover_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainScope"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Web scans off on this server, or a discovery already queued or running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     domain_scan_api_domains_scans_post: {
         parameters: {
             query?: never;
@@ -7299,6 +7593,11 @@ export interface operations {
                     mode?: "web" | "api";
                     /** Hosts */
                     hosts?: string[];
+                    /**
+                     * Use Scope
+                     * @default false
+                     */
+                    use_scope?: boolean;
                     /**
                      * Use Headers
                      * @default false

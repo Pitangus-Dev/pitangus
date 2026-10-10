@@ -195,8 +195,9 @@ class ScanJobs:
     def enqueue_dast_scan(self, *, domain: dict, requested_by: str, trigger: dict | None = None, options: dict | None = None) -> dict:
         """Passive web or API scan of a verified domain (scanning/web.py). One at a time per instance: it reaches
         someone's application, so a second one waits for the first rather than doubling the load. Raises BusyError.
-        `options` (already validated by the caller): mode, hosts, use_headers and, in API mode, the definition sealed
-        with the master key (`spec`) or the URL to fetch it from (`spec_url`). The worker checks everything again."""
+        `options` (already validated by the caller): mode, hosts or use_scope (the scope saved with the domain, read
+        when the scan starts), use_headers and, in API mode, the definition sealed with the master key (`spec`) or the
+        URL to fetch it from (`spec_url`). The worker checks everything again."""
         from sqlalchemy import func, select
         from pitangus.modules.runs.tables import jobs
         options = options or {}
@@ -217,10 +218,22 @@ class ScanJobs:
                 raise BusyError(msg("scanning.web.errors.busy"))
             self._save(record)
             queue.enqueue(self.data_dir, "dast_scan", {"domain_id": domain["id"], **{key: options[key] for key in
-                          ("mode", "hosts", "use_headers", "spec", "spec_url", "spec_sha256", "spec_endpoints") if options.get(key) is not None}},
+                          ("mode", "hosts", "use_scope", "use_headers", "spec", "spec_url", "spec_sha256", "spec_endpoints")
+                          if options.get(key) is not None}},
                           run_id=run_id)
         log.info("dast_scan_queued", extra={"run_id": run_id, "path": domain["host"], "user": requested_by})
         return {"id": run_id, "status": "queued"}
+
+    def enqueue_discovery(self, *, domain: dict) -> bool:
+        """A round of related-host discovery for the domain (scanning/discovery.py); no run record, its state lives on
+        the domain. False when one is already queued or running."""
+        from pitangus.modules.sources import domain_scope
+        with db.transaction(self.data_dir):
+            if not domain_scope.request_discovery(self.data_dir, domain["id"]):
+                return False
+            queue.enqueue(self.data_dir, "domain_discovery", {"domain_id": domain["id"]})
+        log.info("domain_discovery_queued", extra={"path": domain["host"]})
+        return True
 
     def enqueue_periodic(self, task: str) -> None:
         """A periodic task (NVD sync, advisory watch) for a worker to run: see runs/periodic.py."""
@@ -340,6 +353,8 @@ class ScanJobs:
             return self._execute_image(job)
         if job.get("kind") == "dast_scan":
             return self._execute_dast(job)
+        if job.get("kind") == "domain_discovery":
+            return self._execute_discovery(job)
         run_id = job["run_id"]
         tokens = vault.unseal(job["tokens"], "job-tokens") if job.get("tokens") else {}
         record = load_run(self.data_dir, run_id)
@@ -425,7 +440,7 @@ class ScanJobs:
         from pitangus.modules.scanning import openapi_spec
         from pitangus.modules.scanning.engines import docker_problem, runner
         from pitangus.modules.scanning.web import WebScanError, scan_domain
-        from pitangus.modules.sources import domain_headers
+        from pitangus.modules.sources import domain_headers, domain_scope
         from pitangus.modules.sources.domains import DomainError, confirm_control, public_address, scan_scope
         run_id = job["run_id"]
         sealed = job.get("spec")
@@ -448,7 +463,11 @@ class ScanJobs:
                 raise WebScanError(problem)
             domain = confirm_control(self.data_dir, job["domain_id"])
             host = domain["host"]
-            scope = scan_scope(domain, job.get("hosts") or [])
+            hosts, excluded = job.get("hosts") or [], []
+            if job.get("use_scope"):
+                # The scope as saved now, and only while the DNS proof covers it (`saved_hosts` answers none otherwise).
+                hosts, excluded = domain_scope.saved_hosts(self.data_dir, domain), domain_scope.excluded_hosts(self.data_dir, domain)
+            scope = scan_scope(domain, hosts)
             pins = {}
             for name in scope["hosts"]:
                 try:
@@ -470,7 +489,8 @@ class ScanJobs:
                     raise WebScanError(exc.message) from exc
                 if api is None:
                     raise WebScanError(msg("scanning.web.spec.missing"))
-            scan = scan_domain(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope, headers=headers, api=api)
+            scan = scan_domain(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope, headers=headers, api=api,
+                               excluded=excluded)
             counts = _counts(scan["summary"])
             progress("warn" if scan["status"] == "incomplete" else "ok",
                      msg("runs.progress.finished_incomplete" if scan["status"] == "incomplete" else "runs.progress.finished", counts=counts))
@@ -490,6 +510,32 @@ class ScanJobs:
             log.error("dast_scan_failed: %s", traceback.format_exc().splitlines()[-1], extra={"run_id": run_id})
             self._fail(record, msg("runs.failure.dast_internal"))
             del exc
+
+    def _execute_discovery(self, job: dict) -> None:
+        """Runs subfinder for the domain and stores the hosts that resolve to public addresses, all out of scope. When
+        it can't run (web scans off, no Docker, image missing, offline), the domain says why."""
+        from pitangus.modules.scanning.discovery import DiscoveryError, discover, unavailable
+        from pitangus.modules.sources import domain_scope
+        from pitangus.modules.sources.domains import DomainError, get_domain
+        try:
+            domain = get_domain(self.data_dir, job["domain_id"])
+        except DomainError:
+            return None  # removed since it was queued
+        domain_scope.discovery_started(self.data_dir, domain["id"])
+        try:
+            problem = unavailable()
+            if problem:
+                raise DiscoveryError(problem)
+            found = discover(domain["host"])
+            counts = domain_scope.discovery_finished(self.data_dir, domain["id"], found["hosts"], found["counts"])
+            log.info("domain_discovery_finished", extra={"path": domain["host"], "reason": str(counts)})
+        except DiscoveryError as exc:
+            log.warning("domain_discovery_skipped", extra={"path": domain["host"], "reason": text(exc.message, "en")})
+            domain_scope.discovery_failed(self.data_dir, domain["id"], exc.message)
+        except Exception:  # noqa: BLE001
+            log.error("domain_discovery_failed: %s", traceback.format_exc().splitlines()[-1], extra={"path": domain["host"]})
+            domain_scope.discovery_failed(self.data_dir, domain["id"], msg("scanning.discovery.failed"))
+        return None
 
     def _revision(self, job: dict, record: dict) -> tuple[str | None, str | None]:
         """Branch and commit a GitHub App scan reads: the pinned ones, else the repository's scan branch, else its

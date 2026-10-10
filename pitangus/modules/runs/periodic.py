@@ -88,7 +88,8 @@ def _domains(data_dir: Path, jobs) -> object:
 def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> object:
     """Queues the weekly passive web scan of the most overdue domain (one: web scans run one at a time). A domain
     whose proof lapsed is skipped with the reason and stays due; another web scan in progress leaves it for the next
-    round. Scheduled scans crawl the domain's own host, without its saved headers."""
+    round. Scheduled scans crawl the domain's own host and the hosts saved in its scope (while its DNS proof covers
+    them), without its saved headers."""
     from pitangus.modules.runs.jobs import BusyError
     from pitangus.modules.sources import domains
     from pitangus.shared.i18n import msg
@@ -100,7 +101,7 @@ def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> objec
             continue
         try:
             queued = jobs.enqueue_dast_scan(domain=record, requested_by="schedule", trigger={"kind": "schedule"},
-                                            options={"mode": "web"})
+                                            options={"mode": "web", "use_scope": True})
         except BusyError:
             domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.busy"), now=now)
             return {"queued": None, "waiting": record["host"]}

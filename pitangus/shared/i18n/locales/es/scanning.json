@@ -615,5 +615,13 @@
       "fetch_status": "{{url}} respondió {{code}} en vez de la definición OpenAPI (no se siguen redirecciones).",
       "missing": "El modo API necesita una definición OpenAPI."
     }
+  },
+  "discovery": {
+    "disabled": "La búsqueda de hosts relacionados solo funciona con los análisis web activos: define PITANGUS_DAST_ENABLED=1 en este servidor.",
+    "needs_docker": "La búsqueda de hosts relacionados necesita el runner de Docker: el worker sin socket de Docker no incluye subfinder.",
+    "no_docker": "No se pudo buscar hosts relacionados: {{reason}}",
+    "image_missing": "La imagen de subfinder aún no está en este servidor: ejecuta make engines (o haz docker pull) y vuelve a buscar.",
+    "timeout": "subfinder pasó de su límite de {{seconds}} segundos y se detuvo; vuelve a buscar más tarde.",
+    "failed": "subfinder no terminó: comprueba que el servidor tenga salida a internet y vuelve a buscar."
   }
 }

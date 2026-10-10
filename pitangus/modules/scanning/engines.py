@@ -70,9 +70,13 @@ IMAGES = {
     # Passive web scans of verified domains (scanning/web.py): Java, ~1.2 GB, Docker runner only.
     "zap": {"name": "ZAP", "version": "2.17.0",
             "image": "ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2"},
+    # Hosts related to a verified domain, from passive sources (scanning/discovery.py): ~25 MB, Docker runner only.
+    "subfinder": {"name": "subfinder", "version": "2.16.0",
+                  "image": "projectdiscovery/subfinder:v2.16.0@sha256:c0f4683f91e8e30fbb5bf45051ef45e245ef48424b0d5bc99f8a72cb45163ea9"},
 }
-# Engines that reach a web target instead of reading a snapshot: pulled and listed only with PITANGUS_DAST_ENABLED.
-WEB_ENGINES = frozenset({"zap"})
+# Engines that reach the internet for a domain instead of reading a snapshot: pulled and listed only with
+# PITANGUS_DAST_ENABLED.
+WEB_ENGINES = frozenset({"zap", "subfinder"})
 # Languages with our own rules and the extensions that identify them in the snapshot.
 RULE_LANGUAGES = {
     "JavaScript": {".js", ".jsx", ".mjs", ".cjs"}, "TypeScript": {".ts", ".tsx"}, "Python": {".py"},

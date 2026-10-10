@@ -615,5 +615,13 @@
       "fetch_status": "{{url}} answered {{code}} instead of the OpenAPI definition (redirects aren't followed).",
       "missing": "API mode needs an OpenAPI definition."
     }
+  },
+  "discovery": {
+    "disabled": "Related-host discovery runs only where web scans are on: set PITANGUS_DAST_ENABLED=1 on this server.",
+    "needs_docker": "Related-host discovery needs the Docker runner: the worker without a Docker socket doesn't carry subfinder.",
+    "no_docker": "Related-host discovery couldn't run: {{reason}}",
+    "image_missing": "subfinder's image isn't on this server yet: run make engines (or docker pull it) and search again.",
+    "timeout": "subfinder went past its {{seconds}}-second limit and was stopped; search again later.",
+    "failed": "subfinder didn't finish: check that the server can reach the internet, then search again."
   }
 }

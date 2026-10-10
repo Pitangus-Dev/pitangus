@@ -265,22 +265,28 @@ class StandaloneWorkerImageTests(unittest.TestCase):
         self.assertIn("--require-hashes", app)
         self.assertEqual(re.search(r"^ARG OPENGREP_VERSION=(\S+)$", app, re.M).group(1), IMAGES["opengrep"]["version"])
 
-    def test_zap_stays_out_of_the_standalone_worker_and_is_pulled_only_with_web_scans_on(self):
-        """ZAP (Java, ~1.2 GB) runs only through the Docker runner; `make engines` skips it unless DAST is on."""
+    def test_web_engines_stay_out_of_the_standalone_worker_and_are_pulled_only_with_web_scans_on(self):
+        """ZAP (Java, ~1.2 GB) and subfinder run only through the Docker runner; `make engines` skips them unless DAST
+        is on."""
         import re
         import subprocess
-        from pitangus.modules.scanning.engines import BINARIES, IMAGES
+        from pitangus.modules.scanning.engines import BINARIES, IMAGES, WEB_ENGINES
         root = Path(__file__).resolve().parents[1]
-        self.assertNotIn("zaproxy", (root / "docker" / "app" / "Dockerfile").read_text(encoding="utf-8"))
-        self.assertNotIn("zap", BINARIES)
+        dockerfile = (root / "docker" / "app" / "Dockerfile").read_text(encoding="utf-8")
+        self.assertNotIn("zaproxy", dockerfile)
+        self.assertNotIn("subfinder", dockerfile)
+        self.assertEqual(WEB_ENGINES, {"zap", "subfinder"})
+        self.assertFalse(WEB_ENGINES & set(BINARIES))
         self.assertRegex(IMAGES["zap"]["image"], r"^ghcr\.io/zaproxy/zaproxy:[0-9.]+@sha256:[0-9a-f]{64}$")
+        self.assertRegex(IMAGES["subfinder"]["image"], rf"^projectdiscovery/subfinder:v{re.escape(IMAGES['subfinder']['version'])}@sha256:[0-9a-f]{{64}}$")
         makefile = (root / "Makefile").read_text(encoding="utf-8")
         listing = re.search(r"^ENGINE_IMAGES := (.+)$", makefile, re.M).group(1)
-        skip = re.search(r"^WEB_IMAGES := .*,,(\| grep -v '/zaproxy/')\)$", makefile, re.M).group(1)
+        skip = re.search(r"^WEB_IMAGES := .*,,(\| grep -v -e '/zaproxy/' -e '/subfinder:')\)$", makefile, re.M).group(1)
         everything = subprocess.run(listing, shell=True, cwd=root, capture_output=True, text=True, check=True).stdout.split()
         without = subprocess.run(f"{listing} {skip}", shell=True, cwd=root, capture_output=True, text=True, check=True).stdout.split()
-        self.assertIn(IMAGES["zap"]["image"], everything)
-        self.assertEqual(without, [image for image in everything if image != IMAGES["zap"]["image"]])
+        web = {IMAGES[key]["image"] for key in WEB_ENGINES}
+        self.assertTrue(web <= set(everything))
+        self.assertEqual(without, [image for image in everything if image not in web])
         self.assertIn("images=$$($(ENGINE_IMAGES) $(WEB_IMAGES))", makefile)
 
 

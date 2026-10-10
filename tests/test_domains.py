@@ -307,7 +307,7 @@ class ScheduleTests(unittest.TestCase):
         later = NOW + timedelta(hours=1)
         self.assertEqual(periodic._domain_scans(self.data_dir, jobs, now=later), {"queued": "r" * 32, "host": "two.example.com"})
         kwargs = jobs.enqueue_dast_scan.call_args.kwargs
-        self.assertEqual((kwargs["options"], kwargs["trigger"], kwargs["requested_by"]), ({"mode": "web"}, {"kind": "schedule"}, "schedule"))
+        self.assertEqual((kwargs["options"], kwargs["trigger"], kwargs["requested_by"]), ({"mode": "web", "use_scope": True}, {"kind": "schedule"}, "schedule"))
         two = domains.get_domain(self.data_dir, self.two["id"])
         self.assertEqual((two["schedule_last_run"], two["schedule_next_at"], two["schedule_note"]),
                          ("r" * 32, (later + timedelta(days=7)).isoformat(), None))

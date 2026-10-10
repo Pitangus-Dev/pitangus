@@ -88,11 +88,13 @@ def wildcard_pattern(wildcard: str) -> str:
     return f"https://(?:[a-z0-9-]+\\.)+{re.escape(wildcard.removeprefix('*.'))}(?:[/?].*)?"
 
 
-def plan(host: str, url: str, *, hosts=(), wildcards=(), headers=(), api: dict | None = None) -> dict:
+def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=(), api: dict | None = None) -> dict:
     """The Automation Framework plan: inside a context of the scope's hosts only, a spider per listed host (plus the
     OpenAPI import in API mode) and the passive rules; with `headers`, a replacer that adds them to requests for
-    those hosts only."""
+    those hosts only. `excluded`: hosts saved out of the domain's scope, kept out of the context even if a wildcard
+    would match them."""
     extra = [item for item in hosts if item != host]
+    excluded = [item for item in excluded if item != host and item not in extra]
     patterns = [host_pattern(host), *(host_pattern(item) for item in extra), *(wildcard_pattern(item) for item in wildcards)]
     jobs: list[dict[str, Any]] = []
     if headers:
@@ -112,7 +114,10 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), headers=(), api: dict |
     jobs += [{"type": "passiveScan-wait", "parameters": {"maxDuration": PASSIVE_MINUTES}},
              {"type": "report", "parameters": {"template": "sarif-json", "reportDir": WORK, "reportFile": "zap"}}]
     start = list(dict.fromkeys([url, *(f"https://{item}/" for item in extra), *([api["target"]] if api is not None else [])]))
-    return {"env": {"contexts": [{"name": CONTEXT, "urls": start, "includePaths": patterns}],
+    context: dict[str, Any] = {"name": CONTEXT, "urls": start, "includePaths": patterns}
+    if excluded:
+        context["excludePaths"] = [host_pattern(item) for item in excluded]
+    return {"env": {"contexts": [context],
                     "parameters": {"failOnError": True, "failOnWarning": False, "progressToStdout": True}},
             "jobs": jobs}
 
@@ -211,10 +216,10 @@ def coverage_key(api: dict | None, headers) -> str:
 
 
 def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: dict | None = None,
-                headers=(), api: dict | None = None) -> RunRecord:
+                headers=(), api: dict | None = None, excluded=()) -> RunRecord:
     """One passive scan of a verified domain. `address`: the root's checked address, or {host: address} for every
     host of `scope` (`domains.scan_scope`). `headers`: (name, value) pairs to add to the scope's requests. `api`: the
-    parsed definition (`openapi_spec.parse`) plus its `source`, for API mode."""
+    parsed definition (`openapi_spec.parse`) plus its `source`, for API mode. `excluded`: hosts saved out of scope."""
     host, url = record["host"], start_url(record)
     scope = scope or {"hosts": [host], "wildcards": []}
     pins = dict(address) if isinstance(address, dict) else {host: address}
@@ -246,7 +251,8 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         # ZAP's user must write in it, so it is open to everyone; its private parent keeps other local users out.
         shared = Path(temporary) / "wrk"
         shared.mkdir()
-        options: dict[str, Any] = {"hosts": scope["hosts"], "wildcards": scope["wildcards"], "headers": headers}
+        options: dict[str, Any] = {"hosts": scope["hosts"], "wildcards": scope["wildcards"], "headers": headers,
+                                   "excluded": [item for item in excluded if not domains.in_scope(item, {"hosts": scope["hosts"]})]}
         if api:
             (shared / SPEC).write_text(openapi_spec.for_zap(api, target), encoding="utf-8")
             (shared / SPEC).chmod(0o644)

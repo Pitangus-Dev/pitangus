@@ -9,6 +9,17 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Added
 
+- **Related hosts and a scope saved per domain.** Adding a domain (with `PITANGUS_DAST_ENABLED=1`) queues a discovery
+  job: subfinder 2.16.0 (`projectdiscovery/subfinder`, pinned by digest, pulled by `make engines` with web scans on)
+  asks passive sources for names under the domain, with no API keys and a hard timeout, in the usual hardened container.
+  Names that aren't a valid host under the domain, or that resolve to any private, loopback, link-local or metadata
+  address, are dropped. Hosts land in the new `domain_hosts` table (migration `0013_domain_scope`) out of scope, with
+  first and last sighting. `GET /api/domains/scope` lists them with the last round's state; `POST /api/domains/scope`
+  (`set`, `add`, `remove`, `exclude_all`) saves the scope, only for DNS-verified domains (409 otherwise); `POST
+  /api/domains/discover` searches again (202). `POST /api/domains/scans` takes `use_scope`: the worker reads the saved
+  scope when the scan starts, pins and crawls its hosts and keeps the excluded ones out of ZAP's context
+  (`excludePaths`). Weekly scans use the saved scope too. The panel shows it in the new scan (**Include subdomains**)
+  and in a **Scope** tab on the domain's page, replacing the per-scan host list.
 - **Domains: more ways to prove control, and a probe.** Besides the DNS TXT record, `POST /api/domains/verify` takes
   `method: "file"` (`https://<host>/.well-known/pitangus-verify.txt` with the token) or `"meta"` (`<meta
   name="pitangus-verify" content="<token>">` in the homepage), fetched once from the host's checked public address

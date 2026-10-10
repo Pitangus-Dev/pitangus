@@ -3620,7 +3620,7 @@
           "sources"
         ],
         "summary": "Domain Schedule",
-        "description": "Turns the weekly passive web scan of the domain on or off. The first one is queued at the next hourly round of\nthe periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host, without its\nsaved headers, and a domain whose proof lapsed is skipped with the reason.",
+        "description": "Turns the weekly passive web scan of the domain on or off. The first one is queued at the next hourly round of\nthe periodic task (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the domain's own host and the hosts saved\nin its scope, without its saved headers, and a domain whose proof lapsed is skipped with the reason.",
         "operationId": "domain_schedule_api_domains_schedule_post",
         "requestBody": {
           "content": {
@@ -3674,6 +3674,190 @@
         }
       }
     },
+    "/api/domains/scope": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Scope Read",
+        "description": "The hosts related to a domain (found by discovery or added by hand), which of them its scans reach, whether its\nproof lets any in, and the last discovery round.",
+        "operationId": "domain_scope_read_api_domains_scope_get",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{24}$",
+              "title": "Domain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainScope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Scope Change",
+        "description": "Saves the domain's scope, one host at a time: its scans (by hand or scheduled) reach the hosts saved in it.\nNothing is sent to any host here.",
+        "operationId": "domain_scope_change_api_domains_scope_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainScope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "409": {
+            "description": "The domain's proof doesn't cover subdomains (only a current DNS proof does)"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "`set` puts a listed host in or out of scope (`host`, `state`); `add` lists a host under the domain by hand, in\nscope; `remove` forgets a host added by hand; `exclude_all` puts every host out of scope.",
+                "properties": {
+                  "domain_id": {
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id",
+                    "type": "string"
+                  },
+                  "op": {
+                    "enum": [
+                      "set",
+                      "add",
+                      "remove",
+                      "exclude_all"
+                    ],
+                    "title": "Op",
+                    "type": "string"
+                  },
+                  "host": {
+                    "anyOf": [
+                      {
+                        "maxLength": 253,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Host"
+                  },
+                  "state": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "in_scope",
+                          "out_of_scope"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "State"
+                  }
+                },
+                "required": [
+                  "domain_id",
+                  "op"
+                ],
+                "title": "DomainScopeIn",
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domains/discover": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Discover",
+        "description": "Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,\narchives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are\nlisted out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources.",
+        "operationId": "domain_discover_api_domains_discover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id"
+                ],
+                "title": "DomainIdIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainScope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "409": {
+            "description": "Web scans off on this server, or a discovery already queued or running"
+          }
+        }
+      }
+    },
     "/api/domains/scans": {
       "post": {
         "tags": [
@@ -3709,6 +3893,11 @@
                     "type": "array",
                     "maxItems": 20,
                     "title": "Hosts"
+                  },
+                  "use_scope": {
+                    "type": "boolean",
+                    "title": "Use Scope",
+                    "default": false
                   },
                   "use_headers": {
                     "type": "boolean",
@@ -3765,7 +3954,7 @@
                   "domain_id"
                 ],
                 "title": "DomainScanIn",
-                "description": "A passive scan of a verified domain. `mode`: web (crawl) or api (an OpenAPI definition: `spec`, uploaded, or\n`spec_url`, on a host of the scope). `hosts`: subdomains to include (`name` or `*.name`, at most 20; DNS proofs\nonly). `use_headers`: send the domain's saved headers to the scope's hosts."
+                "description": "A passive scan of a verified domain. `mode`: web (crawl) or api (an OpenAPI definition: `spec`, uploaded, or\n`spec_url`, on a host of the scope). `use_scope`: include the hosts saved in the domain's scope (read again when\nthe scan starts); or `hosts`: subdomains listed for this scan only (`name` or `*.name`, at most 20). Both need a\nDNS proof. `use_headers`: send the domain's saved headers to the scope's hosts."
               }
             }
           },
@@ -9363,6 +9552,124 @@
         ],
         "title": "Deleted"
       },
+      "Discovery": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "requested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiscoveryCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "default": false
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Discovery",
+        "description": "The last discovery round: `note` says why it failed or couldn't run; `available` is false when this server\ndoesn't run discovery at all (web scans off), with the reason in `unavailable`."
+      },
+      "DiscoveryCounts": {
+        "properties": {
+          "found": {
+            "type": "integer",
+            "title": "Found",
+            "default": 0
+          },
+          "kept": {
+            "type": "integer",
+            "title": "Kept",
+            "default": 0
+          },
+          "private": {
+            "type": "integer",
+            "title": "Private",
+            "default": 0
+          },
+          "unresolved": {
+            "type": "integer",
+            "title": "Unresolved",
+            "default": 0
+          },
+          "new": {
+            "type": "integer",
+            "title": "New",
+            "default": 0
+          },
+          "capped": {
+            "type": "integer",
+            "title": "Capped",
+            "default": 0
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "DiscoveryCounts"
+      },
       "DomainCheck": {
         "properties": {
           "host": {
@@ -9823,6 +10130,70 @@
         ],
         "title": "DomainRow",
         "description": "A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`\nsays which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,\n`verify_file_url`, `verify_meta`) and the saved `headers` are only answered to administrators. `runs` and `open`\nsay what was scanned or imported against it; `schedule` is null or `weekly`, with the next and last scheduled\nscan and, when the last one was skipped, why (`schedule_note`)."
+      },
+      "DomainScope": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "title": "Domain Id"
+          },
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "covered": {
+            "type": "boolean",
+            "title": "Covered"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "hosts": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedHost"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Hosts"
+          },
+          "in_scope": {
+            "type": "integer",
+            "title": "In Scope"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "scope_limit": {
+            "type": "integer",
+            "title": "Scope Limit"
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/Discovery"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "domain_id",
+          "root",
+          "covered",
+          "hosts",
+          "in_scope",
+          "limit",
+          "scope_limit",
+          "discovery"
+        ],
+        "title": "DomainScope",
+        "description": "The domain's related hosts and its saved scope. `covered`: its proof lets them in (a current DNS proof);\notherwise `reason` says what's missing and nothing can be put in scope. `in_scope` counts the hosts saved in\n(at most `scope_limit`); at most `limit` hosts are kept."
       },
       "Euvd": {
         "properties": {
@@ -13228,6 +13599,72 @@
         ],
         "title": "RegistryRow",
         "description": "A registry's saved credentials: the user and the last four characters of the token, never the token."
+      },
+      "RelatedHost": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "in_scope",
+              "out_of_scope"
+            ],
+            "title": "State"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "discovered",
+              "manual"
+            ],
+            "title": "Origin"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "host",
+          "state",
+          "origin"
+        ],
+        "title": "RelatedHost",
+        "description": "A host under the domain: `state` says whether its scans reach it; `origin` whether discovery found it or\nsomeone added it; `last_seen` is the last discovery that found it."
       },
       "RemovedImage": {
         "properties": {

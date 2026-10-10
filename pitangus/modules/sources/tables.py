@@ -1,8 +1,8 @@
 """The repository registry: one row per repository (its name, scan branch and retirement mark). It replaces the
-`repo-registry` document, rewritten whole on every reconciliation. The container images registered by hand, and the
-domains registered with their DNS TXT proof."""
+`repo-registry` document, rewritten whole on every reconciliation. The container images registered by hand, the
+domains registered with their DNS TXT proof, and the hosts related to each domain with their saved scope."""
 
-from sqlalchemy import Column, DateTime, String, Table, Text, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, ForeignKeyConstraint, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 
 from pitangus.shared.db import TENANT, metadata
@@ -51,5 +51,28 @@ domain_registry = Table(
     Column("schedule_last_at", DateTime(timezone=True)),
     Column("schedule_last_run", String(32)),
     Column("schedule_note", JSONB),  # why the last scheduled scan was skipped (a stored message)
+    # Related-host discovery (subfinder, passive sources): null · queued · running · done · failed; why it failed or
+    # couldn't run (a stored message) and what the last round found and kept.
+    Column("discovery_status", Text),
+    Column("discovery_requested_at", DateTime(timezone=True)),
+    Column("discovery_finished_at", DateTime(timezone=True)),
+    Column("discovery_note", JSONB),
+    Column("discovery_counts", JSONB),
     UniqueConstraint("tenant_id", "host", name="uq_domain_registry_host"),
+)
+
+# Hosts related to a domain, under its own host: found by discovery or added by hand, each in or out of the scope its
+# scans reach. Discovered hosts start out of scope (opt-in); only a DNS proof lets any of them in.
+domain_hosts = Table(
+    "domain_hosts", metadata,
+    Column("tenant_id", Text, primary_key=True, server_default=TENANT),
+    Column("domain_id", String(24), primary_key=True),
+    Column("host", Text, primary_key=True),
+    Column("state", Text, nullable=False, server_default="out_of_scope"),  # in_scope · out_of_scope
+    Column("origin", Text, nullable=False, server_default="discovered"),   # discovered · manual
+    Column("first_seen", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("last_seen", DateTime(timezone=True)),  # the last discovery that found it (null: added by hand, never found)
+    Column("changed_by", Text, nullable=False, server_default=""),
+    ForeignKeyConstraint(["tenant_id", "domain_id"], ["domain_registry.tenant_id", "domain_registry.id"],
+                         name="fk_domain_hosts_domain", ondelete="CASCADE"),
 )

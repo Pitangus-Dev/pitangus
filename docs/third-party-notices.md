@@ -23,6 +23,7 @@ by digest. Pitangus neither links nor modifies their code: this is aggregation, 
 | [Grype](https://github.com/anchore/grype) | 0.120.0 | Apache-2.0 | Second opinion on images | Keep the notices |
 | [Checkov](https://github.com/bridgecrewio/checkov) | 3.3.19 | Apache-2.0 | IaC and pipelines | Keep the notices |
 | [zizmor](https://github.com/zizmorcore/zizmor) | 1.30.1 | MIT | GitHub Actions | Keep the copyright notice |
+| [subfinder](https://github.com/projectdiscovery/subfinder) | 2.16.0 | MIT | Related hosts of a domain, from passive sources (with web scans on) | Keep the copyright notice |
 
 None of these licenses restricts commercial use or use as a service (SaaS).
 
