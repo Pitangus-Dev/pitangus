@@ -60,7 +60,7 @@ ASSET = re.compile(r"(?i)\.(?:js|mjs|css|map|png|jpe?g|gif|svg|webp|avif|ico|wof
 
 NUCLEI_HOST_MINUTES = 10
 NUCLEI_PAGE_MINUTES = 3
-NUCLEI_STATS_SECONDS = 3600   # its statistics at the end only: the last line says how far it got
+NUCLEI_STATS_SECONDS = 3600   # its statistics at the end only: the last line says what it sent
 # What nuclei logs on stderr (not with -silent) when it gives up on a target or a template can't run; it still exits 0.
 NUCLEI_SKIPPED = re.compile(r"Skipped (\S+) from target list as found unresponsive")
 NUCLEI_UNEXECUTED = re.compile(r"Could not execute (?:request )?for (\S+?):? ")
@@ -391,17 +391,19 @@ def parse_nuclei(output: str, hosts: list[str]) -> tuple[list[Finding], list[dic
 
 def nuclei_log(log: str, hosts: list[str]) -> tuple[set[str], bool]:
     """What nuclei's log says it couldn't do: the scope's hosts it skipped as unresponsive or where a template couldn't
-    run, and whether the pass is incomplete (any of those, or its last statistics short of 100%)."""
+    run, and whether the pass is incomplete: any of those, or final statistics with requests planned and none sent. Its
+    percentage isn't read: a finished scan of pitangus.dev ends at 99% (templates that stop at their first match skip
+    the rest of their requests)."""
     unreached: set[str] = set()
     incomplete = False
-    percent: int | None = None
+    sent: tuple[int, int] | None = None
     for line in log.splitlines()[:100_000]:
         line = line.strip()
         if line.startswith("{"):
             try:
                 stats = json.loads(line)
-                if isinstance(stats, dict) and "percent" in stats:
-                    percent = int(str(stats["percent"]))
+                if isinstance(stats, dict) and "requests" in stats and "total" in stats:
+                    sent = (int(str(stats["requests"])), int(str(stats["total"])))
             except ValueError:
                 pass
             continue
@@ -410,7 +412,7 @@ def nuclei_log(log: str, hosts: list[str]) -> tuple[set[str], bool]:
             incomplete = True
             if (host := host_of(match.group(1))) in hosts:
                 unreached.add(host)
-    return unreached, incomplete or (percent is not None and percent < 100)
+    return unreached, incomplete or (sent is not None and sent[0] == 0 and sent[1] > 0)
 
 
 def run_nuclei(roots: list[str], pages: list[str], hosts: list[str], pins: dict[str, str], work: Path, cache_dir: Path, *,

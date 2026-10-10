@@ -197,7 +197,7 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
     would match them. With `users` ({login_url, start, totp}), one more context per test user (the same hosts) that
     signs in through a browser, and a spider, an AJAX spider (and the import) that run as that user. `seeds`: a file (in the
     container) of in-scope URLs the crawler found, each requested with a GET before the spider starts. `export`: a file
-    (in the container) where ZAP writes the URLs of its sites tree once it's done, for the scan's inventory."""
+    (in the container) where ZAP writes every URL it requested (source `all`: its history alone lacks the spider's), once it's done, for the scan's inventory."""
     extra = [item for item in hosts if item != host]
     excluded = [item for item in excluded if item != host and item not in extra]
     patterns = [host_pattern(host), *(host_pattern(item) for item in extra), *(wildcard_pattern(item) for item in wildcards)]
@@ -235,7 +235,7 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
             or [{"type": "openapi", "parameters": {"apiFile": api["file"], "context": CONTEXT, "targetUrl": api["target"]}}]
     jobs.append({"type": "passiveScan-wait", "parameters": {"maxDuration": PASSIVE_MINUTES}})
     if export:
-        jobs.append({"type": "export", "parameters": {"context": CONTEXT, "type": "url", "source": "sitestree", "fileName": export}})
+        jobs.append({"type": "export", "parameters": {"context": CONTEXT, "type": "url", "source": "all", "fileName": export}})
     jobs.append({"type": "report", "parameters": {"template": "sarif-json", "reportDir": WORK, "reportFile": "zap"}})
     return {"env": {"contexts": contexts, "parameters": {"failOnError": True, "failOnWarning": False, "progressToStdout": True}},
             "jobs": jobs}

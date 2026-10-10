@@ -449,7 +449,9 @@ class SilentFailureTests(unittest.TestCase):
         # As nuclei 3 logs a template that couldn't run (pkg/tmplexec): the pass is incomplete, the host named.
         unexecuted = f"[WRN] [tech-detect] Could not execute request for https://{HOST}/: context deadline exceeded\n"
         self.assertEqual(web_tools.nuclei_log(unexecuted, [HOST]), ({HOST}, True))
-        self.assertEqual(web_tools.nuclei_log('{"percent":"74","errors":"3"}\n', [HOST]), (set(), True))
+        self.assertEqual(web_tools.nuclei_log('{"percent":"0","requests":"0","total":"27"}\n', [HOST]), (set(), True))  # nothing sent
+        # A finished host pass on pitangus.dev (2,398 templates): 99% and 16 request errors, nothing skipped, is complete.
+        self.assertEqual(web_tools.nuclei_log(fixture("nuclei-3.11-hosts.log"), [HOST]), (set(), False))
         # A host outside the scope still leaves the pass incomplete, without being named.
         self.assertEqual(web_tools.nuclei_log("[INF] Skipped evil.example:443 from target list as found unresponsive permanently\n", [HOST]),
                          (set(), True))
@@ -583,7 +585,7 @@ class PipelineTests(unittest.TestCase):
         self.record = {"id": "a" * 24, "host": HOST, "url": f"https://{HOST}/", "kind": "web", "key": f"domain:{HOST}"}
         self.outputs = {"katana": fixture("katana-1.7.jsonl"), "nuclei": fixture("nuclei-3.11.jsonl"), "httpx": fixture("httpx-1.12.jsonl"),
                         "testssl": fixture("testssl-3.2.json"),
-                        "zap_urls": f"https://{HOST}/\nhttps://{HOST}/robots.txt\nhttps://{HOST}/es/?utm=1\nhttps://evil.example/x\nnot a url\n"}
+                        "zap_urls": fixture("zap-2.17-urls.txt") + "https://evil.example/x\nnot a url\n"}
         self.site = {"/robots.txt": fixture("robots-pitangus.dev.txt"), "/sitemap.xml": fixture("sitemap-pitangus.dev.xml")}
         self.requested: list = []
 
@@ -609,7 +611,9 @@ class PipelineTests(unittest.TestCase):
         self.assertIn(f"https://{HOST}/es/", inventory["urls"])
         self.assertIn(f"https://{HOST}/robots.txt", inventory["urls"])  # only ZAP's spider had it
         self.assertEqual(inventory["count"], len(inventory["urls"]))
-        self.assertEqual((inventory["sources"]["zap"], inventory["sources"]["robots"], inventory["sources"]["sitemap"]), (1, 0, 0))
+        self.assertEqual((inventory["sources"]["robots"], inventory["sources"]["sitemap"]), (0, 0))  # katana had them all
+        self.assertIn(f"https://{HOST}/sitemap.xml", inventory["urls"])
+        self.assertGreater(inventory["sources"]["zap"], 10)  # the fonts, images and files only the spider requested
         self.assertTrue(all(url.startswith(f"https://{HOST}/") and "?" not in url for url in inventory["urls"]))
         # robots.txt and the sitemap were asked from the pinned address, before ZAP.
         self.assertEqual(self.requested, [(HOST, PINS[HOST], "/robots.txt"), (HOST, PINS[HOST], "/sitemap.xml")])
