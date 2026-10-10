@@ -67,7 +67,7 @@ function Ring({ value }: { value: number }) {
   const circumference = 2 * Math.PI * 6
   return <svg aria-hidden viewBox="0 0 16 16" className="size-4 -rotate-90">
     <circle cx="8" cy="8" r="6" fill="none" strokeWidth="2.5" className="stroke-app-line" />
-    <circle cx="8" cy="8" r="6" fill="none" strokeWidth="2.5" strokeLinecap="round" className="stroke-brand motion-safe:transition-all"
+    <circle cx="8" cy="8" r="6" fill="none" strokeWidth="2.5" strokeLinecap="round" className="stroke-info motion-safe:transition-all"
       strokeDasharray={circumference} strokeDashoffset={circumference * (1 - Math.min(1, Math.max(0, value)))} />
   </svg>
 }
@@ -94,7 +94,7 @@ export function BatchDetail({ batch }: { batch: JiraQueued }) {
     <p className="text-sm font-medium">{batch.pending > 0 ? t('jira.queue.progress', { done, total: batch.queued, pending: batch.pending, count: batch.pending })
       : t('jira.background.batch_done', { created: batch.created, count: batch.queued })}</p>
     <div role="progressbar" aria-label={t('jira.queue.progress_label')} aria-valuemin={0} aria-valuemax={Math.max(batch.queued, 1)} aria-valuenow={done} className="h-1.5 overflow-hidden rounded-full bg-app-soft">
-      <div className="h-full bg-brand motion-safe:transition-all" style={{ width: `${batch.queued ? Math.round(done / batch.queued * 100) : 100}%` }} /></div>
+      <div className="h-full bg-info motion-safe:transition-all" style={{ width: `${batch.queued ? Math.round(done / batch.queued * 100) : 100}%` }} /></div>
     <p className="text-app-muted">{[t('jira.queue.findings', { count: batch.findings }), t('jira.export.created', { count: batch.created }), t('jira.export.existing', { count: batch.existing }),
       ...(batch.skipped ? [t('jira.queue.skipped', { count: batch.skipped })] : []), ...(batch.force ? [t('jira.background.forced')] : []),
       batch.finished_at ? t('jira.background.finished_at', { date: formatDate(batch.finished_at) }) : t('jira.background.started_at', { date: formatDate(batch.started_at) })].join(' · ')}</p>

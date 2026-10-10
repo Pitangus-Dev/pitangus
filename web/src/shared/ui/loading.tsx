@@ -29,7 +29,7 @@ export function TopProgress() {
     return () => { window.removeEventListener(LOADING_EVENT, listen); window.clearTimeout(timer) }
   }, [])
   return <div aria-hidden className={`pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`}>
-    <div className="h-full w-1/3 motion-safe:animate-[pitangus-progress_1.1s_ease-in-out_infinite] bg-brand" />
+    <div className="h-full w-1/3 motion-safe:animate-[pitangus-progress_1.1s_ease-in-out_infinite] bg-info" />
   </div>
 }
 

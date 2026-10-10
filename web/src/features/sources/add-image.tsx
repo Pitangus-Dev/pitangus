@@ -59,7 +59,7 @@ export function AddImageDialog({ open, onOpenChange, admin, repository, onAdded,
         <label htmlFor={`${id}-reference`} className="text-sm text-app-secondary">{t('images.add.reference')}</label>
         <Input id={`${id}-reference`} required autoFocus value={reference} maxLength={300} spellCheck={false} autoComplete="off"
           onChange={event => setReference(event.target.value)} placeholder={t('images.add.reference_placeholder')} aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error ${id}-hint` : `${id}-hint`} className="border-app-line bg-app-soft font-mono" />
+          aria-describedby={error ? `${id}-error ${id}-hint` : `${id}-hint`} className="border-input bg-card font-mono" />
         <p id={`${id}-hint`} className="text-xs text-app-muted">{t('images.add.reference_hint')}</p>
       </div>
       {admin && <div className="space-y-2">

@@ -93,38 +93,38 @@ function TestUserForm({ domain, editing, onCancel, onSaved }: { domain: Domain; 
   return <form onSubmit={submit} className="space-y-4">
     <Field id="test-user-name" label={t('domains.test_users.name')}>
       <Input id="test-user-name" autoFocus required maxLength={80} value={name} onChange={event => setName(event.target.value)} placeholder={t('domains.test_users.name_placeholder')}
-        autoComplete="off" className="border-app-line bg-app-soft" />
+        autoComplete="off" className="border-input bg-card" />
     </Field>
     <Field id="test-user-username" label={t('domains.test_users.username')}>
       <Input id="test-user-username" required maxLength={256} value={username} onChange={event => setUsername(event.target.value)} autoComplete="off" spellCheck={false}
-        className="border-app-line bg-app-soft" />
+        className="border-input bg-card" />
     </Field>
     <Field id="test-user-password" label={t('domains.test_users.password')} hint={keep}>
       <Input id="test-user-password" type="password" required={!current} maxLength={1024} value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"
-        spellCheck={false} aria-describedby={keep ? 'test-user-password-hint' : undefined} className="border-app-line bg-app-soft" />
+        spellCheck={false} aria-describedby={keep ? 'test-user-password-hint' : undefined} className="border-input bg-card" />
     </Field>
     {totp && <Field id="test-user-totp" label={t('domains.test_users.totp_secret')} hint={keyRequired ? t('domains.test_users.totp_hint') : keep}>
       <Input id="test-user-totp" type="password" required={keyRequired} maxLength={300} value={secret} onChange={event => setSecret(event.target.value)} autoComplete="off"
-        spellCheck={false} aria-describedby="test-user-totp-hint" className="border-app-line bg-app-soft font-mono" />
+        spellCheck={false} aria-describedby="test-user-totp-hint" className="border-input bg-card font-mono" />
     </Field>}
     <details className="group">
       <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-sm text-app-secondary"><CaretRightIcon className="size-4 motion-safe:transition group-open:rotate-90" aria-hidden />{t('domains.test_users.advanced')}</summary>
       <div className="mt-3 space-y-4">
         <Field id="test-user-login-url" label={t('domains.test_users.login_url')} hint={t('domains.test_users.login_url_hint')}>
           <Input id="test-user-login-url" inputMode="url" maxLength={2000} value={loginUrl} onChange={event => setLoginUrl(event.target.value)} placeholder={`https://${domain.host}/login`}
-            autoComplete="off" spellCheck={false} aria-describedby="test-user-login-url-hint" className="border-app-line bg-app-soft font-mono" />
+            autoComplete="off" spellCheck={false} aria-describedby="test-user-login-url-hint" className="border-input bg-card font-mono" />
         </Field>
         <Field id="test-user-check-url" label={t('domains.test_users.check_url')} hint={t('domains.test_users.check_url_hint')}>
           <Input id="test-user-check-url" inputMode="url" maxLength={2000} value={checkUrl} onChange={event => setCheckUrl(event.target.value)} placeholder={`https://${domain.host}/account`}
-            autoComplete="off" spellCheck={false} aria-describedby="test-user-check-url-hint" className="border-app-line bg-app-soft font-mono" />
+            autoComplete="off" spellCheck={false} aria-describedby="test-user-check-url-hint" className="border-input bg-card font-mono" />
         </Field>
         <Field id="test-user-applies-to" label={t('domains.test_users.applies_to')} hint={t('domains.test_users.applies_to_hint')}>
           <Input id="test-user-applies-to" maxLength={253} value={appliesTo} onChange={event => setAppliesTo(event.target.value)} autoComplete="off" spellCheck={false}
-            aria-describedby="test-user-applies-to-hint" className="border-app-line bg-app-soft font-mono" />
+            aria-describedby="test-user-applies-to-hint" className="border-input bg-card font-mono" />
         </Field>
         <Field id="test-user-notes" label={t('domains.test_users.notes')}>
           <textarea id="test-user-notes" rows={2} maxLength={1000} value={notes} onChange={event => setNotes(event.target.value)}
-            className="w-full rounded-lg border border-app-line bg-app-soft p-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
+            className="w-full rounded-lg border border-input bg-card p-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
         </Field>
         {totp && <div className="grid gap-3 sm:grid-cols-3">
           <Field id="test-user-digits" label={t('domains.test_users.digits')}><SelectField id="test-user-digits" value={digits} onValueChange={setDigits} options={DIGITS.map(value => ({ value, label: value }))} /></Field>

@@ -35,7 +35,7 @@ const left = (iso: string, t: TFunction<'compliance'>) => {
 }
 const STAGE_STYLE: Record<Stage['state'], string> = {
   overdue: 'border-danger-line bg-danger-soft text-danger', pending: 'border-attention-line bg-attention-soft text-attention',
-  waiting: 'border-app-line bg-app-soft text-app-muted', sent: 'border-app-line bg-app-soft text-brand',
+  waiting: 'border-app-line text-app-muted', sent: 'border-info-line text-info',
 }
 
 // CRA kit (art. 14, EU Regulation 2024/2847), shown only when the workspace policy turns it on. A KEV match on a
@@ -130,7 +130,7 @@ function Products({ counts, admin, onChange, onNew }: { counts: Counts; admin: b
       {products.total > products.limit && <div className="border-t border-app-line"><Pagination total={products.total} limit={products.limit} offset={products.offset} onPrev={products.prev} onNext={products.next} noun={t('products.noun')} /></div>}</div>)}
     {admin && !counts.assets && <p className="text-xs text-app-muted">{t('products.scan_first')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline underline-offset-2">{t('products.new_scan')}</button></p>}
     {!admin && !counts.products && <p className="text-xs text-app-subtle">{t('products.admin_only')}</p>}
-    {admin && !adding && counts.candidates > 0 && <Button size="sm" variant="outline" onClick={() => setAdding(true)} className="border-app-line bg-app-soft"><PlusIcon />{t('products.mark')}</Button>}
+    {admin && !adding && counts.candidates > 0 && <Button size="sm" variant="outline" onClick={() => setAdding(true)} className="border-input bg-card"><PlusIcon />{t('products.mark')}</Button>}
     {adding && <form onSubmit={submit} className="grid gap-2 rounded-xl border border-app-line bg-inset p-3 sm:grid-cols-[1fr_1fr_10rem_auto] sm:items-end">
       <div className="text-xs text-app-muted"><span>{t('products.asset')}</span>
         <Combobox className="mt-1" label={t('products.asset')} placeholder={t('products.choose')} emptyText={t('products.no_candidates')} value={picked} search={search}
@@ -158,7 +158,7 @@ function EventCard({ event, admin, onChange }: { event: CraEvent; admin: boolean
         <p className="mt-0.5 text-sm text-app-muted">{event.product} · {event.packages.join(', ') || event.title}</p>
         <p className="text-xs text-app-subtle">{[event.kev.name, t('event.in_kev', { date: event.kev.date_added ? day(event.kev.date_added) : '—' }),
           event.aware_at ? t('event.clock', { date: formatDate(event.aware_at) }) : ''].filter(Boolean).join(' · ')}</p></div>
-      {draft && <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => void copy()} className="border-app-line bg-app-soft">{copied ? <CheckIcon /> : <CopyIcon />}{copied ? t('common:actions.copied') : t('event.copy_draft')}</Button><span role="status" className="sr-only">{copied ? t('event.draft_copied') : ''}</span>
+      {draft && <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => void copy()} className="border-input bg-card">{copied ? <CheckIcon /> : <CopyIcon />}{copied ? t('common:actions.copied') : t('event.copy_draft')}</Button><span role="status" className="sr-only">{copied ? t('event.draft_copied') : ''}</span>
         <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t('event.hide_draft') : t('event.view_draft')}</Button></div>}
     </div>
     {event.state === 'to_assess' && <Assess event={event} admin={admin} onChange={onChange} />}
@@ -206,7 +206,7 @@ function Assess({ event, admin, onChange }: { event: CraEvent; admin: boolean; o
   return <div className="space-y-2 rounded-lg border border-app-line bg-inset p-3">
     <p className="text-sm">{t('assess.question', { product: event.product })}</p>
     {!mode ? <div className="flex flex-wrap gap-2">
-      <Button size="sm" variant="outline" onClick={() => setMode('not_affected')} className="border-app-line bg-app-soft">{t('assess.not_affected')}</Button>
+      <Button size="sm" variant="outline" onClick={() => setMode('not_affected')} className="border-input bg-card">{t('assess.not_affected')}</Button>
       <Button size="sm" variant="outline" onClick={() => setMode('exploited')} className="border-danger-line text-danger">{t('assess.exploited')}</Button>
     </div> : <form onSubmit={submit} className="space-y-2" noValidate>
       {mode === 'not_affected' ? <div className="space-y-1"><label htmlFor={`${id}-reason`} className="text-xs text-app-muted">{t('assess.reason')}</label>

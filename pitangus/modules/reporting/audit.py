@@ -238,7 +238,7 @@ def _head(locale: str, *columns: str) -> list:
 
 def _mark(key: str, locale: str) -> str:
     """The malicious-package or active-exploitation badge under a finding."""
-    return f'<br/><font color="#b71824"><b>{_t(i18n.t(key, locale))}</b></font>'
+    return f'<br/><font color="#b42318"><b>{_t(i18n.t(key, locale))}</b></font>'
 
 
 def _marks(entry: dict, locale: str) -> str:
@@ -503,7 +503,7 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
                       *[Paragraph(f'<font color="{hexval(SEVERITY[level][1 if level == "critical" else 0])}"><b>{counts[level]}</b></font>' if counts[level] else "0",
                                   STYLE["cell"]) for level in ("critical", "high", "medium", "low")],
                       Paragraph(str(pending), STYLE["cell"]), Paragraph(str(fixed), STYLE["cellmuted"]), Paragraph(str(excepted), STYLE["cellmuted"]),
-                      Paragraph(_day(last) if last else f'<font color="#b71824">{_t(i18n.t("reports.audit.no_full_scan", locale))}</font>', STYLE["cellmuted"])])
+                      Paragraph(_day(last) if last else f'<font color="#b42318">{_t(i18n.t("reports.audit.no_full_scan", locale))}</font>', STYLE["cellmuted"])])
     story.append(_grid(table, [WIDTH - 125 * mm, 11 * mm, 12 * mm, 14 * mm, 12 * mm, 15 * mm, 14 * mm, 13 * mm, 26 * mm], zebra=True))
     # Open critical and high, with the repository and grouped by fix: what to handle first.
     pending_count = sum(len(entry["items"]) for _, entry in open_items)

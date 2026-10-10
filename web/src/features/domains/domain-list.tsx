@@ -56,7 +56,7 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
     <div className="space-y-4">
     {items.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="relative w-full sm:max-w-xs"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-muted" aria-hidden />
-        <Input type="search" aria-label={t('domains.list.search')} placeholder={t('domains.list.search')} value={search} onChange={event => { setSearch(event.target.value); setOffset(0) }} className="border-app-line bg-app-soft pl-9" /></div>
+        <Input type="search" aria-label={t('domains.list.search')} placeholder={t('domains.list.search')} value={search} onChange={event => { setSearch(event.target.value); setOffset(0) }} className="border-input bg-card pl-9" /></div>
       <p role="status" className="text-xs text-app-muted">{t('domains.list.showing', { shown: shown.length, total: items.length })}</p>
     </div>}
     {!admin && <p className="text-sm text-app-muted">{t('domains.list.read_only')}</p>}

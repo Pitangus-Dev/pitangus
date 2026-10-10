@@ -88,8 +88,8 @@ export function Notifications() {
           <input type="radio" name="notify-kind" value={item} checked={kind === item} onChange={() => setKind(item)} className="size-4 accent-brand" />{data.kinds[item]}</label>)}</div>
         <p className="text-xs text-app-subtle">{t(HINT[kind])}</p></fieldset>
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5"><label htmlFor="notify-name" className="text-xs text-app-muted">{t('notifications.name')}</label><Input ref={firstField} id="notify-name" required maxLength={60} value={name} onChange={event => setName(event.target.value)} placeholder={t('notifications.name_placeholder')} className="border-app-line bg-app-soft" /></div>
-        <div className="space-y-1.5"><label htmlFor="notify-url" className="text-xs text-app-muted">{t('notifications.url')}</label><Input id="notify-url" required type="password" autoComplete="off" maxLength={2048} value={url} onChange={event => setUrl(event.target.value)} placeholder="https://…" className="border-app-line bg-app-soft font-mono" /></div>
+        <div className="space-y-1.5"><label htmlFor="notify-name" className="text-xs text-app-muted">{t('notifications.name')}</label><Input ref={firstField} id="notify-name" required maxLength={60} value={name} onChange={event => setName(event.target.value)} placeholder={t('notifications.name_placeholder')} className="border-input bg-card" /></div>
+        <div className="space-y-1.5"><label htmlFor="notify-url" className="text-xs text-app-muted">{t('notifications.url')}</label><Input id="notify-url" required type="password" autoComplete="off" maxLength={2048} value={url} onChange={event => setUrl(event.target.value)} placeholder="https://…" className="border-input bg-card font-mono" /></div>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <fieldset className="space-y-1.5"><legend className="text-xs text-app-muted">{t('notifications.events')}</legend>{Object.entries(data.events).map(([id, label]) => <label key={id} className="flex min-h-6 items-center gap-2 text-sm">

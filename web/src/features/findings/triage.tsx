@@ -14,7 +14,7 @@ import { stateId } from '@/features/findings/finding-model'
 
 const triageClass: Record<TriageStatus, string> = {
   open: 'border-app-line text-app-muted', in_progress: 'border-info-line text-info',
-  false_positive: 'border-app-line bg-app-soft text-app-subtle line-through decoration-app-faint', accepted: 'border-app-line text-app-secondary',
+  false_positive: 'border-app-line text-app-subtle line-through decoration-app-faint', accepted: 'border-app-line text-app-secondary',
   fixed: 'border-success-line text-success',
 }
 const icon: Record<TriageStatus, typeof RecordIcon> = { open: ArrowCounterClockwiseIcon, in_progress: WrenchIcon, false_positive: ShieldSlashIcon, accepted: ThumbsUpIcon, fixed: ChecksIcon }
@@ -48,7 +48,7 @@ export function TriageActions({ current, canAccept, onPick, size = 'sm' }: { cur
   if (!primary) return null
   const Primary = icon[primary]
   return <div className="flex flex-wrap gap-1.5">
-    <Button type="button" size={size} variant="outline" onClick={() => onPick(primary)} className="border-app-line bg-app-soft"><Primary />{t(VERB[primary])}</Button>
+    <Button type="button" size={size} variant="outline" onClick={() => onPick(primary)} className="border-input bg-card"><Primary />{t(VERB[primary])}</Button>
     {rest.length > 0 && <Menu><MenuTrigger render={<Button type="button" size={size} variant="outline" />}>{t('triage.more_states')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
       <MenuContent align="start">{rest.map(status => { const Icon = icon[status]; return <MenuItem key={status} onClick={() => onPick(status)}><Icon />{t(VERB[status])}</MenuItem> })}</MenuContent></Menu>}
   </div>
@@ -94,9 +94,9 @@ export function TriageDialog({ runId = '', status, fingerprints = [], selections
       <div className="space-y-1.5"><label htmlFor="triage-reason" className="text-xs text-app-muted">{needsReason(status) ? t('triage.reason') : t('triage.reason_optional')}</label>
         <textarea id="triage-reason" required={needsReason(status)} minLength={needsReason(status) ? 10 : undefined} maxLength={500} rows={3} value={reason} onChange={event => setReason(event.target.value)}
           placeholder={placeholder ? t(placeholder) : ''}
-          className="w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand/40" /></div>
-      {status === 'accepted' && <div className="space-y-1.5"><label htmlFor="triage-expires" className="text-xs text-app-muted">{t('triage.expires')}</label><Input id="triage-expires" type="date" required min={inDays(1)} max={inDays(365)} value={expires} onChange={event => setExpires(event.target.value)} className="w-48 border-app-line bg-app-soft" /></div>}
-      <div className="space-y-1.5"><label htmlFor="triage-note" className="text-xs text-app-muted">{t('triage.note')}</label><Input id="triage-note" maxLength={1000} value={note} onChange={event => setNote(event.target.value)} className="border-app-line bg-app-soft" /></div>
+          className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand/40" /></div>
+      {status === 'accepted' && <div className="space-y-1.5"><label htmlFor="triage-expires" className="text-xs text-app-muted">{t('triage.expires')}</label><Input id="triage-expires" type="date" required min={inDays(1)} max={inDays(365)} value={expires} onChange={event => setExpires(event.target.value)} className="w-48 border-input bg-card" /></div>}
+      <div className="space-y-1.5"><label htmlFor="triage-note" className="text-xs text-app-muted">{t('triage.note')}</label><Input id="triage-note" maxLength={1000} value={note} onChange={event => setNote(event.target.value)} className="border-input bg-card" /></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
       {selections && failed.length > 0 && <div role="alert" className="space-y-1 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">
         <p className="font-medium">{t('scope.triage_partial', { count: selections.length - failed.length, total: selections.length })}</p>

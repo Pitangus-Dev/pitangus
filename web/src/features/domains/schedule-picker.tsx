@@ -43,7 +43,7 @@ export function SchedulePicker({ id, value, onChange, notOn, now: given }: {
     <div className="grid gap-3 sm:grid-cols-[8rem_minmax(0,18rem)]">
       <div className="space-y-1.5">
         <label htmlFor={`${id}-time`} className="text-xs text-app-muted">{t('domains.schedule.time')}</label>
-        <Input id={`${id}-time`} type="time" required value={value.time} onChange={event => set({ time: event.target.value })} className="border-app-line bg-app-soft" />
+        <Input id={`${id}-time`} type="time" required value={value.time} onChange={event => set({ time: event.target.value })} className="border-input bg-card" />
       </div>
       <div className="space-y-1.5">
         <label htmlFor={`${id}-zone`} className="text-xs text-app-muted">{t('domains.schedule.timezone')}</label>

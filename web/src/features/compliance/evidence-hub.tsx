@@ -141,7 +141,7 @@ function Row({ name, hint, busy, waiting = false, unavailable = false, onClick }
   return <li className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
     <span className="min-w-0"><span className="block text-sm font-medium">{name}</span><span id={hintId} className="block text-xs text-app-muted">{hint}</span></span>
     <Button size="sm" variant="outline" aria-describedby={hintId} aria-disabled={waiting || unavailable || undefined} aria-busy={busy || undefined} aria-label={t('evidence.download_label', { item: name })} onClick={() => { if (!unavailable) onClick() }}
-      className={`border-app-line bg-app-soft ${(waiting && !busy) || unavailable ? 'opacity-60' : ''}`}>
+      className={`border-input bg-card ${(waiting && !busy) || unavailable ? 'opacity-60' : ''}`}>
       {busy ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <DownloadSimpleIcon />}{busy ? t('evidence.preparing') : t('evidence.download')}</Button>
   </li>
 }

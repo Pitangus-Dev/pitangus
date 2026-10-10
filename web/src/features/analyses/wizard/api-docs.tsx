@@ -56,7 +56,7 @@ export function ApiDocs({ host, isApi, value, invalid, onChange }: {
       {/* One source at a time: with a file loaded, the URL waits until it's removed. */}
       <Input id="spec-url" type="url" inputMode="url" value={url} placeholder={`https://${host}/openapi.json`} autoComplete="off" spellCheck={false} disabled={value?.mode === 'file'}
         onChange={event => { const next = event.target.value.trim(); setError(''); onChange(next ? { mode: 'url', url: next } : null) }}
-        aria-invalid={invalid || undefined} aria-describedby="spec-url-note" className="border-app-line bg-app-soft font-mono" />
+        aria-invalid={invalid || undefined} aria-describedby="spec-url-note" className="border-input bg-card font-mono" />
       <p id="spec-url-note" role="status" className={`text-xs ${invalid ? 'text-danger' : 'text-app-muted'}`}>{invalid ? t('spec.url_foreign', { host }) : value?.mode === 'file' ? t('spec.url_file_loaded') : ''}</p>
     </div>
   </section>

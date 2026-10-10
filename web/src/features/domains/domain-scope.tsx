@@ -119,7 +119,7 @@ export function DomainScopeEditor({ domain, admin, autoSearch = false, onVerify,
       {hosts.length > FILTER_FROM && <div className="space-y-1">
         <label htmlFor={`scope-filter-${domain.id}`} className="sr-only">{t('domains.scope.filter')}</label>
         <Input id={`scope-filter-${domain.id}`} type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder={t('domains.scope.filter')}
-          autoComplete="off" spellCheck={false} className="border-app-line bg-app-soft font-mono sm:max-w-xs" />
+          autoComplete="off" spellCheck={false} className="border-input bg-card font-mono sm:max-w-xs" />
       </div>}
 
       {hosts.length === 0 ? !searching && <p className="text-sm text-app-muted">{t(discovery.available ? 'domains.scope.empty' : 'domains.scope.empty_manual')}</p>
@@ -175,7 +175,7 @@ function AddHostForm({ root, busy, error, onCancel, onAdd }: { root: string; bus
     <div className="flex flex-wrap gap-2">
       <Input id={`scope-add-${root}`} ref={field} value={draft} onChange={event => { setDraft(event.target.value); setInvalid('') }} placeholder={`app.${root}`}
         autoComplete="off" spellCheck={false} maxLength={253} aria-invalid={!!message || undefined} aria-describedby={`scope-add-error-${root}`}
-        className="min-w-0 flex-1 border-app-line bg-app-soft font-mono" />
+        className="min-w-0 flex-1 border-input bg-card font-mono" />
       <Button type="submit" disabled={busy || !draft.trim()}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('common:actions.add')}</Button>
       <Button type="button" variant="ghost" onClick={onCancel}>{t('common:actions.cancel')}</Button>
     </div>

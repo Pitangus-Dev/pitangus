@@ -47,7 +47,7 @@ export function TargetBranches({ uid, name, saved, defaultBranch, admin, onSaved
       <p id={`${id}-help`} className="mt-0.5 text-xs leading-5 text-app-subtle">{t('targets.description')}</p></div>
     <ul aria-labelledby={`${id}-title`} className="flex flex-wrap items-center gap-2">
       {draft.length === 0 && <li className="flex items-center gap-1.5 text-xs text-app-muted"><GitBranchIcon className="size-3.5 text-app-subtle" />{defaultBranch ? t('targets.default', { branch: defaultBranch }) : t('targets.default_unknown')}</li>}
-      {draft.map(branch => <li key={branch} className="flex min-h-6 items-center gap-1 rounded-full border border-app-line bg-app-soft py-0.5 pr-1 pl-2.5 font-mono text-xs text-app-secondary">
+      {draft.map(branch => <li key={branch} className="flex min-h-6 items-center gap-1 rounded-sm border border-app-line bg-card py-0.5 pr-1 pl-2.5 font-mono text-xs text-app-secondary">
         {branch}
         {admin && <button type="button" onClick={() => remove(branch)} disabled={busy} aria-label={t('targets.remove', { branch })} className="inline-flex size-6 items-center justify-center rounded-full text-app-muted hover:bg-app-line hover:text-app-fg disabled:opacity-50"><XIcon className="size-3.5" /></button>}
       </li>)}
@@ -56,7 +56,7 @@ export function TargetBranches({ uid, name, saved, defaultBranch, admin, onSaved
       <label htmlFor={`${id}-input`} className="sr-only">{t('targets.input_label', { name })}</label>
       <Input ref={field} id={`${id}-input`} value={input} maxLength={200} spellCheck={false} autoComplete="off" disabled={busy}
         onChange={event => { setInput(event.target.value); setError('') }} placeholder={t('targets.placeholder')}
-        aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} className="h-8 w-52 border-app-line bg-app-soft font-mono text-xs" />
+        aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} className="h-8 w-52 border-input bg-card font-mono text-xs" />
       <Button type="submit" size="sm" variant="outline" disabled={busy || !input.trim()}><PlusIcon />{t('common:actions.add')}</Button>
       {dirty && <>
         <Button type="button" size="sm" disabled={busy} onClick={() => { setError(''); setAnnounce(''); mutation.mutate(draft) }}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('targets.save')}</Button>

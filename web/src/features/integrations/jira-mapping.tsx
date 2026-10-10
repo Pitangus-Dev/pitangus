@@ -72,7 +72,7 @@ function MappingRow({ field, variables, entry, error, onChange, searchValues }: 
     value = <ValueSearch field={field} entry={entry} label={valueLabel} invalid={!!error} describedBy={describedBy} search={searchValues} onChange={onChange} />
   else if (entry.source === 'fixed') value = field.type === 'options'
     ? <Select multiple items={field.allowed.map(option => ({ value: option.id, label: option.name }))} value={entry.values} onValueChange={values => set({ values })}>
-      <SelectTrigger id={`${id}-value`} aria-label={valueLabel} aria-invalid={!!error || undefined} aria-describedby={describedBy} className={`w-full min-w-0 border-app-line bg-app-soft text-app-fg ${control}`}>
+      <SelectTrigger id={`${id}-value`} aria-label={valueLabel} aria-invalid={!!error || undefined} aria-describedby={describedBy} className={`w-full min-w-0 border-input bg-card text-app-fg ${control}`}>
         <SelectValue placeholder={t('jira.mapping.pick_value')} className="min-w-0 truncate">{(values: string[]) => values.length ? field.allowed.filter(option => values.includes(option.id)).map(option => option.name).join(', ') : t('jira.mapping.pick_value')}</SelectValue></SelectTrigger>
       <SelectContent align="start" className={selectPopup}>{field.allowed.map(option => <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>)}</SelectContent></Select>
     : field.type === 'option' || field.type === 'priority'
@@ -80,7 +80,7 @@ function MappingRow({ field, variables, entry, error, onChange, searchValues }: 
         placeholder={t('jira.mapping.pick_value')} options={field.allowed.map(option => ({ value: option.id, label: option.name }))} />
       : <Input id={`${id}-value`} aria-label={valueLabel} aria-invalid={!!error || undefined} aria-describedby={describedBy} value={entry.value} onChange={event => set({ value: event.target.value })}
         type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text'}
-        placeholder={LISTS.includes(field.type) ? t('jira.mapping.list_placeholder') : undefined} className="border-app-line bg-app-soft" />
+        placeholder={LISTS.includes(field.type) ? t('jira.mapping.list_placeholder') : undefined} className="border-input bg-card" />
   return <tr className="align-top">
     <th scope="row" className="px-3 py-2 text-left font-medium"><span className="break-words">{field.name}</span>
       {mustFill(field) && <span className="ml-1.5 text-[11px] font-normal text-danger">{t('jira.mapping.required_mark')}</span>}
@@ -107,7 +107,7 @@ function TemplateInput({ id, label, text, variables, invalid, describedBy, onCha
   }
   return <div className="space-y-1.5">
     <textarea ref={area} id={id} aria-label={label} aria-invalid={invalid || undefined} aria-describedby={describedBy} value={text} onChange={event => onChange(event.target.value)} rows={2} maxLength={2000}
-      className="w-full rounded-lg border border-app-line bg-app-soft px-2 py-1.5 font-mono text-xs text-app-fg aria-invalid:border-danger" />
+      className="w-full rounded-lg border border-input bg-card px-2 py-1.5 font-mono text-xs text-app-fg aria-invalid:border-danger" />
     <div role="group" aria-label={t('jira.mapping.insert_label')} className="flex flex-wrap gap-1">{variables.map(variable => <button key={variable.key} type="button" title={variable.label}
       aria-label={t('jira.mapping.insert', { name: variable.label })} onClick={() => insert(variable.key)}
       className="min-h-6 rounded border border-app-line bg-inset px-1.5 font-mono text-[11px] text-app-secondary hover:border-app-faint">{`{{${variable.key}}}`}</button>)}</div>

@@ -97,7 +97,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
         <label htmlFor={`${id}-file`} className="text-sm text-app-secondary">{t('import.file.label')} <span className="text-app-subtle">{t('import.file.hint', { max: MAX_MB })}</span></label>
         <input id={`${id}-file`} type="file" accept=".sarif,.json,application/json,application/sarif+json" aria-invalid={!!fileError} aria-describedby={`${id}-file-help`}
           onChange={event => void read(event.target.files?.[0])}
-          className="block w-full max-w-xl rounded-xl border border-app-line bg-app-soft p-2 text-sm text-app-secondary file:mr-3 file:min-h-6 file:rounded-lg file:border file:border-app-line file:bg-panel file:px-3 file:py-1 file:text-sm file:font-medium file:text-app-fg" />
+          className="block w-full max-w-xl rounded-xl border border-input bg-card p-2 text-sm text-app-secondary file:mr-3 file:min-h-6 file:rounded-lg file:border file:border-app-line file:bg-panel file:px-3 file:py-1 file:text-sm file:font-medium file:text-app-fg" />
         <div id={`${id}-file-help`}>
           {fileError ? <p role="alert" className="text-xs text-danger">{fileError}</p>
             : reading ? <p role="status" className="text-xs text-app-muted">{t('common:state.loading')}</p>
@@ -118,16 +118,16 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
       </div>
 
       <div className="space-y-3">
-        <Button type="button" size="sm" variant="outline" aria-expanded={more} aria-controls={`${id}-more`} onClick={() => setMore(!more)} className="w-fit border-app-line bg-app-soft"><SlidersHorizontalIcon />{t('import.more')}</Button>
+        <Button type="button" size="sm" variant="outline" aria-expanded={more} aria-controls={`${id}-more`} onClick={() => setMore(!more)} className="w-fit border-input bg-card"><SlidersHorizontalIcon />{t('import.more')}</Button>
         {more && <div id={`${id}-more`} className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1"><label htmlFor={`${id}-tool`} className="text-xs text-app-secondary">{t('import.tool')} <span className="text-app-subtle">{t('import.optional')}</span></label>
-            <Input id={`${id}-tool`} value={tool} maxLength={100} onChange={event => setTool(event.target.value)} placeholder={picked?.tools[0] ?? ''} className="border-app-line bg-app-soft" />
+            <Input id={`${id}-tool`} value={tool} maxLength={100} onChange={event => setTool(event.target.value)} placeholder={picked?.tools[0] ?? ''} className="border-input bg-card" />
             <p className="text-[11px] text-app-subtle">{t('import.tool_hint')}</p></div>
           <div className="space-y-1"><label htmlFor={`${id}-commit`} className="text-xs text-app-secondary">{t('import.commit')} <span className="text-app-subtle">{t('import.optional')}</span></label>
-            <Input id={`${id}-commit`} value={commit} maxLength={64} spellCheck={false} autoComplete="off" aria-invalid={commitInvalid} aria-describedby={commitInvalid ? `${id}-commit-error` : undefined} onChange={event => setCommit(event.target.value)} className="border-app-line bg-app-soft font-mono" />
+            <Input id={`${id}-commit`} value={commit} maxLength={64} spellCheck={false} autoComplete="off" aria-invalid={commitInvalid} aria-describedby={commitInvalid ? `${id}-commit-error` : undefined} onChange={event => setCommit(event.target.value)} className="border-input bg-card font-mono" />
             {commitInvalid && <p id={`${id}-commit-error`} className="text-[11px] text-danger">{t('import.commit_invalid')}</p>}</div>
           <div className="space-y-1"><label htmlFor={`${id}-branch`} className="text-xs text-app-secondary">{t('import.branch')} <span className="text-app-subtle">{t('import.optional')}</span></label>
-            <Input id={`${id}-branch`} value={branch} maxLength={200} spellCheck={false} autoComplete="off" aria-invalid={branchInvalid} aria-describedby={branchInvalid ? `${id}-branch-error` : undefined} onChange={event => setBranch(event.target.value)} className="border-app-line bg-app-soft font-mono" />
+            <Input id={`${id}-branch`} value={branch} maxLength={200} spellCheck={false} autoComplete="off" aria-invalid={branchInvalid} aria-describedby={branchInvalid ? `${id}-branch-error` : undefined} onChange={event => setBranch(event.target.value)} className="border-input bg-card font-mono" />
             {branchInvalid && <p id={`${id}-branch-error`} className="text-[11px] text-danger">{t('import.branch_invalid')}</p>}</div>
         </div>}
       </div>

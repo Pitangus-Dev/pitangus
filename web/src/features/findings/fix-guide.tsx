@@ -33,7 +33,7 @@ export function CodeBlock({ code, label }: { code: string; label: string }) {
 export function FixSection({ fix, remediation }: { fix?: FixGuide | null; remediation: string }) {
   const { t } = useTranslation('findings')
   const heading = useId()
-  if (!fix) return <div className="mt-3 rounded-lg border border-app-line bg-inset p-3 text-sm"><span className="font-medium text-app-fg">{t('fix.remediation')} · </span>{remediation}</div>
+  if (!fix) return <div className="mt-4 border-t border-app-line pt-4 text-sm"><span className="font-medium text-app-fg">{t('fix.remediation')} · </span>{remediation}</div>
   const steps = fix.steps.filter(Boolean)
   const example = fix.example && <div className={`grid gap-2 ${fix.example.before ? 'lg:grid-cols-2' : ''}`}>
     {fix.example.before && <div className="min-w-0 space-y-1"><p className="text-xs text-danger">{t('fix.before')}</p><CodeBlock code={fix.example.before} label={t('fix.vulnerable_example')} /></div>}
@@ -42,7 +42,7 @@ export function FixSection({ fix, remediation }: { fix?: FixGuide | null; remedi
   const commands = fix.commands.map(command => <div key={command.code} className="space-y-1"><p className="text-xs text-app-muted">{command.label}</p><CodeBlock code={command.code} label={command.label} /></div>)
   // En una dependencia, el ejemplo es la edición (override, pom, Dockerfile): va antes del comando que la aplica.
   const editFirst = fix.kind === 'dependency' && !!fix.example && !fix.example.before
-  return <section aria-labelledby={heading} className="mt-3 space-y-3 rounded-lg border border-app-line bg-inset p-3">
+  return <section aria-labelledby={heading} className="mt-4 space-y-3 border-t border-app-line pt-4">
     <h3 id={heading} className="text-sm font-medium text-app-fg">{t('fix.title')}</h3>
     {steps.length > 0 && <ol className="list-decimal space-y-1 pl-5 text-sm text-app-secondary">{steps.map(step => <li key={step}>{step}</li>)}</ol>}
     {editFirst ? <>{example}{commands}</> : <>{commands}{example}</>}
@@ -66,7 +66,7 @@ export function Reverify({ runId, fingerprint, verification, blocked, canVerify,
     try { await api.post('/api/findings/reverify', 'reverify-finding', { run_id: runId, fingerprint }); onChanged() }
     catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) } finally { setBusy(false) }
   }
-  return <div className="mt-3 space-y-1 rounded-lg border border-app-line bg-inset p-3">
+  return <div className="mt-4 space-y-1 border-t border-app-line pt-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p role="status" className="min-w-0 text-xs text-app-muted">
         {blocked ? blocked

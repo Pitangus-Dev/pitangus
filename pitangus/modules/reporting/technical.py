@@ -206,7 +206,7 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
     if gaps:
         story.append(Paragraph(_t(t("reports.technical.incomplete", gaps=", ".join(gaps)), 600), STYLE["body"]))
     figures = [(t("reports.audit.kpi.open_critical"), counts["critical"], SEVERITY_INK["critical"], None),
-               (t("reports.audit.kpi.open_high"), counts["high"], ATTENTION, None),
+               (t("reports.audit.kpi.open_high"), counts["high"], DANGER, None),
                (t("reports.technical.kpi.medium_low"), counts["medium"] + counts["low"] + counts["info"], INK, None),
                (t("reports.technical.kpi.actions"), len(groups), INK, None)]
     if kev:

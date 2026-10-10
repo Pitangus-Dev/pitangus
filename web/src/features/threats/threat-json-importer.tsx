@@ -115,7 +115,7 @@ export function ThreatJsonImporter({ onClose, onImported }: { onClose: () => voi
       <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
         <section aria-label={t('importer.examples_label')} className="space-y-3">
           <div><h3 className="text-sm font-semibold">{t('importer.step_example')}</h3><p className="mt-1 text-xs leading-5 text-app-muted">{t('importer.step_example_hint')}</p></div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1">{METHOD_ORDER.map(method => <button key={method} type="button" aria-pressed={selected === method} onClick={() => chooseExample(method)} className={`rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-2 focus-visible:outline-brand ${selected === method ? 'border-app-fg bg-app-soft' : 'border-app-line bg-app-soft hover:border-app-faint'}`}>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1">{METHOD_ORDER.map(method => <button key={method} type="button" aria-pressed={selected === method} onClick={() => chooseExample(method)} className={`rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-2 focus-visible:outline-brand ${selected === method ? 'border-app-fg bg-app-soft' : 'border-input bg-card hover:border-app-faint'}`}>
             <span className="block text-sm font-medium">{methodName(method)}</span><span className="mt-0.5 block text-[11px] leading-4 text-app-muted">{t(EXAMPLE_HINTS[method])}</span>
           </button>)}</div>
           <div className="rounded-xl border border-app-line bg-inset p-3 text-xs leading-5 text-app-muted">

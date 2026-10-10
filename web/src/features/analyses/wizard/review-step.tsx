@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CaretRightIcon, CircleNotchIcon, CodeIcon, GlobeIcon, PackageIcon, StackIcon } from '@phosphor-icons/react'
+import { CaretRightIcon, CircleNotchIcon, ScanIcon } from '@phosphor-icons/react'
 import { formatList } from '@/shared/i18n/format'
 import { Button } from '@/shared/ui/button'
 import { Bone } from '@/shared/ui/loading'
@@ -9,7 +9,6 @@ import { AiAssistSlot, StepFrame } from '@/features/analyses/wizard/step-frame'
 import type { Kind, ScanPlan } from '@/features/analyses/wizard/model'
 
 export type ReviewRow = { label: string; value: ReactNode; step?: number }
-const ICON = { code: CodeIcon, image: PackageIcon, web: GlobeIcon } as const
 
 // "What it looks for", from the server's plan of this repository, in words rather than engine names.
 export function LooksFor({ plan, failed, batch, osv }: { plan: ScanPlan | undefined; failed: boolean; batch: boolean; osv: boolean }) {
@@ -40,14 +39,13 @@ function Row({ row, onChange }: { row: ReviewRow; onChange: (step: number) => vo
 
 // Ready to launch: fixed rows with short values (each one jumps back to its step), the few options that matter,
 // and, for code and images, what runs folded under "Technical details".
-export function ReviewStep({ kind, rows, options, notes, details, error, busy, launchLabel, batch, onChange, onBack, onLaunch }: {
+export function ReviewStep({ kind, rows, options, notes, details, error, busy, launchLabel, onChange, onBack, onLaunch }: {
   kind: Kind; rows: ReviewRow[]; options?: ReactNode; notes?: ReactNode; details?: ReactNode; error: string; busy: boolean; launchLabel: string; batch: boolean
   onChange: (step: number) => void; onBack: () => void; onLaunch: () => void
 }) {
   const { t } = useTranslation('analyses')
-  const Icon = batch ? StackIcon : ICON[kind]
   return <StepFrame title={t('review.title')} onBack={onBack}
-    primary={<Button onClick={onLaunch} disabled={busy}>{busy ? <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden /> : <Icon aria-hidden />}{busy ? t('launch.queuing') : launchLabel}</Button>}
+    primary={<Button onClick={onLaunch} disabled={busy}>{busy ? <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden /> : <ScanIcon aria-hidden />}{busy ? t('launch.queuing') : launchLabel}</Button>}
     note={<>
       {error && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>}
       {kind === 'web' && <p className="text-xs text-app-muted md:text-right">{t('review.authorization')}</p>}

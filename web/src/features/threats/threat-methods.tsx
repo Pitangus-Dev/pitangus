@@ -15,7 +15,7 @@ import { elementsOf, newId, type AttackMapping, type AttackTree, type Catalog, t
 
 const select = 'text-xs'
 const inline = 'w-fit text-xs'
-const area = 'w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 text-sm leading-6 text-app-fg'
+const area = 'w-full rounded-lg border border-input bg-card px-3 py-2 text-sm leading-6 text-app-fg'
 // Catalog keys: levels in `threats`, severities in `common`.
 const LEVELS: Record<Level, string> = { low: 'level.low', medium: 'level.medium', high: 'level.high' }
 const SEVERITIES = { critical: 'common:severity.critical', high: 'common:severity.high', medium: 'common:severity.medium', low: 'common:severity.low' } as const
@@ -31,7 +31,7 @@ export function MethodPicker({ value, onChange }: { value: Methodology; onChange
   const { t } = useTranslation('threats')
   return <div role="radiogroup" aria-label={t('methods.picker_label')} className="grid gap-2 sm:grid-cols-2">
     {METHOD_ORDER.map(key => <button key={key} type="button" role="radio" aria-checked={value === key} onClick={() => onChange(key)}
-      className={`rounded-xl border p-3 text-left transition ${value === key ? 'border-app-fg bg-app-soft' : 'border-app-line bg-app-soft hover:border-app-faint'}`}>
+      className={`rounded-xl border p-3 text-left transition ${value === key ? 'border-app-fg bg-app-soft' : 'border-input bg-card hover:border-app-faint'}`}>
       <span className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{methodName(key)}</span>{key === 'stride' && <Badge variant="outline" className="border-app-line text-[11px] text-app-subtle">{t('methods.recommended')}</Badge>}</span>
       <span className="mt-1 block text-xs leading-5 text-app-muted">{guideOf(key).purpose}</span>
     </button>)}
@@ -83,9 +83,9 @@ export function ManualThreatDialog({ model, initial, methodology, onClose, onSav
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-xl">
     <DialogHeader><DialogTitle>{initial ? t('manual.edit_title') : t('manual.add_title')}</DialogTitle><DialogDescription>{t('manual.description')}</DialogDescription></DialogHeader>
     <form className="space-y-3" onSubmit={submit}>
-      <Field label={t('manual.title')}><Input required maxLength={160} value={draft.title} onChange={event => set({ title: event.target.value })} placeholder={t('manual.title_placeholder')} className="border-app-line bg-app-soft" /></Field>
+      <Field label={t('manual.title')}><Input required maxLength={160} value={draft.title} onChange={event => set({ title: event.target.value })} placeholder={t('manual.title_placeholder')} className="border-input bg-card" /></Field>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t('manual.category')}><Input list="threat-categories" maxLength={40} value={draft.category ?? ''} onChange={event => set({ category: event.target.value })} placeholder={categories.length ? t('manual.category_example', { code: categories[0].code }) : t('manual.category_placeholder')} className="border-app-line bg-app-soft" />
+        <Field label={t('manual.category')}><Input list="threat-categories" maxLength={40} value={draft.category ?? ''} onChange={event => set({ category: event.target.value })} placeholder={categories.length ? t('manual.category_example', { code: categories[0].code }) : t('manual.category_placeholder')} className="border-input bg-card" />
           <datalist id="threat-categories">{categories.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</datalist></Field>
         <Field label={t('manual.element')}><SelectField value={draft.element ?? ''} onValueChange={element => set({ element })} className={select} placeholder={t('manual.whole_system')} options={elementsOf(model).map(item => ({ value: item.id, label: item.label }))} /></Field>
       </div>
@@ -94,7 +94,7 @@ export function ManualThreatDialog({ model, initial, methodology, onClose, onSav
         <Field label={t('manual.severity')}><SelectField value={draft.severity} onValueChange={severity => set({ severity: severity as ManualThreat['severity'] })} className={select} options={Object.entries(SEVERITIES).map(([key, text]) => ({ value: key, label: t(text) }))} /></Field>
         <Field label={t('manual.likelihood')}><LevelSelect value={draft.likelihood ?? null} onChange={likelihood => set({ likelihood })} /></Field>
         <Field label={t('manual.impact')}><LevelSelect value={draft.impact ?? null} onChange={impact => set({ impact })} /></Field>
-        <Field label={t('manual.owner')}><Input maxLength={80} value={draft.owner ?? ''} onChange={event => set({ owner: event.target.value })} className="h-8 border-app-line bg-app-soft" /></Field>
+        <Field label={t('manual.owner')}><Input maxLength={80} value={draft.owner ?? ''} onChange={event => set({ owner: event.target.value })} className="h-8 border-input bg-card" /></Field>
       </div>
       <Field label={t('manual.mitigation')}><textarea rows={2} maxLength={1500} value={draft.mitigation ?? ''} onChange={event => set({ mitigation: event.target.value })} className={area} /></Field>
       <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || !draft.title.trim()}>{busy && <CircleNotchIcon className="animate-spin" />}{t('common:actions.save')}</Button></DialogFooter>
@@ -192,9 +192,9 @@ function TreeEditor({ tree, model, onChange, onRemove }: { tree: AttackTree; mod
     const kids = children[node.id] ?? []
     const cut = blocked(node, children)
     return <div key={node.id} style={{ marginLeft: depth ? 20 : 0 }} className="space-y-1.5">
-      <div className={`flex flex-wrap items-center gap-2 rounded-lg border px-2 py-1.5 ${cut ? 'border-app-line bg-app-soft opacity-70' : 'border-app-line bg-panel'}`}>
+      <div className={`flex flex-wrap items-center gap-2 rounded-lg border px-2 py-1.5 ${cut ? 'border-input bg-card opacity-70' : 'border-app-line bg-panel'}`}>
         <GitBranchIcon className="size-3.5 shrink-0 text-app-subtle" />
-        <Input aria-label={t('trees.step')} value={node.text} maxLength={200} onChange={event => update(node.id, { text: event.target.value })} className={`h-7 min-w-48 flex-1 border-app-line bg-app-soft text-sm ${cut ? 'line-through' : ''}`} />
+        <Input aria-label={t('trees.step')} value={node.text} maxLength={200} onChange={event => update(node.id, { text: event.target.value })} className={`h-7 min-w-48 flex-1 border-input bg-card text-sm ${cut ? 'line-through' : ''}`} />
         {kids.length > 0 && <SelectField aria-label={t('trees.gate')} value={node.gate} onValueChange={gate => update(node.id, { gate: gate as 'and' | 'or' })} className={inline} title={t('trees.gate_hint')} options={[{ value: 'or', label: t('trees.gate_or') }, { value: 'and', label: t('trees.gate_and') }]} />}
         <SelectField aria-label={t('trees.difficulty')} value={node.difficulty ?? ''} onValueChange={difficulty => update(node.id, { difficulty: (difficulty || null) as Level | null })} className={inline} placeholder={t('trees.difficulty')} options={Object.entries(LEVELS).map(([key, text]) => ({ value: key, label: t(text) }))} />
         <SelectField aria-label={t('manual.element')} value={node.element ?? ''} onValueChange={element => update(node.id, { element })} className={`${inline} max-w-40`} placeholder={t('trees.no_element')} options={elements.map(item => ({ value: item.id, label: item.label }))} />
@@ -206,7 +206,7 @@ function TreeEditor({ tree, model, onChange, onRemove }: { tree: AttackTree; mod
     </div>
   }
   return <div className="space-y-3 rounded-lg border border-app-line bg-panel p-4">
-    <div className="flex flex-wrap items-center gap-2"><TargetIcon className="size-4 text-brand" /><Input aria-label={t('trees.goal')} value={tree.goal} maxLength={200} onChange={event => onChange({ ...tree, goal: event.target.value })} className="h-8 min-w-64 flex-1 border-app-line bg-app-soft font-medium" />
+    <div className="flex flex-wrap items-center gap-2"><TargetIcon className="size-4 text-brand" /><Input aria-label={t('trees.goal')} value={tree.goal} maxLength={200} onChange={event => onChange({ ...tree, goal: event.target.value })} className="h-8 min-w-64 flex-1 border-input bg-card font-medium" />
       <span className="text-xs text-app-subtle">{roots.length ? t('trees.paths', { open, count: roots.length }) : t('trees.no_paths')}</span>
       <Button size="xs" variant="ghost" onClick={onRemove} aria-label={t('trees.remove_tree')}><TrashIcon /></Button></div>
     <div className="space-y-1.5">{roots.map(node => render(node, 0))}</div>
@@ -248,7 +248,7 @@ export function AttackMappings({ model, setModel, catalog }: { model: Model; set
     </div>
     {proposals.length > 0 && <details className="rounded-lg border border-app-line bg-panel p-4"><summary className="cursor-pointer text-sm font-medium">{t('attack.suggestions', { count: proposals.length })}</summary>
       <p className="mt-1 text-xs text-app-subtle">{t('attack.suggestions_hint')}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">{proposals.map(({ id, component }) => <button key={`${id}:${component.id}`} onClick={() => add(id, component.id)} className="inline-flex items-center gap-1 rounded-lg border border-app-line bg-app-soft px-2 py-1 text-xs text-app-muted hover:border-app-faint hover:underline"><PlusIcon className="size-3" /><span className="font-mono">{id}</span> {techniqueName(techniques[id])} → {component.name}</button>)}</div>
+      <div className="mt-3 flex flex-wrap gap-1.5">{proposals.map(({ id, component }) => <button key={`${id}:${component.id}`} onClick={() => add(id, component.id)} className="inline-flex items-center gap-1 rounded-lg border border-input bg-card px-2 py-1 text-xs text-app-muted hover:border-app-faint hover:underline"><PlusIcon className="size-3" /><span className="font-mono">{id}</span> {techniqueName(techniques[id])} → {component.name}</button>)}</div>
     </details>}
     {rows.length === 0 ? <p className="rounded-xl border border-dashed border-app-line px-4 py-10 text-center text-sm text-app-subtle">{t('attack.empty')}</p>
       : <div className="divide-y divide-app-line overflow-hidden rounded-lg border border-app-line bg-panel">{rows.map((row, index) => { const item = techniques[row.technique]
@@ -257,7 +257,7 @@ export function AttackMappings({ model, setModel, catalog }: { model: Model; set
             <p className="text-[11px] text-app-subtle">{[techniqueName(item) !== item?.name ? item?.name : '', item?.tactics.map(key => tactics[key]).join(', ')].filter(Boolean).join(' · ')}</p></div>
           <p className="text-xs text-app-muted">{row.element ? label[row.element] ?? '—' : t('manual.whole_system')}</p>
           <SelectField aria-label={t('attack.status_label')} value={row.status} onValueChange={status => setRows(rows.map((entry, position) => position === index ? { ...entry, status: status as AttackMapping['status'] } : entry))} className={select} options={Object.entries(MAPPING_STATUS).map(([key, text]) => ({ value: key, label: t(text) }))} />
-          <Input aria-label={t('attack.note')} value={row.note ?? ''} maxLength={600} placeholder={t('attack.note_placeholder')} onChange={event => setRows(rows.map((entry, position) => position === index ? { ...entry, note: event.target.value } : entry))} className="h-8 border-app-line bg-app-soft text-xs" />
+          <Input aria-label={t('attack.note')} value={row.note ?? ''} maxLength={600} placeholder={t('attack.note_placeholder')} onChange={event => setRows(rows.map((entry, position) => position === index ? { ...entry, note: event.target.value } : entry))} className="h-8 border-input bg-card text-xs" />
           <Button size="icon-sm" variant="ghost" aria-label={t('common:actions.remove')} onClick={() => setRows(rows.filter((_, position) => position !== index))}><TrashIcon /></Button>
         </div> })}</div>}
     <p className="text-[11px] text-app-subtle">{t('attack.trademark')}</p>

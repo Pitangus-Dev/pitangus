@@ -207,11 +207,11 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
     <form onSubmit={save} className="space-y-4" noValidate>
       {!isDefault && <>
         <div className="space-y-1.5"><label htmlFor={`${id}-name`} className="text-xs text-app-muted">{t('jira.rules.name')}</label>
-          <Input id={`${id}-name`} value={draft.name} maxLength={60} onChange={event => set({ name: event.target.value })} placeholder={t('jira.rules.name_placeholder')} className="border-app-line bg-app-soft" {...invalid('name')} />{fieldError('name')}</div>
+          <Input id={`${id}-name`} value={draft.name} maxLength={60} onChange={event => set({ name: event.target.value })} placeholder={t('jira.rules.name_placeholder')} className="border-input bg-card" {...invalid('name')} />{fieldError('name')}</div>
         <AssetsField label={t('jira.rules.assets')} value={draft.assets} max={routing.limits.assets ?? 200} onChange={assets => set({ assets })} error={fieldError('assets')} invalid={!!errors.assets} describedBy={errors.assets ? `${id}-assets-error` : undefined} />
         <div className="space-y-1.5"><label htmlFor={`${id}-patterns`} className="text-xs text-app-muted">{t('jira.rules.patterns')}</label>
           <textarea id={`${id}-patterns`} rows={2} value={draft.patterns} onChange={event => set({ patterns: event.target.value })} placeholder="org/payments-*" {...invalid('patterns')}
-            aria-describedby={errors.patterns ? `${id}-patterns-error` : `${id}-patterns-help`} className="w-full rounded-lg border border-app-line bg-app-soft px-2 py-1.5 font-mono text-xs text-app-fg aria-invalid:border-danger" />
+            aria-describedby={errors.patterns ? `${id}-patterns-error` : `${id}-patterns-help`} className="w-full rounded-lg border border-input bg-card px-2 py-1.5 font-mono text-xs text-app-fg aria-invalid:border-danger" />
           <p id={`${id}-patterns-help`} className="text-xs text-app-subtle">{t('jira.rules.patterns_help')}</p>{fieldError('patterns')}</div>
       </>}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -222,7 +222,7 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
       </div>
       <fieldset className="space-y-2"><legend className="text-xs text-app-muted">{t('jira.rules.mode')}</legend>
         <div className="grid gap-2 sm:grid-cols-2">{(['manual', 'auto'] as const).map(mode => <label key={mode}
-          className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${draft.mode === mode ? 'border-app-fg bg-app-soft' : 'border-app-line bg-app-soft'}`}>
+          className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${draft.mode === mode ? 'border-app-fg bg-app-soft' : 'border-input bg-card'}`}>
           <input type="radio" name={`${id}-mode`} value={mode} checked={draft.mode === mode} onChange={() => set({ mode })} className="mt-0.5 size-4 accent-brand" />
           <span><span className="block text-sm font-medium">{mode === 'auto' ? t('jira.rules.mode_auto') : t('jira.rules.mode_manual')}</span>
             <span className="block text-xs text-app-muted">{mode === 'auto' ? t('jira.rules.mode_auto_help') : t('jira.rules.mode_manual_help')}</span></span></label>)}</div></fieldset>

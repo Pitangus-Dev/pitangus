@@ -70,11 +70,11 @@ function HeaderForm({ fixedName, busy, error, onCancel, onSave }: { fixedName: s
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1"><label htmlFor="header-name" className="text-xs text-app-secondary">{t('domains.access.name')}</label>
         <Input id="header-name" ref={fixedName ? undefined : first} list="header-suggestions" value={name} readOnly={!!fixedName} required maxLength={64} autoComplete="off" spellCheck={false}
-          onChange={event => setName(event.target.value)} className="border-app-line bg-app-soft font-mono" />
+          onChange={event => setName(event.target.value)} className="border-input bg-card font-mono" />
         <datalist id="header-suggestions">{SUGGESTED.map(item => <option key={item} value={item} />)}</datalist></div>
       <div className="space-y-1"><label htmlFor="header-value" className="text-xs text-app-secondary">{t('domains.access.value')}</label>
         <Input id="header-value" ref={fixedName ? first : undefined} type="password" value={value} required maxLength={4096} autoComplete="new-password" spellCheck={false}
-          onChange={event => setValue(event.target.value)} className="border-app-line bg-app-soft font-mono" /></div>
+          onChange={event => setValue(event.target.value)} className="border-input bg-card font-mono" /></div>
     </div>
     <p className="text-xs text-app-muted">{t('domains.access.saved_note')}</p>
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}

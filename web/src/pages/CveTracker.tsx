@@ -87,21 +87,21 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
   const mineTotal = page?.mine_total ?? null
   const pages = page ? Math.max(1, Math.ceil(Math.min(page.total, 10000 + filters.size) / filters.size)) : 1
 
-  return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+  return <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
     <div className="min-w-0 space-y-4">
       {overview && overview.sync.phase !== 'ready' && <SyncBanner overview={overview} />}
       <div className="space-y-3">
         <form onSubmit={submit} className="space-y-2">
           <div className="flex gap-2"><div className="relative min-w-0 flex-1"><MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" />
-            <Input value={draft} onChange={event => setDraft(event.target.value)} maxLength={100} aria-label={t('search.label')} placeholder={t('search.placeholder')} className="h-9 border-app-line bg-app-soft pl-9" /></div>
+            <Input value={draft} onChange={event => setDraft(event.target.value)} maxLength={100} aria-label={t('search.label')} placeholder={t('search.placeholder')} className="h-9 border-input bg-card pl-9" /></div>
           <Button type="submit" className="h-9 px-5">{t('common:actions.search')}</Button></div>
           <div className="flex flex-wrap gap-2">
-          <Select value={filters.severity || 'all'} onValueChange={value => apply({ severity: !value || value === 'all' ? '' : value })}><SelectTrigger aria-label={t('filters.severity')} className="h-9 min-w-44 border-app-line bg-app-soft">{t(SEVERITIES.find(([value]) => value === filters.severity)?.[1] ?? 'cves:filters.all_severities')}</SelectTrigger>
+          <Select value={filters.severity || 'all'} onValueChange={value => apply({ severity: !value || value === 'all' ? '' : value })}><SelectTrigger aria-label={t('filters.severity')} className="h-9 min-w-44 border-input bg-card">{t(SEVERITIES.find(([value]) => value === filters.severity)?.[1] ?? 'cves:filters.all_severities')}</SelectTrigger>
             <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{SEVERITIES.map(([value, label]) => <SelectItem key={value || 'all'} value={value || 'all'}>{t(label)}</SelectItem>)}</SelectContent></Select>
-          <Select value={filters.sort} onValueChange={value => apply({ sort: value ?? 'published' })}><SelectTrigger aria-label={t('filters.sort')} className="h-9 min-w-36 border-app-line bg-app-soft">{t(SORTS.find(([value]) => value === filters.sort)?.[1] ?? 'cves:sort.published')}</SelectTrigger>
+          <Select value={filters.sort} onValueChange={value => apply({ sort: value ?? 'published' })}><SelectTrigger aria-label={t('filters.sort')} className="h-9 min-w-36 border-input bg-card">{t(SORTS.find(([value]) => value === filters.sort)?.[1] ?? 'cves:sort.published')}</SelectTrigger>
             <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{SORTS.map(([value, label]) => <SelectItem key={value} value={value}>{t(label)}</SelectItem>)}</SelectContent></Select>
-          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-sm whitespace-nowrap"><input type="checkbox" checked={filters.kev} onChange={event => apply({ kev: event.target.checked })} className="size-3.5 accent-[var(--primary)]" />{t('filters.kev_only')}</label>
-          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-sm whitespace-nowrap"><input type="checkbox" checked={filters.mine} onChange={event => apply({ mine: event.target.checked })} className="size-3.5 accent-[var(--primary)]" />{t('filters.mine')}{mineTotal !== null ? <span className="text-xs text-app-subtle tabular-nums">({formatNumber(mineTotal)})</span> : null}</label>
+          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-input bg-card px-3 text-sm whitespace-nowrap"><input type="checkbox" checked={filters.kev} onChange={event => apply({ kev: event.target.checked })} className="size-3.5 accent-[var(--primary)]" />{t('filters.kev_only')}</label>
+          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-input bg-card px-3 text-sm whitespace-nowrap"><input type="checkbox" checked={filters.mine} onChange={event => apply({ mine: event.target.checked })} className="size-3.5 accent-[var(--primary)]" />{t('filters.mine')}{mineTotal !== null ? <span className="text-xs text-app-subtle tabular-nums">({formatNumber(mineTotal)})</span> : null}</label>
           </div>
         </form>
         {(filters.q || filters.year || filters.severity || filters.kev || filters.mine) && <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -139,11 +139,11 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
         {page && page.total > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-app-line px-4 py-2.5 text-xs text-app-subtle">
           <span className="tabular-nums">{t('pagination.showing', { from: formatNumber(page.offset + 1), to: formatNumber(Math.min(page.offset + page.limit, page.total)), total: formatNumber(page.total) })}</span>
           <div className="flex items-center gap-2">
-            <Select value={String(filters.size)} onValueChange={value => apply({ size: Number(value) })}><SelectTrigger size="sm" aria-label={t('pagination.per_page_label')} className="border-app-line bg-app-soft">{t('pagination.per_page', { size: filters.size })}</SelectTrigger>
+            <Select value={String(filters.size)} onValueChange={value => apply({ size: Number(value) })}><SelectTrigger size="sm" aria-label={t('pagination.per_page_label')} className="border-input bg-card">{t('pagination.per_page', { size: filters.size })}</SelectTrigger>
               <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{SIZES.map(size => <SelectItem key={size} value={String(size)}>{t('pagination.per_page', { size })}</SelectItem>)}</SelectContent></Select>
-            <Button variant="outline" size="sm" disabled={filters.page <= 1} onClick={() => apply({ page: filters.page - 1 })} className="border-app-line bg-app-soft">{t('pagination.previous')}</Button>
+            <Button variant="outline" size="sm" disabled={filters.page <= 1} onClick={() => apply({ page: filters.page - 1 })} className="border-input bg-card">{t('pagination.previous')}</Button>
             <span className="tabular-nums">{formatNumber(filters.page)} / {formatNumber(pages)}</span>
-            <Button variant="outline" size="sm" disabled={filters.page >= pages} onClick={() => apply({ page: filters.page + 1 })} className="border-app-line bg-app-soft">{t('common:actions.next')}</Button>
+            <Button variant="outline" size="sm" disabled={filters.page >= pages} onClick={() => apply({ page: filters.page + 1 })} className="border-input bg-card">{t('common:actions.next')}</Button>
           </div>
         </div>}
       </div>
@@ -155,12 +155,12 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
           : mineTotal ? <Trans t={t} i18nKey="mine.count" count={mineTotal} values={{ value: formatNumber(mineTotal) }} components={{ strong: <strong className="text-app-fg tabular-nums" /> }} />
           : t('mine.cta')}</CardDescription></CardHeader>
         <CardContent>{mineTotal === null ? (error ? null : <Bone className="h-9" />)
-          : mineTotal ? <Button variant="outline" onClick={() => apply({ mine: !filters.mine })} className="w-full border-app-line bg-app-soft">{filters.mine ? t('mine.show_all') : t('mine.show_mine')}</Button>
+          : mineTotal ? <Button variant="outline" onClick={() => apply({ mine: !filters.mine })} className="w-full border-input bg-card">{filters.mine ? t('mine.show_all') : t('mine.show_mine')}</Button>
           : <Button variant="outline" onClick={onNew} className="w-full">{t('mine.new_scan')}</Button>}</CardContent></Card>
       <Card className="border-app-line bg-panel"><CardHeader className="pb-2"><CardTitle className="text-base">{t('years.title')}</CardTitle><CardDescription className="text-xs">{overview ? t('years.local_count', { value: formatNumber(overview.count) }) : <Bone className="h-3 w-32" />}</CardDescription></CardHeader>
         {/* Ley de Hick: un selector con los años (y sus cifras) en lugar de una rejilla de ~30 botones. */}
         <CardContent>{overview?.years.length ? <Select value={filters.year || 'all'} onValueChange={value => apply({ year: !value || value === 'all' ? '' : value })}>
-            <SelectTrigger aria-label={t('years.aria', { year: filters.year || t('years.any') })} className="w-full border-app-line bg-app-soft">{filters.year ? t('years.option', { year: filters.year, value: formatNumber(overview.years.find(item => String(item.year) === filters.year)?.count ?? 0) }) : t('years.all')}</SelectTrigger>
+            <SelectTrigger aria-label={t('years.aria', { year: filters.year || t('years.any') })} className="w-full border-input bg-card">{filters.year ? t('years.option', { year: filters.year, value: formatNumber(overview.years.find(item => String(item.year) === filters.year)?.count ?? 0) }) : t('years.all')}</SelectTrigger>
             <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="all">{t('years.all')}</SelectItem>{overview.years.map(item => <SelectItem key={item.year} value={String(item.year)}>{t('years.option', { year: item.year, value: formatNumber(item.count) })}</SelectItem>)}</SelectContent></Select>
           : <div role="status" aria-label={t('years.loading')}><Bone className="h-9" /></div>}</CardContent></Card>
       <Card className="border-app-line bg-panel"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><FlameIcon className="size-4 text-danger" />{t('kev.title')}</CardTitle><CardDescription className="text-xs">{overview?.kev_total ? t('kev.latest_total', { value: formatNumber(overview.kev_total) }) : t('kev.latest')}</CardDescription></CardHeader>
@@ -176,7 +176,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
 
 function Chip({ label, onClear }: { label: string; onClear: () => void }) {
   const { t } = useTranslation('cves')
-  return <span className="inline-flex items-center gap-1 rounded-full border border-app-line bg-app-soft py-0.5 pr-1 pl-2.5">{label}<button type="button" aria-label={t('filters.remove_chip', { label })} onClick={onClear} className="grid size-6 place-items-center rounded-full text-app-subtle hover:bg-accent hover:text-app-fg"><XIcon className="size-3.5" /></button></span>
+  return <span className="inline-flex items-center gap-1 rounded-sm border border-app-fg bg-app-soft py-0.5 pr-1 pl-2.5">{label}<button type="button" aria-label={t('filters.remove_chip', { label })} onClick={onClear} className="grid size-6 place-items-center rounded-full text-app-subtle hover:bg-accent hover:text-app-fg"><XIcon className="size-3.5" /></button></span>
 }
 
 function SyncBanner({ overview }: { overview: CveOverview }) {
@@ -186,7 +186,7 @@ function SyncBanner({ overview }: { overview: CveOverview }) {
     <div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2">{sync.error ? <ShieldWarningIcon className="size-4 text-attention" /> : <CircleNotchIcon className="size-4 animate-spin text-app-muted" />}
       {sync.phase === 'pending' ? t('sync.preparing') : t('sync.downloading', { percent: formatPercent(sync.progress) })}</span>
       <span className="text-xs text-app-subtle">{sync.nvd_total ? t('sync.count_of', { value: formatNumber(overview.count), total: formatNumber(sync.nvd_total) }) : t('sync.count', { value: formatNumber(overview.count) })}</span></div>
-    <div role="progressbar" aria-label={t('sync.aria')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sync.progress * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-brand transition-all" style={{ width: `${Math.max(2, sync.progress * 100)}%` }} /></div>
+    <div role="progressbar" aria-label={t('sync.aria')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sync.progress * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-info transition-all" style={{ width: `${Math.max(2, sync.progress * 100)}%` }} /></div>
     <p className="mt-2 text-xs text-app-subtle">{sync.error ? t('sync.error') : t('sync.hint')}</p>
   </div>
 }

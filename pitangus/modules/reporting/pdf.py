@@ -21,7 +21,7 @@ from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer,
 from pitangus.modules.reporting.design import BRAND, BRAND_HEX, INK, LINE, MUTED, SOFT
 from pitangus.shared.i18n import t
 
-AMBER = colors.HexColor("#8a4c00")
+AMBER = colors.HexColor("#3d434a")  # quotes in ink-2 (the name is historical: there is no yellow or amber state)
 
 STYLES = {
     "eyebrow": ParagraphStyle("eyebrow", fontName="Helvetica-Bold", fontSize=9, leading=13, textColor=BRAND, spaceAfter=8),

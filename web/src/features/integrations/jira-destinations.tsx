@@ -112,7 +112,7 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
     <form onSubmit={save} className="space-y-4" noValidate>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5"><label htmlFor={`${id}-name`} className="text-xs text-app-muted">{t('jira.destinations.name')}</label>
-          <Input id={`${id}-name`} value={name} maxLength={60} onChange={event => setName(event.target.value)} placeholder={t('jira.destinations.name_placeholder')} className="border-app-line bg-app-soft" {...invalid('name')} />{fieldError('name')}</div>
+          <Input id={`${id}-name`} value={name} maxLength={60} onChange={event => setName(event.target.value)} placeholder={t('jira.destinations.name_placeholder')} className="border-input bg-card" {...invalid('name')} />{fieldError('name')}</div>
         <div className="space-y-1.5"><span id={`${id}-project-label`} className="text-xs text-app-muted">{t('jira.destinations.project')}</span>
           <ProjectPicker labelledBy={`${id}-project-label`} value={project} onChange={pickProject} invalid={invalid('project')} />{fieldError('project')}</div>
       </div>
@@ -146,11 +146,11 @@ function ProjectPicker({ value, onChange, labelledBy, invalid }: { value: Projec
   const items = pages.data?.pages.flatMap(page => page.items) ?? []
   const total = pages.data?.pages[0]?.total ?? 0
   if (!open && value) return <button type="button" aria-labelledby={labelledBy} aria-describedby={`${labelledBy}-value`} onClick={() => setOpen(true)} {...invalid}
-    className="flex h-8 w-full items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-left text-sm hover:border-app-faint">
+    className="flex h-8 w-full items-center gap-2 rounded-lg border border-input bg-card px-3 text-left text-sm hover:border-app-faint">
     <span id={`${labelledBy}-value`} className="min-w-0 flex-1 truncate"><span className="font-mono">{value.key}</span> · {value.name}</span><CaretDownIcon className="size-3.5 text-app-subtle" /></button>
   return <div className="space-y-1.5">
     <div className="relative"><MagnifyingGlassIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-app-subtle" />
-      <Input aria-labelledby={labelledBy} placeholder={t('jira.destinations.project_search')} value={text} onChange={event => setText(event.target.value)} className="border-app-line bg-app-soft pl-8" {...invalid} /></div>
+      <Input aria-labelledby={labelledBy} placeholder={t('jira.destinations.project_search')} value={text} onChange={event => setText(event.target.value)} className="border-input bg-card pl-8" {...invalid} /></div>
     <ul aria-labelledby={labelledBy} className="max-h-48 overflow-y-auto rounded-lg border border-app-line">
       {pages.isPending ? <li><SkeletonList rows={3} dense label={t('jira.destinations.loading_projects')} /></li>
         : pages.isError ? <li role="alert" className="px-3 py-2 text-xs text-danger">{pages.error.message}</li>

@@ -60,15 +60,15 @@ export function GitHubAppCreate({ canManage }: { canManage: boolean }) {
       <InfoIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-app-subtle" />
       <div><h4 className="text-sm font-medium">{t('github.create.title')}</h4><p className="mt-1 text-xs leading-5 text-app-muted">{t('github.create.description')}</p></div>
     </div>
-    {!canManage && <p className="rounded-lg border border-app-line bg-app-soft px-3 py-2 text-xs text-app-muted">{t('github.form.admin_only')}</p>}
+    {!canManage && <p className="rounded-lg border border-app-line bg-panel px-3 py-2 text-xs text-app-muted">{t('github.form.admin_only')}</p>}
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5"><label htmlFor={`${id}-org`} className="text-xs text-app-muted">{t('github.create.organization')}</label>
         <Input id={`${id}-org`} value={organization} disabled={!canManage || busy} maxLength={39} aria-describedby={`${id}-org-help`}
-          onChange={event => setOrganization(event.target.value.replace(/[^A-Za-z0-9-]/g, ''))} className="border-app-line bg-app-soft" />
+          onChange={event => setOrganization(event.target.value.replace(/[^A-Za-z0-9-]/g, ''))} className="border-input bg-card" />
         <p id={`${id}-org-help`} className="text-[11px] leading-4 text-app-subtle">{t('github.create.organization_help')}</p></div>
       <div className="space-y-1.5"><label htmlFor={`${id}-name`} className="text-xs text-app-muted">{t('github.create.name')}</label>
         <Input id={`${id}-name`} value={name} required disabled={!canManage || busy} maxLength={NAME_MAX} aria-describedby={`${id}-name-help`}
-          onChange={event => setEdited(event.target.value)} className="border-app-line bg-app-soft" />
+          onChange={event => setEdited(event.target.value)} className="border-input bg-card" />
         <p id={`${id}-name-help`} className="text-[11px] leading-4 text-app-subtle">{t('github.create.name_help')}</p></div>
     </div>
     <label className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-app-muted has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">

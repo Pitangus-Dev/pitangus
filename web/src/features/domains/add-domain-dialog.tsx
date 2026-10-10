@@ -52,7 +52,7 @@ function AddDomainForm({ initialKind, onCancel, onAdded }: { initialKind: Domain
         <label htmlFor="domain-url" className="text-sm text-app-secondary">{t('domains.add.domain')}</label>
         <div className="relative">
           <Input id="domain-url" required autoFocus value={url} onChange={event => setUrl(event.target.value)} placeholder={t('domains.add.placeholder')}
-            aria-describedby="domain-url-probe" autoComplete="off" spellCheck={false} className="border-app-line bg-app-soft pr-10" />
+            aria-describedby="domain-url-probe" autoComplete="off" spellCheck={false} className="border-input bg-card pr-10" />
           <span className="absolute top-1/2 right-3 -translate-y-1/2" aria-hidden>{checking ? <CircleNotchIcon className="size-4 text-app-muted motion-safe:animate-spin" />
             : reach?.reachable ? <CheckCircleIcon className="size-4 text-success" /> : reach || probeError ? <WarningIcon className="size-4 text-attention" /> : null}</span>
         </div>
@@ -73,7 +73,7 @@ function AddDomainForm({ initialKind, onCancel, onAdded }: { initialKind: Domain
         <div className="mt-3 space-y-1.5">
           <label htmlFor="domain-context" className="sr-only">{t('domains.add.context')}</label>
           <textarea id="domain-context" rows={3} maxLength={CONTEXT_MAX} value={context} onChange={event => setContext(event.target.value)} aria-describedby="domain-context-help"
-            placeholder={t('domains.add.context_placeholder')} className="w-full rounded-xl border border-app-line bg-app-soft p-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
+            placeholder={t('domains.add.context_placeholder')} className="w-full rounded-xl border border-input bg-card p-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
           <p id="domain-context-help" className="text-xs text-app-muted">{t('domains.add.context_help')}</p>
         </div>
       </details>

@@ -66,10 +66,10 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
     {data?.providers.github?.error && <Notice role="alert" tone="attention">{data.providers.github.error}</Notice>}
 
     <div className="flex flex-wrap items-center gap-3">
-      <div className="relative w-full max-w-sm"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden /><Input aria-label={t('repositories.search')} placeholder={t('repositories.search_placeholder')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} className="border-app-line bg-app-soft pl-9" /></div>
+      <div className="relative w-full max-w-sm"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden /><Input aria-label={t('repositories.search')} placeholder={t('repositories.search_placeholder')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} className="border-input bg-card pl-9" /></div>
       {data && <span className="text-xs text-app-muted">{t('common:count.repositories', { count: data.total })}{data.partial ? ` · ${t('repositories.partial')}` : ''}</span>}
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-        <Button variant="outline" disabled={loading} onClick={() => reload(true)} className="border-app-line bg-app-soft"><ArrowsClockwiseIcon className={loading ? 'motion-safe:animate-spin' : ''} /> {t('repositories.refresh')}</Button>
+        <Button variant="outline" disabled={loading} onClick={() => reload(true)} className="border-input bg-card"><ArrowsClockwiseIcon className={loading ? 'motion-safe:animate-spin' : ''} /> {t('repositories.refresh')}</Button>
         {canManage && accounts.length > 0 && <Menu><MenuTrigger render={<Button variant="outline" disabled={!!batch} />}><StackIcon />{t('repositories.scan_organization')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
           <MenuContent>{accounts.map(account => <MenuItem key={account} onClick={() => setOrganization(account)}>{account}</MenuItem>)}</MenuContent></Menu>}
         {accounts.length > 0 && <Menu><MenuTrigger render={<Button variant="outline" />}><FileTextIcon />{t('repositories.organization_report')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
@@ -110,7 +110,7 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
             </div>
           </div>
           <span className="pl-6 text-xs text-app-muted md:pl-0">{last ? formatDay(last.created_at) : t('repositories.not_scanned')}</span>
-          <Button variant="outline" size="sm" onClick={() => onScan?.(source.id)} className="ml-6 w-fit border-app-line bg-app-soft md:ml-0">{t('repositories.scan')}</Button>
+          <Button variant="outline" size="sm" onClick={() => onScan?.(source.id)} className="ml-6 w-fit border-input bg-card md:ml-0">{t('repositories.scan')}</Button>
           {editingBranch === source.id && <ScanBranchEditor source={source} onClose={() => closeBranchEditor(source.id)} onSaved={() => reload()} />}
         </div>
       })}

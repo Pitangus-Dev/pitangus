@@ -33,7 +33,7 @@ export function BatchPanel({ active, last, onChanged, viewer }: { active: BatchS
       {(!viewer || viewer.admin || viewer.username === batch.by) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void cancel()}>{busy && <CircleNotchIcon className="animate-spin" />}{t('batch.cancel')}</Button>}
     </div>
     <div role="progressbar" aria-label={t('batch.progress_label', { done: finished, total: batch.total })} aria-valuemin={0} aria-valuemax={batch.total} aria-valuenow={finished}
-      className="h-1.5 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-brand transition-all" style={{ width: `${Math.max(2, percent)}%` }} /></div>
+      className="h-1.5 overflow-hidden rounded-full bg-app-soft"><div className="h-full rounded-full bg-info transition-all" style={{ width: `${Math.max(2, percent)}%` }} /></div>
     <p role="status" className="text-xs text-app-muted">{t('batch.progress', { done: finished, total: batch.total, failed: batch.failed ? t('batch.progress_failed', { count: batch.failed }) : '', critical: batch.critical, high: batch.high, duration: duration(t, batch.eta_seconds) })}</p>
     {batch.failed_items.length > 0 && <details className="text-xs text-app-muted"><summary className="cursor-pointer">{t('batch.show_failed')}</summary><ul className="mt-1 space-y-0.5">{batch.failed_items.map(item => <li key={item.name}><span className="font-medium">{item.name}</span>: {item.error}</li>)}</ul></details>}
     {error && <p role="alert" className="text-xs text-danger">{error}</p>}

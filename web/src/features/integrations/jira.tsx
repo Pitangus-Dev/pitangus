@@ -86,7 +86,7 @@ function Connection({ status, canManage }: { status: JiraStatus; canManage: bool
 }
 
 function Field({ id, label, ...props }: { id: string; label: string } & ComponentProps<typeof Input>) {
-  return <div className="space-y-1.5"><label htmlFor={id} className="text-xs text-app-muted">{label}</label><Input id={id} required {...props} className="border-app-line bg-app-soft" /></div>
+  return <div className="space-y-1.5"><label htmlFor={id} className="text-xs text-app-muted">{label}</label><Input id={id} required {...props} className="border-input bg-card" /></div>
 }
 
 type Removal = { kind: 'destination'; item: JiraDestination } | { kind: 'rule'; item: JiraRule }

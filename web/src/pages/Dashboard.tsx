@@ -43,7 +43,7 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-app-muted">{t('summary.assets', { count: kpis.assets })} · {t('summary.runs', { count: kpis.runs_in_window })} · {t('summary.updated', { date: formatDate(data.generated_at) })}</p>
-      <div className="flex items-center gap-2"><Select value={String(days)} onValueChange={value => setDays(Number(value ?? 30))}><SelectTrigger size="sm" className="min-w-40 border-app-line bg-app-soft text-app-secondary">{t(WINDOWS.find(([value]) => value === days)?.[1] ?? 'window.days_30')}</SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{WINDOWS.map(([value, label]) => <SelectItem key={value} value={String(value)}>{t(label)}</SelectItem>)}</SelectContent></Select><Button variant="ghost" size="icon-sm" aria-label={t('common:actions.refresh')} onClick={() => void load()}><ArrowsClockwiseIcon /></Button></div>
+      <div className="flex items-center gap-2"><Select value={String(days)} onValueChange={value => setDays(Number(value ?? 30))}><SelectTrigger size="sm" className="min-w-40 border-input bg-card text-app-secondary">{t(WINDOWS.find(([value]) => value === days)?.[1] ?? 'window.days_30')}</SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{WINDOWS.map(([value, label]) => <SelectItem key={value} value={String(value)}>{t(label)}</SelectItem>)}</SelectContent></Select><Button variant="ghost" size="icon-sm" aria-label={t('common:actions.refresh')} onClick={() => void load()}><ArrowsClockwiseIcon /></Button></div>
     </div>
 
     <GettingStarted onNavigate={onNavigate} />
@@ -113,7 +113,7 @@ function CyberNews({ news, onTracker, kev }: { news: DashboardData['cve_news']; 
           <span className="mt-0.5 block truncate text-xs text-app-muted" title={item.description}>{item.description}</span></span>
         <span className="shrink-0 pt-0.5 text-[11px] text-app-subtle">{item.published ? formatDay(item.published, { day: 'numeric', month: 'short' }) : ''}</span></button>)}</div>
         : <Empty text={t('news.feed_empty')} />}
-        <Button variant="outline" onClick={() => onTracker()} className="mt-3 w-full border-app-line bg-app-soft">{t('news.search_all')}</Button>
+        <Button variant="outline" onClick={() => onTracker()} className="mt-3 w-full border-input bg-card">{t('news.search_all')}</Button>
       </CardContent>
     </Card>
     {kev}

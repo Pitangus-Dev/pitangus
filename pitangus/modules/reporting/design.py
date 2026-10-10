@@ -29,18 +29,22 @@ from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, NextPageT
 
 from pitangus.shared import i18n
 
-# Panel tokens in light mode (web/src/index.css), in hex for the PDF and the SVG.
-BRAND_HEX = "#9c4a1e"
-BRAND, BRAND_BG = colors.HexColor(BRAND_HEX), colors.HexColor("#fbf5e6")
-INK, MUTED, LINE, SOFT = colors.HexColor("#171717"), colors.HexColor("#636363"), colors.HexColor("#e5e5e5"), colors.HexColor("#f5f5f5")
-SUCCESS, SUCCESS_BG = colors.HexColor("#006e42"), colors.HexColor("#e9f8ef")
-DANGER, DANGER_BG = colors.HexColor("#b71824"), colors.HexColor("#ffefed")
-ATTENTION, ATTENTION_BG = colors.HexColor("#a34100"), colors.HexColor("#fff0e4")
+# The identity manual's light tokens (.claude/skills/pitangus-brand/tokens.json, web/src/index.css), in hex for the PDF
+# and the SVG: cool neutrals, ink as the accent (rufous is only the logo's wing), sulphur only for the brand mark, and
+# one colour per meaning: critical (failure, Crítica/Alta), attention (Media; orange, never yellow), ok, info (Baja).
+BRAND_HEX = "#16181b"  # ink: identifiers, links and the «Confidential» mark
+BRAND, BRAND_BG = colors.HexColor(BRAND_HEX), colors.HexColor("#f5f6f7")
+SULPHUR = colors.HexColor("#f2c230")  # the brand: the cover's short rule, nothing else
+INK, MUTED, LINE, SOFT = colors.HexColor("#16181b"), colors.HexColor("#5c636b"), colors.HexColor("#dadde1"), colors.HexColor("#eceef1")
+SUCCESS, SUCCESS_BG = colors.HexColor("#1e7444"), colors.HexColor("#e7f5ec")
+DANGER, DANGER_BG = colors.HexColor("#b42318"), colors.HexColor("#fdecea")
+ATTENTION, ATTENTION_BG = colors.HexColor("#9e4708"), colors.HexColor("#fdf0e5")
+INFO, INFO_BG = colors.HexColor("#2d5a87"), colors.HexColor("#eaf1f8")
 SEVERITY = {  # text, background
-    "critical": (colors.HexColor("#ffffff"), colors.HexColor("#b71824")),
-    "high": (ATTENTION, ATTENTION_BG),
-    "medium": (colors.HexColor("#8a4c00"), colors.HexColor("#fef4df")),
-    "low": (colors.HexColor("#00649e"), colors.HexColor("#ebf5fd")),
+    "critical": (colors.HexColor("#ffffff"), DANGER),
+    "high": (DANGER, DANGER_BG),
+    "medium": (ATTENTION, ATTENTION_BG),
+    "low": (INFO, INFO_BG),
     "info": (MUTED, SOFT),
 }
 ORDER = {level: index for index, level in enumerate(("critical", "high", "medium", "low", "info"))}
@@ -62,9 +66,10 @@ pdfmetrics.registerFontFamily(SANS, normal=SANS, bold=SANS_SEMIBOLD, italic=SANS
 pdfmetrics.registerFontFamily(MONO, normal=MONO, bold=MONO_MEDIUM, italic=MONO, boldItalic=MONO_MEDIUM)
 
 # Severity as coloured text (no filled chips): each colour ≥ 4.5:1 on white.
-SEVERITY_INK = {"critical": DANGER, "high": ATTENTION, "medium": colors.HexColor("#8a4c00"), "low": colors.HexColor("#00649e"), "info": MUTED}
+# Crítica and Alta share the critical red; as text, Crítica is that red deepened towards ink (as in the panel's charts).
+SEVERITY_INK = {"critical": colors.HexColor("#751f19"), "high": DANGER, "medium": ATTENTION, "low": INFO, "info": MUTED}
 RULE = INK  # the strong rule above tables and figure rows
-BODY_INK, SUBTLE_INK, LABEL_INK = colors.HexColor("#262626"), colors.HexColor("#333333"), colors.HexColor("#4d4d4d")  # greys of INK
+BODY_INK, SUBTLE_INK, LABEL_INK = colors.HexColor("#23272b"), colors.HexColor("#3d434a"), colors.HexColor("#4a5057")  # greys of INK
 CODE_BG = SOFT  # behind code samples
 
 STYLE = {
@@ -263,7 +268,7 @@ def cover(kind: str, title: str, subtitle: str, fields: list[tuple], *, note: st
     """The first page: what this is, about what, for whom and when, and nothing else. `fields` as in meta(); the
     page itself (logo, «Confidential», `note`) is drawn by the cover template."""
     rule = Table([[""]], colWidths=[22 * mm], rowHeights=[1.2 * mm], hAlign="LEFT")
-    rule.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), BRAND)]))
+    rule.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), SULPHUR)]))
     story = [_CoverStart(note), Spacer(1, 62 * mm), Paragraph(t(kind, 120), STYLE["cover_kind"]),
              Paragraph(t(title, 160), STYLE["cover_title"]), rule, Spacer(1, 10)]
     if subtitle:

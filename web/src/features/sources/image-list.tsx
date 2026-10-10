@@ -123,7 +123,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
           {t(`images.tabs.${tab}`)}{data ? ` · ${formatNumber(data.counts[tab])}` : ''}</FilterChip>)}</div>
         <label className="relative w-full max-w-xs"><span className="sr-only">{t('images.search')}</span>
           <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden />
-          <Input ref={searchBox} value={q} onChange={event => { setQ(event.target.value); setPage(1); setNotice('') }} placeholder={t('images.search_placeholder')} className="border-app-line bg-app-soft pl-9" /></label>
+          <Input ref={searchBox} value={q} onChange={event => { setQ(event.target.value); setPage(1); setNotice('') }} placeholder={t('images.search_placeholder')} className="border-input bg-card pl-9" /></label>
       </div>
       {link === 'unlinked' && <p className="text-xs text-app-muted">{t('images.unlinked_hint')}</p>}
       <div role="status">{notice && <Notice tone="ok">{notice}</Notice>}</div>

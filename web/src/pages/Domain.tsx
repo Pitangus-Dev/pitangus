@@ -65,7 +65,7 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {scannable && (domain.verified
-          ? <Button onClick={() => onNewScan(domain)}><ScanIcon aria-hidden />{t('domains.page.new_scan')}</Button>
+          ? <Button variant="outline" onClick={() => onNewScan(domain)}><ScanIcon aria-hidden />{t('domains.page.new_scan')}</Button>
           : <Button onClick={() => setVerifying(true)}><ShieldCheckIcon aria-hidden />{t('domains.list.verify')}</Button>)}
         {/* Disconnecting lives at the bottom of the overview, where it says what goes with it. */}
         {admin && (domain.verified || !scannable) && <Menu><MenuTrigger render={<Button variant="outline" size="icon" aria-label={t('domains.list.actions_for', { host: domain.host })} />}><DotsThreeIcon /></MenuTrigger>

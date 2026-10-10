@@ -199,7 +199,7 @@ def _summary(data: dict) -> tuple[str, list]:
     else:
         sentence = " ".join((r("summary_team_only", count=len(data["team"])), decided))
     return sentence, [(r("kpi_open"), len(data["pending"]), INK, SOFT), (r("kpi_critical"), counts["critical"], SEVERITY["critical"][1], DANGER_BG),
-                      (r("kpi_high"), counts["high"], ATTENTION, ATTENTION_BG), (r("kpi_evidenced"), len(data["evidenced"]), ATTENTION, ATTENTION_BG),
+                      (r("kpi_high"), counts["high"], DANGER, DANGER_BG), (r("kpi_evidenced"), len(data["evidenced"]), ATTENTION, ATTENTION_BG),
                       (r("kpi_team"), team_open, INK, SOFT), (r("kpi_decided"), len(data["decided"]), SUCCESS, SUCCESS_BG)]
 
 
@@ -330,7 +330,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
               KeepTogether([*bullets([esc(line, 600) for line in coverage(model, data)]), Spacer(1, 8),
                             Paragraph(esc(r("note"), 400) + " " + esc(disclaimer(locale), 400), STYLE["note"])])]
     # Annexes
-    no = '<font color="#b71824">{}</font>'
+    no = '<font color="#b42318">{}</font>'
     if data["flows"]:
         story.append(h2(appendix(r("appendix_flows"), locale), number=False))
         body = [[str(data["number"][flow["id"]]), esc(f"{data['components'][flow['source']]['name']} → {data['components'][flow['target']]['name']}", 140),

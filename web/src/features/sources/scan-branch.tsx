@@ -39,7 +39,7 @@ export function ScanBranchEditor({ source, onClose, onSaved }: { source: Source;
     <div className="flex flex-wrap items-center gap-2">
       <Input id={`${id}-branch`} value={draft} autoFocus maxLength={200} spellCheck={false} autoComplete="off" disabled={mutation.isPending}
         onChange={event => { setDraft(event.target.value); setError('') }} placeholder={fallback ?? t('repositories.branch.placeholder')}
-        aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} className="h-8 w-60 border-app-line bg-app-soft font-mono text-xs" />
+        aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} className="h-8 w-60 border-input bg-card font-mono text-xs" />
       <Button type="submit" size="sm" disabled={mutation.isPending || draft.trim() === (source.scan_branch ?? '')}>{mutation.isPending && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
       <Button type="button" size="sm" variant="ghost" disabled={mutation.isPending} onClick={onClose}>{t('common:actions.cancel')}</Button>
       {source.scan_branch && <Button type="button" size="sm" variant="outline" disabled={mutation.isPending} onClick={reset}>{t('repositories.branch.reset')}</Button>}

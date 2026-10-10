@@ -28,7 +28,7 @@ const STRONG = <strong className="font-medium text-app-secondary" />
 function CopyValue({ value }: { value: string }) {
   const { t } = useTranslation('sources')
   const [copied, setCopied] = useState(false)
-  return <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-app-line bg-app-soft py-0.5 pr-0.5 pl-2 align-middle">
+  return <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-input bg-card py-0.5 pr-0.5 pl-2 align-middle">
     <code className="truncate font-mono text-[11px]">{value}</code>
     <button type="button" aria-label={t('github.copy_value', { value })} onClick={() => { void navigator.clipboard.writeText(value).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1200) }) }}
       className="grid size-6 place-items-center rounded text-app-subtle hover:bg-accent hover:text-app-fg">{copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}</button>
@@ -38,7 +38,7 @@ function CopyValue({ value }: { value: string }) {
 
 function Step({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
   return <li className="relative flex gap-3 pb-5 last:pb-0">
-    <span className="grid size-6 shrink-0 place-items-center rounded-full border border-app-line bg-app-soft text-[11px] text-app-secondary tabular-nums">{number}</span>
+    <span className="grid size-6 shrink-0 place-items-center rounded-full border border-input bg-card text-[11px] text-app-secondary tabular-nums">{number}</span>
     <div className="min-w-0 flex-1 space-y-1.5 pt-0.5"><p className="text-sm font-medium">{title}</p><div className="space-y-1.5 text-xs leading-5 text-app-muted">{children}</div></div>
   </li>
 }
@@ -80,8 +80,8 @@ export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubS
     <ol className="rounded-xl border border-app-line bg-panel p-4">
       <Step number={1} title={t('github.steps.open.title')}>
         <p>{t('github.steps.open.body')}</p>
-        <div className="flex flex-wrap items-center gap-2"><Input aria-label={t('github.steps.open.organization')} value={org} onChange={event => setOrg(event.target.value.replace(/[^A-Za-z0-9-]/g, ''))} maxLength={39} placeholder={t('github.steps.open.organization_placeholder')} className="h-8 w-48 border-app-line bg-app-soft text-xs" />
-          <a href={createUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ size: 'sm', variant: 'outline', className: 'border-app-line bg-app-soft' })}>{t('github.steps.open.open_github')} <ArrowSquareOutIcon /><span className="sr-only">{t('new_tab')}</span></a></div>
+        <div className="flex flex-wrap items-center gap-2"><Input aria-label={t('github.steps.open.organization')} value={org} onChange={event => setOrg(event.target.value.replace(/[^A-Za-z0-9-]/g, ''))} maxLength={39} placeholder={t('github.steps.open.organization_placeholder')} className="h-8 w-48 border-input bg-card text-xs" />
+          <a href={createUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ size: 'sm', variant: 'outline', })}>{t('github.steps.open.open_github')} <ArrowSquareOutIcon /><span className="sr-only">{t('new_tab')}</span></a></div>
       </Step>
       <Step number={2} title={t('github.steps.name.title')}>
         <p><Trans t={t} i18nKey="github.steps.name.app_name" components={{ b: STRONG, copy: <CopyValue value={t('github.steps.name.app_name_example', { brand: BRAND.name })} /> }} /></p>
@@ -107,19 +107,19 @@ export function GitHubAppGuide({ status, canManage, onSaved }: { status: GitHubS
 
     <form onSubmit={submit} className="space-y-4 self-start rounded-xl border border-app-line bg-panel p-4">
       <div><p className="text-sm font-medium">{t('github.form.title')}</p><p className="mt-1 text-xs leading-5 text-app-muted">{t('github.form.description')}</p></div>
-      {!canManage && <p className="rounded-lg border border-app-line bg-app-soft px-3 py-2 text-xs text-app-muted">{t('github.form.admin_only')}</p>}
+      {!canManage && <p className="rounded-lg border border-app-line bg-panel px-3 py-2 text-xs text-app-muted">{t('github.form.admin_only')}</p>}
       {status.source === 'environment' && <Notice tone="attention" className="text-xs"><Trans t={t} i18nKey="github.form.env_missing" values={{ missing: status.missing.join(', ') }} components={{ code: <code className="font-mono" /> }} /></Notice>}
       <div className="space-y-1.5"><label htmlFor="github-app-id" className="text-xs text-app-muted">{t('github.form.app_id')}</label>
-        <Input id="github-app-id" required inputMode="numeric" pattern="[1-9][0-9]{0,11}" maxLength={12} disabled={!canManage} value={appId} onChange={event => setAppId(event.target.value.replace(/\D/g, ''))} placeholder="123456" className="border-app-line bg-app-soft font-mono" /></div>
+        <Input id="github-app-id" required inputMode="numeric" pattern="[1-9][0-9]{0,11}" maxLength={12} disabled={!canManage} value={appId} onChange={event => setAppId(event.target.value.replace(/\D/g, ''))} placeholder="123456" className="border-input bg-card font-mono" /></div>
       <div className="space-y-1.5"><span className="text-xs text-app-muted">{t('github.form.private_key')}</span>
         <input ref={file} type="file" accept=".pem,application/x-pem-file,application/x-x509-ca-cert" className="sr-only" id="github-app-pem" disabled={!canManage} onChange={event => void readFile(event.target.files?.[0])} />
-        <label htmlFor="github-app-pem" className={`flex cursor-pointer items-center gap-3 rounded-lg border border-dashed px-3 py-3 text-sm ${pem ? 'border-app-line bg-app-soft' : 'border-app-faint/50 hover:bg-app-soft'}`}>
+        <label htmlFor="github-app-pem" className={`flex cursor-pointer items-center gap-3 rounded-lg border border-dashed px-3 py-3 text-sm ${pem ? 'border-input bg-card' : 'border-app-faint/50 hover:bg-app-soft'}`}>
           {pem ? <FileLockIcon className="size-4 shrink-0 text-app-secondary" /> : <UploadSimpleIcon className="size-4 shrink-0 text-app-subtle" />}
           <span className="min-w-0 truncate">{pem ? pemName || t('github.form.key_loaded') : t('github.form.choose_file')}</span>
         </label>
         <details className="text-xs"><summary className="cursor-pointer text-app-subtle">{t('github.form.paste')}</summary>
           <textarea aria-label={t('github.form.paste_label')} rows={4} spellCheck={false} autoComplete="off" disabled={!canManage} value={pemName ? '' : pem} onChange={event => { setPem(event.target.value); setPemName('') }}
-            placeholder="-----BEGIN RSA PRIVATE KEY-----" className="mt-2 w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 font-mono text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50" /></details>
+            placeholder="-----BEGIN RSA PRIVATE KEY-----" className="mt-2 w-full rounded-lg border border-input bg-card px-3 py-2 font-mono text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50" /></details>
       </div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
       <Button type="submit" disabled={!canManage || busy || !appId || !pem} className="w-full">{busy ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <ShieldCheckIcon />}{t('github.form.submit')}</Button>
@@ -201,12 +201,12 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
   const review = status.permissions
   const bold = { b: <strong className="font-medium" /> }
   return <div className="space-y-3">
-    <div className="flex items-start gap-2 rounded-lg border border-app-line bg-app-soft px-3 py-2.5 text-sm"><CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-success" />
+    <div className="flex items-start gap-2 rounded-lg border border-app-line bg-panel px-3 py-2.5 text-sm"><CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-success" />
       <span>{status.owner
         ? <Trans t={t} i18nKey="github.install.verified_owner" values={{ name: status.name ?? status.slug, owner: status.owner }} components={bold} />
         : <Trans t={t} i18nKey="github.install.verified" values={{ name: status.name ?? status.slug }} components={bold} />} {status.connected ? t('github.install.next_connected') : t('github.install.next_first')}</span></div>
     <p role="status" className="sr-only">{offerText}</p>
-    {offer && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-app-line bg-app-soft px-3 py-2.5 text-sm">
+    {offer && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-app-line bg-panel px-3 py-2.5 text-sm">
       <span className="flex items-start gap-2"><CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-success" /><Trans t={t} i18nKey="github.install.returned" values={{ account: offer.account ?? t('github.install.installation', { id: offer.installation_id }),
         kind: offer.account_type === 'Organization' ? t('github.install.organization') : t('github.install.personal'),
         scope: offer.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories') }} components={bold} /></span>
@@ -226,9 +226,9 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
     <div className="flex flex-wrap gap-2">
       {canManage ? <a href={`https://github.com/apps/${status.slug}/installations/new`} target="_blank" rel="noopener noreferrer" className={buttonVariants(offer ? { variant: 'outline' } : {})}>{t('github.install.install')} <ArrowSquareOutIcon /><span className="sr-only">{t('new_tab')}</span></a>
         : <Button disabled>{t('github.install.install')} <ArrowSquareOutIcon /></Button>}
-      <Button variant="outline" disabled={!canManage || busy || looking} onClick={() => void detect()} className="border-app-line bg-app-soft">{busy || looking ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <ArrowsClockwiseIcon />}{t('github.install.detect')}</Button>
+      <Button variant="outline" disabled={!canManage || busy || looking} onClick={() => void detect()} className="border-input bg-card">{busy || looking ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <ArrowsClockwiseIcon />}{t('github.install.detect')}</Button>
     </div>
-    {listed.length > 0 && <div className="space-y-2 rounded-lg border border-app-line bg-app-soft p-3">
+    {listed.length > 0 && <div className="space-y-2 rounded-lg border border-app-line bg-panel p-3">
       <p className="text-xs font-medium text-app-secondary">{t('github.install.installed_on')}</p>
       {listed.map(item => {
         const connected = status.installations.some(current => current.installation_id === item.installation_id)

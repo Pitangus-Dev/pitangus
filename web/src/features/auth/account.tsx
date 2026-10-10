@@ -24,7 +24,7 @@ function QrCode({ value }: { value: string }) {
 }
 
 function Field({ id, label, ...props }: { id: string; label: string } & ComponentProps<typeof Input>) {
-  return <div className="space-y-1.5"><label htmlFor={id} className="text-xs text-app-muted">{label}</label><Input id={id} {...props} className="border-app-line bg-app-soft" /></div>
+  return <div className="space-y-1.5"><label htmlFor={id} className="text-xs text-app-muted">{label}</label><Input id={id} {...props} className="border-input bg-card" /></div>
 }
 
 // `only="totp"` es el enrolamiento obligatorio: sin tarjeta de perfil ni de contraseña.

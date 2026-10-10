@@ -28,7 +28,7 @@ export function SourceSearch({ provider, perPage = 10, render, empty, label, aut
   const { data, error, loading } = useSourcePage({ query: text, provider, page, perPage })
   useEffect(() => { if (data) onLoaded?.(data) }, [data, onLoaded])
   return <div className="space-y-2">
-    <div className="relative"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" /><Input autoFocus={autoFocus} aria-label={label ?? t('search.label')} placeholder={t('search.placeholder')} value={text} onChange={event => { setText(event.target.value); setPage(1) }} className="border-app-line bg-app-soft pl-9" /></div>
+    <div className="relative"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" /><Input autoFocus={autoFocus} aria-label={label ?? t('search.label')} placeholder={t('search.placeholder')} value={text} onChange={event => { setText(event.target.value); setPage(1) }} className="border-input bg-card pl-9" /></div>
     {data?.partial && <p role="status" className="text-xs text-app-muted">{t('search.partial')}</p>}
     {error && <p role="alert" className="text-xs text-danger">{error}</p>}
     <div className="space-y-1">

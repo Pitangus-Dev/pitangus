@@ -37,7 +37,7 @@ export function SelectField({ value, onValueChange, options = [], groups = [], p
       onValueChange(next == null ? "" : String(next))
     }} disabled={disabled} required={required}>
       <SelectTrigger id={id} title={title} size={size} {...aria}
-        className={cn("w-full min-w-0 border-app-line bg-app-soft text-app-fg", className)}>
+        className={cn("w-full min-w-0 border-input bg-card text-app-fg", className)}>
         <SelectValue placeholder={placeholder} className="min-w-0 truncate" />
       </SelectTrigger>
       <SelectContent align={align} className={selectPopup}>

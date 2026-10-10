@@ -14,7 +14,7 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
     onChange(options[next].value)
     buttons.current[next]?.focus()
   }
-  return <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cn("inline-flex rounded-lg border border-app-line bg-app-soft p-0.5", disabled && "opacity-60", className)}>
+  return <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cn("inline-flex rounded-lg border border-input bg-card p-0.5", disabled && "opacity-60", className)}>
     {options.map((option, index) => <button key={option.value} ref={node => { buttons.current[index] = node }} type="button" role="radio" aria-checked={value === option.value}
       tabIndex={value === option.value ? 0 : -1} disabled={disabled} onClick={() => { if (option.value !== value) onChange(option.value) }} onKeyDown={event => move(event, index)}
       className={cn("min-h-7 rounded-md px-3 text-sm", value === option.value ? "bg-panel font-medium text-app-fg ring-1 ring-app-fg" : "text-app-muted enabled:hover:text-app-fg", disabled && "cursor-not-allowed")}>{option.label}</button>)}
