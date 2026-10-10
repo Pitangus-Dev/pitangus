@@ -440,7 +440,7 @@ class ScanJobs:
         job, is opened and removed from it before anything else can fail."""
         from pitangus.modules.scanning import openapi_spec
         from pitangus.modules.scanning.engines import docker_problem, runner
-        from pitangus.modules.scanning import web_tools
+        from pitangus.modules.scanning import web_tools, web_versions
         from pitangus.modules.scanning.web import WebScanError, scan_domain
         from pitangus.modules.sources import domain_headers, domain_scope, test_users
         from pitangus.modules.sources.domains import DomainError, confirm_control, public_address, scan_scope
@@ -510,7 +510,8 @@ class ScanJobs:
                 if api is None:
                     raise WebScanError(msg("scanning.web.spec.missing"))
             scan = scan_domain(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope, headers=headers, api=api,
-                               excluded=excluded, users=users, tools=web_tools.readiness())
+                               excluded=excluded, users=users,
+                               tools={**web_tools.readiness(), web_versions.KEY: web_versions.readiness()})
             counts = _counts(scan["summary"])
             progress("warn" if scan["status"] == "incomplete" else "ok",
                      msg("runs.progress.finished_incomplete" if scan["status"] == "incomplete" else "runs.progress.finished", counts=counts))

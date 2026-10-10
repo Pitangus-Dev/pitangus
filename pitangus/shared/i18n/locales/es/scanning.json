@@ -587,6 +587,8 @@
         "detail_other": "{{signed_in}} de {{count}} usuarios de prueba iniciaron sesión, comprobado antes del recorrido."
       },
       "with_seeds": "{{detail}} También pidió las {{count}} URL que encontró katana.",
+      "with_ajax_one": "{{detail}} El spider AJAX, que sigue enlaces en un navegador durante hasta {{minutes}} minutos, encontró {{count}} URL.",
+      "with_ajax_other": "{{detail}} El spider AJAX, que sigue enlaces en un navegador durante hasta {{minutes}} minutos, encontró {{count}} URL.",
       "merge": {
         "name": "Un hallazgo por problema",
         "detail_one": "{{count}} reporte del mismo problema en la misma URL hecho por otra herramienta se unió a su hallazgo, que lista todas las herramientas que lo vieron.",
@@ -610,7 +612,9 @@
       "tool_skipped": "{{tool}} no se ejecutó en este análisis, así que lo que solo revisa esa herramienta no se miró.",
       "tool_partial": "{{tool}} no terminó: su parte del análisis está incompleta y lo que no alcanzó a ver no se marca como remediado.",
       "nuclei": "nuclei solo ejecutó plantillas de detección (archivos expuestos, configuraciones incorrectas, versiones, takeovers, TLS): quedaron fuera las que explotan, hacen fuzzing, prueban contraseñas o llaman a servidores externos.",
-      "tls_capped": "testssl.sh revisó solo los primeros {{max}} hosts del alcance."
+      "tls_capped": "testssl.sh revisó solo los primeros {{max}} hosts del alcance.",
+      "ajax": "El spider AJAX solo sigue enlaces, en un navegador, durante {{minutes}} minutos: no abrió páginas a las que solo se llega con botones, formularios o texto escrito.",
+      "versions": "Las vulnerabilidades conocidas de versiones expuestas salen de la versión que muestra una respuesta, no de probarla: una cabecera puede reescribirse y un parche retroportado mantiene el número viejo, así que confirma primero la versión en el servidor."
     },
     "errors": {
       "disabled": "Los análisis web están apagados en este servidor: define PITANGUS_DAST_ENABLED=1 en su entorno y reinícialo.",
@@ -700,6 +704,22 @@
         "certificate": "Problema con el certificado ({{check}})",
         "other": "Problema de configuración TLS ({{check}})"
       }
+    },
+    "versions": {
+      "name": "Vulnerabilidades conocidas de versiones expuestas (httpx + OSV)",
+      "title": "{{product}} {{version}} con vulnerabilidades conocidas",
+      "reason_one": "El sitio muestra {{product}} {{version}} ({{hosts}}) y 1 aviso publicado afecta a esa versión: {{ids}}. Detectado por versión expuesta, sin verificar.",
+      "reason_other": "El sitio muestra {{product}} {{version}} ({{hosts}}) y {{count}} avisos publicados afectan a esa versión: {{ids}}. Detectado por versión expuesta, sin verificar.",
+      "remediation": "Confirma la versión en el servidor y actualiza {{product}} de {{version}} a {{fixed}} o posterior, la versión que corrige todos los avisos listados. Revisa las referencias antes de actualizar.",
+      "remediation_partial_one": "Confirma la versión en el servidor y actualiza {{product}} de {{version}} a {{fixed}} o posterior. 1 aviso aún no tiene corrección publicada: revisa sus referencias para una mitigación.",
+      "remediation_partial_other": "Confirma la versión en el servidor y actualiza {{product}} de {{version}} a {{fixed}} o posterior. {{count}} avisos aún no tienen corrección publicada: revisa sus referencias para una mitigación.",
+      "no_fix": "Ninguna corrección publicada cubre aún {{product}} {{version}}. Confirma la versión en el servidor y revisa las referencias de los avisos para una mitigación.",
+      "factor": "Detectado por la versión que muestra el sitio, sin verificar",
+      "none": "No hay versiones expuestas de productos con avisos de paquetes (Flask, Django, Express, jQuery…) que consultar.",
+      "not_looked_up": "Sin consultar (no hay datos de paquetes para servidores web y runtimes): {{products}}.",
+      "failed": "OSV-Scanner no pudo consultar las versiones expuestas.",
+      "detail_one": "Se consultaron {{products}} en las bases de OSV locales: {{count}} versión de producto con vulnerabilidades conocidas.",
+      "detail_other": "Se consultaron {{products}} en las bases de OSV locales: {{count}} versiones de producto con vulnerabilidades conocidas."
     }
   },
   "discovery": {

@@ -587,6 +587,8 @@
         "detail_other": "{{signed_in}} of {{count}} test users signed in, checked before the crawl."
       },
       "with_seeds": "{{detail}} It also requested the {{count}} URLs katana found.",
+      "with_ajax_one": "{{detail}} The AJAX spider, following links in a browser for up to {{minutes}} minutes, found {{count}} URL.",
+      "with_ajax_other": "{{detail}} The AJAX spider, following links in a browser for up to {{minutes}} minutes, found {{count}} URLs.",
       "merge": {
         "name": "One finding per problem",
         "detail_one": "{{count}} report of the same problem at the same URL by another tool was folded into its finding, which lists every tool that saw it.",
@@ -610,7 +612,9 @@
       "tool_skipped": "{{tool}} didn't run in this scan, so what only it checks wasn't looked at.",
       "tool_partial": "{{tool}} didn't finish: its part of this scan is incomplete, and what it missed isn't marked fixed.",
       "nuclei": "nuclei ran detection templates only (exposed files, misconfigurations, versions, takeovers, TLS): templates that exploit, fuzz, guess passwords or call out-of-band servers were left out.",
-      "tls_capped": "testssl.sh checked the first {{max}} hosts of the scope only."
+      "tls_capped": "testssl.sh checked the first {{max}} hosts of the scope only.",
+      "ajax": "The AJAX spider only follows links, in a browser, for {{minutes}} minutes: pages reached only through buttons, forms or typed input weren't opened.",
+      "versions": "Known vulnerabilities of exposed versions come from the version a response shows, not from testing it: a header can be rewritten and a backported fix keeps the old number, so confirm the version on the server first."
     },
     "errors": {
       "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
@@ -700,6 +704,22 @@
         "certificate": "Certificate problem ({{check}})",
         "other": "TLS configuration problem ({{check}})"
       }
+    },
+    "versions": {
+      "name": "Known vulnerabilities of exposed versions (httpx + OSV)",
+      "title": "{{product}} {{version}} has known vulnerabilities",
+      "reason_one": "The site shows {{product}} {{version}} ({{hosts}}), and 1 published advisory affects that version: {{ids}}. Detected from the exposed version, not verified.",
+      "reason_other": "The site shows {{product}} {{version}} ({{hosts}}), and {{count}} published advisories affect that version: {{ids}}. Detected from the exposed version, not verified.",
+      "remediation": "Confirm the version on the server, then update {{product}} from {{version}} to {{fixed}} or later, the version that fixes every advisory listed. Check the references before you upgrade.",
+      "remediation_partial_one": "Confirm the version on the server, then update {{product}} from {{version}} to {{fixed}} or later. 1 advisory has no published fix yet: read its references for a workaround.",
+      "remediation_partial_other": "Confirm the version on the server, then update {{product}} from {{version}} to {{fixed}} or later. {{count}} advisories have no published fix yet: read their references for a workaround.",
+      "no_fix": "No published fix covers {{product}} {{version}} yet. Confirm the version on the server and read the advisories' references for a workaround.",
+      "factor": "Detected from the version the site shows, not verified",
+      "none": "No exposed version of a product with package advisories (Flask, Django, Express, jQuery…) to look up.",
+      "not_looked_up": "Not looked up (no package data for web servers and runtimes): {{products}}.",
+      "failed": "OSV-Scanner couldn't look up the exposed versions.",
+      "detail_one": "Looked up {{products}} in the local OSV databases: {{count}} product version with known vulnerabilities.",
+      "detail_other": "Looked up {{products}} in the local OSV databases: {{count}} product versions with known vulnerabilities."
     }
   },
   "discovery": {

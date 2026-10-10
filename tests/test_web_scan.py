@@ -66,9 +66,23 @@ def fake_docker(document: dict | None, *, returncode: int = 0, stdout: str = "",
 class PlanTests(unittest.TestCase):
     def test_the_plan_crawls_and_reads_only_that_host_and_never_attacks(self):
         plan = web.plan(HOST, f"https://{HOST}/")
-        self.assertEqual([job["type"] for job in plan["jobs"]], ["spider", "passiveScan-wait", "report"])
-        spider = plan["jobs"][0]["parameters"]
+        self.assertEqual([job["type"] for job in plan["jobs"]], ["passiveScan-config", "spider", "spiderAjax", "passiveScan-wait", "report"])
+        spider = plan["jobs"][1]["parameters"]
         self.assertEqual((spider["maxDuration"], spider["postForm"], spider["context"]), (web.SPIDER_MINUTES, False, web.CONTEXT))
+        # The AJAX spider only follows links, inside the context, time-boxed: no button, no input, no random value.
+        ajax = plan["jobs"][2]["parameters"]
+        self.assertEqual({key: ajax[key] for key in ("context", "url", "maxDuration", "inScopeOnly", "scopeCheck", "clickDefaultElems", "elements",
+                                                     "randomInputs", "logoutAvoidance", "numberOfBrowsers", "browserId", "enableExtensions")},
+                         {"context": web.CONTEXT, "url": f"https://{HOST}/", "maxDuration": web.AJAX_MINUTES, "inScopeOnly": True,
+                          "scopeCheck": "Strict", "clickDefaultElems": False, "elements": ["a"], "randomInputs": False, "logoutAvoidance": True,
+                          "numberOfBrowsers": 1, "browserId": "firefox-headless", "enableExtensions": False})
+        self.assertNotIn("user", ajax)
+        # The passive scanner looks only at the scope and the information-leak rules are on whatever the image's defaults.
+        config = plan["jobs"][0]
+        self.assertEqual(config["parameters"], {"scanOnlyInScope": True, "enableTags": False, "disableAllRules": False})
+        rules = {rule["id"]: rule["threshold"] for rule in config["rules"]}
+        self.assertTrue({10062, 10023, 10024, 10025, 10027, 10003} <= set(rules))
+        self.assertFalse({"Off", "High"} & set(rules.values()))
         (context,) = plan["env"]["contexts"]
         self.assertEqual(context["urls"], [f"https://{HOST}/"])
         (scope,) = context["includePaths"]
@@ -79,13 +93,13 @@ class PlanTests(unittest.TestCase):
             self.assertTrue(re.fullmatch(scope, url), url)
         for url in outside:
             self.assertFalse(re.fullmatch(scope, url), url)
-        self.assertEqual(plan["jobs"][2]["parameters"], {"template": "sarif-json", "reportDir": "/zap/wrk", "reportFile": "zap"})
+        self.assertEqual(plan["jobs"][4]["parameters"], {"template": "sarif-json", "reportDir": "/zap/wrk", "reportFile": "zap"})
 
     def test_the_plan_is_serialized_so_a_hostile_url_cannot_add_a_job(self):
         hostile = 'https://pitangus.dev/x"\n  - type: activeScan\n#'
         parsed = json.loads(web.plan_text(HOST, hostile))
-        self.assertEqual([job["type"] for job in parsed["jobs"]], ["spider", "passiveScan-wait", "report"])
-        self.assertEqual(parsed["jobs"][0]["parameters"]["url"], hostile)
+        self.assertEqual([job["type"] for job in parsed["jobs"]], ["passiveScan-config", "spider", "spiderAjax", "passiveScan-wait", "report"])
+        self.assertEqual((parsed["jobs"][1]["parameters"]["url"], parsed["jobs"][2]["parameters"]["url"]), (hostile, hostile))
         # The registered URL is only used on its own host; anything else starts at the host's root.
         self.assertEqual(web.start_url({"host": HOST, "url": "https://evil.example/"}), f"https://{HOST}/")
         self.assertEqual(web.start_url({"host": HOST, "url": f"https://{HOST}:8443/"}), f"https://{HOST}/")
@@ -124,6 +138,12 @@ class ContainerTests(unittest.TestCase):
         self.assertEqual((values("--network"), values("--add-host"), values("-v")),
                          (["bridge"], [f"{HOST}:104.21.32.173"], [f"{engines.host_path(self.work)}:/zap/wrk:rw"]))
         self.assertIn("--read-only", options)
+        # ZAP's home stays noexec: only its webdriver folder (geckodriver, for the AJAX spider's Firefox) may run code.
+        tmpfs = {value.split(":", 1)[0]: value.split(":", 1)[1].split(",") for value in values("--tmpfs")}
+        self.assertIn("noexec", tmpfs["/home/zap"])
+        self.assertIn("noexec", tmpfs["/home/zap/.ZAP"])
+        self.assertIn("exec", tmpfs["/home/zap/.ZAP/webdriver"])
+        self.assertTrue(all({"nosuid", "nodev"} <= set(flags) for flags in tmpfs.values()))
         self.assertFalse(any(part.endswith(":/src:ro") for part in options), "no snapshot is ever mounted")
         self.assertNotIn("--pull", options)  # pinned by digest
         plan = json.loads(inputs[0])
@@ -188,7 +208,7 @@ class ScanTests(unittest.TestCase):
         with patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=subprocess.TimeoutExpired(["docker"], web.TIMEOUT)), \
                 self.assertRaises(web.WebScanError) as caught:
             web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir)
-        self.assertIn("15", text(caught.exception.message, "en"))
+        self.assertIn(str((web.TIMEOUT + 60 * (web.AJAX_MINUTES + 1)) // 60), text(caught.exception.message, "en"))
         with fake_docker(real(), returncode=1):
             self.assertEqual(web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir)["status"], "incomplete")
 
@@ -344,7 +364,7 @@ class ScopeAndAccessPlanTests(unittest.TestCase):
 
     def test_saved_headers_go_through_a_replacer_limited_to_the_scope(self):
         plan = web.plan(HOST, f"https://{HOST}/", hosts=[HOST, "docs.pitangus.dev"], headers=[("X-Api-Key", SECRET)])
-        replacer = plan["jobs"][0]
+        replacer = plan["jobs"][1]
         self.assertEqual((replacer["type"], replacer["parameters"]), ("replacer", {"deleteAllRules": True}))
         (rule,) = replacer["rules"]
         self.assertEqual({key: rule[key] for key in ("matchType", "matchString", "matchRegex", "replacementString", "tokenProcessing")},
@@ -358,8 +378,8 @@ class ScopeAndAccessPlanTests(unittest.TestCase):
 
     def test_api_mode_adds_the_documented_endpoints_to_the_crawl(self):
         plan = web.plan(HOST, f"https://{HOST}/", api={"file": "/zap/wrk/spec.json", "target": f"https://{HOST}/v1"})
-        self.assertEqual([job["type"] for job in plan["jobs"]], ["spider", "openapi", "passiveScan-wait", "report"])
-        self.assertEqual(plan["jobs"][1]["parameters"], {"apiFile": "/zap/wrk/spec.json", "context": web.CONTEXT, "targetUrl": f"https://{HOST}/v1"})
+        self.assertEqual([job["type"] for job in plan["jobs"]], ["passiveScan-config", "spider", "spiderAjax", "openapi", "passiveScan-wait", "report"])
+        self.assertEqual(plan["jobs"][3]["parameters"], {"apiFile": "/zap/wrk/spec.json", "context": web.CONTEXT, "targetUrl": f"https://{HOST}/v1"})
         self.assertEqual(plan["env"]["contexts"][0]["urls"], [f"https://{HOST}/", f"https://{HOST}/v1"])
 
 

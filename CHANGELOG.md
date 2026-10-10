@@ -19,6 +19,27 @@ between minor versions: anything that changes behaviour is called out below.
   guidance stays first and verbatim. A finding whose engine set no OWASP category (nuclei, testssl.sh, imported SARIF
   without tags) now gets its Top 10:2025 category from OWASP's CWE mapping when served; the technical PDF shows it next
   to the CWE.
+- **Known vulnerabilities of the versions a site exposes.** After httpx, a passive web scan looks up the versions it
+  read of well-known packages (Flask, Django, Werkzeug, Express, Next.js, jQuery, Bootstrap, AngularJS, Lodash… an
+  explicit table, `web_versions.PRODUCTS`; at least `major.minor`) with OSV-Scanner 2.6.0 offline, on a CycloneDX SBOM
+  of package URLs and the OSV databases in `data/osv-cache` (the same as dependency scans and the advisory watch);
+  KEV and EPSS come from the local CVE copy (`cve_db.signals`). One finding per product and version (tool
+  `httpx + OSV`, scanner `dast`, CWE-1395, confidence 5, "Flask 2.2.3 has known vulnerabilities") with every CVE and
+  GHSA, the worst severity, the highest of the advisories' fixed versions and their references; a JavaScript library
+  ZAP already reported at that version (10003) isn't repeated. New step `dast-versions` and a limitation saying the
+  version isn't verified; when OSV-Scanner can't run, the step says why and earlier findings aren't marked fixed.
+  Apache httpd, nginx, OpenSSL, PHP and other servers aren't looked up (no OSV package and no CPE ranges in the local
+  CVE copy): the step lists them as not looked up.
+- **ZAP's AJAX spider.** After the classic spider, the plan runs `spiderAjax` (one headless Firefox, 2 minutes, depth 5,
+  100 states) from the domain's URL and again as each test user that signed in. It clicks links only (`elements: [a]`,
+  no default elements, no random inputs), keeps to the context with a strict scope check and avoids logout links. The
+  passive step says how many URLs it found, and ZAP's time limit grows 3 minutes per AJAX spider. Without test users
+  ZAP's home stays `noexec`; only `/home/zap/.ZAP/webdriver`, a tmpfs of its own, lets geckodriver run.
+- **ZAP's passive rules, explicit.** A `passiveScan-config` job opens the plan: passive scanning only inside the scope
+  (`scanOnlyInScope`), every rule of the image at its default, and PII disclosure (10062), debug errors (10023),
+  sensitive information in URLs (10024) and the Referer (10025), suspicious comments (10027), vulnerable JS libraries
+  (10003) and the version-leaking header and banner rules set at Medium. The image bundles `pscanrules` and `retire`,
+  not `pscanrulesBeta`/`pscanrulesAlpha`; those aren't installed at scan time.
 - **Scheduled scans sign in as test users.** The schedule rule (`POST /api/domains/schedule`) takes `test_users` (up to
   3 ids, each signing in on a host of the saved scope) and `use_headers` (409 without saved headers); the panel picks
   them under the schedule in a web scan's review and on the domain's page. When the scan runs, a user deleted since is

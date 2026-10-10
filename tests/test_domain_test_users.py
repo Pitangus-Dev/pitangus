@@ -188,6 +188,12 @@ class PlanTests(unittest.TestCase):
                          [(web.CONTEXT, None, f"https://{HOST}/"), (web.CONTEXT, None, "https://docs.pitangus.dev/"),
                           (f"{web.CONTEXT}-login-1", "login-1", f"https://{HOST}/"), (f"{web.CONTEXT}-login-2", "login-2", "https://docs.pitangus.dev/")])
         self.assertTrue(all(not item["postForm"] for item in spiders))
+        # The AJAX spider runs anonymously from the domain's URL, then as each user that signed in, from where its crawl starts.
+        ajax = [job["parameters"] for job in plan["jobs"] if job["type"] == "spiderAjax"]
+        self.assertEqual([(item["context"], item.get("user"), item["url"]) for item in ajax],
+                         [(web.CONTEXT, None, f"https://{HOST}/"), (f"{web.CONTEXT}-login-1", "login-1", f"https://{HOST}/"),
+                          (f"{web.CONTEXT}-login-2", "login-2", "https://docs.pitangus.dev/")])
+        self.assertTrue(all(item["logoutAvoidance"] and item["elements"] == ["a"] and not item["randomInputs"] for item in ajax))
         self.assertNotIn("activeScan", json.dumps(plan))
         self.assertEqual(plan["jobs"][-2:][0]["type"], "passiveScan-wait")
 

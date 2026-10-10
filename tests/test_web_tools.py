@@ -471,7 +471,8 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual([key for key, _, _ in calls], ["katana", "zap", "nuclei", "testssl", "httpx"])
         steps = [(step["id"], step["status"]) for step in result["steps"]]
         self.assertEqual(steps, [("dast-katana", "completed"), ("dast", "completed"), ("dast-nuclei", "completed"), ("dast-testssl", "completed"),
-                                 ("dast-httpx", "completed"), ("dast-merge", "completed"), ("active", "not_tested"), ("review", "pending")])
+                                 ("dast-httpx", "completed"), ("dast-versions", "completed"), ("dast-merge", "completed"), ("active", "not_tested"),
+                                 ("review", "pending")])
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["web_inventory"]["tool"], "katana")
         self.assertIn(f"https://{HOST}/", result["web_inventory"]["urls"])
@@ -479,10 +480,11 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(all(item["web"]["coverage"] == "baseline" for item in result["findings"]))
         self.assertIn("Cloudflare", {row["name"] for row in result["summary"]["technologies"]})
         self.assertEqual({tool["name"]: tool["status"] for tool in result["summary"]["tools"]},
-                         {"ZAP": "completed", "katana": "completed", "nuclei": "completed", "testssl": "completed", "httpx": "completed"})
+                         {"ZAP": "completed", "katana": "completed", "nuclei": "completed", "testssl": "completed", "httpx": "completed",
+                          "httpx + OSV": "completed"})
         # ZAP got katana's URLs to request before its spider (other than where the spider starts).
         plan = json.loads(calls[1][2])
-        self.assertEqual(plan["jobs"][0], {"type": "import", "parameters": {"type": "url", "fileName": f"{web.WORK}/{web.SEEDS}"}})
+        self.assertEqual(plan["jobs"][1], {"type": "import", "parameters": {"type": "url", "fileName": f"{web.WORK}/{web.SEEDS}"}})
         self.assertTrue(any("katana" in line for _, line in progress))
 
     def test_a_failing_tool_leaves_its_step_partial_and_the_scan_goes_on(self):

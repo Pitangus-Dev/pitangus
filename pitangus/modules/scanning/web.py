@@ -1,9 +1,14 @@
-"""Passive web and API scans of a verified domain with ZAP: a spider (or an OpenAPI import) and the passive rules,
-never an attack.
+"""Passive web and API scans of a verified domain with ZAP: a spider, the AJAX spider (or an OpenAPI import) and the
+passive rules, never an attack.
 
-ZAP crawls the site and reads its responses (headers, cookies, information leaks); its active scanner, the AJAX
-spider and form submissions stay off. In API mode it imports the definition instead of crawling, reduced beforehand
+ZAP crawls the site and reads its responses (headers, cookies, information leaks, PII); its active scanner and form
+submissions stay off. The AJAX spider (a headless Firefox, `ajax_spider`) only follows links: it clicks no button,
+fills no input and stays in the scope's context. In API mode it imports the definition too, reduced beforehand
 to its GET and HEAD operations (`openapi_spec`), so every request is one a browser could send.
+
+Time: the classic spider gets SPIDER_MINUTES (plus EXTRA_SPIDER_MINUTES per listed host), the AJAX spider
+AJAX_MINUTES, and each test user LOGIN_SPIDER_MINUTES and AJAX_MINUTES more; the container's limit is TIMEOUT plus
+all of those (`scan_domain`).
 
 Before it starts, the caller has confirmed the domain's proof and resolved every host of the scope to public
 addresses only; the container gets those addresses pinned (`--add-host`) and a DNS server that answers nothing, so
@@ -39,7 +44,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from urllib.parse import urlsplit
 
-from pitangus.modules.scanning import openapi_spec, sarif_import, web_merge, web_tools
+from pitangus.modules.scanning import openapi_spec, sarif_import, web_merge, web_tools, web_versions
 from pitangus.modules.scanning.engines import IMAGES, _run, host_path, with_cause
 from pitangus.modules.sources import domains
 from pitangus.shared import log as logging_setup
@@ -57,6 +62,10 @@ HEAP = "-Xmx1536m"
 HOME = "/home/zap:rw,noexec,nosuid,nodev,size=512m,uid=1000,gid=1000,mode=0700"
 # Signing in drives Firefox through geckodriver, which ZAP unpacks into that home and runs from there.
 HOME_EXEC = HOME.replace("noexec", "exec")
+# The AJAX spider drives Firefox through that geckodriver too: without test users, only ZAP's webdriver folder is
+# executable and the rest of its home stays noexec. Its parent is a tmpfs of its own so that ZAP's user owns it.
+DRIVERS = ["--tmpfs", "/home/zap/.ZAP:rw,noexec,nosuid,nodev,size=448m,uid=1000,gid=1000,mode=0700",
+           "--tmpfs", "/home/zap/.ZAP/webdriver:rw,exec,nosuid,nodev,size=64m,uid=1000,gid=1000,mode=0700"]
 PLAN = "/home/zap/plan.yaml"   # in that tmpfs: the plan carries the saved headers
 WORK = "/zap/wrk"
 REPORT = "zap.json"
@@ -79,6 +88,30 @@ SECRET_NAME = re.compile(r"PITANGUS_LOGIN_[0-9]+_[A-Z]+")
 CHECK_PLAN = "/home/zap/check-{}.yaml"
 CHECK_MARK = "PITANGUS-SIGN-IN-CHECK"
 CHECK_SECONDS = 150        # one test user's sign-in check, ZAP's start included
+AJAX_MINUTES = 2           # the AJAX spider, anonymous and again as each test user
+AJAX_DEPTH = 5
+AJAX_STATES = 100          # distinct page states it may visit
+# Passive rules set explicitly (the image bundles pscanrules and retire, not pscanrulesBeta or pscanrulesAlpha):
+# id → (name, threshold). Every other rule of the image keeps its default.
+PASSIVE_RULES = {
+    10003: ("Vulnerable JS Library", "Medium"),
+    10023: ("Information Disclosure - Debug Error Messages", "Medium"),
+    10024: ("Information Disclosure - Sensitive Information in URL", "Medium"),
+    10025: ("Information Disclosure - Sensitive Information in HTTP Referrer Header", "Medium"),
+    10027: ("Information Disclosure - Suspicious Comments", "Medium"),
+    10062: ("PII Disclosure", "Medium"),
+    10009: ("In Page Banner Information Leak", "Medium"),
+    10036: ("Server Leaks Version Information via Server HTTP Response Header Field", "Medium"),
+    10037: ("Server Leaks Information via X-Powered-By HTTP Response Header Field(s)", "Medium"),
+    10039: ("X-Backend-Server Header Information Leak", "Medium"),
+    10052: ("X-ChromeLogger-Data (XCOLD) Header Information Leak", "Medium"),
+    10056: ("X-Debug-Token Information Leak", "Medium"),
+    10061: ("X-AspNet-Version Response Header", "Medium"),
+    2: ("Private IP Disclosure", "Medium"),
+    3: ("Session ID in URL Rewrite", "Medium"),
+    10097: ("Hash Disclosure", "Medium"),
+    10109: ("Modern Web Application", "Medium"),
+}
 
 
 class WebScanError(ValueError):
@@ -135,18 +168,37 @@ def _login_context(index: int, user: dict, urls: list[str], patterns: list[str])
             "users": [{"name": f"login-{index}", "credentials": credentials}]}
 
 
+def passive_config() -> dict:
+    """The passive scanner: only what is in the scope's contexts, every rule of the image at its default, and the
+    information-leak rules in `PASSIVE_RULES` set explicitly so an image or add-on update can't turn them off."""
+    return {"type": "passiveScan-config", "parameters": {"scanOnlyInScope": True, "enableTags": False, "disableAllRules": False},
+            "rules": [{"id": rule, "name": name, "threshold": threshold} for rule, (name, threshold) in PASSIVE_RULES.items()]}
+
+
+def ajax_spider(context: str, url: str, *, user: str | None = None) -> dict:
+    """ZAP's AJAX spider: one headless Firefox that follows links only. It clicks `<a>` elements and nothing else (no
+    buttons, no form inputs, no random values), stays inside the context, avoids logout links and stops after
+    `AJAX_MINUTES`. What the pages' own scripts request when they load is what any visitor's browser would."""
+    return {"type": "spiderAjax", "parameters": {
+        "context": context, **({"user": user} if user else {}), "url": url, "maxDuration": AJAX_MINUTES, "maxCrawlDepth": AJAX_DEPTH,
+        "maxCrawlStates": AJAX_STATES, "numberOfBrowsers": 1, "browserId": BROWSER, "inScopeOnly": True, "scopeCheck": "Strict",
+        "runOnlyIfModern": False, "enableExtensions": False, "clickDefaultElems": False, "elements": ["a"], "clickElemsOnce": True,
+        "randomInputs": False, "logoutAvoidance": True}}
+
+
 def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=(), api: dict | None = None, users=(),
          seeds: str | None = None) -> dict:
-    """The Automation Framework plan: inside a context of the scope's hosts only, a spider per listed host (plus the
-    OpenAPI import in API mode) and the passive rules; with `headers`, a replacer that adds them to requests for
+    """The Automation Framework plan: the passive scanner's configuration, then inside a context of the scope's hosts
+    only, a spider per listed host and the AJAX spider from `url` (plus the OpenAPI import in API mode) and the
+    passive rules; with `headers`, a replacer that adds them to requests for
     those hosts only. `excluded`: hosts saved out of the domain's scope, kept out of the context even if a wildcard
     would match them. With `users` ({login_url, start, totp}), one more context per test user (the same hosts) that
-    signs in through a browser, and a spider (and the import) that runs as that user. `seeds`: a file (in the
+    signs in through a browser, and a spider, an AJAX spider (and the import) that run as that user. `seeds`: a file (in the
     container) of in-scope URLs the crawler found, each requested with a GET before the spider starts."""
     extra = [item for item in hosts if item != host]
     excluded = [item for item in excluded if item != host and item not in extra]
     patterns = [host_pattern(host), *(host_pattern(item) for item in extra), *(wildcard_pattern(item) for item in wildcards)]
-    jobs: list[dict[str, Any]] = []
+    jobs: list[dict[str, Any]] = [passive_config()]
     if headers:
         scope = patterns[0] if len(patterns) == 1 else "(?:" + "|".join(patterns) + ")"
         jobs.append({"type": "replacer", "parameters": {"deleteAllRules": True},
@@ -161,6 +213,7 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
     jobs += [{"type": "spider", "parameters": {"context": CONTEXT, "url": f"https://{item}/", "maxDuration": EXTRA_SPIDER_MINUTES,
                                                "maxDepth": 5, "threadCount": 2, "postForm": False, "acceptCookies": True}}
              for item in extra]
+    jobs.append(ajax_spider(CONTEXT, url))
     start = list(dict.fromkeys([url, *(f"https://{item}/" for item in extra), *([api["target"]] if api is not None else [])]))
     contexts = [{"name": CONTEXT, "urls": start, "includePaths": patterns}]
     for index, user in enumerate(users, start=1):
@@ -168,6 +221,7 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
         jobs.append({"type": "spider", "parameters": {"context": f"{CONTEXT}-login-{index}", "user": f"login-{index}", "url": user["start"],
                                                       "maxDuration": LOGIN_SPIDER_MINUTES, "maxDepth": 5, "threadCount": 2,
                                                       "postForm": False, "acceptCookies": True}})
+        jobs.append(ajax_spider(f"{CONTEXT}-login-{index}", user["start"], user=f"login-{index}"))
     if excluded:
         for context in contexts:
             context["excludePaths"] = [host_pattern(item) for item in excluded]
@@ -212,7 +266,8 @@ def run_zap(text: str | None, pins: dict[str, str], work: Path, *, timeout: int 
     command = ["sh", "-c", " && ".join(reads) + " && { " + "; ".join(runs) + "; }", "zap.sh", HEAP, "-cmd", "-silent", "-autorun"]
     stdin = "".join(f"{value}\n" for value in secrets.values()) + "".join(f"{check}\n" for check in checks) + (text or "")
     home = HOME_EXEC if secrets or checks else HOME
-    return _run("zap", command, None, network=True, mounts=["-v", f"{host_path(work)}:{WORK}:rw", "--tmpfs", home],
+    drivers = [] if home == HOME_EXEC else DRIVERS
+    return _run("zap", command, None, network=True, mounts=["-v", f"{host_path(work)}:{WORK}:rw", "--tmpfs", home, *drivers],
                 timeout=timeout, hosts=pins, pinned_only=True, image_user=True, stdin=stdin)
 
 
@@ -477,7 +532,9 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         users = [user for user, outcome in zip(users, outcomes) if outcome["status"] == "signed_in"]
     logins, environment = login_plan(users, host, url)
     seeds = [item for item in inventory if item not in roots][:web_tools.ZAP_SEEDS_MAX]
-    timeout = TIMEOUT + 60 * EXTRA_SPIDER_MINUTES * len(extra) + 60 * (LOGIN_SPIDER_MINUTES + 1) * len(users) + (SEED_SECONDS * len(seeds))
+    # The AJAX spider runs once anonymously and once per test user, each with a minute to start and stop Firefox.
+    timeout = (TIMEOUT + 60 * EXTRA_SPIDER_MINUTES * len(extra) + 60 * (LOGIN_SPIDER_MINUTES + 1) * len(users) + (SEED_SECONDS * len(seeds))
+               + 60 * (AJAX_MINUTES + 1) * (1 + len(users)))
     zap_started = time.time()
     with TemporaryDirectory(prefix="web-", dir=work) as temporary:
         # ZAP's user must write in it, so it is open to everyone; its private parent keeps other local users out.
@@ -508,6 +565,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         _log.warning("zap_failed", extra={"reason": f"{host}: exit {completed.returncode}"})
         raise WebScanError(with_cause(msg("scanning.web.errors.failed"), _plan_failure(completed)))
     findings, version, results = findings_from(scrub(document, secrets), host, scope=scope)
+    zap_only = list(findings)
     for finding in findings:
         # The import's generic advice names the next import; here, the next scan is what proves a fix.
         if is_msg(finding.get("remediation")) and finding["remediation"][MARK] == "scanning.sarif.remediation":
@@ -521,9 +579,12 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     tool("nuclei", lambda: _nuclei(roots, inventory, scope["hosts"], pins, work, data_dir, headers, secrets, technologies))
     tool("testssl", lambda: web_tools.run_testssl(scope["hosts"], pins, work))
 
+    exposed: list[dict] = []
+
     def fingerprint():
         run, detected = web_tools.run_httpx(scope["hosts"], pins, work)
         technologies.extend(detected)
+        exposed.extend(detected)
         return run
 
     tool("httpx", fingerprint)
@@ -531,6 +592,16 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     folded = 0
     if others:
         findings, folded = web_merge.merge([*findings, *others])
+    versions: tuple[dict, list, str] | None = None
+    if "httpx" in runs and runs["httpx"].status != "skipped":
+        # The versions httpx read, looked up in the local advisory databases; ZAP's own JavaScript library rule wins.
+        missing = msg("scanning.web.tools.image_missing", tool=IMAGES[web_versions.KEY]["name"])
+        versions = web_versions.check(exposed, data_dir, zap_only, ready=(ready or {}).get(web_versions.KEY, missing))
+        status = versions[0]["status"]
+        report("ok" if status == "completed" else "info" if status == "skipped" else "warn",
+               msg("scanning.progress.engine", engine=web_versions.TOOL, detail=versions[0]["detail"]))
+        known = {finding["fingerprint"] for finding in findings}
+        findings += [finding for finding in versions[1] if finding["fingerprint"] not in known]
     coverage = coverage_key(api, headers, users)
     for finding in findings:
         finding.setdefault("web", {})["coverage"] = coverage
@@ -546,6 +617,9 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                  "detail": msg("scanning.web.steps.passive.detail", host=host, minutes=SPIDER_MINUTES, count=zap_findings), "tool": tool_meta}
     if seeds:
         first["detail"] = msg("scanning.web.steps.with_seeds", detail=first["detail"], count=len(seeds))
+    ajax = [int(count) for count in re.findall(r"Job spiderAjax found (\d+) URLs", completed.stdout or "")]
+    if ajax:
+        first["detail"] = msg("scanning.web.steps.with_ajax", detail=first["detail"], count=sum(ajax), minutes=AJAX_MINUTES)
     if failed:
         first["status"] = "partial"
     steps: list[dict[str, Any]] = [
@@ -554,6 +628,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         *([{"id": "login", "name": msg("scanning.web.steps.login.name"), "status": "partial" if failed else "completed",
             "detail": msg("scanning.web.steps.login.detail", count=len(outcomes), signed_in=len(outcomes) - len(failed))}] if outcomes else []),
         *(runs[key].step() for key in ("nuclei", "testssl", "httpx") if key in runs),
+        *([versions[0]] if versions else []),
         *([{"id": "dast-merge", "name": msg("scanning.web.steps.merge.name"), "status": "completed",
             "detail": msg("scanning.web.steps.merge.detail", count=folded) if folded else msg("scanning.web.steps.merge.none")}] if others else []),
         {"id": "active", "name": msg("scanning.web.steps.active.name"), "status": "not_tested",
@@ -566,6 +641,8 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                    else msg("scanning.web.limitations.headers") if headers else msg("scanning.web.limitations.unauthenticated"),
                    msg("scanning.web.limitations.api", count=api["endpoints"]) if api
                    else msg("scanning.web.limitations.spider", minutes=SPIDER_MINUTES),
+                   msg("scanning.web.limitations.ajax", minutes=AJAX_MINUTES),
+                   *([msg("scanning.web.limitations.versions")] if versions and versions[1] else []),
                    *([msg("scanning.web.limitations.wildcards")] if scope["wildcards"] else []),
                    *([msg("scanning.web.limitations.tools_anonymous")] if runs and users else []),
                    *(msg("scanning.web.limitations.tool_skipped", tool=IMAGES[key]["name"]) for key, run in runs.items() if run.status == "skipped"),
@@ -581,6 +658,10 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     # A tool that didn't finish (or didn't run) is blind in this scan: what only it saw before isn't marked fixed.
     summary_tools += [{"name": key, "version": IMAGES[key]["version"],
                        "status": "completed" if run.status == "completed" else "inconclusive"} for key, run in runs.items()]
+    if versions:
+        blind = versions[2] != "completed" or runs["httpx"].status != "completed"
+        summary_tools.append({"name": web_versions.TOOL, "version": IMAGES[web_versions.KEY]["version"],
+                              "status": "inconclusive" if blind else "completed"})
     result: RunRecord = {
         # A test user that couldn't sign in leaves the run incomplete: "no findings" behind its login proves nothing.
         "type": "dast_scan", "status": "completed" if complete and not failed else "incomplete",

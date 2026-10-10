@@ -98,6 +98,11 @@ class CveDbTests(unittest.TestCase):
         self.assertEqual((item["cwe"], item["kev_detail"]["ransomware"], item["epss"]), (["CWE-502"], True, 0.91))
         self.assertEqual([reference["url"] for reference in item["references"]], ["https://example.test/advisory"])
         self.assertEqual(cve_db.overview(self.data_dir, now=NOW)["latest_kev"][0]["id"], "CVE-2026-00003")
+        # The same signals, shaped like the downloaded feeds, for callers that mustn't download them (web scans).
+        signals = cve_db.signals(self.data_dir, ["CVE-2026-00003", "CVE-2026-00004", "GHSA-xxxx-xxxx-xxxx"])
+        self.assertEqual((signals["kev"]["CVE-2026-00003"]["ransomware"], signals["epss"]), (True, {"CVE-2026-00003": (0.91, 0.99),
+                                                                                                    "CVE-2026-00004": (0.2, 0.5)}))
+        self.assertEqual(cve_db.signals(self.data_dir, []), {"kev": {}, "epss": {}})
 
     def test_incremental_after_backfill(self):
         fake = FakeNvd(total=5)

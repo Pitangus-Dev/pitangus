@@ -23,3 +23,7 @@ def docker_runner(case) -> None:
     absent = patch.object(web_tools, "readiness", return_value={key: msg("scanning.web.tools.image_missing", tool=key) for key in web_tools.TOOLS})
     absent.start()
     case.addCleanup(absent.stop)
+    from pitangus.modules.scanning import web_versions
+    lookup = patch.object(web_versions, "readiness", return_value=msg("scanning.web.tools.image_missing", tool="OSV-Scanner"))
+    lookup.start()
+    case.addCleanup(lookup.stop)
