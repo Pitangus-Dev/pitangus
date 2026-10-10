@@ -116,6 +116,13 @@ def rich(value, limit: int = 400) -> str:
     return re.sub(r"`([^`<>]+)`", rf'<font name="{MONO}">\1</font>', t(value, limit))
 
 
+def link(title, url: str, limit: int = 120) -> str:
+    """A clickable title in the accent colour; only https links, anything else is plain text."""
+    if not str(url).startswith("https://"):
+        return t(title, limit)
+    return f'<link href="{html.escape(str(url), quote=True)}" color="{hexval(BRAND)}">{t(title, limit)}</link>'
+
+
 def plain(value, limit: int = 400) -> str:
     """Like t(), without the backticks: a narrow table cell can't fit monospaced code."""
     return t(str(value or "").replace("`", ""), limit)

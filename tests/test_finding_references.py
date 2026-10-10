@@ -183,10 +183,16 @@ class ReportTests(unittest.TestCase):
     def test_technical_pdf_sheet_lists_the_guidance_and_the_category(self):
         from pitangus.modules.reporting.technical import render_technical_pdf
         from test_report_design import rendered
-        _, content = rendered(lambda: render_technical_pdf(self.record(), version="t", locale="en"))
+        pdf, content = rendered(lambda: render_technical_pdf(self.record(), version="t", locale="en"))
         self.assertIn("CWE-89, A05:2025", content)
-        self.assertIn("OWASP guidance: SQL Injection Prevention Cheat Sheet (https://cheatsheetseries.owasp.org/cheatsheets/", content)
+        self.assertIn("OWASP guidance: SQL Injection Prevention Cheat Sheet · Query Parameterization Cheat Sheet", content)
         self.assertLess(content.index("References: https://example.test/advisory"), content.index("OWASP guidance:"))
+        self.assertIn(b"/URI (https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html)", pdf)  # clickable
+
+    def test_a_pdf_link_is_escaped_and_https_only(self):
+        from pitangus.modules.reporting.design import link
+        self.assertEqual(link("<b>x</b>", "javascript:alert(1)"), "&lt;b&gt;x&lt;/b&gt;")
+        self.assertIn('href="https://a.test/?a=1&amp;b=&quot;2&quot;"', link("x", 'https://a.test/?a=1&b="2"'))
 
 
 if __name__ == "__main__":

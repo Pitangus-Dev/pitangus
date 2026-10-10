@@ -23,7 +23,7 @@ from pitangus.modules.findings.references import brief, guidance, owasp_of
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
 from pitangus.modules.reporting.design import (ATTENTION, BRAND, CODE_BG, DANGER, INK, LINE, MONO, MUTED, ORDER, SEVERITY_INK, STYLE, SUCCESS,
                             WIDTH, GAP_STATES, build, built_from, bullets, chip, count, cover, coverage_gaps, day, disclaimer, h2,
-                            hexval, kpis, listing, location, path, percent, plain, rich, severity_label, step_status,
+                            hexval, kpis, link, listing, location, path, percent, plain, rich, severity_label, step_status,
                             t as _t, table)
 from pitangus.shared import i18n
 from pitangus.shared.i18n import default_locale, localize, msg
@@ -132,8 +132,9 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
         story.append(Paragraph(_t(i18n.t("reports.common.references", locale, list=" · ".join(references)), 400), STYLE["note"]))
     links = item.get("guidance") or guidance(cast(Finding, item))
     if links:  # after the tool's own references
-        story.append(Paragraph(_t(i18n.t("reports.common.owasp_guidance", locale, list=" · ".join(
-            f"{link['title']} ({link['url']})" for link in brief(links))), 900), STYLE["note"]))
+        # Titles linked to their page: printed URLs would add lines to every sheet. Escaped by `link`, not truncated.
+        story.append(Paragraph(i18n.t("reports.common.owasp_guidance", locale, list=" · ".join(
+            link(entry["title"], entry["url"]) for entry in brief(links))), STYLE["note"]))
     # The heading and the facts never part; the rest may flow onto the next page.
     return [KeepTogether(story[:3]), *story[3:], Spacer(1, 16)]
 
