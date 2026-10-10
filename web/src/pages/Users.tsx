@@ -4,7 +4,6 @@ import { Check, Copy, KeyRound, LoaderCircle, MoreHorizontal, ShieldCheck, Shiel
 import type { SessionUser } from '@/features/auth/session'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
@@ -44,12 +43,12 @@ export function Users({ me }: { me: SessionUser }) {
   ].map(flag => ` · ${flag}`).join('')
 
   return <div className="space-y-5">
-    <Card className="border-app-line bg-panel"><CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3"><div><CardTitle>{t('title')}</CardTitle><CardDescription className="mt-1">{t('description')}{listing ? ` ${t(policyText[listing.totp_policy])}.` : ''}</CardDescription></div>
-      <Button onClick={() => setInviting(true)} className="bg-primary text-primary-foreground hover:bg-primary/90"><UserPlus />{t('invite')}</Button></CardHeader>
-      <CardContent className="space-y-3">
+    <div className="flex flex-wrap items-start justify-between gap-3"><p className="max-w-2xl text-sm text-app-muted">{t('description')}{listing ? ` ${t(policyText[listing.totp_policy])}.` : ''}</p>
+      <Button onClick={() => setInviting(true)}><UserPlus />{t('invite')}</Button></div>
+    <div className="space-y-3">
         {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>}
-        {!listing ? <SkeletonTable rows={4} columns={5} label={t('loading')} /> : <div className="overflow-x-auto rounded-xl border border-app-line">
-          <table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b border-app-line text-left text-xs text-app-subtle"><th className="px-4 py-2.5 font-normal">{t('columns.user')}</th><th className="px-4 py-2.5 font-normal">{t('columns.role')}</th><th className="px-4 py-2.5 font-normal">{t('columns.second_factor')}</th><th className="px-4 py-2.5 font-normal">{t('columns.last_login')}</th><th className="px-4 py-2.5 font-normal">{t('columns.actions')}</th></tr></thead>
+        {!listing ? <SkeletonTable rows={4} columns={5} label={t('loading')} /> : <div className="overflow-x-auto rounded-xl border border-app-line bg-panel">
+          <table className="w-full min-w-[760px] text-sm"><caption className="sr-only">{t('title')}</caption><thead><tr className="border-b border-app-line text-left text-xs text-app-subtle"><th scope="col" className="px-4 py-2.5 font-normal">{t('columns.user')}</th><th scope="col" className="px-4 py-2.5 font-normal">{t('columns.role')}</th><th scope="col" className="px-4 py-2.5 font-normal">{t('columns.second_factor')}</th><th scope="col" className="px-4 py-2.5 font-normal">{t('columns.last_login')}</th><th scope="col" className="px-4 py-2.5 font-normal">{t('columns.actions')}</th></tr></thead>
             <tbody>{listing.users.map(user => { const self = user.id === me.id
               return <tr key={user.id} className={`border-b border-app-line last:border-b-0 ${user.disabled ? 'opacity-60' : ''}`}>
                 <td className="px-4 py-3"><div className="font-medium">{user.display_name}{self ? <span className="ml-2 text-xs font-normal text-app-subtle">{t('you')}</span> : null}</div><div className="text-xs text-app-subtle">@{user.username}{flags(user)}</div></td>
@@ -65,7 +64,7 @@ export function Users({ me }: { me: SessionUser }) {
               </tr> })}</tbody></table>
         </div>}
         <p className="text-xs leading-5 text-app-subtle">{t('footnote')}</p>
-      </CardContent></Card>
+    </div>
     <InviteDialog open={inviting} onClose={() => setInviting(false)} onInvited={result => { setInviting(false); setLink(result); void load() }} />
     <LinkDialog result={link} onClose={() => setLink(null)} />
   </div>

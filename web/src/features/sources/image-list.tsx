@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Boxes, LoaderCircle, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { useConfirm } from '@/shared/ui/confirm'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { FilterChip } from '@/shared/ui/filter-chip'
 import { Combobox } from '@/shared/ui/combobox'
 import { Input } from '@/shared/ui/input'
 import { SkeletonList } from '@/shared/ui/loading'
@@ -102,13 +102,12 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
       <Button size="sm" variant="ghost" onClick={onNew}>{t('images.new_scan')}</Button></div>
     : !data.items.length ? <p className="p-6 text-center text-sm text-app-muted">{t('images.no_match')}</p> : null
 
-  return <Card className="border-app-line bg-panel">
-    <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0 space-y-1.5"><CardTitle className="text-base">{t('images.title')}</CardTitle><CardDescription>{t('images.description')}</CardDescription></div>
-      <Button ref={addOpener} size="sm" onClick={() => setAdding(true)}><Plus aria-hidden />{t('images.add.open')}</Button>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      {repository && <div className="flex flex-wrap items-center gap-3 rounded-xl border border-app-line bg-inset px-3 py-2 text-sm">
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <p className="max-w-2xl text-sm text-app-muted">{t('images.description')}</p>
+      <Button ref={addOpener} onClick={() => setAdding(true)}><Plus aria-hidden />{t('images.add.open')}</Button>
+    </div>
+      {repository && <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="flex min-w-0 items-center gap-1 rounded-lg border border-app-line bg-panel py-0.5 pr-1 pl-2">
           <span className="min-w-0 truncate">{t('images.built_from', { name: repository.name })}</span>
           <button type="button" aria-label={t('images.clear_repository')} onClick={() => { onClearRepository(); searchBox.current?.focus() }}
@@ -119,29 +118,28 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
       </div>}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="group" aria-label={t('images.filter')} className="flex flex-wrap gap-2">{tabs.map(tab => <Button key={tab} size="sm" variant="outline" aria-pressed={link === tab} onClick={() => choose(tab)}
-          className={link === tab ? 'border-app-fg bg-app-soft text-app-fg' : 'border-app-line bg-app-soft'}>
-          {t(`images.tabs.${tab}`)}{data ? ` · ${formatNumber(data.counts[tab])}` : ''}</Button>)}</div>
+        <div role="group" aria-label={t('images.filter')} className="flex flex-wrap gap-2">{tabs.map(tab => <FilterChip key={tab} pressed={link === tab} onClick={() => choose(tab)}>
+          {t(`images.tabs.${tab}`)}{data ? ` · ${formatNumber(data.counts[tab])}` : ''}</FilterChip>)}</div>
         <label className="relative w-full max-w-xs"><span className="sr-only">{t('images.search')}</span>
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden />
-          <Input ref={searchBox} value={q} onChange={event => { setQ(event.target.value); setPage(1); setNotice('') }} placeholder={t('images.search_placeholder')} className="border-app-line bg-inset pl-9" /></label>
+          <Input ref={searchBox} value={q} onChange={event => { setQ(event.target.value); setPage(1); setNotice('') }} placeholder={t('images.search_placeholder')} className="border-app-line bg-app-soft pl-9" /></label>
       </div>
       {link === 'unlinked' && <p className="text-xs text-app-muted">{t('images.unlinked_hint')}</p>}
       <div role="status">{notice && <p className="rounded-xl border border-success-line bg-success-soft px-3 py-2 text-sm text-success">{notice}</p>}</div>
 
       {images.isError ? <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{t('images.load_failed')}</p>
       : !data ? <SkeletonList rows={5} label={t('images.loading')} />
-      : empty ?? <ul aria-busy={images.isFetching || undefined} className={`divide-y divide-app-line overflow-hidden rounded-xl border border-app-line motion-safe:transition-opacity ${images.isFetching ? 'opacity-60' : ''}`}>{data.items.map(image => {
+      : empty ?? <ul aria-busy={images.isFetching || undefined} className={`divide-y divide-app-line overflow-hidden rounded-xl border border-app-line bg-panel motion-safe:transition-opacity ${images.isFetching ? 'opacity-60' : ''}`}>{data.items.map(image => {
           const state = rescans[image.key]
           const pending = state === 'busy' || state === 'queued'
           const removeError = removal.isError && removal.variables?.key === image.key ? removal.error.message : ''
-          return <li key={image.key} className="space-y-2 px-4 py-3">
+          return <li key={image.key} className="space-y-1 px-4 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-0.5">
                 <p className="flex min-w-0 items-center gap-2 text-sm font-medium"><Boxes className="size-4 shrink-0 text-app-muted" aria-hidden /><span className="truncate">{image.name}</span>
                   {!image.analyzed && <span className="shrink-0 rounded-md border border-info-line bg-info-soft px-1.5 text-[11px] font-normal text-info">{t('images.not_analyzed')}</span>}</p>
                 <p className="text-xs text-app-muted">{image.reference && <span className="font-mono break-all">{image.reference}</span>}
-                  {image.last_scan && <span>{image.reference ? ' · ' : ''}{t('images.last_scan', { date: formatDay(image.last_scan.created_at, { dateStyle: 'short' }) })}</span>}</p>
+                  {image.last_scan && <span>{image.reference ? ' · ' : ''}{t('images.last_scan', { date: formatDay(image.last_scan.created_at) })}</span>}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {image.analyzed && <Button size="sm" variant="outline" className="border-app-line bg-app-soft" aria-label={t('images.findings_for', { name: image.name })} onClick={() => onOpenFindings(image.key)}>{t('images.findings')}</Button>}
@@ -162,6 +160,5 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
       {data && <Pager page={page} perPage={PAGE_SIZE} total={data.total} onPage={next => { setPage(next); setNotice('') }} loading={images.isFetching} />}
       <span role="status" className="sr-only">{announce}</span>
       <AddImageDialog open={adding} onOpenChange={setAdding} admin={admin} repository={repository} onAdded={added} returnFocus={addOpener} />
-    </CardContent>
-  </Card>
+  </div>
 }

@@ -10,6 +10,7 @@ import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Skeleton } from '@/shared/ui/loading'
 import { assetRunsQuery, assetSearchQuery, assetStateQuery, invalidateFindings, keys, runQuery } from '@/shared/api/queries'
 import { formatDate } from '@/shared/lib/types'
+import { assetKindOf } from '@/shared/lib/asset-kind'
 import { RepositoryResult } from '@/features/findings/repository-result'
 import { RepositorySettings } from '@/features/findings/repository-settings'
 import { FindingTabs } from '@/features/findings/finding-tabs'
@@ -77,6 +78,7 @@ export function AssetFindings({ selection, tab, onTab, user, onNew, onOpenPolici
     was.current = status
   }, [status, queryClient])
   const admin = user.role === 'admin'
+  const kind = assetKindOf(asset?.key)
   const body = !asset ? selection.failed ? <Failed message={t('page.assets_failed', { error: selection.failed.message })} busy={selection.retrying} onRetry={selection.retry} />
       : selection.starting ? <Skeleton tiles={6} rows={5} /> : null
     : !detail || result.isPlaceholderData ? result.isError ? null : <Skeleton tiles={6} rows={5} />
@@ -86,7 +88,8 @@ export function AssetFindings({ selection, tab, onTab, user, onNew, onOpenPolici
   return <>
     {asset?.removed_at && <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger"><TriangleAlert className="mt-0.5 size-4 shrink-0" /><span>{t('page.removed', { date: formatDate(asset.removed_at) })}</span></div>}
     {/* This asset's own settings in one strip: the findings list is what matters. Global policies live in Policies. */}
-    {run === CURRENT && asset && <RepositorySettings key={asset.key} assetKey={asset.key} name={asset.name} secrets={!asset.key.startsWith('image:')}
+    {/* Excluded paths and secret entries are about files: a site's scope lives on its domain page. */}
+    {run === CURRENT && asset && kind !== 'domain' && <RepositorySettings key={asset.key} assetKey={asset.key} name={asset.name} kind={kind}
       canEdit={admin} onOpenPolicies={onOpenPolicies} />}
     {run === CURRENT && asset && <FindingTabs tab={tab} counts={detail?.summary.lifecycle} onChange={onTab} />}
     {asset && result.isError && <Failed message={t('page.load_failed', { error: result.error.message })} busy={result.isFetching} onRetry={() => void result.refetch()} />}

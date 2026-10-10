@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatCalendarDay } from '@/shared/i18n/format'
 import { CheckCheck, ChevronDown, CircleDot, Clock3, LoaderCircle, RotateCcw, ShieldX, ThumbsUp, Wrench } from 'lucide-react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -111,7 +112,7 @@ export function TriageHistory({ state }: { state?: TriageState }) {
   if (!history.length) return null
   return <details className="mt-3"><summary className="cursor-pointer text-xs text-app-muted">{t('triage.history', { total: history.length })}</summary>
     <ol className="mt-2 space-y-1.5 border-l border-app-line pl-3 text-xs">{[...history].reverse().map((event, index) => <li key={index} className="text-app-muted">
-      <span className="flex items-center gap-1.5"><Clock3 className="size-3 text-app-subtle" /><span className="font-medium text-app-secondary">{t(TRIAGE_LABEL[event.status])}</span> · {event.by} · {formatDate(event.at)}{event.expires_at ? ` · ${t('triage.expires_on', { date: event.expires_at })}` : ''}</span>
+      <span className="flex items-center gap-1.5"><Clock3 className="size-3 text-app-subtle" /><span className="font-medium text-app-secondary">{t(TRIAGE_LABEL[event.status])}</span> · {event.by} · {formatDate(event.at)}{event.expires_at ? ` · ${t('triage.expires_on', { date: formatCalendarDay(event.expires_at) })}` : ''}</span>
       {event.reason && <span className="block pl-4.5">{event.reason}</span>}{event.note && <span className="block pl-4.5 text-app-subtle">{event.note}</span>}
     </li>)}</ol></details>
 }

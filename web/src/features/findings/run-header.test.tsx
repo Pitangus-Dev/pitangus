@@ -34,3 +34,24 @@ describe('web scan header', () => {
     expect(screen.queryByText(tr('web.partial'))).toBeNull()
   })
 })
+
+describe('asset state header', () => {
+  const state = (id: string): RepositoryRun => ({ id: `asset:${id}`, type: 'asset_state', status: 'completed', created_at: '2026-10-10T00:00:00Z',
+    source: { id, name: id, provider: '' }, summary: {} })
+
+  it('words a domain, an image and a repository each its own way', () => {
+    const { unmount } = render(<RunHeader run={state('domain:pitangus.dev')} onNew={() => {}} />)
+    expect(screen.getByText(tr('state.eyebrow', { provider: tr('state.provider.domain') }))).toBeTruthy()
+    expect(screen.getByText(tr('state.help_domain'))).toBeTruthy()
+    expect(screen.queryByText(tr('state.help'))).toBeNull()
+    unmount()
+    const image = render(<RunHeader run={state('image:ghcr.io/acme/api')} onNew={() => {}} />)
+    expect(screen.getByText(tr('state.eyebrow', { provider: tr('state.provider.registry') }))).toBeTruthy()
+    expect(screen.getByText(tr('state.help_image'))).toBeTruthy()
+    image.unmount()
+    render(<RunHeader run={state('github#1')} onNew={() => {}} />)
+    expect(screen.getByText(tr('state.eyebrow', { provider: tr('state.provider.repository') }))).toBeTruthy()
+    expect(screen.getByText(tr('state.help'))).toBeTruthy()
+  })
+})
+

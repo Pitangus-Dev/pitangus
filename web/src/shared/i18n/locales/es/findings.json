@@ -65,7 +65,8 @@
     "provider": {
       "registry": "imagen de contenedor",
       "local": "local",
-      "repository": "repositorio"
+      "repository": "repositorio",
+      "domain": "sitio o API"
     },
     "pending_one": "<strong>{{count}}</strong> pendiente",
     "pending_other": "<strong>{{count}}</strong> pendientes",
@@ -77,7 +78,9 @@
     "suppressed_other": "{{count}} descartados en triage",
     "excluded_one": "{{count}} en rutas excluidas",
     "excluded_other": "{{count}} en rutas excluidas",
-    "help": "Junta los escaneos completos y las revisiones de PR. Se actualiza solo: lo que deja de aparecer queda remediado, lo que vuelve se reabre."
+    "help": "Junta los escaneos completos y las revisiones de PR. Se actualiza solo: lo que deja de aparecer queda remediado, lo que vuelve se reabre.",
+    "help_image": "Junta todos los análisis de esta imagen. Se actualiza solo: lo que deja de aparecer queda remediado, lo que vuelve se reabre.",
+    "help_domain": "Junta todos los análisis web de este sitio. Se actualiza solo: lo que deja de aparecer queda remediado, lo que vuelve se reabre."
   },
   "pr": {
     "eyebrow": "Revisión de PR · {{name}}",
@@ -330,7 +333,8 @@
     "defaults_line": "Predeterminado: {{summary}}.",
     "defaults_none": "Predeterminado: reglas integradas de Gitleaks y Trivy.",
     "deadlines": "Los plazos se definen en Políticas",
-    "load_failed": "No se pudo cargar."
+    "load_failed": "No se pudo cargar.",
+    "title_image": "Ajustes de la imagen"
   },
   "triage": {
     "verb": {

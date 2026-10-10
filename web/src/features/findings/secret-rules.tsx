@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { LoaderCircle, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
+import { Disclosure } from '@/shared/ui/disclosure'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { ApiError } from '@/shared/api/http'
@@ -220,9 +221,8 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
 function History({ entries }: { entries: SecretConfig['history'] }) {
   const { t } = useTranslation('findings')
   if (!entries.length) return null
-  return <details className="rounded-lg border border-app-line bg-inset px-3 py-2">
-    <summary className="cursor-pointer text-sm font-medium text-app-secondary">{t('secret_rules.history', { count: entries.length })}</summary>
-    <ol className="mt-2 space-y-2">{entries.map(entry => <li key={`${entry.at}-${entry.by}`} className="text-xs leading-5">
+  return <Disclosure summary={t('secret_rules.history', { count: entries.length })}>
+    <ol className="space-y-2">{entries.map(entry => <li key={`${entry.at}-${entry.by}`} className="text-xs leading-5">
       <p className="text-app-muted">{t('secret_rules.history_entry', { date: formatDate(entry.at), by: entry.by })}</p>
       {entry.reason && <p className="text-app-secondary">{entry.reason}</p>}
       {Object.entries(entry.changes ?? {}).flatMap(([section, kinds]) => Object.entries(kinds).map(([kind, items]) => {
@@ -230,5 +230,5 @@ function History({ entries }: { entries: SecretConfig['history'] }) {
         return label ? <p key={`${section}.${kind}`} className="break-all text-app-subtle">{t(label, { items: items.join(', ') })}</p> : null
       }))}
     </li>)}</ol>
-  </details>
+  </Disclosure>
 }

@@ -4,15 +4,16 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Check, Clock3, Copy, ExternalLink, Flame, LoaderCircle, Plus, X } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Card, CardContent } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
+import { Disclosure } from '@/shared/ui/disclosure'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Pagination } from '@/shared/ui/pagination'
 import { SkeletonCard, SkeletonList } from '@/shared/ui/loading'
 import { apiPost, type PostBody, type Response } from '@/shared/api/client'
 import { craAssetsQuery, craQuery, keys } from '@/shared/api/queries'
 import { pagedKey, usePaged } from '@/shared/lib/usePaged'
-import { formatDate, formatDay } from '@/shared/i18n/format'
+import { formatCalendarDay, formatDate } from '@/shared/i18n/format'
 
 type CraEvent = Response<'/api/cra/events'>['items'][number]
 type Stage = CraEvent['stages'][number]
@@ -24,8 +25,7 @@ const EVENTS_PAGE = 10
 const PRODUCTS_PAGE = 10
 const REASON_MIN = 5
 const LISTS = ['/api/cra/events', '/api/cra/products'] as const
-// Calendar dates (KEV listing, end of support) carry no time: shown as that day wherever the reader is.
-const day = (value: string) => formatDay(value, { dateStyle: 'medium', timeZone: 'UTC' })
+const day = formatCalendarDay
 
 const left = (iso: string, t: TFunction<'compliance'>) => {
   const hours = (new Date(iso).getTime() - Date.now()) / 3_600_000
@@ -63,8 +63,8 @@ export function CraSection({ admin, onNew }: { admin: boolean; onNew: () => void
   const { counts } = overview
   return <section aria-labelledby="cra-title" className="space-y-3">
     {error && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>}
-    <Card className="border-app-line bg-panel"><CardHeader><CardTitle id="cra-title" className="text-base">{t('cra.title')}</CardTitle>
-      <CardDescription>{t('cra.description')}</CardDescription></CardHeader></Card>
+    <div className="space-y-1 border-t border-app-line pt-6"><h2 id="cra-title" className="text-base font-medium">{t('cra.title')}</h2>
+      <p className="max-w-2xl text-sm text-app-muted">{t('cra.description')}</p></div>
 
     <h3 className="text-sm font-semibold">{counts.pending ? t('events.pending', { count: counts.pending }) : t('events.none_pending')}
       {counts.to_assess > 0 && <span className="ml-2 font-normal text-app-muted">· {t('events.to_assess', { count: counts.to_assess })}</span>}</h3>
@@ -85,9 +85,8 @@ export function CraSection({ admin, onNew }: { admin: boolean; onNew: () => void
 
 function Help({ admin, reportingPage }: { admin: boolean; reportingPage: string }) {
   const { t } = useTranslation('compliance')
-  return <details className="rounded-xl border border-app-line bg-inset px-4 py-3 text-sm">
-    <summary className="min-h-6 cursor-pointer font-medium text-app-secondary">{t('cra.help.title')}</summary>
-    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-app-muted">
+  return <Disclosure summary={t('cra.help.title')}>
+    <ul className="list-disc space-y-1 pl-5 text-xs leading-5 text-app-muted">
       <li>{t('cra.help.scope')}</li>
       <li>{t('cra.help.deadlines')}</li>
       <li>{t('cra.help.platform')}</li>
@@ -96,7 +95,7 @@ function Help({ admin, reportingPage }: { admin: boolean; reportingPage: string 
       {!admin && <li>{t('cra.help.admin_only')}</li>}
     </ul>
     <a href={reportingPage} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{t('cra.how_to_report')} <ExternalLink aria-hidden className="size-3" /></a>
-  </details>
+  </Disclosure>
 }
 
 function Products({ counts, admin, onChange, onNew }: { counts: Counts; admin: boolean; onChange: OnChange; onNew: () => void }) {

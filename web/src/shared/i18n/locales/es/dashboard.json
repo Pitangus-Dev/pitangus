@@ -11,12 +11,12 @@
     "new_analysis": "Nuevo análisis"
   },
   "kpi": {
-    "score": "Puntuación",
+    "score": "Puntuación", "score_hint": "baja con críticos y KEV abiertos", "score_formula": "Cómo se calcula: {{formula}}",
     "open": "Abiertos", "open_hint": "{{critical}} críticos · {{high}} altos",
     "overdue": "Fuera de plazo", "due_soon_one": "{{count}} vence en los próximos 7 días", "due_soon_other": "{{count}} vencen en los próximos 7 días",
     "no_due_dates": "sin plazos",
     "fixed": "Corregidos", "fix_rate": "tasa de corrección {{rate}}", "no_comparable_runs": "sin ejecuciones comparables",
-    "mttr": "Tiempo medio de corrección", "days_one": "día", "days_other": "días", "mttr_hint": "entre detección y desaparición",
+    "mttr": "Tiempo de corrección", "days_one": "día", "days_other": "días", "mttr_hint": "entre detección y desaparición",
     "kev": "En CISA KEV", "kev_hint": "abiertos con explotación activa"
   },
   "panels": {
@@ -48,8 +48,9 @@
     "description": "Vulnerabilidades publicadas según NVD",
     "description_refreshing": "Vulnerabilidades publicadas según NVD · actualizando…",
     "last_7_days": "últimos 7 días", "last_30_days": "últimos 30 días",
-    "skyline_loading": "Cargando el skyline de severidad",
-    "skyline_empty": "El skyline de severidad aparece en cuanto la base local<br/>tenga los CVE de los últimos 30 días.",
+    "by_severity": "Últimos 30 días por severidad",
+    "by_severity_loading": "Cargando los CVE por severidad",
+    "by_severity_empty": "El reparto por severidad aparece en cuanto la base local tenga los CVE de los últimos 30 días.",
     "latest_title": "Últimos CVE publicados",
     "latest_description": "«Te afecta» cuando menciona un paquete o CVE de tus hallazgos abiertos.",
     "tracker": "CVE tracker",

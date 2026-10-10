@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { dashboardQuery } from '@/shared/api/queries'
 import { GettingStarted } from '@/features/onboarding/getting-started'
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
-import { formatDay, formatNumber, formatPercent } from '@/shared/i18n/format'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { formatCalendarDay, formatDay, formatNumber, formatPercent } from '@/shared/i18n/format'
 import { Activity, ArrowRight, ChevronDown, RefreshCw, ShieldAlert } from 'lucide-react'
-import { ActivityHeatmap, FoundVsFixed, HBars, SeverityBar, StackedSeverityBars } from '@/shared/charts/charts'
+import { ActivityHeatmap, FoundVsFixed, HBars, PublishedBySeverity, SeverityBar, StackedSeverityBars } from '@/shared/charts/charts'
 import { sevColor, sevName } from '@/shared/charts/severity'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -21,7 +21,8 @@ import { formatDate, type Dashboard as DashboardData } from '@/shared/lib/types'
 const SEVERITY = { critical: 'common:severity.critical', high: 'common:severity.high', medium: 'common:severity.medium', low: 'common:severity.low', info: 'common:severity.info' } as const
 const STATUS = { completed: 'common:run_status.completed', incomplete: 'common:run_status.incomplete', failed: 'common:run_status.failed', queued: 'common:run_status.queued', running: 'common:run_status.running' } as const
 
-const SeveritySkyline = lazy(() => import('@/shared/charts/skyline').then(module => ({ default: module.SeveritySkyline })))
+// The same colors as the Scans list: failed is danger, completed success, still going info, the rest a warning.
+const STATUS_TONE: Record<string, string> = { completed: 'border-success-line text-success', failed: 'border-danger-line text-danger', incomplete: 'border-warning-line text-warning', queued: 'border-info-line text-info', running: 'border-info-line text-info' }
 const WINDOWS = [[7, 'window.days_7'], [30, 'window.days_30'], [90, 'window.days_90'], [365, 'window.days_365']] as const
 
 export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenRun: (id: string) => void; onNew: () => void; onTracker: (id?: string) => void; onNavigate: (view: string) => void }) {
@@ -47,7 +48,7 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
     {empty && <Card className="border-app-line bg-panel"><CardContent className="flex flex-col items-center gap-3 py-12 text-center"><Activity className="size-7 text-app-subtle" /><p className="font-medium">{t('empty.title')}</p><p className="max-w-md text-sm text-app-muted">{t('empty.text')}</p><Button variant="outline" onClick={onNew} className="border-app-line bg-app-soft">{t('empty.new_analysis')} <ArrowRight /></Button></CardContent></Card>}
 
     <KeyFigures>
-      <Kpi label={t('kpi.score')} value={kpis.security_score.value} suffix="/100" hint={kpis.security_score.formula} tone={kpis.security_score.value >= 80 ? 'teal' : kpis.security_score.value >= 50 ? 'amber' : 'rose'} />
+      <Kpi label={t('kpi.score')} value={kpis.security_score.value} suffix="/100" hint={t('kpi.score_hint')} title={t('kpi.score_formula', { formula: kpis.security_score.formula })} tone={kpis.security_score.value >= 80 ? 'teal' : kpis.security_score.value >= 50 ? 'amber' : 'rose'} />
       <Kpi label={t('kpi.open')} value={kpis.open.total} hint={t('kpi.open_hint', { critical: kpis.open.critical, high: kpis.open.high })} tone={kpis.open.critical ? 'rose' : 'muted'} />
       <Kpi label={t('kpi.overdue')} value={kpis.sla?.overdue ?? '—'} hint={kpis.sla ? t('kpi.due_soon', { count: kpis.sla.soon }) : t('kpi.no_due_dates')} tone={kpis.sla?.overdue ? 'rose' : 'muted'} />
       <Kpi label={t('kpi.fixed')} value={kpis.fixed_in_window} hint={kpis.fix_rate !== null ? t('kpi.fix_rate', { rate: formatPercent(kpis.fix_rate / 100, 1) }) : t('kpi.no_comparable_runs')} tone="teal" />
@@ -67,7 +68,7 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
     <div className="grid gap-5 xl:grid-cols-[1fr_1fr_1fr]">
       <Panel title={t('panels.top_assets.title')} description={t('panels.top_assets.description')}>{data.top_assets.length ? <><div className="divide-y divide-app-line text-sm">{data.top_assets.slice(0, LIST).map(asset => <button key={asset.name} onClick={() => onOpenRun(asset.last_run)} className="flex w-full items-center justify-between gap-3 py-2 text-left hover:text-brand"><span className="min-w-0"><span className="block truncate">{asset.name}</span><span className="text-xs text-app-subtle">{t('panels.top_assets.open', { count: asset.open })}{asset.trend !== null ? ` · ${t('panels.top_assets.trend', { trend: `${asset.trend > 0 ? '+' : ''}${asset.trend}` })}` : ''}</span></span><span className="flex shrink-0 gap-1 font-mono text-[11px]">{(['critical', 'high', 'medium', 'low'] as const).map(level => asset[level] ? <span key={level} className="rounded px-1.5 py-0.5 text-on-solid" style={{ background: sevColor[level] }} title={sevName[level]}>{asset[level]}</span> : null)}</span></button>)}</div><More shown={LIST} total={data.top_assets.length} label={t('panels.top_assets.more')} onClick={() => onNavigate('findings')} /></> : <Empty text={t('panels.top_assets.empty')} />}</Panel>
       <Panel title={t('panels.top_issues.title')} description={t('panels.top_issues.description')}>{data.top_issues.length ? <><div className="divide-y divide-app-line text-sm">{data.top_issues.slice(0, LIST).map(issue => <button key={issue.fingerprint} onClick={() => issue.run_id && onOpenRun(issue.run_id)} className="flex w-full items-start gap-2 py-2 text-left hover:text-brand"><span className="mt-1 inline-block size-2.5 shrink-0 rounded-sm" style={{ background: sevColor[issue.severity] }} title={t('panels.top_issues.severity', { severity: severityName(issue.severity) })} /><span className="sr-only">{t('panels.top_issues.severity', { severity: severityName(issue.severity) })}: </span><span className="min-w-0"><span className="block truncate">{issue.title}</span><span className="text-xs text-app-subtle">{issue.asset}{issue.sla && issue.sla.state !== 'ok' ? ` · ${slaText(issue.sla).toLowerCase()}` : ''}{issue.kev ? ' · KEV' : ''}{issue.epss ? ` · EPSS ${formatPercent(issue.epss, 1)}` : ''}</span></span></button>)}</div><More shown={LIST} total={data.top_issues.length} label={t('panels.top_issues.more')} onClick={() => onNavigate('findings')} /></> : <Empty text={t('panels.top_issues.empty')} />}</Panel>
-      <Panel title={t('panels.recent_runs.title')} description={t('panels.recent_runs.description')}>{data.recent_runs.length ? <><div className="divide-y divide-app-line text-sm">{data.recent_runs.slice(0, LIST).map(run => <button key={run.id} onClick={() => onOpenRun(run.id)} className="flex w-full items-center justify-between gap-3 py-2 text-left hover:text-brand"><span className="min-w-0"><span className="block truncate">{run.source?.name ?? run.target}</span><span className="text-xs text-app-subtle">{formatDate(run.created_at)}</span></span><Badge variant="outline" className="shrink-0 text-[11px]">{statusName(run.status)}</Badge></button>)}</div><More shown={LIST} total={data.recent_runs.length} label={t('panels.recent_runs.more')} onClick={() => onNavigate('analyses')} /></> : <Empty text={t('panels.recent_runs.empty')} />}</Panel>
+      <Panel title={t('panels.recent_runs.title')} description={t('panels.recent_runs.description')}>{data.recent_runs.length ? <><div className="divide-y divide-app-line text-sm">{data.recent_runs.slice(0, LIST).map(run => <button key={run.id} onClick={() => onOpenRun(run.id)} className="flex w-full items-center justify-between gap-3 py-2 text-left hover:text-brand"><span className="min-w-0"><span className="block truncate">{run.source?.name ?? run.target}</span><span className="text-xs text-app-subtle">{formatDate(run.created_at)}</span></span><Badge variant="outline" className={`shrink-0 text-[11px] ${STATUS_TONE[run.status] ?? 'border-app-line text-app-muted'}`}>{statusName(run.status)}</Badge></button>)}</div><More shown={LIST} total={data.recent_runs.length} label={t('panels.recent_runs.more')} onClick={() => onNavigate('analyses')} /></> : <Empty text={t('panels.recent_runs.empty')} />}</Panel>
     </div>
     <Card className="border-app-line bg-panel"><CardHeader className="pb-3"><CardTitle className="text-base">{t('activity.title')}</CardTitle><CardDescription className="text-xs">{t('activity.description')}</CardDescription></CardHeader>
       <CardContent className="flex flex-col gap-6 lg:flex-row lg:items-start"><div className="min-w-0 flex-1"><ActivityHeatmap days={data.activity} /></div><ActivityStats days={data.activity} /></CardContent></Card>
@@ -76,16 +77,17 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
   </div>
 }
 
-function Kpi({ label, value, suffix = '', hint, tone }: { label: string; value: number | string; suffix?: string; hint: string; tone: 'rose' | 'amber' | 'teal' | 'muted' }) {
-  return <KeyFigure label={label} value={value} suffix={suffix} hint={hint} tone={({ rose: 'danger', amber: 'warning', teal: 'success', muted: 'neutral' } as const)[tone]} />
+function Kpi({ label, value, suffix = '', hint, title, tone }: { label: string; value: number | string; suffix?: string; hint: string; title?: string; tone: 'rose' | 'amber' | 'teal' | 'muted' }) {
+  return <KeyFigure label={label} value={value} suffix={suffix} hint={hint} title={title} tone={({ rose: 'danger', amber: 'warning', teal: 'success', muted: 'neutral' } as const)[tone]} />
 }
-// Novedades a dos columnas: a la izquierda las cifras y el «skyline» de severidad de los últimos
-// 30 días (la base local de NVD); a la derecha lo último publicado, con salida al tracker.
+// News in columns: on the left the counts and the last 30 days by severity (the local NVD copy); next to them the
+// latest published, with a way into the tracker.
 function CyberNews({ news, onTracker, kev }: { news: DashboardData['cve_news']; onTracker: (id?: string) => void; kev: React.ReactNode }) {
   const { t } = useTranslation('dashboard')
   const [overview, setOverview] = useState<CveOverview | null>(null)
   useEffect(() => { api.get<CveOverview>('/api/cve-db/overview').then(setOverview).catch(() => undefined) }, [])
   const cells = overview?.daily ?? []
+  const bySeverity = cells.reduce<Record<string, number>>((sums, cell) => ({ ...sums, [cell.severity]: (sums[cell.severity] ?? 0) + cell.count }), {})
   const count = (value: number | null | undefined) => value !== null && value !== undefined ? formatNumber(value) : '—'
   return <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
     <Card className="border-app-line bg-panel">
@@ -95,8 +97,8 @@ function CyberNews({ news, onTracker, kev }: { news: DashboardData['cve_news']; 
           <div><div className="text-5xl font-semibold tracking-tight tabular-nums">{count(news.published_7d)}</div><div className="mt-1 text-sm text-app-muted">{t('news.last_7_days')}</div></div>
           <div><div className="text-5xl font-semibold tracking-tight tabular-nums">{count(news.published_30d)}</div><div className="mt-1 text-sm text-app-muted">{t('news.last_30_days')}</div></div>
         </div>
-        <div className="mt-6">{!overview ? <div role="status" aria-label={t('news.skyline_loading')}><Bone className="h-[260px] rounded-xl" /></div> : cells.length ? <Suspense fallback={<Bone className="h-[260px] rounded-xl" />}><SeveritySkyline cells={cells} height={260} /></Suspense>
-          : <div className="grid h-[260px] place-items-center rounded-xl border border-dashed border-app-line text-center text-xs text-app-subtle"><span><Trans t={t} i18nKey="news.skyline_empty" components={{ br: <br /> }} /></span></div>}</div>
+        <div className="mt-6 space-y-2"><p className="text-xs text-app-muted">{t('news.by_severity')}</p>{!overview ? <div role="status" aria-label={t('news.by_severity_loading')} className="space-y-2"><Bone className="h-3" /><Bone className="h-12" /></div>
+          : cells.length ? <PublishedBySeverity counts={bySeverity} days={30} /> : <p className="text-xs text-app-subtle">{t('news.by_severity_empty')}</p>}</div>
       </CardContent>
     </Card>
     <Card className="border-app-line bg-panel">
@@ -119,7 +121,7 @@ function KevNews({ news, onTracker }: { news: DashboardData['kev_news']; onTrack
   return <Card className="border-app-line bg-panel lg:col-span-2 xl:col-span-1"><CardHeader className="pb-3"><CardTitle className="text-base">{t('kev.title')}</CardTitle><CardDescription className="text-xs">{t('kev.description', { version: news.catalog_version ?? '—' })}</CardDescription></CardHeader>
     <CardContent>
       <div className="mb-3 flex gap-6"><Hero value={news.added_7d} label={t('kev.added_7d')} /><Hero value={news.added_30d} label={t('kev.added_30d')} /></div>
-      <div className="divide-y divide-app-line text-sm">{news.items.slice(0, LIST).map(item => <button key={item.cve} type="button" onClick={() => onTracker(item.cve)} className="flex w-full items-start justify-between gap-3 py-2 text-left hover:bg-app-soft/60"><span className="min-w-0"><span className="font-mono text-xs text-brand">{item.cve}</span><span className="block truncate text-xs text-app-muted" title={item.name ?? ''}>{item.name}</span></span><span className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-app-subtle">{item.date_added}{item.affects && <Badge variant="outline" className="border-transparent bg-danger-solid text-[11px] text-on-solid">{t('news.affects_you')}</Badge>}{item.ransomware && <span className="text-danger">ransomware</span>}</span></button>)}</div>
+      <div className="divide-y divide-app-line text-sm">{news.items.slice(0, LIST).map(item => <button key={item.cve} type="button" onClick={() => onTracker(item.cve)} className="flex w-full items-start justify-between gap-3 py-2 text-left hover:bg-app-soft/60"><span className="min-w-0"><span className="font-mono text-xs text-brand">{item.cve}</span><span className="block truncate text-xs text-app-muted" title={item.name ?? ''}>{item.name}</span></span><span className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-app-subtle">{item.date_added ? formatCalendarDay(item.date_added) : ''}{item.affects && <Badge variant="outline" className="border-transparent bg-danger-solid text-[11px] text-on-solid">{t('news.affects_you')}</Badge>}{item.ransomware && <span className="text-danger">ransomware</span>}</span></button>)}</div>
       <More shown={LIST} total={news.items.length} label={t('kev.more')} onClick={() => onTracker()} />
     </CardContent>
   </Card>

@@ -19,9 +19,10 @@ const SHOWN = 2
 
 // A repository's own settings in one strip: excluded paths and its secret detection entries (on top of the defaults).
 // Deadlines are global: only a link to the policy.
-export function RepositorySettings({ assetKey, name, secrets, canEdit, onOpenPolicies }: {
-  assetKey: string; name: string; secrets: boolean; canEdit: boolean; onOpenPolicies: () => void
+export function RepositorySettings({ assetKey, name, kind, canEdit, onOpenPolicies }: {
+  assetKey: string; name: string; kind: 'repository' | 'image'; canEdit: boolean; onOpenPolicies: () => void
 }) {
+  const secrets = kind === 'repository'
   const { t } = useTranslation('findings')
   const id = useId()
   const [notice, setNotice] = useState('')
@@ -31,7 +32,7 @@ export function RepositorySettings({ assetKey, name, secrets, canEdit, onOpenPol
   const loading = pathsPending || (secrets && secretsPending)
   return <section aria-labelledby={id} className="rounded-xl border border-app-line bg-inset px-4 py-2.5 text-sm">
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-      <h2 id={id} className="text-xs font-medium text-app-subtle">{t('repo_settings.title')}</h2>
+      <h2 id={id} className="text-xs font-medium text-app-subtle">{kind === 'image' ? t('repo_settings.title_image') : t('repo_settings.title')}</h2>
       <ExcludedPaths assetKey={assetKey} canEdit={canEdit} onSaved={setNotice} />
       {secrets && <RepositorySecrets assetKey={assetKey} name={name} canEdit={canEdit} onSaved={setNotice} />}
       <Button size="xs" variant="link" className="ml-auto px-0 text-app-muted" onClick={onOpenPolicies}>{t('repo_settings.deadlines')}</Button>

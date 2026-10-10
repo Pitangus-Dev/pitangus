@@ -14,7 +14,7 @@ import { Pagination } from '@/shared/ui/pagination'
 import { api, query } from '@/shared/api/http'
 import { usePaged } from '@/shared/lib/usePaged'
 import { readRoute, writeRoute } from '@/shared/lib/route'
-import { formatDay, formatNumber, formatPercent } from '@/shared/i18n/format'
+import { formatCalendarDay, formatDay, formatNumber, formatPercent } from '@/shared/i18n/format'
 
 export type CveRow = { id: string; published: string | null; severity: string | null; score: number | null; version: string | null; description: string; kev: boolean; epss: number | null; epss_percentile: number | null; affects?: boolean }
 type CvePage = { items: CveRow[]; total: number; limit: number; offset: number; mine_total?: number }
@@ -35,7 +35,7 @@ const SEVERITIES: [string, string][] = [['', 'cves:filters.all_severities'], ['c
 const SORTS: [string, string][] = [['published', 'cves:sort.published'], ['score', 'cves:sort.score'], ['epss', 'cves:sort.epss']]
 const SIZES = [25, 50, 100]
 const SEVERITY_LABEL: Record<string, string> = Object.fromEntries(SEVERITIES.filter(([value]) => value))
-const day = (stamp: string | null) => stamp ? formatDay(stamp, { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ de /g, ' ') : '—'
+const day = (stamp: string | null) => stamp ? formatDay(stamp) : '—'
 const percent = (value: number | null) => value === null ? '—' : formatPercent(value, value >= 0.1 ? 0 : 1)
 
 export function SeverityPill({ severity, score }: { severity: string | null; score?: number | null }) {
@@ -90,7 +90,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
   return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
     <div className="min-w-0 space-y-4">
       {overview && overview.sync.phase !== 'ready' && <SyncBanner overview={overview} />}
-      <Card className="gap-0 border-app-line bg-panel py-0"><CardContent className="space-y-3 p-4">
+      <div className="space-y-3">
         <form onSubmit={submit} className="space-y-2">
           <div className="flex gap-2"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" />
             <Input value={draft} onChange={event => setDraft(event.target.value)} maxLength={100} aria-label={t('search.label')} placeholder={t('search.placeholder')} className="h-9 border-app-line bg-app-soft pl-9" /></div>
@@ -113,9 +113,9 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
           {filters.mine && <Chip label={t('filters.mine_chip')} onClear={() => apply({ mine: false })} />}
           <button type="button" onClick={() => { setDraft(''); apply({ q: '', year: '', severity: '', kev: false, mine: false }) }} className="text-app-muted underline-offset-2 hover:underline">{t('filters.clear_all')}</button>
         </div>}
-      </CardContent></Card>
+      </div>
 
-      <Card className="gap-0 overflow-hidden border-app-line bg-panel py-0">
+      <div className="overflow-hidden rounded-xl border border-app-line bg-panel">
         {error ? <div role="alert" className="m-4 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>
           : !page ? <div className="p-4"><Skeleton rows={6} /></div>
           : <div className={`overflow-x-auto transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -146,7 +146,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
             <Button variant="outline" size="sm" disabled={filters.page >= pages} onClick={() => apply({ page: filters.page + 1 })} className="border-app-line bg-app-soft">{t('common:actions.next')}</Button>
           </div>
         </div>}
-      </Card>
+      </div>
     </div>
 
     <aside className="space-y-4">
@@ -166,7 +166,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
       <Card className="border-app-line bg-panel"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><Flame className="size-4 text-danger" />{t('kev.title')}</CardTitle><CardDescription className="text-xs">{overview?.kev_total ? t('kev.latest_total', { value: formatNumber(overview.kev_total) }) : t('kev.latest')}</CardDescription></CardHeader>
         <CardContent className="space-y-0.5">{overview?.latest_kev.length ? overview.latest_kev.map(item => <button key={item.id} type="button" onClick={() => show(item.id)} className="flex w-full items-start justify-between gap-2 rounded-md px-1.5 py-1.5 text-left hover:bg-app-soft">
           <span className="min-w-0"><span className="block font-mono text-xs font-medium">{item.id}</span><span className="block truncate text-[11px] text-app-muted" title={item.name ?? ''}>{item.name}</span></span>
-          <span className="flex shrink-0 flex-col items-end gap-0.5 text-[11px] text-app-subtle">{item.date_added}{item.ransomware && <span className="text-danger">{t('kev.ransomware')}</span>}</span></button>)
+          <span className="flex shrink-0 flex-col items-end gap-0.5 text-[11px] text-app-subtle">{formatCalendarDay(item.date_added)}{item.ransomware && <span className="text-danger">{t('kev.ransomware')}</span>}</span></button>)
           : !overview ? <SkeletonList rows={5} dense label={t('kev.loading')} /> : <p className="text-xs text-app-subtle">{t('kev.empty')}</p>}
           <button type="button" onClick={() => apply({ kev: true, sort: 'published' })} className="mt-2 flex items-center gap-1 px-1.5 text-xs text-app-muted hover:text-app-fg">{t('kev.show_all')} <ArrowRight className="size-3" /></button></CardContent></Card>
     </aside>
@@ -210,12 +210,12 @@ function CveSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
           <div className="grid grid-cols-3 divide-x divide-app-line border-y border-app-line">
             <Metric label={`CVSS${item.version ? ` ${item.version}` : ''}${item.score_source === 'euvd' ? ` · ${t('sheet.per_euvd')}` : ''}`} value={item.score?.toFixed(1) ?? '—'} extra={<SeverityPill severity={item.severity} />} />
             <Metric label="EPSS" value={percent(item.epss)} extra={item.epss_percentile !== null ? <span className="text-[11px] text-app-subtle">{t('sheet.percentile', { value: formatNumber(Math.round(item.epss_percentile * 100)) })}</span> : null} />
-            <Metric label="CISA KEV" value={item.kev ? t('common:state.yes') : t('common:state.no')} extra={item.kev_detail ? <span className="text-[11px] text-app-subtle">{t('sheet.since', { date: item.kev_detail.date_added })}</span> : null} />
+            <Metric label="CISA KEV" value={item.kev ? t('common:state.yes') : t('common:state.no')} extra={item.kev_detail ? <span className="text-[11px] text-app-subtle">{t('sheet.since', { date: formatCalendarDay(item.kev_detail.date_added) })}</span> : null} />
           </div>
           {item.kev_detail && <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2.5 text-sm text-danger"><p className="flex items-center gap-2 font-medium"><Flame className="size-4" />{t('sheet.kev_known')}{item.kev_detail.ransomware ? ` · ${t('sheet.kev_ransomware')}` : ''}</p>
-            <p className="mt-1 text-xs">{item.kev_detail.name}{item.kev_detail.due_date ? ` · ${t('sheet.federal_due', { date: item.kev_detail.due_date })}` : ''}</p></div>}
+            <p className="mt-1 text-xs">{item.kev_detail.name}{item.kev_detail.due_date ? ` · ${t('sheet.federal_due', { date: formatCalendarDay(item.kev_detail.due_date) })}` : ''}</p></div>}
           {!item.kev_detail && item.euvd?.exploited_since && <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2.5 text-sm text-danger"><p className="flex items-center gap-2 font-medium"><Flame className="size-4" />{t('sheet.enisa')}</p>
-            <p className="mt-1 text-xs">{t('sheet.enisa_since', { date: item.euvd.exploited_since })}</p></div>}
+            <p className="mt-1 text-xs">{t('sheet.enisa_since', { date: formatCalendarDay(item.euvd.exploited_since) })}</p></div>}
           {item.score_source === 'euvd' && <p className="text-xs text-app-subtle">{t('sheet.euvd_score')}</p>}
           <section><h3 className="mb-1.5 text-xs font-medium text-app-muted">{t('table.description')}</h3><p className="text-sm leading-6">{item.description}</p></section>
           {item.vector && <section><h3 className="mb-1.5 text-xs font-medium text-app-muted">{t('sheet.vector')}</h3><code className="block rounded-md bg-inset px-2.5 py-1.5 font-mono text-xs break-all">{item.vector}</code></section>}

@@ -23,5 +23,5 @@
   "more": "Más",
   "unscored": "Sin puntuar",
   "today": "hoy",
-  "skyline_label": "CVE publicados en los últimos {{days}} días por severidad: {{total}} en total; {{breakdown}}."
+  "published_by_severity": "CVE publicados en los últimos {{days}} días por severidad: {{total}} en total; {{breakdown}}."
 }

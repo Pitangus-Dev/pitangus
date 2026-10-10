@@ -23,5 +23,5 @@
   "more": "More",
   "unscored": "Unscored",
   "today": "today",
-  "skyline_label": "CVEs published in the last {{days}} days by severity: {{total}} in total; {{breakdown}}."
+  "published_by_severity": "CVEs published in the last {{days}} days by severity: {{total}} in total; {{breakdown}}."
 }

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
 import { Badge } from '@/shared/ui/badge'
-import { formatDate, formatNumber } from '@/shared/i18n/format'
+import { formatCalendarDay, formatDate, formatNumber } from '@/shared/i18n/format'
 import { slaText } from '@/features/findings/sla'
 import { FixSection, Reverify } from '@/features/findings/fix-guide'
 import { WebFinding } from '@/features/findings/web-finding'
@@ -27,7 +27,7 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
       {!pkg && !web && <Fact label={t('detail.location')}><span className="font-mono text-xs">{locationOf(finding)}</span></Fact>}
       {finding.framework && <Fact label={t('detail.technology')}>{finding.framework}</Fact>}
       {finding.epss && <Fact label={t('detail.epss')}>{formatNumber(finding.epss.score, { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-app-subtle">{t('detail.percentile', { value: formatNumber(Math.round(finding.epss.percentile * 100)) })}</span></Fact>}
-      {finding.kev && <Fact label="CISA KEV">{t('detail.kev_since', { date: finding.kev.date_added ?? '' })}{finding.kev.ransomware ? ` · ${t('detail.kev_ransomware')}` : ''}</Fact>}
+      {finding.kev && <Fact label="CISA KEV">{t('detail.kev_since', { date: finding.kev.date_added ? formatCalendarDay(finding.kev.date_added) : '' })}{finding.kev.ransomware ? ` · ${t('detail.kev_ransomware')}` : ''}</Fact>}
       {advisory?.cvss_vector && <Fact label={t('detail.cvss_vector')}><span className="font-mono text-xs break-all">{advisory.cvss_vector}</span></Fact>}
     </div>
     {web ? <WebFinding finding={finding} /> : <FixSection fix={finding.fix} remediation={finding.remediation} />}
@@ -44,7 +44,7 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
       ? <a href={finding.source.url} target="_blank" rel="noreferrer" className="underline decoration-app-faint underline-offset-2 hover:text-app-fg">{finding.source.name}</a>
       : finding.source.name} · {finding.source.license}{finding.source.terms === 'non-commercial' && <span className="text-attention"> · {t('detail.non_commercial')}</span>}</p>}
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-app-line bg-inset p-3">
-      <div className="min-w-0 text-xs text-app-muted"><span className="font-medium text-app-secondary">{t('detail.triage', { status: finding.triage?.expired ? t('detail.triage_expired') : t(TRIAGE_LABEL[statusOf(finding)]) })}</span>{finding.triage?.by ? ` · ${finding.triage.by}` : ''}{finding.triage?.expires_at ? ` · ${t('triage.expires_on', { date: finding.triage.expires_at })}` : ''}{finding.triage?.reason ? <span className="mt-0.5 block">{finding.triage.reason}</span> : null}</div>
+      <div className="min-w-0 text-xs text-app-muted"><span className="font-medium text-app-secondary">{t('detail.triage', { status: finding.triage?.expired ? t('detail.triage_expired') : t(TRIAGE_LABEL[statusOf(finding)]) })}</span>{finding.triage?.by ? ` · ${finding.triage.by}` : ''}{finding.triage?.expires_at ? ` · ${t('triage.expires_on', { date: formatCalendarDay(finding.triage.expires_at) })}` : ''}{finding.triage?.reason ? <span className="mt-0.5 block">{finding.triage.reason}</span> : null}</div>
       <div className="flex flex-wrap items-center gap-2">{jira}<TriageActions current={statusOf(finding)} canAccept={canAccept} onPick={onPick} size="xs" /></div>
     </div>
     {finding.lifecycle && <p className="mt-2 text-xs leading-5 text-app-subtle"><span className="font-medium text-app-muted">{t('lifecycle.label')} </span>{finding.lifecycle.origin?.kind === 'pr'

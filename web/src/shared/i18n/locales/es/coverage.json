@@ -2,17 +2,25 @@
   "tested": "{{tested}}/{{total}} con alguna prueba",
   "description": "Cada categoría dice qué motor o cuántas reglas la cubrieron y cuántos hallazgos produjo. Lo no probado dice por qué.",
   "rules_one": "{{count}} regla", "rules_other": "{{count}} reglas",
-  "step_status": { "completed": "Completado", "partial": "Parcial", "not_tested": "No probado", "inconclusive": "Inconcluso", "pending": "Pendiente", "skipped": "Omitido" },
   "run": { "title": "Ejecución evaluada", "none": "Sin ejecución seleccionada", "pick": "Elige una ejecución en Hallazgos para ver su cobertura." },
   "not_covered": {
-    "title": "Qué no cubre un análisis estático",
-    "plan": "Estas categorías se cubren con modelado de amenazas y pruebas dinámicas, que están en el plan."
+    "title_code": "Qué no cubre un análisis estático",
+    "note_code": "Esto requiere la aplicación en marcha: modela las amenazas en Modelos de amenazas y analiza el sitio desplegado desde Dominios.",
+    "title_image": "Qué no cubre un análisis de imagen",
+    "note_image": "El análisis de una imagen revisa sus paquetes y su configuración. Cómo se comporta la aplicación requiere analizar su código y el sitio desplegado.",
+    "title_web": "Qué no cubre un análisis web pasivo",
+    "note_web": "Un análisis pasivo solo lee lo que el sitio responde, sin enviar ataques. No se hicieron pruebas activas (inyección, inicio de sesión, control de acceso entre usuarios)."
   },
-  "no_full_scan": "Sin escaneo completo de este repositorio",
-  "repository": "Repositorio",
+  "no_full_scan": {
+    "repository": "Sin análisis completo de este repositorio",
+    "image": "Sin análisis de esta imagen",
+    "domain": "Sin análisis web de este sitio"
+  },
+  "not_measured": "Esta ejecución no midió esta categoría",
+  "asset": "Activo",
   "loading": "Cargando cobertura",
   "empty": {
-    "no_repositories": "Aún no hay repositorios analizados. La cobertura OWASP aparece tras el primer escaneo completo.",
-    "no_full_scan": "Este repositorio aún no tiene un escaneo completo terminado. La cobertura OWASP se mide sobre él: lanza uno desde «Nuevo análisis»."
+    "no_assets": "Aún no hay nada analizado. La cobertura OWASP aparece tras el primer análisis completo de un repositorio, una imagen o un sitio.",
+    "no_full_scan": "Este activo aún no tiene un análisis completo terminado. La cobertura OWASP se mide sobre él: lanza uno desde «Nuevo análisis»."
   }
 }

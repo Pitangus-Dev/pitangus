@@ -7,7 +7,6 @@ import { Pagination } from '@/shared/ui/pagination'
 import { BellRing, Boxes, Code2, FileUp, GitPullRequest, Globe2, Plus, Radar, Search, ShieldCheck } from 'lucide-react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
 import { SkeletonTable } from '@/shared/ui/loading'
@@ -40,7 +39,7 @@ export function AnalysisList({ refreshKey, onOpen, onNew, viewer, asset, empty }
   // Lotes (varios repositorios, una organización o varias imágenes): su progreso, arriba de la lista.
   const { active: batch, last: lastBatch, reload: reloadBatches } = useBatches()
 
-  return <Card className="border-app-line bg-panel"><CardContent className="space-y-5 p-5">
+  return <div className="space-y-5">
     {!asset && <BatchPanel active={batch} last={lastBatch} viewer={viewer} onChanged={() => void reloadBatches()} />}
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="relative min-w-0 flex-1 sm:max-w-xs"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" /><Input aria-label={t('list.search')} placeholder={t('list.search_placeholder')} value={query} onChange={event => setQuery(event.target.value)} className="border-app-line bg-app-soft pl-9" /></div>
@@ -52,19 +51,22 @@ export function AnalysisList({ refreshKey, onOpen, onNew, viewer, asset, empty }
       : page.total === 0 && empty && !query.trim() && status === 'all' ? empty
       : page.total === 0
       ? <div className="flex flex-col items-center gap-3 py-16 text-center"><Radar className="size-7 text-app-subtle" /><p className="font-medium">{t('list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t('list.empty_text')}</p><Button onClick={onNew} className="mt-1 bg-primary text-primary-foreground hover:bg-primary/90"><Plus /> {t('list.new')}</Button></div>
-      : <div className="overflow-hidden rounded-xl border border-app-line">
-        <div className="hidden grid-cols-[110px_minmax(0,1fr)_170px_120px_150px] gap-3 border-b border-app-line px-4 py-3 text-xs text-app-subtle md:grid"><span>{t('list.columns.status')}</span><span>{t('list.columns.analysis')}</span><span>{t('list.columns.type')}</span><span>{t('list.columns.findings')}</span><span>{t('list.columns.started')}</span></div>
+      : <div className="overflow-hidden rounded-xl border border-app-line bg-panel">
+        <div className="hidden gap-3 border-b border-app-line px-4 py-3 text-xs text-app-subtle md:grid md:grid-cols-[100px_minmax(12rem,1fr)_110px_140px] lg:grid-cols-[110px_minmax(12rem,1fr)_150px_120px_150px]"><span>{t('list.columns.status')}</span><span>{t('list.columns.analysis')}</span><span className="hidden lg:block">{t('list.columns.type')}</span><span>{t('list.columns.findings')}</span><span>{t('list.columns.started')}</span></div>
         {visible.map(row => { const Icon = typeIcon(row.type); const issues = rowIssues(t, row)
-          return <button key={row.id} onClick={() => onOpen(row.id)} className="grid w-full gap-2 border-b border-app-line px-4 py-3 text-left transition last:border-b-0 hover:bg-app-soft md:grid-cols-[110px_minmax(0,1fr)_170px_120px_150px] md:items-center">
+          return <button key={row.id} onClick={() => onOpen(row.id)} className="grid w-full gap-2 border-b border-app-line px-4 py-3 text-left transition last:border-b-0 hover:bg-app-soft md:grid-cols-[100px_minmax(12rem,1fr)_110px_140px] lg:grid-cols-[110px_minmax(12rem,1fr)_150px_120px_150px] md:items-center">
             <Badge variant="outline" className={`w-fit ${row.status === 'completed' ? 'border-success-line text-success' : row.status === 'failed' ? 'border-danger-line text-danger' : row.status === 'running' || row.status === 'queued' ? 'motion-safe:animate-pulse border-info-line text-info' : 'border-warning-line text-warning'}`}>{statusLabel(t, row.status)}</Badge>
-            <span className="flex min-w-0 items-center gap-2"><Icon className="size-4 shrink-0 text-app-muted" /><span className="min-w-0"><span className="block truncate text-sm font-medium">{rowName(t, row)}</span><span className="font-mono text-xs text-app-subtle">{row.id.slice(0, 8)}</span>{row.type === 'repository_scan' && row.source?.branch && <span className="ml-2 text-xs text-app-subtle">{t('list.on_branch', { branch: row.source.branch })}</span>}{row.trigger?.kind === 'branch' && <span className="ml-2 text-xs text-app-subtle">{row.trigger.head_sha ? t('list.trigger_branch_sha', { sha: row.trigger.head_sha.slice(0, 7) }) : t('list.trigger_branch')}</span>}{row.trigger?.kind === 'advisories' && <span className="ml-2 text-xs text-app-subtle">{t('list.trigger_advisories')}</span>}{row.trigger?.kind === 'import' && row.trigger.tool && <span className="ml-2 text-xs text-app-subtle">{row.trigger.scope === 'partial' ? t('list.trigger_import_partial', { tool: row.trigger.tool }) : t('list.trigger_import', { tool: row.trigger.tool })}</span>}</span></span>
-            <span className="text-xs text-app-muted">{typeLabel(t, row.type)}</span>
-            {row.summary.severities
+            <span className="flex min-w-0 items-center gap-2"><Icon className="size-4 shrink-0 text-app-muted" /><span className="min-w-0"><span className="block truncate text-sm font-medium">{rowName(t, row)}</span><span className="text-xs text-app-subtle lg:hidden">{typeLabel(t, row.type)} · </span><span className="font-mono text-xs text-app-subtle">{row.id.slice(0, 8)}</span>{row.type === 'repository_scan' && row.source?.branch && <span className="ml-2 text-xs text-app-subtle">{t('list.on_branch', { branch: row.source.branch })}</span>}{row.trigger?.kind === 'branch' && <span className="ml-2 text-xs text-app-subtle">{row.trigger.head_sha ? t('list.trigger_branch_sha', { sha: row.trigger.head_sha.slice(0, 7) }) : t('list.trigger_branch')}</span>}{row.trigger?.kind === 'advisories' && <span className="ml-2 text-xs text-app-subtle">{t('list.trigger_advisories')}</span>}{row.trigger?.kind === 'import' && row.trigger.tool && <span className="ml-2 text-xs text-app-subtle">{row.trigger.scope === 'partial' ? t('list.trigger_import_partial', { tool: row.trigger.tool }) : t('list.trigger_import', { tool: row.trigger.tool })}</span>}</span></span>
+            <span className="hidden text-xs text-app-muted lg:block">{typeLabel(t, row.type)}</span>
+            {/* A run still going or one that failed has no findings to count yet: "0" would read as clean. */}
+            {row.status === 'running' || row.status === 'queued' ? <span className="text-xs text-app-muted">{t('list.findings_pending')}</span>
+              : row.status === 'failed' ? <span className="text-xs text-app-muted"><span aria-hidden>—</span><span className="sr-only">{t('list.findings_none_failed')}</span></span>
+              : row.summary.severities
               ? <span className="flex flex-wrap items-center gap-1 text-[11px]">{SEVERITIES.map(([level, letter, name, cls]) => (row.summary.severities?.[level] ?? 0) > 0 ? <span key={level} role="img" className={`rounded px-1.5 py-0.5 font-mono ${cls}`} title={t(name)} aria-label={t('list.severity_count', { severity: t(name), value: row.summary.severities?.[level] })}>{t(letter)}{row.summary.severities?.[level]}</span> : null)}{row.summary.kev ? <span className="rounded bg-danger-solid px-1.5 py-0.5 font-mono text-on-solid" title="CISA KEV">KEV</span> : null}{issues.value === 0 && <span className="text-app-subtle">0</span>}</span>
               : <span className="text-xs text-app-muted"><span className="font-mono text-sm text-app-secondary">{issues.value}</span> {issues.hint}</span>}
             <span className="text-xs text-app-muted">{formatDate(row.created_at)}</span>
           </button> })}
         <Pagination total={page.total} limit={page.limit} offset={page.offset} onPrev={page.prev} onNext={page.next} noun={t('list.noun')} />
       </div>}
-  </CardContent></Card>
+  </div>
 }

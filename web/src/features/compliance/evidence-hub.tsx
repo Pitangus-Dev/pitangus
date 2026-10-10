@@ -3,7 +3,6 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useTranslation } from 'react-i18next'
 import { ArrowDownToLine, LoaderCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Select, SelectTrigger } from '@/shared/ui/select'
 import { FrameworkOptions } from '@/features/findings/framework-options'
@@ -75,9 +74,9 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
   </div>
   const unready = !ready ? t('scope:incomplete') : summary.isError ? t('evidence.summary.failed') : !covered ? t('evidence.summary.counting')
     : empty ? t('scope:nothing') : ''
-  return <Card className="border-app-line bg-panel">
-    <CardHeader><CardTitle className="text-base">{t('evidence.title')}</CardTitle><CardDescription>{t('evidence.description')}</CardDescription></CardHeader>
-    <CardContent className="space-y-6">
+  // A section of the page, not a card: the CRA kit can follow it, so it keeps its own heading.
+  return <section aria-labelledby="evidence-title" className="space-y-6">
+    <div className="space-y-1"><h2 id="evidence-title" className="text-base font-medium">{t('evidence.title')}</h2><p className="max-w-2xl text-sm text-app-muted">{t('evidence.description')}</p></div>
       {!counts.assets ? <p className="text-sm text-app-muted">{t('evidence.none')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('evidence.new_scan')}</button></p> : <>
         <div className="grid gap-6 xl:grid-cols-2">
           <ScopePicker scope={scope} accounts={counts.accounts} total={counts.assets} one={pickOne} step="1" onChange={next => { setScope(next); setError('') }} />
@@ -88,7 +87,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
               <FrameworkOptions frameworks={frameworks} />
             </Select></div>
             {current && <p className="max-w-sm space-x-1 text-xs text-app-subtle"><span>{tf('audit.framework_hint', { hint: tf(current[2]) })}</span>{framework !== 'general' && <span>{tf('audit.mapping_note')}</span>}</p>}
-            <div role="status" aria-atomic="true" className="mt-4 max-w-xl space-y-1 rounded-xl border border-dashed border-app-line px-4 py-3 text-sm">
+            <div role="status" aria-atomic="true" className="mt-4 max-w-xl space-y-1 border-l-2 border-app-line pl-3 text-sm">
               {asset ? <><p className="font-medium">{asset.name}</p>
                   <p className="text-app-muted">{asset.kind === 'image' ? t('evidence.image') : t('evidence.repository')} · {asset.last_complete ? t('evidence.summary.last_complete', { date: formatDate(asset.last_complete) }) : t('evidence.summary.no_complete')}</p></>
                 : !many ? <p className="text-app-muted">{t('evidence.summary.pick')}</p>
@@ -105,7 +104,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
         <section aria-labelledby="evidence-downloads" className="space-y-2">
           <h3 id="evidence-downloads" className="text-xs font-normal text-app-muted"><span aria-hidden>3 · </span>{asset ? t('evidence.downloads_one', { name: asset.name })
             : ready && covered && !empty ? t('evidence.downloads_many', { count: covered.repositories + covered.images }) : t('evidence.downloads')}</h3>
-          {!many ? (asset ? <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line">
+          {!many ? (asset ? <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line bg-panel">
             <Row name={t('evidence.items.audit')} hint={t('evidence.items.audit_hint', { framework: frameworkName })} busy={busy === 'audit'} waiting={busy !== null}
               onClick={() => void download('audit', () => api.downloadPost('/api/reports/audit', 'audit-report', { asset: asset.key, status: 'all', options: { framework } }, auditFile(asset.name)))} />
             <Row name={t('evidence.items.technical')} hint={t('evidence.items.technical_hint')} busy={busy === 'technical'} waiting={busy !== null}
@@ -115,7 +114,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
             <Row name={t('evidence.items.vex')} hint={t('evidence.items.vex_hint')} busy={busy === 'vex'} waiting={busy !== null}
               onClick={() => void exportFile('vex', asset, 'vex.openvex.json', 'all')} />
           </ul> : null)
-          : <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line">
+          : <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line bg-panel">
             <Row name={t('evidence.items.portfolio')} hint={unready || t('evidence.items.portfolio_hint', { framework: frameworkName })} busy={busy === 'portfolio'} waiting={busy !== null}
               unavailable={Boolean(unready)}
               onClick={() => void download('portfolio', () => api.downloadPost('/api/evidence/portfolio', 'audit-report', { framework, ...scopeBody(scope) }, auditFile(t('evidence.file_portfolio'))))} />
@@ -130,8 +129,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
         {error && <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
         <span role="status" className="sr-only">{busy ? t('evidence.preparing') : ''}</span>
       </>}
-    </CardContent>
-  </Card>
+  </section>
 }
 
 // Only an unavailable file disables its button; while another download runs, the click is ignored instead, so the

@@ -6,16 +6,23 @@ import { Button } from '@/shared/ui/button'
 import { formatDate } from '@/shared/i18n/format'
 import { LifecycleSummary } from '@/features/findings/lifecycle-summary'
 import { toolName, type RepositoryRun, type SignIn } from '@/features/findings/finding-model'
+import { assetKindOf } from '@/shared/lib/asset-kind'
 
 // What the findings below are: an asset's current state, a pull request review, an import from another tool or a scan.
 export function RunHeader({ run, onNew }: { run: RepositoryRun; onNew: () => void }) {
   const { t } = useTranslation('findings')
-  if (run.type === 'asset_state') return <div className="space-y-2 rounded-lg border border-app-line bg-panel p-5">
-    <div className="text-xs text-app-muted">{t('state.eyebrow', { provider: ({ github: 'GitHub', registry: t('state.provider.registry'), local: t('state.provider.local'), gitlab: 'GitLab' } as Record<string, string>)[run.source?.provider ?? ''] ?? t('state.provider.repository') })}</div>
-    <h2 className="truncate text-xl font-semibold">{run.source?.name ?? t('scan.repository')}</h2>
-    {run.summary.lifecycle && <LifecycleSummary counts={run.summary.lifecycle} />}
-    <p className="text-xs text-app-subtle">{t('state.help')}</p>
-  </div>
+  if (run.type === 'asset_state') {
+    // A domain's or an image's state has no pull requests and no provider: it says what it is instead.
+    const kind = assetKindOf(run.source?.id)
+    const provider = kind === 'domain' ? t('state.provider.domain') : kind === 'image' ? t('state.provider.registry')
+      : ({ github: 'GitHub', local: t('state.provider.local'), gitlab: 'GitLab' } as Record<string, string>)[run.source?.provider ?? ''] ?? t('state.provider.repository')
+    return <div className="space-y-2 rounded-lg border border-app-line bg-panel p-5">
+      <div className="text-xs text-app-muted">{t('state.eyebrow', { provider })}</div>
+      <h2 className="truncate text-xl font-semibold">{run.source?.name ?? t('scan.repository')}</h2>
+      {run.summary.lifecycle && <LifecycleSummary counts={run.summary.lifecycle} />}
+      <p className="text-xs text-app-subtle">{kind === 'domain' ? t('state.help_domain') : kind === 'image' ? t('state.help_image') : t('state.help')}</p>
+    </div>
+  }
   if (run.type === 'pr_review' && run.pull_request) return <div className="space-y-3 rounded-lg border border-app-line bg-panel p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="mb-1 text-xs text-app-muted">{t('pr.eyebrow', { name: run.source?.name ?? '' })}</div><a href={run.pull_request.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xl font-semibold hover:underline">#{run.pull_request.number} {run.pull_request.title}<ExternalLink className="size-4 text-app-subtle" /></a><p className="mt-1 text-xs text-app-subtle">{run.pull_request.author} · {run.pull_request.head_ref} → {run.pull_request.base_ref} · commit <span className="font-mono">{run.pull_request.head_sha.slice(0, 7)}</span> · {t('pr.changed_files', { count: run.summary.changed_files ?? 0 })}</p></div>
       {run.review && <Badge variant="outline" className={run.review.verdict.state === 'failure' ? 'border-transparent bg-danger-solid text-on-solid' : 'border-success-line text-success'}>{run.review.verdict.state === 'failure' ? t('pr.blocks') : t('pr.passes')} · {run.review.verdict.description}</Badge>}</div>

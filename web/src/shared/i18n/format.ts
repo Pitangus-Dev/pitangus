@@ -8,6 +8,8 @@ const timeZoneNameOrStyles = (options: Intl.DateTimeFormatOptions): Intl.DateTim
   : { dateStyle: 'medium', timeStyle: 'short', ...options }
 export const formatDay = (stamp: string | number | Date, options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' }) =>
   new Date(stamp).toLocaleDateString(intlLocale(), options)
+// A calendar date with no time (a KEV listing, a due date): that day wherever the reader is.
+export const formatCalendarDay = (value: string) => formatDay(value, { dateStyle: 'medium', timeZone: 'UTC' })
 export const formatNumber = (value: number, options?: Intl.NumberFormatOptions) =>
   new Intl.NumberFormat(intlLocale(), options).format(value)
 export const formatPercent = (value: number, digits = 0) =>

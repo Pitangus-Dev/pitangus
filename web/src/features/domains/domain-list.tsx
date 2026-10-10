@@ -6,7 +6,6 @@ import { domainsQuery, keys } from '@/shared/api/queries'
 import { readRoute, setRouteParam } from '@/shared/lib/route'
 import { formatDay } from '@/shared/i18n/format'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
 import { SkeletonTable } from '@/shared/ui/loading'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/shared/ui/menu'
@@ -53,7 +52,7 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
       <div><h1 className="text-2xl font-semibold tracking-tight">{t('nav:items.domains')}</h1><p className="mt-1 max-w-2xl text-sm text-app-muted">{t('nav:descriptions.domains')}</p></div>
       {admin && <Button ref={addOpener} onClick={() => setAdding(true)} className="self-start sm:self-auto"><Plus aria-hidden />{t('domains.list.add')}</Button>}
     </div>
-    <Card className="border-app-line bg-panel"><CardContent className="space-y-4 p-5">
+    <div className="space-y-4">
     {items.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="relative w-full sm:max-w-xs"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-muted" aria-hidden />
         <Input type="search" aria-label={t('domains.list.search')} placeholder={t('domains.list.search')} value={search} onChange={event => { setSearch(event.target.value); setOffset(0) }} className="border-app-line bg-app-soft pl-9" /></div>
@@ -68,9 +67,9 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
     : !items.length ? <div className="flex flex-col items-center gap-3 py-14 text-center"><Globe2 className="size-7 text-app-muted" aria-hidden />
         <p className="font-medium">{t('domains.list.empty_title')}</p><p className="max-w-sm text-sm text-app-muted">{t(admin ? 'domains.list.empty_text' : 'domains.list.empty_member')}</p></div>
     : !matching.length ? <p className="py-10 text-center text-sm text-app-muted">{t('domains.list.no_match', { query: search.trim() })}</p>
-    : <div className="-mx-5 overflow-x-auto"><table className={`w-full text-sm motion-safe:transition-opacity ${domains.isFetching ? 'opacity-70' : ''}`} aria-busy={domains.isFetching || undefined}>
+    : <div className="overflow-x-auto rounded-xl border border-app-line bg-panel"><table className={`w-full text-sm motion-safe:transition-opacity ${domains.isFetching ? 'opacity-70' : ''}`} aria-busy={domains.isFetching || undefined}>
       <thead><tr className="border-b border-app-line text-left text-xs text-app-muted">
-        <th scope="col" className="px-5 py-3 font-normal">{t('domains.list.col_domain')}</th>
+        <th scope="col" className="px-4 py-3 font-normal">{t('domains.list.col_domain')}</th>
         <th scope="col" className="hidden px-3 py-3 font-normal md:table-cell">{t('domains.list.col_verification')}</th>
         <th scope="col" className="hidden px-3 py-3 font-normal md:table-cell">{t('domains.list.col_last_scan')}</th>
         <th scope="col" className="hidden px-3 py-3 font-normal lg:table-cell">{t('domains.list.col_login')}</th>
@@ -82,7 +81,7 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
         const last = lastScanOf(domain)
         const chip = <span title={domain.verified ? untilOf(domain) : undefined} className={`rounded-md border px-1.5 text-xs ${TONE[state.tone]}`}>{state.label}</span>
         return <tr key={domain.id} onClick={event => openRow(event, domain)} className="cursor-pointer border-b border-app-line last:border-0 hover:bg-app-soft">
-          <td className="px-5 py-3"><div className="flex min-w-0 flex-col gap-1">
+          <td className="px-4 py-3"><div className="flex min-w-0 flex-col gap-1">
             <span className="flex min-w-0 flex-wrap items-center gap-2">
               <button type="button" onClick={() => onOpenDomain(domain)} className="min-h-6 truncate text-left font-medium text-app-fg underline-offset-2 hover:underline">{domain.host}</button>
               <span className="rounded-md border border-app-line px-1.5 text-xs text-app-muted">{kindOf(domain)}</span></span>
@@ -110,6 +109,6 @@ export function DomainList({ admin, onOpenDomain, onNewScan }: { admin: boolean;
     <AddDomainDialog open={adding} onOpenChange={setAdding} onAdded={domain => { refresh(); setNotice(t('domains.list.added', { host: domain.host })); setVerifying(domain) }} />
     <VerifyDomainDialog domain={verifying} onOpenChange={open => { if (!open) setVerifying(null) }} onStartScan={onNewScan}
       onVerified={domain => { refresh(); setNotice(t('domains.list.verified_notice', { host: domain.host, date: untilOf(domain) })) }} />
-  </CardContent></Card>
+  </div>
   </div>
 }
