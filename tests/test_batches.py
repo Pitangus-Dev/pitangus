@@ -68,6 +68,26 @@ class BatchLogicTests(unittest.TestCase):
         self.assertEqual(state["eta_seconds"], 60)  # one pending × the real average duration (60 s)
 
 
+class FinishTests(unittest.TestCase):
+    def test_the_batch_is_done_only_when_its_last_scan_finishes(self):
+        """With several workers nothing may be left to take while scans still run: no early "batch finished" notice."""
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder)
+            batch = batches.create(data, [item("acme/a")], by="ana", label="uno")
+            _, index = batches.take_next(data)
+            batches.attach(data, batch["id"], index, run_id="7" * 32)
+            with patch("pitangus.modules.runs.store.find_runs", return_value=[{"id": "7" * 32, "status": "running"}]), \
+                    patch("pitangus.modules.integrations.notifications.on_batch") as notice:
+                self.assertIsNone(batches.take_next(data))
+                self.assertEqual(batches.load(data, batch["id"])["status"], "running")
+                notice.assert_not_called()
+            with patch("pitangus.modules.runs.store.find_runs", return_value=[{"id": "7" * 32, "status": "completed"}]), \
+                    patch("pitangus.modules.integrations.notifications.on_batch") as notice:
+                self.assertIsNone(batches.take_next(data))
+                self.assertEqual(batches.load(data, batch["id"])["status"], "done")
+                notice.assert_called_once()
+
+
 class ImageBatchTests(unittest.TestCase):
     def test_images_are_batched_by_full_reference_and_fed_to_the_image_scanner(self):
         from pitangus.modules.scanning.image import parse_reference
