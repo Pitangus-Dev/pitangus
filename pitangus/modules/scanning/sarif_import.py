@@ -323,6 +323,10 @@ def parse(document: Any, *, tool: str | None = None) -> list[ParsedRun]:
             key = _key(result, rule_id, location[0], location[2], _text(result.get("message"), MESSAGE_MAX), web=web)
             seen = occurrences.get((name.lower(), key), 0)
             occurrences[(name.lower(), key)] = seen + 1
+            # In code, the same rule twice on one line is two findings. On the web, the same alert on the same URL and
+            # parameter is one: ZAP reports `https://host` and `https://host/` apart, and both are the root.
+            if web and seen:
+                continue
             digest = _stable("sarif", name.lower(), key if not seen else f"{key}\x1f#{seen + 1}")
             group["findings"].append(_finding(result, rule, rule_id, group["tool"], location, digest, web=web))
     return list(grouped.values())

@@ -31,6 +31,10 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Fixed
 
+- **The same web alert on a site's root is one finding.** ZAP reports `https://host` and `https://host/` as different
+  results; Pitangus already took both as the root, but counted them as two findings. A repeated alert on the same URL
+  and parameter is now one (in code, the same rule twice on a line still counts twice). A later import of the same tool
+  marks the leftover copy fixed.
 - **Verifying a domain asks its own nameservers.** It went through the local resolver, which keeps a "no such name" for
   the zone's negative TTL (30 minutes on Cloudflare): a domain verified a little too early stayed "TXT not found" long
   after the record was published. It now asks the zone's authoritative nameservers first, and the local resolver only
