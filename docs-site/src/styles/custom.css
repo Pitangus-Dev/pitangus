@@ -395,6 +395,44 @@ dialog::backdrop {
   background: var(--p-bg);
 }
 
+/* Diagrams: hand-drawn SVGs in the identity's tokens, one per theme. On a narrow screen the drawing keeps its own size
+   and its frame scrolls sideways instead of shrinking the text. */
+.sl-markdown-content figure.diagram {
+  margin: 1.5rem 0;
+}
+
+.sl-markdown-content .diagram__frame {
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+.sl-markdown-content .diagram__frame:focus-visible {
+  outline: 2px solid var(--p-focus);
+  outline-offset: 2px;
+}
+
+.sl-markdown-content figure.diagram img {
+  display: block;
+  width: 100%;
+  min-width: 45rem;
+  height: auto;
+  margin: 0;
+}
+
+.sl-markdown-content figure.diagram figcaption {
+  margin-top: 0.5rem;
+  color: var(--p-muted);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+/* The figure rules above set `display: block` with more specificity than Starlight's theme utilities: hide the other
+   theme's image again. */
+:root[data-theme='light'] .sl-markdown-content figure img.light\:sl-hidden,
+:root[data-theme='dark'] .sl-markdown-content figure img.dark\:sl-hidden {
+  display: none;
+}
+
 .sl-markdown-content figure.screenshot--pending {
   border: 1px dashed var(--p-line-strong);
   border-radius: 8px;

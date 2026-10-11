@@ -4,35 +4,40 @@ English · [Español](es/arquitectura.md)
 
 Pitangus is three services: the **API** (FastAPI, which also serves the panel), one or more **workers** that run the
 queued scans and the periodic tasks, and **PostgreSQL**, which holds all the state. The scan engines run as
-short-lived sibling containers started by the worker, with the code mounted read-only, no capabilities, and memory,
-CPU and process limits. The API has no access to Docker.
+short-lived sibling containers started by the worker (or as processes inside the worker's own image, on platforms
+without a Docker socket), with the code mounted read-only, no capabilities, and memory, CPU and process limits. The API has no access to Docker.
 
+<!-- diagram: architecture | Pitangus architecture. A browser reaches the API over HTTPS (Caddy on a server) or loopback. On your server, the API and one or more workers share PostgreSQL, which holds runs, findings, the queue, settings and the encrypted secrets; the master key is a file only when PITANGUS_MASTER_KEY is unset. The worker starts the engines through the Docker socket, or runs them inside the worker-standalone image: Trivy, OSV-Scanner, Gitleaks, Opengrep with 58 Pitangus rules, Checkov and zizmor for code; Trivy and Grype for images; ZAP, katana, nuclei, testssl.sh, httpx and subfinder for sites and APIs. Outbound connections go to the GitHub API, the advisory feeds (NVD, CISA KEV, EPSS, OSV, EUVD), image registries and verified sites, and Jira, Slack, Teams and webhooks. | The services on your server, the engines the worker runs and the connections it opens to the outside. -->
 ```mermaid
-flowchart LR
-  browser["Browser<br/>React panel"] -- "HTTPS or loopback<br/>HttpOnly cookie + CSRF" --> api
+flowchart TB
+  browser["Browser<br/>React panel"]
 
-  subgraph host["Your machine (Docker)"]
-    api["pitangus<br/>API · panel"]
-    worker["worker<br/>queue · periodic tasks"]
-    db[("PostgreSQL<br/>runs · findings · settings")]
+  subgraph host["Your server (Docker Compose)"]
+    api["API<br/>FastAPI and the panel<br/>no Docker access"]
+    db[("PostgreSQL<br/>runs, findings, queue, settings,<br/>encrypted secrets")]
+    worker["Worker, one or more<br/>scan queue and periodic tasks"]
+    key["config/master.key<br/>only when PITANGUS_MASTER_KEY is unset"]
     api --- db
     worker --- db
-    worker -- "Docker socket" --> engines
-    subgraph engines["Short-lived engines (read-only, no capabilities)"]
-      trivy["Trivy<br/>SCA · IaC · secrets"]
-      gitleaks["Gitleaks<br/>secrets"]
-      opengrep["Opengrep<br/>SAST, 58 Pitangus rules"]
-      checkov["Checkov<br/>IaC · pipelines"]
-      zizmor["zizmor<br/>GitHub Actions"]
+    db -.- key
+    subgraph engines["Engines: read-only snapshot, no capabilities, memory, CPU and process limits"]
+      code["Code and dependencies<br/>Trivy, OSV-Scanner, Gitleaks,<br/>Opengrep (58 rules), Checkov, zizmor"]
+      images["Container images<br/>Trivy, Grype"]
+      web["Sites and APIs<br/>ZAP, katana, nuclei,<br/>testssl.sh, httpx, subfinder"]
     end
-    config[("config/<br/>encrypted secrets")]
-    api --- config
-    worker --- config
+    worker -- "Docker socket, or inside the<br/>worker-standalone image" --> engines
   end
 
-  worker -- "App JWT / 1 h installation token" --> github["api.github.com"]
-  worker -- "date ranges" --> nvd["NVD"]
-  worker -- "public feeds" --> feeds["CISA KEV · EPSS"]
+  browser -- "HTTPS (Caddy on a server)<br/>or loopback" --> api
+
+  subgraph outbound["Outbound only"]
+    github["GitHub API<br/>App or token: repositories, PR comments"]
+    feeds["Advisory data<br/>NVD, CISA KEV, EPSS, OSV, EUVD,<br/>engine databases"]
+    targets["Image registries<br/>and your verified sites"]
+    notify["Jira, Slack, Teams, webhooks"]
+  end
+
+  host --> outbound
 ```
 
 ## Code layout
@@ -66,18 +71,14 @@ pitangus/
 
 The contexts are layered too, and import-linter checks it (`make arch`, exhaustive: a new context has to be placed):
 
-```
-compliance | threats      consumers: read everything below, nobody imports them
-reporting
-runs                      orchestration: jobs, the queue and the flows that touch several contexts
-pullrequests
-scanning | findings       domain: engines → findings list; the registry and everything decided about a finding
-sources                   base: what gets scanned, the external clients, advisory knowledge, users
-integrations
-intel | identity
-```
+| Group | Contexts, top layer first |
+| --- | --- |
+| Consumers: read everything below, nobody imports them | `compliance` and `threats` (siblings), then `reporting` |
+| Orchestration: jobs, the queue and the flows that touch several contexts | `runs`, then `pullrequests` |
+| Domain: engines produce the findings list; the registry and everything decided about a finding | `scanning` and `findings` (siblings) |
+| Base: what gets scanned, the external clients, advisory knowledge, users | `sources`, then `integrations`, then `intel` and `identity` (siblings) |
 
-A context imports only the ones below it, and siblings joined by `|` never import each other (function-local imports
+A context imports only the ones below it, and siblings on the same layer (joined by `|` in `pyproject.toml`) never import each other (function-local imports
 count). When a lower context needs something from a higher one, it doesn't import it: the composition root
 (`app/wiring.py`, run once per process by the API, the worker and the CLI before anything else) wires it in. Two
 tools, in this order: injecting a reader (findings get the run reader that tells how a re-verification went) and
@@ -132,7 +133,7 @@ in [deploy.md](deploy.md).
 1. You click **Scan**, or a pull request is opened on a watched repository.
 2. The API queues the job and answers right away; the panel shows live progress.
 3. The worker asks GitHub for a one-hour installation token (kept in memory) and downloads a snapshot of the repository into `data/work/`.
-4. It builds the plan (languages, applicable rules, manifests, IaC) and runs the engines one at a time: read-only snapshot, `--cap-drop ALL`, `no-new-privileges`, at most 3 GB of memory, 2 CPUs and 512 processes. Gitleaks, Opengrep, Checkov and zizmor run **with no network**; Trivy needs it to download its vulnerability database (cached in `data/trivy-cache/`) and sends nothing from the repository.
+4. It builds the plan (languages, applicable rules, manifests, IaC) and runs the engines one at a time: read-only snapshot, `--cap-drop ALL`, `no-new-privileges`, at most 3 GB of memory, 2 CPUs and 512 processes. Gitleaks, Opengrep, Checkov and zizmor run **with no network**; Trivy and OSV-Scanner need it to download their vulnerability databases (Trivy's is cached in `data/trivy-cache/`) and send nothing from the repository.
 5. Results are normalized, deduplicated by a stable fingerprint, enriched with KEV/EPSS and merged into the repository's registry: whatever no longer shows up is marked **fixed**.
 6. For a pull request, a single comment and a commit status are posted according to the configured threshold.
 7. The snapshot is deleted.

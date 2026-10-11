@@ -133,6 +133,36 @@ async function convertScreenshots(markdown, assetPrefix, locale) {
   return result
 }
 
+// GitHub renders Mermaid; the site doesn't, so a ```mermaid block must be preceded by
+// `<!-- diagram: name | alt text | caption -->` and is replaced by docs/assets/name-<locale>-{light,dark}.svg
+// (or name-{light,dark}.svg), following the theme. The Mermaid source stays the one GitHub shows.
+async function convertDiagrams(markdown, assetPrefix, locale, source) {
+  const where = path.relative(repositoryRoot, source)
+  const pattern = /^<!--\s*diagram:\s*([a-z0-9-]+)\s*\|\s*([^|]+?)\s*\|\s*(.+?)\s*-->\n```mermaid\n[\s\S]*?^```$/gm
+  let result = markdown
+  for (const [whole, name, alt, caption] of [...markdown.matchAll(pattern)]) {
+    const files = {}
+    for (const theme of ['light', 'dark']) {
+      for (const file of [`${name}-${locale}-${theme}.svg`, `${name}-${theme}.svg`]) {
+        if (!files[theme] && await exists(path.join(docsRoot, 'assets', file))) files[theme] = file
+      }
+      if (!files[theme]) throw new Error(`Missing docs/assets/${name}-${locale}-${theme}.svg for the diagram in ${where}`)
+    }
+    const { width, height } = await svgSize(path.join(docsRoot, 'assets', files.light))
+    const image = (file, hiddenIn) => `<img class="${hiddenIn}:sl-hidden" src="${assetPrefix}assets/${file}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="lazy" decoding="async">`
+    const html = `<figure class="diagram"><div class="diagram__frame" tabindex="0" role="region" aria-labelledby="diagram-${name}">${image(files.light, 'dark')}${image(files.dark, 'light')}</div><figcaption id="diagram-${name}">${escapeHtml(caption)}</figcaption></figure>`
+    result = result.replace(whole, () => html)
+  }
+  if (/^```mermaid$/m.test(result)) throw new Error(`A Mermaid block in ${where} has no <!-- diagram: name | alt | caption --> line before it`)
+  return result
+}
+
+async function svgSize(file) {
+  const viewBox = (await readFile(file, 'utf8')).match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/)
+  if (!viewBox) throw new Error(`${path.relative(repositoryRoot, file)} has no viewBox`)
+  return { width: Math.round(Number(viewBox[1])), height: Math.round(Number(viewBox[2])) }
+}
+
 async function prepareMarkdown(source, output, locale) {
   let markdown = (await readFile(source, 'utf8')).replace(/\r\n/g, '\n')
   markdown = markdown.replace(/^(?:English\b.*|\[English\].*)\n+/, '')
@@ -145,6 +175,7 @@ async function prepareMarkdown(source, output, locale) {
   markdown = markdown.replace(/(<img\s+[^>]*src=["'])\.\.\/assets\//g, `$1${assetPrefix}assets/`)
   markdown = markdown.replace(/(<img\s+[^>]*src=["'])assets\//g, `$1${assetPrefix}assets/`)
   markdown = await rewriteLinks(markdown, source, output)
+  markdown = await convertDiagrams(markdown, assetPrefix, locale, source)
   markdown = outsideCode(markdown, convertAlerts)
   markdown = await convertScreenshots(markdown, assetPrefix, locale)
   const slug = path.basename(output).replace(/\.md$/, '')

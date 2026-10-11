@@ -94,19 +94,19 @@ is indicative.
 | International | ISO/IEC 27001:2022 | A.8.8, A.8.9, A.8.28 and A.8.29 |
 | International | PCI DSS 4.0.1 | Requirements 6.2.4, 6.3.1, 6.3.2 (inventory) and 6.3.3 (patching within a month) |
 | European Union | EU Cyber Resilience Act (CRA) | Annex I, part II (vulnerabilities, SBOM, testing) and article 14 |
-| European Union | NIS2 · Directive (EU) 2022/2555 | Art. 21(2) and technical annex: secure development, testing and vulnerabilities |
-| European Union | DORA · Regulation (EU) 2022/2554 | Financial entities: ICT risk, testing and vulnerability management |
-| European Union | GDPR · Art. 32 | Security of processing: the technical side of software that handles personal data |
-| United States | NIST SSDF · SP 800-218 | Secure software development |
+| European Union | NIS2, Directive (EU) 2022/2555 | Art. 21(2) and technical annex: secure development, testing and vulnerabilities |
+| European Union | DORA, Regulation (EU) 2022/2554 | Financial entities: ICT risk, testing and vulnerability management |
+| European Union | GDPR, Art. 32 | Security of processing: the technical side of software that handles personal data |
+| United States | NIST SSDF, SP 800-218 | Secure software development |
 | United States | NIST CSF 2.0 | Identify and Protect: inventory, vulnerabilities, risk responses and secure development |
 | United States | NIST SP 800-53 Rev. 5 | FedRAMP: vulnerability scanning, flaw remediation and developer testing |
 | United States | HIPAA Security Rule | Healthcare: input for risk analysis and risk management |
-| Latin America | Brazil · CMN Res. 4.893 / 5.274 | Continuous vulnerability management, testing and traceability |
-| Latin America | Chile · Law 21.663 | Risk management, periodic review and a record of decisions |
-| Latin America | Colombia · SFC, CE 007 of 2018 | Technical vulnerabilities, secure development and evidence for supervisors |
-| Latin America | Mexico · CNBV, banks (CUB) and crowdfunding (IFC) | Vulnerability tests, classification and remediation |
-| Latin America | Mexico · e-money institutions (IFPE) | Vulnerability scanning, remediation plan and code analysis before release |
-| Latin America | Mexico · LFPDPPP, Art. 18 | Technical security measures for personal data |
+| Latin America | Brazil: CMN Res. 4.893 / 5.274 | Continuous vulnerability management, testing and traceability |
+| Latin America | Chile: Law 21.663 | Risk management, periodic review and a record of decisions |
+| Latin America | Colombia: SFC, CE 007 of 2018 | Technical vulnerabilities, secure development and evidence for supervisors |
+| Latin America | Mexico: CNBV, banks (CUB) and crowdfunding (IFC) | Vulnerability tests, classification and remediation |
+| Latin America | Mexico: e-money institutions (IFPE) | Vulnerability scanning, remediation plan and code analysis before release |
+| Latin America | Mexico: LFPDPPP, Art. 18 | Technical security measures for personal data |
 | — | General | No framework: vulnerability management |
 
 **What the audit evidence contains.** A concise PDF with scope, method, the findings and their status, approved

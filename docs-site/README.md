@@ -43,10 +43,11 @@ Do not edit `src/content/docs/`. It is generated and ignored by Git.
 
 Every `dev`, `check`, and `build` command runs the sync first. When adding an English document, add its Spanish counterpart, its file name and its description in both languages in `scripts/pages.mjs` (the description is the page's meta description, 50 to 160 characters), and its place in the sidebar (`astro.config.mjs`). `scripts/check-sources.mjs` fails the build when a page has no counterpart, no description, more than one H1 or a title another page already uses.
 
-Two Markdown conventions work on GitHub and on the site:
+Three Markdown conventions work on GitHub and on the site:
 
 - GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`, `> [!CAUTION]`) become asides in the identity manual's state colours: note in info, tip in ok, warning in attention (orange) and caution in critical.
 - `<!-- screenshot: name | alt text -->` on its own line becomes a figure with `public/screenshots/name-light.png` and `name-dark.png`, following the reader's theme. While the images are missing the build leaves it out and `pnpm run dev` shows a placeholder. The list of captures, with routes and what each must show, is in [SCREENSHOTS.md](SCREENSHOTS.md).
+- GitHub renders a ```` ```mermaid ```` block; the site doesn't. Put `<!-- diagram: name | alt text | caption -->` on the line right before it, and the site shows `docs/assets/name-<locale>-light.svg` and `-dark.svg` (or `name-light.svg`/`name-dark.svg`) in its place, following the reader's theme. A Mermaid block without that line, or a missing SVG, fails the build. Draw the SVGs by hand in the identity's tokens, with `<title>`, `<desc>` and real `<text>`.
 
 The site follows the identity manual (`.claude/skills/pitangus-brand`) in `src/styles/custom.css`: IBM Plex Sans and Mono self-hosted through `@fontsource` (no font CDN), cool neutrals, ink text and links, sulphur only for the logo and the home page's primary action, and code blocks themed in `astro.config.mjs` with the same tokens. `public/og.png` is the image shared links show.
 

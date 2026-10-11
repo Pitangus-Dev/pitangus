@@ -4,35 +4,41 @@
 
 Pitangus son tres servicios: el **API** (FastAPI, sirve también el panel), uno o varios **workers** que ejecutan los
 análisis de la cola y las tareas periódicas, y **PostgreSQL**, donde vive todo el estado. Los motores de análisis corren
-como contenedores hermanos efímeros lanzados por el worker, con el código montado en solo lectura, sin capacidades y
-con límites de memoria, CPU y procesos. El API no tiene acceso a Docker.
+como contenedores hermanos efímeros lanzados por el worker (o como procesos dentro de la propia imagen del worker, en
+plataformas sin socket de Docker), con el código montado en solo lectura, sin capacidades y con límites de memoria, CPU
+y procesos. El API no tiene acceso a Docker.
 
+<!-- diagram: architecture | Arquitectura de Pitangus. El navegador llega al API por HTTPS (Caddy en un servidor) o por loopback. En tu servidor, el API y uno o varios workers comparten PostgreSQL, que guarda ejecuciones, hallazgos, la cola, la configuración y los secretos cifrados; la clave maestra solo es un archivo si PITANGUS_MASTER_KEY no está definida. El worker lanza los motores por el socket de Docker o los ejecuta dentro de la imagen worker-standalone: Trivy, OSV-Scanner, Gitleaks, Opengrep con 58 reglas propias, Checkov y zizmor para el código; Trivy y Grype para las imágenes; ZAP, katana, nuclei, testssl.sh, httpx y subfinder para sitios y APIs. Las conexiones salientes van al API de GitHub, a las fuentes de avisos (NVD, CISA KEV, EPSS, OSV, EUVD), a los registros de imágenes y los sitios verificados, y a Jira, Slack, Teams y webhooks. | Los servicios de tu servidor, los motores que lanza el worker y las conexiones que abre hacia fuera. -->
 ```mermaid
-flowchart LR
-  browser["Navegador<br/>panel React"] -- "HTTPS o loopback<br/>cookie HttpOnly + CSRF" --> api
+flowchart TB
+  browser["Navegador<br/>panel React"]
 
-  subgraph host["Tu máquina (Docker)"]
-    api["pitangus<br/>API · panel"]
-    worker["worker<br/>cola · tareas periódicas"]
-    db[("PostgreSQL<br/>ejecuciones · hallazgos · configuración")]
+  subgraph host["Tu servidor (Docker Compose)"]
+    api["API<br/>FastAPI y el panel<br/>sin acceso a Docker"]
+    db[("PostgreSQL<br/>ejecuciones, hallazgos, cola,<br/>configuración, secretos cifrados")]
+    worker["Worker, uno o varios<br/>cola de análisis y tareas periódicas"]
+    key["config/master.key<br/>solo sin PITANGUS_MASTER_KEY"]
     api --- db
     worker --- db
-    worker -- "socket de Docker" --> engines
-    subgraph engines["Motores efímeros (solo lectura, sin capacidades)"]
-      trivy["Trivy<br/>SCA · IaC · secretos"]
-      gitleaks["Gitleaks<br/>secretos"]
-      opengrep["Opengrep<br/>SAST, 58 reglas propias"]
-      checkov["Checkov<br/>IaC · pipelines"]
-      zizmor["zizmor<br/>GitHub Actions"]
+    db -.- key
+    subgraph engines["Motores: copia en solo lectura, sin capacidades, con límites de memoria, CPU y procesos"]
+      code["Código y dependencias<br/>Trivy, OSV-Scanner, Gitleaks,<br/>Opengrep (58 reglas), Checkov, zizmor"]
+      images["Imágenes de contenedor<br/>Trivy, Grype"]
+      web["Sitios y APIs<br/>ZAP, katana, nuclei,<br/>testssl.sh, httpx, subfinder"]
     end
-    config[("config/<br/>secretos cifrados")]
-    api --- config
-    worker --- config
+    worker -- "socket de Docker, o dentro<br/>de la imagen worker-standalone" --> engines
   end
 
-  worker -- "JWT de la App / token de instalación 1 h" --> github["api.github.com"]
-  worker -- "rangos de fechas" --> nvd["NVD"]
-  worker -- "feeds públicos" --> feeds["CISA KEV · EPSS"]
+  browser -- "HTTPS (Caddy en un servidor)<br/>o loopback" --> api
+
+  subgraph outbound["Solo conexiones salientes"]
+    github["API de GitHub<br/>App o token: repositorios, comentarios en PR"]
+    feeds["Datos de avisos<br/>NVD, CISA KEV, EPSS, OSV, EUVD,<br/>bases de los motores"]
+    targets["Registros de imágenes<br/>y tus sitios verificados"]
+    notify["Jira, Slack, Teams, webhooks"]
+  end
+
+  host --> outbound
 ```
 
 ## Estructura del código
@@ -67,18 +73,14 @@ pitangus/
 Los contextos también van por capas, y import-linter lo comprueba (`make arch`, exhaustivo: un contexto nuevo hay que
 colocarlo en alguna):
 
-```
-compliance | threats      consumidores: leen todo lo de abajo y nadie los importa
-reporting
-runs                      orquestación: trabajos, cola y los flujos que tocan varios contextos
-pullrequests
-scanning | findings       dominio: motores → lista de hallazgos; el registro y todo lo que se decide sobre un hallazgo
-sources                   base: qué se analiza, los clientes externos, el conocimiento de avisos, los usuarios
-integrations
-intel | identity
-```
+| Grupo | Contextos, de la capa de arriba a la de abajo |
+| --- | --- |
+| Consumidores: leen todo lo de abajo y nadie los importa | `compliance` y `threats` (hermanos), luego `reporting` |
+| Orquestación: trabajos, cola y los flujos que tocan varios contextos | `runs`, luego `pullrequests` |
+| Dominio: los motores producen la lista de hallazgos; el registro y todo lo que se decide sobre un hallazgo | `scanning` y `findings` (hermanos) |
+| Base: qué se analiza, los clientes externos, el conocimiento de avisos, los usuarios | `sources`, luego `integrations`, luego `intel` e `identity` (hermanos) |
 
-Cada contexto importa solo los de debajo, y los hermanos unidos por `|` no se conocen entre sí (también cuentan los
+Cada contexto importa solo los de debajo, y los hermanos de una misma capa (unidos por `|` en `pyproject.toml`) no se conocen entre sí (también cuentan los
 imports dentro de una función). Si un contexto de abajo necesita algo de uno de arriba, no lo importa: se lo conecta la
 raíz de composición (`app/wiring.py`, que la API, el worker y la CLI ejecutan una vez por proceso antes que nada). Hay
 dos herramientas, por este orden: inyectarle un lector (findings recibe el de ejecuciones, que dice cómo acabó una
@@ -137,7 +139,7 @@ plataformas sin socket. Las tareas periódicas van con el reloj del worker líde
 1. Pulsas **Analizar** o se abre un PR en un repositorio vigilado.
 2. La API encola el trabajo y responde al momento; el panel muestra el progreso en vivo.
 3. El trabajador pide a GitHub un token de instalación de una hora (en memoria) y descarga una instantánea del repositorio en `data/work/`.
-4. Se calcula el plan (lenguajes, reglas aplicables, manifiestos, IaC) y se lanzan los motores uno a uno: instantánea en solo lectura, `--cap-drop ALL`, `no-new-privileges`, 3 GB de memoria, 2 CPU y 512 procesos como máximo. Gitleaks, Opengrep, Checkov y zizmor van **sin red**; Trivy la necesita para descargar su base de vulnerabilidades (cacheada en `data/trivy-cache/`) y no envía nada del repositorio.
+4. Se calcula el plan (lenguajes, reglas aplicables, manifiestos, IaC) y se lanzan los motores uno a uno: instantánea en solo lectura, `--cap-drop ALL`, `no-new-privileges`, 3 GB de memoria, 2 CPU y 512 procesos como máximo. Gitleaks, Opengrep, Checkov y zizmor van **sin red**; Trivy y OSV-Scanner la necesitan para descargar sus bases de vulnerabilidades (la de Trivy se cachea en `data/trivy-cache/`) y no envían nada del repositorio.
 5. Los resultados se normalizan, se deduplican por huella estable, se enriquecen con KEV/EPSS y se incorporan al registro del repositorio: lo que ya no aparece queda **remediado**.
 6. Si era un PR, se publica un comentario único y un estado de commit según el umbral configurado.
 7. La instantánea se borra.

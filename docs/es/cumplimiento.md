@@ -94,19 +94,19 @@ correspondencia es orientativa.
 | Internacional | ISO/IEC 27001:2022 | A.8.8, A.8.9, A.8.28 y A.8.29 |
 | Internacional | PCI DSS 4.0.1 | Requisitos 6.2.4, 6.3.1, 6.3.2 (inventario) y 6.3.3 (parches en un mes) |
 | Unión Europea | Ciberresiliencia de la UE (CRA) | Anexo I, parte II (vulnerabilidades, SBOM, pruebas) y artículo 14 |
-| Unión Europea | NIS2 · Directiva (UE) 2022/2555 | Art. 21(2) y anexo técnico: desarrollo seguro, pruebas y vulnerabilidades |
-| Unión Europea | DORA · Reglamento (UE) 2022/2554 | Entidades financieras: riesgo TIC, pruebas y gestión de vulnerabilidades |
-| Unión Europea | RGPD · art. 32 | Seguridad del tratamiento: la parte técnica del software que trata datos personales |
-| Estados Unidos | NIST SSDF · SP 800-218 | Desarrollo de software seguro |
+| Unión Europea | NIS2, Directiva (UE) 2022/2555 | Art. 21(2) y anexo técnico: desarrollo seguro, pruebas y vulnerabilidades |
+| Unión Europea | DORA, Reglamento (UE) 2022/2554 | Entidades financieras: riesgo TIC, pruebas y gestión de vulnerabilidades |
+| Unión Europea | RGPD, art. 32 | Seguridad del tratamiento: la parte técnica del software que trata datos personales |
+| Estados Unidos | NIST SSDF, SP 800-218 | Desarrollo de software seguro |
 | Estados Unidos | NIST CSF 2.0 | Identificar y Proteger: inventario, vulnerabilidades, respuesta al riesgo y desarrollo seguro |
 | Estados Unidos | NIST SP 800-53 Rev. 5 | FedRAMP: análisis de vulnerabilidades, corrección de fallos y pruebas del desarrollador |
 | Estados Unidos | HIPAA, Regla de Seguridad | Salud: insumo para el análisis y la gestión de riesgos |
-| Latinoamérica | Brasil · Res. CMN 4.893 / 5.274 | Gestión continua de vulnerabilidades, pruebas y trazabilidad |
-| Latinoamérica | Chile · Ley 21.663 | Gestión de riesgos, revisión periódica y registro de decisiones |
-| Latinoamérica | Colombia · SFC, CE 007 de 2018 | Vulnerabilidades técnicas, desarrollo seguro y evidencia para supervisión |
-| Latinoamérica | México · CNBV, bancos (CUB) y financiamiento colectivo (IFC) | Pruebas de vulnerabilidades, clasificación y remediación |
-| Latinoamérica | México · fondos de pago electrónico (IFPE) | Escaneo de vulnerabilidades, plan de remediación y análisis de código antes de liberar |
-| Latinoamérica | México · LFPDPPP, art. 18 | Medidas de seguridad técnicas para datos personales |
+| Latinoamérica | Brasil: Res. CMN 4.893 / 5.274 | Gestión continua de vulnerabilidades, pruebas y trazabilidad |
+| Latinoamérica | Chile: Ley 21.663 | Gestión de riesgos, revisión periódica y registro de decisiones |
+| Latinoamérica | Colombia: SFC, CE 007 de 2018 | Vulnerabilidades técnicas, desarrollo seguro y evidencia para supervisión |
+| Latinoamérica | México: CNBV, bancos (CUB) y financiamiento colectivo (IFC) | Pruebas de vulnerabilidades, clasificación y remediación |
+| Latinoamérica | México: fondos de pago electrónico (IFPE) | Escaneo de vulnerabilidades, plan de remediación y análisis de código antes de liberar |
+| Latinoamérica | México: LFPDPPP, art. 18 | Medidas de seguridad técnicas para datos personales |
 | — | General | Sin marco: gestión de vulnerabilidades |
 
 **Qué contiene la evidencia de auditoría.** Un PDF conciso con alcance, método, los hallazgos con su estado, las

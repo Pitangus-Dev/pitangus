@@ -10,7 +10,7 @@ All of Pitangus runs in Docker. The `Makefile` at the repository root wraps the 
 | --- | --- | --- |
 | Docker Engine | 24 or later | [Docker Desktop](https://docs.docker.com/get-docker/), [OrbStack](https://orbstack.dev) (macOS) or `docker-ce` on Linux |
 | Docker Compose | v2.24 or later | Included with Docker Desktop and OrbStack; on Linux, the `docker-compose-plugin` package |
-| make | any version (including macOS's 3.81) | macOS: already there (or `xcode-select --install`) · Debian/Ubuntu: `sudo apt install make` · Fedora: `sudo dnf install make` · Windows: inside WSL2 |
+| make | any version (including macOS's 3.81) | macOS: already there (or `xcode-select --install`); Debian/Ubuntu: `sudo apt install make`; Fedora: `sudo dnf install make`; Windows: inside WSL2 |
 | git | any version | To clone and for `make update` |
 
 You **don't** need Python or Node to use it, only to develop it (`make dev-setup`).
@@ -60,8 +60,8 @@ It works the same on macOS (Apple Silicon and Intel), Linux, and Windows with WS
 | `make cli ARGS="…"` | The app's CLI, e.g. `make cli ARGS="user list"` or `make cli ARGS="user reset-totp --username ana"`. |
 | `make clean` | Stops everything and removes Pitangus's images. |
 | `make purge CONFIRM=delete` | **Deletes `data/` and `config/`**: runs, users and secrets. |
-| `make dev-setup` · `make dev` | Development environment without containers (see [development.md](development.md)). |
-| `make test` · `make lint` · `make check` | Backend tests, panel lint, and both. |
+| `make dev-setup`, `make dev` | Development environment without containers (see [development.md](development.md)). |
+| `make test`, `make lint`, `make check` | Backend tests, panel lint, and both. |
 | `make standalone` | Regenerates `deploy/compose.yaml`, the one-file deployment ([deploy.md](deploy.md)). |
 
 Without `make`, the same with Compose: `sh scripts/init-env.sh && docker compose up --build -d`.
