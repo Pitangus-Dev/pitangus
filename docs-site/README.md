@@ -83,7 +83,7 @@ node scripts/serve-dist.mjs   # http://localhost:4323, with dist/_headers applie
 
 The landing is an independent deployment at `https://pitangus.dev/`; the documentation lives at `https://docs.pitangus.dev/`, so neither owns a path in the other. Both are Cloudflare Workers that only serve static files (`wrangler.jsonc`: no `*.workers.dev` address, no preview URLs, `404.html` for missing pages), which is what makes `_headers` apply.
 
-`.github/workflows/docs.yml` keeps validating the site on pull requests and pushes, and can still publish to GitHub Pages by hand until the switch.
+Cloudflare Workers Builds publishes `docs.pitangus.dev` from `main` (set up as below on 2026-10-11). `.github/workflows/docs.yml` only validates the site on pull requests and pushes; GitHub Pages is retired.
 
 ### Move docs.pitangus.dev to Cloudflare
 
