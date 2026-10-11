@@ -37,14 +37,14 @@ export function TargetStep({ value, onChange, spec, onSpec, specInvalid, onBack,
     {domains.isPending ? <SkeletonList rows={3} dense label={t('target.loading')} />
       : domains.isError ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{domains.error.message}
           <Button size="xs" variant="outline" onClick={() => void domains.refetch()}>{t('common:actions.retry')}</Button></div>
-      : !items.length ? <div className="flex flex-col items-center gap-3 py-12 text-center">
+      : !items.length ? <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
           <GlobeIcon className="size-6 text-app-muted" aria-hidden /><p className="text-sm text-app-muted">{t('target.empty')}</p>{addButton}</div>
       : <div className="space-y-2">
           <div role="radiogroup" aria-labelledby="wizard-step-title" className="divide-y divide-app-line rounded-xl border border-app-line">{items.map(domain => {
             const on = selected?.id === domain.id
             const state = verification(domain)
             return <div key={domain.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 text-sm first:rounded-t-lg last:rounded-b-lg motion-safe:transition ${on ? 'bg-app-soft' : ''}`}>
-              <label className={`flex min-w-0 flex-1 items-center gap-3 ${domain.verified ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+              <label className={`flex min-w-0 flex-1 basis-56 items-center gap-3 ${domain.verified ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                 <input type="radio" name="web-target" value={domain.id} checked={on} disabled={!domain.verified} onChange={() => pick(domain)} className="size-4 accent-brand" />
                 <span className={`min-w-0 truncate font-medium ${domain.verified ? '' : 'text-app-muted'}`}>{domain.host}</span>
                 <span className="shrink-0 text-xs text-app-muted">{kindOf(domain)}</span>

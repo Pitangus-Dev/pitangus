@@ -142,7 +142,7 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
                 <td className="px-4 py-3 text-xs leading-5 text-app-muted"><span className="line-clamp-2">{item.description}</span></td>
               </tr>)}</tbody>
             </table>
-            {!page.items.length && <div className="flex flex-col items-center gap-2 py-12 text-center"><MagnifyingGlassIcon className="size-6 text-app-subtle" /><p className="font-medium">{filters.mine && !mineTotal ? t('empty.mine_title') : t('empty.title')}</p><p className="max-w-sm text-sm text-app-muted">{filters.mine && !mineTotal ? t('empty.mine_none') : filters.mine ? t('empty.mine_filtered') : overview?.count ? t('empty.fewer_words') : t('empty.downloading')}</p></div>}
+            {!page.items.length && <div className="flex flex-col items-center gap-2 px-4 py-12 text-center"><MagnifyingGlassIcon className="size-6 text-app-subtle" /><p className="font-medium">{filters.mine && !mineTotal ? t('empty.mine_title') : t('empty.title')}</p><p className="max-w-sm text-sm text-app-muted">{filters.mine && !mineTotal ? t('empty.mine_none') : filters.mine ? t('empty.mine_filtered') : overview?.count ? t('empty.fewer_words') : t('empty.downloading')}</p></div>}
           </div>}
         {page && page.total > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-app-line px-4 py-2.5 text-xs text-app-subtle">
           <span className="tabular-nums">{t('pagination.showing', { from: formatNumber(page.offset + 1), to: formatNumber(Math.min(page.offset + page.limit, page.total)), total: formatNumber(page.total) })}</span>

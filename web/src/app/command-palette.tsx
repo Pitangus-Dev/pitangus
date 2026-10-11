@@ -139,7 +139,7 @@ function PaletteBody({ admin, onOpenChange, onView, onImport, onAddDomain, onHel
       <input id={inputId} autoFocus value={text} onChange={event => { setText(event.target.value); setActiveId(null) }} onKeyDown={onKeyDown}
         role="combobox" aria-expanded="true" aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeOption}
         data-bare placeholder={t('palette.placeholder')} autoComplete="off" spellCheck={false}
-        className="h-12 min-w-0 flex-1 bg-transparent text-sm text-app-fg placeholder:text-app-subtle" />
+        className="h-12 min-w-0 flex-1 bg-transparent text-base text-app-fg placeholder:text-app-subtle sm:text-sm" />
     </div>
     <div id={listId} role="listbox" aria-label={t('palette.results')} className="min-h-0 flex-1 overflow-y-auto p-2">
       {groups.map(group => <div key={group.id} role="group" aria-labelledby={`${listId}-${group.id}-label`} className="py-1">
@@ -149,9 +149,10 @@ function PaletteBody({ admin, onOpenChange, onView, onImport, onAddDomain, onHel
           return <div key={item.id} id={optionId(item)} role="option" aria-selected={selected}
             onPointerMove={() => { if (!selected) setActiveId(item.id) }} onPointerDown={event => event.preventDefault()} onClick={item.run}
             className={`flex min-h-8 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm ${selected ? 'bg-app-soft text-app-fg ring-1 ring-app-faint' : 'text-app-secondary'}`}>
-            <span className="min-w-0 flex-1 truncate">{item.label}{item.opensDialog && '…'}</span>
+            {/* On a phone the hint goes under the label (no room beside it) and key hints are dropped: there is no keyboard. */}
+            <span className="min-w-0 flex-1"><span className="block truncate">{item.label}{item.opensDialog && '…'}</span>{item.hint && <span className="block truncate text-xs text-app-subtle sm:hidden">{item.hint}</span>}</span>
             {item.hint && <span className="hidden max-w-[45%] truncate text-xs text-app-subtle sm:block">{item.hint}</span>}
-            {item.keys && <Keys keys={item.keys} />}
+            {item.keys && <Keys keys={item.keys} className="max-sm:hidden" />}
           </div>
         })}
       </div>)}

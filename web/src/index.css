@@ -282,7 +282,7 @@
 
 /* Inside the chrome the ground is ink in both themes: focus is sulphur (10.6:1 light, 11.7:1 dark) and the attention
    dot takes its dark-theme orange (≥ 3:1 on ink). */
-[data-chrome] { --focus: var(--chrome-active); --attention: #F5A35C; color: var(--on-chrome); }
+[data-chrome] { --focus: var(--chrome-active); --attention: #F5A35C; color: var(--on-chrome); color-scheme: dark; }
 
 html { background: var(--app-bg); color-scheme: light; }
 html.dark { color-scheme: dark; }

@@ -52,7 +52,7 @@ export function TypeChooser({ choice, onChoose, onContinue, onImport, onCancel, 
             <card.icon aria-hidden className="ml-auto size-4 text-app-subtle" />
           </div>
           <p id={`kind-${card.id}-line`} className="mt-2 text-sm text-app-muted">{disabled ? t('chooser.off') : t(card.line)}</p>
-          {points.length > 0 && <ul id={`kind-${card.id}-points`} className="mt-3 space-y-1 border-t border-app-line pt-3 text-sm text-app-secondary">{points.map(point =>
+          {points.length > 0 && <ul id={`kind-${card.id}-points`} className={`mt-3 space-y-1 border-t border-app-line pt-3 text-sm text-app-secondary ${selected ? '' : 'max-sm:hidden'}`}>{points.map(point =>
             <li key={point} className="flex gap-2"><span aria-hidden className="text-app-faint">–</span>{point}</li>)}</ul>}
         </div>
       })}

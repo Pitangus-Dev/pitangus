@@ -73,7 +73,7 @@ export function Domain({ domainId, tab, onTab, user, onBack, onNewScan, onOpenRu
       </div>
     </div>
     <Tabs value={tabs.some(item => item.id === tab) ? tab : 'overview'} onValueChange={value => onTab(value as DomainTab)}>
-      <div className="overflow-x-auto border-b border-app-line"><TabsList variant="line" aria-label={t('domains.page.tabs_label')}>
+      <div className="overflow-x-auto border-b border-app-line [scrollbar-width:none]"><TabsList variant="line" aria-label={t('domains.page.tabs_label')}>
         {tabs.map(item => <TabsTrigger key={item.id} value={item.id} className="min-h-8 px-3">{t(item.label)}</TabsTrigger>)}
       </TabsList></div>
       <TabsContent value="overview" className="pt-6">

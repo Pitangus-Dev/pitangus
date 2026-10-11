@@ -58,7 +58,7 @@ export function RepositoriesStep({ value, onChange, orgTotal, isAdmin, batchBusy
           </li>)}</ul>
           <Button variant="outline" onClick={() => setPicking(true)}><PlusIcon aria-hidden />{t('repos.add_more')}</Button>
         </div>
-      : <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-app-line py-12 text-center">
+      : <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-app-line px-4 py-12 text-center">
           <CodeIcon className="size-6 text-app-muted" aria-hidden /><p className="text-sm font-medium">{t('repos.empty_title')}</p>
           <p className="max-w-sm text-sm text-app-muted">{t('repos.empty_text')}</p>
           <Button variant="outline" onClick={() => setPicking(true)}><PlusIcon aria-hidden />{t('repos.add')}</Button>
