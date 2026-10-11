@@ -1,73 +1,18 @@
+import { execFile } from 'node:child_process'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
+import { descriptions, spanishNames } from './pages.mjs'
 
 const siteRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const repositoryRoot = path.resolve(siteRoot, '..')
 const docsRoot = path.join(repositoryRoot, 'docs')
 const generatedRoot = path.join(siteRoot, 'src', 'content', 'docs')
 const repositoryUrl = 'https://github.com/Pitangus-Dev/pitangus'
-
-const spanishNames = {
-  'arquitectura.md': 'architecture.md',
-  'avisos-de-terceros.md': 'third-party-notices.md',
-  'configuracion.md': 'configuration.md',
-  'contenedores.md': 'containers.md',
-  'desarrollo.md': 'development.md',
-  'despliegue-vps.md': 'deploy-vps.md',
-  'despliegue.md': 'deploy.md',
-  'escalar.md': 'scaling.md',
-  'funcionalidades.md': 'features.md',
-  'inicio-rapido.md': 'quickstart.md',
-  'instalacion.md': 'installation.md',
-  'integraciones.md': 'integrations.md',
-  'marca.md': 'brand.md',
-  'seguridad.md': 'security.md',
-  'solucion-problemas.md': 'troubleshooting.md',
-}
-
-const descriptions = {
-  en: {
-    architecture: 'How the FastAPI API, React panel, workers, PostgreSQL, scan engines, and modular-monolith boundaries fit together.',
-    brand: 'Pitangus name, logo, color palette, mascot, and editorial voice.',
-    cli: 'Run Pitangus from the terminal and CI, understand exit codes, and export SARIF.',
-    configuration: 'Reference for every supported Pitangus environment variable.',
-    containers: 'Docker Compose services, Make targets, images, resource limits, and hardening.',
-    contributing: 'How to propose changes, meet quality checks, sign the CLA, and work with the project community.',
-    development: 'Set up a development environment, run the backend and panel, update OpenAPI, and execute checks.',
-    deploy: 'Choose a supported deployment model and configure workers, storage, and periodic tasks.',
-    'deploy-vps': 'Deploy Pitangus on a dedicated VPS with HTTPS, backups, monitoring, and safe upgrades.',
-    scaling: 'What one worker does, how to add workers on one or several machines, scanning in CI, sizing, and current limits.',
-    features: 'Verified capabilities of the Pitangus panel, scanners, finding lifecycle, compliance, and threat modeling.',
-    'github-app': 'Create and connect the least-privilege GitHub App used for repositories and pull request reviews.',
-    installation: 'Requirements, first start, upgrades, backups, restoration, and uninstalling.',
-    integrations: 'Connect GitHub, CI, Jira, Slack, Teams, webhooks, and periodic automation without exposing secrets.',
-    quickstart: 'Install Pitangus, create the first administrator, run the demo, and verify a finding.',
-    security: 'Secret storage, authentication, network boundaries, outbound traffic, and known security trade-offs.',
-    'third-party-notices': 'Licenses and provenance for scan engines, advisory data, and bundled dependencies.',
-    troubleshooting: 'Diagnose common startup, engine, permission, authentication, and localization problems.',
-  },
-  es: {
-    architecture: 'Cómo encajan la API en FastAPI, el panel en React, los workers, PostgreSQL, los motores y los límites del monolito modular.',
-    brand: 'Nombre, logo, paleta de color, mascota y voz editorial de Pitangus.',
-    cli: 'Ejecuta Pitangus desde la terminal y CI, entiende los códigos de salida y exporta SARIF.',
-    configuration: 'Referencia de todas las variables de entorno compatibles con Pitangus.',
-    containers: 'Servicios de Docker Compose, objetivos de Make, imágenes, límites de recursos y endurecimiento.',
-    contributing: 'Cómo proponer cambios, cumplir las verificaciones, firmar el CLA y participar en la comunidad.',
-    development: 'Prepara el entorno de desarrollo, ejecuta backend y panel, actualiza OpenAPI y corre las verificaciones.',
-    deploy: 'Elige un modelo de despliegue compatible y configura workers, almacenamiento y tareas periódicas.',
-    'deploy-vps': 'Despliega Pitangus en un VPS dedicado con HTTPS, copias, monitorización y actualizaciones seguras.',
-    scaling: 'Qué hace un worker, cómo añadir workers en una o varias máquinas, analizar en CI, dimensionar y los límites actuales.',
-    features: 'Capacidades verificadas del panel, los motores, el ciclo de los hallazgos, cumplimiento y amenazas.',
-    'github-app': 'Crea y conecta la GitHub App de privilegios mínimos para repositorios y revisiones de pull requests.',
-    installation: 'Requisitos, primer arranque, actualizaciones, copias, restauración y desinstalación.',
-    integrations: 'Conecta GitHub, CI, Jira, Slack, Teams, webhooks y automatización periódica sin exponer secretos.',
-    quickstart: 'Instala Pitangus, crea la primera cuenta administradora, ejecuta la demo y verifica un hallazgo.',
-    security: 'Secretos, autenticación, límites de red, tráfico saliente y concesiones de seguridad conocidas.',
-    'third-party-notices': 'Licencias y procedencia de los motores, los datos de avisos y las dependencias incluidas.',
-    troubleshooting: 'Diagnostica problemas frecuentes de arranque, motores, permisos, autenticación e idioma.',
-  },
-}
+const screenshotsRoot = path.join(siteRoot, 'public', 'screenshots')
+// `--placeholders` (the dev server) marks where a missing screenshot goes; a build simply leaves it out.
+const placeholders = process.argv.includes('--placeholders')
 
 const yaml = (value) => JSON.stringify(value)
 const slash = (value) => value.split(path.sep).join('/')
@@ -134,21 +79,111 @@ async function rewriteLinks(markdown, source, output) {
   return result + markdown.slice(cursor)
 }
 
+const run = promisify(execFile)
+
+async function lastCommitDate(source) {
+  try {
+    const { stdout } = await run('git', ['log', '-1', '--format=%cs', '--', source], { cwd: repositoryRoot })
+    return stdout.trim() || null
+  } catch {
+    return null
+  }
+}
+
+// Outside fenced code, so a sample that shows the syntax stays as written.
+function outsideCode(markdown, transform) {
+  return markdown.split(/(^```[\s\S]*?^```)/m).map((part, index) => (index % 2 ? part : transform(part))).join('')
+}
+
+// GitHub alerts (`> [!NOTE]`) render on GitHub and become Starlight asides here.
+const ASIDES = { NOTE: 'note', IMPORTANT: 'note', TIP: 'tip', WARNING: 'caution', CAUTION: 'danger' }
+function convertAlerts(markdown) {
+  return markdown.replace(/^> \[!(NOTE|IMPORTANT|TIP|WARNING|CAUTION)\][^\n]*\n((?:>[^\n]*\n?)*)/gm, (_, kind, body) => {
+    const text = body.split('\n').map((line) => line.replace(/^> ?/, '')).join('\n').trim()
+    return `:::${ASIDES[kind]}\n${text}\n:::\n`
+  })
+}
+
+const escapeHtml = (value) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+
+// `<!-- screenshot: name | alt text -->` shows docs-site/public/screenshots/name-{light,dark}.png following the theme.
+// A missing image is left out of a build, so the site never shows a broken picture.
+async function convertScreenshots(markdown, assetPrefix, locale) {
+  const matches = [...markdown.matchAll(/^<!--\s*screenshot:\s*([a-z0-9-]+)\s*\|\s*(.+?)\s*-->$/gm)]
+  let result = markdown
+  for (const [whole, name, alt] of matches) {
+    const variants = {}
+    for (const theme of ['light', 'dark']) {
+      if (await exists(path.join(screenshotsRoot, `${name}-${theme}.png`))) variants[theme] = `${assetPrefix}screenshots/${name}-${theme}.png`
+    }
+    const light = variants.light ?? variants.dark
+    const dark = variants.dark ?? variants.light
+    let html = ''
+    if (light) {
+      const image = (src, hiddenIn) => `<img class="${hiddenIn}:sl-hidden" src="${src}" alt="${escapeHtml(alt)}" width="1440" height="900" loading="lazy" decoding="async">`
+      html = light === dark
+        ? `<figure class="screenshot"><img src="${light}" alt="${escapeHtml(alt)}" width="1440" height="900" loading="lazy" decoding="async"></figure>`
+        : `<figure class="screenshot">${image(light, 'dark')}${image(dark, 'light')}</figure>`
+    } else if (placeholders) {
+      const label = locale === 'es' ? 'Captura pendiente' : 'Screenshot pending'
+      html = `<figure class="screenshot screenshot--pending"><figcaption><strong>${label}: ${name}</strong> ${escapeHtml(alt)}</figcaption></figure>`
+    }
+    result = result.replace(whole, () => html)
+  }
+  return result
+}
+
+// GitHub renders Mermaid; the site doesn't, so a ```mermaid block must be preceded by
+// `<!-- diagram: name | alt text | caption -->` and is replaced by docs/assets/name-<locale>-{light,dark}.svg
+// (or name-{light,dark}.svg), following the theme. The Mermaid source stays the one GitHub shows.
+async function convertDiagrams(markdown, assetPrefix, locale, source) {
+  const where = path.relative(repositoryRoot, source)
+  const pattern = /^<!--\s*diagram:\s*([a-z0-9-]+)\s*\|\s*([^|]+?)\s*\|\s*(.+?)\s*-->\n```mermaid\n[\s\S]*?^```$/gm
+  let result = markdown
+  for (const [whole, name, alt, caption] of [...markdown.matchAll(pattern)]) {
+    const files = {}
+    for (const theme of ['light', 'dark']) {
+      for (const file of [`${name}-${locale}-${theme}.svg`, `${name}-${theme}.svg`]) {
+        if (!files[theme] && await exists(path.join(docsRoot, 'assets', file))) files[theme] = file
+      }
+      if (!files[theme]) throw new Error(`Missing docs/assets/${name}-${locale}-${theme}.svg for the diagram in ${where}`)
+    }
+    const { width, height } = await svgSize(path.join(docsRoot, 'assets', files.light))
+    const image = (file, hiddenIn) => `<img class="${hiddenIn}:sl-hidden" src="${assetPrefix}assets/${file}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="lazy" decoding="async">`
+    const html = `<figure class="diagram"><div class="diagram__frame" tabindex="0" role="region" aria-labelledby="diagram-${name}">${image(files.light, 'dark')}${image(files.dark, 'light')}</div><figcaption id="diagram-${name}">${escapeHtml(caption)}</figcaption></figure>`
+    result = result.replace(whole, () => html)
+  }
+  if (/^```mermaid$/m.test(result)) throw new Error(`A Mermaid block in ${where} has no <!-- diagram: name | alt | caption --> line before it`)
+  return result
+}
+
+async function svgSize(file) {
+  const viewBox = (await readFile(file, 'utf8')).match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/)
+  if (!viewBox) throw new Error(`${path.relative(repositoryRoot, file)} has no viewBox`)
+  return { width: Math.round(Number(viewBox[1])), height: Math.round(Number(viewBox[2])) }
+}
+
 async function prepareMarkdown(source, output, locale) {
   let markdown = (await readFile(source, 'utf8')).replace(/\r\n/g, '\n')
   markdown = markdown.replace(/^(?:English\b.*|\[English\].*)\n+/, '')
   const heading = markdown.match(/^#\s+(.+)$/m)
   if (!heading) throw new Error(`Missing H1 in ${path.relative(repositoryRoot, source)}`)
-  const title = heading[1].trim()
+  // The title is plain text (the <title>, the sidebar, search results): no Markdown code marks.
+  const title = heading[1].replaceAll('`', '').trim()
   markdown = `${markdown.slice(0, heading.index)}${markdown.slice(heading.index + heading[0].length)}`.replace(/^\n+/, '')
   const assetPrefix = '../'.repeat(routeFor(output).split('/').filter(Boolean).length)
   markdown = markdown.replace(/(<img\s+[^>]*src=["'])\.\.\/assets\//g, `$1${assetPrefix}assets/`)
   markdown = markdown.replace(/(<img\s+[^>]*src=["'])assets\//g, `$1${assetPrefix}assets/`)
   markdown = await rewriteLinks(markdown, source, output)
+  markdown = await convertDiagrams(markdown, assetPrefix, locale, source)
+  markdown = outsideCode(markdown, convertAlerts)
+  markdown = await convertScreenshots(markdown, assetPrefix, locale)
   const slug = path.basename(output).replace(/\.md$/, '')
-  const description = descriptions[locale][slug] ?? descriptions[locale].features
+  const description = descriptions[locale][slug]
+  if (!description) throw new Error(`Missing ${locale} description for "${slug}" in scripts/pages.mjs`)
   const sourceUrl = `${repositoryUrl}/edit/main/${slash(path.relative(repositoryRoot, source))}`
-  return `---\ntitle: ${yaml(title)}\ndescription: ${yaml(description)}\neditUrl: ${yaml(sourceUrl)}\n---\n\n${markdown.trim()}\n`
+  const updated = await lastCommitDate(source)
+  return `---\ntitle: ${yaml(title)}\ndescription: ${yaml(description)}\neditUrl: ${yaml(sourceUrl)}\n${updated ? `lastUpdated: ${updated}\n` : ''}---\n\n${markdown.trim()}\n`
 }
 
 function schemaName(schema) {
@@ -226,6 +261,10 @@ function generateApi(spec, locale) {
   return `${lines.join('\n')}\n`
 }
 
+// A shallow clone (a CI default) knows only its newest commit, so every page would show that commit's date.
+const shallow = await run('git', ['rev-parse', '--is-shallow-repository'], { cwd: repositoryRoot }).then(({ stdout }) => stdout.trim() === 'true', () => false)
+if (shallow) console.warn('Warning: shallow git clone; every "Last updated" date will be the newest commit\'s. Run `git fetch --unshallow` first.')
+
 await rm(generatedRoot, { recursive: true, force: true })
 await mkdir(generatedRoot, { recursive: true })
 
@@ -248,6 +287,14 @@ for (const [locale, sourceName] of [['en', 'CONTRIBUTING.md'], ['es', 'CONTRIBUT
   await writeFile(path.join(generatedRoot, output), await prepareMarkdown(source, output, locale))
 }
 
+// The changelog is written in English only; the Spanish page says so and shows the same text.
+const changelog = path.join(repositoryRoot, 'CHANGELOG.md')
+await writeFile(path.join(generatedRoot, 'changelog.md'), await prepareMarkdown(changelog, 'changelog.md', 'en'))
+const spanishChangelog = (await prepareMarkdown(changelog, 'es/changelog.md', 'es'))
+  .replace(/^title: .*$/m, `title: ${yaml('Historial de cambios')}`)
+  .replace(/^---\n\n/m, '---\n\n:::note\nEl historial de cambios se publica solo en inglés, tal como lo escribe el proyecto en cada versión.\n:::\n\n')
+await writeFile(path.join(generatedRoot, 'es', 'changelog.md'), spanishChangelog)
+
 await cp(path.join(siteRoot, 'content'), generatedRoot, { recursive: true })
 await cp(path.join(docsRoot, 'assets'), path.join(generatedRoot, 'assets'), { recursive: true })
 
@@ -262,7 +309,9 @@ await mkdir(path.join(siteRoot, 'public'), { recursive: true })
 await mkdir(path.join(siteRoot, 'src', 'assets'), { recursive: true })
 await rm(path.join(siteRoot, 'public', 'openapi.json'), { force: true })
 await cp(path.join(docsRoot, 'assets'), path.join(siteRoot, 'public', 'assets'), { recursive: true })
-await cp(path.join(docsRoot, 'assets', 'pitangus.svg'), path.join(siteRoot, 'src', 'assets', 'pitangus.svg'))
+for (const logo of ['pitangus-logo.svg', 'pitangus-icon.svg']) {
+  await cp(path.join(repositoryRoot, 'web', 'public', 'assets', logo), path.join(siteRoot, 'src', 'assets', logo))
+}
 await cp(path.join(repositoryRoot, 'web', 'public', 'assets', 'favicon.svg'), path.join(siteRoot, 'public', 'favicon.svg'))
 
 console.log(`Synced documentation into ${path.relative(repositoryRoot, generatedRoot)}`)

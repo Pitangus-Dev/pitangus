@@ -7884,7 +7884,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Web scans off on this server, or a discovery already queued or running */
+            /** @description Web scans off on this server, a demo domain, or a discovery already queued or running */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7953,7 +7953,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Web scans off, domain not verified, a host private, subdomains without a DNS proof, no saved headers, a test user signing in outside the scope, or one already running */
+            /** @description Web scans off, a demo domain, domain not verified, a host private, subdomains without a DNS proof, no saved headers, a test user signing in outside the scope, or one already running */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -10,7 +10,7 @@ Todo Pitangus corre en Docker. El `Makefile` de la raíz envuelve los comandos d
 | --- | --- | --- |
 | Docker Engine | 24 o superior | [Docker Desktop](https://docs.docker.com/get-docker/), [OrbStack](https://orbstack.dev) (macOS) o `docker-ce` en Linux |
 | Docker Compose | v2.24 o superior | Viene con Docker Desktop y OrbStack; en Linux, el paquete `docker-compose-plugin` |
-| make | cualquiera (también la 3.81 de macOS) | macOS: ya viene (o `xcode-select --install`) · Debian/Ubuntu: `sudo apt install make` · Fedora: `sudo dnf install make` · Windows: dentro de WSL2 |
+| make | cualquiera (también la 3.81 de macOS) | macOS: ya viene (o `xcode-select --install`); Debian/Ubuntu: `sudo apt install make`; Fedora: `sudo dnf install make`; Windows: dentro de WSL2 |
 | git | cualquiera | Para clonar y para `make update` |
 
 Python y Node **no** hacen falta para usarlo: solo para desarrollar (`make dev-setup`).
@@ -44,7 +44,7 @@ Funciona igual en macOS (Apple Silicon e Intel), Linux y Windows con WSL o Git B
 | `make setup` | Solo crea `.env` y las carpetas; no toca un `.env` existente. `make setup PREBUILT=1` usa las imágenes publicadas en lugar de construirlas. En un servidor, `make setup DOMAIN=pitangus.example.com [PREBUILT=1]` lo pasa a HTTPS con Caddy (y a las imágenes publicadas): mira [despliegue-vps.md](despliegue-vps.md). |
 | `make build` | Construye las imágenes de la app y de Opengrep. |
 | `make up` | Construye si hace falta, arranca, descarga los motores que falten y muestra URL y código. |
-| `make demo` | Analiza los ejemplos vulnerables del repositorio e importa un modelo de amenazas, para probar sin conectar nada. `IMAGE=nginx:1.21` añade una imagen. |
+| `make demo` | Analiza los ejemplos vulnerables del repositorio e importa un modelo de amenazas, para probar sin conectar nada. `IMAGE=nginx:1.21` añade una imagen; `FULL=1` añade una organización inventada (Lapis Labs) que llena todas las vistas, sin conexión. |
 | `make down` | Para y elimina los contenedores. `data/` y `config/` se conservan. |
 | `make restart` | Reinicia la app. Los análisis en curso se marcan como fallidos. |
 | `make status` | Estado de los contenedores y de las imágenes de los motores. |
@@ -60,8 +60,8 @@ Funciona igual en macOS (Apple Silicon e Intel), Linux y Windows con WSL o Git B
 | `make cli ARGS="…"` | CLI de la app, p. ej. `make cli ARGS="user list"` o `make cli ARGS="user reset-totp --username ana"`. |
 | `make clean` | Para todo y borra las imágenes de Pitangus. |
 | `make purge CONFIRM=delete` | **Borra `data/` y `config/`**: ejecuciones, usuarios y secretos. |
-| `make dev-setup` · `make dev` | Entorno de desarrollo sin contenedor (ver [desarrollo.md](desarrollo.md)). |
-| `make test` · `make lint` · `make check` | Pruebas del backend, lint del panel y ambos. |
+| `make dev-setup`, `make dev` | Entorno de desarrollo sin contenedor (ver [desarrollo.md](desarrollo.md)). |
+| `make test`, `make lint`, `make check` | Pruebas del backend, lint del panel y ambos. |
 | `make standalone` | Regenera `deploy/compose.yaml`, el despliegue en un solo archivo ([despliegue.md](despliegue.md)). |
 
 Sin `make`, lo mismo con Compose: `sh scripts/init-env.sh && docker compose up --build -d`.

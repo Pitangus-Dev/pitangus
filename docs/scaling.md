@@ -92,4 +92,4 @@ of zero means nothing gets scanned.
   is planned, as is giving pull request reviews priority over full scans.
 - **Autoscaling manifests.** The metrics are there; the Kubernetes/KEDA examples aren't.
 - **A measured benchmark.** The sizing table is derived, not measured.
-- **Dynamic testing.** Scans never run or attack your applications; see [features.md](features.md#what-pitangus-covers-and-what-it-doesnt).
+- **Active dynamic testing.** Scans never attack your applications: web scans are passive and run one at a time per installation; see [Scan a website or API](scanning-web.md) and [what Pitangus covers](overview.md#what-pitangus-covers-and-what-it-doesnt).

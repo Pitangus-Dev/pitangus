@@ -1,49 +1,43 @@
 ---
 title: Documentación de Pitangus
-description: Instala, configura, opera, integra y contribuye a Pitangus con documentación fundamentada en el código fuente.
+description: Instala Pitangus, la plataforma de seguridad de aplicaciones autoalojada y de código abierto; analiza código, imágenes, sitios web y APIs y haz triage.
 template: splash
 editUrl: https://github.com/Pitangus-Dev/pitangus/edit/main/docs-site/content/es/index.mdx
 hero:
-  title: Vigila cada cambio. Demuestra cada corrección.
-  tagline: Documentación técnica de Pitangus, la plataforma de seguridad de aplicaciones autoalojada y de código abierto para equipos pequeños.
+  title: Documentación de Pitangus
+  tagline: Pitangus es una plataforma de seguridad de aplicaciones autoalojada y de código abierto. Analiza tu código, dependencias, imágenes de contenedor, sitios web y APIs con motores de código abierto, reúne los hallazgos en un solo registro y vuelve a comprobar que una corrección de verdad los cerró.
+  image:
+    html: '<img class="hero-shot dark:sl-hidden" src="../screenshots/overview-light.png" alt="La vista general del panel de Pitangus: cifras clave, hallazgos nuevos por día según severidad y hallazgos abiertos por severidad" width="1440" height="900" decoding="async" fetchpriority="high"><img class="hero-shot light:sl-hidden" src="../screenshots/overview-dark.png" alt="La vista general del panel de Pitangus: cifras clave, hallazgos nuevos por día según severidad y hallazgos abiertos por severidad" width="1440" height="900" decoding="async" fetchpriority="high">'
   actions:
-    - text: Empieza en cinco minutos
+    - text: Empezar el inicio rápido
       link: ./quickstart/
-      icon: right-arrow
       variant: primary
-    - text: Ver en GitHub
+    - text: Qué hace Pitangus
+      link: ./overview/
+      variant: secondary
+    - text: Código en GitHub
       link: https://github.com/Pitangus-Dev/pitangus
       icon: external
-      variant: secondary
+      variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components'
+## Por dónde empezar
 
-Pitangus analiza repositorios e imágenes de contenedor sin ejecutar su código. Combina motores de código abierto, prioriza los hallazgos con inteligencia de explotación, explica cómo corregirlos, verifica la corrección y conserva evidencia para tu equipo.
+<ul class="paths">
+  <li><a href="./overview/">Vista general</a><p>Qué analiza Pitangus, qué deja fuera y un recorrido por el panel.</p></li>
+  <li><a href="./quickstart/">Inicio rápido</a><p>Instálalo con Docker, ejecuta la demo y verifica tu primera corrección en unos 15 minutos.</p></li>
+  <li><a href="./concepts/">Conceptos</a><p>Activos, ejecuciones, hallazgos, cobertura y triage, sin jerga.</p></li>
+  <li><a href="./scanning-code/">Analizar código y dependencias</a><p>Fallos en tu código, paquetes vulnerables, secretos, infraestructura como código y pull requests.</p></li>
+  <li><a href="./scanning-images/">Analizar imágenes de contenedor</a><p>Lee una imagen desde su registro, sin ejecutarla.</p></li>
+  <li><a href="./scanning-web/">Analizar sitios web y APIs</a><p>Verifica un dominio y lanza un análisis web o de API pasivo, que nunca ataca.</p></li>
+  <li><a href="./findings/">Hallazgos y triage</a><p>Decide qué corregir primero, registra decisiones y demuestra una corrección.</p></li>
+  <li><a href="./integrations/">Integraciones</a><p>GitHub, CI y SARIF, Jira, Slack, Teams y webhooks.</p></li>
+  <li><a href="./deploy/">Despliega y opera</a><p>Servidores, workers, copias de seguridad, actualizaciones y solución de problemas.</p></li>
+  <li><a href="./security/">Modelo de seguridad</a><p>Cómo se guardan los secretos y qué sale de tu servidor.</p></li>
+  <li><a href="./cli/">Referencia</a><p>Línea de comandos, API de automatización, configuración y glosario.</p></li>
+  <li><a href="./changelog/">Historial de cambios</a><p>Qué cambió en cada versión y qué hacer antes de actualizar.</p></li>
+</ul>
 
-<CardGrid>
-  <Card title="Instala y ejecuta" icon="rocket">
-    Revisa los requisitos, inicia el stack de Docker Compose, crea la primera cuenta administradora y ejecuta la demostración incluida.
-
-    [Sigue el inicio rápido](./quickstart/)
-  </Card>
-  <Card title="Conecta tu flujo de trabajo" icon="seti:github">
-    Conecta una GitHub App, revisa pull requests, importa SARIF desde CI, envía hallazgos a Jira y configura avisos.
-
-    [Explora las integraciones](./integrations/)
-  </Card>
-  <Card title="Opéralo de forma segura" icon="padlock">
-    Configura HTTPS, PostgreSQL, copias de seguridad, workers, tareas periódicas, métricas y secretos para producción.
-
-    [Planea un despliegue](./deploy/)
-  </Card>
-  <Card title="Entiende el sistema" icon="puzzle">
-    Conoce cómo encajan la API en FastAPI, el panel en React, los workers, PostgreSQL, los motores y los límites del monolito modular.
-
-    [Lee la arquitectura](./architecture/)
-  </Card>
-</CardGrid>
-
-:::note[Software beta]
-Pitangus todavía está en beta. La superficie pública y estable para automatización es pequeña a propósito; las rutas internas del panel y los formatos almacenados pueden cambiar entre versiones.
+:::note[Software en beta]
+Pitangus está en beta (0.x). La superficie pública de automatización es pequeña a propósito; las rutas del panel y los formatos almacenados pueden cambiar entre versiones menores, y el [historial de cambios](./changelog/) lo indica cuando pasa.
 :::

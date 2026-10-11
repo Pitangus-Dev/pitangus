@@ -68,8 +68,29 @@ SCOPE_LIMIT = 20      # hosts a scan may list
 LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 
 
+# Demo data (`pitangus demo --full`) registers its domains as this, under names reserved for documentation (RFC 2606).
+DEMO_BY = "demo"
+DEMO_ZONES = ("example.com", "example.net", "example.org")
+
+
 def asset_key(host: str) -> str:
     return f"{KEY_PREFIX}{host}"
+
+
+def is_demo(record: dict) -> bool:
+    """A domain of the demo data: nobody can prove control of a reserved name, so its proof is never asked again and
+    nothing scans it (no query leaves the machine on its behalf)."""
+    host = str(record.get("host") or "")
+    return record.get("registered_by") == DEMO_BY and any(host == zone or host.endswith("." + zone) for zone in DEMO_ZONES)
+
+
+def vouch_demo(data_dir: Path, domain_id: str, *, at: datetime, method: str = "dns") -> dict:
+    """Marks a demo domain as verified on `at`, as if its proof had been seen then. Only for `is_demo` domains."""
+    record = get_domain(data_dir, domain_id)
+    if not is_demo(record) or method not in PROOF_METHODS:
+        raise DomainError(msg("sources.domains.invalid_request"))
+    return _mark(data_dir, domain_id, verified_at=at, verified_until=at + timedelta(days=VERIFY_DAYS), checked_at=at,
+                 proof_method=method, registered_at=min(at, _now()))
 
 
 def _now() -> datetime:
@@ -369,6 +390,8 @@ def confirm_control(data_dir: Path, domain_id: str, *, now: datetime | None = No
     before it starts. A proof gone withdraws it, as `recheck` does; DNS or the host not answering proves nothing, so
     nothing starts either."""
     record = get_domain(data_dir, domain_id)
+    if is_demo(record):
+        raise DomainError(msg("sources.domains.demo", host=record["host"]))
     if not record["verified"]:
         raise DomainError(msg("sources.domains.not_verified", host=record["host"]))
     present, reason = proof_present(record)
@@ -388,7 +411,7 @@ def recheck(data_dir: Path, *, now: datetime | None = None) -> dict:
     now = now or _now()
     outcome = {"kept": 0, "withdrawn": 0, "unanswered": 0}
     for record in list_domains(data_dir):
-        if not record["verified_at"]:
+        if not record["verified_at"] or is_demo(record):
             continue
         present, _ = proof_present(record)
         if present is None:

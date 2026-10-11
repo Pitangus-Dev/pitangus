@@ -17,13 +17,13 @@ El resto de la página cuenta qué preparar antes y qué hacer después.
 
 ## Cómo queda montado
 
-```
-internet ──443/80──▶ caddy ──red edge──▶ api (panel + API, sin puerto publicado)
-                                            │
-                                   red default ── postgres (sin puerto publicado)
-                                            │
-                                          worker (los motores dentro de su imagen; sin socket de Docker)
-```
+- **Caddy** es el único contenedor que publica puertos (443 y 80). Llega a la api por la red `edge`.
+- La **api** sirve el panel y la API, sin puerto publicado, y llega a PostgreSQL por la red `default`.
+- **PostgreSQL** no publica ningún puerto; solo llegan a él la api y el worker.
+- El **worker** ejecuta los análisis con los motores dentro de su propia imagen, sin el socket de Docker.
+
+Qué añade cada capa:
+
 
 - `compose.prod.yaml` añade **Caddy**: pide y renueva el certificado de tu dominio (Let's Encrypt, y ZeroSSL si falla), redirige HTTP a HTTPS y es lo único que publica puertos. La api no publica ninguno; `PITANGUS_PUBLIC_URL` y `PITANGUS_ALLOWED_ORIGINS` pasan a ser `https://<dominio>`.
 - `compose.images.yaml` (con `PREBUILT`) usa las imágenes publicadas en el registro de GitHub en lugar de construirlas en el servidor. Son multiarquitectura (amd64 y arm64), llevan SBOM y procedencia, y van firmadas con cosign.

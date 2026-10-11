@@ -1,5 +1,28 @@
 {
   "source_name": "demo · vulnerable samples",
   "context": "Deliberately vulnerable samples that ship with Pitangus so you can try it out: code, dependencies, secrets and a Dockerfile.",
-  "model_name": "Demo · Customer portal (STRIDE)"
+  "model_name": "Demo · Customer portal (STRIDE)",
+  "replayed_one": "Recorded output replayed for the demo: 1 finding.",
+  "replayed_other": "Recorded output replayed for the demo: {{count}} findings.",
+  "limitation": "Demo data: nothing was scanned. These findings come from engine outputs recorded against Pitangus's vulnerable samples and replayed here; later scans leave some out to show what gets fixed.",
+  "no_grype": "No Grype output was recorded for the demo, so this image's analysis is incomplete.",
+  "org": {
+    "context": "Lapis Labs is a made-up company for the demo. Its repositories don't exist anywhere.",
+    "image_context": "Image of Lapis Labs' checkout service (made up for the demo).",
+    "domain_context": "Lapis Labs' online store (made up for the demo). A reserved name: Pitangus never verifies or scans it.",
+    "pending_context": "Lapis Labs' help center (made up for the demo), still waiting for its proof of control."
+  },
+  "pull": {
+    "title": "Product reviews widget",
+    "not_posted": "Demo data: nothing was posted to GitHub."
+  },
+  "test_user": {
+    "name": "Demo shopper",
+    "notes": "Made-up account for the demo, with a random password. It has never signed in anywhere."
+  },
+  "triage": {
+    "false_positive": "Debug mode is only enabled in the local development settings; production loads a different configuration.",
+    "accepted": "Legacy partner integration that requires this cipher until the partner migrates next quarter.",
+    "in_progress": "Moving these queries to parameterized statements in the next sprint."
+  }
 }

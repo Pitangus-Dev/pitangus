@@ -95,7 +95,8 @@
     },
     "discovery": {
       "interrupted": "La búsqueda de hosts relacionados se detuvo sin terminar; vuelve a buscar.",
-      "busy": "Ya hay una búsqueda de hosts relacionados en curso para este dominio."
+      "busy": "Ya hay una búsqueda de hosts relacionados en curso para este dominio.",
+      "demo": "{{host}} es un dato de demostración con un nombre reservado para ejemplos: no tiene hosts reales que buscar, así que Pitangus no busca."
     },
     "test_users": {
       "invalid_request": "Solicitud de usuario de prueba inválida",
@@ -117,6 +118,7 @@
       "too_many": "Un análisis inicia sesión con {{max}} usuarios de prueba como máximo",
       "not_in_scope": "{{name}} inicia sesión en {{host}}, que no está en el alcance de este análisis: añádelo al alcance o elige otro usuario de prueba",
       "invalid_check_url": "La URL de comprobación es una página HTTPS, sin puerto ni credenciales"
-    }
+    },
+    "demo": "{{host}} es un dato de demostración con un nombre reservado para ejemplos: Pitangus nunca lo verifica ni lo analiza."
   }
 }

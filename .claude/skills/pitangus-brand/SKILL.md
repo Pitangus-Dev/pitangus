@@ -15,6 +15,14 @@ artifact (https://claude.ai/artifact/Ky9X1xsABVxqLnZ9SqNb9E); when the two diffe
 
 Pitangus is a self-hosted application security tool: it analyses code, images and sites, and proves what it finds. Its identity comes from the great kiskadee (*Pitangus sulphuratus*): **sulphur** belly, **black** crown, **white** brow, **rufous** wing. The panel is a working instrument, not a landing page: it reads fast, every color means one thing, nothing is decoration.
 
+## Scope: two registers
+
+This manual governs the **instrument**: the panel, reports, exports, the threat diagram and the docs site. The
+**landing** (pitangus.dev) is the brand's front door and keeps its own **field-notebook** register: paper texture,
+serif and handwritten type, the animated kiskadee and its flies, the stamp, notebook numbering. Its principles below
+(cream, numbering, motion) do not apply there. Never restyle the landing to the instrument register; update its
+content inside its existing design, and share only the kiskadee colors, the logo and the voice.
+
 ## Principles
 
 1. **One color, one meaning.** `sulphur` is the brand and the primary action, nothing else. States have their own families (`critical`, `attention`, `ok`, `info`) and severity is drawn from them. A color in two roles means one of them is wrong.

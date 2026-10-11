@@ -798,13 +798,15 @@ def domain_scope_change(context: Context = Depends(guard(Policy(admin=True, acti
 
 @router.post("/api/domains/discover", status_code=202, response_model=DomainScope, openapi_extra=documented(DomainIdIn), **AS_RETURNED,
              responses={404: {"description": "Unknown domain"},
-                        409: {"description": "Web scans off on this server, or a discovery already queued or running"}})
+                        409: {"description": "Web scans off on this server, a demo domain, or a discovery already queued or running"}})
 def domain_discover(context: Context = Depends(guard(Policy(admin=True, action="discover-domain", body=256))),
                     data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
     """Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,
     archives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are
     listed out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources."""
     record = _known(context, data.domain_id)
+    if domains.is_demo(record):
+        raise ApiError(409, msg("sources.domains.discovery.demo", host=record["host"]))
     if not settings.flag("PITANGUS_DAST_ENABLED"):
         raise ApiError(409, msg("scanning.discovery.disabled"))
     if not context.state.jobs.enqueue_discovery(domain=record):
@@ -874,6 +876,8 @@ def launch_domain_scan(context: Context, domain_id: str, *, trigger: dict | None
     if not settings.flag("PITANGUS_DAST_ENABLED"):
         raise ApiError(409, msg("scanning.web.errors.disabled"))
     record = _known(context, domain_id)
+    if domains.is_demo(record):  # before any DNS lookup: nothing leaves the machine for demo data
+        raise ApiError(409, msg("sources.domains.demo", host=record["host"]))
     if not record["verified"]:
         raise ApiError(409, msg("sources.domains.not_verified", host=record["host"]))
     try:
@@ -895,7 +899,7 @@ def launch_domain_scan(context: Context, domain_id: str, *, trigger: dict | None
 
 @router.post("/api/domains/scans", status_code=202, response_model=QueuedDomainScan, openapi_extra=documented(DomainScanIn),
              **AS_RETURNED, responses={404: {"description": "Unknown domain"},
-                                       409: {"description": "Web scans off, domain not verified, a host private, subdomains "
+                                       409: {"description": "Web scans off, a demo domain, domain not verified, a host private, subdomains "
                                                              "without a DNS proof, no saved headers, a test user signing in "
                                                              "outside the scope, or one already running"},
                                        429: {"description": "Queue full"}})

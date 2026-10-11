@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 841" width="720" height="841" role="img" aria-labelledby="title desc" lang="en">
+  <title id="title">Pitangus architecture</title>
+  <desc id="desc">A browser reaches the API over HTTPS, through Caddy on a server, or over loopback. On your server, the API and one or more workers share PostgreSQL, which holds runs, findings, the queue, settings and the encrypted secrets; the master key is a file, config/master.key, only when PITANGUS_MASTER_KEY is unset. The worker starts the engines through the Docker socket or runs them inside the worker-standalone image, with a read-only snapshot, no capabilities and memory, CPU and process limits: Trivy, OSV-Scanner, Gitleaks, Checkov, zizmor and Opengrep with 58 rules for code and dependencies; Trivy and Grype for container images; ZAP, katana, nuclei, testssl.sh, httpx and subfinder for sites and APIs. The API and the worker open outbound HTTPS connections to the GitHub API, to advisory data (NVD, CISA KEV, EPSS, OSV, EUVD and the engines' databases), to image registries and verified sites, and to Jira, Slack, Teams and webhooks.</desc>
+  <style>
+    text { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #3D434A; }
+    .title { font-size: 14px; font-weight: 500; fill: #16181B; }
+    .group-title { font-weight: 600; }
+    .detail { font-size: 13px; }
+    .note { font-size: 12px; fill: #5C636B; }
+    .mono { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+    .node { fill: #FFFFFF; stroke: #80868E; stroke-width: 1; }
+    .node.optional { stroke-dasharray: 4 3; }
+    .group { fill: none; stroke: #DADDE1; stroke-width: 1; }
+    .group.filled { fill: #F5F6F7; }
+    .edge { fill: none; stroke: #5C636B; stroke-width: 1.25; }
+    .edge.optional { stroke-dasharray: 4 3; }
+  </style>
+  <defs>
+    <marker id="head" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0 0 L8 4 L0 8 Z" fill="#5C636B"/>
+    </marker>
+  </defs>
+  <rect x="0.5" y="104.5" width="719" height="443" rx="8" class="group filled"/>
+  <text x="128" y="130" class="title group-title">Your server (Docker Compose)</text>
+  <rect x="16.5" y="0.5" width="191" height="55" rx="6" class="node"/>
+  <text x="28" y="24" class="title">Browser</text>
+  <text x="28" y="42" class="detail">React panel</text>
+  <path d="M112 56 L112 146" class="edge" marker-end="url(#head)"/>
+  <text x="124" y="86" class="note">HTTPS (Caddy on a server) or loopback</text>
+  <rect x="16.5" y="148.5" width="191" height="73" rx="6" class="node"/>
+  <text x="28" y="172" class="title">API</text>
+  <text x="28" y="190" class="detail">FastAPI and the panel</text>
+  <text x="28" y="208" class="detail">No Docker access</text>
+  <rect x="240.5" y="148.5" width="239" height="73" rx="6" class="node"/>
+  <text x="252" y="172" class="title">PostgreSQL</text>
+  <text x="252" y="190" class="detail">Runs, findings, queue, settings,</text>
+  <text x="252" y="208" class="detail">encrypted secrets</text>
+  <rect x="512.5" y="148.5" width="191" height="73" rx="6" class="node"/>
+  <text x="524" y="172" class="title">Worker, one or more</text>
+  <text x="524" y="190" class="detail">Scan queue and</text>
+  <text x="524" y="208" class="detail">periodic tasks</text>
+  <path d="M208 185 L240 185" class="edge"/>
+  <path d="M512 185 L480 185" class="edge"/>
+  <path d="M360 222 L360 246" class="edge optional"/>
+  <rect x="240.5" y="246.5" width="239" height="73" rx="6" class="node optional"/>
+  <text x="252" y="270" class="title mono">config/master.key</text>
+  <text x="252" y="288" class="detail">Master key file, only when</text>
+  <text x="252" y="306" class="detail"><tspan class="mono">PITANGUS_MASTER_KEY</tspan> is unset</text>
+  <path d="M608 222 L608 342" class="edge" marker-end="url(#head)"/>
+  <rect x="16.5" y="344.5" width="687" height="187" rx="8" class="group"/>
+  <text x="32" y="370" class="title group-title">Engines</text>
+  <text x="32" y="388" class="note">Started through the Docker socket, or run inside the worker-standalone image</text>
+  <text x="32" y="406" class="note">Read-only snapshot, no capabilities, memory, CPU and process limits</text>
+  <rect x="32.5" y="424.5" width="207" height="91" rx="6" class="node"/>
+  <text x="44" y="448" class="title">Code and dependencies</text>
+  <text x="44" y="466" class="detail">Trivy, OSV-Scanner</text>
+  <text x="44" y="484" class="detail">Gitleaks, Checkov, zizmor</text>
+  <text x="44" y="502" class="detail">Opengrep with 58 rules</text>
+  <rect x="256.5" y="424.5" width="207" height="91" rx="6" class="node"/>
+  <text x="268" y="448" class="title">Container images</text>
+  <text x="268" y="466" class="detail">Trivy, Grype</text>
+  <rect x="480.5" y="424.5" width="207" height="91" rx="6" class="node"/>
+  <text x="492" y="448" class="title">Sites and APIs</text>
+  <text x="492" y="466" class="detail">ZAP, katana, nuclei</text>
+  <text x="492" y="484" class="detail">testssl.sh, httpx</text>
+  <text x="492" y="502" class="detail">subfinder</text>
+  <path d="M360 548 L360 594" class="edge" marker-end="url(#head)"/>
+  <text x="372" y="577" class="note">Outbound HTTPS from the API and the worker</text>
+  <rect x="0.5" y="596.5" width="719" height="244" rx="8" class="group"/>
+  <text x="16" y="622" class="title group-title">Outbound connections</text>
+  <text x="16" y="640" class="note">Pitangus polls GitHub: no webhook has to reach your server</text>
+  <rect x="16.5" y="660.5" width="335" height="73" rx="6" class="node"/>
+  <text x="28" y="684" class="title">GitHub API</text>
+  <text x="28" y="702" class="detail">App or token: repository snapshots,</text>
+  <text x="28" y="720" class="detail">pull request comments and statuses</text>
+  <rect x="368.5" y="660.5" width="335" height="73" rx="6" class="node"/>
+  <text x="380" y="684" class="title">Advisory data</text>
+  <text x="380" y="702" class="detail">NVD, CISA KEV, EPSS, OSV, EUVD</text>
+  <text x="380" y="720" class="detail">and the engines' vulnerability databases</text>
+  <rect x="16.5" y="750.5" width="335" height="73" rx="6" class="node"/>
+  <text x="28" y="774" class="title">Scan targets</text>
+  <text x="28" y="792" class="detail">Image registries, and the sites and APIs</text>
+  <text x="28" y="810" class="detail">on the domains you verified</text>
+  <rect x="368.5" y="750.5" width="335" height="73" rx="6" class="node"/>
+  <text x="380" y="774" class="title">Notifications and issues</text>
+  <text x="380" y="792" class="detail">Jira, Slack, Teams and webhooks</text>
+</svg>

@@ -354,6 +354,8 @@ input[data-bare]:focus-visible { outline: none !important; }
 /* Underlined tabs mark keyboard focus with the underline itself, in the focus colour, instead of a box around the tab. */
 [data-slot=tabs-list][data-variant=line] [data-slot=tabs-trigger]:focus-visible { outline: none !important; color: var(--app-fg); }
 [data-slot=tabs-list][data-variant=line] [data-slot=tabs-trigger]:focus-visible::after { opacity: 1; background: var(--focus); }
+/* A heading focused by script (a wizard step, a result) moves the screen reader there; it isn't a control, so no box. */
+:is(h1, h2, h3, h4)[tabindex="-1"]:focus-visible { outline: none !important; }
 /* Interruptores hechos con un checkbox oculto: el foco se dibuja en la pista visible. */
 .peer:focus-visible + .switch-track { outline: 2px solid var(--focus); outline-offset: 2px; }
 

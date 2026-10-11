@@ -121,6 +121,12 @@ def build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--fixtures", type=Path, default=Path("fixtures"), help="Folder with sast-samples and scanner-samples")
     demo.add_argument("--models", type=Path, default=Path("web/src/examples/threat-models"), help="Folder with the example models")
     demo.add_argument("--image", help="Also analyze this public image (e.g. nginx:1.21)")
+    demo.add_argument("--full", action="store_true",
+                      help="Also build a fictional organization offline (repositories with a month of scans, a PR review, an image, "
+                           "domains, members) from recorded engine outputs. It writes into this workspace, next to its "
+                           "real data, and nothing removes it: use a trial install")
+    demo.add_argument("--recordings", type=Path, default=Path("tests"),
+                      help="Folder with the recorded engine outputs (fixtures/ and engine-outputs/), for --full")
     commands.add_parser("providers", help="Show which AI providers have a credential on the server")
     commands.add_parser("github-app", help="Status of this server's GitHub App (no secrets)")
     engines = commands.add_parser("engines", help="Status of the analysis engine images")
@@ -239,7 +245,14 @@ def main(argv: list[str] | None = None) -> int:
                               report=lambda message: print(_say(message), flush=True))
             except (FileNotFoundError, ImageError) as exc:
                 parser.exit(1, t("cli.error", detail=_detail(exc)) + "\n")
-            print(t("cli.demo.ready"))
+            if args.full:
+                from pitangus.app import demo_org
+                try:
+                    demo_org.seed(args.data_dir, fixtures=args.fixtures, recordings=args.recordings,
+                                  report=lambda message: print(_say(message), flush=True))
+                except FileNotFoundError as exc:
+                    parser.exit(1, t("cli.error", detail=_detail(exc)) + "\n")
+            print(t("cli.demo.ready_full" if args.full else "cli.demo.ready"))
             return 0 if result.get("code", {}).get("status") == "completed" else 3
         if args.command == "providers":
             print(_json(provider_status()))
