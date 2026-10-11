@@ -7,6 +7,8 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-11
+
 ### Added
 
 - **A full demo organization.** `make demo FULL=1` (`pitangus demo --full`) builds Lapis Labs, a made-up company, so
@@ -14,14 +16,39 @@ between minor versions: anything that changes behaviour is called out below.
   findings, MTTR, due dates), a pull request review, a container image, a domain verified for the demo
   (`tienda.example.com`, with scope, weekly schedule, test user, technologies and two passive web scans), a pending
   one, two members and a few triage decisions. It runs offline: findings are engine outputs recorded against the
-  bundled samples, replayed through the normal parsers, registry and triage. Everything is marked as demo, it never
-  notifies channels or Jira, and running it again adds nothing.
+  bundled samples, replayed through the normal parsers, registry and triage, with the KEV and EPSS feeds already on
+  disk (none are downloaded). Everything is marked as demo, it never notifies channels or Jira, its runs don't tick
+  "first analysis" in Getting started, and running it again adds nothing. It writes next to the workspace's real data
+  and nothing removes it: use a trial install.
+- **Documentation for newcomers** at docs.pitangus.dev, in English and Spanish: what Pitangus is, key concepts, a
+  glossary and FAQ, scanning code, images and websites/APIs (passive DAST, domains, scope, test users), findings,
+  compliance, threat modeling and upgrading. The old features page is split among them. Screenshots of the panel in
+  light and dark, taken from the demo organization, and an up-to-date architecture diagram (SVG in light and dark;
+  the Mermaid version stays for GitHub).
 
 ### Changed
 
 - **Demo domains are never asked or scanned.** A domain the demo registers under a name reserved for examples
-  (`example.com`, `example.net`, `example.org`) skips the daily proof re-check, refuses scans, and its schedule moves
-  on with a note instead of queuing one.
+  (`example.com`, `example.net`, `example.org`, RFC 2606) skips the daily proof re-check, and its schedule moves on
+  with a note instead of queuing one. The API answers `409` to a web scan (`POST /api/domains/scans`, before any DNS
+  lookup) or a search for related hosts (`POST /api/domains/discover`) of one.
+- **The documentation site** carries Pitangus' identity (the manual's tokens, IBM Plex, its own code theme), sends
+  security headers (`_headers`: CSP by hashes, HSTS, COOP, Permissions-Policy, checked at build time), publishes
+  `llms.txt` and `llms-full.txt` in both languages, a `robots.txt` that names AI crawlers, JSON-LD and each page's
+  last update in the sitemap. It is published from Cloudflare (Workers Builds, branch `main`); the GitHub Pages
+  deployment is retired.
+
+### Fixed
+
+- **Day labels on chart axes** no longer overlap: the last day, aligned to the edge, always keeps its label, and one
+  that would come too close to it is dropped.
+- **The heading of each wizard step** still receives focus (for screen readers) but no longer shows a focus box.
+- **A link in the same tab** (a domain's "New scan" or "Import results", Back and Forward) now preselects the domain
+  and the type in the new-analysis wizard, without remounting a wizard already in progress.
+- **The OSV hint** in the new-analysis wizard says that package names and versions also go to deps.dev, and that
+  Trivy and OSV-Scanner check dependencies offline anyway. The README names the **Reverify** button as the panel does.
+- **CI:** the docs build fetches the full history (each page's "Last updated" date) and restores nothing from the
+  package manager's cache; the manual Cloudflare workflow restores no cache into the job that holds its token.
 
 ## [0.13.0] - 2026-10-10
 

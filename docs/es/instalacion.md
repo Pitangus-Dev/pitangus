@@ -68,7 +68,7 @@ version): not pulling*. Primero cambia a la nueva:
 
 ```bash
 git fetch --tags
-git checkout v0.13.0      # la versión que quieras
+git checkout v0.13.1      # la versión que quieras
 make update
 ```
 

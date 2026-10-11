@@ -141,7 +141,7 @@ jobs:
           fetch-depth: 0              # hace falta la historia para comparar con la base
           persist-credentials: false
       - id: pitangus
-        uses: Pitangus-Dev/pitangus@v0.13.0   # fíjala al SHA del commit de la etiqueta, como las demás
+        uses: Pitangus-Dev/pitangus@v0.13.1   # fíjala al SHA del commit de la etiqueta, como las demás
         with:
           exclude: |
             fixtures/
@@ -205,7 +205,7 @@ sin el análisis propio de Pitangus:
         run: |
           python -m pip install semgrep   # fija la versión
           semgrep scan --config p/ci --metrics off --sarif --output semgrep.sarif
-      - uses: Pitangus-Dev/pitangus@v0.13.0
+      - uses: Pitangus-Dev/pitangus@v0.13.1
         if: always()
         with:
           scan: false
