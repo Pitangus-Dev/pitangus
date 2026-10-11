@@ -5,7 +5,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import type { SessionUser } from '@/features/auth/session'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { SettingsSection } from '@/shared/ui/settings-list'
 import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
 import { formatDate } from '@/shared/i18n/format'
@@ -64,16 +64,17 @@ export function Account({ user, onChanged, only }: { user: SessionUser; onChange
   const copyCodes = async () => { if (!backupCodes) return; await navigator.clipboard.writeText(backupCodes.join('\n')); setCopied(true); window.setTimeout(() => setCopied(false), 1500) }
 
   const role = user.role === 'admin' ? t('role.admin') : t('role.member')
-  return <div className={only ? 'space-y-5' : 'grid gap-5 xl:grid-cols-2'}>
-    {!only && <Card className="border-app-line bg-panel xl:col-span-2"><CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
+  // Sections split by a rule, no card per section: the profile is a row, then two-factor and the password.
+  return <div className="space-y-6">
+    {!only && <div className="flex flex-wrap items-center justify-between gap-4 border-b border-app-line pb-5">
       <div><div className="text-lg font-semibold">{user.display_name}</div><div className="text-sm text-app-muted">{user.last_login_at
         ? t('account.profile_last_login', { username: user.username, role, date: formatDate(user.last_login_at) })
         : t('account.profile', { username: user.username, role })}</div></div>
       <Badge variant="outline" className={user.totp_enabled ? 'border-success-line text-success' : 'border-attention-line text-attention'}>{user.totp_enabled ? <><ShieldCheckIcon className="size-3" />{t('account.totp_on')}</> : <><ShieldSlashIcon className="size-3" />{t('account.totp_off')}</>}</Badge>
-    </CardContent></Card>}
-    {message && <Notice role={message.tone === 'error' ? 'alert' : 'status'} tone={message.tone === 'error' ? 'critical' : 'ok'} blocking={message.tone === 'error'} className="xl:col-span-2">{message.text}</Notice>}
+    </div>}
+    {message && <Notice role={message.tone === 'error' ? 'alert' : 'status'} tone={message.tone === 'error' ? 'critical' : 'ok'} blocking={message.tone === 'error'}>{message.text}</Notice>}
 
-    <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('account.totp_title')}</CardTitle><CardDescription>{t('account.totp_description')}</CardDescription></CardHeader><CardContent className="space-y-4">
+    <SettingsSection id="account-totp" title={t('account.totp_title')} description={t('account.totp_description')}><div className="max-w-xl space-y-4">
       {backupCodes ? <div className="space-y-3"><p className="text-sm text-app-secondary"><Trans t={t} i18nKey="account.backup_intro" components={{ strong: <strong /> }} /></p>
         <div className="grid grid-cols-2 gap-2 rounded-xl border border-app-line bg-inset p-4 font-mono text-sm">{backupCodes.map(item => <span key={item}>{item}</span>)}</div>
         <div className="flex gap-2"><Button variant="outline" onClick={() => void copyCodes()}>{copied ? <CheckIcon /> : <CopyIcon />}{copied ? t('account.copied') : t('common:actions.copy')}</Button><span role="status" className="sr-only">{copied ? t('account.codes_copied') : ''}</span><Button onClick={() => { setBackupCodes(null); void onChanged() }}>{t('account.saved_them')}</Button></div></div>
@@ -82,13 +83,13 @@ export function Account({ user, onChanged, only }: { user: SessionUser; onChange
         <Field id="totp-code" label={t('account.code_6')} required autoComplete="one-time-code" inputMode="numeric" pattern="\d{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value)} />
         <div className="flex gap-2"><Button type="submit" disabled={!!busy || code.trim().length !== 6}>{busy === 'totp' ? <CircleNotchIcon className="animate-spin" /> : <ShieldCheckIcon />}{t('account.enable')}</Button><Button type="button" variant="ghost" onClick={() => setEnrolment(null)}>{t('common:actions.cancel')}</Button></div></form>
       : <Button onClick={() => void startTotp()} disabled={!!busy}>{busy === 'totp' ? <CircleNotchIcon className="animate-spin" /> : <ShieldCheckIcon />}{t('account.setup_totp')}</Button>}
-    </CardContent></Card>
+    </div></SettingsSection>
 
-    {!only && <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('account.password_title')}</CardTitle><CardDescription>{t('account.password_description')}</CardDescription></CardHeader><CardContent><form className="space-y-3" onSubmit={changePassword}>
+    {!only && <div className="border-t border-app-line pt-6"><SettingsSection id="account-password" title={t('account.password_title')} description={t('account.password_description')}><form className="max-w-md space-y-3" onSubmit={changePassword}>
       <Field id="password-current" label={t('account.current_password')} type="password" required autoComplete="current-password" maxLength={256} value={passwords.current} onChange={event => setPasswords(previous => ({ ...previous, current: event.target.value }))} />
       <Field id="password-new" label={t('account.new_password')} type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={passwords.next} onChange={event => setPasswords(previous => ({ ...previous, next: event.target.value }))} />
       <Field id="password-confirm" label={t('account.repeat_new_password')} type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={passwords.confirm} onChange={event => setPasswords(previous => ({ ...previous, confirm: event.target.value }))} />
       <Button type="submit" disabled={!!busy}>{busy === 'password' ? <CircleNotchIcon className="animate-spin" /> : <KeyIcon />}{t('account.change_password')}</Button>
-    </form></CardContent></Card>}
+    </form></SettingsSection></div>}
   </div>
 }
