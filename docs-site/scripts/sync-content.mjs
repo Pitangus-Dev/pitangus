@@ -261,6 +261,10 @@ function generateApi(spec, locale) {
   return `${lines.join('\n')}\n`
 }
 
+// A shallow clone (a CI default) knows only its newest commit, so every page would show that commit's date.
+const shallow = await run('git', ['rev-parse', '--is-shallow-repository'], { cwd: repositoryRoot }).then(({ stdout }) => stdout.trim() === 'true', () => false)
+if (shallow) console.warn('Warning: shallow git clone; every "Last updated" date will be the newest commit\'s. Run `git fetch --unshallow` first.')
+
 await rm(generatedRoot, { recursive: true, force: true })
 await mkdir(generatedRoot, { recursive: true })
 

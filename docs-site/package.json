@@ -10,7 +10,7 @@
     "sync": "node scripts/sync-content.mjs",
     "check": "pnpm run sync && node scripts/check-sources.mjs && astro check",
     "dev": "node scripts/sync-content.mjs --placeholders && astro dev --port 4321",
-    "build": "pnpm run sync && node scripts/check-sources.mjs && astro check && astro build && node scripts/check-links.mjs",
+    "build": "pnpm run sync && node scripts/check-sources.mjs && astro check && astro build && node scripts/check-links.mjs && node scripts/check-headers.mjs && node scripts/check-seo.mjs",
     "preview": "astro preview --port 4322"
   },
   "dependencies": {

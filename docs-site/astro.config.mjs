@@ -2,6 +2,9 @@
 import { defineConfig } from 'astro/config'
 import starlight from '@astrojs/starlight'
 import { ExpressiveCodeTheme } from '@astrojs/starlight/expressive-code'
+import llmsTxt from './integrations/llms-txt.mjs'
+import securityHeaders from './integrations/security-headers.mjs'
+import sitemapLastmod from './integrations/sitemap-lastmod.mjs'
 
 const site = process.env.SITE_URL ?? 'https://docs.pitangus.dev'
 const base = process.env.BASE_PATH ?? '/'
@@ -32,6 +35,89 @@ const codeTheme = (type, c) => new ExpressiveCodeTheme({
 
 const lightCode = codeTheme('light', { bg: '#ECEEF1', ink: '#16181B', ink2: '#3D434A', muted: '#5C636B', info: '#2D5A87', ok: '#1E7444', critical: '#B42318' })
 const darkCode = codeTheme('dark', { bg: '#202428', ink: '#ECEEF0', ink2: '#C3C8CE', muted: '#9AA1A9', info: '#8DB4DD', ok: '#5CC98A', critical: '#FF8B7B' })
+
+// Shared by Starlight and llms.txt, which lists the pages in the same order.
+const sidebar = [
+  {
+    label: 'Start here',
+    translations: es('Empieza aquí'),
+    items: [
+      page('overview', 'Overview', 'Vista general'),
+      page('quickstart', 'Quickstart', 'Inicio rápido'),
+      page('concepts', 'Concepts', 'Conceptos'),
+      page('installation', 'Installation', 'Instalación'),
+    ],
+  },
+  {
+    label: 'Scanning',
+    translations: es('Análisis'),
+    items: [
+      page('scanning-code', 'Code and dependencies', 'Código y dependencias'),
+      page('scanning-images', 'Container images', 'Imágenes de contenedor'),
+      page('scanning-web', 'Websites and APIs', 'Sitios web y APIs'),
+    ],
+  },
+  {
+    label: 'Findings and triage',
+    translations: es('Hallazgos y triage'),
+    items: [
+      page('findings', 'Findings and triage', 'Hallazgos y triage'),
+      page('compliance', 'Compliance evidence', 'Evidencia de cumplimiento'),
+      page('threat-modeling', 'Threat modeling', 'Modelado de amenazas'),
+    ],
+  },
+  {
+    label: 'Integrations',
+    translations: es('Integraciones'),
+    items: [
+      page('integrations', 'Integrations and automation', 'Integraciones y automatización'),
+      page('github-app', 'Connect GitHub', 'Conectar GitHub'),
+    ],
+  },
+  {
+    label: 'Deploy and operate',
+    translations: es('Despliega y opera'),
+    items: [
+      page('deploy', 'Where to deploy', 'Dónde desplegar'),
+      page('deploy-vps', 'Deploy on a VPS', 'Desplegar en un VPS'),
+      page('containers', 'Containers and Makefile', 'Contenedores y Makefile'),
+      page('scaling', 'Scaling', 'Escalar'),
+      page('upgrading', 'Upgrading', 'Actualizar'),
+      page('troubleshooting', 'Troubleshooting', 'Solución de problemas'),
+    ],
+  },
+  {
+    label: 'Security',
+    translations: es('Seguridad'),
+    items: [
+      page('security', 'Security model', 'Modelo de seguridad'),
+    ],
+  },
+  {
+    label: 'Reference',
+    translations: es('Referencia'),
+    items: [
+      page('cli', 'Command line and CI', 'Línea de comandos y CI'),
+      page('reference/api', 'Automation API', 'API de automatización'),
+      page('configuration', 'Configuration', 'Configuración'),
+      page('architecture', 'Architecture', 'Arquitectura'),
+      page('glossary', 'Glossary', 'Glosario'),
+      page('faq', 'FAQ', 'Preguntas frecuentes'),
+      page('third-party-notices', 'Third-party software', 'Software de terceros'),
+      page('brand', 'Brand', 'Marca'),
+    ],
+  },
+  page('changelog', 'Changelog', 'Historial de cambios'),
+  {
+    label: 'Contribute',
+    translations: es('Contribuye'),
+    collapsed: true,
+    items: [
+      page('contributing', 'Contributing', 'Cómo contribuir'),
+      page('development', 'Development', 'Desarrollo'),
+    ],
+  },
+]
 
 export default defineConfig({
   site,
@@ -104,6 +190,7 @@ export default defineConfig({
         },
       },
       pagefind: true,
+      routeMiddleware: './src/routeData.ts',
       tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },
       lastUpdated: true,
       head: [
@@ -115,87 +202,21 @@ export default defineConfig({
         { tag: 'meta', attrs: { property: 'og:image:alt', content: 'Pitangus Docs' } },
         { tag: 'meta', attrs: { name: 'twitter:image', content: absolute('og.png') } },
       ],
-      sidebar: [
-        {
-          label: 'Start here',
-          translations: es('Empieza aquí'),
-          items: [
-            page('overview', 'Overview', 'Vista general'),
-            page('quickstart', 'Quickstart', 'Inicio rápido'),
-            page('concepts', 'Concepts', 'Conceptos'),
-            page('installation', 'Installation', 'Instalación'),
-          ],
-        },
-        {
-          label: 'Scanning',
-          translations: es('Análisis'),
-          items: [
-            page('scanning-code', 'Code and dependencies', 'Código y dependencias'),
-            page('scanning-images', 'Container images', 'Imágenes de contenedor'),
-            page('scanning-web', 'Websites and APIs', 'Sitios web y APIs'),
-          ],
-        },
-        {
-          label: 'Findings and triage',
-          translations: es('Hallazgos y triage'),
-          items: [
-            page('findings', 'Findings and triage', 'Hallazgos y triage'),
-            page('compliance', 'Compliance evidence', 'Evidencia de cumplimiento'),
-            page('threat-modeling', 'Threat modeling', 'Modelado de amenazas'),
-          ],
-        },
-        {
-          label: 'Integrations',
-          translations: es('Integraciones'),
-          items: [
-            page('integrations', 'Integrations and automation', 'Integraciones y automatización'),
-            page('github-app', 'Connect GitHub', 'Conectar GitHub'),
-          ],
-        },
-        {
-          label: 'Deploy and operate',
-          translations: es('Despliega y opera'),
-          items: [
-            page('deploy', 'Where to deploy', 'Dónde desplegar'),
-            page('deploy-vps', 'Deploy on a VPS', 'Desplegar en un VPS'),
-            page('containers', 'Containers and Makefile', 'Contenedores y Makefile'),
-            page('scaling', 'Scaling', 'Escalar'),
-            page('upgrading', 'Upgrading', 'Actualizar'),
-            page('troubleshooting', 'Troubleshooting', 'Solución de problemas'),
-          ],
-        },
-        {
-          label: 'Security',
-          translations: es('Seguridad'),
-          items: [
-            page('security', 'Security model', 'Modelo de seguridad'),
-          ],
-        },
-        {
-          label: 'Reference',
-          translations: es('Referencia'),
-          items: [
-            page('cli', 'Command line and CI', 'Línea de comandos y CI'),
-            page('reference/api', 'Automation API', 'API de automatización'),
-            page('configuration', 'Configuration', 'Configuración'),
-            page('architecture', 'Architecture', 'Arquitectura'),
-            page('glossary', 'Glossary', 'Glosario'),
-            page('faq', 'FAQ', 'Preguntas frecuentes'),
-            page('third-party-notices', 'Third-party software', 'Software de terceros'),
-            page('brand', 'Brand', 'Marca'),
-          ],
-        },
-        page('changelog', 'Changelog', 'Historial de cambios'),
-        {
-          label: 'Contribute',
-          translations: es('Contribuye'),
-          collapsed: true,
-          items: [
-            page('contributing', 'Contributing', 'Cómo contribuir'),
-            page('development', 'Development', 'Desarrollo'),
-          ],
-        },
-      ],
+      sidebar,
     }),
+    llmsTxt({
+      title: 'Pitangus Docs',
+      summary: {
+        en: 'Pitangus is a self-hosted, open-source (AGPL-3.0) application security platform: it analyzes code, dependencies, container images, websites and APIs with open-source engines, keeps one registry of findings and checks again that a fix really closed them.',
+        es: 'Pitangus es una plataforma de seguridad de aplicaciones de código abierto (AGPL-3.0) que se instala en tu propia infraestructura: analiza código, dependencias, imágenes de contenedor, sitios web y APIs con motores de código abierto, reúne los hallazgos en un solo registro y comprueba de nuevo que una corrección los cerró de verdad.',
+      },
+      details: {
+        en: 'This is the official documentation, published by the Pitangus project at https://docs.pitangus.dev/. Pitangus runs on your own machine or server with Docker; it performs analysis (SAST, SCA, secrets, IaC, image scanning and passive DAST), not penetration testing. Product site: https://pitangus.dev/. Source: https://github.com/Pitangus-Dev/pitangus.',
+        es: 'Es la documentación oficial, publicada por el proyecto Pitangus en https://docs.pitangus.dev/es/. Pitangus corre en tu propia máquina o servidor con Docker; hace análisis (SAST, SCA, secretos, IaC, imágenes y DAST pasivo), no pruebas de penetración. Sitio del producto: https://pitangus.dev/es/. Código: https://github.com/Pitangus-Dev/pitangus.',
+      },
+      sidebar,
+    }),
+    sitemapLastmod(),
+    securityHeaders(),
   ],
 })

@@ -1,0 +1,15 @@
+// Cloudflare Workers, static assets only: no script runs, so every request is a free, unlimited asset request.
+// The security headers come from dist/_headers (written at build time by integrations/security-headers.mjs).
+{
+  "name": "pitangus-docs",
+  "compatibility_date": "2026-10-01",
+  // Served only at docs.pitangus.dev (a custom domain set in the dashboard): no *.workers.dev copy, which would also
+  // show the account name, and no per-version preview URLs.
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

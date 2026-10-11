@@ -2,6 +2,9 @@ English · [Español](es/instalacion.md)
 
 # Installation
 
+Pitangus installs with Docker Compose on any machine that runs Docker; this page covers what it needs, the first
+start, upgrades, backups, exposing it beyond your machine and uninstalling.
+
 ## Requirements
 
 | | Minimum | Notes |

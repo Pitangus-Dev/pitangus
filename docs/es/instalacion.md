@@ -2,6 +2,9 @@
 
 # Instalación
 
+Pitangus se instala con Docker Compose en cualquier máquina que ejecute Docker; esta página cubre lo que necesita, el
+primer arranque, las actualizaciones, las copias de seguridad, cómo exponerlo fuera de tu máquina y cómo desinstalarlo.
+
 ## Requisitos
 
 | | Mínimo | Notas |
