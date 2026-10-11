@@ -12,26 +12,12 @@ missing security header). The [glossary](glossary.md) defines every term used in
 
 ## How it works
 
-```text
-Your assets: repositories · container images · verified domains
-      │  a run
-      ▼
-Engines, one container each
-  code and images: Opengrep, Gitleaks, Trivy, OSV-Scanner, Grype, Checkov, zizmor
-  websites and APIs: ZAP, katana, nuclei, testssl.sh, httpx
-      │
-      ▼
-Findings registry: one fingerprint per problem, fixed automatically when it stops showing up
-      │
-      ▼
-Triage and Verify again: deadlines, Jira issues, notifications
-      │
-      ▼
-Evidence: PDF and Markdown reports, SARIF, SBOM, VEX
-```
+Every scan of a repository, a container image or a verified domain follows the same path, from what you connect to
+the evidence you hand over.
 
 1. **Engines in containers.** Pitangus doesn't write its own scanners. It runs established open-source engines, each
-   pinned to a version and image digest, in a hardened container with no privileges.
+   pinned to a version and image digest, in a hardened container with no privileges: Opengrep, Gitleaks, Trivy, OSV-Scanner, Grype, Checkov and zizmor for
+   code and images; ZAP, katana, nuclei, testssl.sh and httpx for websites and APIs.
 2. **Runs.** Every scan is a **run**: a record of what was analyzed, which steps ran, which didn't and why. A step
    that didn't run is reported as *not tested*, never as clean.
 3. **Findings registry.** Each finding gets a stable **fingerprint**, so the same problem is recognized across runs.

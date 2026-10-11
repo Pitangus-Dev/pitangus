@@ -17,13 +17,13 @@ The rest of this page covers what to prepare before, and what to do after.
 
 ## How it's laid out
 
-```
-internet ──443/80──▶ caddy ──edge network──▶ api (panel + API, no published port)
-                                               │
-                                     default network ── postgres (no published port)
-                                               │
-                                             worker (the engines inside its image; no Docker socket)
-```
+- **Caddy** is the only container that publishes ports (443 and 80). It reaches the api over the `edge` network.
+- The **api** serves the panel and the API, with no published port, and reaches PostgreSQL over the `default` network.
+- **PostgreSQL** publishes no port; only the api and the worker reach it.
+- The **worker** runs the scans with the engines inside its own image, without the Docker socket.
+
+What each overlay adds:
+
 
 - `compose.prod.yaml` adds **Caddy**: it gets and renews the certificate for your domain (Let's Encrypt, with ZeroSSL as fallback), redirects HTTP to HTTPS, and is the only thing that publishes ports. The api publishes none; `PITANGUS_PUBLIC_URL` and `PITANGUS_ALLOWED_ORIGINS` become `https://<domain>`.
 - `compose.images.yaml` (with `PREBUILT`) runs the images published on GitHub's registry instead of building on the server. They're multi-architecture (amd64 and arm64), carry an SBOM and provenance, and are signed with cosign.

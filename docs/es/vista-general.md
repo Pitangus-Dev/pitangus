@@ -13,26 +13,13 @@ que usan estas páginas.
 
 ## Cómo funciona
 
-```text
-Tus activos: repositorios · imágenes de contenedor · dominios verificados
-      │  una ejecución
-      ▼
-Motores, un contenedor cada uno
-  código e imágenes: Opengrep, Gitleaks, Trivy, OSV-Scanner, Grype, Checkov, zizmor
-  sitios web y APIs: ZAP, katana, nuclei, testssl.sh, httpx
-      │
-      ▼
-Registro de hallazgos: una huella por problema, remediado solo cuando deja de aparecer
-      │
-      ▼
-Triage y reverificación: plazos, incidencias de Jira, avisos
-      │
-      ▼
-Evidencia: informes PDF y Markdown, SARIF, SBOM, VEX
-```
+Cada análisis de un repositorio, una imagen de contenedor o un dominio verificado sigue el mismo camino, desde lo que
+conectas hasta la evidencia que entregas.
 
 1. **Motores en contenedores.** Pitangus no escribe sus propios escáneres. Ejecuta motores de código abierto
-   consolidados, cada uno fijado a una versión y a un digest de imagen, en un contenedor endurecido y sin privilegios.
+   consolidados, cada uno fijado a una versión y a un digest de imagen, en un contenedor endurecido y sin privilegios:
+   Opengrep, Gitleaks, Trivy, OSV-Scanner, Grype, Checkov y zizmor para código e imágenes; ZAP, katana, nuclei,
+   testssl.sh y httpx para sitios web y APIs.
 2. **Ejecuciones.** Cada análisis es una **ejecución**: el registro de qué se analizó, qué pasos corrieron, cuáles no y
    por qué. Un paso que no corrió aparece como *no probado*, nunca como limpio.
 3. **Registro de hallazgos.** Cada hallazgo tiene una **huella** estable, así que el mismo problema se reconoce de una
