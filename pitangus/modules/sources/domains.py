@@ -59,7 +59,7 @@ RECHECK_SECONDS = 24 * 3600
 ID = re.compile(r"[0-9a-f]{24}")
 KEY_PREFIX = "domain:"
 PROOF_METHODS = ("dns", "file", "meta")
-TOKEN_PREFIX = "pitangus-verify="
+TOKEN_PREFIX = "pitangus-verify="  # gitleaks:allow
 WELL_KNOWN = "/.well-known/pitangus-verify.txt"
 META_NAME = "pitangus-verify"
 BODY_LIMIT = 64 * 1024

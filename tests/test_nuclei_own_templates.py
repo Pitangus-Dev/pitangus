@@ -176,8 +176,8 @@ class MatcherTests(unittest.TestCase):
         json_type = "application/json; charset=utf-8"
         self.check("pitangus-json-credentials", request,
                    [response('{"id": 1, "password": "Hunter2024!"}', content_type=json_type),
-                    response('{"config": {"api_key": "sk_live_51HxYz9AbCdEf"}}', content_type=json_type),
-                    response('{"Token":"eyJhbGciOiJIUzI1NiJ9.e30.abc"}', content_type="application/problem+json")],
+                    response('{"config": {"api_key": "sk_live_51HxYz9AbCdEf"}}', content_type=json_type),  # gitleaks:allow
+                    response('{"Token":"eyJhbGciOiJIUzI1NiJ9.e30.abc"}', content_type="application/problem+json")],  # gitleaks:allow
                    [response('{"password": "string", "token": "YOUR_API_TOKEN", "secret": "", "api_key": "********"}', content_type=json_type),
                     response('{"password": null, "token": "<token>", "secret": "{{secret}}"}', content_type=json_type),
                     response('{"$schema": "http://json-schema.org/draft-07/schema#", "example": {"password": "Hunter2024!"}}', content_type=json_type),
@@ -206,11 +206,11 @@ class MatcherTests(unittest.TestCase):
             "aspnet-trace": (response("<h1>Application Trace</h1>"), response(NOT_FOUND)),
             "werkzeug-console": (response("<title>Console // Werkzeug Debugger</title>"), response("<title>Console</title>")),
             "htpasswd": (response("admin:$apr1$abc$def\n", content_type="text/plain"), response("admin:secret\n", content_type="text/plain")),
-            "npmrc-token": (response("//registry.npmjs.org/:_authToken=npm_abcdefghij123\n", content_type="text/plain"),
+            "npmrc-token": (response("//registry.npmjs.org/:_authToken=npm_abcdefghij123\n", content_type="text/plain"),  # gitleaks:allow
                             response("registry=https://registry.npmjs.org/\n", content_type="text/plain")),
             "aws-credentials": (response("[default]\naws_access_key_id = AKIA\naws_secret_access_key = abc\n", content_type="text/plain"),
                                 response("[default]\nregion = us-east-1\n", content_type="text/plain")),
-            "docker-credentials": (response('{"auths": {"ghcr.io": {"auth": "dXNlcjpwYXNzd29yZA=="}}}'), response('{"auths": {}}')),
+            "docker-credentials": (response('{"auths": {"ghcr.io": {"auth": "dXNlcjpwYXNzd29yZA=="}}}'), response('{"auths": {}}')),  # gitleaks:allow
             "wordpress-config-backup": (response("<?php\ndefine( 'DB_PASSWORD', 'x' );\n", content_type="application/octet-stream"),
                                         response("<?php\n// nothing\n", content_type="application/octet-stream")),
         }

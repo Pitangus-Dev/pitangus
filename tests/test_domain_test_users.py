@@ -27,7 +27,7 @@ from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_sarif_import import verified_domain
 from test_web_scan import HOST, real
 
-PASSWORD_1 = "Correct-Horse-Battery-71"
+PASSWORD_1 = "Correct-Horse-Battery-71"  # gitleaks:allow
 SEED = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
 USERNAME = "qa-admin@pitangus.dev"
 
@@ -55,7 +55,7 @@ def password_user(**extra) -> dict:
 
 
 def totp_user(**extra) -> dict:
-    return {"name": "MFA user", "method": "password_totp", "username": "mfa@pitangus.dev", "password": "Second-Pass-0042",
+    return {"name": "MFA user", "method": "password_totp", "username": "mfa@pitangus.dev", "password": "Second-Pass-0042",  # gitleaks:allow
             "totp": {"secret": SEED.lower()[:16] + " " + SEED.lower()[16:], "digits": 6, "period": 30, "algorithm": "SHA1"}, **extra}
 
 
@@ -81,7 +81,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(set(first), {"id", "name", "method", "username", "login_url", "check_url", "notes", "applies_to", "created_by", "created_at",
                                       "updated_at", "last_used_at"})
         everything = json.dumps(listed) + json.dumps([first, second]) + stored_rows(self.data_dir)
-        for secret in (PASSWORD_1, "Second-Pass-0042", SEED, SEED.lower()[:16]):
+        for secret in (PASSWORD_1, "Second-Pass-0042", SEED, SEED.lower()[:16]):  # gitleaks:allow
             self.assertNotIn(secret, everything)
         self.assertNotIn(USERNAME, stored_rows(self.data_dir))  # the username is sealed too
         # A sealed value moved to another row doesn't open.
@@ -211,7 +211,7 @@ class PlanTests(unittest.TestCase):
 
     def test_login_plan_puts_secrets_in_the_environment_only(self):
         users = [{"name": "Admin", "username": USERNAME, "password": PASSWORD_1, "totp": None, "login_url": None, "applies_to": HOST},
-                 {"name": "MFA", "username": "mfa", "password": "Second-Pass-0042", "login_url": "https://docs.pitangus.dev/in",
+                 {"name": "MFA", "username": "mfa", "password": "Second-Pass-0042", "login_url": "https://docs.pitangus.dev/in",  # gitleaks:allow
                   "applies_to": "docs.pitangus.dev", "totp": {"secret": SEED, "digits": 8, "period": 60, "algorithm": "SHA256"}}]
         planned, environment = web.login_plan(users, HOST, f"https://{HOST}/app")
         self.assertEqual(planned, [{"name": "Admin", "login_url": f"https://{HOST}/", "start": f"https://{HOST}/app", "check_url": None,
@@ -219,7 +219,7 @@ class PlanTests(unittest.TestCase):
                                    {"name": "MFA", "login_url": "https://docs.pitangus.dev/in", "start": "https://docs.pitangus.dev/",
                                     "check_url": None, "totp": {"digits": 8, "period": 60, "algorithm": "SHA256"}}])
         self.assertEqual(environment, {"PITANGUS_LOGIN_1_USERNAME": USERNAME, "PITANGUS_LOGIN_1_PASSWORD": PASSWORD_1,
-                                       "PITANGUS_LOGIN_2_USERNAME": "mfa", "PITANGUS_LOGIN_2_PASSWORD": "Second-Pass-0042",
+                                       "PITANGUS_LOGIN_2_USERNAME": "mfa", "PITANGUS_LOGIN_2_PASSWORD": "Second-Pass-0042",  # gitleaks:allow
                                        "PITANGUS_LOGIN_2_TOTP": SEED})
         text_plan = web.plan_text(HOST, f"https://{HOST}/app", users=planned)
         for secret in (USERNAME, PASSWORD_1, SEED, "Second-Pass-0042"):
@@ -491,7 +491,7 @@ class ApiTests(HttpCase):
         status, left, _ = self.change({"op": "remove", "id": user["id"]})
         self.assertEqual((status, [item["name"] for item in left["test_users"]]), (200, ["MFA user"]))
         everything = "\n".join(records) + json.dumps(page) + stored_rows(self.data_dir)
-        for secret in (PASSWORD_1, "Second-Pass-0042", SEED, SEED.lower()[:16]):
+        for secret in (PASSWORD_1, "Second-Pass-0042", SEED, SEED.lower()[:16]):  # gitleaks:allow
             self.assertNotIn(secret, everything)
         self.assertIn("domain_test_user_changed", everything)
 

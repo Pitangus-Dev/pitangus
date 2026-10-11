@@ -10,7 +10,7 @@ import { TestUsersPanel } from '@/features/domains/test-users'
 
 const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
 const ID = 'a'.repeat(24)
-const PASSWORD = 'Correct-Horse-Battery-71'
+const PASSWORD = 'Correct-Horse-Battery-71' // gitleaks:allow
 const SEED = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
 const DOMAIN = { id: ID, host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: '', key: 'domain:app.example.com', verified: true, expired: false,
   proof_method: 'dns', headers: [], header_count: 0, runs: 0, open: 0 }

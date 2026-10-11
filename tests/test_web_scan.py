@@ -338,7 +338,7 @@ class ApiTests(HttpCase):
             self.assertIn("already queued or running", answer["error"])
 
 
-SECRET = "pkfixture_4f0c2b1e9a77d3c5aa01"
+SECRET = "pkfixture_4f0c2b1e9a77d3c5aa01"  # gitleaks:allow
 SPEC = {"openapi": "3.0.3", "info": {"title": "Agenda", "version": "1", "description": "internal-only-description"},
         "servers": [{"url": "http://localhost:8080/v1"}],
         "paths": {"/users": {"get": {"responses": {"200": {"description": "ok"}}},
@@ -495,13 +495,13 @@ class CoverageTests(unittest.TestCase):
 
     def test_api_header_and_subdomain_findings_survive_a_scan_that_didnt_look_there(self):
         self.scan([(f"https://{HOST}/a", "baseline"), (f"https://{HOST}/admin", "baseline+headers"),
-                   (f"https://{HOST}/v1/users", "api:0123456789abcdef"), ("https://docs.pitangus.dev/", "baseline")],
+                   (f"https://{HOST}/v1/users", "api:0123456789abcdef"), ("https://docs.pitangus.dev/", "baseline")],  # gitleaks:allow
                   hosts=(HOST, "docs.pitangus.dev"))
         self.scan([], hosts=(HOST,))  # an anonymous crawl of the root only
         self.assertEqual(self.states(), {f"https://{HOST}/a|baseline": "fixed", f"https://{HOST}/admin|baseline+headers": "open",
-                                         f"https://{HOST}/v1/users|api:0123456789abcdef": "open", "https://docs.pitangus.dev/|baseline": "open"})
-        self.scan([], variant="api", coverage="api:0123456789abcdef")
-        self.assertEqual(self.states()[f"https://{HOST}/v1/users|api:0123456789abcdef"], "fixed")
+                                         f"https://{HOST}/v1/users|api:0123456789abcdef": "open", "https://docs.pitangus.dev/|baseline": "open"})  # gitleaks:allow
+        self.scan([], variant="api", coverage="api:0123456789abcdef")  # gitleaks:allow
+        self.assertEqual(self.states()[f"https://{HOST}/v1/users|api:0123456789abcdef"], "fixed")  # gitleaks:allow
         self.scan([], coverage="baseline+headers", hosts=(HOST, "docs.pitangus.dev"))
         self.assertEqual(self.states()[f"https://{HOST}/admin|baseline+headers"], "fixed")
         self.assertEqual(self.states()["https://docs.pitangus.dev/|baseline"], "open")

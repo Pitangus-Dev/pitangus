@@ -49,7 +49,7 @@ def _yaml(raw: str) -> Any:
             return super().compose_node(parent, index)
 
     try:
-        return yaml.load(raw, Loader=NoAliases)  # noqa: S506 — a SafeLoader subclass
+        return yaml.load(raw, Loader=NoAliases)  # noqa: S506 (NoAliases is a SafeLoader subclass)  # nosemgrep
     except (yaml.YAMLError, RecursionError, ValueError) as exc:
         raise SpecError(msg("scanning.web.spec.unreadable")) from exc
 
