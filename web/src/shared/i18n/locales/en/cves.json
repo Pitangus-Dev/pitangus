@@ -35,7 +35,7 @@
     "downloading": "The local database is still empty while it downloads from NVD."
   },
   "pagination": {
-    "showing": "Showing {{from}}–{{to}} of {{total}} CVEs",
+    "showing": "Showing {{from}}–{{to}} of {{total, number}} CVEs",
     "per_page_label": "Per page",
     "per_page": "{{size}} / page",
     "previous": "Previous"
@@ -73,7 +73,7 @@
     "preparing": "Preparing the local copy of NVD…",
     "downloading": "Downloading NVD: {{percent}}",
     "count": "{{value}} CVEs · newest first",
-    "count_of": "{{value}} of {{total}} CVEs · newest first",
+    "count_of": "{{value}} of {{total, number}} CVEs · newest first",
     "aria": "NVD sync",
     "error": "NVD isn't responding right now; it will retry on its own.",
     "hint": "You can already search what's loaded. NVD throttles downloads without an API key; with PITANGUS_NVD_API_KEY it's about 8 times faster."
@@ -93,7 +93,7 @@
     "vector": "Vector",
     "weakness": "Weakness",
     "in_repos": "In your repositories",
-    "open_one": "{{count}} open", "open_other": "{{count}} open",
+    "open_one": "{{count, number}} open", "open_other": "{{count, number}} open",
     "fixed": "fixed",
     "not_affected": "No scanned repository has this CVE among its findings.",
     "references": "References",

@@ -57,7 +57,7 @@ export function StackedSeverityBars({ data, height = 180 }: { data: { day: strin
   const ticksAt = dayTicks(data.length, innerW)
   return <div ref={ref} className="relative">
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block max-w-full" role="img" aria-label={t('new_per_day', { total })}>
-      {ticks.map(tick => { const y = padTop + innerH - (tick / max) * innerH; return <g key={tick}><line x1={padLeft} x2={width - 8} y1={y} y2={y} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{tick}</text></g> })}
+      {ticks.map(tick => { const y = padTop + innerH - (tick / max) * innerH; return <g key={tick}><line x1={padLeft} x2={width - 8} y1={y} y2={y} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{formatNumber(tick)}</text></g> })}
       {data.map((item, index) => { const x = padLeft + index * slot + (slot - bar) / 2; let y = padTop + innerH
         return <g key={item.day} onMouseEnter={event => setHover({ index, x: (event.nativeEvent as MouseEvent).offsetX, y: (event.nativeEvent as MouseEvent).offsetY })} onMouseLeave={() => setHover(null)}>
           <rect x={padLeft + index * slot} y={padTop} width={slot} height={innerH} fill="transparent" />
@@ -118,7 +118,7 @@ export function FoundVsFixed({ data, height = 200 }: { data: { day: string; foun
   const ticksAt = dayTicks(data.length, innerW)
   return <div ref={ref} className="relative">
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block max-w-full" role="img" aria-label={t('found_vs_fixed')}>
-      {[0, Math.ceil(max / 2), max].map(tick => <g key={tick}><line x1={padLeft} x2={width - 8} y1={y(tick)} y2={y(tick)} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y(tick) + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{tick}</text></g>)}
+      {[0, Math.ceil(max / 2), max].map(tick => <g key={tick}><line x1={padLeft} x2={width - 8} y1={y(tick)} y2={y(tick)} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y(tick) + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{formatNumber(tick)}</text></g>)}
       <path d={path('found')} fill="none" stroke="var(--series-found)" strokeWidth={2} strokeLinejoin="round" />
       <path d={path('fixed')} fill="none" stroke="var(--series-fixed)" strokeWidth={2} strokeLinejoin="round" />
       {last && <><text x={width - 10} y={y(last.found) - 4} textAnchor="end" className="fill-app-secondary" fontSize={11}>{t('found_count', { count: last.found })}</text><text x={width - 10} y={y(last.fixed) + (Math.abs(y(last.fixed) - y(last.found)) < 12 ? 12 : -4)} textAnchor="end" className="fill-app-secondary" fontSize={11}>{t('fixed_count', { count: last.fixed })}</text></>}
@@ -138,7 +138,7 @@ export function HBars({ rows, colorFor }: { rows: { label: string; value: number
   const max = Math.max(1, ...rows.map(row => row.value))
   if (!rows.length) return null
   return <ul className="space-y-2.5">{rows.map(row => <li key={row.label} className="text-xs">
-    <div className="flex items-baseline justify-between gap-3"><span className="min-w-0 break-words text-app-secondary" title={row.hint ?? row.label}>{row.label}</span><span className="shrink-0 font-medium tabular-nums text-app-fg">{row.value}</span></div>
+    <div className="flex items-baseline justify-between gap-3"><span className="min-w-0 break-words text-app-secondary" title={row.hint ?? row.label}>{row.label}</span><span className="shrink-0 font-medium tabular-nums text-app-fg">{formatNumber(row.value)}</span></div>
     <div className="mt-1 h-2 rounded-sm bg-app-soft"><div className="h-full rounded-sm" style={{ width: `${(100 * row.value) / max}%`, background: row.color ?? colorFor?.(row) ?? 'var(--chart-neutral)' }} /></div>
   </li>)}</ul>
 }

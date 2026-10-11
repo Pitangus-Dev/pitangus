@@ -17,10 +17,10 @@
     "failed": "Failed",
     "new_commits": "New commits",
     "clean": "No new findings",
-    "new_one": "{{count}} new",
-    "new_other": "{{count}} new",
-    "blocking_one": "{{count}} critical/high",
-    "blocking_other": "{{count}} critical/high"
+    "new_one": "{{count, number}} new",
+    "new_other": "{{count, number}} new",
+    "blocking_one": "{{count, number}} critical/high",
+    "blocking_other": "{{count, number}} critical/high"
   },
   "loading": {
     "watched": "Loading watched repositories",
@@ -52,7 +52,7 @@
   },
   "list": {
     "title": "Open pull requests",
-    "title_count": "Open pull requests · {{total}}",
+    "title_count": "Open pull requests · {{total, number}}",
     "empty": "No open pull requests in this repository.",
     "draft": "draft",
     "reviewed": "reviewed {{date}}",
@@ -64,7 +64,7 @@
     "queued_notice": "PR #{{number}} queued for review."
   },
   "watch": {
-    "title": "Watched repositories · {{total}}",
+    "title": "Watched repositories · {{total, number}}",
     "description": "Watched repositories review every PR push on their own (checked every {{minutes}} min).",
     "member_hint": "Only an admin changes what's watched.",
     "bulk": "Bulk actions",
@@ -75,8 +75,8 @@
     "search": "Search repositories",
     "search_placeholder": "Search…",
     "only_watched": "Watched only",
-    "selected_one": "{{count}} selected",
-    "selected_other": "{{count}} selected",
+    "selected_one": "{{count, number}} selected",
+    "selected_other": "{{count, number}} selected",
     "enable": "Turn on",
     "disable": "Turn off",
     "clear_selection": "Clear selection",
@@ -87,8 +87,8 @@
     "panel_only": "panel only",
     "branch_current": "target branches kept up to date",
     "not_watched": "not watched",
-    "reviewed_one": "{{count}} PR reviewed",
-    "reviewed_other": "{{count}} PRs reviewed",
+    "reviewed_one": "{{count, number}} PR reviewed",
+    "reviewed_other": "{{count, number}} PRs reviewed",
     "on": "On",
     "off": "Off",
     "toggle": "Watch {{name}}",

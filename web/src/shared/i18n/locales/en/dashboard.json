@@ -1,8 +1,8 @@
 {
   "window": { "days_7": "Last 7 days", "days_30": "Last 30 days", "days_90": "Last 90 days", "days_365": "Last year" },
   "summary": {
-    "assets_one": "{{count}} asset scanned", "assets_other": "{{count}} assets scanned",
-    "runs_one": "{{count}} run in this window", "runs_other": "{{count}} runs in this window",
+    "assets_one": "{{count, number}} asset scanned", "assets_other": "{{count, number}} assets scanned",
+    "runs_one": "{{count, number}} run in this window", "runs_other": "{{count, number}} runs in this window",
     "updated": "updated {{date}}"
   },
   "empty": {
@@ -13,21 +13,21 @@
   "kpi": {
     "score": "Score", "score_hint": "drops with what is open, most with critical and KEV", "score_how": "How the score is computed",
     "open": "Open", "open_hint": "{{critical}} critical · {{high}} high",
-    "overdue": "Overdue", "due_soon_one": "{{count}} due in the next 7 days", "due_soon_other": "{{count}} due in the next 7 days",
+    "overdue": "Overdue", "due_soon_one": "{{count, number}} due in the next 7 days", "due_soon_other": "{{count, number}} due in the next 7 days",
     "no_due_dates": "no due dates",
     "fixed": "Fixed", "fix_rate": "fix rate {{rate}}", "no_comparable_runs": "no comparable runs",
     "mttr": "Time to fix", "days_one": "day", "days_other": "days", "mttr_hint": "from detection until it's gone",
     "kev": "In CISA KEV", "kev_hint": "open and actively exploited"
   },
   "panels": {
-    "new_per_day": { "title": "New findings per day", "description": "The first time each fingerprint shows up, by severity: {{total}} in this window." },
+    "new_per_day": { "title": "New findings per day", "description": "The first time each fingerprint shows up, by severity: {{total, number}} in this window." },
     "open_by_severity": { "title": "Open by severity", "description": "What the latest run of each asset contains." },
     "found_vs_fixed": { "title": "Found vs. fixed", "description": "Cumulative over the window. Fixed means the fingerprint no longer appears in the asset." },
     "by_cwe": { "title": "By weakness type", "description": "The most common CWEs among open findings.", "empty": "No CWEs yet." },
     "exploitability": { "title": "Exploitability", "description": "Open findings in CISA KEV or with EPSS ≥ 10%, most urgent first." },
     "top_assets": {
       "title": "Most affected assets", "description": "Latest run of each repository.",
-      "open_one": "{{count}} open", "open_other": "{{count}} open", "trend": "{{trend}} vs. previous",
+      "open_one": "{{count, number}} open", "open_other": "{{count, number}} open", "trend": "{{trend}} vs. previous",
       "more": "View in Findings", "empty": "No assets scanned."
     },
     "top_issues": {
@@ -39,7 +39,7 @@
   "activity": {
     "title": "Scan activity", "description": "Runs per day, up to today.",
     "runs_30d": "runs in 30 days", "active_days": "active days in the last year",
-    "streak_days_one": "{{count}} day", "streak_days_other": "{{count}} days", "streak": "current streak",
+    "streak_days_one": "{{count, number}} day", "streak_days_other": "{{count, number}} days", "streak": "current streak",
     "last_day": "last day with a scan"
   },
   "tools": "Engines in the latest run: {{tools}}",
@@ -68,7 +68,7 @@
     "empty": "No open finding has a known exploit or a high EPSS.",
     "region": "Findings with exploitation signals",
     "show_less": "Show less",
-    "show_all": "Show all {{total}}",
-    "showing": "Showing {{shown}} of {{total}}: the rest are in Findings"
+    "show_all": "Show all {{total, number}}",
+    "showing": "Showing {{shown}} of {{total, number}}: the rest are in Findings"
   }
 }

@@ -54,8 +54,8 @@
   },
   "link_dialog": {
     "title": "Link for @{{username}}",
-    "description_one": "It works once and expires in {{count}} hour. It won't be shown again: if it's lost, generate another one (the previous one stops working).",
-    "description_other": "It works once and expires in {{count}} hours. It won't be shown again: if it's lost, generate another one (the previous one stops working).",
+    "description_one": "It works once and expires in {{count, number}} hour. It won't be shown again: if it's lost, generate another one (the previous one stops working).",
+    "description_other": "It works once and expires in {{count, number}} hours. It won't be shown again: if it's lost, generate another one (the previous one stops working).",
     "copy": "Copy link",
     "copied_to_clipboard": "Copied to clipboard",
     "done": "Done"

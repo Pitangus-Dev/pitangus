@@ -54,10 +54,10 @@
     "repository": "repository",
     "image": "image",
     "failed": "The {{name}} scan failed.",
-    "done_one": "{{name}} scan finished: {{count}} finding.",
-    "done_other": "{{name}} scan finished: {{count}} findings.",
-    "done_severities_one": "{{name}} scan finished: {{count}} finding ({{critical}} critical, {{high}} high).",
-    "done_severities_other": "{{name}} scan finished: {{count}} findings ({{critical}} critical, {{high}} high)."
+    "done_one": "{{name}} scan finished: {{count, number}} finding.",
+    "done_other": "{{name}} scan finished: {{count, number}} findings.",
+    "done_severities_one": "{{name}} scan finished: {{count, number}} finding ({{critical}} critical, {{high}} high).",
+    "done_severities_other": "{{name}} scan finished: {{count, number}} findings ({{critical}} critical, {{high}} high)."
   },
   "footer": "{{name}} · free software under <license>AGPL-3.0</license> · <source>source code</source> · a clean result doesn't prove there are no vulnerabilities.",
   "update": {
@@ -91,11 +91,11 @@
       "repositories": "View all repositories",
       "domains": "View all domains"
     },
-    "open_findings_one": "{{count}} open finding",
-    "open_findings_other": "{{count}} open findings",
+    "open_findings_one": "{{count, number}} open finding",
+    "open_findings_other": "{{count, number}} open findings",
     "searching": "Searching…",
-    "count_one": "{{count}} result",
-    "count_other": "{{count}} results",
+    "count_one": "{{count, number}} result",
+    "count_other": "{{count, number}} results",
     "empty": "Nothing matches “{{query}}”.",
     "hint": {
       "move": "Move",

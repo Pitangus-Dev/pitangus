@@ -54,10 +54,10 @@
     "repository": "repositorio",
     "image": "imagen",
     "failed": "El escaneo de {{name}} falló.",
-    "done_one": "Escaneo de {{name}} terminado: {{count}} hallazgo.",
-    "done_other": "Escaneo de {{name}} terminado: {{count}} hallazgos.",
-    "done_severities_one": "Escaneo de {{name}} terminado: {{count}} hallazgo ({{critical}} críticos, {{high}} altos).",
-    "done_severities_other": "Escaneo de {{name}} terminado: {{count}} hallazgos ({{critical}} críticos, {{high}} altos)."
+    "done_one": "Escaneo de {{name}} terminado: {{count, number}} hallazgo.",
+    "done_other": "Escaneo de {{name}} terminado: {{count, number}} hallazgos.",
+    "done_severities_one": "Escaneo de {{name}} terminado: {{count, number}} hallazgo ({{critical}} críticos, {{high}} altos).",
+    "done_severities_other": "Escaneo de {{name}} terminado: {{count, number}} hallazgos ({{critical}} críticos, {{high}} altos)."
   },
   "footer": "{{name}} · software libre bajo <license>AGPL-3.0</license> · <source>código fuente</source> · los resultados negativos no prueban ausencia de vulnerabilidades.",
   "update": {
@@ -91,11 +91,11 @@
       "repositories": "Ver todos los repositorios",
       "domains": "Ver todos los dominios"
     },
-    "open_findings_one": "{{count}} hallazgo abierto",
-    "open_findings_other": "{{count}} hallazgos abiertos",
+    "open_findings_one": "{{count, number}} hallazgo abierto",
+    "open_findings_other": "{{count, number}} hallazgos abiertos",
     "searching": "Buscando…",
-    "count_one": "{{count}} resultado",
-    "count_other": "{{count}} resultados",
+    "count_one": "{{count, number}} resultado",
+    "count_other": "{{count, number}} resultados",
     "empty": "Nada coincide con «{{query}}».",
     "hint": {
       "move": "Moverte",

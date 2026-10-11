@@ -52,20 +52,20 @@
     },
     "downloads": "Downloads",
     "downloads_one": "Downloads for {{name}}",
-    "downloads_many_one": "Downloads for {{count}} asset",
-    "downloads_many_other": "Downloads for {{count}} assets",
+    "downloads_many_one": "Downloads for {{count, number}} asset",
+    "downloads_many_other": "Downloads for {{count, number}} assets",
     "summary": {
       "pick": "Choose a repository or an image.",
       "counting": "Counting the assets in scope…",
       "last_complete": "last full scan {{date}}",
-      "assets_one": "{{count}} asset in scope",
-      "assets_other": "{{count}} assets in scope",
-      "repositories_one": "{{count}} repository",
-      "repositories_other": "{{count}} repositories",
-      "images_one": "{{count}} image",
-      "images_other": "{{count}} images",
-      "complete_one": "{{count}} with a completed full scan",
-      "complete_other": "{{count}} with a completed full scan",
+      "assets_one": "{{count, number}} asset in scope",
+      "assets_other": "{{count, number}} assets in scope",
+      "repositories_one": "{{count, number}} repository",
+      "repositories_other": "{{count, number}} repositories",
+      "images_one": "{{count, number}} image",
+      "images_other": "{{count, number}} images",
+      "complete_one": "{{count, number}} with a completed full scan",
+      "complete_other": "{{count, number}} with a completed full scan",
       "failed": "Couldn't count the assets in this scope. Try again in a moment.",
       "no_complete": "no completed full scan yet"
     }
@@ -86,16 +86,16 @@
     "policy_failed": "Couldn't check whether CRA reporting is on, so its deadlines aren't shown."
   },
   "events": {
-    "pending_one": "{{count}} open event",
-    "pending_other": "{{count}} open events",
-    "to_assess_one": "{{count}} to assess",
-    "to_assess_other": "{{count}} to assess",
+    "pending_one": "{{count, number}} open event",
+    "pending_other": "{{count, number}} open events",
+    "to_assess_one": "{{count, number}} to assess",
+    "to_assess_other": "{{count, number}} to assess",
     "none_pending": "No open events",
     "no_products": "First, mark which repositories or images are products under the CRA.",
     "not_scanned": "Your products don't have a completed full scan yet; without one there's no way to know whether anything needs assessing.",
     "none_in_kev": "None of the vulnerabilities in your scanned products is in the CISA KEV catalog. This is checked on every scan.",
-    "unscanned_one": "{{count}} without a full scan.",
-    "unscanned_other": "{{count}} without a full scan.",
+    "unscanned_one": "{{count, number}} without a full scan.",
+    "unscanned_other": "{{count, number}} without a full scan.",
     "noun": "events"
   },
   "products": {
@@ -158,13 +158,13 @@
     "unmark_label": "Unmark: {{stage}} for {{cve}}"
   },
   "due": {
-    "overdue_days_one": "overdue by {{count}} day",
-    "overdue_days_other": "overdue by {{count}} days",
-    "overdue_hours_one": "overdue by {{count}} h",
-    "overdue_hours_other": "overdue by {{count}} h",
-    "left_days_one": "{{count}} day left",
-    "left_days_other": "{{count}} days left",
-    "left_hours_one": "{{count}} h left",
-    "left_hours_other": "{{count}} h left"
+    "overdue_days_one": "overdue by {{count, number}} day",
+    "overdue_days_other": "overdue by {{count, number}} days",
+    "overdue_hours_one": "overdue by {{count, number}} h",
+    "overdue_hours_other": "overdue by {{count, number}} h",
+    "left_days_one": "{{count, number}} day left",
+    "left_days_other": "{{count, number}} days left",
+    "left_hours_one": "{{count, number}} h left",
+    "left_hours_other": "{{count, number}} h left"
   }
 }

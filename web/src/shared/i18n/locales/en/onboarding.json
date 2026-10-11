@@ -1,6 +1,6 @@
 {
   "title": "Getting started",
-  "progress": "{{done}} of {{total}} done. Steps check themselves off as you complete them.",
+  "progress": "{{done}} of {{total, number}} done. Steps check themselves off as you complete them.",
   "hide": "Hide getting started",
   "done": "(done)",
   "pending": "(pending)",

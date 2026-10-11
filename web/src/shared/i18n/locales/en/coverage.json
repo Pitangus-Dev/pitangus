@@ -1,7 +1,7 @@
 {
-  "tested": "{{tested}}/{{total}} with at least one check",
+  "tested": "{{tested}}/{{total, number}} with at least one check",
   "description": "Each category shows which engine or how many rules covered it and how many findings it produced. Untested categories say why.",
-  "rules_one": "{{count}} rule", "rules_other": "{{count}} rules",
+  "rules_one": "{{count, number}} rule", "rules_other": "{{count, number}} rules",
   "run": { "title": "Run evaluated", "none": "No run selected", "pick": "Pick a run in Findings to see its coverage." },
   "not_covered": {
     "title_code": "What static analysis doesn't cover",

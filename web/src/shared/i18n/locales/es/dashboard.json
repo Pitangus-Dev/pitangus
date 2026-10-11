@@ -1,8 +1,8 @@
 {
   "window": { "days_7": "Últimos 7 días", "days_30": "Últimos 30 días", "days_90": "Últimos 90 días", "days_365": "Último año" },
   "summary": {
-    "assets_one": "{{count}} activo analizado", "assets_other": "{{count}} activos analizados",
-    "runs_one": "{{count}} ejecución en la ventana", "runs_other": "{{count}} ejecuciones en la ventana",
+    "assets_one": "{{count, number}} activo analizado", "assets_other": "{{count, number}} activos analizados",
+    "runs_one": "{{count, number}} ejecución en la ventana", "runs_other": "{{count, number}} ejecuciones en la ventana",
     "updated": "actualizado {{date}}"
   },
   "empty": {
@@ -13,21 +13,21 @@
   "kpi": {
     "score": "Puntuación", "score_hint": "baja con lo abierto, más con críticos y KEV", "score_how": "Cómo se calcula la puntuación",
     "open": "Abiertos", "open_hint": "{{critical}} críticos · {{high}} altos",
-    "overdue": "Fuera de plazo", "due_soon_one": "{{count}} vence en los próximos 7 días", "due_soon_other": "{{count}} vencen en los próximos 7 días",
+    "overdue": "Fuera de plazo", "due_soon_one": "{{count, number}} vence en los próximos 7 días", "due_soon_other": "{{count, number}} vencen en los próximos 7 días",
     "no_due_dates": "sin plazos",
     "fixed": "Corregidos", "fix_rate": "tasa de corrección {{rate}}", "no_comparable_runs": "sin ejecuciones comparables",
     "mttr": "Tiempo de corrección", "days_one": "día", "days_other": "días", "mttr_hint": "entre detección y desaparición",
     "kev": "En CISA KEV", "kev_hint": "abiertos con explotación activa"
   },
   "panels": {
-    "new_per_day": { "title": "Hallazgos nuevos por día", "description": "Primera vez que aparece cada huella, por severidad: {{total}} en la ventana." },
+    "new_per_day": { "title": "Hallazgos nuevos por día", "description": "Primera vez que aparece cada huella, por severidad: {{total, number}} en la ventana." },
     "open_by_severity": { "title": "Abiertos por severidad", "description": "Lo que hay en la última ejecución de cada activo." },
     "found_vs_fixed": { "title": "Hallados frente a corregidos", "description": "Acumulado en la ventana. Corregido = la huella dejó de aparecer en el activo." },
     "by_cwe": { "title": "Por tipo de debilidad", "description": "Los CWE más frecuentes entre los abiertos.", "empty": "Sin CWE todavía." },
     "exploitability": { "title": "Explotabilidad", "description": "Abiertos en CISA KEV o con EPSS ≥ 10 %, lo más urgente primero." },
     "top_assets": {
       "title": "Activos más afectados", "description": "Última ejecución de cada repositorio.",
-      "open_one": "{{count}} abierto", "open_other": "{{count}} abiertos", "trend": "{{trend}} vs anterior",
+      "open_one": "{{count, number}} abierto", "open_other": "{{count, number}} abiertos", "trend": "{{trend}} vs anterior",
       "more": "Ver en Hallazgos", "empty": "Sin activos analizados."
     },
     "top_issues": {
@@ -39,7 +39,7 @@
   "activity": {
     "title": "Actividad de análisis", "description": "Ejecuciones por día, hasta hoy.",
     "runs_30d": "ejecuciones en 30 días", "active_days": "días con actividad en el último año",
-    "streak_days_one": "{{count}} día", "streak_days_other": "{{count}} días", "streak": "racha actual",
+    "streak_days_one": "{{count, number}} día", "streak_days_other": "{{count, number}} días", "streak": "racha actual",
     "last_day": "último día con análisis"
   },
   "tools": "Motores en la última ejecución: {{tools}}",
@@ -68,7 +68,7 @@
     "empty": "Ningún hallazgo abierto tiene explotación conocida ni EPSS alto.",
     "region": "Hallazgos con señales de explotación",
     "show_less": "Ver menos",
-    "show_all": "Ver los {{total}}",
-    "showing": "Se muestran {{shown}} de {{total}}: el resto, en Hallazgos"
+    "show_all": "Ver los {{total, number}}",
+    "showing": "Se muestran {{shown}} de {{total, number}}: el resto, en Hallazgos"
   }
 }

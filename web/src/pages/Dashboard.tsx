@@ -4,7 +4,7 @@ import { GettingStarted } from '@/features/onboarding/getting-started'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatCalendarDay, formatDay, formatNumber, formatPercent } from '@/shared/i18n/format'
-import { ArrowsClockwiseIcon, CaretDownIcon, PulseIcon, ShieldWarningIcon } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon, CaretDownIcon, PulseIcon } from '@phosphor-icons/react'
 import { ActivityHeatmap, FoundVsFixed, HBars, PublishedBySeverity, SeverityBar, StackedSeverityBars } from '@/shared/charts/charts'
 import { sevName } from '@/shared/charts/severity'
 import { SEVERITY_CLASS } from '@/shared/ui/severity'
@@ -38,7 +38,7 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
   if (!data) return <Skeleton tiles={6} rows={4} />
   const { kpis } = data
   const empty = kpis.assets === 0
-  const severityName = (severity: string) => severity in SEVERITY ? t(SEVERITY[severity as keyof typeof SEVERITY]).toLowerCase() : severity
+  const severityName = (severity: string) => severity in SEVERITY ? t(SEVERITY[severity as keyof typeof SEVERITY]) : severity
   const statusName = (status: string) => status in STATUS ? t(STATUS[status as keyof typeof STATUS]) : status
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -51,7 +51,7 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
 
     <KeyFigures>
       <Kpi label={t('kpi.score')} value={kpis.security_score.value} suffix="/100" hint={t('kpi.score_hint')} tone={kpis.security_score.value >= 80 ? 'teal' : kpis.security_score.value >= 50 ? 'amber' : 'rose'} />
-      <Kpi label={t('kpi.open')} value={kpis.open.total} hint={t('kpi.open_hint', { critical: kpis.open.critical, high: kpis.open.high })} tone={kpis.open.critical ? 'rose' : 'muted'} />
+      <Kpi label={t('kpi.open')} value={kpis.open.total} hint={t('kpi.open_hint', { critical: formatNumber(kpis.open.critical), high: formatNumber(kpis.open.high) })} tone={kpis.open.critical ? 'rose' : 'muted'} />
       <Kpi label={t('kpi.overdue')} value={kpis.sla?.overdue ?? '—'} hint={kpis.sla ? t('kpi.due_soon', { count: kpis.sla.soon }) : t('kpi.no_due_dates')} tone={kpis.sla?.overdue ? 'rose' : 'muted'} />
       <Kpi label={t('kpi.fixed')} value={kpis.fixed_in_window} hint={kpis.fix_rate !== null ? t('kpi.fix_rate', { rate: formatPercent(kpis.fix_rate / 100, 1) }) : t('kpi.no_comparable_runs')} tone="teal" />
       <Kpi label={t('kpi.mttr')} value={kpis.mttr_days ?? '—'} suffix={kpis.mttr_days !== null ? ` ${t('kpi.days', { count: kpis.mttr_days })}` : ''} hint={t('kpi.mttr_hint')} tone="muted" />
@@ -77,12 +77,12 @@ export function Dashboard({ onOpenRun, onNew, onTracker, onNavigate }: { onOpenR
     <Card className="border-app-line bg-panel"><CardHeader className="pb-3"><CardTitle className="text-base">{t('activity.title')}</CardTitle><CardDescription className="text-xs">{t('activity.description')}</CardDescription></CardHeader>
       <CardContent className="flex flex-col gap-6 lg:flex-row lg:items-start"><div className="min-w-0 flex-1"><ActivityHeatmap days={data.activity} /></div><ActivityStats days={data.activity} /></CardContent></Card>
     <CyberNews news={data.cve_news} onTracker={onTracker} kev={<KevNews news={data.kev_news} onTracker={onTracker} />} />
-    {data.tools.length ? <p className="flex flex-wrap gap-3 text-xs text-app-subtle"><ShieldWarningIcon className="size-3.5" />{t('tools', { tools: data.tools.map(tool => `${tool.name} ${tool.version} (${tool.status})`).join(' · ') })}</p> : null}
+    {data.tools.length ? <p className="text-xs text-app-subtle">{t('tools', { tools: data.tools.map(tool => `${tool.name} ${tool.version} (${statusName(tool.status).toLowerCase()})`).join(' · ') })}</p> : null}
   </div>
 }
 
 function Kpi({ label, value, suffix = '', hint, tone }: { label: string; value: number | string; suffix?: string; hint: string; tone: 'rose' | 'amber' | 'teal' | 'muted' }) {
-  return <KeyFigure label={label} value={value} suffix={suffix} hint={hint} tone={({ rose: 'danger', amber: 'attention', teal: 'success', muted: 'neutral' } as const)[tone]} />
+  return <KeyFigure label={label} value={typeof value === 'number' ? formatNumber(value) : value} suffix={suffix} hint={hint} tone={({ rose: 'danger', amber: 'attention', teal: 'success', muted: 'neutral' } as const)[tone]} />
 }
 // News in columns: on the left the counts and the last 30 days by severity (the local NVD copy); next to them the
 // latest published, with a way into the tracker.
@@ -174,10 +174,10 @@ function Exploitability({ data, onMore }: { data: Exploitable; onMore: () => voi
   return <div className="text-sm">
     <div className={all ? 'max-h-80 overflow-y-auto pr-1' : ''} tabIndex={all ? 0 : undefined} role={all ? 'region' : undefined} aria-label={all ? t('exploitability.region') : undefined}>{visible.map(row => <Row key={row.key} left={<span className="min-w-0 truncate"><span className="font-mono text-xs">{row.cve}</span> <span className="text-app-muted">· {row.where}</span></span>} right={row.tag} />)}</div>
     {rows.length > LIST && <button type="button" aria-expanded={all} onClick={() => setAll(value => !value)} className="mt-2 flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{all ? t('exploitability.show_less') : t('exploitability.show_all', { total: rows.length })}<CaretDownIcon className={`size-3 motion-safe:transition motion-safe:duration-150 ${all ? 'rotate-180' : ''}`} /></button>}
-    {total > rows.length && all && <button type="button" onClick={onMore} className="mt-1 flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{t('exploitability.showing', { shown: rows.length, total })}</button>}
+    {total > rows.length && all && <button type="button" onClick={onMore} className="mt-1 flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{t('exploitability.showing', { shown: formatNumber(rows.length), total: formatNumber(total) })}</button>}
   </div>
 }
 
 function Row({ left, right }: { left: React.ReactNode; right: React.ReactNode }) { return <div className="flex items-center justify-between gap-3 border-b border-app-line py-1.5 last:border-0">{left}{right}</div> }
-function Hero({ value, label }: { value: number; label: string }) { return <div><div className="text-3xl font-semibold">{value}</div><div className="text-xs text-app-muted">{label}</div></div> }
+function Hero({ value, label }: { value: number; label: string }) { return <div><div className="text-3xl font-semibold tabular-nums">{formatNumber(value)}</div><div className="text-xs text-app-muted">{label}</div></div> }
 function Empty({ text }: { text: string }) { return <p className="py-6 text-center text-sm text-app-subtle">{text}</p> }

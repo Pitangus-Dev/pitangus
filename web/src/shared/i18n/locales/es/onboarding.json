@@ -1,6 +1,6 @@
 {
   "title": "Primeros pasos",
-  "progress": "{{done}} de {{total}} hechos. Se tachan solos cuando los completas.",
+  "progress": "{{done}} de {{total, number}} hechos. Se tachan solos cuando los completas.",
   "hide": "Ocultar primeros pasos",
   "done": "(hecho)",
   "pending": "(pendiente)",

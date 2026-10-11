@@ -1,7 +1,7 @@
 {
-  "tested": "{{tested}}/{{total}} con alguna prueba",
+  "tested": "{{tested}}/{{total, number}} con alguna prueba",
   "description": "Cada categoría dice qué motor o cuántas reglas la cubrieron y cuántos hallazgos produjo. Lo no probado dice por qué.",
-  "rules_one": "{{count}} regla", "rules_other": "{{count}} reglas",
+  "rules_one": "{{count, number}} regla", "rules_other": "{{count, number}} reglas",
   "run": { "title": "Ejecución evaluada", "none": "Sin ejecución seleccionada", "pick": "Elige una ejecución en Hallazgos para ver su cobertura." },
   "not_covered": {
     "title_code": "Qué no cubre un análisis estático",

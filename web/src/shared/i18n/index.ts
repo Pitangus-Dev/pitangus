@@ -33,12 +33,18 @@ void i18n.use(initReactI18next).init({
   resources, lng: detect(), fallbackLng: 'en', supportedLngs: [...LOCALES], defaultNS: 'common',
   ns: Object.keys(resources.en ?? {}), interpolation: { escapeValue: false }, returnNull: false,
 })
+// `{{count, number}}` and `{{total, number}}` in the catalogs: quantities in the reader's number style.
+i18n.services.formatter?.add('number', value => typeof value === 'number' ? new Intl.NumberFormat(numberLocale(), { useGrouping: 'always' }).format(value) : value)
 const applyDocument = () => { document.documentElement.lang = i18n.language; document.title = i18n.t('common:app_title') }
 applyDocument()
 i18n.on('languageChanged', applyDocument)
 
 export const currentLocale = (): Locale => isLocale(i18n.language) ? i18n.language : 'en'
 export const intlLocale = () => INTL[currentLocale()]
+// Numbers in Spanish read with a decimal comma and a grouping dot ("14.178", "0,2 %"): es-419 would give "14,178"
+// and "0.2%", the US style. Dates keep es-419 (12-hour clock).
+const NUMBER: Record<Locale, string> = { en: 'en-US', es: 'es' }
+export const numberLocale = () => NUMBER[currentLocale()]
 
 export function setLocale(locale: Locale) {
   try { localStorage.setItem(STORAGE_KEY, locale) } catch { /* storage blocked */ }
