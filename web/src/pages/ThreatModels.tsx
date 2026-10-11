@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ArrowLeftIcon, BookOpenIcon, CaretDownIcon, CaretRightIcon, CircleNotchIcon, DownloadSimpleIcon, FloppyDiskIcon, ListPlusIcon, PencilSimpleIcon, PlusIcon, ShieldWarningIcon, XCircleIcon, TrashIcon, TreeStructureIcon, UploadSimpleIcon } from '@phosphor-icons/react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import type { SessionUser } from '@/features/auth/session'
 import { KeyFigure, KeyFigures } from '@/shared/ui/key-figures'
 import { Badge } from '@/shared/ui/badge'
@@ -48,15 +48,16 @@ export function ThreatModels({ user, onOpenRun }: { user: SessionUser; onOpenRun
   if (!catalog) return error ? <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div> : <Skeleton rows={4} />
   if (openId) return <Editor id={openId} catalog={catalog} user={user} onBack={() => { setOpenId(null); void load() }} onOpenRun={onOpenRun} />
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-start justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-app-muted"><Trans t={t} i18nKey="list.description" components={{ strong: <strong className="font-medium text-app-fg" /> }} /></p><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setImporting(true)}><UploadSimpleIcon />{t('list.import')}</Button><Button onClick={() => setCreating(true)}><PlusIcon />{t('list.new')}</Button></div></div>
+    <div className="flex flex-wrap items-start justify-end gap-3"><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setImporting(true)}><UploadSimpleIcon />{t('list.import')}</Button><Button onClick={() => setCreating(true)}><PlusIcon />{t('list.new')}</Button></div></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>}
       {catalog.models.length === 0 ? <div className="flex flex-col items-center gap-2 py-12 text-center"><TreeStructureIcon className="size-7 text-app-subtle" /><p className="font-medium">{t('list.empty')}</p><p className="max-w-md text-sm text-app-muted">{t('list.empty_hint')}</p></div>
-        : <div className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line bg-panel">{catalog.models.map(item => <button key={item.id} onClick={() => setOpenId(item.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-app-soft"><TreeStructureIcon className="size-4 text-app-subtle" /><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{item.name}<span className="ml-2 rounded border border-app-line px-1.5 py-0.5 align-middle text-[11px] font-normal text-app-subtle">{isMethodology(item.methodology ?? 'stride') ? methodName((item.methodology ?? 'stride') as Methodology) : item.methodology}</span></span><span className="block truncate text-xs text-app-subtle">{[t('count.components', { count: item.components }), t('count.flows', { count: item.flows }), ...(item.updated_at ? [t('list.updated', { date: formatDate(item.updated_at), user: item.updated_by })] : [])].join(' · ')}</span></span><CaretRightIcon className="size-4 text-app-subtle" /></button>)}</div>}
+        : <div className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line bg-panel">{catalog.models.map(item => <button key={item.id} onClick={() => setOpenId(item.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-app-soft"><TreeStructureIcon className="size-4 text-app-subtle" /><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{item.name}{!item.name.toLowerCase().includes(methodLabel(item).toLowerCase()) && <span className="ml-2 rounded-sm border border-app-line px-1.5 py-0.5 align-middle text-[11px] font-normal text-app-subtle">{methodLabel(item)}</span>}</span><span className="block truncate text-xs text-app-subtle">{[t('count.components', { count: item.components }), t('count.flows', { count: item.flows }), ...(item.updated_at ? [t('list.updated', { date: formatDate(item.updated_at), user: item.updated_by })] : [])].join(' · ')}</span></span><CaretRightIcon className="size-4 text-app-subtle" /></button>)}</div>}
     <CreateDialog open={creating} assets={catalog.assets} onClose={() => setCreating(false)} onCreated={id => { setCreating(false); setOpenId(id) }} />
     {importing && <ThreatJsonImporter onClose={() => setImporting(false)} onImported={id => { setImporting(false); setOpenId(id) }} />}
   </div>
 }
 
+const methodLabel = (item: { methodology?: string | null }) => isMethodology(item.methodology ?? 'stride') ? methodName((item.methodology ?? 'stride') as Methodology) : item.methodology ?? ''
 // Models link by stable identity (`github#123`), which survives a rename.
 const sourceKey = (source: Source) => source.uid ?? source.id
 

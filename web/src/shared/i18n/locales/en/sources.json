@@ -560,7 +560,6 @@
     }
   },
   "images": {
-    "description": "Pitangus reads the repository from the image's OCI labels; when they're missing or wrong, an administrator links it by hand, and that link wins.",
     "filter": "Filter by how they're linked",
     "tabs": {
       "all": "All",

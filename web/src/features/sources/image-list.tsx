@@ -104,8 +104,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
     : !data.items.length ? <p className="p-6 text-center text-sm text-app-muted">{t('images.no_match')}</p> : null
 
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <p className="max-w-2xl text-sm text-app-muted">{t('images.description')}</p>
+    <div className="flex flex-wrap items-start justify-end gap-3">
       <Button ref={addOpener} onClick={() => setAdding(true)}><PlusIcon aria-hidden />{t('images.add.open')}</Button>
     </div>
       {repository && <div className="flex flex-wrap items-center gap-3 text-sm">

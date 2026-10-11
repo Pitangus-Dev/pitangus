@@ -560,7 +560,6 @@
     }
   },
   "images": {
-    "description": "Pitangus lee el repositorio de las etiquetas OCI de la imagen; si faltan o son incorrectas, un administrador la vincula manualmente y ese vínculo manda.",
     "filter": "Filtrar por cómo están vinculadas",
     "tabs": {
       "all": "Todas",

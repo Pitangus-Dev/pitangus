@@ -461,7 +461,6 @@
   },
   "list": {
     "title": "Threat models",
-    "description": "Draw the system (components, data flows and trust boundaries) and analyze it with the approach you prefer. When a component's code has related open findings, the threat is flagged <strong>evidence found</strong>: a signal to review, not a confirmation.",
     "import": "Import JSON",
     "new": "New model",
     "empty": "No threat models yet",

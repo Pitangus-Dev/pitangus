@@ -461,7 +461,6 @@
   },
   "list": {
     "title": "Modelos de amenazas",
-    "description": "Dibuja el sistema —componentes, flujos de datos y fronteras de confianza— y analízalo con el enfoque que prefieras. Si el código de un componente tiene hallazgos abiertos relacionados, la amenaza aparece <strong>con indicios</strong>: una señal para revisar, no una confirmación.",
     "import": "Importar JSON",
     "new": "Nuevo modelo",
     "empty": "Aún no hay modelos",
