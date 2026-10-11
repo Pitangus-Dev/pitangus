@@ -428,14 +428,11 @@ def seed_members(data_dir: Path) -> int | None:
     return created
 
 
-def _admin(data_dir: Path) -> str:
-    from pitangus.modules.identity.auth import Users
-    return next((user["username"] for user in Users(data_dir).list() if user["role"] == "admin"), DEMO)
-
-
-TRIAGE = (  # repository, rule id fragment, decision, by (None: an administrator), days until the acceptance expires
+# Repository, rule id fragment, decision, by, days until the acceptance expires. Every decision is signed by a demo
+# account: none is put on a real person of this workspace (accepting a risk takes an administrator, so `demo` acts as one).
+TRIAGE = (
     ("checkout-api", "flask-debug-true", "false_positive", MEMBERS[0][0], None),
-    ("payments-service", "weak-cipher", "accepted", None, 60),
+    ("payments-service", "weak-cipher", "accepted", DEMO, 60),
     ("fulfillment-worker", "sql-string-building", "in_progress", MEMBERS[1][0], None),
 )
 
@@ -452,7 +449,7 @@ def seed_triage(data_dir: Path) -> int:
             continue
         expiry = (_now() + timedelta(days=expires)).date().isoformat() if expires else None
         triage.decide(data_dir, state, [chosen["fingerprint"]], status, reason=t(f"demo.triage.{status}"), expires_at=expiry,
-                      user={"username": by or _admin(data_dir), "role": "admin"})
+                      user={"username": by, "role": "admin"})
         decided += 1
     return decided
 

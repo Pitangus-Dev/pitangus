@@ -95,7 +95,8 @@
     },
     "discovery": {
       "interrupted": "La búsqueda de hosts relacionados se detuvo sin terminar; vuelve a buscar.",
-      "busy": "Ya hay una búsqueda de hosts relacionados en curso para este dominio."
+      "busy": "Ya hay una búsqueda de hosts relacionados en curso para este dominio.",
+      "demo": "{{host}} es un dato de demostración con un nombre reservado para ejemplos: no tiene hosts reales que buscar, así que Pitangus no busca."
     },
     "test_users": {
       "invalid_request": "Solicitud de usuario de prueba inválida",

@@ -95,7 +95,8 @@
     },
     "discovery": {
       "interrupted": "The search for related hosts stopped without finishing; search again.",
-      "busy": "A search for related hosts is already running for this domain."
+      "busy": "A search for related hosts is already running for this domain.",
+      "demo": "{{host}} is demo data under a name reserved for examples: it has no real hosts to look for, so Pitangus doesn't search."
     },
     "test_users": {
       "invalid_request": "Invalid test user request",

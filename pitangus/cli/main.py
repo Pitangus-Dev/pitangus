@@ -123,7 +123,8 @@ def build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--image", help="Also analyze this public image (e.g. nginx:1.21)")
     demo.add_argument("--full", action="store_true",
                       help="Also build a fictional organization offline (repositories with a month of scans, a PR review, an image, "
-                           "domains, members) from recorded engine outputs")
+                           "domains, members) from recorded engine outputs. It writes into this workspace, next to its "
+                           "real data, and nothing removes it: use a trial install")
     demo.add_argument("--recordings", type=Path, default=Path("tests"),
                       help="Folder with the recorded engine outputs (fixtures/ and engine-outputs/), for --full")
     commands.add_parser("providers", help="Show which AI providers have a credential on the server")

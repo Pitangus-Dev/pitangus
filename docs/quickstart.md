@@ -88,12 +88,17 @@ In the panel you'll see the **demo · vulnerable samples** asset:
 five `lapis-labs/…` repositories with a month of scans (trends, fixed findings, MTTR, due dates, some overdue), a pull
 request review, a container image, the domain `tienda.example.com` verified for the demo (scope, a weekly schedule,
 a test user, detected technologies and two passive web scans), `soporte.example.net` pending, two members marked
-"(demo)" and a few triage decisions. Its findings are engine outputs recorded against these same samples
+"(demo)" and a few triage decisions,
+signed by `demo` or those members, never by you. Its findings are engine outputs recorded against these same samples
 (`tests/fixtures`, `tests/engine-outputs`), replayed through the normal parsers and registry: nothing is scanned or
 contacted. Create the admin account first (the members wait for it), and open the Overview once before running it if
 you want KEV and EPSS on the findings (it downloads those feeds; the demo only reads them). The demo domains, under
 names reserved for examples, are never verified or scanned for real. Running it again adds nothing. Slack and Jira
 are left out: saving them contacts their servers.
+
+> [!WARNING]
+> `FULL=1` writes into the workspace you run it on, next to your real data, and nothing removes it afterwards. Use it
+> on an install for trying Pitangus or taking screenshots, not on the one your team works in.
 
 ## 3. Connect your GitHub repositories (5 min)
 

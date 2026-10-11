@@ -12,7 +12,7 @@ from pitangus.modules.identity.auth import Users
 from pitangus.modules.runs import periodic
 from pitangus.modules.runs.store import find_runs
 from pitangus.modules.sources import domains, test_users
-from test_auth import PASSWORD, HttpCase
+from test_auth import ORIGIN, PASSWORD, HttpCase
 
 ROOT = Path(__file__).resolve().parents[1]
 CODE_SCANS = sum(len(repository.days) for repository in demo_org.REPOSITORIES)
@@ -109,6 +109,26 @@ class FullDemoTests(HttpCase):
         self.assertGreater(kpis["fixed_in_window"], 0)
         self.assertIsNotNone(kpis["mttr_days"])
         self.assertEqual(kpis["triage"]["false_positive"], 1)
+
+    def test_the_api_refuses_to_scan_or_search_a_demo_domain_before_any_lookup(self):
+        with offline():
+            demo_org.seed_domains(self.data_dir, demo_org.Recordings(ROOT / "tests"))
+        shop = domains.find_domain(self.data_dir, demo_org.SHOP)
+        headers = {"Origin": ORIGIN, "Cookie": self.cookie, "Accept-Language": "en"}
+        with offline(), patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": "1"}), \
+                patch.object(self.state.jobs, "enqueue_dast_scan", side_effect=AssertionError("queued")), \
+                patch.object(self.state.jobs, "enqueue_discovery", side_effect=AssertionError("queued")):
+            for path, action in (("/api/domains/scans", "scan-domain"), ("/api/domains/discover", "discover-domain")):
+                status, answer, _ = self.call("POST", path, {"domain_id": shop["id"]}, {**headers, "X-Pitangus-Action": action})
+                self.assertEqual(status, 409, (path, answer))
+                self.assertIn(demo_org.SHOP, answer["error"])
+
+    def test_triage_decisions_are_signed_by_demo_accounts_only(self):
+        from pitangus.modules.findings import triage
+        self.seed()
+        signed = {decision["by"] for name in ("checkout-api", "payments-service", "fulfillment-worker")
+                  for decision in triage.load_asset(self.data_dir, f"{demo_org.SOURCE_PREFIX}{demo_org.ORG}/{name}").values()}
+        self.assertEqual(signed, {demo_org.DEMO, *(username for username, _ in demo_org.MEMBERS)})
 
 
 class DemoDomainTests(HttpCase):

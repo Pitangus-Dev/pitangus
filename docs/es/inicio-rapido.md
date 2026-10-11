@@ -90,13 +90,18 @@ Con `make demo IMAGE=nginx:1.21` también se analiza una imagen de contenedor p�
 segundos: cinco repositorios `lapis-labs/…` con un mes de análisis (tendencias, hallazgos remediados, MTTR, plazos de
 corrección, algunos vencidos), una revisión de pull request, una imagen de contenedor, el dominio `tienda.example.com`
 verificado para la demo (alcance, programación semanal, usuario de prueba, tecnologías detectadas y dos análisis web
-pasivos), `soporte.example.net` pendiente, dos miembros marcados «(demo)» y algunas decisiones de triage. Sus hallazgos
+pasivos), `soporte.example.net` pendiente, dos miembros marcados «(demo)» y algunas decisiones de triage,
+firmadas por `demo` o por esos miembros, nunca por ti. Sus hallazgos
 son salidas de los motores grabadas sobre estos mismos ejemplos (`tests/fixtures`, `tests/engine-outputs`) y
 reproducidas con los parsers y el registro de siempre: no se analiza ni se contacta nada. Crea antes la cuenta de
 administrador (los miembros la esperan) y, si quieres KEV y EPSS en los hallazgos, abre una vez el Resumen antes de
 ejecutarla (descarga esas fuentes; la demo solo las lee). Los dominios de la demo usan nombres reservados para ejemplos
 y nunca se verifican ni se analizan de verdad. Ejecutarla otra vez no añade nada. Slack y Jira quedan fuera: guardarlos
 contacta sus servidores.
+
+> [!WARNING]
+> `FULL=1` escribe en el espacio de trabajo donde lo ejecutas, junto a tus datos reales, y luego nada lo borra. Úsalo
+> en una instalación para probar Pitangus o sacar capturas, no en la que usa tu equipo.
 
 ## 3. Conectar tus repositorios de GitHub (5 min)
 
