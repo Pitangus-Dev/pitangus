@@ -16,7 +16,7 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 
 - **Self-hosted and free software (AGPL-3.0).** Your code, dependencies and findings stay on your server.
 - **One place for everything:** code (SAST), dependencies, secrets, infrastructure as code, pipelines and images, with seven open-source engines and no duplicates across them.
-- **From finding to verified fix:** real prioritization (CISA KEV and EPSS), a fix command for each package manager, a **Verify again** button, and automatic remediation once a finding stops showing up.
+- **From finding to verified fix:** real prioritization (CISA KEV and EPSS), a fix command for each package manager, a **Reverify** button, and automatic remediation once a finding stops showing up.
 - **Built for small teams, in English and Spanish**, with evidence ready for SOC 2 and ISO 27001 audits and threat modeling tied to your actual findings.
 
 ## What it does
@@ -26,7 +26,7 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 | **Find** | Opengrep with 58 Pitangus rules (JS/TS, Python, Java, Go, PHP, Ruby, C#), Gitleaks, Trivy and OSV-Scanner for dependencies, Checkov and zizmor for IaC and GitHub Actions, Trivy + Grype for images. Your code is never executed. One repository or many, a whole organization, or several images at once. |
 | **Prioritize** | Every advisory is checked against CISA KEV (active exploitation) and EPSS (exploit probability); dependencies are grouped by package, with the version that closes all of their advisories. |
 | **Fix** | Each finding tells you how to fix it: the command for your package manager (npm, pip, Poetry, Go, Cargo, Maven…), the override when it's transitive, a before/after example for code, or the steps to rotate a secret. Export to Jira without duplicates. |
-| **Verify** | **Verify again** rescans and tells you "Fixed ✓" or "Still present". On pull requests only what the PR introduces counts, with a comment and a status check that can block the merge. |
+| **Verify** | **Reverify** rescans and tells you "Fixed ✓" or "Still present". On pull requests only what the PR introduces counts, with a comment and a status check that can block the merge. |
 | **Watch** | Automatic rescans when the main branch changes, a daily offline check of new advisories against your dependencies, and messages to **Slack, Teams or a webhook** when something important shows up. |
 | **Prove** | Technical and evidence PDF reports (SOC 2 Type II, ISO/IEC 27001:2022, organization roll-up), SARIF, JSON and Markdown; threat modeling (STRIDE, LINDDUN, PASTA, attack trees, ATT&CK) with a diagram; a local CVE tracker built from NVD. |
 

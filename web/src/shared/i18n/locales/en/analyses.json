@@ -215,7 +215,7 @@
       "generic": "Each repository's code, secrets, dependencies and infrastructure"
     },
     "osv_label": "Check dependencies online with OSV",
-    "osv_hint": "Sends package names and versions (not code) to api.osv.dev. Off: dependencies aren't checked.",
+    "osv_hint": "Sends package names and versions (not code) to api.osv.dev and deps.dev. Trivy and OSV-Scanner check dependencies offline anyway; this adds a second source and covers manifests without a lockfile.",
     "batch_note": "Runs as a batch you can follow and cancel in Scans.",
     "schedule_without_spec": "Scheduled scans browse the site; they don't use the API documentation.",
     "authorization": "It only browses and reads, never attacks. Launch it only against sites you're allowed to test.",

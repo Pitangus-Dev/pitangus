@@ -215,7 +215,7 @@
       "generic": "El código, los secretos, las dependencias y la infraestructura de cada repositorio"
     },
     "osv_label": "Consultar dependencias en línea con OSV",
-    "osv_hint": "Envía nombres y versiones de paquetes (no código) a api.osv.dev. Apagado: no se revisan dependencias.",
+    "osv_hint": "Envía nombres y versiones de paquetes (no código) a api.osv.dev y deps.dev. Trivy y OSV-Scanner revisan las dependencias sin conexión igual; esto suma una segunda fuente y cubre los manifiestos sin lockfile.",
     "batch_note": "Corre como un lote que puedes seguir y cancelar en Análisis.",
     "schedule_without_spec": "Los análisis programados recorren el sitio; no usan la documentación de la API.",
     "authorization": "Solo navega y lee; nunca ataca. Lánzalo solo contra sitios que tengas permiso de probar.",
