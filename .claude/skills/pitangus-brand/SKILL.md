@@ -37,7 +37,7 @@ Pitangus is a self-hosted application security tool: it analyses code, images an
   - `ok` · `ok-soft` · `ok-line`: completed, connected, fixed, verified.
   - `info` · `info-soft` · `info-line`: Low severity, running, queued, neutral notices.
 - Severity: Critical = solid `sev-critical` chip with white text; High `sev-high`; Medium `sev-medium`; Low `sev-low`; Info `sev-info` outline. Always with its word, never color alone.
-- Charts: severity series from the same tokens; a single series in `chart-neutral`; "fixed" in `chart-fixed`; grid `chart-grid`. No decorative blues or purples.
+- Charts: severity series from the same tokens (Critical in `chart-critical`, darker than High so they read apart); a single series in `chart-neutral`; "fixed" in `chart-fixed`; grid `chart-grid`. No decorative blues or purples.
 
 ## Type
 
@@ -73,7 +73,7 @@ Spanish uses "tú"; short sentences, concrete verbs ("Añadir dominio", "Iniciar
 
 ## Notices
 
-An inline notice is a row on the normal surface: the status icon in its family color and the text in `ink`. Only an error that blocks the task gets `critical-soft` with `critical-line`. No full pastel boxes for informative notices.
+An inline notice is a row on the normal surface: the status icon in its family color and the text in `ink`. Only an error that blocks the task gets `critical-soft` with `critical-line` and `critical` text. No full pastel boxes for informative notices.
 
 ## Motion
 
