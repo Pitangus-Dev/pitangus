@@ -197,6 +197,7 @@
     --on-chrome: #ECEEF0;   /* 15.3:1 on chrome, 12.9:1 on chrome-raised */
     --on-chrome-muted: #A0A6AE;   /* 7.3:1 on chrome, 6.1:1 on chrome-raised */
     --chrome-active: #F2C230;   /* sulphur: 10.6:1 on chrome, 9.0:1 on chrome-raised */
+    --attention-on-ink: #F5A35C;   /* attention on dark grounds: the dark theme and the chrome in both themes */
 }
 
 .dark {
@@ -226,7 +227,7 @@
     --danger-soft: #3A1A17;
     --danger-line: #6B2A23;
     --danger-solid: #B42318;
-    --attention: #F5A35C;
+    --attention: var(--attention-on-ink);
     --attention-soft: #3A2614;
     --attention-line: #6E4520;
     --info: #8DB4DD;
@@ -282,7 +283,7 @@
 
 /* Inside the chrome the ground is ink in both themes: focus is sulphur (10.6:1 light, 11.7:1 dark) and the attention
    dot takes its dark-theme orange (≥ 3:1 on ink). */
-[data-chrome] { --focus: var(--chrome-active); --attention: #F5A35C; color: var(--on-chrome); color-scheme: dark; }
+[data-chrome] { --focus: var(--chrome-active); --attention: var(--attention-on-ink); color: var(--on-chrome); color-scheme: dark; }
 
 html { background: var(--app-bg); color-scheme: light; }
 html.dark { color-scheme: dark; }

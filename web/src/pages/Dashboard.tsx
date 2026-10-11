@@ -21,7 +21,7 @@ import { slaText } from '@/features/findings/sla'
 import { formatDate, type Dashboard as DashboardData } from '@/shared/lib/types'
 
 const SEVERITY = { critical: 'common:severity.critical', high: 'common:severity.high', medium: 'common:severity.medium', low: 'common:severity.low', info: 'common:severity.info' } as const
-const STATUS = { completed: 'common:run_status.completed', incomplete: 'common:run_status.incomplete', failed: 'common:run_status.failed', queued: 'common:run_status.queued', running: 'common:run_status.running' } as const
+const STATUS = { completed: 'common:run_status.completed', incomplete: 'common:run_status.incomplete', failed: 'common:run_status.failed', queued: 'common:run_status.queued', running: 'common:run_status.running', partial: 'common:run_status.partial', inconclusive: 'common:run_status.inconclusive' } as const
 
 // The same colors as the Scans list: failed is danger, completed success, still going info, the rest attention.
 const STATUS_TONE: Record<string, string> = { completed: 'border-success-line text-success', failed: 'border-danger-line text-danger', incomplete: 'border-attention-line text-attention', queued: 'border-info-line text-info', running: 'border-info-line text-info' }

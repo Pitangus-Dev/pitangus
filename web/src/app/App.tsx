@@ -182,7 +182,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   })
   const paletteKeys = [isMac() ? '⌘' : 'Ctrl', 'K']
   const search = <button type="button" onClick={openPalette} aria-keyshortcuts={isMac() ? 'Meta+K' : 'Control+K'}
-    className="flex min-h-8 w-full items-center gap-2 rounded-lg border border-chrome-line bg-chrome-raised px-3 py-1.5 text-left text-sm text-on-chrome-muted transition hover:border-on-chrome-muted hover:text-on-chrome">
+    className="flex min-h-8 w-full items-center gap-2 rounded-lg border border-chrome-line bg-chrome-raised px-3 py-1.5 text-left text-sm text-on-chrome-muted transition hover:bg-chrome-line hover:text-on-chrome">
     <MagnifyingGlassIcon aria-hidden className="size-4" /><span className="flex-1">{t('palette.trigger')}</span><Keys keys={paletteKeys} className="max-lg:hidden [&_kbd]:border-chrome-line [&_kbd]:text-on-chrome-muted" />
   </button>
   const nav = <nav aria-label={t('main')} className="space-y-5">{visibleNavigation(admin).map(group => {

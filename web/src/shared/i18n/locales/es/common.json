@@ -50,7 +50,9 @@
     "incomplete": "Incompleta",
     "failed": "Fallida",
     "queued": "En cola",
-    "running": "Analizando…"
+    "running": "Analizando…",
+    "partial": "Parcial",
+    "inconclusive": "Inconcluso"
   },
   "finding_status": {
     "open": "Abierto",

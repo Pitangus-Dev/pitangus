@@ -68,6 +68,15 @@ class TokenTests(unittest.TestCase):
                           if not (why.startswith("no monospace") and "tracking-widest" in match.group(0) and "<Input" in line)]
         self.assertEqual(found, [], "Sigue el manual de identidad (.claude/skills/pitangus-brand):\n" + "\n".join(found[:40]))
 
+    def test_chrome_only_in_the_app_frame(self):
+        # The manual's crown: the sidebar and its mobile sheet are `chrome`; nothing else in the panel uses it.
+        chrome = re.compile(r"(?<![\w-])(?:[a-z0-9\[\]&=_.-]+:)*(?:text|bg|border|ring|fill|stroke|divide)-(?:on-)?chrome(?:-[a-z]+)?(?![\w-])")
+        allowed = {"App.tsx", "brand-mark.tsx"}
+        found = [f"{path.relative_to(SOURCE)}:{number} {match.group(0)}"
+                 for path in sorted(SOURCE.rglob("*.tsx")) if path.name not in allowed
+                 for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1) for match in chrome.finditer(line)]
+        self.assertEqual(found, [], "Los tokens chrome son solo del menú lateral (manual: Chrome):\n" + "\n".join(found[:40]))
+
     def test_copy_has_no_trailing_arrow(self):
         # "Continue →", "See all →": the manual bans an arrow appended to a label (an arrow inside a path, "A → B", is fine).
         found = []

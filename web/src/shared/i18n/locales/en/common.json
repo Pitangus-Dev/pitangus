@@ -50,7 +50,9 @@
     "incomplete": "Incomplete",
     "failed": "Failed",
     "queued": "Queued",
-    "running": "Scanning…"
+    "running": "Scanning…",
+    "partial": "Partial",
+    "inconclusive": "Inconclusive"
   },
   "finding_status": {
     "open": "Open",

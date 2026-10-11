@@ -89,7 +89,7 @@ export function Account({ user, onChanged, only }: { user: SessionUser; onChange
       <Field id="password-current" label={t('account.current_password')} type="password" required autoComplete="current-password" maxLength={256} value={passwords.current} onChange={event => setPasswords(previous => ({ ...previous, current: event.target.value }))} />
       <Field id="password-new" label={t('account.new_password')} type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={passwords.next} onChange={event => setPasswords(previous => ({ ...previous, next: event.target.value }))} />
       <Field id="password-confirm" label={t('account.repeat_new_password')} type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={passwords.confirm} onChange={event => setPasswords(previous => ({ ...previous, confirm: event.target.value }))} />
-      <Button type="submit" disabled={!!busy}>{busy === 'password' ? <CircleNotchIcon className="animate-spin" /> : <KeyIcon />}{t('account.change_password')}</Button>
+      <Button type="submit" variant="outline" disabled={!!busy}>{busy === 'password' ? <CircleNotchIcon className="animate-spin" /> : <KeyIcon />}{t('account.change_password')}</Button>
     </form></SettingsSection></div>}
   </div>
 }

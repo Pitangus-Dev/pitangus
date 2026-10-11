@@ -22,6 +22,10 @@ the source of truth; read it first. This section is how the panel implements it.
   - Brand: `bg-sulphur` + `text-on-sulphur` (the primary button); `sulphur-soft`/`sulphur-line` only highlight searched text
     (`<mark>`). `brand` is ink (links, active item, checked controls); `focus` is ink on light and sulphur on dark.
     Rufous only in the logo.
+  - Chrome (the crown): only the sidebar and the mobile menu sheet in `app/App.tsx`, marked `data-chrome` (focus turns
+    sulphur inside it): `bg-chrome`, `text-on-chrome`, group labels `text-on-chrome-muted`, dividers `border-chrome-line`,
+    hover and the active item's ground `bg-chrome-raised`, the active item's text and icon `text-chrome-active`; the logo
+    as its tile (`BrandLockup chrome`). `tests/test_ui_tokens.py` keeps these tokens out of every other component.
   - States, one meaning each (text · `-soft` ground · `-line` border): `danger` = critical (failure, error, Alta, KEV;
     `danger-solid` + `on-solid` only for the Crítica chip and a destructive confirm); `attention` = orange (Media, partial,
     due soon, half-done setup; **never yellow**: there is no `warning` token any more, and `tests/test_ui_tokens.py`

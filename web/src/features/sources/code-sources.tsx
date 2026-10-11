@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { imagesQuery } from '@/shared/api/queries'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/shared/api/http'
-import { ArrowsClockwiseIcon, CaretDownIcon, CircleNotchIcon, DotsThreeIcon, FileTextIcon, GitBranchIcon, LockKeyIcon, MagnifyingGlassIcon, StackIcon } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, GitBranchIcon, LockKeyIcon, MagnifyingGlassIcon, StackIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { FilterChip } from '@/shared/ui/filter-chip'
 import { Input } from '@/shared/ui/input'
@@ -69,7 +69,7 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
       <div className="relative w-full max-w-sm"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden /><Input aria-label={t('repositories.search')} placeholder={t('repositories.search_placeholder')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} className="border-input bg-card pl-9" /></div>
       {data && <span className="text-xs text-app-muted">{t('common:count.repositories', { count: data.total })}{data.partial ? ` · ${t('repositories.partial')}` : ''}</span>}
       {/* On a phone the three secondary actions share one menu instead of three stacked buttons. */}
-      <Menu><MenuTrigger render={<Button variant="outline" className="ml-auto sm:hidden" />}><DotsThreeIcon />{t('common:actions.more')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
+      <Menu><MenuTrigger render={<Button variant="outline" className="ml-auto sm:hidden" />}>{loading && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.more')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
         <MenuContent>
           <MenuItem disabled={loading} onClick={() => reload(true)}><ArrowsClockwiseIcon />{t('repositories.refresh')}</MenuItem>
           {canManage && accounts.length > 0 && !batch && <><MenuSeparator /><MenuGroup label={t('repositories.scan_organization')}>{accounts.map(account => <MenuItem key={account} onClick={() => setOrganization(account)}><StackIcon />{account}</MenuItem>)}</MenuGroup></>}
