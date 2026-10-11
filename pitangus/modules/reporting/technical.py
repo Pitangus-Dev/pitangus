@@ -21,7 +21,7 @@ from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.fix_guide import guide
 from pitangus.modules.findings.references import brief, guidance, owasp_of
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups, problems
-from pitangus.modules.reporting.design import (ATTENTION, BRAND, CODE_BG, DANGER, INK, LINE, MONO, MUTED, ORDER, SEVERITY_INK, STYLE, SUCCESS,
+from pitangus.modules.reporting.design import (BRAND, CODE_BG, DANGER, INK, LINE, MONO, MUTED, ORDER, SEVERITY_INK, STYLE, SUCCESS,
                             WIDTH, GAP_STATES, build, built_from, bullets, chip, count, cover, coverage_gaps, day, disclaimer, h2,
                             hexval, kpis, link, listing, location, path, percent, plain, rich, severity_label, step_status,
                             t as _t, table)

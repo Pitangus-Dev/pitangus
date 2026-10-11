@@ -71,15 +71,17 @@ class TokenTests(unittest.TestCase):
     def test_copy_has_no_trailing_arrow(self):
         # "Continue →", "See all →": the manual bans an arrow appended to a label (an arrow inside a path, "A → B", is fine).
         found = []
+
+        def walk(file, node, key=""):
+            if isinstance(node, dict):
+                for name, value in node.items():
+                    walk(file, value, f"{key}.{name}" if key else name)
+            elif isinstance(node, str) and re.search(r"(?:→|->)\s*$", node):
+                found.append(f"{file}:{key} {node[-40:]}")
+
         for root in (SOURCE / "shared" / "i18n" / "locales", SOURCE.parents[1] / "pitangus" / "shared" / "i18n" / "locales"):
             for path in sorted(root.rglob("*.json")):
-                def walk(node, key=""):
-                    if isinstance(node, dict):
-                        for name, value in node.items():
-                            walk(value, f"{key}.{name}" if key else name)
-                    elif isinstance(node, str) and re.search(r"(?:→|->)\s*$", node):
-                        found.append(f"{path.name}:{key} {node[-40:]}")
-                walk(json.loads(path.read_text(encoding="utf-8")))
+                walk(path.name, json.loads(path.read_text(encoding="utf-8")))
         self.assertEqual(found, [], "Sin «→» al final de los textos:\n" + "\n".join(found[:40]))
 
 
