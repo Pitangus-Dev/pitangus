@@ -387,13 +387,16 @@
     "trigger_advisories": "· automatic: published after the last scan",
     "trigger_import": "· from {{tool}}",
     "trigger_import_partial": "· from {{tool}}, partial",
-    "severity_letter": {
-      "critical": "C",
-      "high": "H",
-      "medium": "M",
-      "low": "L"
+    "severity_badge": {
+      "critical_one": "{{count, number}} critical",
+      "critical_other": "{{count, number}} critical",
+      "high_one": "{{count, number}} high",
+      "high_other": "{{count, number}} high",
+      "medium_one": "{{count, number}} medium",
+      "medium_other": "{{count, number}} medium",
+      "low_one": "{{count, number}} low",
+      "low_other": "{{count, number}} low"
     },
-    "severity_count": "{{severity}}: {{value}}",
     "noun": "scans",
     "findings_pending": "analyzing…",
     "findings_none_failed": "No result: the run failed"

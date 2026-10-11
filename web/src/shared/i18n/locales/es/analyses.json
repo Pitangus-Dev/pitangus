@@ -387,13 +387,16 @@
     "trigger_advisories": "· automático: publicados después del último análisis",
     "trigger_import": "· desde {{tool}}",
     "trigger_import_partial": "· desde {{tool}}, parcial",
-    "severity_letter": {
-      "critical": "C",
-      "high": "A",
-      "medium": "M",
-      "low": "B"
+    "severity_badge": {
+      "critical_one": "{{count, number}} crítica",
+      "critical_other": "{{count, number}} críticas",
+      "high_one": "{{count, number}} alta",
+      "high_other": "{{count, number}} altas",
+      "medium_one": "{{count, number}} media",
+      "medium_other": "{{count, number}} medias",
+      "low_one": "{{count, number}} baja",
+      "low_other": "{{count, number}} bajas"
     },
-    "severity_count": "{{severity}}: {{value}}",
     "noun": "análisis",
     "findings_pending": "analizando…",
     "findings_none_failed": "Sin resultado: la ejecución falló"
