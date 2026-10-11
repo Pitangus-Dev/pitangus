@@ -7,6 +7,54 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-10
+
+### Breaking
+
+- **Domains API.** `DomainRow.schedule` is an object (`frequency`, `weekdays`, `month_days`, `time`, `timezone`,
+  `next_run_at`, `last_run_at`, `last_run_id`, `note`, `test_users`, `use_headers`); the flat `schedule_next_at`,
+  `schedule_last_at`, `schedule_last_run` and `schedule_note` are gone. `POST /api/domains/remove` answers
+  `runs_kept` instead of `runs_deleted` (see Changed).
+- **New engine images.** With `PITANGUS_DAST_ENABLED=1`, run `make engines` after upgrading: subfinder, katana, nuclei,
+  httpx and testssl.sh join ZAP (each pinned by version and digest). nuclei's templates are downloaded once by the
+  worker from GitHub (release pinned by SHA-256).
+
+### Added
+
+- **Test users per domain.** A domain's **Test users** tab keeps reusable accounts (username and password, or with a
+  TOTP seed), encrypted at rest and never answered back; a web scan (or a schedule) picks up to 3 and ZAP signs in
+  with them through its browser-based authentication. Secrets reach ZAP only on standard input: never in `docker
+  inspect`, the command line, the host's disk or the logs. Before crawling, each sign-in is checked on its own (ZAP's
+  authentication report, and an optional check page that must answer 200); a user who can't sign in isn't crawled as,
+  and the run is marked partial coverage so "few findings" never reads as clean.
+- **Command palette and keyboard shortcuts.** `⌘K`/`Ctrl+K` searches pages, analyses, repositories, images and domains
+  and runs actions (New analysis, Import SARIF, Add domain…); `G` + a letter jumps to each page, `N` starts a new
+  analysis and `?` lists the shortcuts.
+
+### Changed
+
+- **Pitangus' own identity, everywhere.** An identity manual (`.claude/skills/pitangus-brand`, also published as a
+  design system) now drives the panel, the PDF/Markdown reports and the threat diagram: cool neutrals instead of cream,
+  sulphur yellow only for the brand and the main action, one meaning per color (red critical, orange attention —
+  never yellow — green ok, slate info), the sidebar in ink like the kiskadee's crown, IBM Plex type, small radii,
+  tables and ruled rows instead of card-wrapped pages, notices without pastel boxes, Phosphor icons (Lucide removed),
+  and the same rules in light and dark, checked for WCAG AA contrast. Guard tests block the old patterns.
+- **New analysis is a guided flow** with a vertical step rail: type, target (domains and APIs together, with the saved
+  scope), access (test users and headers), review (schedule and outgoing IPs).
+- **Integrations are sections of rows** (code providers, registries, notifications, issue tracking, AI), each with its
+  status and its configuration folded below.
+- **Removing a domain keeps its history.** Its configuration (headers, test users, scope, schedule) is deleted; its
+  analyses, findings, triage and tickets stay as evidence and link back if the same host is added again.
+- **Pages use the full width** and align with the header; the mobile layout of findings, repositories, the CVE tracker,
+  analyses and the scope picker was redone.
+
+### Fixed
+
+- **"Affects you" in the latest CVEs** marked nearly every CVE: a package name matched anywhere in the description. It
+  now needs the CVE to name your package as a product (followed by a version or "before/through/prior to").
+- **Numbers and percentages follow the language** (Spanish "1.622", "0,2 %").
+- **The view follows the address** when only its hash changes.
+
 ### Added
 
 - **OWASP guidance on every finding.** A curated, versioned mapping (`pitangus/modules/findings/references.yaml`,

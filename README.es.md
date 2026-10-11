@@ -10,7 +10,7 @@
 
 Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corregir primero y cómo** (el comando exacto o un ejemplo de código), comprueba que quedó corregido y **vigila solo** lo que cambia después. Todo corre en tu máquina, con tus credenciales: tu código no va a ningún servicio nuestro.
 
-> Estado: **beta (v0.12)**. Funcional y con pruebas, pero la API y los formatos de `data/` aún pueden cambiar entre versiones.
+> Estado: **beta (v0.13)**. Funcional y con pruebas, pero la API y los formatos de `data/` aún pueden cambiar entre versiones.
 
 ## Por qué Pitangus
 
@@ -37,7 +37,7 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 Necesitas **Docker** (Engine 24+ con Compose v2.24+), **make** y **git**, 4 GB de memoria y 8 GB de disco. `make doctor` lo comprueba.
 
 ```bash
-git clone --branch v0.12.2 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.13.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up

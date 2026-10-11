@@ -8,7 +8,7 @@ With a fresh server and a DNS record already pointing at it, it's four commands:
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.12.2                                   # the release you want (see Upgrades)
+git checkout v0.13.0                                   # the release you want (see Upgrades)
 make setup DOMAIN=pitangus.example.com PREBUILT=1   # HTTPS with Caddy + published images
 make up                                             # prints https://pitangus.example.com and the setup code
 ```
@@ -99,7 +99,7 @@ As the `pitangus` user:
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.12.2
+git checkout v0.13.0
 make setup DOMAIN=pitangus.example.com PREBUILT=1
 make doctor
 ```
@@ -131,7 +131,7 @@ Keep a copy of `.env` in your password manager: it holds the database password, 
 With the published images, install [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) first: `make up` then checks their signatures before starting anything and pins the checked digest in `.env`, so every later start (`docker compose up` too) runs exactly that image. Without cosign it starts anyway and says so in one line. `make verify-images` runs the same check on its own.
 
 ```bash
-make up    # Signature verified: ghcr.io/pitangus-dev/pitangus@sha256:…  Pinned in .env: PITANGUS_IMAGE_TAG=0.12@sha256:…
+make up    # Signature verified: ghcr.io/pitangus-dev/pitangus@sha256:…  Pinned in .env: PITANGUS_IMAGE_TAG=0.13@sha256:…
 ```
 
 `make up` pulls (or builds), starts everything, waits until the panel answers, pulls the engines and prints the URL and the **setup code**. Open `https://<domain>`, enter the code and create your admin user; then turn on two-factor under **Account**. If the page doesn't load, `make logs SERVICE=caddy` shows whether the certificate was issued (the usual causes: the DNS record doesn't point here yet, or port 80 is closed).
@@ -206,13 +206,13 @@ If `config/master.key` is lost (or `PITANGUS_MASTER_KEY` changes), the secrets c
 ## Upgrades
 
 ```bash
-git fetch --tags && git checkout v0.12.2   # or stay on main and let make update pull it
+git fetch --tags && git checkout v0.13.0   # or stay on main and let make update pull it
 make update
 ```
 
 `make update` pulls the code (`git pull --ff-only` when you're on a branch; on a tag it keeps the version you checked out), takes a backup with `make backup` (it stops if scans are running: try again later), pulls the new images, restarts, and the app migrates the database on start. Read the release notes before a minor version jump. To roll back: check out the previous tag and `make restore FROM=backups/<the backup make update took> CONFIRM=restore`, then `make up`.
 
-With `PREBUILT`, the image tag follows the checked-out code (`pitangus/version.py`), so compose files, rules and images always match. `make up` pins that tag to the digest it checked (`PITANGUS_IMAGE_TAG=0.12@sha256:…`) and keeps it while the version doesn't change; `make update` checks the newest image of the version and pins it again (by hand: `make verify-images REPIN=1`). A `PITANGUS_IMAGE_TAG` of your own (`0.12.1`, `0.12.1@sha256:…`) is checked but never replaced. Without the socket the worker image is checked and pinned the same way (`PITANGUS_WORKER_IMAGE_TAG`); with it, the Opengrep image is checked by its tag.
+With `PREBUILT`, the image tag follows the checked-out code (`pitangus/version.py`), so compose files, rules and images always match. `make up` pins that tag to the digest it checked (`PITANGUS_IMAGE_TAG=0.13@sha256:…`) and keeps it while the version doesn't change; `make update` checks the newest image of the version and pins it again (by hand: `make verify-images REPIN=1`). A `PITANGUS_IMAGE_TAG` of your own (`0.12.1`, `0.12.1@sha256:…`) is checked but never replaced. Without the socket the worker image is checked and pinned the same way (`PITANGUS_WORKER_IMAGE_TAG`); with it, the Opengrep image is checked by its tag.
 
 ## Monitoring
 

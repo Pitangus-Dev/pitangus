@@ -26,8 +26,8 @@ x-app: &app
     dockerfile: docker/app/Dockerfile
     target: app  # not the last stage (worker-standalone, whose command is the worker)
     args:
-      VERSION: ${PITANGUS_VERSION:-0.12}
-  image: localhost/pitangus/app:${PITANGUS_VERSION:-0.12}
+      VERSION: ${PITANGUS_VERSION:-0.13}
+  image: localhost/pitangus/app:${PITANGUS_VERSION:-0.13}
   init: true
   # Your UID/GID so the files in ./data and ./config are yours (see .env.example).
   user: "${PITANGUS_UID:-10001}:${PITANGUS_GID:-10001}"

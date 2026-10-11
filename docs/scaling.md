@@ -46,7 +46,7 @@ docker run -d --name pitangus-worker \
   -e PITANGUS_DATABASE_URL=postgresql://user:password@db.internal:5432/pitangus \
   -e PITANGUS_MASTER_KEY='<the same key as the API>' \
   -v pitangus-worker-data:/data \
-  ghcr.io/pitangus-dev/pitangus-worker:0.12
+  ghcr.io/pitangus-dev/pitangus-worker:0.13
 ```
 
 `ghcr.io/pitangus-dev/pitangus-worker` carries the engines and runs them as its own processes: no Docker socket on

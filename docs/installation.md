@@ -58,13 +58,13 @@ New versions are listed on the [Releases page](https://github.com/Pitangus-Dev/p
 and anything to do before upgrading (also in [CHANGELOG.md](../CHANGELOG.md)). To see which one you're running:
 `git describe --tags` in the repository folder, or the version in the panel's top bar (`/api/health` answers it too).
 
-**If you installed a release** (`git clone --branch v0.12.x`, as in the [quickstart](quickstart.md)), the repository
-stays on that version on purpose, and `make update` alone won't move it: it says *On v0.12.x (a fixed version): not
+**If you installed a release** (`git clone --branch v0.13.x`, as in the [quickstart](quickstart.md)), the repository
+stays on that version on purpose, and `make update` alone won't move it: it says *On v0.13.x (a fixed version): not
 pulling*. Check out the new one first:
 
 ```bash
 git fetch --tags
-git checkout v0.12.2      # the version you want
+git checkout v0.13.0      # the version you want
 make update
 ```
 

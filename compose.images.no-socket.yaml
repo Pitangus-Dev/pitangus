@@ -1,7 +1,7 @@
 # The published worker with the engines inside (<PITANGUS_IMAGE>-worker), for compose.no-socket.yaml with
 # compose.images.yaml: goes last. `make up` checks its signature and pins the checked digest in .env
-# (PITANGUS_WORKER_IMAGE_TAG=0.12@sha256:…), like the app image's.
+# (PITANGUS_WORKER_IMAGE_TAG=0.13@sha256:…), like the app image's.
 
 services:
   worker:
-    image: "${PITANGUS_IMAGE:?PITANGUS_IMAGE is missing in .env}-worker:${PITANGUS_WORKER_IMAGE_TAG:-${PITANGUS_VERSION:-0.12}}"
+    image: "${PITANGUS_IMAGE:?PITANGUS_IMAGE is missing in .env}-worker:${PITANGUS_WORKER_IMAGE_TAG:-${PITANGUS_VERSION:-0.13}}"

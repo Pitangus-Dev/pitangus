@@ -35,7 +35,7 @@ inputs:
     default: ""
   image:
     description: Pitangus worker image.
-    default: ghcr.io/pitangus-dev/pitangus-worker:0.12
+    default: ghcr.io/pitangus-dev/pitangus-worker:0.13
   verify:
     description: >-
       `false`: don't check the image's signature. Only for an `image` of your own (a fork or a private mirror); the
