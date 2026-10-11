@@ -16,3 +16,14 @@ def docker_runner(case) -> None:
     pinned = patch.dict(os.environ, {"PITANGUS_ENGINE_RUNNER": "docker"})
     pinned.start()
     case.addCleanup(pinned.stop)
+    # A web scan's other tools (katana, nuclei, testssl.sh, httpx) ask Docker for their images: absent unless a test
+    # hands them to `scan_domain` itself.
+    from pitangus.modules.scanning import web_tools
+    from pitangus.shared.i18n import msg
+    absent = patch.object(web_tools, "readiness", return_value={key: msg("scanning.web.tools.image_missing", tool=key) for key in web_tools.TOOLS})
+    absent.start()
+    case.addCleanup(absent.stop)
+    from pitangus.modules.scanning import web_versions
+    lookup = patch.object(web_versions, "readiness", return_value=msg("scanning.web.tools.image_missing", tool="OSV-Scanner"))
+    lookup.start()
+    case.addCleanup(lookup.stop)

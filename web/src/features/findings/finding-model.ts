@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import { formatNumber } from '@/shared/i18n/format'
 import type { components } from '@/shared/api/schema'
 import type { Sla } from '@/features/findings/sla'
 import type { FixGuide, Verification } from '@/features/findings/fix-guide'
@@ -17,10 +18,21 @@ export type ScopeAssetRef = components['schemas']['ScopeAssetRef']
 export type ScopeAsset = components['schemas']['ScopeAssetCounts']
 export type FindingKpis = components['schemas']['FindingKpis']
 export type LifecycleCounts = Pick<components['schemas']['LifecycleCounts'], 'open' | 'fixed' | 'suppressed' | 'from_pr'> & { excluded?: number }
-export type RepositoryFinding = { finding_id: string; fingerprint: string; scanner: string; tool?: string; also_detected_by?: string[]; related_rules?: string[]; framework?: string; rule_id: string; title: string; path: string; line: number; severity: string; confidence: number; verdict: string; cwe: number[]; cve: string[]; ghsa: string[]; owasp: string[]; reason: string; remediation: string; package?: Package | null; advisory?: Advisory | null; kev?: { date_added: string | null; due_date: string | null; ransomware: boolean; name: string | null } | null; epss?: { score: number; percentile: number } | null; priority?: Priority; triage?: TriageState; ticket?: TicketLink; lifecycle?: Lifecycle; source?: AdvisorySource | null; fix?: FixGuide | null; verification?: Verification | null; sla?: Sla | null; malicious?: boolean; asset?: ScopeAssetRef }
+// A web finding: the request that proved it and what the scanner says about its rule, as published (sarif_import._web).
+// `also`: what each other tool that reported the same problem at this URL saw (web_merge.py).
+export type WebDetail = { method?: string; parameter?: string; evidence?: string; attack?: string; description?: string; solution?: string; references?: string[]; wasc?: number[]
+  also?: { tool: string; rule_id: string; title?: string; evidence?: string }[] }
+// An OWASP page about a finding (modules/findings/references.py).
+export type GuidanceLink = { title: string; url: string; kind: string }  // kind: cheatsheet · top10 · api_top10 · wstg
+export type RepositoryFinding = { finding_id: string; fingerprint: string; scanner: string; tool?: string; also_detected_by?: string[]; related_rules?: string[]; framework?: string; rule_id: string; title: string; path: string; line: number; severity: string; confidence: number; verdict: string; cwe: number[]; cve: string[]; ghsa: string[]; owasp: string[]; reason: string; remediation: string; package?: Package | null; advisory?: Advisory | null; kev?: { date_added: string | null; due_date: string | null; ransomware: boolean; name: string | null } | null; epss?: { score: number; percentile: number } | null; priority?: Priority; triage?: TriageState; ticket?: TicketLink; lifecycle?: Lifecycle; source?: AdvisorySource | null; fix?: FixGuide | null; verification?: Verification | null; sla?: Sla | null; malicious?: boolean; asset?: ScopeAssetRef; web?: WebDetail; guidance?: GuidanceLink[] }
 export type ScanStep = { id: string; name: string; status: string; detail: string }
 export type PullReview = { baseline_run: string | null; gate: string; verdict: { state: 'success' | 'failure'; description: string; blocking: number }; delivery: { comment?: string; status?: string } }
-export type RepositoryRun = { id: string; type?: string; trigger?: RunTrigger; pull_request?: { number: number; title: string; url: string; author: string; head_sha: string; head_ref: string; base_ref: string }; review?: PullReview; status: string; created_at: string; context?: string; progress?: { at: string; level: 'info' | 'ok' | 'warn' | 'error'; message: string }[]; started_at?: string; finished_at?: string; source?: { id?: string; uid?: string | null; name: string; provider: string; sha256?: string; files?: number; branch?: string; commit?: string; image?: { reference: string; resolved_digest?: string | null; os?: string | null; user?: string } }; summary: { agreement?: { both: number; only_trivy: number; only_grype: number }; files?: number; dependencies?: number; candidates?: number; sast?: number; secrets?: number; sca?: number; severities?: Record<string, number>; priorities?: Record<string, number>; kev?: number; fixable?: number; triage?: Record<TriageStatus, number>; actionable?: number; preexisting?: number; changed_files?: number; lifecycle?: LifecycleCounts; kpis?: FindingKpis }; steps?: ScanStep[]; findings?: RepositoryFinding[] }
+// A web scan's sign-in check per test user; `reason` comes rendered, in the reader's language.
+export type SignIn = { name: string; status: 'signed_in' | 'failed'; reason?: string | null }
+export type RepositoryRun = { id: string; type?: string; target?: string; trigger?: RunTrigger; pull_request?: { number: number; title: string; url: string; author: string; head_sha: string; head_ref: string; base_ref: string }; review?: PullReview; status: string; created_at: string; context?: string; progress?: { at: string; level: 'info' | 'ok' | 'warn' | 'error'; message: string }[]; started_at?: string; finished_at?: string; source?: { id?: string; uid?: string | null; name: string; provider: string; sha256?: string; files?: number; branch?: string; commit?: string; image?: { reference: string; resolved_digest?: string | null; os?: string | null; user?: string } }; summary: { agreement?: { both: number; only_trivy: number; only_grype: number }; files?: number; dependencies?: number; candidates?: number; sast?: number; secrets?: number; sca?: number; severities?: Record<string, number>; priorities?: Record<string, number>; kev?: number; fixable?: number; triage?: Record<TriageStatus, number>; actionable?: number; preexisting?: number; changed_files?: number; lifecycle?: LifecycleCounts; kpis?: FindingKpis }; steps?: ScanStep[]; findings?: RepositoryFinding[]
+  logins?: SignIn[] }
+// Where a finding is: a web finding's URL has no line.
+export const locationOf = (finding: Pick<RepositoryFinding, 'scanner' | 'path' | 'line'>) => finding.scanner === 'dast' ? finding.path : `${finding.path}:${finding.line}`
 // The Findings tabs: the asset state's (or the scope's) open, fixed, excluded or every finding.
 export type FindingTab = 'open' | 'fixed' | 'excluded' | 'all'
 
@@ -31,16 +43,14 @@ export const SEVERITY_LABEL: Record<string, string> = { critical: 'common:severi
 export const ACTION_LABEL: Record<string, string> = { act: 'common:priority.act', attend: 'common:priority.attend', track: 'common:priority.track' }
 export const SCANNER_LABEL: Record<string, string> = { sca: 'scanner.sca', sast: 'scanner.sast', secrets: 'scanner.secrets', iac: 'scanner.iac', cicd: 'scanner.cicd', dast: 'scanner.dast' }
 export const labelOf = (t: TFunction, keys: Record<string, string>, value: string) => keys[value] ? t(keys[value]) : value
-const TOOL_NAME: Record<string, string> = { trivy: 'Trivy', gitleaks: 'Gitleaks', opengrep: 'Opengrep', grype: 'Grype', 'osv-scanner': 'OSV-Scanner', checkov: 'Checkov', zizmor: 'zizmor' }
+const TOOL_NAME: Record<string, string> = { trivy: 'Trivy', gitleaks: 'Gitleaks', opengrep: 'Opengrep', grype: 'Grype', 'osv-scanner': 'OSV-Scanner', checkov: 'Checkov', zizmor: 'zizmor',
+  zap: 'ZAP', katana: 'katana', nuclei: 'nuclei', testssl: 'testssl.sh', httpx: 'httpx' }
 export const toolName = (t: TFunction, tool: string) => tool === 'pitangus' ? t('findings:tool.pitangus') : TOOL_NAME[tool] ?? tool
 // The engine and, when another one confirmed it, that one too: "Trivy + Grype".
 export const toolsOf = (t: TFunction, finding: { tool?: string; also_detected_by?: string[] }) => [finding.tool, ...(finding.also_detected_by ?? [])].filter(Boolean).map(tool => toolName(t, tool as string)).join(' + ')
-export const severityClass = (severity: string) => ({
-  critical: 'border-transparent bg-danger-solid text-on-solid', high: 'border-attention-line bg-attention-soft text-attention',
-  medium: 'border-warning-line bg-warning-soft text-warning', low: 'border-info-line bg-info-soft text-info',
-}[severity] ?? 'border-app-line text-app-muted')
+export { severityClass } from '@/shared/ui/severity'
 export const actionClass = (action: string) => ({
-  act: 'border-transparent bg-danger-solid text-on-solid', attend: 'border-warning-line text-warning', track: 'border-app-line text-app-subtle',
+  act: 'border-danger-line bg-danger-soft text-danger', attend: 'border-attention-line text-attention', track: 'border-app-line text-app-subtle',
 }[action] ?? 'border-app-line text-app-subtle')
 
 // An asset's state as a run id (findings.registry.VIEW_PREFIX): what its findings are triaged and re-verified against.
@@ -63,11 +73,16 @@ const urgent = (findings: RepositoryFinding[]) => findings.reduce((best, item) =
 
 export type Group = { key: string; label: string; meta: string; scanner: string; findings: RepositoryFinding[]; severity: string; action: string; fix: string | null; epss: number | null; kev: boolean; sla: Sla | null }
 
+// A web problem's key: the same rule and title of an asset, at whatever URL ("CSP: style-src unsafe-inline" on three pages).
+const problemOf = (finding: RepositoryFinding) => finding.scanner === 'dast' && finding.rule_id ? `dast:${finding.rule_id}|${finding.title}` : `${finding.scanner}:${finding.finding_id}`
+
 // A package with three advisories is one piece of remediation work: grouped, saying the version that closes them all.
+// So is a web problem repeated on several URLs: one row that opens to each URL. Only the presentation groups: every
+// finding keeps its own fingerprint, triage and lifecycle, and the figures count them one by one.
 export function groupFindings(findings: RepositoryFinding[], t: TFunction): Group[] {
   const groups = new Map<string, RepositoryFinding[]>()
   for (const finding of findings) {
-    const key = `${finding.asset ? `${finding.asset.key}|` : ''}${finding.package ? `${finding.package.ecosystem}:${finding.package.name}@${finding.package.version}` : `${finding.scanner}:${finding.finding_id}`}`
+    const key = `${finding.asset ? `${finding.asset.key}|` : ''}${finding.package ? `${finding.package.ecosystem}:${finding.package.name}@${finding.package.version}` : problemOf(finding)}`
     groups.set(key, [...(groups.get(key) ?? []), finding])
   }
   return Array.from(groups.entries()).map(([key, items]) => {
@@ -79,6 +94,7 @@ export function groupFindings(findings: RepositoryFinding[], t: TFunction): Grou
     return { key, findings: items, scanner: items[0].scanner, severity: worst(items), action: urgent(items), fix, epss, kev: items.some(item => item.kev), sla,
       label: pkg ? `${pkg.name} ${pkg.version}` : items[0].title,
       meta: pkg ? [t('findings:group.advisories', { count: items.length }), pkg.ecosystem, ...(pkg.dev ? [t('findings:group.dev')] : pkg.direct === false ? [t('findings:group.transitive')] : []),
-        fix ? t('findings:group.upgrade', { version: fix }) : t('findings:group.no_fix')].join(' · ') : `${items[0].path}:${items[0].line}` }
+        fix ? t('findings:group.upgrade', { version: fix }) : t('findings:group.no_fix')].join(' · ')
+      : items.length > 1 ? t('findings:group.urls', { count: items.length, value: formatNumber(items.length) }) : locationOf(items[0]) }
   }).sort((left, right) => (ACTION_ORDER[left.action] - ACTION_ORDER[right.action]) || (SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity]) || left.label.localeCompare(right.label))
 }

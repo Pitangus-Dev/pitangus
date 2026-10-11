@@ -24,13 +24,13 @@ from pitangus.shared.i18n import default_locale, localize, msg, t
 
 # Palette: the panel tokens (web/src/index.css, light mode). (ink ≥ 4.5:1 on white, soft fill)
 COLORS = {
-    "neutral": ("#525252", "#f7f7f7"),
+    "neutral": ("#5c636b", "#f5f6f7"),
     "brand": ("#7342d3", "#f1ecfb"),
-    "info": ("#00649e", "#e6f4fb"),
-    "success": ("#006e42", "#e6f5ef"),
+    "info": ("#2d5a87", "#eaf1f8"),
+    "success": ("#1e7444", "#e7f5ec"),
     "warning": ("#8a4c00", "#fdf5e6"),
-    "attention": ("#a34100", "#fef0e6"),
-    "danger": ("#b71824", "#fce9ea"),
+    "attention": ("#9e4708", "#fdf0e5"),
+    "danger": ("#b42318", "#fdecea"),
 }
 COLOR_NAMES = {"neutral": msg("threats.colors.neutral"), "brand": msg("threats.colors.brand"), "info": msg("threats.colors.info"),
                "success": msg("threats.colors.success"), "warning": msg("threats.colors.warning"),
@@ -41,7 +41,7 @@ KIND_COLOR = {"actor": "neutral", "external": "neutral", "web_app": "brand", "ap
 LEGEND = [("brand", msg("threats.diagram.legend_clients")), ("info", msg("threats.diagram.legend_services")),
           ("success", msg("threats.diagram.legend_data")), ("warning", msg("threats.diagram.legend_identity")),
           ("neutral", msg("threats.diagram.legend_actors"))]
-INK, MUTED, LINE, WHITE = "#171717", "#636363", "#c7c7c7", "#ffffff"
+INK, MUTED, LINE, WHITE = "#16181b", "#5c636b", "#c4c8cd", "#ffffff"
 FONT = "Helvetica, Arial, sans-serif"
 
 NODE_W, NODE_H, DRAW_H = 184, 88, 72

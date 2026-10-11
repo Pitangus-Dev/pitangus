@@ -41,6 +41,8 @@
     "dns_unavailable": "Couldn't query DNS",
     "dns_failed": "The DNS query failed",
     "txt_missing": "The verification TXT record wasn't found; check the name, the value and propagation",
+    "not_verified": "{{host}} has no current DNS proof: verify it again before scanning it",
+    "proof_gone": "The TXT record of {{host}} is gone, so it no longer counts as verified: publish it and verify again",
     "check": {
       "dns_error": "The domain doesn't resolve in DNS.",
       "private_address": "The domain resolves to a private or reserved address; it isn't probed.",
@@ -49,6 +51,72 @@
       "reachable": "HTTPS response {{code}} from {{address}}."
     },
     "invalid_request": "Invalid domain request",
-    "too_many_attempts": "Too many attempts for this domain; try again in {{seconds}} s"
+    "too_many_attempts": "Too many attempts for this domain; try again in {{seconds}} s",
+    "invalid_method": "Use dns, file or meta as the verification method",
+    "proof_unreachable": "Couldn't reach {{host}} over HTTPS to check its proof; try again later",
+    "redirected": "{{url}} answered with a redirect ({{code}}): the proof must be served by that exact host, without redirects",
+    "file_missing": "{{url}} doesn't contain this domain's token: publish the file with the token in it and make sure it answers 200",
+    "meta_missing": "The homepage of {{host}} has no pitangus-verify meta tag with this domain's token",
+    "proof_gone_file": "The verification file of {{host}} is gone, so it no longer counts as verified: publish it again and verify",
+    "proof_gone_meta": "The verification meta tag of {{host}} is gone, so it no longer counts as verified: add it again and verify",
+    "scope": {
+      "too_many": "A scan lists at most {{max}} extra hosts",
+      "invalid_host": "{{host}} isn't a valid host name (use name.example.com or *.example.com)",
+      "outside": "{{host}} isn't {{root}} or one of its subdomains",
+      "needs_dns": "{{host}} can't be scanned: {{root}} was verified with a file or a meta tag, which proves that host only. Verify it with the DNS TXT record to include subdomains",
+      "unverified": "Verify {{host}} first: only a verified domain's subdomains can be included",
+      "dns_only": "Verify with DNS to include subdomains",
+      "root": "{{host}} is the domain itself: it's always analyzed",
+      "unknown_host": "{{host}} isn't among this domain's related hosts",
+      "hosts_full": "A domain keeps at most {{max}} related hosts",
+      "not_manual": "{{host}} was found by discovery and stays listed: exclude it instead"
+    },
+    "schedule": {
+      "invalid": "A schedule is daily, weekly on at least one weekday, or monthly on at least one day from 1 to 28",
+      "invalid_time": "The time of day is HH:MM, from 00:00 to 23:59",
+      "invalid_timezone": "{{zone}} isn't a time zone this server knows. Use an IANA name, such as America/Bogota or UTC",
+      "lapsed": "Skipped: the domain's proof lapsed. Verify it again and the scheduled scan resumes at the next round",
+      "busy": "Waiting: another web scan was queued or running; it is tried again at the next round",
+      "already_today": "Skipped: the domain was already scanned that day. The next scheduled scan runs as planned",
+      "users_gone_one": "A test user chosen for this schedule was deleted: the scan runs without it",
+      "users_gone_other": "{{count}} test users chosen for this schedule were deleted: the scan runs without them",
+      "users_outside_one": "{{names}} signs in outside the saved scope: the scan runs without that test user",
+      "users_outside_other": "{{names}} sign in outside the saved scope: the scan runs without those test users",
+      "headers_gone": "The schedule sends the saved headers, but the domain has none now: the scan runs without them",
+      "notes": "{{first}}. {{rest}}"
+    },
+    "headers": {
+      "invalid_request": "Invalid header request",
+      "invalid_name": "Header names use letters, digits and !#$%&'*+.^_`|~- only, up to 64 characters",
+      "denied_name": "{{name}} is set by the connection itself and can't be saved",
+      "invalid_value": "Header values are printable ASCII on one line, up to {{max}} characters",
+      "limit": "A domain keeps at most {{max}} headers",
+      "not_found": "There's no saved header named {{name}}"
+    },
+    "discovery": {
+      "interrupted": "The search for related hosts stopped without finishing; search again.",
+      "busy": "A search for related hosts is already running for this domain."
+    },
+    "test_users": {
+      "invalid_request": "Invalid test user request",
+      "invalid_name": "A test user's name is one line of up to {{max}} characters",
+      "invalid_username": "The username or email is one line of up to {{max}} characters, without ${",
+      "invalid_password": "The password is one line of up to {{max}} characters, without ${",
+      "invalid_method": "Choose a sign-in method: username and password, or with an authenticator app (TOTP)",
+      "invalid_notes": "Notes take up to {{max}} characters",
+      "invalid_host": "{{host}} isn't a valid host",
+      "outside": "{{host}} isn't {{root}} or one of its subdomains",
+      "invalid_login_url": "The login URL is an HTTPS page, without a port or credentials in it",
+      "invalid_totp": "The TOTP secret is the base32 key the authenticator app shows (at least 16 characters)",
+      "invalid_totp_options": "TOTP codes have {{digits}} digits, last {{periods}} seconds and use {{algorithms}}",
+      "totp_required": "Add the TOTP secret to sign in with an authenticator app",
+      "password_required": "Add the password",
+      "name_taken": "There's already a test user named {{name}}",
+      "limit": "A domain keeps at most {{max}} test users",
+      "not_found": "That test user doesn't exist or was removed",
+      "too_many": "A scan signs in with at most {{max}} test users",
+      "not_in_scope": "{{name}} signs in on {{host}}, which isn't in this scan's scope: add it to the scope or pick another test user",
+      "invalid_check_url": "The check URL is an HTTPS page, without a port or credentials in it"
+    }
   }
 }

@@ -29,7 +29,7 @@ export function TopProgress() {
     return () => { window.removeEventListener(LOADING_EVENT, listen); window.clearTimeout(timer) }
   }, [])
   return <div aria-hidden className={`pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`}>
-    <div className="h-full w-1/3 motion-safe:animate-[pitangus-progress_1.1s_ease-in-out_infinite] bg-brand" />
+    <div className="h-full w-1/3 motion-safe:animate-[pitangus-progress_1.1s_ease-in-out_infinite] bg-info" />
   </div>
 }
 
@@ -75,11 +75,15 @@ export function SkeletonTable({ rows = 6, columns = 4, label }: { rows?: number;
   </Region>
 }
 
-// Métricas: tarjetas con número y etiqueta (resumen, hallazgos).
+// Key figures: the same ruled row as KeyFigures (summary, findings).
 export function SkeletonTiles({ count = 4, label }: { count?: number; label?: string }) {
-  return <Region label={label} className={`grid gap-3 ${count > 4 ? 'sm:grid-cols-3 xl:grid-cols-6' : 'sm:grid-cols-2 xl:grid-cols-4'}`}>
-    {Array.from({ length: count }, (_, index) => <div key={index} className="space-y-3 rounded-xl border border-app-line bg-panel p-4"><Bone className="h-7 w-12" /><Bone className="h-3 w-24" /></div>)}
-  </Region>
+  return <Region label={label}><FigureBones count={count} /></Region>
+}
+
+function FigureBones({ count }: { count: number }) {
+  return <div className="grid grid-cols-2 border-t border-app-line sm:grid-cols-3 xl:auto-cols-fr xl:grid-flow-col xl:grid-cols-none xl:border-b">
+    {Array.from({ length: count }, (_, index) => <div key={index} className="space-y-2 border-app-line py-3 pr-4 max-xl:border-b xl:border-l xl:px-4 xl:first:border-l-0 xl:first:pl-0"><Bone className="h-3 w-20" /><Bone className="h-7 w-12" /></div>)}
+  </div>
 }
 
 // Tarjeta con título, descripción y cuerpo de líneas (paneles de detalle, formularios de solo lectura).
@@ -93,7 +97,7 @@ export function SkeletonCard({ lines = 3, label }: { lines?: number; label?: str
 // Bloques genéricos (y métricas encima si se piden).
 export function Skeleton({ rows = 3, tiles = 0, label }: { rows?: number; tiles?: number; label?: string }) {
   return <Region label={label} className="space-y-4">
-    {tiles > 0 && <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">{Array.from({ length: tiles }, (_, index) => <Bone key={index} className="h-20 rounded-xl" />)}</div>}
+    {tiles > 0 && <FigureBones count={tiles} />}
     {Array.from({ length: rows }, (_, index) => <Bone key={index} className="h-14 rounded-xl" />)}
   </Region>
 }

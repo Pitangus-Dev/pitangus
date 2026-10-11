@@ -1,14 +1,15 @@
 import { useMemo, useState, type ComponentProps, type FormEvent } from 'react'
 import QRCode from 'qrcode'
-import { Check, Copy, KeyRound, LoaderCircle, ShieldCheck, ShieldOff } from 'lucide-react'
+import { CheckIcon, CircleNotchIcon, CopyIcon, KeyIcon, ShieldCheckIcon, ShieldSlashIcon } from '@phosphor-icons/react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { SessionUser } from '@/features/auth/session'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { SettingsSection } from '@/shared/ui/settings-list'
 import { Input } from '@/shared/ui/input'
 import { api } from '@/shared/api/http'
 import { formatDate } from '@/shared/i18n/format'
+import { Notice } from '@/shared/ui/notice'
 
 // El QR se dibuja con la matriz de módulos: sin imágenes data: (la CSP las bloquea) ni innerHTML.
 function QrCode({ value }: { value: string }) {
@@ -23,7 +24,7 @@ function QrCode({ value }: { value: string }) {
 }
 
 function Field({ id, label, ...props }: { id: string; label: string } & ComponentProps<typeof Input>) {
-  return <div className="space-y-1.5"><label htmlFor={id} className="text-xs text-app-muted">{label}</label><Input id={id} {...props} className="border-app-line bg-app-soft" /></div>
+  return <div className="space-y-1.5"><label htmlFor={id} className="text-xs text-app-muted">{label}</label><Input id={id} {...props} className="border-input bg-card" /></div>
 }
 
 // `only="totp"` es el enrolamiento obligatorio: sin tarjeta de perfil ni de contraseña.
@@ -63,31 +64,32 @@ export function Account({ user, onChanged, only }: { user: SessionUser; onChange
   const copyCodes = async () => { if (!backupCodes) return; await navigator.clipboard.writeText(backupCodes.join('\n')); setCopied(true); window.setTimeout(() => setCopied(false), 1500) }
 
   const role = user.role === 'admin' ? t('role.admin') : t('role.member')
-  return <div className={only ? 'space-y-5' : 'grid gap-5 xl:grid-cols-2'}>
-    {!only && <Card className="border-app-line bg-panel xl:col-span-2"><CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
+  // Sections split by a rule, no card per section: the profile is a row, then two-factor and the password.
+  return <div className="space-y-6">
+    {!only && <div className="flex flex-wrap items-center justify-between gap-4 border-b border-app-line pb-5">
       <div><div className="text-lg font-semibold">{user.display_name}</div><div className="text-sm text-app-muted">{user.last_login_at
         ? t('account.profile_last_login', { username: user.username, role, date: formatDate(user.last_login_at) })
         : t('account.profile', { username: user.username, role })}</div></div>
-      <Badge variant="outline" className={user.totp_enabled ? 'border-success-line text-success' : 'border-warning-line text-warning'}>{user.totp_enabled ? <><ShieldCheck className="size-3" />{t('account.totp_on')}</> : <><ShieldOff className="size-3" />{t('account.totp_off')}</>}</Badge>
-    </CardContent></Card>}
-    {message && <div role={message.tone === 'error' ? 'alert' : 'status'} className={`xl:col-span-2 rounded-xl border px-4 py-3 text-sm ${message.tone === 'error' ? 'border-danger-line bg-danger-soft text-danger' : 'border-brand/30 bg-brand/10 text-brand'}`}>{message.text}</div>}
+      <Badge variant="outline" className={user.totp_enabled ? 'border-success-line text-success' : 'border-attention-line text-attention'}>{user.totp_enabled ? <><ShieldCheckIcon className="size-3" />{t('account.totp_on')}</> : <><ShieldSlashIcon className="size-3" />{t('account.totp_off')}</>}</Badge>
+    </div>}
+    {message && <Notice role={message.tone === 'error' ? 'alert' : 'status'} tone={message.tone === 'error' ? 'critical' : 'ok'} blocking={message.tone === 'error'}>{message.text}</Notice>}
 
-    <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('account.totp_title')}</CardTitle><CardDescription>{t('account.totp_description')}</CardDescription></CardHeader><CardContent className="space-y-4">
+    <SettingsSection id="account-totp" title={t('account.totp_title')} description={t('account.totp_description')}><div className="max-w-xl space-y-4">
       {backupCodes ? <div className="space-y-3"><p className="text-sm text-app-secondary"><Trans t={t} i18nKey="account.backup_intro" components={{ strong: <strong /> }} /></p>
         <div className="grid grid-cols-2 gap-2 rounded-xl border border-app-line bg-inset p-4 font-mono text-sm">{backupCodes.map(item => <span key={item}>{item}</span>)}</div>
-        <div className="flex gap-2"><Button variant="outline" className="border-app-line bg-app-soft" onClick={() => void copyCodes()}>{copied ? <Check /> : <Copy />}{copied ? t('account.copied') : t('common:actions.copy')}</Button><span role="status" className="sr-only">{copied ? t('account.codes_copied') : ''}</span><Button onClick={() => { setBackupCodes(null); void onChanged() }} className="bg-primary text-primary-foreground hover:bg-primary/90">{t('account.saved_them')}</Button></div></div>
-      : user.totp_enabled ? <form className="space-y-3" onSubmit={disableTotp}><p className="text-sm text-app-muted">{t('account.disable_intro')}</p><Field id="totp-disable" label={t('fields.password')} type="password" required autoComplete="current-password" maxLength={256} value={disablePassword} onChange={event => setDisablePassword(event.target.value)} /><Button type="submit" variant="outline" disabled={!!busy} className="border-app-line bg-app-soft">{busy === 'disable' ? <LoaderCircle className="animate-spin" /> : <ShieldOff />}{t('account.disable')}</Button></form>
+        <div className="flex gap-2"><Button variant="outline" onClick={() => void copyCodes()}>{copied ? <CheckIcon /> : <CopyIcon />}{copied ? t('account.copied') : t('common:actions.copy')}</Button><span role="status" className="sr-only">{copied ? t('account.codes_copied') : ''}</span><Button onClick={() => { setBackupCodes(null); void onChanged() }}>{t('account.saved_them')}</Button></div></div>
+      : user.totp_enabled ? <form className="space-y-3" onSubmit={disableTotp}><p className="text-sm text-app-muted">{t('account.disable_intro')}</p><Field id="totp-disable" label={t('fields.password')} type="password" required autoComplete="current-password" maxLength={256} value={disablePassword} onChange={event => setDisablePassword(event.target.value)} /><Button type="submit" variant="outline" disabled={!!busy}>{busy === 'disable' ? <CircleNotchIcon className="animate-spin" /> : <ShieldSlashIcon />}{t('account.disable')}</Button></form>
       : enrolment ? <form className="space-y-4" onSubmit={confirmTotp}><div className="flex flex-col items-start gap-4 sm:flex-row"><QrCode value={enrolment.uri} /><div className="space-y-2 text-sm text-app-muted"><p>{t('account.step_scan')}</p><p>{t('account.step_key')}</p><code className="block rounded-lg bg-inset p-2 font-mono text-xs break-all text-app-secondary">{enrolment.secret.match(/.{1,4}/g)?.join(' ')}</code><p>{t('account.step_code')}</p></div></div>
         <Field id="totp-code" label={t('account.code_6')} required autoComplete="one-time-code" inputMode="numeric" pattern="\d{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value)} />
-        <div className="flex gap-2"><Button type="submit" disabled={!!busy || code.trim().length !== 6} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy === 'totp' ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}{t('account.enable')}</Button><Button type="button" variant="ghost" onClick={() => setEnrolment(null)}>{t('common:actions.cancel')}</Button></div></form>
-      : <Button onClick={() => void startTotp()} disabled={!!busy} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy === 'totp' ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}{t('account.setup_totp')}</Button>}
-    </CardContent></Card>
+        <div className="flex gap-2"><Button type="submit" disabled={!!busy || code.trim().length !== 6}>{busy === 'totp' ? <CircleNotchIcon className="animate-spin" /> : <ShieldCheckIcon />}{t('account.enable')}</Button><Button type="button" variant="ghost" onClick={() => setEnrolment(null)}>{t('common:actions.cancel')}</Button></div></form>
+      : <Button onClick={() => void startTotp()} disabled={!!busy}>{busy === 'totp' ? <CircleNotchIcon className="animate-spin" /> : <ShieldCheckIcon />}{t('account.setup_totp')}</Button>}
+    </div></SettingsSection>
 
-    {!only && <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('account.password_title')}</CardTitle><CardDescription>{t('account.password_description')}</CardDescription></CardHeader><CardContent><form className="space-y-3" onSubmit={changePassword}>
+    {!only && <div className="border-t border-app-line pt-6"><SettingsSection id="account-password" title={t('account.password_title')} description={t('account.password_description')}><form className="max-w-md space-y-3" onSubmit={changePassword}>
       <Field id="password-current" label={t('account.current_password')} type="password" required autoComplete="current-password" maxLength={256} value={passwords.current} onChange={event => setPasswords(previous => ({ ...previous, current: event.target.value }))} />
       <Field id="password-new" label={t('account.new_password')} type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={passwords.next} onChange={event => setPasswords(previous => ({ ...previous, next: event.target.value }))} />
       <Field id="password-confirm" label={t('account.repeat_new_password')} type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={passwords.confirm} onChange={event => setPasswords(previous => ({ ...previous, confirm: event.target.value }))} />
-      <Button type="submit" disabled={!!busy} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy === 'password' ? <LoaderCircle className="animate-spin" /> : <KeyRound />}{t('account.change_password')}</Button>
-    </form></CardContent></Card>}
+      <Button type="submit" variant="outline" disabled={!!busy}>{busy === 'password' ? <CircleNotchIcon className="animate-spin" /> : <KeyIcon />}{t('account.change_password')}</Button>
+    </form></SettingsSection></div>}
   </div>
 }

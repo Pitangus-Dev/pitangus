@@ -42,7 +42,7 @@ Los dos huecos por los que más preguntan:
           with:
             upload: never
             output: codeql
-        - uses: Pitangus-Dev/pitangus@v0.12.2
+        - uses: Pitangus-Dev/pitangus@v0.13.0
           if: always()
           with:
             scan: false
@@ -54,13 +54,18 @@ Los dos huecos por los que más preguntan:
   CodeQL es gratis en repositorios públicos y, con GitHub Advanced Security, en los privados; correr su CLI en otro
   sitio se rige por los términos de CodeQL de GitHub. El mismo paso con Semgrep está en
   [cli.md](cli.md#resultados-de-otras-herramientas).
-- **Pruebas dinámicas.** Pitangus nunca ejecuta ni ataca tus aplicaciones. Hasta que lo ofrezca, corre ZAP o Nuclei
-  por tu cuenta, contra sistemas tuyos, e importa su SARIF sobre un dominio verificado: ver
+- **Pruebas dinámicas.** Pitangus hace [análisis web y de API pasivos](funcionalidades.md#análisis-web-pasivo) con
+  ZAP de un dominio verificado (recorrer y leer, o las operaciones GET y HEAD de una definición OpenAPI; nunca atacar)
+  cuando el servidor define `PITANGUS_DAST_ENABLED=1`: a demanda o programados, sobre subdominios listados si el
+  dominio tiene prueba DNS, y con las cabeceras de petición guardadas para el dominio (claves de API, tokens bearer,
+  cookies). El dominio se puede demostrar con un registro TXT, un archivo bajo `/.well-known/` o una etiqueta meta.
+  Para algo más profundo (escaneos activos, inicio de sesión por formulario, Nuclei, un pentest con IA como Strix),
+  corre el escáner por tu cuenta, contra sistemas tuyos, e importa su SARIF sobre el dominio verificado: ver
   [Trae tu propio DAST](#trae-tu-propio-dast) más abajo.
 
 ### Trae tu propio DAST
 
-Pitangus todavía no ejecuta escáneres web (está en [en desarrollo](funcionalidades.md#en-desarrollo)). Si tu pipeline ya corre **OWASP ZAP** o **Nuclei**, su SARIF entra en el registro como cualquier otra importación, con un **dominio verificado** como activo: los hallazgos tienen el mismo triage, plazos, incidencias de Jira y avisos que los del código, y una importación completa posterior deja remediado lo que el escáner ya no reporte.
+El análisis web propio de Pitangus es pasivo y se lanza desde el panel ([Análisis web pasivo](funcionalidades.md#análisis-web-pasivo)): guarda los hallazgos de ZAP exactamente como lo haría una importación del SARIF de ZAP, con las mismas huellas, así que ambos pueden alimentar el mismo dominio sin duplicados. Para escaneos activos, con sesión o con Nuclei, o para mantener el escáner en tu pipeline: si ya corre **OWASP ZAP** o **Nuclei**, su SARIF entra en el registro como cualquier otra importación, con un **dominio verificado** como activo: los hallazgos tienen el mismo triage, plazos, incidencias de Jira y avisos que los del código, y una importación completa posterior deja remediado lo que el escáner ya no reporte.
 
 1. En **Análisis → Dominios**, una persona administradora añade el dominio (`https://app.example.com`), publica el registro TXT que muestra el panel (`_pitangus.app.example.com` = `pitangus-verify=…`) y lo verifica. El dominio pasa a ser el activo `domain:app.example.com`. El registro se consulta de nuevo cada día; si desaparece, o pasan 90 días sin comprobarlo, el dominio deja de ser un activo hasta que alguien lo verifique otra vez.
 2. El pipeline escribe el SARIF y lo envía con las entradas `import-sarif`, `server`, `token` y `asset` de la Action (o con `python -m pitangus import-sarif … --asset domain:app.example.com --server …`).
@@ -106,7 +111,7 @@ jobs:
           docker run --rm -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2 \
             zap.sh -cmd -autorun /zap/wrk/zap.yaml
           # la plantilla sarif-json escribe zap.json
-      - uses: Pitangus-Dev/pitangus@v0.12.2
+      - uses: Pitangus-Dev/pitangus@v0.13.0
         if: always()
         with:
           scan: false
@@ -124,7 +129,7 @@ Nuclei escribe SARIF con `-se` ([opciones](https://docs.projectdiscovery.io/tool
           docker run --rm -v "$PWD:/out" projectdiscovery/nuclei:v3.3.5 \
             -u https://app.example.com -rl 20 -c 10 -severity low,medium,high,critical \
             -etags dos,fuzz,intrusive -se /out/nuclei.sarif
-      - uses: Pitangus-Dev/pitangus@v0.12.2
+      - uses: Pitangus-Dev/pitangus@v0.13.0
         if: always()
         with:
           scan: false
@@ -135,6 +140,8 @@ Nuclei escribe SARIF con `-se` ([opciones](https://docs.projectdiscovery.io/tool
 ```
 
 Qué hace Pitangus con ello: los hallazgos de un escáner web llevan `scanner: dast`; la ubicación es la URL sin query ni fragmento (un token de sesión o un *cache-buster* en la URL no debe convertir la misma alerta en un hallazgo nuevo en cada ejecución); la huella es regla, URL y nombre del parámetro, nunca la evidencia; y solo se guardan el método, el parámetro y una evidencia acotada, nunca la petición ni la respuesta que adjunta ZAP (llevan cookies y cabeceras de autorización). Nuclei pone la ruta de la plantilla donde SARIF espera un archivo y la URL en las propiedades del resultado; Pitangus lee la URL. Una ejecución con las dos herramientas está bien: cada una solo remedia lo que ella misma reportó.
+
+**Strix** ([usestrix/strix](https://github.com/usestrix/strix), Apache-2.0: agentes de IA que intentan explotar lo que encuentran) escribe `findings.sarif` junto a sus otros informes. Impórtalo sobre el dominio verificado como cualquier otro SARIF (`import-sarif: strix_runs/<run>/findings.sarif`, `asset: domain:app.example.com`). Un hallazgo sobre un endpoint llega anclado a `SECURITY.md`; Pitangus lo ubica en la URL del endpoint (el objetivo de la ejecución más la ruta, `GET /api/users/{id}` → `https://app.example.com/api/users/{id}`, conservando el método), así que es un hallazgo web. Uno con ubicación en el código sigue siendo un hallazgo de código en su archivo y línea. Se respeta la etiqueta de severidad de Strix (su `info` no pasa a `low`), el CWE sale de su regla, la huella de sus huellas parciales (un título redactado de otra forma es el mismo hallazgo), y las áreas que anota como cubiertas o pendientes de revisar no son hallazgos. Las credenciales que repitan sus descripciones se redactan como en cualquier hallazgo web; el script de la prueba de concepto nunca viene en el SARIF.
 
 **Solo contra sistemas tuyos o que estés autorizado a probar.** El registro TXT demuestra a Pitangus el control de la zona DNS; no es una autorización para probar nada, y Pitangus no comprueba que la tengas. El escaneo activo (el *active scan* de ZAP, el fuzzing `-dast` de Nuclei) puede dañar datos y disparar defensas: hazlo solo donde tengas permiso, fuera de producción salvo que sepas lo que haces, y deja el plan en pasivo en el resto de los casos. Sigue siendo un *análisis*, no un pentest.
 

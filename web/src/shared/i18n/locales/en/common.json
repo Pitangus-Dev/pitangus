@@ -50,7 +50,9 @@
     "incomplete": "Incomplete",
     "failed": "Failed",
     "queued": "Queued",
-    "running": "Scanning…"
+    "running": "Scanning…",
+    "partial": "Partial",
+    "inconclusive": "Inconclusive"
   },
   "finding_status": {
     "open": "Open",
@@ -61,9 +63,9 @@
     "false_positive": "False positive"
   },
   "count": {
-    "findings_one": "{{count}} finding",
-    "findings_other": "{{count}} findings",
-    "repositories_one": "{{count}} repository",
-    "repositories_other": "{{count}} repositories"
+    "findings_one": "{{count, number}} finding",
+    "findings_other": "{{count, number}} findings",
+    "repositories_one": "{{count, number}} repository",
+    "repositories_other": "{{count, number}} repositories"
   }
 }

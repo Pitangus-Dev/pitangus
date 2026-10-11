@@ -191,6 +191,23 @@ def load_signals(data_dir: Path, feeds: dict) -> None:
             _set_state(connection, "epss_version", epss_version)
 
 
+def signals(data_dir: Path, identifiers) -> dict:
+    """KEV and EPSS for those CVEs from the local copy, shaped like `advisories.load_feeds` ({} where it has none):
+    for callers that must not download anything."""
+    wanted = sorted({item for item in identifiers if isinstance(item, str) and item.startswith("CVE-")})[:5000]
+    if not wanted:
+        return {"kev": {}, "epss": {}}
+    try:
+        with db.transaction(data_dir) as connection:
+            kev_rows = connection.execute(select(exploited).where(exploited.c.id.in_(wanted))).all()
+            epss_rows = connection.execute(select(epss).where(epss.c.id.in_(wanted))).all()
+    except SQLAlchemyError:
+        return {"kev": {}, "epss": {}}
+    return {"kev": {row.id: {"date_added": row.date_added, "due_date": row.due_date, "ransomware": bool(row.ransomware), "name": row.name}
+                    for row in kev_rows},
+            "epss": {row.id: (row.score, row.percentile) for row in epss_rows if row.score is not None and row.percentile is not None}}
+
+
 def import_sqlite(data_dir: Path) -> int:
     """Copies the SQLite copy of earlier versions (data/feeds/cves.sqlite) into the database, once, so the tracker
     doesn't start the NVD download over. The file is renamed afterwards (it can be deleted). Returns the CVEs copied."""

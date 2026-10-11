@@ -3,6 +3,8 @@
     "queued": "Queued: waiting for the scan worker.",
     "queued_pr": "Queued: review of PR #{{number}} ({{sha}}).",
     "queued_image": "Queued: scan of image {{image}}.",
+    "queued_web": "Queued: passive web scan of {{host}}.",
+    "web_target": "DNS proof confirmed and {{host}} resolves to a public address ({{address}}); ZAP sends its requests for {{host}} to that address.",
     "downloading_snapshot": "Downloading a read-only snapshot of the repository…",
     "snapshot_ready_one": "Snapshot ready: {{count}} file to analyze.",
     "snapshot_ready_other": "Snapshot ready: {{count}} files to analyze.",
@@ -24,13 +26,15 @@
     "comment_posted": "Comment posted on the PR.",
     "comment_failed": "Couldn't comment on the PR: {{reason}}",
     "no_comment_permission": "The result wasn't posted to GitHub: the App can't write to pull requests.",
-    "branch_commit": "Scanning branch {{branch}} at commit {{sha}}"
+    "branch_commit": "Scanning branch {{branch}} at commit {{sha}}",
+    "queued_api": "Queued: passive API scan of {{host}}."
   },
   "failure": {
     "restart": "The server restarted while this run was in progress, so it was interrupted. Run it again.",
     "source": "Couldn't fetch the repository: {{reason}}",
     "internal": "The scan failed with an internal error; your team can check the server logs using the run ID.",
     "image_internal": "The image scan failed with an internal error; check the logs using the run ID.",
+    "dast_internal": "The web scan failed with an internal error; check the logs using the run ID.",
     "pr": "Couldn't review the PR: {{reason}}",
     "pr_internal": "The review failed with an internal error; your team can check the server logs using the run ID."
   },

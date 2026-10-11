@@ -1,0 +1,227 @@
+id: pitangus-sensitive-paths
+
+info:
+  name: Sensitive file or endpoint exposed
+  author: pitangus
+  severity: medium
+  description: |
+    A path that usually holds internal data (a backup or configuration folder, framework diagnostics, server status,
+    credentials files) answers with that content. Each check proves the content, not just a 200; the matcher's name
+    says which one matched.
+  remediation: |
+    Remove the file or folder from the public site, or restrict the endpoint to internal networks or authenticated
+    administrators, and rotate any credential it exposed. See the referenced OWASP testing guide pages for this check.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/05-Enumerate_Infrastructure_and_Application_Admin_Interfaces
+  classification:
+    cwe-id: CWE-200,CWE-538
+  metadata:
+    max-request: 26
+    pitangus-name-es: Archivo o endpoint sensible expuesto
+    pitangus-description-es: |
+      Una ruta que suele guardar datos internos (una carpeta de copias o de configuración, diagnósticos del framework,
+      el estado del servidor, archivos de credenciales) responde con ese contenido. Cada control prueba el contenido,
+      no solo un 200; el nombre del matcher dice cuál coincidió.
+    pitangus-remediation-es: |
+      Quita el archivo o la carpeta del sitio público, o restringe el endpoint a redes internas o a administradores
+      autenticados, y rota cualquier credencial que haya expuesto. Consulta las páginas de la guía de pruebas de OWASP
+      referenciadas para este control.
+  tags: exposure,config,pitangus
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/ftp/"
+      - "{{BaseURL}}/backup/"
+      - "{{BaseURL}}/backups/"
+      - "{{BaseURL}}/config/"
+    matchers:
+      - type: regex
+        name: directory-listing
+        part: body
+        regex:
+          - '(?i)<title>\s*(?:index of /|directory listing for /|listing directory /)'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/metrics"
+    matchers:
+      - type: regex
+        name: prometheus-metrics
+        part: body
+        regex:
+          - '(?m)^# (?:HELP|TYPE) [a-zA-Z_:][a-zA-Z0-9_:]* '
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/actuator"
+    matchers:
+      - type: regex
+        name: spring-actuator
+        part: body
+        regex:
+          - '"_links"\s*:\s*\{'
+          - '"href"\s*:\s*"[^"]*/actuator/'
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/actuator/env"
+      - "{{BaseURL}}/env"
+    matchers:
+      - type: regex
+        name: spring-actuator-env
+        part: body
+        regex:
+          - '"(?:propertySources|systemProperties)"\s*:'
+          - '"(?:activeProfiles|profiles)"\s*:'
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/actuator/configprops"
+    matchers:
+      - type: regex
+        name: spring-actuator-configprops
+        part: body
+        regex:
+          - '"contexts"\s*:'
+          - '"beans"\s*:'
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/actuator/mappings"
+    matchers:
+      - type: word
+        name: spring-actuator-mappings
+        part: body
+        words:
+          - '"dispatcherServlets"'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/server-status"
+    matchers:
+      - type: word
+        name: apache-server-status
+        part: body
+        words:
+          - "Apache Server Status for"
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/server-info"
+    matchers:
+      - type: word
+        name: apache-server-info
+        part: body
+        words:
+          - "Apache Server Information"
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/phpinfo.php"
+      - "{{BaseURL}}/info.php"
+      - "{{BaseURL}}/php_info.php"
+    matchers:
+      - type: regex
+        name: phpinfo
+        part: body
+        regex:
+          - '(?i)<title>[^<]{0,60}phpinfo\(\)\s*</title>'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/debug/pprof/"
+    matchers:
+      - type: word
+        name: go-pprof
+        part: body
+        words:
+          - "Types of profiles available"
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/elmah.axd"
+    matchers:
+      - type: regex
+        name: elmah
+        part: body
+        regex:
+          - '(?i)Error log for .{0,200}ELMAH'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/trace.axd"
+    matchers:
+      - type: word
+        name: aspnet-trace
+        part: body
+        words:
+          - "Application Trace"
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/console"
+    matchers:
+      - type: regex
+        name: werkzeug-console
+        part: body
+        regex:
+          - '(?i)<title>\s*Console\s*//\s*Werkzeug Debugger'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/.htpasswd"
+    matchers:
+      - type: regex
+        name: htpasswd
+        part: body
+        regex:
+          - '(?m)^[A-Za-z0-9._@-]{1,64}:(?:\$(?:apr1|2[abxy]?|5|6)\$|\{SHA\})'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/.npmrc"
+    matchers:
+      - type: regex
+        name: npmrc-token
+        part: body
+        regex:
+          - '(?m)_authToken\s*=\s*\S{8,}'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/.aws/credentials"
+    matchers:
+      - type: regex
+        name: aws-credentials
+        part: body
+        regex:
+          - '(?mi)^aws_secret_access_key\s*='
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/.docker/config.json"
+    matchers:
+      - type: regex
+        name: docker-credentials
+        part: body
+        regex:
+          - '"auths"\s*:\s*\{'
+          - '"auth"\s*:\s*"[A-Za-z0-9+/=]{8,}"'
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/wp-config.php.bak"
+      - "{{BaseURL}}/wp-config.php~"
+      - "{{BaseURL}}/wp-config.old"
+    matchers:
+      - type: regex
+        name: wordpress-config-backup
+        part: body
+        regex:
+          - "define\\(\\s*['\"]DB_PASSWORD['\"]"

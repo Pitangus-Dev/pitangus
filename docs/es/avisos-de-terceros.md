@@ -23,6 +23,13 @@ oficiales fijadas por digest. Pitangus no enlaza su código ni lo modifica: es a
 | [Grype](https://github.com/anchore/grype) | 0.120.0 | Apache-2.0 | Segunda opinión en imágenes | Conservar avisos |
 | [Checkov](https://github.com/bridgecrewio/checkov) | 3.3.19 | Apache-2.0 | IaC y pipelines | Conservar avisos |
 | [zizmor](https://github.com/zizmorcore/zizmor) | 1.30.1 | MIT | GitHub Actions | Conservar aviso de copyright |
+| [subfinder](https://github.com/projectdiscovery/subfinder) | 2.16.0 | MIT | Hosts relacionados de un dominio, desde fuentes pasivas (con los análisis web activos) | Conservar aviso de copyright |
+| [ZAP](https://github.com/zaproxy/zaproxy) | 2.17.0 | Apache-2.0 | Análisis web y de API pasivos (con los análisis web activos) | Conservar avisos |
+| [katana](https://github.com/projectdiscovery/katana) | 1.7.0 | MIT | Recorrido de los hosts de un análisis web, cuyas URL alimentan a ZAP y nuclei (con los análisis web activos) | Conservar aviso de copyright |
+| [nuclei](https://github.com/projectdiscovery/nuclei) | 3.11.1 | MIT | Plantillas solo de detección en los análisis web (con los análisis web activos) | Conservar aviso de copyright |
+| [nuclei-templates](https://github.com/projectdiscovery/nuclei-templates) | 10.4.9 | MIT | Las plantillas que ejecuta nuclei: el worker las descarga del archivo de la versión (SHA-256 fijado), filtra solo las de detección y nunca las redistribuye | Conservar aviso de copyright |
+| [testssl.sh](https://github.com/testssl/testssl.sh) | 3.2 (imagen del 2026-10-03) | GPL-2.0 | Configuración TLS de los hosts de un análisis web (con los análisis web activos) | Imagen oficial sin modificar, ejecutada como proceso aparte (agregación, no obra derivada). Si redistribuyes la imagen, su fuente es la del proyecto original; si se modificara y distribuyera, publicar esos cambios bajo GPL-2.0 |
+| [httpx](https://github.com/projectdiscovery/httpx) | 1.12.0 | MIT | Tecnologías con que responden los hosts de un análisis web (con los análisis web activos) | Conservar aviso de copyright |
 
 Ninguna de estas licencias limita el uso comercial ni el uso como servicio (SaaS).
 
@@ -112,6 +119,7 @@ técnico, no asesoría legal.
 | cffi (dependencia de cryptography) | MIT-0 |
 | pycparser (dependencia de cffi) | BSD-3-Clause |
 | ReportLab | BSD (licencia propia de ReportLab Inc., de tipo BSD) |
+| PyYAML | MIT |
 
 **Panel web** (lo que viaja compilado en `pitangus/app/static`): React y React DOM (MIT), @xyflow/react (MIT),
 @base-ui/react (MIT), lucide-react (ISC), class-variance-authority (Apache-2.0), qrcode (MIT),

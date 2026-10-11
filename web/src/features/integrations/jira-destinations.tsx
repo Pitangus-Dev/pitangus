@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, LoaderCircle, MoreHorizontal, Plus, Search } from 'lucide-react'
+import { CaretDownIcon, CheckIcon, CircleNotchIcon, DotsThreeIcon, MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
@@ -14,6 +14,7 @@ import { MappingTable } from '@/features/integrations/jira-mapping'
 import { buildMapping, initialDraft, type Draft, type FieldSnapshot } from '@/features/integrations/jira-mapping-model'
 import { destinationTarget, errorMap, type JiraDestination, type JiraRef } from '@/features/integrations/jira-routing'
 import { SelectField } from '@/shared/ui/select-field'
+import { Notice } from '@/shared/ui/notice'
 
 type Project = { id: string; key: string; name: string }
 type Warning = { field: string; error: string }
@@ -27,11 +28,11 @@ export function DestinationsSection({ routing, onRemove }: { routing: JiraRoutin
   return <section aria-labelledby="jira-destinations" className="space-y-3">
     <div className="flex flex-wrap items-end justify-between gap-2"><div><h4 id="jira-destinations" className="text-sm font-semibold">{t('jira.destinations.title')}</h4><p className="text-xs text-app-subtle">{t('jira.destinations.help')}</p></div>
       <span className="flex flex-wrap items-center justify-end gap-2">{full && <span id="jira-destinations-full" className="text-xs text-app-subtle">{t('jira.destinations.limit', { max: routing.limits.destinations })}</span>}
-        <Button size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={full} aria-describedby={full ? 'jira-destinations-full' : undefined} onClick={() => { setSaved(null); setEditing('new') }}><Plus />{t('jira.destinations.add')}</Button></span></div>
-    {saved && <div role="status" className={`rounded-lg border px-3 py-2 text-xs ${saved.warnings.length ? 'border-warning-line bg-warning-soft text-warning' : 'border-success-line bg-success-soft text-success'}`}>
+        <Button size="sm" variant="outline" disabled={full} aria-describedby={full ? 'jira-destinations-full' : undefined} onClick={() => { setSaved(null); setEditing('new') }}><PlusIcon />{t('jira.destinations.add')}</Button></span></div>
+    {saved && <Notice role="status" tone={saved.warnings.length ? 'attention' : 'ok'} className="text-xs">
       <p className="font-medium">{saved.warnings.length ? t('jira.destinations.saved_warnings', { name: saved.name, count: saved.warnings.length }) : t('jira.destinations.saved', { name: saved.name })}</p>
       {saved.warnings.length > 0 && <ul className="mt-1 list-disc space-y-0.5 pl-4">{saved.warnings.map(item => <li key={`${item.field}:${item.error}`}>{saved.fields[item.field] ? `${saved.fields[item.field]}: ` : ''}{item.error}</li>)}</ul>}
-    </div>}
+    </Notice>}
     {routing.destinations.length === 0
       ? <p className="rounded-lg border border-dashed border-app-line px-4 py-6 text-center text-sm text-app-muted">{t('jira.destinations.empty')}</p>
       : <ul className="divide-y divide-app-line rounded-xl border border-app-line">{routing.destinations.map(destination => {
@@ -39,8 +40,8 @@ export function DestinationsSection({ routing, onRemove }: { routing: JiraRoutin
         return <li key={destination.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
           <div className="min-w-0"><p className="truncate text-sm font-medium">{destination.name}</p>
             <p className="text-xs text-app-subtle"><span className="font-mono">{destinationTarget(destination)}</span> · {t('jira.destinations.fields', { count: Object.keys(destination.mapping).length })} · {count ? t('jira.destinations.used_by', { count }) : t('jira.destinations.unused')}</p>
-            {destination.legacy && <p className="mt-0.5 text-xs text-warning">{t('jira.destinations.legacy')}</p>}</div>
-          <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('jira.destinations.actions', { name: destination.name })} />}><MoreHorizontal /></MenuTrigger>
+            {destination.legacy && <p className="mt-0.5 text-xs text-attention">{t('jira.destinations.legacy')}</p>}</div>
+          <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('jira.destinations.actions', { name: destination.name })} />}><DotsThreeIcon /></MenuTrigger>
             <MenuContent><MenuItem onClick={() => { setSaved(null); setEditing(destination) }}>{t('common:actions.edit')}</MenuItem>
               <MenuItem disabled={count > 0} onClick={() => onRemove(destination)}>{count > 0 ? t('jira.destinations.remove_in_use') : t('common:actions.remove')}</MenuItem></MenuContent></Menu>
         </li>
@@ -111,7 +112,7 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
     <form onSubmit={save} className="space-y-4" noValidate>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5"><label htmlFor={`${id}-name`} className="text-xs text-app-muted">{t('jira.destinations.name')}</label>
-          <Input id={`${id}-name`} value={name} maxLength={60} onChange={event => setName(event.target.value)} placeholder={t('jira.destinations.name_placeholder')} className="border-app-line bg-app-soft" {...invalid('name')} />{fieldError('name')}</div>
+          <Input id={`${id}-name`} value={name} maxLength={60} onChange={event => setName(event.target.value)} placeholder={t('jira.destinations.name_placeholder')} className="border-input bg-card" {...invalid('name')} />{fieldError('name')}</div>
         <div className="space-y-1.5"><span id={`${id}-project-label`} className="text-xs text-app-muted">{t('jira.destinations.project')}</span>
           <ProjectPicker labelledBy={`${id}-project-label`} value={project} onChange={pickProject} invalid={invalid('project')} />{fieldError('project')}</div>
       </div>
@@ -124,12 +125,12 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
       {project && issueType && <div className="space-y-2"><div><h5 className="text-sm font-medium">{t('jira.mapping.title')}</h5><p className="text-xs text-app-subtle">{t('jira.mapping.help')}</p></div>
         {fields.isError ? <p role="alert" className="text-xs text-danger">{fields.error.message}</p>
           : ready && draft ? <>
-            {fields.data.truncated && <p className="text-xs text-warning">{t('jira.mapping.truncated')}</p>}
+            {fields.data.truncated && <p className="text-xs text-attention">{t('jira.mapping.truncated')}</p>}
             <MappingTable key={`${project.key}:${issueType}`} fields={fields.data.fields} variables={variables.data} draft={draft} errors={errors} onChange={(field, entry) => setDraft({ ...draft, [field]: entry })} searchValues={searchValues} />
           </> : <SkeletonTable rows={4} columns={3} label={t('jira.mapping.loading')} />}</div>}
       {message && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{message}</div>}
       <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button type="submit" disabled={busy || (!!project && !!issueType && !draft)}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.destinations.save')}</Button></DialogFooter>
+        <Button type="submit" disabled={busy || (!!project && !!issueType && !draft)}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.destinations.save')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -145,22 +146,22 @@ function ProjectPicker({ value, onChange, labelledBy, invalid }: { value: Projec
   const items = pages.data?.pages.flatMap(page => page.items) ?? []
   const total = pages.data?.pages[0]?.total ?? 0
   if (!open && value) return <button type="button" aria-labelledby={labelledBy} aria-describedby={`${labelledBy}-value`} onClick={() => setOpen(true)} {...invalid}
-    className="flex h-8 w-full items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-left text-sm hover:border-brand/40">
-    <span id={`${labelledBy}-value`} className="min-w-0 flex-1 truncate"><span className="font-mono">{value.key}</span> · {value.name}</span><ChevronDown className="size-3.5 text-app-subtle" /></button>
+    className="flex h-8 w-full items-center gap-2 rounded-lg border border-input bg-card px-3 text-left text-sm hover:border-app-faint">
+    <span id={`${labelledBy}-value`} className="min-w-0 flex-1 truncate"><span className="font-mono">{value.key}</span> · {value.name}</span><CaretDownIcon className="size-3.5 text-app-subtle" /></button>
   return <div className="space-y-1.5">
-    <div className="relative"><Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-app-subtle" />
-      <Input aria-labelledby={labelledBy} placeholder={t('jira.destinations.project_search')} value={text} onChange={event => setText(event.target.value)} className="border-app-line bg-app-soft pl-8" {...invalid} /></div>
+    <div className="relative"><MagnifyingGlassIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-app-subtle" />
+      <Input aria-labelledby={labelledBy} placeholder={t('jira.destinations.project_search')} value={text} onChange={event => setText(event.target.value)} className="border-input bg-card pl-8" {...invalid} /></div>
     <ul aria-labelledby={labelledBy} className="max-h-48 overflow-y-auto rounded-lg border border-app-line">
       {pages.isPending ? <li><SkeletonList rows={3} dense label={t('jira.destinations.loading_projects')} /></li>
         : pages.isError ? <li role="alert" className="px-3 py-2 text-xs text-danger">{pages.error.message}</li>
         : items.length === 0 ? <li className="px-3 py-3 text-xs text-app-subtle">{t('jira.destinations.no_projects')}</li>
         : items.map(project => <li key={project.id}><button type="button" aria-pressed={value?.key === project.key}
           onClick={() => { onChange(project); setOpen(false) }} className="flex min-h-8 w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-app-soft">
-          <Check className={`size-3.5 shrink-0 ${value?.key === project.key ? 'text-brand' : 'text-transparent'}`} /><span className="w-16 shrink-0 font-mono text-xs">{project.key}</span><span className="min-w-0 truncate">{project.name}</span></button></li>)}
+          <CheckIcon className={`size-3.5 shrink-0 ${value?.key === project.key ? 'text-brand' : 'text-transparent'}`} /><span className="w-16 shrink-0 font-mono text-xs">{project.key}</span><span className="min-w-0 truncate">{project.name}</span></button></li>)}
     </ul>
     <div className="flex items-center justify-between gap-2 text-xs text-app-subtle">
       {items.length > 0 && <span>{t('jira.destinations.projects_shown', { shown: items.length, total })}</span>}
-      <span className="ml-auto flex gap-2">{pages.hasNextPage && <Button type="button" size="xs" variant="outline" className="border-app-line bg-app-soft" disabled={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>{t('jira.destinations.more_projects')}</Button>}
+      <span className="ml-auto flex gap-2">{pages.hasNextPage && <Button type="button" size="xs" variant="outline" disabled={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>{t('jira.destinations.more_projects')}</Button>}
         {value && <Button type="button" size="xs" variant="ghost" onClick={() => setOpen(false)}>{t('common:actions.cancel')}</Button>}</span>
     </div>
   </div>

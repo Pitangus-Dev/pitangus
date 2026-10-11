@@ -19,16 +19,17 @@ from reportlab.platypus import KeepTogether, Paragraph, Spacer, Table, TableStyl
 from pitangus.modules.reporting.audit import status_label, status_of
 from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.fix_guide import guide
-from pitangus.modules.findings.remediation import action, counts_text, fix_groups
-from pitangus.modules.reporting.design import (ATTENTION, BRAND, CODE_BG, DANGER, INK, LINE, MONO, MUTED, ORDER, SEVERITY_INK, STYLE, SUCCESS,
+from pitangus.modules.findings.references import brief, guidance, owasp_of
+from pitangus.modules.findings.remediation import action, counts_text, fix_groups, problems
+from pitangus.modules.reporting.design import (BRAND, CODE_BG, DANGER, INK, LINE, MONO, MUTED, ORDER, SEVERITY_INK, STYLE, SUCCESS,
                             WIDTH, GAP_STATES, build, built_from, bullets, chip, count, cover, coverage_gaps, day, disclaimer, h2,
-                            hexval, kpis, listing, location, path, percent, plain, rich, severity_label, step_status,
+                            hexval, kpis, link, listing, location, path, percent, plain, rich, severity_label, step_status,
                             t as _t, table)
 from pitangus.shared import i18n
 from pitangus.shared.i18n import default_locale, localize, msg
 from pitangus.shared.model import Finding
 
-KINDS = ("repository_scan", "image_scan", "pr_review", "sarif_import", "asset_state")
+KINDS = ("repository_scan", "image_scan", "dast_scan", "pr_review", "sarif_import", "asset_state")
 ACTIVE = ("open", "in_progress")
 ANNEX_LIMIT = 600
 DETAIL_LIMIT = 150   # sheets for critical or high code findings
@@ -72,8 +73,24 @@ def _code(text: str, limit: int = 1500) -> str:
     return "<br/>".join(_t(row, 200).replace(" ", "&nbsp;") if row.strip() else "&nbsp;" for row in rows)
 
 
-def _sheet(item: dict, ident: str, locale: str) -> list:
-    """One critical or high code finding: what it is, where, what happens, how to fix it and how to know it's fixed."""
+def _code_block(code: str, label: Paragraph | None = None) -> Table:
+    block = Table([*([[label]] if label else []), [Paragraph(_code(code), STYLE["code"])]], colWidths=[WIDTH], hAlign="LEFT")
+    block.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), CODE_BG), ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                               ("RIGHTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, 0), 6),
+                               ("BOTTOMPADDING", (0, -1), (-1, -1), 8)]))
+    return block
+
+
+URLS_SHOWN = 8   # a web problem's URLs listed in its sheet; the rest are counted
+
+
+def _worst(items: list[dict]) -> str:
+    return min((item.get("severity") or "info" for item in items), key=lambda level: ORDER.get(level, 9))
+
+
+def _sheet(item: dict, ident: str, locale: str, urls: list[str] | None = None) -> list:
+    """One critical or high code finding: what it is, where, what happens, how to fix it and how to know it's fixed.
+    `urls`: every URL of a web problem seen on several (each stays a finding of its own)."""
     t = lambda key, **params: i18n.t(key, locale, **params)  # noqa: E731
     severity = item.get("severity", "info")
     head = Table([[Paragraph(_id(ident), STYLE["id"]),
@@ -82,7 +99,11 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
     head.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
     rows = [(t("reports.technical.sheet.status"), _t(status_label(status_of(item), locale))),
             (t("reports.technical.sheet.location"), f'<font name="{MONO}">{path(location(item), 70)}</font>')]
-    classification = ", ".join(f"CWE-{value}" for value in (item.get("cwe") or [])[:3])
+    if urls and len(urls) > 1:
+        shown = "<br/>".join(f'<font name="{MONO}">{path(url, 70, 1)}</font>' for url in urls[:URLS_SHOWN])
+        more = f'<br/><font color="{hexval(MUTED)}">{_t(count("more_urls", len(urls) - URLS_SHOWN, locale))}</font>' if len(urls) > URLS_SHOWN else ""
+        rows[1] = (t("reports.technical.sheet.urls", count=len(urls)), shown + more)
+    classification = ", ".join([*(f"CWE-{value}" for value in (item.get("cwe") or [])[:3]), *owasp_of(cast(Finding, item))[:2]])
     if classification:
         rows.append((t("reports.technical.sheet.classification"), _t(classification)))
     if item.get("rule_id"):
@@ -92,8 +113,15 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
     facts.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                                ("LINEABOVE", (0, 0), (-1, 0), 1.2, INK), ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE)]))
     story = [head, Paragraph(_t(item.get("title"), 200), STYLE["sheet_title"]), facts]
+    web = item.get("web") or {}
+    if item.get("reason") or web.get("description"):
+        story.append(Paragraph(_t(t("reports.technical.sheet.what_happens")), STYLE["h4"]))
     if item.get("reason"):
-        story += [Paragraph(_t(t("reports.technical.sheet.what_happens")), STYLE["h4"]), Paragraph(rich(item["reason"], 600), STYLE["body"])]
+        story.append(Paragraph(rich(item["reason"], 600), STYLE["body"]))
+    if web.get("description"):  # the scanner's own text about its rule, attributed
+        # The Markdown key marks the attribution in bold (**…**); a PDF paragraph would print the asterisks.
+        said = i18n.t("reports.markdown.according_to", locale, tool=item.get("tool") or "", text=web["description"]).replace("**", "")
+        story.append(Paragraph(rich(said, 700), STYLE["note"]))
     story += [Paragraph(_t(t("reports.technical.sheet.how_to_fix")), STYLE["h4"]),
               Paragraph(rich(item.get("remediation") or t("reports.technical.fallback_fix"), 600), STYLE["body"])]
     fix = localize(item.get("fix") or guide(cast(Finding, item)), locale) or {}
@@ -103,17 +131,22 @@ def _sheet(item: dict, ident: str, locale: str) -> list:
         for key, colour, code in (("before", DANGER, example.get("before")), ("after", SUCCESS, example["after"])):
             if not code:
                 continue
-            block = Table([[Paragraph(f'<font color="{hexval(colour)}">{_t(t(f"reports.technical.sheet.{key}"))}</font>', STYLE["label"])],
-                           [Paragraph(_code(code), STYLE["code"])]], colWidths=[WIDTH], hAlign="LEFT")
-            block.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), CODE_BG), ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                                       ("RIGHTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, 0), 6),
-                                       ("BOTTOMPADDING", (0, -1), (-1, -1), 8)]))
-            story += [Spacer(1, 4), block]
+            label = Paragraph(f'<font color="{hexval(colour)}">{_t(t(f"reports.technical.sheet.{key}"))}</font>', STYLE["label"])
+            story += [Spacer(1, 4), _code_block(code, label)]
     story += [Paragraph(_t(t("reports.technical.sheet.how_to_verify")), STYLE["h4"]),
-              Paragraph(_t(t("reports.technical.sheet.verify_text")), STYLE["body"])]
-    references = [url for url in ((item.get("advisory") or {}).get("references") or [])[:3] if str(url).startswith("https://")]
+              Paragraph(_t(t("reports.technical.sheet.verify_web" if item.get("scanner") == "dast" else "reports.technical.sheet.verify_text")), STYLE["body"])]
+    for command in fix.get("commands") or []:
+        if command.get("action") == "check":
+            story += [Spacer(1, 4), _code_block(command.get("code") or "", Paragraph(_t(command.get("label") or ""), STYLE["label"]))]
+    references = [url for url in [*((item.get("advisory") or {}).get("references") or []), *(web.get("references") or [])]
+                  if str(url).startswith(("https://", "http://"))][:3]
     if references:
         story.append(Paragraph(_t(i18n.t("reports.common.references", locale, list=" · ".join(references)), 400), STYLE["note"]))
+    links = item.get("guidance") or guidance(cast(Finding, item))
+    if links:  # after the tool's own references
+        # Titles linked to their page: printed URLs would add lines to every sheet. Escaped by `link`, not truncated.
+        story.append(Paragraph(i18n.t("reports.common.owasp_guidance", locale, list=" · ".join(
+            link(entry["title"], entry["url"]) for entry in brief(links))), STYLE["note"]))
     # The heading and the facts never part; the rest may flow onto the next page.
     return [KeepTogether(story[:3]), *story[3:], Spacer(1, 16)]
 
@@ -133,7 +166,7 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
     when = day(record.get("created_at") or record.get("scanned_at"))
     kind = t(f"reports.technical.kind.{record.get('type')}") if record.get("type") in KINDS else t("reports.technical.kind.default")
     counts = {level: sum(1 for item in active if item.get("severity") == level) for level in ORDER}
-    groups = fix_groups(active)
+    groups = fix_groups(active, by_problem=True)
     # One ID per action, in the order of the report: the summary, the tables and the sheets all say PIT-00N.
     ids = {id(entry): f"PIT-{index:03d}" for index, entry in enumerate(groups, 1)}
     by_finding = {item.get("fingerprint"): ids[id(entry)] for entry in groups for item in entry["items"]}
@@ -173,7 +206,7 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
     if gaps:
         story.append(Paragraph(_t(t("reports.technical.incomplete", gaps=", ".join(gaps)), 600), STYLE["body"]))
     figures = [(t("reports.audit.kpi.open_critical"), counts["critical"], SEVERITY_INK["critical"], None),
-               (t("reports.audit.kpi.open_high"), counts["high"], ATTENTION, None),
+               (t("reports.audit.kpi.open_high"), counts["high"], DANGER, None),
                (t("reports.technical.kpi.medium_low"), counts["medium"] + counts["low"] + counts["info"], INK, None),
                (t("reports.technical.kpi.actions"), len(groups), INK, None)]
     if kev:
@@ -190,6 +223,7 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
         for entry in groups[:FIRST_LIMIT]:
             item = entry["items"][0]
             what = (f"{_t(entry['name'], 60)} {_t(entry['version'], 30)} · {_t(count('advisories', len(entry['items']), locale))}" if entry["kind"] == "package"
+                    else f"{_t(item.get('title'), 120)} · {_t(count('urls', len(entry['items']), locale))}" if entry["kind"] == "web" and len(entry["items"]) > 1
                     else _t(item.get("title"), 120))
             where = path(entry["path"] if entry["kind"] == "package" else location(item), 60)
             body.append([Paragraph(_id(ids[id(entry)]), STYLE["id"]), chip(entry["severity"], locale=locale),
@@ -216,21 +250,25 @@ def render_technical_pdf(record: dict, *, version: str, locale: str | None = Non
                            [22 * mm, 18 * mm, 52 * mm, WIDTH - 130 * mm, 38 * mm]))
         story.append(Paragraph(_t(t("reports.technical.update_note"), 400), STYLE["note"]))
 
-    # 4. Code, secrets and infrastructure: a sheet for each critical or high, a table for the rest.
+    # 4. Code, secrets and infrastructure: a sheet for each critical or high, a table for the rest. A web problem on
+    # several URLs is one sheet or one row (the figures still count each URL).
     if code:
-        serious = [item for item in code if item.get("severity") in ("critical", "high")]
-        rest = [item for item in code if item.get("severity") not in ("critical", "high")]
+        units = problems(code)
+        serious = [unit for unit in units if _worst(unit) in ("critical", "high")]
+        rest = [unit for unit in units if _worst(unit) not in ("critical", "high")]
         story.append(h2(t("reports.common.code_heading", count=len(code))))
-        for item in serious[:DETAIL_LIMIT]:
-            story += _sheet(item, by_finding.get(item.get("fingerprint"), "—"), locale)
+        for unit in serious[:DETAIL_LIMIT]:
+            story += _sheet({**unit[0], "severity": _worst(unit)}, by_finding.get(unit[0].get("fingerprint"), "—"), locale, urls=[location(item) for item in unit])
         if len(serious) > DETAIL_LIMIT:
             story.append(Paragraph(_t(t("reports.technical.detail_truncated", shown=DETAIL_LIMIT, total=len(serious)), 400), STYLE["note"]))
         if rest:
-            story.append(Paragraph(_t(t("reports.common.medium_low", count=len(rest))), STYLE["h3"]))
+            story.append(Paragraph(_t(t("reports.common.medium_low", count=sum(len(unit) for unit in rest))), STYLE["h3"]))
             story.append(table(_columns(locale, "id", "severity", "finding", "location", "fix"),
-                               [[Paragraph(_id(by_finding.get(item.get("fingerprint"), "—")), STYLE["id"]), chip(item.get("severity", "info"), locale=locale),
-                                 _t(item.get("title"), 120), path(location(item), 26),
-                                 plain(action({"kind": "finding", "items": [item]}, short=True, locale=locale), 160)] for item in rest[:TABLE_LIMIT]],
+                               [[Paragraph(_id(by_finding.get(unit[0].get("fingerprint"), "—")), STYLE["id"]), chip(_worst(unit), locale=locale),
+                                 _t(unit[0].get("title"), 120),
+                                 path(location(unit[0]), 26) + (f'<br/><font color="{hexval(MUTED)}">{_t(count("more_urls", len(unit) - 1, locale))}</font>'
+                                                                if len(unit) > 1 else ""),
+                                 plain(action({"kind": "finding", "items": unit}, short=True, locale=locale), 160)] for unit in rest[:TABLE_LIMIT]],
                                [22 * mm, 16 * mm, 46 * mm, 42 * mm, WIDTH - 126 * mm]))
             if len(rest) > TABLE_LIMIT:
                 story.append(Paragraph(_t(t("reports.technical.table_truncated", shown=TABLE_LIMIT, total=len(rest)), 400), STYLE["note"]))

@@ -211,6 +211,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+      # A version bump PR points action.yml at a worker image that only exists once its tag is released: until then,
+      # test this commit's action with the newest published one.
+      - name: Worker image
+        id: worker
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          printf '%s' "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin >/dev/null
+          wanted="$(sed -n 's/^    default: \(ghcr.io\/pitangus-dev\/pitangus-worker:.*\)$/\1/p' action.yml)"
+          if docker manifest inspect "$wanted" >/dev/null 2>&1; then image="$wanted"; else
+            latest="$(gh api "repos/$REPO/tags" --paginate --jq '.[].name' | sed -n 's/^v//p' | sort -V | tail -1)"
+            image="${wanted%:*}:${latest%.*}"
+            echo "::notice::$wanted isn't published yet: testing this action with $image"
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
       - name: A clean folder passes
         id: clean
         # This commit's action.yml, from our own checkout (nothing earlier writes to the workspace). The `$/` syntax
@@ -219,6 +237,7 @@ jobs:
         with:
           path: skills
           base: none
+          image: ${{ steps.worker.outputs.image }}
           registry-token: ${{ secrets.GITHUB_TOKEN }}
       # Fails on purpose (exit code 1, shown in red): the next step checks that it did.
       - name: The vulnerable examples block (expected to fail)
@@ -228,6 +247,7 @@ jobs:
         with:
           path: fixtures
           base: none
+          image: ${{ steps.worker.outputs.image }}
           sarif: blocked.sarif
       - name: Exit codes and SARIF
         env:

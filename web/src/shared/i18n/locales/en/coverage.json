@@ -1,18 +1,26 @@
 {
-  "tested": "{{tested}}/{{total}} with at least one check",
+  "tested": "{{tested}}/{{total, number}} with at least one check",
   "description": "Each category shows which engine or how many rules covered it and how many findings it produced. Untested categories say why.",
-  "rules_one": "{{count}} rule", "rules_other": "{{count}} rules",
-  "step_status": { "completed": "Completed", "partial": "Partial", "not_tested": "Not tested", "inconclusive": "Inconclusive", "pending": "Pending" },
+  "rules_one": "{{count, number}} rule", "rules_other": "{{count, number}} rules",
   "run": { "title": "Run evaluated", "none": "No run selected", "pick": "Pick a run in Findings to see its coverage." },
   "not_covered": {
-    "title": "What static analysis doesn't cover",
-    "plan": "These categories are covered by threat modeling and dynamic testing, both on the roadmap."
+    "title_code": "What static analysis doesn't cover",
+    "note_code": "These need the running application: model the threats in Threat models and scan the deployed site from Domains.",
+    "title_image": "What an image scan doesn't cover",
+    "note_image": "An image scan reads the packages and the configuration inside the image. How the application behaves needs a scan of its code and of the deployed site.",
+    "title_web": "What a passive web scan doesn't cover",
+    "note_web": "A passive scan only reads what the site returns, without sending attacks. Active testing (injection, sign-in, access control between users) wasn't run."
   },
-  "no_full_scan": "No full scan of this repository",
-  "repository": "Repository",
+  "no_full_scan": {
+    "repository": "No full scan of this repository",
+    "image": "No scan of this image",
+    "domain": "No web scan of this site"
+  },
+  "not_measured": "This run didn't measure this category",
+  "asset": "Asset",
   "loading": "Loading coverage",
   "empty": {
-    "no_repositories": "No repositories scanned yet. OWASP coverage shows up after the first full scan.",
-    "no_full_scan": "This repository has no finished full scan yet, and OWASP coverage is measured on one. Start one from “New scan”."
+    "no_assets": "Nothing scanned yet. OWASP coverage shows up after the first full scan of a repository, an image or a site.",
+    "no_full_scan": "This asset has no finished full scan yet, and OWASP coverage is measured on one. Start one from “New scan”."
   }
 }

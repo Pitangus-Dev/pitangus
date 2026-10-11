@@ -1,0 +1,23 @@
+[
+         {
+              "id"           : "engine_problem",
+              "ip"           : "/",
+              "port"         : "443",
+              "severity"     : "WARN",
+              "finding"      : "No engine or GOST support via engine with your /usr/bin/openssl"
+          }
+,         {
+              "id"           : "scanProblem",
+              "ip"           : "pitangus.dev/203.0.113.7",
+              "port"         : "443",
+              "severity"     : "FATAL",
+              "finding"      : "Can't connect to '203.0.113.7:443' Make sure a firewall is not between you and your scanning target!"
+          }
+,         {
+              "id"           : "scanTime",
+              "ip"           : "pitangus.dev/203.0.113.7",
+              "port"         : "443",
+              "severity"     : "WARN",
+              "finding"      : "Scan interrupted"
+          }
+]

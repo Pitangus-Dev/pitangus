@@ -7,7 +7,169 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-10
+
+### Breaking
+
+- **Domains API.** `DomainRow.schedule` is an object (`frequency`, `weekdays`, `month_days`, `time`, `timezone`,
+  `next_run_at`, `last_run_at`, `last_run_id`, `note`, `test_users`, `use_headers`); the flat `schedule_next_at`,
+  `schedule_last_at`, `schedule_last_run` and `schedule_note` are gone. `POST /api/domains/remove` answers
+  `runs_kept` instead of `runs_deleted` (see Changed).
+- **New engine images.** With `PITANGUS_DAST_ENABLED=1`, run `make engines` after upgrading: subfinder, katana, nuclei,
+  httpx and testssl.sh join ZAP (each pinned by version and digest). nuclei's templates are downloaded once by the
+  worker from GitHub (release pinned by SHA-256).
+
 ### Added
+
+- **Test users per domain.** A domain's **Test users** tab keeps reusable accounts (username and password, or with a
+  TOTP seed), encrypted at rest and never answered back; a web scan (or a schedule) picks up to 3 and ZAP signs in
+  with them through its browser-based authentication. Secrets reach ZAP only on standard input: never in `docker
+  inspect`, the command line, the host's disk or the logs. Before crawling, each sign-in is checked on its own (ZAP's
+  authentication report, and an optional check page that must answer 200); a user who can't sign in isn't crawled as,
+  and the run is marked partial coverage so "few findings" never reads as clean.
+- **Command palette and keyboard shortcuts.** `⌘K`/`Ctrl+K` searches pages, analyses, repositories, images and domains
+  and runs actions (New analysis, Import SARIF, Add domain…); `G` + a letter jumps to each page, `N` starts a new
+  analysis and `?` lists the shortcuts.
+
+### Changed
+
+- **Pitangus' own identity, everywhere.** An identity manual (`.claude/skills/pitangus-brand`, also published as a
+  design system) now drives the panel, the PDF/Markdown reports and the threat diagram: cool neutrals instead of cream,
+  sulphur yellow only for the brand and the main action, one meaning per color (red critical, orange attention —
+  never yellow — green ok, slate info), the sidebar in ink like the kiskadee's crown, IBM Plex type, small radii,
+  tables and ruled rows instead of card-wrapped pages, notices without pastel boxes, Phosphor icons (Lucide removed),
+  and the same rules in light and dark, checked for WCAG AA contrast. Guard tests block the old patterns.
+- **New analysis is a guided flow** with a vertical step rail: type, target (domains and APIs together, with the saved
+  scope), access (test users and headers), review (schedule and outgoing IPs).
+- **Integrations are sections of rows** (code providers, registries, notifications, issue tracking, AI), each with its
+  status and its configuration folded below.
+- **Removing a domain keeps its history.** Its configuration (headers, test users, scope, schedule) is deleted; its
+  analyses, findings, triage and tickets stay as evidence and link back if the same host is added again.
+- **Pages use the full width** and align with the header; the mobile layout of findings, repositories, the CVE tracker,
+  analyses and the scope picker was redone.
+
+### Fixed
+
+- **"Affects you" in the latest CVEs** marked nearly every CVE: a package name matched anywhere in the description. It
+  now needs the CVE to name your package as a product (followed by a version or "before/through/prior to").
+- **Numbers and percentages follow the language** (Spanish "1.622", "0,2 %").
+- **The view follows the address** when only its hash changes.
+
+### Added
+
+- **OWASP guidance on every finding.** A curated, versioned mapping (`pitangus/modules/findings/references.yaml`,
+  reviewed against the published indexes) links each finding to OWASP Cheat Sheet Series pages, its OWASP Top 10:2025
+  category and, for code and web findings, the API Security Top 10 2023 risk and the WSTG v4.2 test that fit: by rule
+  (ZAP, nuclei, testssl.sh, zizmor and container image checks), framework or file, CWE (100 CWEs, among them every one
+  our rules and engines emit) and scanner. Served as `guidance: [{title, url, kind}]` on findings (computed when read,
+  so old runs get it too), shown under **OWASP guidance** in the finding's detail after the tool's own references, and
+  printed next to each finding's references in the technical PDF and the Markdown report. Links only; the tool's own
+  guidance stays first and verbatim. A finding whose engine set no OWASP category (nuclei, testssl.sh, imported SARIF
+  without tags) now gets its Top 10:2025 category from OWASP's CWE mapping when served; the technical PDF shows it next
+  to the CWE.
+- **Known vulnerabilities of the versions a site exposes.** After httpx, a passive web scan looks up the versions it
+  read of well-known packages (Flask, Django, Werkzeug, Express, Next.js, jQuery, Bootstrap, AngularJS, Lodash… an
+  explicit table, `web_versions.PRODUCTS`; at least `major.minor`) with OSV-Scanner 2.6.0 offline, on a CycloneDX SBOM
+  of package URLs and the OSV databases in `data/osv-cache` (the same as dependency scans and the advisory watch);
+  KEV and EPSS come from the local CVE copy (`cve_db.signals`). One finding per product and version (tool
+  `httpx + OSV`, scanner `dast`, CWE-1395, confidence 5, "Flask 2.2.3 has known vulnerabilities") with every CVE and
+  GHSA, the worst severity, the highest of the advisories' fixed versions and their references; a JavaScript library
+  ZAP already reported at that version (10003) isn't repeated. New step `dast-versions` and a limitation saying the
+  version isn't verified; when OSV-Scanner can't run, the step says why and earlier findings aren't marked fixed.
+  Apache httpd, nginx, OpenSSL, PHP and other servers aren't looked up (no OSV package and no CPE ranges in the local
+  CVE copy): the step lists them as not looked up.
+- **ZAP's AJAX spider.** After the classic spider, the plan runs `spiderAjax` (one headless Firefox, 2 minutes, depth 5,
+  100 states) from the domain's URL and again as each test user that signed in. It clicks links only (`elements: [a]`,
+  no default elements, no random inputs), keeps to the context with a strict scope check and avoids logout links. The
+  passive step says how many URLs it found, and ZAP's time limit grows 3 minutes per AJAX spider. Without test users
+  ZAP's home stays `noexec`; only `/home/zap/.ZAP/webdriver`, a tmpfs of its own, lets geckodriver run.
+- **ZAP's passive rules, explicit.** A `passiveScan-config` job opens the plan: passive scanning only inside the scope
+  (`scanOnlyInScope`), every rule of the image at its default, and PII disclosure (10062), debug errors (10023),
+  sensitive information in URLs (10024) and the Referer (10025), suspicious comments (10027), vulnerable JS libraries
+  (10003) and the version-leaking header and banner rules set at Medium. The image bundles `pscanrules` and `retire`,
+  not `pscanrulesBeta`/`pscanrulesAlpha`; those aren't installed at scan time.
+- **Scheduled scans sign in as test users.** The schedule rule (`POST /api/domains/schedule`) takes `test_users` (up to
+  3 ids, each signing in on a host of the saved scope) and `use_headers` (409 without saved headers); the panel picks
+  them under the schedule in a web scan's review and on the domain's page. When the scan runs, a user deleted since is
+  dropped from the rule, one now outside the scope is left out of that run, and missing headers aren't sent: the scan
+  runs with the rest and the run and the schedule's note say what was left out. Stored in the existing
+  `schedule_rule` JSON (no migration); rules saved before read as no users and no headers.
+- **Outgoing address for sites that filter by IP.** New setting `PITANGUS_EGRESS_IPS` (IP addresses or CIDR ranges,
+  comma-separated, validated at start-up); `GET /api/domains` answers it as `egress`. Without it, an administrator can
+  detect the server's address once (`POST /api/domains/egress`: one HTTPS GET to `api.ipify.org`, no redirects, kept
+  in the settings documents). The review of a web scan shows "If your site filters by IP, allow …" with a copy button,
+  replacing the firewall/WAF fold.
+- **Domains list and page.** "Add domain" sits next to the page title, a search filters the list ("Showing N of M"),
+  and the whole row opens the domain. The domain's Overview ends with a **Disconnect domain** section that says
+  exactly what is deleted; the action left the page's "…" menu.
+- **Passive web scans run four more tools, still without attacking.** With their images pulled (`make engines` with
+  `PITANGUS_DAST_ENABLED=1`; each pinned by version and multi-arch digest), a `dast_scan` runs katana 1.7.0
+  (`projectdiscovery/katana`, a crawl with a headless browser whose in-scope URLs, without query strings, are stored
+  with the run as `web_inventory` and handed to ZAP through an `import` job and to nuclei), ZAP, nuclei 3.11.1
+  (`projectdiscovery/nuclei`) with nuclei-templates 10.4.9 downloaded once by the worker (SHA-256 pinned) and filtered
+  to detection-only templates (GET/HEAD, no body, no fuzzing, no out-of-band calls, no attack markers or tags; CVE
+  templates read fixed paths only), testssl.sh 3.2 (`ghcr.io/testssl/testssl.sh`, the project's own image; protocols,
+  ciphers, certificate, HSTS, no vulnerability checks) on the first 3 hosts, and httpx 1.12.0
+  (`projectdiscovery/httpx`), whose technologies land in the run's `summary.technologies` and on the domain's page
+  (`last_scan.technologies` in `GET /api/domains`). Every tool runs in the hardened container with the scan's pinned
+  addresses only, a dead resolver for ProjectDiscovery's own DNS client, at most 10 requests a second and a hard
+  timeout; katana and nuclei get the saved headers on standard input when the scan asked for them. Each tool has a
+  step (`dast-katana`, `dast-nuclei`, `dast-testssl`, `dast-httpx`: completed, partial or skipped with the reason); a
+  tool that fails leaves its step partial, the scan goes on and its earlier findings aren't marked fixed. When ZAP,
+  nuclei or testssl.sh report the same problem at the same URL (an explicit table: security headers, cookie flags,
+  HSTS, deprecated TLS and weak ciphers, certificate problems, exposed `.git` or `.env`) it's one finding with
+  `also_detected_by`, `related_rules` and each tool's evidence in `web.also`. The panel names every tool on the run and
+  its findings, shows what the other tools saw on a web finding, a **Skipped** step state, and the technologies on the
+  domain's page.
+
+- **Related hosts and a scope saved per domain.** Adding a domain (with `PITANGUS_DAST_ENABLED=1`) queues a discovery
+  job: subfinder 2.16.0 (`projectdiscovery/subfinder`, pinned by digest, pulled by `make engines` with web scans on)
+  asks passive sources for names under the domain, with no API keys and a hard timeout, in the usual hardened container.
+  Names that aren't a valid host under the domain, or that resolve to any private, loopback, link-local or metadata
+  address, are dropped. Hosts land in the new `domain_hosts` table (migration `0013_domain_scope`) out of scope, with
+  first and last sighting. `GET /api/domains/scope` lists them with the last round's state; `POST /api/domains/scope`
+  (`set`, `add`, `remove`, `exclude_all`) saves the scope, only for DNS-verified domains (409 otherwise); `POST
+  /api/domains/discover` searches again (202). `POST /api/domains/scans` takes `use_scope`: the worker reads the saved
+  scope when the scan starts, pins and crawls its hosts and keeps the excluded ones out of ZAP's context
+  (`excludePaths`). Weekly scans use the saved scope too. The panel shows it in the new scan (**Include subdomains**)
+  and in a **Scope** tab on the domain's page, replacing the per-scan host list.
+- **Domains: more ways to prove control, and a probe.** Besides the DNS TXT record, `POST /api/domains/verify` takes
+  `method: "file"` (`https://<host>/.well-known/pitangus-verify.txt` with the token) or `"meta"` (`<meta
+  name="pitangus-verify" content="<token>">` in the homepage), fetched once from the host's checked public address
+  (certificate validated, no redirects, 10 s and 64 KB at most). The method that proved it is stored and the daily
+  re-check asks for the same one. Only a DNS proof covers subdomains. `POST /api/domains/probe` checks a URL before
+  registering it (`host`, `reachable`, `https`, `status`, `public`); `/api/domains/check` stays as an alias.
+- **Passive web scans: scope, headers, API mode and a weekly schedule.** `POST /api/domains/scans` takes `mode`
+  (`web` or `api`), `hosts` (up to 20 subdomains or `*.` wildcards of a DNS-verified domain; each listed host must
+  resolve to public addresses and is pinned, wildcards only widen ZAP's context), `use_headers` and, in API mode, an
+  OpenAPI 3.x / Swagger 2.0 definition (`spec`, JSON or YAML up to 5 MB in base64, or `spec_url` on a host of the
+  scope); it answers `202` with `run_id`. API mode imports only the definition's GET and HEAD operations (others are
+  dropped before ZAP sees it), aimed at the domain, refuses remote `$ref` and YAML aliases, and keeps only the
+  definition's SHA-256 and operation count (`dast_scan` with `variant: "api"`). Request headers per domain (`POST
+  /api/domains/headers`, at most 10, encrypted in the vault, never answered back) are added by ZAP's replacer to the
+  scope's requests only; the plan now reaches ZAP on its standard input into a memory-only folder, and the values are
+  scrubbed from what ZAP returns. ZAP's container gets `--dns 127.0.0.1`: only pinned names resolve. A weekly passive
+  scan per domain (`POST /api/domains/schedule`) is queued by a new periodic task (`domain_scans`, hourly, only with
+  `PITANGUS_DAST_ENABLED`); a lapsed proof or a running web scan is recorded as the reason it was skipped, and
+  `GET /api/domains` shows the next and last scheduled scan and the latest web scan. A web scan only marks fixed what
+  a scan like it had seen (same mode, definition and use of headers) on a host it looked at. Migration `0011` adds
+  the proof method and the schedule columns. New runtime dependency: PyYAML (MIT).
+- **Strix SARIF.** `import-sarif` places Strix's endpoint findings (anchored to `SECURITY.md` in its SARIF) at the
+  endpoint's URL with its method, keeps Strix's severity label, and skips its coverage results; code findings stay at
+  their file. Help texts of web findings are redacted like their messages.
+
+- **Passive web scan of a verified domain**, launched from the panel (New analysis → Web application) or with
+  `POST /api/domains/scans` (administrators). ZAP 2.17, pinned by digest, crawls the domain for up to 2 minutes and
+  runs its passive rules over every response; no active scan, no AJAX spider, no form submissions. Off unless the
+  server sets `PITANGUS_DAST_ENABLED=1`. Before it starts, the worker checks again that the domain's proof is current
+  and its TXT record still published (gone: the proof is withdrawn), and that the name resolves to public addresses
+  only; ZAP gets that address pinned and a context with the host only. One web scan at a time, 15 minutes at most;
+  ZAP runs as its image's user with no capabilities, a read-only root, 3 GB and 2 CPUs and an explicit heap. Its SARIF
+  goes through the `import-sarif` parser, so a native scan and an import of the same site share fingerprints. A new
+  run type, `dast_scan`, is a full scan of the domain: what it no longer reports is marked fixed. It needs the Docker
+  runner (the worker image without a socket doesn't carry ZAP and says so), and `make engines` pulls ZAP's image
+  (about 1.2 GB) only with the variable on. The residual risk of an engine with network is in
+  [security.md](docs/security.md).
 
 - **Bring your own DAST.** `import-sarif` (CLI, panel, `POST /api/ci/sarif` and the Action) accepts the SARIF of web
   scanners (ZAP's `sarif-json` report, Nuclei's `-se`) against a **verified domain** (`--asset domain:<host>`, also
@@ -28,8 +190,70 @@ between minor versions: anything that changes behaviour is called out below.
   (one HTTPS `HEAD` to a public address, no redirects) and `POST /api/domains/remove`; verifying and probing count
   against the progressive lock-out. Storage moved from the `domains` document to the `domain_registry` table
   (Alembic `0010`, data migration `domains_to_table`). Native dynamic testing stays in development.
+- **Web findings say what the scanner knows.** An imported or native web finding keeps its rule's description,
+  solution, references (http(s) only, at most 8) and WASC ids, and the attack the scanner sent, all bounded and redacted
+  (`web.description`, `web.solution`, `web.references`, `web.wasc`, `web.attack`). The panel shows them in order (what it
+  is, where, evidence, how to fix it, how to check it, references), attributed to the scanner and as published. Pitangus
+  only adds what it derives: the fragment of the evidence the result is about (`fix.web.highlight`, e.g. the
+  `'unsafe-inline'` of the `style-src` the message names) and, for rules about response headers, a quoted `curl -sI`
+  check (`fix.web.check`). Jira issues and the Markdown and technical reports carry the same.
+- **Scheduled domain scans follow a rule.** The weekly switch became a schedule: daily, on one or more weekdays or on
+  one or more days of the month (1–28), at a time of day in an IANA time zone (the browser's by default, checked by
+  the server), at most once a day per domain. `POST /api/domains/schedule` takes `schedule: {frequency, weekdays,
+  month_days, time, timezone}` or `null`; `GET /api/domains` answers it with `next_run_at` (UTC, computed by the
+  server; the panel previews the same moment). The review of a web scan has a "Schedule" switch with "Also run now"
+  (on by default; off, it only saves the schedule), and the domain's page says the schedule in plain words with
+  Change and Turn off. A domain already scanned that local day moves on to its next run instead of a second scan.
+  The periodic task looks for due scans every 5 minutes instead of every hour. **Changed:** `DomainRow.schedule` is
+  now an object (with `next_run_at`, `last_run_at`, `last_run_id`, `note`) and the flat `schedule_next_at`,
+  `schedule_last_at`, `schedule_last_run` and `schedule_note` fields are gone. Alembic `0012_scan_schedule` adds
+  `schedule_rule`; the data migration `scan_schedule_rules` keeps existing weekly schedules on the weekday and time of
+  their next run, in UTC.
+- **Pitangus' own nuclei templates.** `pitangus/modules/scanning/rules/nuclei/` (ids `pitangus-…`) goes through the
+  same `allowed()` and page-level split as nuclei-templates, into its own cache folder (named after its digest) mounted
+  read-only at `/pitangus` next to the release: open directory listing (CWE-548) and credentials in JSON responses
+  (CWE-200) on every page, 26 fixed sensitive paths per host (CWE-200/538), published API descriptions, development
+  metadata files, and security.txt as a technology row. GET only, no query strings; each matcher proves the content.
+  Their title, description and remediation are stored in English and Spanish.
+- **A URL inventory for the web scan.** robots.txt (`Allow`/`Disallow` paths and `Sitemap:` lines) and the sitemaps
+  (an index followed down to 5 documents per host) are read by the worker from each host's pinned address, like an
+  OpenAPI definition; with katana's crawl, the definition's parameter-free GET paths and every URL ZAP requested (a new
+  `export` job in the plan), they make one inventory (in scope, no query strings, up to 500) that ZAP requests before
+  its spider and nuclei reads whole. A new step, `dast-inventory`, says what each source added. **Changed:**
+  `web_inventory` is now `{sources: {katana, robots, sitemap, openapi, zap}, count, urls}` (no `tool`).
+- **The findings table and the technical report group a web problem by rule and title.** One row "CSP: style-src
+  unsafe-inline · 3 URLs" opens to each URL (aria-expanded/aria-controls), each with its own fingerprint, triage and
+  lifecycle; the table says "15 findings in 8 problems" and the figures still count per URL. The PDF and Markdown
+  technical reports give such a problem one action, one sheet or one row with its URLs; the audit evidence keeps one row
+  per URL.
 
 ### Fixed
+
+- **A web tool that exits 0 without reaching a host is no longer a clean result.** nuclei (now without `-silent`,
+  with `-stats -sj`) skipping a host as unresponsive or refused ("denied address found for host"), templates that
+  couldn't execute or statistics showing no request sent; katana whose seed only errored; httpx without an answer; and
+  testssl.sh with a fatal `scanProblem` or an interrupted scan (exit 246) leave their step `partial`, name the hosts,
+  add a limitation and report the tool `inconclusive` in `summary.tools`, so the registry doesn't mark that tool's
+  earlier findings fixed.
+- **katana found pitangus.dev's /es/ again.** With `-kf all`, katana 1.7 dropped links it also saw in robots.txt or a
+  sitemap; the flag is gone (the inventory reads those files instead), and a URL its browser flags with an error after
+  reading it stays in the crawl.
+- **testssl.sh findings read as one problem each.** Rule ids lose their certificate suffix (`<hostCert#1>`, `<#2>`),
+  a check repeated per certificate is one finding, and every certificate problem (chain of trust, revocation, the
+  certificate's or an intermediate's expiry, lifetime, name) is one `certificate` finding per host with each check as
+  evidence, merged with nuclei's certificate templates; `security_headers` folds into ZAP's header findings.
+  **Changed:** testssl.sh findings get new fingerprints once (the old certificate ones are marked fixed by the next scan).
+- **"Last run" in the page header is the newest analysis.** It took the first repository or image scan of the list, so
+  newer web scans never showed; it now picks the newest analysis of any kind by date, and shows only on Overview,
+  Findings and Analyses.
+
+- **A scheduled scan is queued exactly once.** Locking the due domain, queuing its scan and moving its schedule on
+  are now one transaction: a crash in between, or two rounds at once, can neither queue a slot twice nor lose it.
+
+- **Web findings read as web findings.** Their location is the URL, never `URL:1`; the fix and re-verify texts say to
+  deploy and scan the domain again instead of pushing to a branch; and their priority no longer asks to "confirm
+  reachability" (a code concept) but says whether it comes from a response header, a cookie, an attack the scanner sent
+  or is informational. Findings stored before get the new texts when read.
 
 - **The same web alert on a site's root is one finding.** ZAP reports `https://host` and `https://host/` as different
   results; Pitangus already took both as the root, but counted them as two findings. A repeated alert on the same URL

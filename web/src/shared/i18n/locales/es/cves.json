@@ -35,7 +35,7 @@
     "downloading": "La base local aún está vacía: se está descargando de NVD."
   },
   "pagination": {
-    "showing": "Mostrando {{from}}–{{to}} de {{total}} CVE",
+    "showing": "Mostrando {{from}}–{{to}} de {{total, number}} CVE",
     "per_page_label": "Por página",
     "per_page": "{{size}} / página",
     "previous": "Anterior"
@@ -73,7 +73,7 @@
     "preparing": "Preparando la copia local de NVD…",
     "downloading": "Descargando NVD: {{percent}}",
     "count": "{{value}} CVE · lo más reciente primero",
-    "count_of": "{{value}} de {{total}} CVE · lo más reciente primero",
+    "count_of": "{{value}} de {{total, number}} CVE · lo más reciente primero",
     "aria": "Sincronización con NVD",
     "error": "NVD no responde ahora; se reintenta solo.",
     "hint": "Ya puedes buscar en lo cargado. NVD limita la descarga sin API key; con PITANGUS_NVD_API_KEY va unas 8 veces más rápido."
@@ -93,7 +93,7 @@
     "vector": "Vector",
     "weakness": "Debilidad",
     "in_repos": "En tus repositorios",
-    "open_one": "{{count}} abierto", "open_other": "{{count}} abiertos",
+    "open_one": "{{count, number}} abierto", "open_other": "{{count, number}} abiertos",
     "fixed": "remediado",
     "not_affected": "Ningún repositorio analizado tiene este CVE entre sus hallazgos.",
     "references": "Referencias",

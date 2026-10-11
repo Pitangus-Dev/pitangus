@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileCheck2, LoaderCircle } from 'lucide-react'
+import { CircleNotchIcon, FileTextIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Select, SelectTrigger } from '@/shared/ui/select'
 import { FrameworkOptions } from '@/features/findings/framework-options'
@@ -67,7 +67,7 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
       {/* Hick's law: the frameworks grouped by region in one selector, with what the chosen one covers below. */}
       <div className="space-y-2"><label htmlFor="audit-framework" className={label}>{t('audit.framework')}</label>
         <Select value={framework} onValueChange={value => setFramework((value ?? 'general') as Framework)}>
-          <SelectTrigger id="audit-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{current && t(current[1])}</span></SelectTrigger>
+          <SelectTrigger id="audit-framework" className="w-full border-input bg-card"><span className="min-w-0 truncate">{current && t(current[1])}</span></SelectTrigger>
           <FrameworkOptions frameworks={frameworks} />
         </Select>
         <p className="space-x-1 text-xs text-app-muted">{current && <span>{t('audit.framework_hint', { hint: t(current[2]) })}</span>}{framework !== 'general' && <span>{t('audit.mapping_note')}</span>}</p></div>
@@ -75,21 +75,21 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
       {portfolio ? <p className="rounded-lg border border-app-line bg-inset p-3 text-sm text-app-muted">{'assets' in target ? t(target.status === 'open' ? 'scope.audit_assets_open' : 'scope.audit_assets_all', { count: target.assets.length, value: formatNumber(target.assets.length) }) : t('audit.portfolio_scope')}</p>
       : <fieldset className="space-y-2"><legend className={label}>{t('audit.findings_legend')}</legend>
         <div className="grid gap-2 sm:grid-cols-3">{SCOPES.map(([id, text]) =>
-          <label key={id} className={`flex items-center gap-2 rounded-lg border p-3 text-sm ${counts[id] === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${scope === id ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-inset'}`}>
+          <label key={id} className={`flex items-center gap-2 rounded-lg border p-3 text-sm ${counts[id] === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${scope === id ? 'border-app-fg bg-app-soft' : 'border-app-line bg-inset'}`}>
             <input type="radio" name="scope" value={id} checked={scope === id} disabled={counts[id] === 0} onChange={() => setScope(id)} className="size-4 accent-brand" />{t(text)} · {counts[id]}</label>)}</div></fieldset>}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className={field}><label htmlFor="ar-org" className={label}>{t('audit.organization')}</label><Input id="ar-org" maxLength={120} value={organization} onChange={event => setOrganization(event.target.value)} placeholder={t('audit.organization_placeholder')} className="border-app-line bg-app-soft" /></div>
-        <div className={field}><label htmlFor="ar-for" className={label}>{t('audit.prepared_for')}</label><Input id="ar-for" maxLength={120} value={preparedFor} onChange={event => setPreparedFor(event.target.value)} placeholder={t('audit.prepared_for_placeholder')} className="border-app-line bg-app-soft" /></div>
-        <div className={field}><label htmlFor="ar-by" className={label}>{t('audit.prepared_by')}</label><Input id="ar-by" maxLength={80} value={preparedBy} onChange={event => setPreparedBy(event.target.value)} placeholder={t('audit.prepared_by_placeholder')} className="border-app-line bg-app-soft" /></div>
-        <div className={field}><label htmlFor="ar-scope" className={label}>{t('audit.system')}</label><Input id="ar-scope" maxLength={300} value={scopeText} onChange={event => setScopeText(event.target.value)} placeholder={name} className="border-app-line bg-app-soft" /></div>
-        <div className={field}><label htmlFor="ar-from" className={label}>{t('audit.period_from')}</label><Input id="ar-from" type="date" value={from} onChange={event => setFrom(event.target.value)} className="border-app-line bg-app-soft" /></div>
-        <div className={field}><label htmlFor="ar-to" className={label}>{t('audit.period_to')}</label><Input id="ar-to" type="date" value={to} min={from || undefined} onChange={event => setTo(event.target.value)} className="border-app-line bg-app-soft" /></div>
+        <div className={field}><label htmlFor="ar-org" className={label}>{t('audit.organization')}</label><Input id="ar-org" maxLength={120} value={organization} onChange={event => setOrganization(event.target.value)} placeholder={t('audit.organization_placeholder')} className="border-input bg-card" /></div>
+        <div className={field}><label htmlFor="ar-for" className={label}>{t('audit.prepared_for')}</label><Input id="ar-for" maxLength={120} value={preparedFor} onChange={event => setPreparedFor(event.target.value)} placeholder={t('audit.prepared_for_placeholder')} className="border-input bg-card" /></div>
+        <div className={field}><label htmlFor="ar-by" className={label}>{t('audit.prepared_by')}</label><Input id="ar-by" maxLength={80} value={preparedBy} onChange={event => setPreparedBy(event.target.value)} placeholder={t('audit.prepared_by_placeholder')} className="border-input bg-card" /></div>
+        <div className={field}><label htmlFor="ar-scope" className={label}>{t('audit.system')}</label><Input id="ar-scope" maxLength={300} value={scopeText} onChange={event => setScopeText(event.target.value)} placeholder={name} className="border-input bg-card" /></div>
+        <div className={field}><label htmlFor="ar-from" className={label}>{t('audit.period_from')}</label><Input id="ar-from" type="date" value={from} onChange={event => setFrom(event.target.value)} className="border-input bg-card" /></div>
+        <div className={field}><label htmlFor="ar-to" className={label}>{t('audit.period_to')}</label><Input id="ar-to" type="date" value={to} min={from || undefined} onChange={event => setTo(event.target.value)} className="border-input bg-card" /></div>
       </div>
 
       <details className="rounded-lg border border-app-line px-3 py-2 text-sm"><summary className="cursor-pointer text-app-muted">{t('audit.more_options')}</summary>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <div className={field}><label htmlFor="ar-title" className={label}>{t('audit.report_title')}</label><Input id="ar-title" maxLength={120} value={title} onChange={event => setTitle(event.target.value)} placeholder={t('audit.report_title_placeholder')} className="border-app-line bg-app-soft" /></div>
+          <div className={field}><label htmlFor="ar-title" className={label}>{t('audit.report_title')}</label><Input id="ar-title" maxLength={120} value={title} onChange={event => setTitle(event.target.value)} placeholder={t('audit.report_title_placeholder')} className="border-input bg-card" /></div>
           {!portfolio && <div className={field}><label htmlFor="ar-detail" className={label}>{t('audit.detail')}</label>
             <SelectField id="ar-detail" value={detail} onValueChange={value => setDetail(value as Detail)}
               options={[{ value: 'high', label: t('audit.detail_high') }, { value: 'all', label: t('common:state.all') }, { value: 'none', label: t('audit.detail_none') }]} /></div>}
@@ -99,7 +99,7 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>}
       <p className="text-xs text-app-subtle">{t('audit.disclaimer')}</p>
       <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button type="submit" disabled={busy || (!portfolio && counts[scope] === 0)} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy ? <LoaderCircle className="animate-spin" /> : <FileCheck2 />}{busy ? t('audit.generating') : portfolio ? t('audit.generate_portfolio') : t('audit.generate', { count: counts[scope] })}</Button></DialogFooter>
+        <Button type="submit" disabled={busy || (!portfolio && counts[scope] === 0)}>{busy ? <CircleNotchIcon className="animate-spin" /> : <FileTextIcon />}{busy ? t('audit.generating') : portfolio ? t('audit.generate_portfolio') : t('audit.generate', { count: counts[scope] })}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }

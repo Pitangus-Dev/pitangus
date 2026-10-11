@@ -51,6 +51,7 @@
   "finding_not_in_asset": "Ese hallazgo no está en el registro del activo",
   "finding_from_open_pr": "Este hallazgo viene de un pull request abierto: se verifica solo en cada push del PR",
   "no_full_scan": "Este activo no tiene un análisis completo que repetir: lánzalo desde Nuevo análisis",
+  "dast_reverify_admin": "Volver a comprobarlo implica analizar otra vez el sitio, y los análisis web solo los lanza un administrador: pídeselo a uno.",
   "demo_reverify": "Son datos de demostración: se vuelven a analizar con «make demo». Reverificar funciona en tus repositorios e imágenes.",
   "image_rescan_failed": "No se puede repetir el análisis de la imagen: {{detail}}",
   "repository_gone": "El repositorio ya no está disponible con la credencial configurada",

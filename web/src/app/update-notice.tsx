@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 
@@ -28,6 +28,6 @@ export function UpdateNotice() {
   if (!stale) return null
   return <div role="status" className="fixed right-4 bottom-4 z-50 flex max-w-sm items-center gap-3 rounded-xl border border-brand/40 bg-panel px-4 py-3 text-sm shadow-lg">
     <span className="text-app-secondary">{t('update.message')}</span>
-    <Button size="sm" onClick={() => window.location.reload()} className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"><RefreshCw />{t('update.reload')}</Button>
+    <Button size="sm" onClick={() => window.location.reload()} className="shrink-0"><ArrowsClockwiseIcon />{t('update.reload')}</Button>
   </div>
 }

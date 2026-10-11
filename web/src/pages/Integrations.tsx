@@ -1,27 +1,39 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { KeyRound } from 'lucide-react'
 import type { SessionUser } from '@/features/auth/session'
-import { CodeSources } from '@/features/sources/code-sources'
-import { JiraCard } from '@/features/integrations/jira'
-import { RegistriesCard } from '@/features/sources/registries'
-import { NotificationsCard } from '@/features/integrations/notifications'
+import { CodeProviders } from '@/features/sources/code-providers'
+import { IssueTracking } from '@/features/integrations/jira'
+import { Registries } from '@/features/sources/registries'
+import { Notifications } from '@/features/integrations/notifications'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
-import { ComingSoonCard } from '@/shared/ui/coming-soon'
+import { SettingsRow, SettingsRows, SettingsSection } from '@/shared/ui/settings-list'
 import { api } from '@/shared/api/http'
 
 type ProviderStatus = { id: 'openai' | 'anthropic'; configured: boolean; env: string; owner: 'user' | 'server' | null; last4: string | null; saved_at: string | null }
+const AI_PROVIDERS = [{ id: 'openai', name: 'OpenAI' }, { id: 'anthropic', name: 'Anthropic' }] as const
 
-// Proveedores de código, registros de contenedores, Jira y, en desarrollo, IA.
+// Plain sections of ruled rows: code providers, registries, notifications, issue tracking and, still in the works, AI.
 export function Integrations({ user }: { user: SessionUser }) {
+  const { t } = useTranslation('integrations')
+  const admin = user.role === 'admin'
+  return <div className="space-y-10">
+    {!admin && <p className="text-sm text-app-muted">{t('page.read_only')}</p>}
+    <CodeProviders canManage={admin} />
+    <Registries canManage={admin} />
+    {admin && <Notifications />}
+    <IssueTracking canManage={admin} />
+    <AiKeys canManage={admin} />
+  </div>
+}
+
+// Nothing to set up yet. Keys saved by earlier versions are listed so they can be removed.
+function AiKeys({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation('integrations')
   const [providers, setProviders] = useState<ProviderStatus[]>([])
   const [busy, setBusy] = useState('')
   const [error, setError] = useState<string | null>(null)
   const loadProviders = useCallback(() => api.get<ProviderStatus[]>('/api/providers').then(setProviders), [])
   useEffect(() => { loadProviders().catch(caught => setError(caught instanceof Error ? caught.message : String(caught))) }, [loadProviders])
-  const mine = providers.filter(provider => provider.owner === 'user')
   const removeKey = async (provider: ProviderStatus['id']) => {
     setBusy(provider); setError(null)
     try {
@@ -30,21 +42,15 @@ export function Integrations({ user }: { user: SessionUser }) {
     } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) }
     finally { setBusy('') }
   }
-
-  return <div className="space-y-5">
-      {error && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>}
-      {user.role !== 'admin' && <div className="rounded-xl border border-app-line bg-app-soft px-4 py-3 text-sm text-app-muted">{t('page.read_only')}</div>}
-      <CodeSources canManage={user.role === 'admin'} />
-      <RegistriesCard canManage={user.role === 'admin'} />
-      {user.role === 'admin' && <NotificationsCard />}
-      <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('page.issues_title')}</CardTitle><CardDescription>{t('page.issues_description')}</CardDescription></CardHeader><CardContent><JiraCard canManage={user.role === 'admin'} /></CardContent></Card>
-      <ComingSoonCard title={t('page.ai.title')} icon={<KeyRound className="size-5" />}
-        description={t('page.ai.description')}
-        plan={[t('page.ai.plan.consent'), t('page.ai.plan.budget'), t('page.ai.plan.no_code')]}>
-        {mine.length > 0 && <div className="mt-4 space-y-2">{mine.map(provider => <div key={provider.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-app-line px-3 py-2 text-xs">
-          <span>{t('page.ai.saved_key', { provider: provider.id === 'openai' ? 'OpenAI' : 'Anthropic', last4: provider.last4 ?? '' })}</span>
-          {user.role === 'admin' && <Button size="xs" variant="ghost" disabled={!!busy} onClick={() => void removeKey(provider.id)}>{t('page.ai.remove_key')}</Button>}
-        </div>)}</div>}
-      </ComingSoonCard>
-    </div>
+  return <SettingsSection id="integrations-ai" title={t('page.ai.title')} description={t('page.ai.description')}>
+    {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>}
+    <SettingsRows>{AI_PROVIDERS.map(({ id, name }) => {
+      const saved = providers.find(provider => provider.id === id && provider.owner === 'user')
+      return <SettingsRow key={id} title={<span className="text-app-muted">{name}</span>} status={t('page.ai.soon')}
+        meta={saved ? t('page.ai.saved_key', { last4: saved.last4 ?? '' }) : undefined}
+        actions={saved && canManage && <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => void removeKey(id)}>{t('page.ai.remove_key')}</Button>} />
+    })}</SettingsRows>
+    <div className="text-xs leading-5 text-app-subtle"><p>{t('page.ai.plan_intro')}</p>
+      <ul className="list-disc pl-4">{[t('page.ai.plan.consent'), t('page.ai.plan.budget'), t('page.ai.plan.no_code')].map(item => <li key={item}>{item}</li>)}</ul></div>
+  </SettingsSection>
 }

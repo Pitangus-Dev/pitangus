@@ -1,7 +1,16 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./shared/ui/shadcn-tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-ext-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-ext-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-sans/latin-ext-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-ext-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+@import "@fontsource/ibm-plex-mono/latin-ext-500.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -20,7 +29,20 @@
     --color-app-subtle: var(--app-subtle);
     --color-app-faint: var(--app-faint);
     --color-brand: var(--brand);
+    --color-sulphur: var(--sulphur);
+    --color-on-sulphur: var(--on-sulphur);
+    --color-sulphur-soft: var(--sulphur-soft);
+    --color-sulphur-line: var(--sulphur-line);
+    --color-focus: var(--focus);
+    --color-chrome: var(--chrome);
+    --color-chrome-raised: var(--chrome-raised);
+    --color-chrome-line: var(--chrome-line);
+    --color-on-chrome: var(--on-chrome);
+    --color-on-chrome-muted: var(--on-chrome-muted);
+    --color-chrome-active: var(--chrome-active);
     --color-tone-purple: var(--tone-purple);
+    --color-tone-ochre: var(--tone-ochre);
+    --color-tone-ochre-soft: var(--tone-ochre-soft);
     /* Estados: texto, fondo suave, borde y sólido (con su texto encima). Únicos colores de estado del panel. */
     --color-danger: var(--danger);
     --color-danger-soft: var(--danger-soft);
@@ -30,9 +52,6 @@
     --color-attention: var(--attention);
     --color-attention-soft: var(--attention-soft);
     --color-attention-line: var(--attention-line);
-    --color-warning: var(--warning);
-    --color-warning-soft: var(--warning-soft);
-    --color-warning-line: var(--warning-line);
     --color-info: var(--info);
     --color-info-soft: var(--info-soft);
     --color-info-line: var(--info-line);
@@ -44,7 +63,9 @@
     --color-knob: var(--knob);
     --color-skeleton: var(--skeleton);
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    /* IBM Plex, the same family as the PDF reports: one voice across panel and documents. */
+    --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -76,159 +97,198 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
+    /* Small radii on purpose (controls 6 px, panels 8 px): big rounded cards read as a template. */
+    --radius-sm: 4px;
+    --radius-md: 6px;
     --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+    --radius-xl: 8px;
+    --radius-2xl: 8px;
+    --radius-3xl: 8px;
+    --radius-4xl: 8px;
+    /* Manual shadows: shadow-float for menus and popovers, shadow-dialog for dialogs and the palette. */
+    --shadow-md: var(--shadow-float);
+    --shadow-lg: var(--shadow-dialog);
 }
 
+/* Tokens of the identity manual (.claude/skills/pitangus-brand/tokens.json), light and dark. Each color has one
+   meaning: sulphur is the brand and the solid main action; critical, attention (orange, never yellow), ok and info are
+   the states, and severity comes from them. The older names stay as aliases so every component keeps working:
+   danger = critical, success = ok, app-faint = line-strong, app-inset/app-soft = sunken. There is no "warning" state:
+   what was yellow is attention (orange).
+   Contrast checked in both themes: text ≥ 4.5:1 on bg, surface and sunken; control borders and focus ≥ 3:1. */
 :root {
-    /* Los tokens propios del panel salen de los de shadcn: un solo sistema de color. */
     --app-bg: var(--background);
     --app-panel: var(--card);
-    --app-inset: oklch(0.962 0.012 88);
-    --app-console: oklch(0.99 0.004 88);
-    --app-console-top: oklch(0.972 0.007 88);
+    --app-inset: #ECEEF1;   /* sunken */
+    --app-console: #FFFFFF;   /* surface */
+    --app-console-top: #ECEEF1;   /* sunken */
     --app-line: var(--border);
-    --app-soft: oklch(0.972 0.008 88);
+    --app-soft: #ECEEF1;   /* sunken: hover rows, selected row and chip */
     --app-fg: var(--foreground);
-    --app-primary: oklch(0.219 0.008 85);
-    --app-secondary: oklch(0.34 0.012 88);
+    --app-primary: #16181B;   /* ink */
+    --app-secondary: #3D434A;   /* ink-2 */
     --app-muted: var(--muted-foreground);
-    --app-subtle: oklch(0.52 0.012 80);   /* ≥ 4.5:1 on every light surface, the cream sidebar included */
-    --app-faint: oklch(0.61 0.015 85);   /* borders and decoration only, never text: ≥ 3:1 */
-    --brand: oklch(0.506 0.123 45.8);   /* rufo #9C4A1E: text, links and focus (5.7:1 on cream); sulphur yellow fails as text on light */
-    --tone-purple: oklch(0.52 0.21 293);   /* the diagram's purple tone, as in the PDF (diagram.py COLORS); no longer the brand */
-    --danger: oklch(0.5 0.19 25);
-    --danger-soft: color-mix(in oklch, oklch(0.58 0.22 25) 10%, transparent);
-    --danger-line: color-mix(in oklch, oklch(0.58 0.22 25) 32%, transparent);
-    --danger-solid: oklch(0.52 0.2 25);
-    --attention: oklch(0.5 0.15 50);
-    --attention-soft: color-mix(in oklch, oklch(0.68 0.19 50) 12%, transparent);
-    --attention-line: color-mix(in oklch, oklch(0.68 0.19 50) 35%, transparent);
-    --warning: oklch(0.48 0.12 65);
-    --warning-soft: color-mix(in oklch, oklch(0.75 0.16 75) 12%, transparent);
-    --warning-line: color-mix(in oklch, oklch(0.75 0.16 75) 40%, transparent);
-    --info: oklch(0.48 0.13 240);
-    --info-soft: color-mix(in oklch, oklch(0.62 0.15 240) 10%, transparent);
-    --info-line: color-mix(in oklch, oklch(0.62 0.15 240) 32%, transparent);
-    --success: oklch(0.47 0.12 160);
-    --success-soft: color-mix(in oklch, oklch(0.6 0.14 160) 10%, transparent);
-    --success-line: color-mix(in oklch, oklch(0.6 0.14 160) 32%, transparent);
-    --on-solid: oklch(1 0 0);
-    --overlay: oklch(0 0 0 / 40%);
-    --knob: oklch(1 0 0);
-    --skeleton: oklch(0.925 0.008 88);
-    --background: oklch(0.985 0.007 88);   /* paper white #FCFAF5, a hint of warmth */
-    --foreground: oklch(0.219 0.008 84.6);   /* ink #1C1A16 */
-    --card: oklch(0.998 0.002 88);
-    --card-foreground: oklch(0.219 0.008 84.6);
-    --popover: oklch(0.998 0.002 88);
-    --popover-foreground: oklch(0.219 0.008 84.6);
-    --primary: oklch(0.834 0.158 89);   /* sulphur #F2C230, with ink text (10.4:1) */
-    --primary-foreground: oklch(0.219 0.008 84.6);
-    --secondary: oklch(0.972 0.008 88);
-    --secondary-foreground: oklch(0.219 0.008 84.6);
-    --muted: oklch(0.972 0.008 88);
-    --muted-foreground: oklch(0.49 0.015 80);   /* ≥ 5:1 on the soft background and the sidebar too */
-    --accent: oklch(0.972 0.008 88);
-    --accent-foreground: oklch(0.219 0.008 84.6);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.91 0.01 88);
-    --input: oklch(0.91 0.01 88);
-    --ring: var(--brand);   /* un solo color de foco en todo el panel */
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.968 0.01 88);
-    --sidebar-foreground: oklch(0.219 0.008 84.6);
-    --sidebar-primary: oklch(0.219 0.008 84.6);
-    --sidebar-primary-foreground: oklch(0.998 0.002 88);
-    --sidebar-accent: oklch(0.972 0.008 88);
-    --sidebar-accent-foreground: oklch(0.219 0.008 84.6);
-    --sidebar-border: oklch(0.91 0.01 88);
-    --sidebar-ring: oklch(0.708 0 0);
+    --app-subtle: #5C636B;   /* muted */
+    --app-faint: #80868E;   /* line-strong; the manual's #8C929A is 2.9:1 on bg, this one is ≥ 3:1 on bg, surface and sunken */
+    --brand: #16181B;   /* accent = ink: links (underlined), the active item, checked controls */
+    --focus: #16181B;   /* ink on light */
+    --sulphur: #F2C230;
+    --on-sulphur: #16181B;
+    --sulphur-soft: #FCEFC4;
+    --sulphur-line: #A07C10;
+    --tone-purple: oklch(0.52 0.21 293);   /* threat diagram only, as in the PDF (diagram.py COLORS) */
+    --tone-ochre: #8A4C00;   /* threat diagram only: the "identity" tone (diagram.py COLORS["warning"]), not a status */
+    --tone-ochre-soft: #FDF5E6;
+    --danger: #B42318;   /* critical */
+    --danger-soft: #FDECEA;
+    --danger-line: #F3B8B1;
+    --danger-solid: #B42318;   /* critical-solid, white text 6.6:1 */
+    --attention: #9E4708;
+    --attention-soft: #FDF0E5;
+    --attention-line: #F2C29B;
+    --info: #2D5A87;
+    --info-soft: #EAF1F8;
+    --info-line: #B6CCE3;
+    --success: #1E7444;   /* ok */
+    --success-soft: #E7F5EC;
+    --success-line: #A8D9BA;
+    --on-solid: #FFFFFF;
+    --overlay: rgb(22 24 27 / 40%);
+    --knob: #FFFFFF;
+    --skeleton: #ECEEF1;
+    --shadow-float: 0 4px 12px rgba(22, 24, 27, 0.10);
+    --shadow-dialog: 0 12px 32px rgba(22, 24, 27, 0.16);
+    --background: #F5F6F7;   /* bg: cool stone, never cream */
+    --foreground: #16181B;   /* ink */
+    --card: #FFFFFF;   /* surface */
+    --card-foreground: #16181B;
+    --popover: #FFFFFF;
+    --popover-foreground: #16181B;
+    --primary: var(--sulphur);
+    --primary-foreground: var(--on-sulphur);
+    --secondary: #ECEEF1;
+    --secondary-foreground: #16181B;
+    --muted: #ECEEF1;
+    --muted-foreground: #5C636B;   /* muted: 5.2:1 on sunken, 5.6:1 on bg, 6.1:1 on surface */
+    --accent: #ECEEF1;
+    --accent-foreground: #16181B;
+    --destructive: var(--danger);
+    --border: #DADDE1;   /* line */
+    --input: #80868E;   /* line-strong */
+    --ring: var(--focus);
+    --chart-1: #DADDE1;
+    --chart-2: #8E959D;
+    --chart-3: #6B727B;
+    --chart-4: #3D434A;
+    --chart-5: #16181B;
+    --radius: 0.375rem;
+    --sidebar: #F5F6F7;
+    --sidebar-foreground: #16181B;
+    --sidebar-primary: #16181B;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #ECEEF1;
+    --sidebar-accent-foreground: #16181B;
+    --sidebar-border: #DADDE1;
+    --sidebar-ring: var(--focus);
+    /* Chrome (manual: the crown): the sidebar and its mobile sheet are near-black ink in both themes. */
+    --chrome: #16181B;
+    --chrome-raised: #24272B;
+    --chrome-line: #2E3236;
+    --on-chrome: #ECEEF0;   /* 15.3:1 on chrome, 12.9:1 on chrome-raised */
+    --on-chrome-muted: #A0A6AE;   /* 7.3:1 on chrome, 6.1:1 on chrome-raised */
+    --chrome-active: #F2C230;   /* sulphur: 10.6:1 on chrome, 9.0:1 on chrome-raised */
+    --attention-on-ink: #F5A35C;   /* attention on dark grounds: the dark theme and the chrome in both themes */
 }
 
 .dark {
     --app-bg: var(--background);
     --app-panel: var(--card);
-    --app-inset: oklch(0.212 0.012 88);
-    --app-console: oklch(0.2 0.01 88);
-    --app-console-top: oklch(0.226 0.013 88);
+    --app-inset: #202428;
+    --app-console: #181B1E;
+    --app-console-top: #202428;
     --app-line: var(--border);
-    --app-soft: oklch(1 0 0 / 5%);
+    --app-soft: #202428;
     --app-fg: var(--foreground);
-    --app-primary: oklch(0.93 0.015 88);
-    --app-secondary: oklch(0.85 0.015 88);
+    --app-primary: #ECEEF0;
+    --app-secondary: #C3C8CE;
     --app-muted: var(--muted-foreground);
-    --app-subtle: oklch(0.69 0.015 85);   /* ≥ 4.5:1 on every dark surface */
-    --app-faint: oklch(0.58 0.015 85);   /* borders and decoration only: ≥ 3:1 */
-    --brand: oklch(0.86 0.151 91.6);   /* night sulphur #F5CD4A (12:1 on the background) */
+    --app-subtle: #9AA1A9;
+    --app-faint: #666E76;   /* line-strong; the manual's #5E666E is 2.97:1 on surface, this one is ≥ 3:1 on bg, surface and sunken */
+    --brand: #ECEEF0;
+    --focus: #F2C230;   /* sulphur on dark */
+    --sulphur: #F2C230;
+    --on-sulphur: #16181B;
+    --sulphur-soft: #3A3116;
+    --sulphur-line: #8A6F12;
     --tone-purple: oklch(0.78 0.14 293);
-    --danger: oklch(0.8 0.1 25);
-    --danger-soft: color-mix(in oklch, oklch(0.64 0.21 25) 14%, transparent);
-    --danger-line: color-mix(in oklch, oklch(0.64 0.21 25) 38%, transparent);
-    --danger-solid: oklch(0.55 0.2 25);
-    --attention: oklch(0.82 0.11 55);
-    --attention-soft: color-mix(in oklch, oklch(0.7 0.18 50) 16%, transparent);
-    --attention-line: color-mix(in oklch, oklch(0.7 0.18 50) 40%, transparent);
-    --warning: oklch(0.85 0.12 85);
-    --warning-soft: color-mix(in oklch, oklch(0.75 0.16 75) 14%, transparent);
-    --warning-line: color-mix(in oklch, oklch(0.75 0.16 75) 40%, transparent);
-    --info: oklch(0.82 0.1 235);
-    --info-soft: color-mix(in oklch, oklch(0.66 0.14 240) 14%, transparent);
-    --info-line: color-mix(in oklch, oklch(0.66 0.14 240) 38%, transparent);
-    --success: oklch(0.82 0.12 160);
-    --success-soft: color-mix(in oklch, oklch(0.66 0.14 160) 14%, transparent);
-    --success-line: color-mix(in oklch, oklch(0.66 0.14 160) 38%, transparent);
-    --on-solid: oklch(1 0 0);
-    --overlay: oklch(0 0 0 / 60%);
-    --knob: oklch(0.97 0 0);
-    --skeleton: oklch(1 0 0 / 9%);
-    --background: oklch(0.192 0.01 88.8);   /* night #16140F */
-    --foreground: oklch(0.98 0.022 87.1);   /* cream #FFF8E8 */
-    --card: oklch(0.236 0.015 89.9);   /* surface #211E16 */
-    --card-foreground: oklch(0.98 0.022 87.1);
-    --popover: oklch(0.236 0.015 89.9);
-    --popover-foreground: oklch(0.98 0.022 87.1);
-    --primary: oklch(0.86 0.151 91.6);
-    --primary-foreground: oklch(0.219 0.008 84.6);
-    --secondary: oklch(0.29 0.015 88);
-    --secondary-foreground: oklch(0.98 0.022 87.1);
-    --muted: oklch(0.29 0.015 88);
-    --muted-foreground: oklch(0.74 0.015 88);
-    --accent: oklch(0.29 0.015 88);
-    --accent-foreground: oklch(0.98 0.022 87.1);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: var(--brand);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.236 0.015 89.9);
-    --sidebar-foreground: oklch(0.98 0.022 87.1);
-    --sidebar-primary: var(--brand);
-    --sidebar-primary-foreground: oklch(0.219 0.008 84.6);
-    --sidebar-accent: oklch(0.29 0.015 88);
-    --sidebar-accent-foreground: oklch(0.98 0.022 87.1);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --tone-ochre: #E0A458;
+    --tone-ochre-soft: #33260F;
+    --danger: #FF8B7B;
+    --danger-soft: #3A1A17;
+    --danger-line: #6B2A23;
+    --danger-solid: #B42318;
+    --attention: var(--attention-on-ink);
+    --attention-soft: #3A2614;
+    --attention-line: #6E4520;
+    --info: #8DB4DD;
+    --info-soft: #172636;
+    --info-line: #2C4866;
+    --success: #5CC98A;
+    --success-soft: #13301F;
+    --success-line: #23573A;
+    --on-solid: #FFFFFF;
+    --overlay: rgb(0 0 0 / 60%);
+    --knob: #ECEEF0;
+    --skeleton: #202428;
+    --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-dialog: 0 16px 40px rgba(0, 0, 0, 0.55);
+    --background: #111315;
+    --foreground: #ECEEF0;
+    --card: #181B1E;
+    --card-foreground: #ECEEF0;
+    --popover: #181B1E;
+    --popover-foreground: #ECEEF0;
+    --primary: var(--sulphur);
+    --primary-foreground: var(--on-sulphur);
+    --secondary: #202428;
+    --secondary-foreground: #ECEEF0;
+    --muted: #202428;
+    --muted-foreground: #9AA1A9;
+    --accent: #202428;
+    --accent-foreground: #ECEEF0;
+    --destructive: var(--danger);
+    --border: #2C3136;
+    --input: #666E76;
+    --ring: var(--focus);
+    --chart-1: #2C3136;
+    --chart-2: #5E666E;
+    --chart-3: #8E959D;
+    --chart-4: #C3C8CE;
+    --chart-5: #ECEEF0;
+    --sidebar: #111315;
+    --sidebar-foreground: #ECEEF0;
+    --sidebar-primary: #ECEEF0;
+    --sidebar-primary-foreground: #16181B;
+    --sidebar-accent: #202428;
+    --sidebar-accent-foreground: #ECEEF0;
+    --sidebar-border: #2C3136;
+    --sidebar-ring: var(--focus);
+    --chrome: #0B0C0E;
+    --chrome-raised: #1A1D21;
+    --chrome-line: #24282C;
+    --on-chrome: #ECEEF0;   /* 16.8:1 on chrome, 14.5:1 on chrome-raised */
+    --on-chrome-muted: #9AA1A9;   /* 7.5:1 on chrome, 6.5:1 on chrome-raised */
+    --chrome-active: #F2C230;   /* 11.7:1 on chrome, 10.1:1 on chrome-raised */
 }
+
+/* Inside the chrome the ground is ink in both themes: focus is sulphur (10.6:1 light, 11.7:1 dark) and the attention
+   dot takes its dark-theme orange (≥ 3:1 on ink). */
+[data-chrome] { --focus: var(--chrome-active); --attention: var(--attention-on-ink); color: var(--on-chrome); color-scheme: dark; }
 
 html { background: var(--app-bg); color-scheme: light; }
 html.dark { color-scheme: dark; }
 body { min-width: 320px; }
-::selection { background: color-mix(in oklch, var(--brand) 35%, transparent); }
+::selection { background: color-mix(in srgb, var(--info) 28%, transparent); }
 
 @layer base {
   * {
@@ -240,40 +300,62 @@ body { min-width: 320px; }
   html {
     @apply font-sans;
     }
+  /* One disclosure look everywhere: a chevron that turns, never the browser's filled triangle. A summary that draws
+     its own chevron icon (shared/ui/disclosure.tsx) keeps it. */
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary:not(:has(svg)) { display: flex; align-items: center; gap: 0.375rem; min-height: 1.5rem; }
+  summary:not(:has(svg))::before {
+    content: ""; flex: none; width: 1rem; height: 1rem; background-color: currentColor; opacity: 0.7;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  details[open] > summary:not(:has(svg))::before { transform: rotate(90deg); }
+  @media (prefers-reduced-motion: no-preference) { summary:not(:has(svg))::before { transition: transform 150ms; } }
 }
 
-/* Gráficas: severidad como rampa ordinal de un solo tono (baja → crítica), validada con el
-   validador de paleta en ambos modos; dos series categóricas para hallados/corregidos;
-   azul secuencial para el mapa de actividad. Los textos nunca usan el color de la serie. */
-:root {
-  --sev-low: #e29b9a; --sev-medium: #d66f6e; --sev-high: #c34443; --sev-critical: #921a1a;
-  --series-found: #2a78d6; --series-fixed: #1baf7a;
-  --seq-1: #9ec5f4; --seq-2: #6da7ec; --seq-3: #3987e5; --seq-4: #256abf; --seq-5: #184f95;
-  --grid-line: #e1e0d9; --axis-line: #c3c2b7;
+/* Charts (manual: Gráficos): severity series from the state tokens (Crítica critical-solid, Alta critical, Media
+   attention, Baja info); a single series in chart-neutral, "fixed" in ok, gridlines in chart-grid. The activity
+   ramp is chart-neutral over the surface. No decorative blues or purples; text never takes a series colour. */
+:root, .dark {
+  --sev-critical: var(--danger-solid); --sev-high: var(--danger); --sev-medium: var(--attention); --sev-low: var(--info);
+  --sev-info: var(--muted-foreground);
+  --series-found: var(--chart-neutral); --series-fixed: var(--success);
+  --seq-1: color-mix(in srgb, var(--chart-neutral) 22%, var(--card)); --seq-2: color-mix(in srgb, var(--chart-neutral) 42%, var(--card));
+  --seq-3: color-mix(in srgb, var(--chart-neutral) 62%, var(--card)); --seq-4: color-mix(in srgb, var(--chart-neutral) 82%, var(--card));
+  --seq-5: var(--chart-neutral);
+  --grid-line: var(--chart-grid); --axis-line: var(--border);
 }
-.dark {
-  --sev-low: #f3b3b2; --sev-medium: #e98988; --sev-high: #dc5f5e; --sev-critical: #c23c3c;
-  --series-found: #3987e5; --series-fixed: #199e70;
-  --seq-1: #184f95; --seq-2: #256abf; --seq-3: #3987e5; --seq-4: #6da7ec; --seq-5: #9ec5f4;
-  --grid-line: #2c2c2a; --axis-line: #383835;
-}
+:root { --chart-neutral: #6B727B; --chart-grid: #E6E8EB; }
+.dark { --chart-neutral: #8E959D; --chart-grid: #262A2E; }
+/* In light, critical-solid and critical are the same red: a chart could not tell Crítica from Alta, so the Crítica
+   series is that red deepened towards ink (10.7:1). In dark, critical-solid is 2.6:1 on the surface, below 3:1 for a
+   chart mark, so the series is a brighter red (3.8:1 on surface, 3.4:1 on sunken) that still reads darker than Alta's
+   salmon. Chips keep the manual's solid red with white text in both themes. */
+:root { --sev-critical: color-mix(in srgb, var(--danger-solid) 60%, var(--foreground)); }
+.dark { --sev-critical: #DC3B2F; }
 
 @keyframes pitangus-breathe { 0%, 100% { opacity: .45; transform: scale(.985) } 50% { opacity: .95; transform: scale(1) } }
 @keyframes pitangus-progress { 0% { transform: translateX(-100%) } 100% { transform: translateX(300%) } }
 /* Accesibilidad (WCAG 2.2 AA). Fuera de las capas de Tailwind a propósito: así ninguna utilidad
    (`outline-none`, anillos al 50 %) puede dejar un control sin foco visible. */
 
-/* 2.4.7 / 2.4.13: foco visible y con contraste ≥ 3:1 en ambos temas (marca: 5,4:1 claro, 9,2:1 oscuro). */
-:focus-visible { outline: 2px solid var(--brand) !important; outline-offset: 2px !important; }
+/* 2.4.7 / 2.4.13: visible focus, ≥ 3:1 in both themes (manual `focus`: ink on light 16:1, sulphur on dark 10:1). */
+:focus-visible { outline: 2px solid var(--focus) !important; outline-offset: 2px !important; }
 /* One focus mark, not three: the components' focus rings (a 50 % halo) are dropped in favour of the outline above. */
 :focus-visible { --tw-ring-shadow: 0 0 #0000 !important; }
-/* Text fields draw it inside (a 2 px border in the brand colour): an outline outside gets clipped by scrolling lists
-   and dialogs. Same 5.4:1 / 9.2:1 contrast. */
-:is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color]), textarea, [data-slot=select-trigger]):focus-visible {
-    outline: none !important; border-color: var(--brand) !important; box-shadow: inset 0 0 0 1px var(--brand) !important;
+/* Text fields draw it inside (a 2 px border in the focus colour): an outline outside gets clipped by scrolling lists
+   and dialogs. Same contrast as the outline (16:1 light, 10:1 dark). */
+/* `data-bare`: a field that is the whole header of its container (the command palette's search) marks focus on that
+   container instead, so it doesn't draw a box inside a box. */
+:is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color], [data-bare]), textarea, [data-slot=select-trigger]):focus-visible {
+    outline: none !important; border-color: var(--focus) !important; box-shadow: inset 0 0 0 1px var(--focus) !important;
 }
+input[data-bare]:focus-visible { outline: none !important; }
+/* Underlined tabs mark keyboard focus with the underline itself, in the focus colour, instead of a box around the tab. */
+[data-slot=tabs-list][data-variant=line] [data-slot=tabs-trigger]:focus-visible { outline: none !important; color: var(--app-fg); }
+[data-slot=tabs-list][data-variant=line] [data-slot=tabs-trigger]:focus-visible::after { opacity: 1; background: var(--focus); }
 /* Interruptores hechos con un checkbox oculto: el foco se dibuja en la pista visible. */
-.peer:focus-visible + .switch-track { outline: 2px solid var(--brand); outline-offset: 2px; }
+.peer:focus-visible + .switch-track { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* 2.3.3: quien pide menos movimiento no ve pulsos, giros ni transiciones (los indicadores siguen, quietos). */
 @media (prefers-reduced-motion: reduce) {

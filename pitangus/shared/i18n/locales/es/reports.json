@@ -37,6 +37,7 @@
     "annex": "Anexo · Índice de vulnerabilidades ({{count}})",
     "method_coverage": "Método y cobertura",
     "references": "Referencias: {{list}}",
+    "owasp_guidance": "Guía OWASP: {{list}}",
     "kev_mark": "Explotación activa conocida (CISA KEV)",
     "malicious_mark": "Paquete malicioso conocido (OpenSSF)",
     "risk_label": "Riesgo:",
@@ -126,7 +127,11 @@
     "low_info_one": "{{count}} bajo o informativo",
     "low_info_other": "{{count}} bajos o informativos",
     "are_critical_one": "{{count}} es crítico",
-    "are_critical_other": "{{count}} son críticos"
+    "are_critical_other": "{{count}} son críticos",
+    "urls_one": "{{count}} URL",
+    "urls_other": "{{count}} URL",
+    "more_urls_one": "y {{count}} URL más",
+    "more_urls_other": "y {{count}} URL más"
   },
   "design": {
     "listing_last": "{{items}} y {{last}}",
@@ -194,13 +199,21 @@
     "identity_import": "importado de {{tool}} (SARIF)",
     "identity_import_commit": "importado de {{tool}} (SARIF) en el commit `{{commit}}`",
     "title_import": "Hallazgos importados · {{name}}",
+    "title_web": "Análisis web pasivo · {{name}}",
+    "identity_web": "`{{url}}` recorrido y leído por ZAP, sin ataques",
+    "status_line_web": "Estado: **{{status}}** · {{urls}} URL con hallazgos.",
     "run_status": {
       "queued": "en cola",
       "running": "en curso",
       "completed": "completado",
       "incomplete": "incompleto",
       "failed": "fallido"
-    }
+    },
+    "according_to": "**Según {{tool}}:** {{text}}",
+    "parameter": "Parámetro: `{{name}}`",
+    "evidence": "Evidencia: `{{text}}`",
+    "urls_one": "URL: {{list}}",
+    "urls_other": "URL ({{count}}): {{list}}"
   },
   "asset": {
     "title": "Estado actual de hallazgos · {{name}}",
@@ -288,7 +301,8 @@
         }
       }
     },
-    "scope_import": "`{{name}}`, hallazgos reportados por {{tool}} e importados como SARIF; Pitangus no analizó el código en esta ejecución."
+    "scope_import": "`{{name}}`, hallazgos reportados por {{tool}} e importados como SARIF; Pitangus no analizó el código en esta ejecución.",
+    "scope_web": "`{{url}}`, recorrido y leído por ZAP sin ataques (análisis dinámico pasivo); no se analizaron el código ni las páginas detrás de un login."
   },
   "audit": {
     "status": {
@@ -837,7 +851,8 @@
       "pr_review": "Revisión de pull request",
       "asset_state": "Estado acumulado",
       "default": "Análisis",
-      "sarif_import": "Importación SARIF"
+      "sarif_import": "Importación SARIF",
+      "dast_scan": "Análisis web pasivo"
     },
     "subtitle_state": "Estado acumulado al {{date}}",
     "subtitle_scan": "Análisis del {{date}}",
@@ -892,7 +907,10 @@
       "before": "Antes",
       "after": "Después",
       "how_to_verify": "Cómo verificarlo",
-      "verify_text": "Tras el cambio, «Verificar de nuevo» en Pitangus (o el siguiente análisis completo) lo marca como remediado cuando la regla deja de encontrarlo."
+      "verify_text": "Tras el cambio, «Verificar de nuevo» en Pitangus (o el siguiente análisis completo) lo marca como remediado cuando la regla deja de encontrarlo.",
+      "verify_web": "Despliega la corrección y vuelve a analizar el dominio: «Reverificar» en Pitangus (o el siguiente análisis del dominio) lo marca como remediado cuando el escáner deja de reportarlo.",
+      "urls_one": "URL",
+      "urls_other": "URL ({{count}})"
     }
   },
   "pdf": {

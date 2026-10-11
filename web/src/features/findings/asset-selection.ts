@@ -67,7 +67,8 @@ export function runOption(row: RunRow | RunDetail): ComboOption {
   const pull = (row as RunDetail).pull_request ?? (row as RunRow & { pull_request?: { number: number; title: string } }).pull_request
   const kind = row.type === 'pr_review' ? (pull ? i18n.t('findings:page.kind_pr_number', { number: pull.number }) : i18n.t('findings:page.kind_pr'))
     : row.type === 'advisory_watch' ? i18n.t('findings:page.kind_advisory')
-    : row.type === 'sarif_import' ? i18n.t('findings:page.kind_import', { tool: row.trigger?.tool ?? 'SARIF' }) : i18n.t('findings:page.kind_scan')
+    : row.type === 'sarif_import' ? i18n.t('findings:page.kind_import', { tool: row.trigger?.tool ?? 'SARIF' })
+    : row.type === 'dast_scan' ? i18n.t('findings:page.kind_web') : i18n.t('findings:page.kind_scan')
   const status = RUN_STATUS[row.status] ? i18n.t(RUN_STATUS[row.status]) : row.status
   return { id: row.id, label: `${kind} · ${formatDate(row.created_at)}`, hint: `${status} · ${i18n.t('common:count.findings', { count: row.summary?.candidates ?? 0 })}${pull?.title ? ` · ${pull.title}` : ''}` }
 }

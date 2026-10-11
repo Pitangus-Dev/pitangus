@@ -1,0 +1,1 @@
+{"timestamp":"2026-10-10T21:07:50.993586143Z","request":{"method":"GET","endpoint":"https://pitangus.dev/"},"error":"GET https://pitangus.dev/ giving up after 2 attempts: Get \"https://pitangus.dev/\": cause=\"i/o timeout\" address=pitangus.dev:443"}

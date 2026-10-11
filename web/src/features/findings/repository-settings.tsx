@@ -1,8 +1,7 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Eye, FolderMinus, KeyRound, LoaderCircle, Pencil } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { CircleNotchIcon, EyeIcon, FolderMinusIcon, type Icon, KeyIcon, PencilSimpleIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
@@ -19,9 +18,10 @@ const SHOWN = 2
 
 // A repository's own settings in one strip: excluded paths and its secret detection entries (on top of the defaults).
 // Deadlines are global: only a link to the policy.
-export function RepositorySettings({ assetKey, name, secrets, canEdit, onOpenPolicies }: {
-  assetKey: string; name: string; secrets: boolean; canEdit: boolean; onOpenPolicies: () => void
+export function RepositorySettings({ assetKey, name, kind, canEdit, onOpenPolicies }: {
+  assetKey: string; name: string; kind: 'repository' | 'image'; canEdit: boolean; onOpenPolicies: () => void
 }) {
+  const secrets = kind === 'repository'
   const { t } = useTranslation('findings')
   const id = useId()
   const [notice, setNotice] = useState('')
@@ -31,12 +31,12 @@ export function RepositorySettings({ assetKey, name, secrets, canEdit, onOpenPol
   const loading = pathsPending || (secrets && secretsPending)
   return <section aria-labelledby={id} className="rounded-xl border border-app-line bg-inset px-4 py-2.5 text-sm">
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-      <h2 id={id} className="text-xs font-medium text-app-subtle">{t('repo_settings.title')}</h2>
+      <h2 id={id} className="text-xs font-medium text-app-subtle">{kind === 'image' ? t('repo_settings.title_image') : t('repo_settings.title')}</h2>
       <ExcludedPaths assetKey={assetKey} canEdit={canEdit} onSaved={setNotice} />
       {secrets && <RepositorySecrets assetKey={assetKey} name={name} canEdit={canEdit} onSaved={setNotice} />}
       <Button size="xs" variant="link" className="ml-auto px-0 text-app-muted" onClick={onOpenPolicies}>{t('repo_settings.deadlines')}</Button>
     </div>
-    <p role="status" className="mt-1 text-xs text-brand empty:hidden">{notice}</p>
+    <p role="status" className="mt-1 text-xs text-success empty:hidden">{notice}</p>
     {loading && <span role="status" className="sr-only">{t('common:state.loading')}</span>}
   </section>
 }
@@ -49,7 +49,7 @@ function Status({ query }: { query: { isError: boolean; refetch: () => unknown }
     <Button size="xs" variant="outline" onClick={() => void query.refetch()}>{t('common:actions.retry')}</Button></span>
 }
 
-function Setting({ icon: Icon, label, children, action }: { icon: LucideIcon; label: string; children: ReactNode; action: ReactNode }) {
+function Setting({ icon: Icon, label, children, action }: { icon: Icon; label: string; children: ReactNode; action: ReactNode }) {
   return <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
     <Icon aria-hidden className="size-4 shrink-0 text-app-subtle" />
     <span className="font-medium text-app-secondary">{label}</span>
@@ -92,10 +92,10 @@ function ExcludedPaths({ assetKey, canEdit, onSaved }: { assetKey: string; canEd
     : patterns.length ? <>{patterns.slice(0, SHOWN).map(item => <code key={item} className="rounded border border-app-line bg-app px-1.5 py-0.5 font-mono text-xs">{item}</code>)}
       {patterns.length > SHOWN && <span className="text-xs">{t('repo_settings.more', { count: patterns.length - SHOWN })}</span>}</>
     : t('repo_settings.none')
-  const action = state && (canEdit ? <Button size="xs" variant="outline" onClick={start}><Pencil />{t('common:actions.edit')}</Button>
-    : patterns.length > SHOWN && <Button size="xs" variant="outline" onClick={start}><Eye />{t('repo_settings.view')}</Button>)
+  const action = state && (canEdit ? <Button size="xs" variant="outline" onClick={start}><PencilSimpleIcon />{t('common:actions.edit')}</Button>
+    : patterns.length > SHOWN && <Button size="xs" variant="outline" onClick={start}><EyeIcon />{t('repo_settings.view')}</Button>)
   return <>
-    <Setting icon={FolderMinus} label={t('repo_settings.paths')} action={action}>{summary}</Setting>
+    <Setting icon={FolderMinusIcon} label={t('repo_settings.paths')} action={action}>{summary}</Setting>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
@@ -107,17 +107,17 @@ function ExcludedPaths({ assetKey, canEdit, onSaved }: { assetKey: string; canEd
           <div className="space-y-1">
             <label className="block text-xs text-app-muted" htmlFor={`${id}-patterns`}><Trans t={t} i18nKey="exclusions.patterns_help" components={{ code: <code className="font-mono" /> }} /></label>
             <textarea id={`${id}-patterns`} value={text} onChange={event => setText(event.target.value)} rows={5} spellCheck={false} placeholder="fixtures"
-              className="w-full rounded-lg border border-app-line bg-app px-3 py-2 font-mono text-xs text-app-fg" />
+              className="w-full rounded-lg border border-input bg-card px-3 py-2 font-mono text-xs text-app-fg" />
           </div>
           <div className="space-y-1">
             <label htmlFor={`${id}-reason`} className="text-xs text-app-muted">{t('exclusions.reason')}</label>
             <Input id={`${id}-reason`} value={reason} onChange={event => setReason(event.target.value)} maxLength={300} placeholder={t('exclusions.reason_placeholder')}
-              aria-describedby={error ? `${id}-error` : undefined} className="h-9 border-app-line bg-app" />
+              aria-describedby={error ? `${id}-error` : undefined} className="h-9 border-input bg-card" />
           </div>
           {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>{t('common:actions.cancel')}</Button>
-            <Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
+            <Button type="submit" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
           </DialogFooter>
         </form> : <p className="flex flex-wrap gap-1.5">{patterns.map(item => <code key={item} className="rounded border border-app-line bg-app px-1.5 py-0.5 font-mono text-xs">{item}</code>)}</p>}
       </DialogContent>
@@ -135,9 +135,9 @@ function RepositorySecrets({ assetKey, name, canEdit, onSaved }: { assetKey: str
   const summary = !config ? <Status query={query} />
     : own ? t('repo_settings.secrets_custom', { count: own }) : t('repo_settings.secrets_defaults')
   const action = config && <Button size="xs" variant="outline" onClick={() => setOpen(true)}>
-    {canEdit ? <><Pencil />{own ? t('common:actions.edit') : t('repo_settings.customize')}</> : <><Eye />{t('repo_settings.view')}</>}</Button>
+    {canEdit ? <><PencilSimpleIcon />{own ? t('common:actions.edit') : t('repo_settings.customize')}</> : <><EyeIcon />{t('repo_settings.view')}</>}</Button>
   return <>
-    <Setting icon={KeyRound} label={t('repo_settings.secrets')} action={action}>{summary}</Setting>
+    <Setting icon={KeyIcon} label={t('repo_settings.secrets')} action={action}>{summary}</Setting>
     {config && <SecretRulesDialog open={open} onOpenChange={setOpen} title={t('repo_settings.secrets_title', { name })} description={t('repo_settings.secrets_help')}
       config={config} canEdit={canEdit} save={body => apiPost('/api/assets/secrets', 'save-asset-secret-rules', { ...body, key: assetKey })}
       onSaved={saved => { queryClient.setQueryData(keys.assetSecrets(assetKey), saved); setOpen(false); onSaved(t('secret_rules.saved')) }}>

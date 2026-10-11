@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Clock3, LoaderCircle, Pencil } from 'lucide-react'
+import { CircleNotchIcon, ClockIcon, PencilSimpleIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
@@ -50,8 +50,8 @@ export function SlaPolicyRow({ canEdit }: { canEdit: boolean }) {
   const summary = policy && LEVELS.map(([level, label]) => t('sla.summary_item', { level: t(label), value: policy.days[level] ? t('sla.days_short', { days: policy.days[level] }) : t('sla.no_deadline') })).join(' · ')
   const changed = policy?.updated_by ? policy.updated_at ? t('sla.changed_by_at', { by: policy.updated_by, date: formatDate(policy.updated_at) }) : t('sla.changed_by', { by: policy.updated_by }) : t('sla.defaults')
   return <>
-    <PolicyRow icon={Clock3} title={t('sla.title')} summary={summary} notice={notice} state={policy ? 'ready' : query.isError ? 'error' : 'loading'}
-      onRetry={() => void query.refetch()} action={canEdit && <Button size="sm" variant="outline" onClick={start}><Pencil />{t('common:actions.edit')}</Button>} />
+    <PolicyRow icon={ClockIcon} title={t('sla.title')} summary={summary} notice={notice} state={policy ? 'ready' : query.isError ? 'error' : 'loading'}
+      onRetry={() => void query.refetch()} action={canEdit && <Button size="sm" variant="outline" onClick={start}><PencilSimpleIcon />{t('common:actions.edit')}</Button>} />
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
@@ -62,13 +62,13 @@ export function SlaPolicyRow({ canEdit }: { canEdit: boolean }) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{LEVELS.map(([level, label]) => <div key={level} className="space-y-1">
             <label htmlFor={`${id}-${level}`} className="text-xs text-app-muted">{t('sla.days_label', { level: t(label) })}</label>
             <Input id={`${id}-${level}`} type="number" inputMode="numeric" min={1} max={3650} value={draft[level]} onChange={event => setDraft(current => ({ ...current, [level]: event.target.value }))}
-              placeholder={t('sla.placeholder')} aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="h-9 border-app-line bg-app tabular-nums" />
+              placeholder={t('sla.placeholder')} aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="h-9 border-input bg-card tabular-nums" />
           </div>)}</div>
           <p className="text-xs text-app-subtle">{changed}</p>
           {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>{t('common:actions.cancel')}</Button>
-            <Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
+            <Button type="submit" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

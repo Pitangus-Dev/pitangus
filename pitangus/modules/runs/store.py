@@ -119,6 +119,17 @@ def delete_runs(data_dir: Path, run_ids: list[str]) -> int:
         return connection.execute(delete(runs).where(runs.c.tenant_id == TENANT, runs.c.id.in_([_check_id(item) for item in run_ids]))).rowcount
 
 
+def with_web_coverage(record: dict) -> dict:
+    """A web scan with its OWASP coverage, from its steps and its findings' categories. The categories come from the
+    findings' CWEs (findings/references.py), so it is also computed when a run is served: older web scans get it too."""
+    if record.get("type") != "dast_scan":
+        return record
+    from pitangus.modules.findings.references import owasp_of
+    from pitangus.modules.scanning.coverage import web_owasp_coverage
+    findings = [{**finding, "owasp": owasp_of(finding)} for finding in record.get("findings") or []]
+    return {**record, "owasp_coverage": web_owasp_coverage(findings, record.get("steps") or [])}
+
+
 def save_repository_scan(data_dir: Path, scan: RunRecord, *, run_id: str | None = None, created_at: str | None = None) -> RunRecord:
     return save_and_apply(data_dir, scan, run_id=run_id, created_at=created_at)[0]
 
@@ -135,6 +146,7 @@ def save_and_apply(data_dir: Path, scan: RunRecord, *, run_id: str | None = None
     from pitangus.modules.findings.kinds import FINDING_RUNS
     if record.get("type") in FINDING_RUNS:
         record = apply_to_record(data_dir, record, asset_key(record))
+    record = with_web_coverage(record)
     from pitangus.modules.findings.registry import apply
     report, sarif = render_repository_report(record), render_repository_sarif(record)
     # The run, the findings registry and the outbox entries land together or not at all.
@@ -178,8 +190,10 @@ def _percent(value: float, locale: str) -> str:
 
 
 def _where(finding: dict) -> str:
-    """A dependency advisory points at its manifest (its line says nothing); code at path:line."""
-    return str(finding.get("path")) if finding.get("scanner") == "sca" or not finding.get("line") else f"{finding.get('path')}:{finding.get('line')}"
+    """A dependency advisory points at its manifest and a web finding at its URL (their line says nothing); code at
+    path:line."""
+    return str(finding.get("path")) if finding.get("scanner") in ("sca", "dast") or not finding.get("line") \
+        else f"{finding.get('path')}:{finding.get('line')}"
 
 
 def _action_label(action, locale: str) -> str:
@@ -214,6 +228,15 @@ def _finding_block(finding: dict, locale: str, *, level: str = "###") -> list[st
                        path=finding["path"], fix=msg("reports.markdown.fixed_in", version=fixed) if fixed else msg("reports.markdown.no_fixed_version")))
     else:
         lines.append(t("reports.markdown.location", locale, where=_where(finding)))
+    web = finding.get("web") or {}
+    if finding.get("scanner") == "dast" and web:
+        # The scanner's own words, attributed; values from the site lose their backticks so they stay inline code.
+        if web.get("parameter"):
+            lines.append(t("reports.markdown.parameter", locale, name=str(web["parameter"]).replace("`", "'")))
+        if web.get("evidence"):
+            lines.append(t("reports.markdown.evidence", locale, text=" ".join(str(web["evidence"]).split())[:300].replace("`", "'")))
+        if web.get("description"):
+            lines.append(t("reports.markdown.according_to", locale, tool=finding.get("tool") or "?", text=" ".join(str(web["description"]).split())))
     source = finding.get("source") or {}
     if source.get("name"):
         name = source["name"].replace("[", "(").replace("]", ")")
@@ -262,8 +285,14 @@ def _finding_block(finding: dict, locale: str, *, level: str = "###") -> list[st
             lines += ["", f"{command['label']}:", "", "```", command["code"], "```"]
     if advisory.get("details"):
         lines += ["", advisory["details"][:800].replace("\n\n", "\n")]
-    if advisory.get("references"):
-        lines += ["", t("reports.common.references", locale, list=" · ".join(advisory["references"][:4]))]
+    references = [url for url in [*(advisory.get("references") or []), *(web.get("references") or [])] if isinstance(url, str)][:4]
+    if references:
+        lines += ["", t("reports.common.references", locale, list=" · ".join(references))]
+    # After the tool's own references: the OWASP pages (titles and URLs from our curated mapping, never from the scan).
+    from pitangus.modules.findings.references import brief, guidance
+    links = finding.get("guidance") or guidance(finding)
+    if links:
+        lines += ["", t("reports.common.owasp_guidance", locale, list=" · ".join(f"[{link['title']}]({link['url']})" for link in brief(links)))]
     return lines + [""]
 
 
@@ -280,17 +309,22 @@ def render_repository_report(record: dict, *, locale: str | None = None) -> str:
     if imported is not None:
         identity = (t("reports.markdown.identity_import_commit", locale, tool=imported.get("tool"), commit=str(source["commit"])[:12])
                     if source.get("commit") else t("reports.markdown.identity_import", locale, tool=imported.get("tool")))
+    elif record.get("type") == "dast_scan":
+        identity = t("reports.markdown.identity_web", locale, url=record.get("target") or source["name"])
     elif image:
         identity = (t("reports.markdown.identity_image_digest", locale, reference=image.get("reference"), digest=image["resolved_digest"])
                     if image.get("resolved_digest") else t("reports.markdown.identity_image", locale, reference=image.get("reference")))
     else:
         identity = t("reports.markdown.identity_snapshot", locale, sha=source.get("sha256"))
-    heading = "reports.markdown.title_import" if imported is not None else "reports.markdown.title_image" if image else "reports.markdown.title_code"
+    web = record.get("type") == "dast_scan"
+    heading = ("reports.markdown.title_import" if imported is not None else "reports.markdown.title_web" if web
+               else "reports.markdown.title_image" if image else "reports.markdown.title_code")
+    status = (t(f"reports.markdown.run_status.{record['status']}", locale)
+              if record["status"] in ("queued", "running", "completed", "incomplete", "failed") else record["status"])
     lines = ["# " + t(heading, locale, name=source["name"]), "",
              t("reports.markdown.run_line", locale, id=record["id"], date=record["created_at"], provider=source["provider"], identity=identity),
-             t("reports.markdown.status_line", locale, status=t(f"reports.markdown.run_status.{record['status']}", locale)
-               if record["status"] in ("queued", "running", "completed", "incomplete", "failed") else record["status"],
-               files=summary["files"], dependencies=summary["dependencies"]), "",
+             t("reports.markdown.status_line_web", locale, status=status, urls=summary["files"]) if web
+             else t("reports.markdown.status_line", locale, status=status, files=summary["files"], dependencies=summary["dependencies"]), "",
              "## " + t("reports.markdown.executive_summary", locale), "",
              *_header(locale, "priority", "count", "", "severity", "count")]
     rows = [(_action_label("act", locale), priorities.get("act", 0), _severity("critical", locale), severities.get("critical", 0)),
@@ -335,6 +369,7 @@ def _md(value, limit: int = 160) -> str:
 
 
 MD_DETAIL_LIMIT, MD_TABLE_LIMIT, MD_ANNEX_LIMIT = 150, 500, 600
+MD_URLS = 20   # a web problem's URLs listed in its block; the rest are counted
 
 
 def _is_update(command: dict) -> bool:
@@ -346,22 +381,24 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
     with detail only for critical and high, and a compact index. Full detail stays in the panel, the JSON, the SARIF
     and the tickets."""
     from pitangus.modules.findings.fix_guide import attach
-    from pitangus.modules.findings.remediation import action, counts_text, fix_groups
+    from pitangus.modules.findings.remediation import action, counts_text, fix_groups, problems
     lines = ["## " + t("reports.common.findings", locale), ""]
     if not active:
         return lines + [t("reports.markdown.no_findings", locale), ""]
     attach(active)
     updates = {id(item): [command["code"] for command in (item.get("fix") or {}).get("commands") or [] if _is_update(command)] for item in active}
     for item in active:
-        item["fix"] = localize(item.get("fix"), locale)
-    groups = fix_groups(active)
+        item["fix"], item["priority"] = localize(item.get("fix"), locale), localize(item.get("priority"), locale)
+    groups = fix_groups(active, by_problem=True)
     lines += [t("reports.markdown.pending_intro", locale, pending=msg("reports.count.pending_findings", count=len(active)),
                 actions=msg("reports.count.actions", count=len(groups))), "",
               "### " + t("reports.common.what_first", locale), "", *_header(locale, "severity", "what", "where", "action")]
     for entry in groups[:15]:
         item = entry["items"][0]
         what = (f"{entry['name']} {entry['version']} · {t('reports.count.advisories', locale, count=len(entry['items']))}"
-                if entry["kind"] == "package" else item.get("title"))
+                if entry["kind"] == "package"
+                else f"{item.get('title')} · {t('reports.count.urls', locale, count=len(entry['items']))}" if entry["kind"] == "web" and len(entry["items"]) > 1
+                else item.get("title"))
         where = entry["path"] if entry["kind"] == "package" else _where(item)
         lines.append(f"| {_severity(entry['severity'], locale)}{' · KEV' if entry['kev'] else ''} | {_md(what, 100)} | "
                      f"`{_md(where, 400)}` | {_md(action(entry, short=True, locale=locale), 160)} |")
@@ -378,20 +415,31 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
                          f"{('`' + _md(commands[0], 120) + '`') if commands and '`' not in commands[0] else '—'} |")
     code = [item for item in active if not (item.get("scanner") == "sca" and (item.get("package") or {}).get("name"))]
     if code:
-        serious = [item for item in code if item.get("severity") in ("critical", "high")]
-        rest = [item for item in code if item.get("severity") not in ("critical", "high")]
+        # A web problem on several URLs is one block or one row, listing its URLs.
+        units = problems(code)
+        serious = [unit for unit in units if any(item.get("severity") in ("critical", "high") for item in unit)]
+        rest = [unit for unit in units if not any(item.get("severity") in ("critical", "high") for item in unit)]
         lines += ["", "### " + t("reports.common.code_heading", locale, count=len(code)), ""]
-        for finding in serious[:MD_DETAIL_LIMIT]:
-            lines += _finding_block(finding, locale, level="####")
+        for unit in serious[:MD_DETAIL_LIMIT]:
+            block = _finding_block(unit[0], locale, level="####")
+            if len(unit) > 1:
+                listed = ", ".join(f"`{_md(_where(item), 300).replace('`', '')}`" for item in unit[:MD_URLS])
+                if len(unit) > MD_URLS:
+                    listed += " " + t("reports.count.more_urls", locale, count=len(unit) - MD_URLS)
+                urls = t("reports.markdown.urls", locale, count=len(unit), list=listed)
+                block[block.index(t("reports.markdown.location", locale, where=_where(unit[0])))] = urls
+            lines += block
         if len(serious) > MD_DETAIL_LIMIT:
             lines += [t("reports.markdown.detail_truncated", locale, shown=MD_DETAIL_LIMIT, total=len(serious)), ""]
         if rest:
-            lines += ["#### " + t("reports.common.medium_low", locale, count=len(rest)), "",
+            lines += ["#### " + t("reports.common.medium_low", locale, count=sum(len(unit) for unit in rest)), "",
                       *_header(locale, "severity", "finding", "location", "fix")]
-            for item in rest[:MD_TABLE_LIMIT]:
-                where = _where(item)
-                lines.append(f"| {_severity(item.get('severity'), locale)} | {_md(item.get('title'), 100)} | "
-                             f"`{_md(where, 400)}` | {_md(item.get('remediation'), 160)} |")
+            for unit in rest[:MD_TABLE_LIMIT]:
+                item = unit[0]
+                worst = min((entry.get("severity") or "info" for entry in unit), key=lambda level: SEVERITY_ORDER.get(level, 9))
+                more = " " + _md(t('reports.count.more_urls', locale, count=len(unit) - 1), 60) if len(unit) > 1 else ""
+                lines.append(f"| {_severity(worst, locale)} | {_md(item.get('title'), 100)} | "
+                             f"`{_md(_where(item), 400)}`{more} | {_md(item.get('remediation'), 160)} |")
             if len(rest) > MD_TABLE_LIMIT:
                 lines.append(f"| | {t('reports.markdown.more_in_panel', locale, count=len(rest) - MD_TABLE_LIMIT)} | | |")
             lines.append("")
@@ -529,7 +577,7 @@ def profile_pdf_titles(profile: str, *, locale: str | None = None) -> dict:
 def render_profile_report(record: dict, profile: str, title: str = "", *, locale: str | None = None) -> str:
     """Technical dossier; it is not an audit opinion or a certification."""
     locale = locale or default_locale()
-    if profile not in PROFILES or record.get("type") not in ("repository_scan", "image_scan", "pr_review", "sarif_import", "asset_state"):
+    if profile not in PROFILES or record.get("type") not in ("repository_scan", "image_scan", "dast_scan", "pr_review", "sarif_import", "asset_state"):
         raise ReportInputError(msg("reports.errors.unsupported_profile"))
     if title and (len(title) > 100 or not all(ch.isprintable() and ch not in "#`[]<>" for ch in title)):
         raise ReportInputError(msg("reports.errors.invalid_title"))
@@ -542,6 +590,8 @@ def render_profile_report(record: dict, profile: str, title: str = "", *, locale
         scope = t("reports.profile.scope_state", locale, name=source["name"])
     elif record["type"] == "sarif_import":
         scope = t("reports.profile.scope_import", locale, name=source["name"], tool=(record.get("trigger") or {}).get("tool"))
+    elif record["type"] == "dast_scan":
+        scope = t("reports.profile.scope_web", locale, url=record.get("target") or source["name"])
     elif source.get("image"):
         scope = t("reports.profile.scope_image", locale, name=source["name"], reference=source["image"].get("reference"))
     else:
@@ -580,6 +630,13 @@ def load_run(data_dir: Path, run_id: str) -> RunRecord:
 def list_runs(data_dir: Path) -> list[dict]:
     """The listing rows, newest first. To look for some of them, `find_runs`."""
     return find_runs(data_dir)
+
+
+def count_runs(data_dir: Path, *, assets: list[str]) -> int:
+    """How many runs belong to these asset keys."""
+    statement = select(func.count()).select_from(runs).where(runs.c.tenant_id == TENANT, runs.c.asset_key.in_(assets))
+    with db.transaction(data_dir) as connection:
+        return int(connection.execute(statement).scalar_one())
 
 
 def find_runs(data_dir: Path, *, types=None, statuses=None, assets=None, asset_prefix: str | None = None,

@@ -2,17 +2,18 @@ import { useCallback, useId, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Check, Clock3, Copy, ExternalLink, Flame, LoaderCircle, Plus, X } from 'lucide-react'
+import { ArrowSquareOutIcon, CheckIcon, CircleNotchIcon, ClockIcon, CopyIcon, FlameIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Card, CardContent } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
+import { Disclosure } from '@/shared/ui/disclosure'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Pagination } from '@/shared/ui/pagination'
 import { SkeletonCard, SkeletonList } from '@/shared/ui/loading'
 import { apiPost, type PostBody, type Response } from '@/shared/api/client'
 import { craAssetsQuery, craQuery, keys } from '@/shared/api/queries'
 import { pagedKey, usePaged } from '@/shared/lib/usePaged'
-import { formatDate, formatDay } from '@/shared/i18n/format'
+import { formatCalendarDay, formatDate } from '@/shared/i18n/format'
 
 type CraEvent = Response<'/api/cra/events'>['items'][number]
 type Stage = CraEvent['stages'][number]
@@ -24,8 +25,7 @@ const EVENTS_PAGE = 10
 const PRODUCTS_PAGE = 10
 const REASON_MIN = 5
 const LISTS = ['/api/cra/events', '/api/cra/products'] as const
-// Calendar dates (KEV listing, end of support) carry no time: shown as that day wherever the reader is.
-const day = (value: string) => formatDay(value, { dateStyle: 'medium', timeZone: 'UTC' })
+const day = formatCalendarDay
 
 const left = (iso: string, t: TFunction<'compliance'>) => {
   const hours = (new Date(iso).getTime() - Date.now()) / 3_600_000
@@ -34,8 +34,8 @@ const left = (iso: string, t: TFunction<'compliance'>) => {
   return hours < 0 ? t('due.overdue_hours', { count: whole }) : t('due.left_hours', { count: whole })
 }
 const STAGE_STYLE: Record<Stage['state'], string> = {
-  overdue: 'border-danger-line bg-danger-soft text-danger', pending: 'border-warning-line bg-warning-soft text-warning',
-  waiting: 'border-app-line bg-app-soft text-app-muted', sent: 'border-app-line bg-app-soft text-brand',
+  overdue: 'border-danger-line bg-danger-soft text-danger', pending: 'border-attention-line bg-attention-soft text-attention',
+  waiting: 'border-app-line text-app-muted', sent: 'border-info-line text-info',
 }
 
 // CRA kit (art. 14, EU Regulation 2024/2847), shown only when the workspace policy turns it on. A KEV match on a
@@ -63,8 +63,8 @@ export function CraSection({ admin, onNew }: { admin: boolean; onNew: () => void
   const { counts } = overview
   return <section aria-labelledby="cra-title" className="space-y-3">
     {error && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>}
-    <Card className="border-app-line bg-panel"><CardHeader><CardTitle id="cra-title" className="text-base">{t('cra.title')}</CardTitle>
-      <CardDescription>{t('cra.description')}</CardDescription></CardHeader></Card>
+    <div className="space-y-1 border-t border-app-line pt-6"><h2 id="cra-title" className="text-base font-medium">{t('cra.title')}</h2>
+      <p className="max-w-2xl text-sm text-app-muted">{t('cra.description')}</p></div>
 
     <h3 className="text-sm font-semibold">{counts.pending ? t('events.pending', { count: counts.pending }) : t('events.none_pending')}
       {counts.to_assess > 0 && <span className="ml-2 font-normal text-app-muted">· {t('events.to_assess', { count: counts.to_assess })}</span>}</h3>
@@ -85,9 +85,8 @@ export function CraSection({ admin, onNew }: { admin: boolean; onNew: () => void
 
 function Help({ admin, reportingPage }: { admin: boolean; reportingPage: string }) {
   const { t } = useTranslation('compliance')
-  return <details className="rounded-xl border border-app-line bg-inset px-4 py-3 text-sm">
-    <summary className="min-h-6 cursor-pointer font-medium text-app-secondary">{t('cra.help.title')}</summary>
-    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-app-muted">
+  return <Disclosure summary={t('cra.help.title')}>
+    <ul className="list-disc space-y-1 pl-5 text-xs leading-5 text-app-muted">
       <li>{t('cra.help.scope')}</li>
       <li>{t('cra.help.deadlines')}</li>
       <li>{t('cra.help.platform')}</li>
@@ -95,8 +94,8 @@ function Help({ admin, reportingPage }: { admin: boolean; reportingPage: string 
       <li>{t('cra.help.kev')}</li>
       {!admin && <li>{t('cra.help.admin_only')}</li>}
     </ul>
-    <a href={reportingPage} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{t('cra.how_to_report')} <ExternalLink aria-hidden className="size-3" /></a>
-  </details>
+    <a href={reportingPage} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-6 items-center gap-1 text-xs text-app-muted hover:text-app-fg">{t('cra.how_to_report')} <ArrowSquareOutIcon aria-hidden className="size-3" /></a>
+  </Disclosure>
 }
 
 function Products({ counts, admin, onChange, onNew }: { counts: Counts; admin: boolean; onChange: OnChange; onNew: () => void }) {
@@ -125,20 +124,20 @@ function Products({ counts, admin, onChange, onNew }: { counts: Counts; admin: b
     {counts.products > 0 && !(products.error && !products.items.length) && (!products.items.length && products.loading ? <SkeletonList rows={2} dense label={t('products.loading')} />
       : <div className="overflow-hidden rounded-xl border border-app-line"><ul aria-busy={products.loading} className={`divide-y divide-app-line motion-safe:transition-opacity ${products.loading ? 'opacity-60' : ''}`}>{products.items.map(product => <li key={product.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
       <span className="min-w-0"><span className="font-medium">{product.name}</span><span className="block truncate text-xs text-app-subtle">{product.support_until ? t('products.supported_until', { asset: product.asset, date: day(product.support_until) }) : product.asset}</span>
-        {!product.last_complete && <span className="block text-xs text-warning">{t('products.not_scanned')}</span>}</span>
-      {admin && <Button size="xs" variant="ghost" aria-label={t('products.remove', { name: product.name })} onClick={() => void onChange({ op: 'unproduct', key: product.key })}><X />{t('common:actions.remove')}</Button>}
+        {!product.last_complete && <span className="block text-xs text-attention">{t('products.not_scanned')}</span>}</span>
+      {admin && <Button size="xs" variant="ghost" aria-label={t('products.remove', { name: product.name })} onClick={() => void onChange({ op: 'unproduct', key: product.key })}><XIcon />{t('common:actions.remove')}</Button>}
     </li>)}</ul>
       {products.total > products.limit && <div className="border-t border-app-line"><Pagination total={products.total} limit={products.limit} offset={products.offset} onPrev={products.prev} onNext={products.next} noun={t('products.noun')} /></div>}</div>)}
-    {admin && !counts.assets && <p className="text-xs text-app-muted">{t('products.scan_first')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('products.new_scan')}</button></p>}
+    {admin && !counts.assets && <p className="text-xs text-app-muted">{t('products.scan_first')} <button type="button" onClick={onNew} className="min-h-6 text-brand underline underline-offset-2">{t('products.new_scan')}</button></p>}
     {!admin && !counts.products && <p className="text-xs text-app-subtle">{t('products.admin_only')}</p>}
-    {admin && !adding && counts.candidates > 0 && <Button size="sm" variant="outline" onClick={() => setAdding(true)} className="border-app-line bg-app-soft"><Plus />{t('products.mark')}</Button>}
+    {admin && !adding && counts.candidates > 0 && <Button size="sm" variant="outline" onClick={() => setAdding(true)} className="border-input bg-card"><PlusIcon />{t('products.mark')}</Button>}
     {adding && <form onSubmit={submit} className="grid gap-2 rounded-xl border border-app-line bg-inset p-3 sm:grid-cols-[1fr_1fr_10rem_auto] sm:items-end">
       <div className="text-xs text-app-muted"><span>{t('products.asset')}</span>
         <Combobox className="mt-1" label={t('products.asset')} placeholder={t('products.choose')} emptyText={t('products.no_candidates')} value={picked} search={search}
           onSelect={option => { setPicked(option); if (!name) setName(option.label) }} /></div>
-      <label className="text-xs text-app-muted">{t('products.name')}<Input required maxLength={120} value={name} onChange={event => setName(event.target.value)} className="mt-1 h-9 border-app-line bg-app" /></label>
-      <label className="text-xs text-app-muted">{t('products.support_until')}<Input type="date" value={until} onChange={event => setUntil(event.target.value)} className="mt-1 h-9 border-app-line bg-app" /></label>
-      <div className="flex gap-2"><Button type="submit" size="sm" disabled={!picked || !name.trim() || busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
+      <label className="text-xs text-app-muted">{t('products.name')}<Input required maxLength={120} value={name} onChange={event => setName(event.target.value)} className="mt-1 h-9 border-input bg-card" /></label>
+      <label className="text-xs text-app-muted">{t('products.support_until')}<Input type="date" value={until} onChange={event => setUntil(event.target.value)} className="mt-1 h-9 border-input bg-card" /></label>
+      <div className="flex gap-2"><Button type="submit" size="sm" disabled={!picked || !name.trim() || busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>{t('common:actions.cancel')}</Button></div>
     </form>}
   </div>
@@ -153,24 +152,24 @@ function EventCard({ event, admin, onChange }: { event: CraEvent; admin: boolean
   const assessment = event.assessment
   return <Card className="border-app-line bg-panel"><CardContent className="space-y-3 p-4">
     <div className="flex flex-wrap items-start justify-between gap-2">
-      <div className="min-w-0"><p className="flex flex-wrap items-center gap-2 font-medium"><Flame aria-hidden className={`size-4 ${event.state === 'not_affected' ? 'text-app-muted' : 'text-danger'}`} /><span className="font-mono text-sm">{event.cve}</span>
+      <div className="min-w-0"><p className="flex flex-wrap items-center gap-2 font-medium"><FlameIcon aria-hidden className={`size-4 ${event.state === 'not_affected' ? 'text-app-muted' : 'text-danger'}`} /><span className="font-mono text-sm">{event.cve}</span>
         <StateChip state={event.state} />
         {event.kev.ransomware && <span className="rounded border border-danger-line px-1.5 text-[11px] text-danger">{t('event.ransomware')}</span>}{event.status === 'fixed' && <span className="rounded border border-app-line px-1.5 text-[11px] text-success">{t('event.fixed')}</span>}</p>
         <p className="mt-0.5 text-sm text-app-muted">{event.product} · {event.packages.join(', ') || event.title}</p>
         <p className="text-xs text-app-subtle">{[event.kev.name, t('event.in_kev', { date: event.kev.date_added ? day(event.kev.date_added) : '—' }),
           event.aware_at ? t('event.clock', { date: formatDate(event.aware_at) }) : ''].filter(Boolean).join(' · ')}</p></div>
-      {draft && <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => void copy()} className="border-app-line bg-app-soft">{copied ? <Check /> : <Copy />}{copied ? t('common:actions.copied') : t('event.copy_draft')}</Button><span role="status" className="sr-only">{copied ? t('event.draft_copied') : ''}</span>
+      {draft && <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => void copy()} className="border-input bg-card">{copied ? <CheckIcon /> : <CopyIcon />}{copied ? t('common:actions.copied') : t('event.copy_draft')}</Button><span role="status" className="sr-only">{copied ? t('event.draft_copied') : ''}</span>
         <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t('event.hide_draft') : t('event.view_draft')}</Button></div>}
     </div>
     {event.state === 'to_assess' && <Assess event={event} admin={admin} onChange={onChange} />}
     {event.state === 'not_affected' && assessment && <p className="flex flex-wrap items-center gap-2 text-xs text-app-muted">
       <span>{t('assess.not_affected_by', { by: assessment.by ?? '—', date: assessment.at ? formatDate(assessment.at) : '—', reason: assessment.reason ?? '' })}</span>
-      {admin && <button type="button" aria-label={t('assess.reopen_label', { cve: event.cve })} onClick={() => void onChange({ op: 'reopen', event: event.id })} className="min-h-6 text-brand underline-offset-2 hover:underline">{t('assess.reopen')}</button>}</p>}
+      {admin && <button type="button" aria-label={t('assess.reopen_label', { cve: event.cve })} onClick={() => void onChange({ op: 'reopen', event: event.id })} className="min-h-6 text-brand underline underline-offset-2">{t('assess.reopen')}</button>}</p>}
     {event.state === 'exploited' && assessment && <p className="text-xs text-app-muted">{assessment.legacy
       ? t('assess.legacy', { date: assessment.at ? formatDate(assessment.at) : '—' })
       : t('assess.exploited_by', { by: assessment.by ?? '—', date: assessment.at ? formatDate(assessment.at) : '—' })}</p>}
     {event.stages.length > 0 && <ol className="grid gap-2 sm:grid-cols-3">{event.stages.map(stage => <li key={stage.id} className={`rounded-lg border px-3 py-2 text-xs ${STAGE_STYLE[stage.state]}`}>
-      <p className="flex items-center justify-between gap-2 font-medium"><span>{stage.label}</span>{stage.state === 'sent' ? <Check aria-hidden className="size-3.5" /> : <Clock3 aria-hidden className="size-3.5" />}</p>
+      <p className="flex items-center justify-between gap-2 font-medium"><span>{stage.label}</span>{stage.state === 'sent' ? <CheckIcon aria-hidden className="size-3.5" /> : <ClockIcon aria-hidden className="size-3.5" />}</p>
       <p className="mt-0.5">{stage.state === 'sent' && stage.sent ? t('stage.sent_by', { by: stage.sent.by, date: formatDate(stage.sent.at) }) : stage.due ? `${formatDate(stage.due)} · ${left(stage.due, t)}` : t('stage.waiting')}</p>
       {admin && stage.state !== 'waiting' && <button type="button" aria-label={stage.state === 'sent' ? t('stage.unmark_label', { stage: stage.label, cve: event.cve }) : t('stage.mark_label', { stage: stage.label, cve: event.cve })} onClick={() => void onChange({ op: 'mark', event: event.id, stage: stage.id, sent: stage.state !== 'sent' })} className="mt-1 min-h-6 underline-offset-2 hover:underline">{stage.state === 'sent' ? t('stage.unmark') : t('stage.mark')}</button>}
     </li>)}</ol>}
@@ -180,7 +179,7 @@ function EventCard({ event, admin, onChange }: { event: CraEvent; admin: boolean
 
 function StateChip({ state }: { state: CraEvent['state'] }) {
   const { t } = useTranslation('compliance')
-  const style = state === 'exploited' ? 'border-danger-line text-danger' : state === 'to_assess' ? 'border-warning-line text-warning' : 'border-app-line text-app-muted'
+  const style = state === 'exploited' ? 'border-danger-line text-danger' : state === 'to_assess' ? 'border-attention-line text-attention' : 'border-app-line text-app-muted'
   const label = state === 'exploited' ? t('state.exploited') : state === 'to_assess' ? t('state.to_assess') : t('state.not_affected')
   return <span className={`rounded border px-1.5 text-[11px] ${style}`}>{label}</span>
 }
@@ -207,16 +206,16 @@ function Assess({ event, admin, onChange }: { event: CraEvent; admin: boolean; o
   return <div className="space-y-2 rounded-lg border border-app-line bg-inset p-3">
     <p className="text-sm">{t('assess.question', { product: event.product })}</p>
     {!mode ? <div className="flex flex-wrap gap-2">
-      <Button size="sm" variant="outline" onClick={() => setMode('not_affected')} className="border-app-line bg-app-soft">{t('assess.not_affected')}</Button>
+      <Button size="sm" variant="outline" onClick={() => setMode('not_affected')} className="border-input bg-card">{t('assess.not_affected')}</Button>
       <Button size="sm" variant="outline" onClick={() => setMode('exploited')} className="border-danger-line text-danger">{t('assess.exploited')}</Button>
     </div> : <form onSubmit={submit} className="space-y-2" noValidate>
       {mode === 'not_affected' ? <div className="space-y-1"><label htmlFor={`${id}-reason`} className="text-xs text-app-muted">{t('assess.reason')}</label>
         <textarea id={`${id}-reason`} required maxLength={500} rows={2} value={reason} onChange={formEvent => setReason(formEvent.target.value)} placeholder={t('assess.reason_placeholder')}
-          aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="w-full resize-y rounded-lg border border-app-line bg-app px-3 py-2 text-sm text-app-fg" /></div>
-        : <p className="text-xs text-warning">{t('assess.exploited_help')}</p>}
+          aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-sm text-app-fg" /></div>
+        : <p className="text-xs text-attention">{t('assess.exploited_help')}</p>}
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" size="sm" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{mode === 'not_affected' ? t('assess.confirm_not_affected') : t('assess.confirm_exploited')}</Button>
+        <Button type="submit" size="sm" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{mode === 'not_affected' ? t('assess.confirm_not_affected') : t('assess.confirm_exploited')}</Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => { setMode(null); setError('') }}>{t('common:actions.cancel')}</Button>
       </div>
     </form>}

@@ -1,0 +1,292 @@
+[
+ {
+  "id": "service",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "HTTP"
+ },
+ {
+  "id": "pre_128cipher",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "No 128 cipher limit bug"
+ },
+ {
+  "id": "SSLv2",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "OK",
+  "finding": "not offered"
+ },
+ {
+  "id": "SSLv3",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "OK",
+  "finding": "not offered"
+ },
+ {
+  "id": "TLS1",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "not offered"
+ },
+ {
+  "id": "TLS1_1",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "not offered"
+ },
+ {
+  "id": "TLS1_2",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "OK",
+  "finding": "offered"
+ },
+ {
+  "id": "TLS1_3",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "OK",
+  "finding": "offered with final"
+ },
+ {
+  "id": "NPN",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "not offered"
+ },
+ {
+  "id": "ALPN",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "http/1.1"
+ },
+ {
+  "id": "cipherlist_NULL",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "OK",
+  "cwe": "CWE-327",
+  "finding": "not offered"
+ },
+ {
+  "id": "cipherlist_aNULL",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "OK",
+  "cwe": "CWE-327",
+  "finding": "not offered"
+ },
+ {
+  "id": "engine_problem",
+  "ip": "/",
+  "port": "443",
+  "severity": "WARN",
+  "finding": "No engine or GOST support via engine with your /usr/bin/openssl"
+ },
+ {
+  "id": "cipherlist_OBSOLETED",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "cwe": "CWE-310",
+  "finding": "offered"
+ },
+ {
+  "id": "cipher_order-tls1_2",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "NOT a cipher order configured"
+ },
+ {
+  "id": "cipher-tls1_2_xc028",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc028   ECDHE-RSA-AES256-SHA384           ECDH 253   AES         256      TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384"
+ },
+ {
+  "id": "cipher-tls1_2_xc014",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc014   ECDHE-RSA-AES256-SHA              ECDH 253   AES         256      TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xc077",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc077   ECDHE-RSA-CAMELLIA256-SHA384      ECDH 253   Camellia    256      TLS_ECDHE_RSA_WITH_CAMELLIA_256_CBC_SHA384"
+ },
+ {
+  "id": "cipher-tls1_2_x3d",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x3d     AES256-SHA256                     RSA        AES         256      TLS_RSA_WITH_AES_256_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_x35",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x35     AES256-SHA                        RSA        AES         256      TLS_RSA_WITH_AES_256_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xc0",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc0     CAMELLIA256-SHA256                RSA        Camellia    256      TLS_RSA_WITH_CAMELLIA_256_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_x84",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x84     CAMELLIA256-SHA                   RSA        Camellia    256      TLS_RSA_WITH_CAMELLIA_256_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xc027",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc027   ECDHE-RSA-AES128-SHA256           ECDH 253   AES         128      TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_xc013",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc013   ECDHE-RSA-AES128-SHA              ECDH 253   AES         128      TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xc076",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc076   ECDHE-RSA-CAMELLIA128-SHA256      ECDH 253   Camellia    128      TLS_ECDHE_RSA_WITH_CAMELLIA_128_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_x3c",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x3c     AES128-SHA256                     RSA        AES         128      TLS_RSA_WITH_AES_128_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_x2f",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x2f     AES128-SHA                        RSA        AES         128      TLS_RSA_WITH_AES_128_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xba",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xba     CAMELLIA128-SHA256                RSA        Camellia    128      TLS_RSA_WITH_CAMELLIA_128_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_x41",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x41     CAMELLIA128-SHA                   RSA        Camellia    128      TLS_RSA_WITH_CAMELLIA_128_CBC_SHA"
+ },
+ {
+  "id": "cipher_order",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "NOT a server cipher order configured"
+ },
+ {
+  "id": "FS_KEMs",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "No KEMs offered"
+ },
+ {
+  "id": "sessionresumption_ticket",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "WARN",
+  "finding": "check failed because of connect problem"
+ },
+ {
+  "id": "cert_subjectAltName",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "HIGH",
+  "finding": "No SAN, browsers are complaining"
+ },
+ {
+  "id": "cert_trust",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "HIGH",
+  "finding": "via CN only (same w/o SNI)"
+ },
+ {
+  "id": "cert_chain_of_trust",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "CRITICAL",
+  "finding": "failed (self signed)."
+ },
+ {
+  "id": "cert_expirationStatus",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "HIGH",
+  "finding": "expires < 30 days (29)"
+ },
+ {
+  "id": "cert_notAfter",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "HIGH",
+  "finding": "2026-11-09 19:13"
+ },
+ {
+  "id": "cert_revocation",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "HIGH",
+  "finding": "Neither CRL nor OCSP URI provided"
+ },
+ {
+  "id": "HSTS",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "not offered"
+ },
+ {
+  "id": "security_headers",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "MEDIUM",
+  "finding": "--"
+ },
+ {
+  "id": "scanTime",
+  "ip": "edge.pitangus.test/192.168.215.4",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "60"
+ }
+]

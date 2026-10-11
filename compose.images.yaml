@@ -5,7 +5,7 @@
 #
 # The tag is the version of the code you checked out (PITANGUS_VERSION, from pitangus/version.py through make), so
 # the compose files, rules and images always match. With cosign installed, `make up` checks the signatures first
-# (`make verify-images`) and pins the checked digest in .env (PITANGUS_IMAGE_TAG=0.12@sha256:…): every later start,
+# (`make verify-images`) and pins the checked digest in .env (PITANGUS_IMAGE_TAG=0.13@sha256:…): every later start,
 # `docker compose up` included, runs exactly that image; `make update` checks and pins the new release.
 #
 # The Opengrep engine is published as <PITANGUS_IMAGE>-opengrep. The worker starts it by its local name
@@ -14,7 +14,7 @@
 
 # `build: !reset` has to sit in each service: inside a merged anchor Compose doesn't apply it.
 x-published: &published
-  image: "${PITANGUS_IMAGE:?PITANGUS_IMAGE is missing in .env (e.g. ghcr.io/pitangus-dev/pitangus)}:${PITANGUS_IMAGE_TAG:-${PITANGUS_VERSION:-0.12}}"
+  image: "${PITANGUS_IMAGE:?PITANGUS_IMAGE is missing in .env (e.g. ghcr.io/pitangus-dev/pitangus)}:${PITANGUS_IMAGE_TAG:-${PITANGUS_VERSION:-0.13}}"
   pull_policy: missing
 
 services:

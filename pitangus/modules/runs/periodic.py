@@ -23,6 +23,7 @@ _log = logging_setup.get("periodic")
 STATE = "periodic"
 NVD_BUDGET = 600  # seconds of NVD sync per round: a worker job, never a request
 NVD_EVERY = 900   # longer than the budget: rounds never pile up behind each other
+DOMAIN_SCAN_SECONDS = 300  # how often due scheduled web scans are looked for (a rule has a time of day)
 
 
 @dataclass(frozen=True)
@@ -84,12 +85,91 @@ def _domains(data_dir: Path, jobs) -> object:
     return domains.recheck(data_dir)
 
 
+def _joined(notes: list):
+    """Whole sentences, one after another (each is a message of its own)."""
+    from pitangus.shared.i18n import msg
+    if not notes:
+        return None
+    return notes[0] if len(notes) == 1 else msg("sources.domains.schedule.notes", first=notes[0], rest=_joined(notes[1:]))
+
+
+def _scheduled_options(data_dir: Path, record: dict) -> tuple[dict, list, list[str]]:
+    """What the scheduled scan of `record` asks for, checked now: the saved scope, the test users chosen with the
+    schedule that still exist and sign in inside that scope, and the saved headers if it sends them and some are
+    left. Whatever it leaves out comes back as notes, with the ids of users deleted since."""
+    from pitangus.modules.sources import domain_headers, domain_schedule, domain_scope, domains, test_users
+    from pitangus.modules.sources.domains import DomainError
+    from pitangus.shared.i18n import msg
+    access = domain_schedule.access(record["schedule"])
+    options: dict = {"mode": "web", "use_scope": True}
+    notes: list = []
+    try:
+        scope = domains.scan_scope(record, domain_scope.saved_hosts(data_dir, record))
+    except DomainError:
+        scope = {"hosts": [record["host"]], "wildcards": []}  # the worker refuses it again, with the reason
+    usable = test_users.still_usable(data_dir, record, access["test_users"], scope)
+    if usable["kept"]:
+        options["test_users"] = usable["kept"]
+    if usable["gone"]:
+        notes.append(msg("sources.domains.schedule.users_gone", count=len(usable["gone"])))
+    if usable["outside"]:
+        notes.append(msg("sources.domains.schedule.users_outside", count=len(usable["outside"]), names=", ".join(usable["outside"])))
+    if access["use_headers"]:
+        if domain_headers.count(record["id"]):
+            options["use_headers"] = True
+        else:
+            notes.append(msg("sources.domains.schedule.headers_gone"))
+    return options, notes, usable["gone"]
+
+
+def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> object:
+    """Queues the scheduled passive web scan of the most overdue domain (one: web scans run one at a time). Locking
+    the domain's row, queuing the scan and moving its schedule on are one transaction: a crash or a second round can
+    neither queue a slot twice nor lose it. A domain whose proof lapsed is skipped with the reason and stays due;
+    another web scan in progress leaves it for the next round; a domain already scanned that local day (by hand)
+    moves on to its next run, so it is scanned at most once a day. Scheduled scans crawl the domain's own host
+    and the hosts saved in its scope (while its DNS proof covers them), signed in as the test users chosen with the
+    schedule and with its saved headers if it asked for them; what no longer fits is left out, with a note."""
+    from pitangus.modules.runs.jobs import BusyError
+    from pitangus.modules.runs.store import find_runs
+    from pitangus.modules.sources import domain_schedule, domains
+    from pitangus.shared import db
+    from pitangus.shared.i18n import msg
+    now = now or datetime.now(timezone.utc)
+    with db.transaction(data_dir):
+        for record in domains.due_scans(data_dir, now=now, lock=True):
+            if not record["verified"]:
+                domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.lapsed"), now=now)
+                _log.warning("scheduled_scan_skipped", extra={"reason": f"{record['host']}: proof lapsed"})
+                continue
+            today = domain_schedule.local_day(now, record["schedule"])
+            last = find_runs(data_dir, types=["dast_scan"], assets=[record["key"]], limit=1)
+            if last and domain_schedule.local_day(datetime.fromisoformat(last[0]["created_at"]), record["schedule"]) == today:
+                domains.schedule_moved(data_dir, record["id"], msg("sources.domains.schedule.already_today"),
+                                       after=now, not_on=today, now=now)
+                continue
+            options, notes, gone = _scheduled_options(data_dir, record)
+            try:
+                queued = jobs.enqueue_dast_scan(domain=record, requested_by="schedule", trigger={"kind": "schedule"},
+                                                options=options)
+            except BusyError:
+                domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.busy"), now=now)
+                return {"queued": None, "waiting": record["host"]}
+            domains.schedule_queued(data_dir, record["id"], queued["id"], now=now, note=_joined(notes), gone_users=gone)
+            if notes:
+                _log.warning("scheduled_scan_reduced", extra={"reason": f"{record['host']}: {len(gone)} test users gone, "
+                                                                        f"{len(options.get('test_users', []))} kept"})
+            return {"queued": queued["id"], "host": record["host"]}
+    return {"queued": None}
+
+
 TASKS: dict[str, Task] = {
     "outbox": Task(lambda: 0, False, _outbox),
     "pull_requests": Task(lambda: settings.integer("PITANGUS_PR_POLL_SECONDS"), False, _pull_requests),
     "nvd": Task(lambda: NVD_EVERY if settings.flag("PITANGUS_CVE_SYNC") else -1, True, _nvd),
     "advisories": Task(lambda: 3600 * settings.integer("PITANGUS_ADVISORY_WATCH_HOURS") or -1, True, _advisories),
     "domains": Task(lambda: DOMAIN_RECHECK_SECONDS, False, _domains),
+    "domain_scans": Task(lambda: DOMAIN_SCAN_SECONDS if settings.flag("PITANGUS_DAST_ENABLED") else -1, False, _domain_scans),
 }
 
 

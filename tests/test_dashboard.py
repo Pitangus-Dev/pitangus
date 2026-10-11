@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from pitangus.modules.reporting import dashboard
 from pitangus.modules.intel.advisories import _parse_nvd
-from pitangus.modules.scanning.coverage import owasp_coverage, rules_by_category
+from pitangus.modules.scanning.coverage import owasp_coverage, rules_by_category, web_owasp_coverage
 from pitangus.shared.i18n import localize
 from pitangus.modules.runs.store import list_runs, page_runs, save_repository_scan
 
@@ -123,11 +123,37 @@ class CoverageTests(unittest.TestCase):
         self.assertIn("reglas AST internas", without["A05"]["reason"])
 
 
+    def test_web_coverage_counts_what_a_passive_scan_checked(self):
+        steps = [{"id": "dast", "status": "completed"}, {"id": "dast-nuclei", "status": "completed"},
+                 {"id": "dast-testssl", "status": "skipped"}, {"id": "dast-versions", "status": "completed"},
+                 {"id": "active", "status": "not_tested"}]
+        findings = [{"tool": "zap", "owasp": ["A02:2025"]}, {"tool": "zap", "owasp": ["A02:2025", "A06:2025"]},
+                    {"tool": "nuclei", "owasp": ["A05:2025"]}]
+        rows = {item["id"]: item for item in localize(web_owasp_coverage(findings, steps), "en")}
+        self.assertEqual(rows["A02"]["status"], "partial")
+        self.assertEqual(rows["A02"]["findings"], 2)
+        self.assertIn("ZAP and nuclei", rows["A02"]["reason"])
+        self.assertIn("httpx + OSV", rows["A03"]["reason"])
+        # testssl.sh didn't run, but ZAP's passive rules still look at cookies and HSTS.
+        self.assertEqual(rows["A04"]["status"], "partial")
+        self.assertNotIn("testssl", rows["A04"]["reason"])
+        # A finding in a category no passive check is listed for still marks it as checked, by its tool.
+        self.assertEqual(rows["A05"]["status"], "partial")
+        self.assertIn("nuclei", rows["A05"]["reason"])
+        self.assertEqual(rows["A06"]["status"], "partial")
+        self.assertEqual(rows["A07"]["status"], "not_tested")
+        self.assertIn("active testing", rows["A07"]["reason"])
+        self.assertIn("outside the application", rows["A09"]["reason"])
+        nothing = {item["id"]: item for item in localize(web_owasp_coverage([], [{"id": "dast", "status": "skipped"}]), "es")}
+        self.assertEqual({item["status"] for item in nothing.values()}, {"not_tested"})
+        self.assertIn("no corrieron", nothing["A02"]["reason"])
+
+
 class DashboardTests(unittest.TestCase):
     def test_open_fixed_mttr_and_exploitability_come_from_consecutive_runs(self):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch("pitangus.modules.reporting.dashboard.load_feeds", return_value={"kev": {"__meta__": {"version": "2026.09.22"}, "CVE-2026-1": {"date_added": "2026-09-20", "ransomware": True, "name": "Prueba"}}}), \
-                patch("pitangus.modules.reporting.dashboard.load_recent_cves", return_value={"__meta__": {"total": 3}, "items": [{"cve": "CVE-2026-9", "published": "2026-09-23T00:00:00", "score": 9.8, "severity": "critical", "description": "axios does something bad"}]}):
+                patch("pitangus.modules.reporting.dashboard.load_recent_cves", return_value={"__meta__": {"total": 3}, "items": [{"cve": "CVE-2026-9", "published": "2026-09-23T00:00:00", "score": 9.8, "severity": "critical", "description": "axios before 1.8.2 does something bad"}]}):
             data_dir = Path(temporary)
             (data_dir / "feeds").mkdir(parents=True)
             now = datetime.now(timezone.utc)
@@ -160,6 +186,15 @@ class DashboardTests(unittest.TestCase):
         self.assertTrue(result["cve_news"]["items"][0]["affects"], "menciona un paquete abierto (axios)")
         self.assertEqual(len(result["activity"]), 365)
         self.assertEqual(sum(day["runs"] for day in result["activity"]), 2)
+
+    def test_a_package_affects_a_cve_only_when_named_as_a_product(self):
+        from pitangus.modules.reporting.dashboard import _names_package
+        packages = {"axios", "ms", "next", "once"}
+        self.assertTrue(_names_package("Axios 1.6.0 through 1.7.3 allows SSRF", packages))
+        self.assertTrue(_names_package("axios before 1.8.2 leaks credentials", packages))
+        # A short or common package name inside ordinary prose is not a mention.
+        self.assertFalse(_names_package("An attacker can use the next request within 10 ms once logged in", packages))
+        self.assertFalse(_names_package("GenOffice through 0.11.505 contains an incorrect permissions issue", packages))
 
     def test_days_are_counted_in_the_viewer_timezone_and_cached(self):
         """«Today» is the viewer's: in Bogotá, a scan at 21:00 on the 25th counts on the 25th, not the 26th (UTC)."""

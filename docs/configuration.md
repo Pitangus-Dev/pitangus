@@ -28,6 +28,8 @@ Every variable is optional and goes in `.env` (a copy of `.env.example`). After 
 | `PITANGUS_ADVISORY_WATCH_HOURS` | `24` | How many hours between offline checks of already-scanned dependencies against new advisories. `0` turns it off. |
 | `PITANGUS_ALLOW_PRIVATE_WEBHOOKS` | empty | `1` allows alerts to webhooks on your internal network (blocked by default to prevent SSRF). |
 | `PITANGUS_ALLOW_PRIVATE_REGISTRIES` | — | `1` allows scanning images from registries with a private IP (your internal network). Blocked by default to prevent SSRF. |
+| `PITANGUS_DAST_ENABLED` | empty (off) | `1` turns on passive web and API scans of verified domains (ZAP: spider or an OpenAPI definition's GET and HEAD operations, and passive rules, never an attack), launched by an administrator from **New analysis → Web application**, and the scans administrators schedule (the periodic task looks for due ones every 5 minutes). Read by the API and the worker, so set it on both. Needs the Docker runner; with it on, `make engines` also pulls ZAP's image (about 1.2 GB). See [features.md](features.md#passive-web-scan). |
+| `PITANGUS_EGRESS_IPS` | empty | The public IP addresses or CIDR ranges web scans leave from (the worker's), comma-separated, at most 16: `203.0.113.10, 2001:db8::/48`. The review of a web scan shows them to whoever must allow them in a firewall or WAF. An invalid value stops the server at start-up. Empty, an administrator can detect the API's address once from the panel (one request to `api.ipify.org`, see [security.md](security.md#what-leaves-your-machine)); set it when the worker leaves from another address. |
 | `PITANGUS_TLS_CERT` / `PITANGUS_TLS_KEY` | — | Certificate and private-key files for TLS without a proxy. Both are required together. |
 | `PITANGUS_ALLOW_INSECURE_HTTP` | empty (off) | `1` lets the server start when `PITANGUS_PUBLIC_URL` is plain `http://` on an address other than `127.0.0.1`/`localhost`, which it otherwise refuses. Passwords, session cookies and tokens then cross the network in clear: only on a trusted network, at your own risk. Prefer HTTPS. |
 | `PITANGUS_DOWNLOAD_TIMEOUT` | `900` | Seconds a repository archive may take to download from GitHub before the scan gives up (minimum 60). Raise it for very large repositories or slow links. |
@@ -55,7 +57,7 @@ Every variable is optional and goes in `.env` (a copy of `.env.example`). After 
 | `PITANGUS_DOMAIN` | — | Domain Caddy gets the certificate for (`compose.prod.yaml`). The public URL and allowed origins become `https://<domain>`. |
 | `COMPOSE_FILE` | `compose.yaml` | Compose files every command uses, e.g. `compose.yaml:compose.prod.yaml:compose.no-socket.yaml:compose.images.yaml:compose.images.no-socket.yaml`. `make setup` keeps `compose.backup-age.yaml` if you added it. |
 | `PITANGUS_IMAGE` | — | Published image to run instead of building (`compose.images.yaml`), e.g. `ghcr.io/pitangus-dev/pitangus`. |
-| `PITANGUS_IMAGE_TAG` | the code's version | Tag of that image; accepts a digest (`0.12@sha256:…`). |
+| `PITANGUS_IMAGE_TAG` | the code's version | Tag of that image; accepts a digest (`0.13@sha256:…`). |
 | `PITANGUS_WORKER_IMAGE_TAG` | the code's version | The same for `<PITANGUS_IMAGE>-worker`, the worker with the engines inside (without the socket). `make up` pins both to the digests it checked. |
 | `COMPOSE_PROFILES` | — | `backup` turns on the scheduled backups service. |
 | `PITANGUS_BACKUP_DIR` | `./backups` | Where the backup service writes. |

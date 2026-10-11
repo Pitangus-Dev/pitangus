@@ -552,5 +552,200 @@
       "too_many_results": "A SARIF import takes at most {{max}} results: split it by tool or by folder",
       "no_tool": "Name the tool: the SARIF doesn't say which one produced it"
     }
+  },
+  "web": {
+    "progress": {
+      "starting": "ZAP {{version}}: crawling {{host}} for up to {{minutes}} minutes and reading its responses (passive, no attacks)…",
+      "starting_api": "ZAP {{version}}: importing {{count}} GET and HEAD operations of the OpenAPI definition against {{target}} and reading the responses (passive, no attacks)…",
+      "scope": "Also in scope: {{hosts}}. Only hosts listed by name are reached; a wildcard widens the context but its hosts aren't resolved.",
+      "headers_one": "Requests to the scope carry 1 saved header: {{names}}.",
+      "headers_other": "Requests to the scope carry {{count}} saved headers: {{names}}.",
+      "login_one": "Signing in as 1 test user ({{names}}) through a browser, then crawling as it for up to {{minutes}} minutes.",
+      "login_other": "Signing in as {{count}} test users ({{names}}) through a browser, then crawling as each for up to {{minutes}} minutes.",
+      "known_files": "Reading robots.txt and the sitemaps of {{hosts}} for more URLs to check…"
+    },
+    "detail": "{{count}} findings on the domain ({{results}} alerts read).",
+    "remediation": "Fix it following {{tool}}'s guidance for this alert. The next web scan marks it fixed once it no longer reports it.",
+    "steps": {
+      "passive": {
+        "name": "Passive web analysis (ZAP)",
+        "detail": "Spider on {{host}} for up to {{minutes}} minutes, then ZAP's passive rules over every response: headers, cookies, information leaks. {{count}} findings."
+      },
+      "active": {
+        "name": "Active tests",
+        "detail": "Not run: this scan never sends attacks (injections, fuzzing, form submissions)."
+      },
+      "review": {
+        "detail": "Passive alerts are signals: confirm each one against the application and its deployment before acting."
+      },
+      "api": {
+        "name": "Passive API analysis (ZAP)",
+        "detail": "{{count}} GET and HEAD operations of the OpenAPI definition requested at {{target}}, then ZAP's passive rules over every response. {{findings}} findings."
+      },
+      "login": {
+        "name": "Sign-in as test users",
+        "detail_one": "{{signed_in}} of {{count}} test user signed in, checked before the crawl.",
+        "detail_other": "{{signed_in}} of {{count}} test users signed in, checked before the crawl."
+      },
+      "with_seeds": "{{detail}} It also requested the {{count}} URLs katana found.",
+      "with_ajax_one": "{{detail}} The AJAX spider, following links in a browser for up to {{minutes}} minutes, found {{count}} URL.",
+      "with_ajax_other": "{{detail}} The AJAX spider, following links in a browser for up to {{minutes}} minutes, found {{count}} URLs.",
+      "merge": {
+        "name": "One finding per problem",
+        "detail_one": "{{count}} report of the same problem at the same URL by another tool was folded into its finding, which lists every tool that saw it.",
+        "detail_other": "{{count}} reports of the same problem at the same URL by another tool were folded into their findings, which list every tool that saw them.",
+        "none": "No two tools reported the same problem at the same URL."
+      },
+      "with_inventory": "{{detail}} Before its spider, it also requested {{count}} URLs of the inventory (katana's crawl, robots.txt, the sitemaps and the API definition).",
+      "inventory": {
+        "name": "URL inventory",
+        "detail_one": "{{count}} URL in scope, without query strings: {{katana}} from katana's crawl, {{robots}} from robots.txt, {{sitemap}} from the sitemaps, {{zap}} more from ZAP's spider and {{openapi}} from the API definition. nuclei read every page of it.",
+        "detail_other": "{{count}} URLs in scope, without query strings: {{katana}} from katana's crawl, {{robots}} from robots.txt, {{sitemap}} from the sitemaps, {{zap}} more from ZAP's spider and {{openapi}} from the API definition. nuclei read its pages."
+      }
+    },
+    "limitations": {
+      "passive": "Passive analysis: ZAP only read the responses to ordinary requests. Injections and other attacks weren't tried, so not seeing them here proves nothing.",
+      "unauthenticated": "Without signing in: pages behind a login weren't reached.",
+      "spider": "The spider stops after {{minutes}} minutes: a large site isn't covered whole, and pages it didn't reach weren't analyzed.",
+      "not_pentest": "This is an automated dynamic analysis, not a penetration test.",
+      "headers": "Requests carried the domain's saved headers; whether they actually authenticated wasn't checked, so pages behind a login may still be missing.",
+      "api": "Only the {{count}} GET and HEAD operations of the definition were requested, with example values: POST, PUT, PATCH and DELETE operations were left out, and endpoints the definition doesn't list weren't tried.",
+      "wildcards": "Hosts matched only by a wildcard weren't resolved, so they weren't analyzed: list a host by name to include it.",
+      "login_one": "Signed in as 1 test user, checked before the crawl. Pages it reached show what that account can see, not what other roles can, and a crawl capped in time may still miss some.",
+      "login_other": "Signed in as {{count}} test users, each checked before the crawl. Pages reached show what those accounts can see, not what other roles can, and a crawl capped in time may still miss some.",
+      "login_failed_one": "Couldn't sign in as {{names}}: what only that account sees wasn't analyzed, so its absence here proves nothing.",
+      "login_failed_other": "Couldn't sign in as {{names}}: what only those accounts see wasn't analyzed, so its absence here proves nothing.",
+      "tools_anonymous": "Only ZAP signed in as the test users: katana, nuclei, testssl.sh and httpx looked at the site anonymously.",
+      "tool_skipped": "{{tool}} didn't run in this scan, so what only it checks wasn't looked at.",
+      "tool_partial": "{{tool}} didn't finish: its part of this scan is incomplete, and what it missed isn't marked fixed.",
+      "nuclei": "nuclei ran detection templates only (exposed files, misconfigurations, versions, takeovers, TLS): templates that exploit, fuzz, guess passwords or call out-of-band servers were left out.",
+      "tls_capped": "testssl.sh checked the first {{max}} hosts of the scope only.",
+      "ajax": "The AJAX spider only follows links, in a browser, for {{minutes}} minutes: pages reached only through buttons, forms or typed input weren't opened.",
+      "versions": "Known vulnerabilities of exposed versions come from the version a response shows, not from testing it: a header can be rewritten and a backported fix keeps the old number, so confirm the version on the server first.",
+      "tool_unreached": "{{tool}} couldn't check {{hosts}}: its part of this scan is incomplete there, and what it reported before isn't marked fixed."
+    },
+    "errors": {
+      "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
+      "needs_docker": "Web scans need the Docker runner: the worker without a Docker socket doesn't carry ZAP.",
+      "failed": "ZAP didn't finish the scan.",
+      "timeout": "ZAP went past the {{minutes}}-minute limit and the scan was stopped.",
+      "unreadable": "ZAP's report couldn't be read.",
+      "busy": "A web scan is already queued or running; wait for it to finish.",
+      "address": "{{host}} can't be scanned: {{reason}}",
+      "no_headers": "This domain has no saved headers: add them before asking for a scan that uses them.",
+      "variable": "A saved header or the API definition's server path contains ${, which ZAP would read as a variable: remove it and scan again."
+    },
+    "spec": {
+      "empty": "The OpenAPI definition is empty.",
+      "too_large": "The OpenAPI definition goes past {{max}} MB or is nested too deep.",
+      "type": "Upload the OpenAPI definition as a .json, .yaml or .yml file.",
+      "not_base64": "The OpenAPI definition must arrive in base64.",
+      "unreadable": "The OpenAPI definition isn't valid JSON or YAML (YAML anchors and aliases aren't accepted).",
+      "not_openapi": "This isn't an OpenAPI 3.x or Swagger 2.0 definition with paths.",
+      "remote_ref": "The OpenAPI definition references another document ($ref outside it); bundle it into one file first.",
+      "no_operations": "The OpenAPI definition has no GET or HEAD operations, and a passive scan only sends those.",
+      "too_many_operations": "The OpenAPI definition has more than {{max}} GET and HEAD operations.",
+      "bad_url": "The definition's URL must be HTTPS, with no user, port or fragment.",
+      "url_outside": "{{host}} isn't a host of this scan: the definition is fetched only from the domain or a subdomain listed by name.",
+      "fetch_failed": "Couldn't download the OpenAPI definition from {{url}}.",
+      "fetch_status": "{{url}} answered {{code}} instead of the OpenAPI definition (redirects aren't followed).",
+      "missing": "API mode needs an OpenAPI definition."
+    },
+    "login": {
+      "signed_in": "Signed in as «{{name}}».",
+      "failed": "Couldn't sign in as «{{name}}»: {{reason}} Its pages behind the login weren't crawled.",
+      "check_status": "its check page {{url}} answered {{status}} instead of 200.",
+      "check_status_zap": "its check page {{url}} answered {{status}} instead of 200 (ZAP: {{reason}}).",
+      "check_unreached": "its check page {{url}} couldn't be requested.",
+      "zap_failed": "ZAP reports {{reason}}",
+      "unconfirmed": "ZAP couldn't confirm that the sign-in worked."
+    },
+    "tools": {
+      "needs_docker": "Needs the Docker runner.",
+      "image_missing": "The {{tool}} image isn't on this server: run make engines.",
+      "timeout": "Stopped after {{minutes}} minutes.",
+      "failed": "{{tool}} didn't finish.",
+      "katana": {
+        "name": "Crawl (katana)",
+        "progress": "katana {{version}}: crawling the scope with a headless browser, for up to 2 minutes, to find the URLs ZAP and nuclei will read…",
+        "detail_one": "Crawled the scope's hosts with a headless browser, {{depth}} levels deep and for up to {{minutes}} minutes: {{count}} URL, handed to ZAP and nuclei.",
+        "detail_other": "Crawled the scope's hosts with a headless browser, {{depth}} levels deep and for up to {{minutes}} minutes: {{count}} URLs, handed to ZAP and nuclei.",
+        "detail_plain_one": "The browser couldn't start, so katana crawled the scope's hosts without it (links in the HTML and the scripts, no rendering), {{depth}} levels deep and for up to {{minutes}} minutes: {{count}} URL, handed to ZAP and nuclei.",
+        "detail_plain_other": "The browser couldn't start, so katana crawled the scope's hosts without it (links in the HTML and the scripts, no rendering), {{depth}} levels deep and for up to {{minutes}} minutes: {{count}} URLs, handed to ZAP and nuclei."
+      },
+      "nuclei": {
+        "name": "Detection templates (nuclei)",
+        "progress": "nuclei {{version}}: running detection-only templates on each host and on the crawled pages…",
+        "reason": "nuclei's template {{template}} matched: {{title}}.",
+        "no_templates": "The nuclei templates (release {{release}}) couldn't be downloaded or didn't match their checksum.",
+        "detail_one": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} finding.",
+        "detail_other": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} findings.",
+        "detail_own_one": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} pages of the inventory, at most {{rate}} requests a second. {{count}} finding.",
+        "detail_own_other": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} pages of the inventory, at most {{rate}} requests a second. {{count}} findings."
+      },
+      "testssl": {
+        "name": "TLS configuration (testssl.sh)",
+        "progress": "testssl.sh {{version}}: reading each host's TLS protocols, ciphers, certificate and HSTS…",
+        "detail_one": "Protocols, ciphers, certificate and HTTP security headers of {{hosts}}. {{count}} finding rated low or worse.",
+        "detail_other": "Protocols, ciphers, certificate and HTTP security headers of {{hosts}}. {{count}} findings rated low or worse.",
+        "detail_capped_one": "Protocols, ciphers, certificate and HTTP security headers of {{hosts}} (the first {{max}} of {{total}} hosts). {{count}} finding rated low or worse.",
+        "detail_capped_other": "Protocols, ciphers, certificate and HTTP security headers of {{hosts}} (the first {{max}} of {{total}} hosts). {{count}} findings rated low or worse."
+      },
+      "httpx": {
+        "name": "Technologies (httpx)",
+        "progress": "httpx {{version}}: naming the technologies each host answers with…",
+        "detail_one": "{{count}} technology named on the scope's hosts ({{hosts}}), shown on the domain's page.",
+        "detail_other": "{{count}} technologies named on the scope's hosts ({{hosts}}), shown on the domain's page."
+      },
+      "unreached": "{{detail}} It couldn't check {{hosts}} (no answer, or the address was refused), so finding nothing there proves nothing."
+    },
+    "testssl": {
+      "reason": "testssl.sh rates {{check}} on {{host}} as a problem: {{finding}}",
+      "titles": {
+        "sslv2": "SSLv2 is offered",
+        "sslv3": "SSLv3 is offered",
+        "tls1": "TLS 1.0 is offered",
+        "tls1_1": "TLS 1.1 is offered",
+        "hsts": "HSTS is missing or too short",
+        "fs": "Forward secrecy isn't offered",
+        "expiration": "The certificate is expired or about to expire",
+        "trust": "The certificate chain isn't trusted",
+        "name": "The certificate doesn't match the host name",
+        "ciphers": "Weak cipher suites are offered ({{check}})",
+        "certificate": "Certificate problem ({{check}})",
+        "other": "TLS configuration problem ({{check}})",
+        "certificate_family_one": "Certificate problem ({{checks}})",
+        "certificate_family_other": "{{count}} certificate problems ({{checks}})"
+      }
+    },
+    "versions": {
+      "name": "Known vulnerabilities of exposed versions (httpx + OSV)",
+      "title": "{{product}} {{version}} has known vulnerabilities",
+      "reason_one": "The site shows {{product}} {{version}} ({{hosts}}), and 1 published advisory affects that version: {{ids}}. Detected from the exposed version, not verified.",
+      "reason_other": "The site shows {{product}} {{version}} ({{hosts}}), and {{count}} published advisories affect that version: {{ids}}. Detected from the exposed version, not verified.",
+      "remediation": "Confirm the version on the server, then update {{product}} from {{version}} to {{fixed}} or later, the version that fixes every advisory listed. Check the references before you upgrade.",
+      "remediation_partial_one": "Confirm the version on the server, then update {{product}} from {{version}} to {{fixed}} or later. 1 advisory has no published fix yet: read its references for a workaround.",
+      "remediation_partial_other": "Confirm the version on the server, then update {{product}} from {{version}} to {{fixed}} or later. {{count}} advisories have no published fix yet: read their references for a workaround.",
+      "no_fix": "No published fix covers {{product}} {{version}} yet. Confirm the version on the server and read the advisories' references for a workaround.",
+      "factor": "Detected from the version the site shows, not verified",
+      "none": "No exposed version of a product with package advisories (Flask, Django, Express, jQuery…) to look up.",
+      "not_looked_up": "Not looked up (no package data for web servers and runtimes): {{products}}.",
+      "failed": "OSV-Scanner couldn't look up the exposed versions.",
+      "detail_one": "Looked up {{products}} in the local OSV databases: {{count}} product version with known vulnerabilities.",
+      "detail_other": "Looked up {{products}} in the local OSV databases: {{count}} product versions with known vulnerabilities."
+    }
+  },
+  "discovery": {
+    "disabled": "Related-host discovery runs only where web scans are on: set PITANGUS_DAST_ENABLED=1 on this server.",
+    "needs_docker": "Related-host discovery needs the Docker runner: the worker without a Docker socket doesn't carry subfinder.",
+    "no_docker": "Related-host discovery couldn't run: {{reason}}",
+    "image_missing": "subfinder's image isn't on this server yet: run make engines (or docker pull it) and search again.",
+    "timeout": "subfinder went past its {{seconds}}-second limit and was stopped; search again later.",
+    "failed": "subfinder didn't finish: check that the server can reach the internet, then search again."
+  },
+  "egress": {
+    "declared": "This server declares its outgoing addresses in {{name}}: change them there.",
+    "unreachable": "The address echo service didn't answer. Try again later, or set PITANGUS_EGRESS_IPS on the server.",
+    "unexpected": "The address echo service didn't answer with one public IP address. Set PITANGUS_EGRESS_IPS on the server instead."
   }
 }

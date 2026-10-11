@@ -3,7 +3,7 @@
   "splash": "Cargando {{name}}",
   "loading": "Cargando",
   "pagination": {
-    "showing": "Mostrando {{from}}–{{to}} de {{total}} {{noun}}",
+    "showing": "Mostrando {{from}}–{{to}} de {{total, number}} {{noun}}",
     "items": "elementos",
     "previous": "Página anterior",
     "next": "Página siguiente"
@@ -17,7 +17,7 @@
     "placeholder": "Escribe para buscar…",
     "more": "{{remaining}} más: sigue escribiendo para acotar",
     "error": "No se pudo buscar: inténtalo de nuevo",
-    "min_chars_one": "Escribe al menos {{count}} carácter",
-    "min_chars_other": "Escribe al menos {{count}} caracteres"
+    "min_chars_one": "Escribe al menos {{count, number}} carácter",
+    "min_chars_other": "Escribe al menos {{count, number}} caracteres"
   }
 }

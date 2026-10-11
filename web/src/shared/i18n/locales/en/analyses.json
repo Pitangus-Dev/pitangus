@@ -1,182 +1,298 @@
 {
   "run_type": {
-    "repository_scan": "Code scan", "image_scan": "Container image", "pr_review": "PR review",
-    "advisory_watch": "New advisories", "sarif_import": "SARIF import", "dast": "Dynamic web app or API testing"
+    "repository_scan": "Code scan",
+    "image_scan": "Container image",
+    "pr_review": "PR review",
+    "advisory_watch": "New advisories",
+    "sarif_import": "SARIF import",
+    "dast_scan": "Web scan"
   },
-  "duration": { "minutes": "~{{value}} min", "hours": "~{{value}} h", "under_two_minutes": "under 2 min" },
+  "duration": {
+    "minutes": "~{{value}} min",
+    "hours": "~{{value}} h",
+    "under_two_minutes": "under 2 min"
+  },
   "listing_more": "{{names}} and {{rest}} more",
   "remove_item": "Remove {{name}}",
+  "chooser": {
+    "title": "What do you want to check?",
+    "import": "Already have results from another tool? <go>Import SARIF</go>",
+    "import_tools": "ZAP, Nuclei, CodeQL, Semgrep, Strix and more",
+    "off": "Not enabled on this server",
+    "off_how": "How to turn on web scans",
+    "off_admin": "Set <mono>PITANGUS_DAST_ENABLED=1</mono> and restart the server.",
+    "admin_only": "Only an admin can launch it."
+  },
   "wizard": {
-    "choose_type": "Choose the type of scan",
     "continue": "Continue",
     "back": "Back",
-    "back_to_types": "Back to scan types",
-    "steps": { "source": "Source code", "targets": "Targets", "image": "Image", "context": "Context", "review": "Review and launch" },
+    "skip": "Skip",
+    "progress": "Scan steps",
+    "step_of": "Step {{current}} of {{total, number}} · {{label}}",
+    "steps": {
+      "repositories": "Repositories",
+      "images": "Images",
+      "target": "Target",
+      "access": "Access",
+      "context": "Context",
+      "review": "Review and launch"
+    },
     "kinds": {
       "code": {
-        "description": "Scans a snapshot of your repository without running its code or installing dependencies.",
-        "sast": "Multi-language SAST (Opengrep)", "secrets": "Secrets (Gitleaks)", "dependencies": "Dependencies (Trivy + OSV-Scanner)",
-        "iac": "Infrastructure and CI/CD (Trivy + Checkov + zizmor)"
+        "title": "Code",
+        "line": "Flaws, leaked secrets and risky dependencies, before they ship.",
+        "points": [
+          "Flaws in your own code",
+          "Secrets committed by mistake",
+          "Risky dependencies, infrastructure and pipelines"
+        ]
       },
       "image": {
-        "description": "Scans an image straight from its registry (Docker Hub, GHCR, ECR…) without running or building it.",
-        "packages": "Packages: Trivy + Grype", "secrets": "Secrets in layers, ENV and history", "config": "Configuration: Pitangus rules + Checkov"
+        "title": "Container image",
+        "line": "What an image carries, before you deploy it.",
+        "points": [
+          "Packages with known vulnerabilities",
+          "Secrets left in the layers",
+          "Risky settings, like running as root"
+        ]
       },
       "web": {
-        "description": "Active scanning (DAST) against your running application, on verified domains. Not producing results yet.",
-        "dns": "Ownership verified through DNS", "isolated": "DAST in an isolated container", "evidence": "Evidence with request and response"
-      },
-      "import": {
-        "description": "Brings findings from another tool into an asset you already have, so you triage them alongside everything else.",
-        "tools": "Semgrep, CodeQL, Snyk, Trivy… (SARIF 2.1.0)", "existing": "Into a repository or image already in Pitangus",
-        "fixes": "A full import marks as fixed what the tool stopped reporting"
+        "title": "Web app or API",
+        "line": "Browses your site or API like a visitor. It never attacks.",
+        "points": [
+          "Security headers and cookies",
+          "Exposed information and outdated libraries",
+          "Each endpoint documented in your OpenAPI spec"
+        ]
       }
-    }
+    },
+    "back_to_types": "Back to scan types"
   },
-  "source": {
-    "description": "Choose one or more repositories. Each one is scanned from a read-only snapshot.",
-    "description_with_org": "Choose one or more repositories, or a whole organization. Each one is scanned from a read-only snapshot.",
+  "repos": {
+    "title": "Which repositories?",
     "mode": {
       "label": "What to scan",
-      "repos": "Repositories", "repos_hint": "One or more, picked by hand (up to {{limit}})",
-      "org": "A whole organization", "org_hint": "All its repositories except archived ones"
+      "pick": "Pick repositories",
+      "org": "Whole organization"
     },
-    "default_branch": "default branch",
-    "not_in_app": "not in the GitHub App",
-    "not_in_app_single": "not in the GitHub App: one at a time only",
-    "add_more": "Add more repositories",
+    "empty_title": "No repositories selected",
+    "loading": "Loading the repository",
+    "empty_text": "Pick one or more from GitHub, GitLab or this workspace.",
     "add": "Add repositories",
-    "empty_title": "No repositories yet",
-    "empty_text": "Pick one or more of your connected repositories from GitHub, GitLab or this workspace.",
-    "without_app": "Scanning several at once only works with GitHub App repositories: their access renews on its own, so it holds up through a batch that runs for hours. Remove {{names}} or scan them one at a time.",
-    "over_limit": "Up to {{limit}} by hand; for more, scan the whole organization.",
-    "batch_active": "A batch is already running ({{label}}): wait for it to finish or cancel it in Scans. Meanwhile you can still scan a single repository.",
-    "batch_hint": "Several at once run as a batch: one at a time and only when nothing else is scanning, so your own scans and PR reviews never wait. Follow its progress in Scans, where you can cancel it.",
-    "single_hint": "Each run scans one repository: the snapshot and its hash identify exactly what was reviewed.",
-    "dialog_description": "Select one or more. Several are scanned as a batch (GitHub App repositories, up to {{limit}}).",
+    "add_more": "Add more repositories",
+    "default_branch": "default branch",
+    "not_in_app_badge": "not in the GitHub App",
+    "not_in_app_single": "not in the GitHub App: one at a time only",
+    "org_label": "Organization",
+    "org_choose": "Choose an organization…",
+    "org_counting": "Counting repositories…",
+    "org_count_error": "Couldn't count the repositories in {{name}}. Try again in a moment.",
+    "org_none": "None of that organization's repositories are in the GitHub App.",
+    "org_estimate_one": "{{count, number}} repository · about {{duration}}",
+    "org_estimate_other": "{{count, number}} repositories · about {{duration}}",
+    "batch_note": "They run one after another. Follow them in Scans.",
+    "not_in_app": "{{names}} can't join a batch: only GitHub App repositories can.",
+    "over_limit": "Up to {{limit}} by hand. For more, choose the whole organization.",
+    "batch_busy": "Another batch is running. You can still scan one repository.",
     "no_provider": "No code provider connected",
     "connect": "Connect",
-    "selected_one": "{{count}} selected", "selected_other": "{{count}} selected",
+    "selected_one": "{{count, number}} selected",
+    "selected_other": "{{count, number}} selected",
     "done": "Done"
   },
-  "org": {
-    "label": "Organization",
-    "choose": "Choose an organization…",
-    "count_error": "Couldn't count the repositories in {{name}}. Try again in a moment.",
-    "counting": "Counting repositories…",
-    "estimate_one": "<strong>{{count}}</strong> repository · estimated time {{duration}} (about 1 min per repository; it adjusts to how long they actually take).",
-    "estimate_other": "<strong>{{count}}</strong> repositories · estimated time {{duration}} (about 1 min per repository; it adjusts to how long they actually take).",
-    "none": "No repositories from that organization are in the GitHub App.",
-    "dialog_title": "Scan the {{name}} organization",
-    "dialog_description": "All its repositories are scanned (except archived ones), one at a time and only when nothing else is scanning, so your own scans and PR reviews never wait. You can keep using the panel and cancel it whenever you like.",
-    "scan_one": "Scan {{count}} repository", "scan_other": "Scan {{count}} repositories",
-    "scan_pending": "Scan repositories"
-  },
-  "image": {
-    "title": "Images",
-    "description": "One or more references, just as you'd use them with <code>docker pull</code>. They're read from the registry: never pulled into your Docker, run or built.",
-    "references": "References",
-    "references_hint": "(one per line, up to {{limit}})",
+  "images": {
+    "title": "Which images?",
+    "label": "One reference per line",
     "placeholder": "e.g. nginx:1.21\nghcr.io/your-org/your-image:1.0",
-    "invalid": "These don't look like valid references (registry/repository:tag, lowercase): <mono>{{names}}</mono>",
+    "invalid": "These don't look like image references (registry/repository:tag, lowercase): <mono>{{names}}</mono>",
     "over_limit": "At most {{limit}} images per batch.",
-    "batch_info": "{{total}} images: they run as a batch, one at a time and only when nothing else is scanning. Follow its progress in Scans.",
-    "batch_active": "A batch is already running ({{label}}): wait for it to finish or scan a single image.",
+    "batch_note": "They run one after another. Follow them in Scans.",
     "try_public": "Try a public one:",
-    "samples": { "old": "old, lots of advisories", "recent": "recent, few", "vulnerable": "vulnerable on purpose" },
-    "registry_saved": "{{registry}}: saved credentials",
-    "registry_anonymous": "{{registry}}: anonymous access",
-    "credentials_saved": "The saved credentials for <strong>{{registry}}</strong> will be used (user {{username}}, token ····{{last4}}).",
-    "credentials_missing": "No credentials for <strong>{{registry}}</strong>: fine for public images. If it's private, an admin can save a read-only token in <link>Integrations → Container registries</link>.",
-    "tip": "Tip: scan an immutable tag (a version or <mono>@sha256:</mono>) rather than <mono>latest</mono>, so you know exactly what you reviewed."
-  },
-  "targets": {
-    "description": "Choose the registered domains and APIs to include in these tests.",
-    "verified": "Verified", "unverified": "Unverified",
-    "add_more": "Add more targets",
-    "empty_title": "No targets yet",
-    "empty_text": "Pick from your registered domains or register a new one.",
-    "add_domains_ellipsis": "Add domains…",
-    "limit_hint": "Up to {{limit}} targets per run. Adding a domain doesn't send it any test traffic.",
-    "dialog_title": "Add domains",
-    "dialog_description": "Pick from the domains registered in this workspace. Up to {{limit}} per run.",
-    "search": "Search registered domains",
-    "search_placeholder": "app.yourdomain.com…",
-    "loading": "Loading domains",
-    "no_match": "No registered domains match.",
-    "register": "Register a new domain…",
-    "selected_of": "{{selected}}/{{limit}} selected",
-    "add": "Add targets"
+    "samples": {
+      "old": "old, lots of advisories",
+      "recent": "recent, few",
+      "vulnerable": "vulnerable on purpose"
+    },
+    "pin_hint": "Tip: pin a version or digest so you know exactly what you reviewed.",
+    "registry_saved": "{{registry}}: saved credentials will be used",
+    "registry_public": "{{registry}}: public access. Private? An admin adds a token in <go>Integrations</go>."
   },
   "context": {
-    "description": "Whatever you write here is stored with the run and shows up in the report.",
-    "question": "What does this target do?",
+    "title": "Anything the report should say?",
+    "label": "What it does and what worries you most",
+    "placeholder": "Stack, how users sign in, sensitive data it handles…",
+    "help": "Shown in the report as your team's note.",
+    "counter": "{{length}}/{{max}}"
+  },
+  "target": {
+    "title": "Which site or API?",
+    "loading": "Loading domains",
+    "empty": "Add a domain you control and verify it to scan it.",
+    "add": "Add domain",
+    "verify": "Verify",
+    "verify_for": "Verify {{host}}"
+  },
+  "scope": {
+    "toggle": "Include subdomains",
+    "exact_only": "Only {{host}} is covered. Verify by DNS to add subdomains.",
+    "toggle_hint": "The hosts you mark Analyze are saved with the domain for its next scans."
+  },
+  "spec": {
+    "title": "API documentation",
     "optional": "(optional)",
-    "placeholder": "Stack and framework, how it authenticates, what sensitive data it handles, which part worries you most…",
-    "counter": "{{length}}/{{max}} · a statement from your team: it doesn't change which rules run and is never sent to an AI model."
+    "add": "Add API documentation",
+    "nudge": "An API has few links to follow: add its OpenAPI spec so the scan calls each documented endpoint.",
+    "instead": "With it, the scan also calls every documented endpoint, besides crawling the site.",
+    "choose": "Upload OpenAPI file",
+    "replace": "Replace",
+    "remove": "Remove {{name}}",
+    "reading": "Reading the file…",
+    "url_label": "Or the spec's URL",
+    "url_file_loaded": "Remove the file to use a URL.",
+    "summary_one": "OpenAPI {{version}} · {{count, number}} endpoint",
+    "summary_other": "OpenAPI {{version}} · {{count, number}} endpoints",
+    "invalid": "That file isn't an OpenAPI 2 or 3 spec.",
+    "no_endpoints": "The spec has no endpoints.",
+    "too_large": "That file is over 5 MB.",
+    "url_foreign": "The URL must use HTTPS on {{host}} or a host in scope."
+  },
+  "access": {
+    "title": "Does it need a login?",
+    "text": "Sign in as a test user, or send a token, API key or session cookie as a header.",
+    "use_all": "Send the saved headers",
+    "test_account": "It browses as that user: use a test account.",
+    "optional": "(optional)",
+    "users_title": "Test users",
+    "users_text": "Signs in with these accounts to test what a logged-in user can reach. Each one gets its own crawl.",
+    "users_full": "A scan signs in with at most {{max}} test users.",
+    "user_outside": "Signs in on {{host}}, which isn't in this scan's scope.",
+    "headers_title": "Custom headers",
+    "headers_text": "A token, API key or session cookie, sent as a header."
+  },
+  "skip": {
+    "access": {
+      "title": "No authentication provided",
+      "text": "Without a test user or a header, only what's public will be covered.",
+      "confirm": "Public pages only",
+      "back": "Add test user"
+    }
   },
   "review": {
-    "description": "This is exactly what will run, and what won't.",
-    "type": "Type", "target": "Target",
-    "no_context": "no context given",
-    "target_none": "nothing selected",
-    "target_org": "Organization {{name}}",
-    "target_org_unset": "Organization not chosen yet",
-    "target_repositories": "{{total}} repositories: {{names}}",
-    "target_images": "{{total}} images: {{names}}",
-    "batch_code": "This creates a batch: each repository is scanned with its own plan, one at a time and only when nothing else is scanning. You can follow it and cancel it in Scans; whatever is already scanned is kept. Batches never send dependencies to api.osv.dev.",
-    "batch_image": "This creates a batch: each image is scanned with its own plan, one at a time and only when nothing else is scanning. You can follow it and cancel it in Scans; whatever is already scanned is kept.",
-    "plan_loading": "Reading the repository to work out what to scan",
-    "languages": "Repository languages",
-    "languages_files_one": "Repository languages · {{count}} file", "languages_files_other": "Repository languages · {{count}} files",
-    "rules_one": "{{count}} rule", "rules_other": "{{count}} rules",
-    "no_rules": "no SAST rules",
+    "title": "Ready to launch",
+    "type": "Type",
+    "target": "Target",
+    "repositories": "Repositories",
+    "organization": "Organization",
+    "images": "Images",
+    "registry": "Registry access",
+    "spec": "API documentation",
+    "spec_none": "None",
+    "access": "Access",
+    "context": "Context",
+    "looks_for": "What it looks for",
+    "change": "Change",
+    "change_for": "Change {{label}}",
+    "org_value_one": "{{name}} · {{count, number}} repository · about {{duration}}",
+    "org_value_other": "{{name}} · {{count, number}} repositories · about {{duration}}",
+    "target_repositories": "{{total, number}} repositories: {{names}}",
+    "target_images": "{{total, number}} images: {{names}}",
+    "registry_saved": "{{registry}}: saved credentials",
+    "registry_public": "{{registry}}: public access",
+    "scope_value_one": "{{host}} + {{count, number}} subdomain",
+    "scope_value_other": "{{host}} + {{count, number}} subdomains",
+    "access_value_one": "{{count, number}} header: {{names}}",
+    "access_value_other": "{{count, number}} headers: {{names}}",
+    "access_none": "Public pages only",
+    "no_context": "None · <add>Add</add>",
+    "plan_failed": "Couldn't read the repository; the server decides when it runs.",
+    "looks": {
+      "code": "your code ({{languages}})",
+      "code_plain": "your code",
+      "secrets": "secrets",
+      "dependencies": "dependencies",
+      "no_dependencies": "no dependencies",
+      "infrastructure": "infrastructure",
+      "generic": "Each repository's code, secrets, dependencies and infrastructure"
+    },
+    "osv_label": "Check dependencies online with OSV",
+    "osv_hint": "Sends package names and versions (not code) to api.osv.dev. Off: dependencies aren't checked.",
+    "batch_note": "Runs as a batch you can follow and cancel in Scans.",
+    "schedule_without_spec": "Scheduled scans browse the site; they don't use the API documentation.",
+    "authorization": "It only browses and reads, never attacks. Launch it only against sites you're allowed to test.",
+    "access_users": "Signs in as {{names}}",
+    "egress": {
+      "allow": "If your site filters by IP, allow:",
+      "copy": "Copy",
+      "copy_label": "Copy the IP addresses",
+      "copied": "Copied",
+      "copy_failed": "Couldn't copy: select the addresses and copy them by hand.",
+      "unknown": "If your site filters by IP, it has to allow this server's address, which isn't configured yet.",
+      "detect": "Detect",
+      "detect_hint": "Asks api.ipify.org once which public IP this server is seen from. If scans run on another machine, set PITANGUS_EGRESS_IPS instead.",
+      "ask_admin": "If your site filters by IP, ask an admin to set the outgoing IP."
+    }
+  },
+  "details": {
+    "title": "Technical details",
+    "languages": "Languages",
     "runs": "What runs",
     "skips": "What doesn't run",
-    "osv_authorized": "Dependencies: api.osv.dev lookup authorized",
-    "osv_consent": "<strong>Query OSV for SCA.</strong> Turning this on lets Pitangus send this repository's dependency names and versions to <mono>api.osv.dev</mono>. It's only needed because Trivy isn't available on this server; without it, dependencies go unchecked.",
+    "rules_one": "{{count, number}} rule",
+    "rules_other": "{{count, number}} rules",
+    "no_rules": "no SAST rules",
+    "code_generic": "Each repository gets its own plan from its real tree: SAST for the languages it has, secrets, dependencies, infrastructure and CI/CD.",
+    "batch": "One at a time and only when nothing else is scanning. What's done is kept if you cancel.",
     "image_runs": {
       "packages": "System and application packages with Trivy and Grype; advisories both of them report are flagged",
       "secrets": "Secrets in the layers, the environment variables (ENV) and the build history (ARG, URLs with credentials)",
       "config": "Configuration: root user, HEALTHCHECK, ADD from a URL, exposed SSH, image age",
       "checkov": "Checkov on the Dockerfile rebuilt from the history: downloads without TLS verification, unsigned package managers…",
-      "priority": "Priority from CVSS, CISA KEV and EPSS",
-      "saved_credentials": "Access with the saved credentials for {{registry}}",
-      "anonymous": "Anonymous access to the registry"
+      "priority": "Priority from CVSS, CISA KEV and EPSS"
     },
     "image_skips": {
       "run": "The image is never run or built",
       "source": "The source code that produced it isn't scanned (run a code scan on its repository)",
       "secrets": "No secret value that turns up is stored, only where it was found"
-    },
-    "dast_unavailable": "Dynamic tests can't be launched yet: the isolated runner and the rate and scope limits are still missing. This setup is prepared, not run.",
-    "unverified_targets": "Some targets aren't verified. Proving ownership with a DNS TXT record is required before any active test."
+    }
   },
   "launch": {
     "queuing": "Queuing…",
-    "images": "Scan {{total}} images",
-    "image": "Scan image",
+    "code": "Start scan",
+    "repositories": "Scan {{total, number}} repositories",
     "organization": "Scan the organization",
-    "organization_count": "Scan the organization ({{total}})",
-    "repositories": "Scan {{total}} repositories",
-    "code": "Start code review",
-    "dast": "Launch dynamic tests",
-    "dast_unavailable": "The isolated DAST runner isn't available yet"
+    "organization_count": "Scan the organization ({{total, number}})",
+    "image": "Scan image",
+    "images": "Scan {{total, number}} images",
+    "web": "Start scan",
+    "schedule": "Schedule scan"
+  },
+  "org": {
+    "counting": "Counting repositories…",
+    "estimate_one": "<strong>{{count, number}}</strong> repository · estimated time {{duration}} (about 1 min per repository; it adjusts to how long they actually take).",
+    "estimate_other": "<strong>{{count, number}}</strong> repositories · estimated time {{duration}} (about 1 min per repository; it adjusts to how long they actually take).",
+    "dialog_title": "Scan the {{name}} organization",
+    "dialog_description": "All its repositories are scanned (except archived ones), one at a time and only when nothing else is scanning, so your own scans and PR reviews never wait. You can keep using the panel and cancel it whenever you like.",
+    "scan_one": "Scan {{count, number}} repository",
+    "scan_other": "Scan {{count, number}} repositories",
+    "scan_pending": "Scan repositories"
   },
   "batch": {
-    "last_one": "Last batch · {{label}}: {{count}} scanned{{failed}}{{cancelled}}{{critical}}.",
-    "last_other": "Last batch · {{label}}: {{count}} scanned{{failed}}{{cancelled}}{{critical}}.",
-    "failed_one": ", {{count}} failed", "failed_other": ", {{count}} failed",
+    "last_one": "Last batch · {{label}}: {{count, number}} scanned{{failed}}{{cancelled}}{{critical}}.",
+    "last_other": "Last batch · {{label}}: {{count, number}} scanned{{failed}}{{cancelled}}{{critical}}.",
+    "failed_one": ", {{count, number}} failed",
+    "failed_other": ", {{count, number}} failed",
     "cancelled": " · cancelled",
-    "critical_one": " · {{count}} critical", "critical_other": " · {{count}} critical",
+    "critical_one": " · {{count, number}} critical",
+    "critical_other": " · {{count, number}} critical",
     "cancel_title": "Cancel the batch?",
     "keep_running": "Keep scanning",
     "confirm_cancel": "Whatever is already scanned is kept, and the scan in progress finishes.",
     "running": "Batch in progress · {{label}}",
     "cancel": "Cancel batch",
-    "progress_label": "Batch: {{done}} of {{total}} scanned",
-    "progress": "{{done}} of {{total}} scanned{{failed}} · {{critical}} critical and {{high}} high so far · {{duration}} left. It moves forward whenever nothing else is scanning, so you can keep using the panel.",
-    "progress_failed_one": " ({{count}} failed)", "progress_failed_other": " ({{count}} failed)",
+    "progress_label": "Batch: {{done}} of {{total, number}} scanned",
+    "progress": "{{done}} of {{total, number}} scanned{{failed}} · {{critical}} critical and {{high}} high so far · {{duration}} left. It moves forward whenever nothing else is scanning, so you can keep using the panel.",
+    "progress_failed_one": " ({{count, number}} failed)",
+    "progress_failed_other": " ({{count, number}} failed)",
     "show_failed": "Show failed"
   },
   "import": {
@@ -188,8 +304,8 @@
     "file": {
       "label": "SARIF file",
       "hint": "(.sarif or .json, up to {{max}} MB)",
-      "summary_one": "{{name}} · {{size}} · {{tools}} · {{count}} result",
-      "summary_other": "{{name}} · {{size}} · {{tools}} · {{count}} results",
+      "summary_one": "{{name}} · {{size}} · {{tools}} · {{count, number}} result",
+      "summary_other": "{{name}} · {{size}} · {{tools}} · {{count, number}} results",
       "unknown_tool": "unnamed tool",
       "too_large": "{{name}} is {{size}}, over the {{max}} MB limit. Split it by tool or by module and import each part as partial.",
       "invalid_json": "{{name}} isn't valid JSON.",
@@ -197,26 +313,37 @@
     },
     "scope": {
       "label": "Scope",
-      "full": "Full", "full_hint": "Everything the tool checked in this asset: what it no longer reports is marked fixed",
-      "partial": "Partial", "partial_hint": "Only some files or one module: adds and updates, never marks anything fixed",
+      "full": "Full",
+      "full_hint": "Everything the tool checked in this asset: what it no longer reports is marked fixed",
+      "partial": "Partial",
+      "partial_hint": "Only some files or one module: adds and updates, never marks anything fixed",
       "note": "Pitangus scans never close imported findings, and imports never close theirs."
     },
     "more": "More options",
     "optional": "(optional)",
-    "tool": "Tool name", "tool_hint": "Replaces the name in the file.",
-    "commit": "Commit", "commit_invalid": "Use the commit SHA: 7 to 64 hexadecimal characters.",
-    "branch": "Branch", "branch_invalid": "That isn't a valid branch name.",
-    "submit": "Import findings", "submitting": "Importing…",
+    "tool": "Tool name",
+    "tool_hint": "Replaces the name in the file.",
+    "commit": "Commit",
+    "commit_invalid": "Use the commit SHA: 7 to 64 hexadecimal characters.",
+    "branch": "Branch",
+    "branch_invalid": "That isn't a valid branch name.",
+    "submit": "Import findings",
+    "submitting": "Importing…",
     "too_large": "The file is over the server's {{max}} MB limit.",
     "result": {
       "title": "Imported into {{name}}",
       "description_full": "One run per tool. Whatever each tool no longer reports is now marked fixed.",
       "description_partial": "One run per tool. Partial import: nothing was marked fixed.",
-      "findings_one": "{{count}} finding", "findings_other": "{{count}} findings",
-      "opened_one": "{{count}} new", "opened_other": "{{count}} new",
-      "fixed_one": "{{count}} fixed", "fixed_other": "{{count}} fixed",
-      "skipped_one": "{{count}} not imported (suppressed or passing)", "skipped_other": "{{count}} not imported (suppressed or passing)",
-      "open": "View findings", "open_label": "View findings from {{tool}}",
+      "findings_one": "{{count, number}} finding",
+      "findings_other": "{{count, number}} findings",
+      "opened_one": "{{count, number}} new",
+      "opened_other": "{{count, number}} new",
+      "fixed_one": "{{count, number}} fixed",
+      "fixed_other": "{{count, number}} fixed",
+      "skipped_one": "{{count, number}} not imported (suppressed or passing)",
+      "skipped_other": "{{count, number}} not imported (suppressed or passing)",
+      "open": "View findings",
+      "open_label": "View findings from {{tool}}",
       "another": "Import another file"
     }
   },
@@ -232,12 +359,27 @@
     "empty_title": "No scans yet",
     "empty_text": "Your scans will show up here. Run the first one on a repository or a container image.",
     "new": "New scan",
-    "columns": { "status": "Status", "analysis": "Scan", "type": "Type", "findings": "Findings", "started": "Started" },
-    "fallback": { "asset": "Asset", "repository": "Repository", "image": "Image", "pull_request": "Pull request", "analysis": "Scan" },
+    "columns": {
+      "status": "Status",
+      "analysis": "Scan",
+      "type": "Type",
+      "findings": "Findings",
+      "started": "Started"
+    },
+    "fallback": {
+      "asset": "Asset",
+      "repository": "Repository",
+      "image": "Image",
+      "pull_request": "Pull request",
+      "analysis": "Scan"
+    },
     "hint": {
-      "pr_review_one": "new in the PR", "pr_review_other": "new in the PR",
-      "advisory_watch_one": "new advisory", "advisory_watch_other": "new advisories",
-      "candidates_one": "candidate", "candidates_other": "candidates"
+      "pr_review_one": "new in the PR",
+      "pr_review_other": "new in the PR",
+      "advisory_watch_one": "new advisory",
+      "advisory_watch_other": "new advisories",
+      "candidates_one": "candidate",
+      "candidates_other": "candidates"
     },
     "trigger_branch": "· automatic: the branch changed",
     "trigger_branch_sha": "· automatic: the branch changed ({{sha}})",
@@ -245,9 +387,19 @@
     "trigger_advisories": "· automatic: published after the last scan",
     "trigger_import": "· from {{tool}}",
     "trigger_import_partial": "· from {{tool}}, partial",
-    "severity_letter": { "critical": "C", "high": "H", "medium": "M", "low": "L" },
-    "severity_count": "{{severity}}: {{value}}",
-    "noun": "scans"
+    "severity_badge": {
+      "critical_one": "{{count, number}} critical",
+      "critical_other": "{{count, number}} critical",
+      "high_one": "{{count, number}} high",
+      "high_other": "{{count, number}} high",
+      "medium_one": "{{count, number}} medium",
+      "medium_other": "{{count, number}} medium",
+      "low_one": "{{count, number}} low",
+      "low_other": "{{count, number}} low"
+    },
+    "noun": "scans",
+    "findings_pending": "analyzing…",
+    "findings_none_failed": "No result: the run failed"
   },
   "progress": {
     "scan": "scan",

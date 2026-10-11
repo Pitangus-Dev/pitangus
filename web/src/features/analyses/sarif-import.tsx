@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, CircleCheck, FileUp, LoaderCircle, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeftIcon, CheckCircleIcon, CircleNotchIcon, SlidersHorizontalIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import { apiPost, type PostBody } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/http'
 import { keys } from '@/shared/api/queries'
@@ -86,7 +86,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
     onAnother={() => { mutation.reset(); setPicked(null) }} onBack={onBack} />
 
   return <div className="space-y-6">
-    <Button variant="ghost" onClick={onBack}><ArrowLeft /> {t('wizard.back_to_types')}</Button>
+    <Button variant="ghost" onClick={onBack}><ArrowLeftIcon /> {t('wizard.back_to_types')}</Button>
     <Card className="border-app-line bg-panel"><CardHeader><CardTitle>{t('import.title')}</CardTitle><CardDescription>{t('import.description')}</CardDescription></CardHeader><CardContent className="space-y-5">
       <div className="max-w-xl space-y-1.5"><span aria-hidden className="text-sm text-app-secondary">{t('import.asset')}</span>
         <AssetPicker value={asset} onChange={setAsset} onLoaded={loaded} label={t('import.asset')} placeholder={t('findings:page.asset_placeholder')} />
@@ -97,7 +97,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
         <label htmlFor={`${id}-file`} className="text-sm text-app-secondary">{t('import.file.label')} <span className="text-app-subtle">{t('import.file.hint', { max: MAX_MB })}</span></label>
         <input id={`${id}-file`} type="file" accept=".sarif,.json,application/json,application/sarif+json" aria-invalid={!!fileError} aria-describedby={`${id}-file-help`}
           onChange={event => void read(event.target.files?.[0])}
-          className="block w-full max-w-xl rounded-xl border border-app-line bg-app-soft p-2 text-sm text-app-secondary file:mr-3 file:min-h-6 file:rounded-lg file:border-0 file:bg-brand/15 file:px-3 file:py-1 file:text-sm file:font-medium file:text-brand" />
+          className="block w-full max-w-xl rounded-xl border border-input bg-card p-2 text-sm text-app-secondary file:mr-3 file:min-h-6 file:rounded-lg file:border file:border-app-line file:bg-panel file:px-3 file:py-1 file:text-sm file:font-medium file:text-app-fg" />
         <div id={`${id}-file-help`}>
           {fileError ? <p role="alert" className="text-xs text-danger">{fileError}</p>
             : reading ? <p role="status" className="text-xs text-app-muted">{t('common:state.loading')}</p>
@@ -110,7 +110,7 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
         <span id={`${id}-scope`} className="text-sm text-app-secondary">{t('import.scope.label')}</span>
         <div role="radiogroup" aria-labelledby={`${id}-scope`} className="grid gap-2 sm:grid-cols-2">
           {([['full', t('import.scope.full'), t('import.scope.full_hint')], ['partial', t('import.scope.partial'), t('import.scope.partial_hint')]] as const).map(([value, title, hint]) =>
-            <label key={value} className={`flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3 text-sm ${scope === value ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-inset'}`}>
+            <label key={value} className={`flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3 text-sm ${scope === value ? 'border-app-fg bg-app-soft' : 'border-app-line bg-inset'}`}>
               <span className="flex items-center gap-2"><input type="radio" name={`${id}-scope`} value={value} checked={scope === value} onChange={() => setScope(value)} className="size-4 accent-brand" /><span className="font-medium">{title}</span></span>
               <span className="pl-6 text-xs text-app-muted">{hint}</span></label>)}
         </div>
@@ -118,16 +118,16 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
       </div>
 
       <div className="space-y-3">
-        <Button type="button" size="sm" variant="outline" aria-expanded={more} aria-controls={`${id}-more`} onClick={() => setMore(!more)} className="w-fit border-app-line bg-app-soft"><SlidersHorizontal />{t('import.more')}</Button>
+        <Button type="button" size="sm" variant="outline" aria-expanded={more} aria-controls={`${id}-more`} onClick={() => setMore(!more)} className="w-fit border-input bg-card"><SlidersHorizontalIcon />{t('import.more')}</Button>
         {more && <div id={`${id}-more`} className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1"><label htmlFor={`${id}-tool`} className="text-xs text-app-secondary">{t('import.tool')} <span className="text-app-subtle">{t('import.optional')}</span></label>
-            <Input id={`${id}-tool`} value={tool} maxLength={100} onChange={event => setTool(event.target.value)} placeholder={picked?.tools[0] ?? ''} className="border-app-line bg-app-soft" />
+            <Input id={`${id}-tool`} value={tool} maxLength={100} onChange={event => setTool(event.target.value)} placeholder={picked?.tools[0] ?? ''} className="border-input bg-card" />
             <p className="text-[11px] text-app-subtle">{t('import.tool_hint')}</p></div>
           <div className="space-y-1"><label htmlFor={`${id}-commit`} className="text-xs text-app-secondary">{t('import.commit')} <span className="text-app-subtle">{t('import.optional')}</span></label>
-            <Input id={`${id}-commit`} value={commit} maxLength={64} spellCheck={false} autoComplete="off" aria-invalid={commitInvalid} aria-describedby={commitInvalid ? `${id}-commit-error` : undefined} onChange={event => setCommit(event.target.value)} className="border-app-line bg-app-soft font-mono" />
+            <Input id={`${id}-commit`} value={commit} maxLength={64} spellCheck={false} autoComplete="off" aria-invalid={commitInvalid} aria-describedby={commitInvalid ? `${id}-commit-error` : undefined} onChange={event => setCommit(event.target.value)} className="border-input bg-card font-mono" />
             {commitInvalid && <p id={`${id}-commit-error`} className="text-[11px] text-danger">{t('import.commit_invalid')}</p>}</div>
           <div className="space-y-1"><label htmlFor={`${id}-branch`} className="text-xs text-app-secondary">{t('import.branch')} <span className="text-app-subtle">{t('import.optional')}</span></label>
-            <Input id={`${id}-branch`} value={branch} maxLength={200} spellCheck={false} autoComplete="off" aria-invalid={branchInvalid} aria-describedby={branchInvalid ? `${id}-branch-error` : undefined} onChange={event => setBranch(event.target.value)} className="border-app-line bg-app-soft font-mono" />
+            <Input id={`${id}-branch`} value={branch} maxLength={200} spellCheck={false} autoComplete="off" aria-invalid={branchInvalid} aria-describedby={branchInvalid ? `${id}-branch-error` : undefined} onChange={event => setBranch(event.target.value)} className="border-input bg-card font-mono" />
             {branchInvalid && <p id={`${id}-branch-error`} className="text-[11px] text-danger">{t('import.branch_invalid')}</p>}</div>
         </div>}
       </div>
@@ -136,8 +136,8 @@ export function SarifImport({ onOpenRun, onBack }: { onOpenRun: (id: string) => 
     </CardContent></Card>
 
     <div className="flex items-center justify-between gap-3 border-t border-app-line pt-5">
-      <Button variant="ghost" onClick={onBack}><ArrowLeft /> {t('wizard.back')}</Button>
-      <Button onClick={submit} disabled={!ready} className="bg-primary text-primary-foreground hover:bg-primary/90">{mutation.isPending ? <LoaderCircle className="motion-safe:animate-spin" /> : <FileUp />}{mutation.isPending ? t('import.submitting') : t('import.submit')}</Button>
+      <Button variant="ghost" onClick={onBack}><ArrowLeftIcon /> {t('wizard.back')}</Button>
+      <Button onClick={submit} disabled={!ready}>{mutation.isPending ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <UploadSimpleIcon />}{mutation.isPending ? t('import.submitting') : t('import.submit')}</Button>
     </div>
   </div>
 }
@@ -149,16 +149,16 @@ function ImportResult({ result, scope, onOpenRun, onAnother, onBack }: { result:
   useEffect(() => { title.current?.focus() }, [])
   const single = result.runs.length === 1
   return <div className="space-y-6">
-    <Card className="border-app-line bg-panel"><CardHeader><CardTitle ref={title} tabIndex={-1} className="flex items-center gap-2"><CircleCheck className="size-5 text-success" />{t('import.result.title', { name: result.name })}</CardTitle><CardDescription>{scope === 'full' ? t('import.result.description_full') : t('import.result.description_partial')}</CardDescription></CardHeader>
+    <Card className="border-app-line bg-panel"><CardHeader><CardTitle ref={title} tabIndex={-1} className="flex items-center gap-2"><CheckCircleIcon className="size-5 text-success" />{t('import.result.title', { name: result.name })}</CardTitle><CardDescription>{scope === 'full' ? t('import.result.description_full') : t('import.result.description_partial')}</CardDescription></CardHeader>
       <CardContent><ul className="space-y-2">{result.runs.map(run => <li key={run.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-app-line bg-inset p-3">
         <span className="min-w-0"><span className="block truncate text-sm font-medium">{run.tool}{run.version ? <span className="font-normal text-app-subtle"> {run.version}</span> : null}</span>
           <span className="text-xs text-app-muted">{[t('import.result.findings', { count: run.findings }), t('import.result.opened', { count: run.opened }),
             ...(run.scope === 'full' ? [t('import.result.fixed', { count: run.fixed })] : []), ...(run.skipped ? [t('import.result.skipped', { count: run.skipped })] : [])].join(' · ')}</span></span>
-        <Button variant={single ? 'default' : 'outline'} size="sm" aria-label={t('import.result.open_label', { tool: run.tool })} onClick={() => void onOpenRun(run.id)} className={single ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border-app-line bg-panel'}>{t('import.result.open')} <ArrowRight /></Button>
+        <Button variant={single ? 'default' : 'outline'} size="sm" aria-label={t('import.result.open_label', { tool: run.tool })} onClick={() => void onOpenRun(run.id)}>{t('import.result.open')}</Button>
       </li>)}</ul></CardContent></Card>
     <div className="flex items-center justify-between gap-3 border-t border-app-line pt-5">
-      <Button variant="ghost" onClick={onBack}><ArrowLeft /> {t('wizard.back_to_types')}</Button>
-      <Button variant="outline" onClick={onAnother} className="border-app-line bg-app-soft"><FileUp />{t('import.result.another')}</Button>
+      <Button variant="ghost" onClick={onBack}><ArrowLeftIcon /> {t('wizard.back_to_types')}</Button>
+      <Button variant="outline" onClick={onAnother}><UploadSimpleIcon />{t('import.result.another')}</Button>
     </div>
   </div>
 }

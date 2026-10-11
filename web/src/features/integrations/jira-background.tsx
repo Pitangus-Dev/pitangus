@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, LoaderCircle, Ticket } from 'lucide-react'
+import { ArrowSquareOutIcon, CircleNotchIcon, TicketIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/shared/ui/popover'
 import { assetQuery, jiraBatchesQuery, keys, type JiraQueued } from '@/shared/api/queries'
 import { formatDate } from '@/shared/i18n/format'
 import { queueJira, toAnnounce, useJiraSettled } from '@/features/integrations/jira-batches'
 import { byAsset } from '@/shared/lib/selection'
+import { Notice } from '@/shared/ui/notice'
 
 type Notice = (tone: 'ok' | 'error', text: string) => void
 const doneOf = (batch: JiraQueued) => batch.created + batch.existing + batch.skipped + batch.failed
@@ -49,8 +50,8 @@ export function JiraBackgroundWork({ onNotice }: { onNotice: Notice }) {
   // Not a live region: it changes on every poll; the toasts announce the start and the end once.
   return <div className="flex">
     <Popover>
-      <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={label} className="gap-1.5 border-app-line bg-app-soft text-app-secondary" />}>
-        {running.length ? <Ring value={total ? done / total : 0} /> : <Ticket className="size-3.5" />}
+      <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={label} className="gap-1.5 text-app-secondary" />}>
+        {running.length ? <Ring value={total ? done / total : 0} /> : <TicketIcon className="size-3.5" />}
         <span className="hidden tabular-nums sm:inline">{running.length ? t('jira.background.chip', { done, total }) : 'Jira'}</span>
       </PopoverTrigger>
       <PopoverContent>
@@ -66,7 +67,7 @@ function Ring({ value }: { value: number }) {
   const circumference = 2 * Math.PI * 6
   return <svg aria-hidden viewBox="0 0 16 16" className="size-4 -rotate-90">
     <circle cx="8" cy="8" r="6" fill="none" strokeWidth="2.5" className="stroke-app-line" />
-    <circle cx="8" cy="8" r="6" fill="none" strokeWidth="2.5" strokeLinecap="round" className="stroke-brand motion-safe:transition-all"
+    <circle cx="8" cy="8" r="6" fill="none" strokeWidth="2.5" strokeLinecap="round" className="stroke-info motion-safe:transition-all"
       strokeDasharray={circumference} strokeDashoffset={circumference * (1 - Math.min(1, Math.max(0, value)))} />
   </svg>
 }
@@ -93,12 +94,12 @@ export function BatchDetail({ batch }: { batch: JiraQueued }) {
     <p className="text-sm font-medium">{batch.pending > 0 ? t('jira.queue.progress', { done, total: batch.queued, pending: batch.pending, count: batch.pending })
       : t('jira.background.batch_done', { created: batch.created, count: batch.queued })}</p>
     <div role="progressbar" aria-label={t('jira.queue.progress_label')} aria-valuemin={0} aria-valuemax={Math.max(batch.queued, 1)} aria-valuenow={done} className="h-1.5 overflow-hidden rounded-full bg-app-soft">
-      <div className="h-full bg-brand motion-safe:transition-all" style={{ width: `${batch.queued ? Math.round(done / batch.queued * 100) : 100}%` }} /></div>
+      <div className="h-full bg-info motion-safe:transition-all" style={{ width: `${batch.queued ? Math.round(done / batch.queued * 100) : 100}%` }} /></div>
     <p className="text-app-muted">{[t('jira.queue.findings', { count: batch.findings }), t('jira.export.created', { count: batch.created }), t('jira.export.existing', { count: batch.existing }),
       ...(batch.skipped ? [t('jira.queue.skipped', { count: batch.skipped })] : []), ...(batch.force ? [t('jira.background.forced')] : []),
       batch.finished_at ? t('jira.background.finished_at', { date: formatDate(batch.finished_at) }) : t('jira.background.started_at', { date: formatDate(batch.started_at) })].join(' · ')}</p>
     {batch.failed > 0 && <p className="text-danger">{t('jira.queue.failed', { count: batch.failed })}{batch.last_error ? ` ${t('jira.queue.last_error', { error: batch.last_error })}` : ''}</p>}
-    {batch.rejected?.length ? <details><summary className="min-h-6 cursor-pointer py-1 text-warning">{t('jira.queue.rejected', { count: batch.rejected.length })}</summary>
+    {batch.rejected?.length ? <details><summary className="min-h-6 cursor-pointer py-1 text-attention">{t('jira.queue.rejected', { count: batch.rejected.length })}</summary>
       <ul className="space-y-0.5">{byAsset(batch.rejected).map(group => <li key={group.asset} className="text-app-muted">
         <AssetLabel assetKey={group.asset ?? ''} /> · {t('jira.queue.findings', { count: group.fingerprints.length })} · {batch.rejected?.find(item => item.asset === group.asset)?.error}</li>)}</ul></details> : null}
     {batch.linked > 0 && <div className="space-y-1.5">
@@ -106,7 +107,7 @@ export function BatchDetail({ batch }: { batch: JiraQueued }) {
         {linked.length > 0 && !forced && <Button size="xs" variant="ghost" aria-expanded={review} onClick={() => setReview(!review)}>{t('jira.background.review')}</Button>}</p>
       {review && !forced && <>
         <ul aria-label={t('jira.background.linked_list')} className="max-h-40 space-y-0.5 overflow-y-auto">{linked.map(item => <li key={item.fingerprint}>
-          {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 font-mono text-brand hover:underline">{item.key}<ExternalLink className="size-3" /></a> : <span className="font-mono">{item.key}</span>}</li>)}</ul>
+          {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 font-mono text-brand underline underline-offset-2">{item.key}<ArrowSquareOutIcon className="size-3" /></a> : <span className="font-mono">{item.key}</span>}</li>)}</ul>
         <ForceConfirm count={linked.length} confirming={confirming} busy={busy} onAsk={() => setConfirming(true)} onCancel={() => setConfirming(false)} onConfirm={() => void force()} />
       </>}
       {forced && <p ref={queuedNote} tabIndex={-1} role="status" className="text-app-muted">{t('jira.background.force_queued', { count: linked.length })}</p>}
@@ -118,12 +119,12 @@ export function BatchDetail({ batch }: { batch: JiraQueued }) {
 // "Create anyway" is never the default: it asks first, and says what happens to the issue already linked.
 export function ForceConfirm({ count, confirming, busy, onAsk, onCancel, onConfirm }: { count: number; confirming: boolean; busy: boolean; onAsk: () => void; onCancel: () => void; onConfirm: () => void }) {
   const { t } = useTranslation('integrations')
-  if (!confirming) return <Button size="xs" variant="outline" className="border-app-line bg-app-soft" onClick={onAsk}>{t('jira.force.action', { count })}</Button>
-  return <div role="group" aria-label={t('jira.force.title')} className="space-y-2 rounded-lg border border-warning-line bg-warning-soft p-2.5 text-xs">
-    <p className="text-app-fg">{t('jira.force.explain', { count })}</p>
-    <div className="flex flex-wrap justify-end gap-2"><Button size="xs" variant="ghost" autoFocus onClick={onCancel}>{t('common:actions.cancel')}</Button>
-      <Button size="xs" disabled={busy} onClick={onConfirm}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('jira.force.confirm', { count })}</Button></div>
-  </div>
+  if (!confirming) return <Button size="xs" variant="outline" onClick={onAsk}>{t('jira.force.action', { count })}</Button>
+  return <div role="group" aria-label={t('jira.force.title')}><Notice tone="attention" className="text-xs">
+    <p>{t('jira.force.explain', { count })}</p>
+    <div className="mt-2 flex flex-wrap justify-end gap-2"><Button size="xs" variant="ghost" autoFocus onClick={onCancel}>{t('common:actions.cancel')}</Button>
+      <Button size="xs" disabled={busy} onClick={onConfirm}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.force.confirm', { count })}</Button></div>
+  </Notice></div>
 }
 
 function AssetLabel({ assetKey }: { assetKey: string }) {

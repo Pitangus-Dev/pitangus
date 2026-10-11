@@ -3,7 +3,7 @@
   "splash": "Loading {{name}}",
   "loading": "Loading",
   "pagination": {
-    "showing": "Showing {{from}}–{{to}} of {{total}} {{noun}}",
+    "showing": "Showing {{from}}–{{to}} of {{total, number}} {{noun}}",
     "items": "items",
     "previous": "Previous page",
     "next": "Next page"
@@ -17,7 +17,7 @@
     "placeholder": "Type to search…",
     "more": "{{remaining}} more: keep typing to narrow it down",
     "error": "Couldn't search: try again",
-    "min_chars_one": "Type at least {{count}} character",
-    "min_chars_other": "Type at least {{count}} characters"
+    "min_chars_one": "Type at least {{count, number}} character",
+    "min_chars_other": "Type at least {{count, number}} characters"
   }
 }

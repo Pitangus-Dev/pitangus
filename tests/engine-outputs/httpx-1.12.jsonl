@@ -1,0 +1,2 @@
+{"url": "https://pitangus.dev/", "input": "https://pitangus.dev/", "host": "pitangus.dev", "port": "443", "scheme": "https", "webserver": "cloudflare", "tech": ["Cloudflare", "Cloudflare Browser Insights", "HSTS", "HTTP/3"], "status_code": 200, "cdn": true, "cdn_name": "cloudflare"}
+{"url": "https://edge.pitangus.test/", "input": "https://edge.pitangus.test/", "host": "edge.pitangus.test", "port": "443", "scheme": "https", "webserver": "nginx/1.27.5", "tech": ["Nginx:1.27.5"], "status_code": 200}

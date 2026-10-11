@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 export type SelectOption = { value: string; label: string; lang?: string; disabled?: boolean }
 export type SelectOptionGroup = { label: string; options: SelectOption[] }
 
-export const selectPopup = "border border-app-line bg-panel p-1 text-app-fg shadow-xl"
+export const selectPopup = "border border-app-line bg-panel p-1 text-app-fg shadow-md"
 
 type SelectFieldProps = {
   value: string
@@ -37,7 +37,7 @@ export function SelectField({ value, onValueChange, options = [], groups = [], p
       onValueChange(next == null ? "" : String(next))
     }} disabled={disabled} required={required}>
       <SelectTrigger id={id} title={title} size={size} {...aria}
-        className={cn("w-full min-w-0 border-app-line bg-app-soft text-app-fg", className)}>
+        className={cn("w-full min-w-0 border-input bg-card text-app-fg", className)}>
         <SelectValue placeholder={placeholder} className="min-w-0 truncate" />
       </SelectTrigger>
       <SelectContent align={align} className={selectPopup}>

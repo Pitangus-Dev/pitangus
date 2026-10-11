@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Eye, KeyRound, Pencil } from 'lucide-react'
+import { EyeIcon, KeyIcon, PencilSimpleIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { apiPost } from '@/shared/api/client'
 import { keys, secretRulesQuery } from '@/shared/api/queries'
@@ -20,9 +20,9 @@ export function SecretDefaultsRow({ canEdit }: { canEdit: boolean }) {
   const [notice, setNotice] = useState('')
   const counts = config ? secretCounts(config) : null
   return <>
-    <PolicyRow icon={KeyRound} title={t('secrets.title')} summary={counts && (entryCount(counts) ? secretSummary(tf, counts) : t('secrets.engine_defaults'))}
+    <PolicyRow icon={KeyIcon} title={t('secrets.title')} summary={counts && (entryCount(counts) ? secretSummary(tf, counts) : t('secrets.engine_defaults'))}
       notice={notice} state={config ? 'ready' : query.isError ? 'error' : 'loading'} onRetry={() => void query.refetch()}
-      action={<Button size="sm" variant="outline" onClick={() => { setNotice(''); setOpen(true) }}>{canEdit ? <><Pencil />{t('common:actions.edit')}</> : <><Eye />{t('secrets.view')}</>}</Button>} />
+      action={<Button size="sm" variant="outline" onClick={() => { setNotice(''); setOpen(true) }}>{canEdit ? <><PencilSimpleIcon />{t('common:actions.edit')}</> : <><EyeIcon />{t('secrets.view')}</>}</Button>} />
     {config && <SecretRulesDialog open={open} onOpenChange={setOpen} title={t('secrets.title')} description={tf('secret_rules.dialog_help')} config={config} canEdit={canEdit}
       save={body => apiPost('/api/secrets/config', 'save-secret-rules', body)}
       onSaved={saved => {

@@ -1,17 +1,17 @@
 import type { ReactNode } from 'react'
-import { Hammer } from 'lucide-react'
+import { HammerIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 
 // Una función que se verá pronto pero que hoy no da resultados: siempre con la misma marca y en gris.
 export function SoonBadge({ className = '' }: { className?: string }) {
   const { t } = useTranslation('ui')
-  return <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-app-faint/60 px-2 py-0.5 text-[11px] font-medium tracking-wide text-app-subtle uppercase ${className}`}>
-    <Hammer className="size-3" />{t('soon.badge')}
+  return <span className={`inline-flex shrink-0 items-center gap-1 rounded-sm border border-dashed border-app-faint/60 px-1.5 py-0.5 text-xs text-app-subtle ${className}`}>
+    <HammerIcon className="size-3" />{t('soon.badge')}
   </span>
 }
 
 export function ComingSoonCard({ title, icon, description, plan, children }: { title: string; icon?: ReactNode; description: string; plan?: string[]; children?: ReactNode }) {
-  return <div className="rounded-xl border border-dashed border-app-line bg-inset/40 p-5 text-app-subtle">
+  return <div className="rounded-lg border border-dashed border-app-line p-5 text-app-subtle">
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-3 opacity-70">{icon}<h3 className="font-semibold text-app-muted">{title}</h3></div>
       <SoonBadge />
@@ -25,7 +25,7 @@ export function ComingSoonCard({ title, icon, description, plan, children }: { t
 export function ComingSoonPage({ title, description, plan }: { title: string; description: string; plan: string[] }) {
   const { t } = useTranslation('ui')
   return <div className="mx-auto max-w-2xl py-6">
-    <ComingSoonCard title={title} description={description} plan={plan} icon={<Hammer className="size-5" />}>
+    <ComingSoonCard title={title} description={description} plan={plan} icon={<HammerIcon className="size-5" />}>
       <p className="mt-4 text-xs opacity-70">{t('soon.page_note')}</p>
     </ComingSoonCard>
   </div>

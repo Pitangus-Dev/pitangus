@@ -27,6 +27,14 @@ class Open(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class GuidanceLink(BaseModel):
+    """An OWASP page about a finding (`modules/findings/references.py`): a cheat sheet, its Top 10 category, an API
+    Security Top 10 risk or a Web Security Testing Guide test."""
+    title: str
+    url: str
+    kind: str  # cheatsheet · top10 · api_top10 · wstg
+
+
 class FindingOut(Open):
     """A finding as served: messages rendered in the reader's language, with its triage, fix and lifecycle."""
     finding_id: str
@@ -53,6 +61,7 @@ class FindingOut(Open):
     lifecycle: dict[str, Any] | None = None
     ticket: dict[str, Any] | None = None
     verification: dict[str, Any] | None = None
+    guidance: list[GuidanceLink] | None = Field(None, max_length=20)
 
 
 class FindingKpis(BaseModel):

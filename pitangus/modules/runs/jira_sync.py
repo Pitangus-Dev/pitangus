@@ -140,7 +140,8 @@ def values(group: list[dict], findings: dict, *, key: str, asset: str, first_see
                    else t("integrations.jira.issue.package_summary_unfixed", locale, **names))
     else:
         title = text(finding.get("title"), locale)
-        where = f"{finding.get('path')}:{finding['line']}" if isinstance(finding.get("line"), int) and finding.get("line") else finding.get("path")
+        where = f"{finding.get('path')}:{finding['line']}" if isinstance(finding.get("line"), int) and finding.get("line") \
+            and finding.get("scanner") != "dast" else finding.get("path")
         summary = t("integrations.jira.issue.summary", locale, severity=severity_label(severity, locale), title=title, where=where or "?") \
             if where else t("integrations.jira.issue.summary_nowhere", locale, severity=severity_label(severity, locale), title=title)
     written = brief(group, findings, asset=asset, source=source, first_seen=first_seen, days=days,

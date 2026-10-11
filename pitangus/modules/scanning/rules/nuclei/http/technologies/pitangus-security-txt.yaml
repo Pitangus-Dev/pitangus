@@ -1,0 +1,36 @@
+id: pitangus-security-txt
+
+info:
+  name: security.txt
+  author: pitangus
+  severity: info
+  description: |
+    The site publishes a security.txt (RFC 9116) with a contact for reporting vulnerabilities: good practice, shown
+    with the domain's technologies rather than as a finding.
+  reference:
+    - https://www.rfc-editor.org/rfc/rfc9116
+    - https://cheatsheetseries.owasp.org/cheatsheets/Vulnerability_Disclosure_Cheat_Sheet.html
+  metadata:
+    max-request: 2
+  tags: tech,discovery,pitangus
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.well-known/security.txt"
+      - "{{BaseURL}}/security.txt"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - '(?mi)^Contact:\s*\S+'
+      - type: word
+        part: body
+        negative: true
+        words:
+          - "<html"
+          - "<HTML"
+          - "<!DOCTYPE"
+          - "<!doctype"

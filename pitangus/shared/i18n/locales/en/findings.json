@@ -3,11 +3,13 @@
     "commands": {
       "update": "Update",
       "reinstall": "Reinstall",
-      "install": "Install"
+      "install": "Install",
+      "check": "Check the response headers"
     },
-    "verify": "Then push the change to the main branch and click “Re-verify” (or wait for the branch's automatic analysis).",
-    "verify_dependency": "Then regenerate the lockfile, push the change to the main branch and click “Re-verify” (or wait for the branch's automatic analysis).",
-    "verify_image": "Then rebuild and push the image with the same tag and click “Re-verify”.",
+    "verify": "Then push the change to the main branch and click “Reverify” (or wait for the branch's automatic analysis).",
+    "verify_dependency": "Then regenerate the lockfile, push the change to the main branch and click “Reverify” (or wait for the branch's automatic analysis).",
+    "verify_image": "Then rebuild and push the image with the same tag and click “Reverify”.",
+    "verify_web": "Then deploy the fix and scan the domain again: click “Reverify”, or import a new report if the finding came from your own scanner.",
     "no_fix": {
       "none_published": "No fixed version of {{package}} has been published.",
       "check_usage": "Check whether your code uses the vulnerable part (the advisory usually names the function or format).",
@@ -35,7 +37,7 @@
       "vault": "Move it to a secrets manager or an environment variable and read it from there.",
       "remove": "Remove it from {{path}} and commit.",
       "history": "If the repository is or was public, consider rewriting the history (git filter-repo); rotating is what protects you.",
-      "verify": "Then click “Re-verify”."
+      "verify": "Then click “Reverify”."
     }
   },
   "fix_examples": {
@@ -123,6 +125,15 @@
       "low_other": "{{count}} low",
       "info_one": "{{count}} informational",
       "info_other": "{{count}} informational"
+    }
+  },
+  "web": {
+    "factor": {
+      "header": "It's in the response headers: it applies to everyone who opens this URL, and often to the whole site",
+      "cookie": "It's in how the response sets the cookie: every browser that opens this URL gets it that way",
+      "info": "Informational: it describes the site, it isn't a weakness on its own",
+      "attack": "The scanner reproduced it with a request it crafted",
+      "observed": "Seen in a live response of the site: confirm its impact against the application"
     }
   }
 }

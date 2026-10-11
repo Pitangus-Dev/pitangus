@@ -66,6 +66,23 @@ describe('one asset\'s findings', () => {
     expect(calls.filter(states)).toHaveLength(1)
   })
 
+  it('shows a repository its file settings, and a domain neither those nor an empty run coverage', async () => {
+    const SITE = { ...asset('domain:pitangus.dev', 'pitangus.dev'), provider: 'domain' }
+    serve(call => call.path === '/api/assets?key=domain%3Apitangus.dev&limit=1' ? { body: { items: [SITE], total: 1 } }
+      : call.path === '/api/assets/state?key=domain%3Apitangus.dev&status=open' ? { body: detail('state:domain:pitangus.dev', SITE, 'missing CSP') }
+      : assets(call) ?? (call.path === '/api/assets/state?key=github%232&status=open' ? { body: detail('state:github#2', WEB, 'eval in web') } : undefined))
+    window.location.hash = '#/findings?repo=domain%3Apitangus.dev'
+    const view = page()
+    expect(await screen.findByText('missing CSP')).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: tf('repo_settings.title') })).toBeNull()
+    expect(screen.queryByText(tf('coverage.title'))).toBeNull()  // the state joins runs: it has no steps of its own
+    view.unmount()
+    window.location.hash = '#/findings?repo=github%232'
+    page()
+    expect(await screen.findByText('eval in web')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: tf('repo_settings.title') })).toBeTruthy()
+  })
+
   it('says there is nothing yet when no asset was analyzed', async () => {
     serve(call => call.path === '/api/assets?limit=1' ? { body: { items: [], total: 0 } } : undefined)
     page()

@@ -1,4 +1,4 @@
-// Brand in one place: name and links. The tagline lives in the `nav` catalog (`nav:tagline`).
+// Brand in one place: name and links.
 export const BRAND = {
   name: 'Pitangus',
   repo: 'https://github.com/Pitangus-Dev/pitangus',

@@ -1,7 +1,7 @@
 import { useCallback, useId, useState, type FormEvent, type RefObject } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle } from 'lucide-react'
+import { CircleNotchIcon } from '@phosphor-icons/react'
 import { apiPost, type PostResponse } from '@/shared/api/client'
 import { evidenceAssetsQuery, keys } from '@/shared/api/queries'
 import { Button } from '@/shared/ui/button'
@@ -59,7 +59,7 @@ export function AddImageDialog({ open, onOpenChange, admin, repository, onAdded,
         <label htmlFor={`${id}-reference`} className="text-sm text-app-secondary">{t('images.add.reference')}</label>
         <Input id={`${id}-reference`} required autoFocus value={reference} maxLength={300} spellCheck={false} autoComplete="off"
           onChange={event => setReference(event.target.value)} placeholder={t('images.add.reference_placeholder')} aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error ${id}-hint` : `${id}-hint`} className="border-app-line bg-app-soft font-mono" />
+          aria-describedby={error ? `${id}-error ${id}-hint` : `${id}-hint`} className="border-input bg-card font-mono" />
         <p id={`${id}-hint`} className="text-xs text-app-muted">{t('images.add.reference_hint')}</p>
       </div>
       {admin && <div className="space-y-2">
@@ -81,7 +81,7 @@ export function AddImageDialog({ open, onOpenChange, admin, repository, onAdded,
       {error && <p id={`${id}-error`} role="alert" className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger">{error}</p>}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t('common:actions.cancel')}</Button>
-        <Button type="submit" disabled={mutation.isPending || !reference.trim()}>{mutation.isPending && <LoaderCircle className="motion-safe:animate-spin" aria-hidden />}{t('images.add.submit')}</Button>
+        <Button type="submit" disabled={mutation.isPending || !reference.trim()}>{mutation.isPending && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('images.add.submit')}</Button>
       </DialogFooter>
     </form>
   </DialogContent></Dialog>

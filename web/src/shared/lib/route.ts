@@ -3,7 +3,7 @@
 // doesn't start with "/" and isn't touched here.
 const SLUGS: Record<string, string> = {
   overview: 'overview', analyses: 'analyses', new: 'new', findings: 'findings', coverage: 'coverage', threats: 'threats',
-  repositories: 'repositories', images: 'images', pulls: 'pull-requests', domains: 'domains', integrations: 'integrations',
+  repositories: 'repositories', images: 'images', pulls: 'pull-requests', domains: 'domains', domain: 'domain', integrations: 'integrations',
   users: 'users', account: 'account', cves: 'cve-tracker', compliance: 'compliance', policies: 'policies',
 }
 // The Spanish paths of earlier versions: links already sent (Jira issues, notifications, bookmarks) keep working and

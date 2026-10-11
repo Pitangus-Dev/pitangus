@@ -54,8 +54,8 @@
   },
   "link_dialog": {
     "title": "Enlace para @{{username}}",
-    "description_one": "Sirve una sola vez y caduca en {{count}} hora. No se volverá a mostrar: si se pierde, genera otro (el anterior deja de valer).",
-    "description_other": "Sirve una sola vez y caduca en {{count}} horas. No se volverá a mostrar: si se pierde, genera otro (el anterior deja de valer).",
+    "description_one": "Sirve una sola vez y caduca en {{count, number}} hora. No se volverá a mostrar: si se pierde, genera otro (el anterior deja de valer).",
+    "description_other": "Sirve una sola vez y caduca en {{count, number}} horas. No se volverá a mostrar: si se pierde, genera otro (el anterior deja de valer).",
     "copy": "Copiar enlace",
     "copied_to_clipboard": "Copiado al portapapeles",
     "done": "Hecho"

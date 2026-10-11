@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { Check, ChevronsUpDown, LoaderCircle, Search } from 'lucide-react'
+import { CaretUpDownIcon, CheckIcon, CircleNotchIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 
 export type ComboOption = { id: string; label: string; hint?: string; badge?: ReactNode }
@@ -59,18 +59,18 @@ export function Combobox({ value, placeholder, search, onSelect, label, emptyTex
 
   return <div ref={box} className={`relative ${className}`}>
     {!open ? <button ref={trigger} type="button" aria-label={`${label}: ${value?.label ?? placeholder}`} aria-haspopup="listbox" aria-invalid={invalid || undefined} aria-describedby={describedBy} onClick={() => { setOpen(true); window.setTimeout(() => input.current?.focus(), 0) }}
-      className="flex h-9 w-full items-center gap-2 rounded-lg border border-app-line bg-app-soft px-3 text-left text-sm hover:border-brand/40">
+      className="flex h-9 w-full items-center gap-2 rounded-lg border border-input bg-card px-3 text-left text-sm hover:border-app-faint">
       <span className={`min-w-0 flex-1 truncate ${value ? '' : 'text-app-subtle'}`}>{value?.label ?? placeholder}</span>
       {value?.hint && <span className="hidden shrink-0 text-xs text-app-subtle sm:inline">{value.hint}</span>}
-      <ChevronsUpDown className="size-3.5 shrink-0 text-app-subtle" />
+      <CaretUpDownIcon className="size-3.5 shrink-0 text-app-subtle" />
     </button>
-      : <div className="flex h-9 items-center gap-2 rounded-lg border border-brand/50 bg-app-soft px-3"><Search className="size-3.5 text-app-subtle" />
+      : <div className="flex h-9 items-center gap-2 rounded-lg border border-input bg-card px-3 has-[input:focus-visible]:border-focus has-[input:focus-visible]:shadow-[inset_0_0_0_1px_var(--focus)]"><MagnifyingGlassIcon className="size-3.5 text-app-subtle" />
         <input ref={input} role="combobox" aria-label={label} aria-invalid={invalid || undefined} aria-describedby={describedBy} aria-expanded aria-controls={listId} aria-autocomplete="list" aria-activedescendant={options[active] ? `${listId}-${active}` : undefined} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={keys}
-          placeholder={t('combobox.placeholder')} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />{loading && <LoaderCircle className="size-3.5 text-app-subtle motion-safe:animate-spin" />}</div>}
-    {open && <div className="absolute z-30 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-app-line bg-panel p-1 shadow-xl"><ul id={listId} role="listbox" aria-label={label}>
+          data-bare placeholder={t('combobox.placeholder')} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />{loading && <CircleNotchIcon className="size-3.5 text-app-subtle motion-safe:animate-spin" />}</div>}
+    {open && <div className="absolute z-30 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-app-line bg-panel p-1 shadow-md"><ul id={listId} role="listbox" aria-label={label}>
       {options.map((option, index) => <li key={option.id} id={`${listId}-${index}`} role="option" aria-selected={value?.id === option.id} onMouseEnter={() => setActive(index)} onMouseDown={event => { event.preventDefault(); choose(option) }}
         className={`flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-sm ${index === active ? 'bg-app-soft' : ''}`}>
-        <Check className={`size-3.5 shrink-0 ${value?.id === option.id ? 'text-brand' : 'text-transparent'}`} />
+        <CheckIcon className={`size-3.5 shrink-0 ${value?.id === option.id ? 'text-brand' : 'text-transparent'}`} />
         <span className="min-w-0 flex-1"><span className="block truncate">{option.label}</span>{option.hint && <span className="block truncate text-xs text-app-subtle">{option.hint}</span>}</span>
         {option.badge}
       </li>)}

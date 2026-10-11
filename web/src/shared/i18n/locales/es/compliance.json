@@ -52,20 +52,20 @@
     },
     "downloads": "Descargas",
     "downloads_one": "Descargas de {{name}}",
-    "downloads_many_one": "Descargas de {{count}} activo",
-    "downloads_many_other": "Descargas de estos {{count}} activos",
+    "downloads_many_one": "Descargas de {{count, number}} activo",
+    "downloads_many_other": "Descargas de estos {{count, number}} activos",
     "summary": {
       "pick": "Elige un repositorio o una imagen.",
       "counting": "Contando los activos del alcance…",
       "last_complete": "último análisis completo el {{date}}",
-      "assets_one": "{{count}} activo en el alcance",
-      "assets_other": "{{count}} activos en el alcance",
-      "repositories_one": "{{count}} repositorio",
-      "repositories_other": "{{count}} repositorios",
-      "images_one": "{{count}} imagen",
-      "images_other": "{{count}} imágenes",
-      "complete_one": "{{count}} con un análisis completo terminado",
-      "complete_other": "{{count}} con un análisis completo terminado",
+      "assets_one": "{{count, number}} activo en el alcance",
+      "assets_other": "{{count, number}} activos en el alcance",
+      "repositories_one": "{{count, number}} repositorio",
+      "repositories_other": "{{count, number}} repositorios",
+      "images_one": "{{count, number}} imagen",
+      "images_other": "{{count, number}} imágenes",
+      "complete_one": "{{count, number}} con un análisis completo terminado",
+      "complete_other": "{{count, number}} con un análisis completo terminado",
       "failed": "No se pudieron contar los activos de este alcance. Vuelve a intentarlo en un momento.",
       "no_complete": "aún sin análisis completo terminado"
     }
@@ -86,16 +86,16 @@
     "policy_failed": "No se pudo comprobar si la notificación CRA está activada, así que sus plazos no se muestran."
   },
   "events": {
-    "pending_one": "{{count}} evento abierto",
-    "pending_other": "{{count}} eventos abiertos",
-    "to_assess_one": "{{count}} por evaluar",
-    "to_assess_other": "{{count}} por evaluar",
+    "pending_one": "{{count, number}} evento abierto",
+    "pending_other": "{{count, number}} eventos abiertos",
+    "to_assess_one": "{{count, number}} por evaluar",
+    "to_assess_other": "{{count, number}} por evaluar",
     "none_pending": "Sin eventos abiertos",
     "no_products": "Marca primero qué repositorios o imágenes son productos bajo el CRA.",
     "not_scanned": "Tus productos aún no tienen un análisis completo terminado: sin él no se puede saber si hay algo que evaluar.",
     "none_in_kev": "Ninguna vulnerabilidad de tus productos analizados está en el catálogo CISA KEV. Se revisa en cada análisis.",
-    "unscanned_one": "{{count}} sin análisis completo.",
-    "unscanned_other": "{{count}} sin análisis completo.",
+    "unscanned_one": "{{count, number}} sin análisis completo.",
+    "unscanned_other": "{{count, number}} sin análisis completo.",
     "noun": "eventos"
   },
   "products": {
@@ -158,13 +158,13 @@
     "unmark_label": "Desmarcar: {{stage}} de {{cve}}"
   },
   "due": {
-    "overdue_days_one": "vencida hace {{count}} día",
-    "overdue_days_other": "vencida hace {{count}} días",
-    "overdue_hours_one": "vencida hace {{count}} h",
-    "overdue_hours_other": "vencida hace {{count}} h",
-    "left_days_one": "queda {{count}} día",
-    "left_days_other": "quedan {{count}} días",
-    "left_hours_one": "queda {{count}} h",
-    "left_hours_other": "quedan {{count}} h"
+    "overdue_days_one": "vencida hace {{count, number}} día",
+    "overdue_days_other": "vencida hace {{count, number}} días",
+    "overdue_hours_one": "vencida hace {{count, number}} h",
+    "overdue_hours_other": "vencida hace {{count, number}} h",
+    "left_days_one": "queda {{count, number}} día",
+    "left_days_other": "quedan {{count, number}} días",
+    "left_hours_one": "queda {{count, number}} h",
+    "left_hours_other": "quedan {{count, number}} h"
   }
 }

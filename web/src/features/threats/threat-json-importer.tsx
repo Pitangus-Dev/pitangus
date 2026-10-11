@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react'
-import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, ClipboardCopy, Code2, FileJson2, LoaderCircle, Sparkles } from 'lucide-react'
+import { CircleNotchIcon, ClipboardTextIcon, CodeIcon, DownloadSimpleIcon, FileCodeIcon, ListPlusIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
@@ -20,6 +20,7 @@ import pastaEs from '@/examples/threat-models/es/pasta.json'
 import attackTreesEs from '@/examples/threat-models/es/attack_trees.json'
 import attackEs from '@/examples/threat-models/es/attack.json'
 import customEs from '@/examples/threat-models/es/custom.json'
+import { Notice } from '@/shared/ui/notice'
 
 const MAX_BYTES = 600_000
 const EXAMPLES: Partial<Record<Locale, Record<Methodology, unknown>>> & { en: Record<Methodology, unknown> } = {
@@ -108,13 +109,13 @@ export function ThreatJsonImporter({ onClose, onImported }: { onClose: () => voi
   return <Dialog open onOpenChange={next => { if (!next && !busy) onClose() }}>
     <DialogContent className="max-h-[94vh] max-w-6xl gap-4 overflow-y-auto p-4 sm:p-6">
       <DialogHeader>
-        <DialogTitle className="flex items-center gap-2"><FileJson2 className="size-5 text-brand" />{t('importer.title')}</DialogTitle>
+        <DialogTitle className="flex items-center gap-2"><FileCodeIcon className="size-5 text-brand" />{t('importer.title')}</DialogTitle>
         <DialogDescription>{t('importer.description')}</DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
         <section aria-label={t('importer.examples_label')} className="space-y-3">
           <div><h3 className="text-sm font-semibold">{t('importer.step_example')}</h3><p className="mt-1 text-xs leading-5 text-app-muted">{t('importer.step_example_hint')}</p></div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1">{METHOD_ORDER.map(method => <button key={method} type="button" aria-pressed={selected === method} onClick={() => chooseExample(method)} className={`rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-2 focus-visible:outline-brand ${selected === method ? 'border-brand/60 bg-brand/10' : 'border-app-line bg-app-soft hover:border-brand/40'}`}>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1">{METHOD_ORDER.map(method => <button key={method} type="button" aria-pressed={selected === method} onClick={() => chooseExample(method)} className={`rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-2 focus-visible:outline-brand ${selected === method ? 'border-app-fg bg-app-soft' : 'border-input bg-card hover:border-app-faint'}`}>
             <span className="block text-sm font-medium">{methodName(method)}</span><span className="mt-0.5 block text-[11px] leading-4 text-app-muted">{t(EXAMPLE_HINTS[method])}</span>
           </button>)}</div>
           <div className="rounded-xl border border-app-line bg-inset p-3 text-xs leading-5 text-app-muted">
@@ -126,16 +127,16 @@ export function ThreatJsonImporter({ onClose, onImported }: { onClose: () => voi
         <section aria-label={t('importer.editor_label')} className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-semibold">{t('importer.step_edit')}</h3><p className="text-xs text-app-muted">{t('importer.step_edit_hint')}</p></div>
             <input ref={fileInput} type="file" accept=".json,application/json" className="hidden" aria-label={t('importer.file_label')} onChange={event => void loadFile(event)} />
-            <Button size="sm" variant="outline" onClick={() => fileInput.current?.click()}><ArrowUpFromLine />{t('importer.load_file')}</Button>
+            <Button size="sm" variant="outline" onClick={() => fileInput.current?.click()}><UploadSimpleIcon />{t('importer.load_file')}</Button>
           </div>
-          <textarea aria-label={t('importer.editor')} spellCheck={false} value={text} onChange={event => changeText(event.target.value)} className="h-64 w-full resize-y rounded-xl border border-app-line bg-inset p-3 font-mono text-[11px] leading-[1.55] text-app-fg outline-none focus:border-brand sm:h-80 lg:h-[390px]" />
-          <div className="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" onClick={() => void copy(text, t('importer.json_copied')) }><ClipboardCopy />{t('importer.copy_json')}</Button><Button size="sm" variant="outline" onClick={downloadExample}><ArrowDownToLine />{t('importer.download_json')}</Button><Button size="sm" variant="outline" onClick={() => void copy(prompt, t('importer.prompt_copied'))}><Sparkles />{t('importer.copy_prompt')}</Button><span className="ml-auto text-[11px] text-app-subtle">{t('importer.size', { size: formatNumber(new Blob([text]).size), max: formatNumber(MAX_BYTES) })}</span></div>
-          {notice && <p role="status" className="text-xs text-brand">{notice}</p>}
+          <textarea aria-label={t('importer.editor')} spellCheck={false} value={text} onChange={event => changeText(event.target.value)} className="h-64 w-full resize-y rounded-xl border border-input bg-card p-3 font-mono text-[11px] leading-[1.55] text-app-fg outline-none focus:border-focus sm:h-80 lg:h-[390px]" />
+          <div className="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" onClick={() => void copy(text, t('importer.json_copied')) }><ClipboardTextIcon />{t('importer.copy_json')}</Button><Button size="sm" variant="outline" onClick={downloadExample}><DownloadSimpleIcon />{t('importer.download_json')}</Button><Button size="sm" variant="outline" onClick={() => void copy(prompt, t('importer.prompt_copied'))}><ListPlusIcon />{t('importer.copy_prompt')}</Button><span className="ml-auto text-[11px] text-app-subtle">{t('importer.size', { size: formatNumber(new Blob([text]).size), max: formatNumber(MAX_BYTES) })}</span></div>
+          {notice && <p role="status" className="text-xs text-success">{notice}</p>}
           {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
-          {preview && validatedText === text && <div role="status" className="rounded-xl border border-success-line bg-success-soft p-3 text-xs leading-5"><p className="flex items-center gap-2 font-semibold text-success"><CheckCircle2 className="size-4" />{t('importer.valid', { name: preview.name })}</p><p className="mt-1 text-app-muted">{[methodName(preview.methodology), t('count.components', { count: preview.components }), t('count.flows', { count: preview.flows }), t('count.boundaries', { count: preview.boundaries }), t('count.manual_threats', { count: preview.manual_threats }), t('count.trees', { count: preview.attack_trees }), t('count.techniques', { count: preview.attack_mappings }), t('count.pasta_stages', { count: preview.pasta_stages }), ...(preview.repository_refs ? [t('count.pending_refs', { count: preview.repository_refs })] : [])].join(' · ')}</p>{preview.relayout && <p className="mt-1 text-app-muted">{t('importer.relayout')}</p>}</div>}
+          {preview && validatedText === text && <Notice role="status" tone="ok" className="text-xs"><p className="font-medium">{t('importer.valid', { name: preview.name })}</p><p className="mt-1 text-app-muted">{[methodName(preview.methodology), t('count.components', { count: preview.components }), t('count.flows', { count: preview.flows }), t('count.boundaries', { count: preview.boundaries }), t('count.manual_threats', { count: preview.manual_threats }), t('count.trees', { count: preview.attack_trees }), t('count.techniques', { count: preview.attack_mappings }), t('count.pasta_stages', { count: preview.pasta_stages }), ...(preview.repository_refs ? [t('count.pending_refs', { count: preview.repository_refs })] : [])].join(' · ')}</p>{preview.relayout && <p className="mt-1 text-app-muted">{t('importer.relayout')}</p>}</Notice>}
         </section>
       </div>
-      <DialogFooter className="border-t border-app-line pt-4"><Button variant="ghost" disabled={!!busy} onClick={onClose}>{t('common:actions.cancel')}</Button><Button variant="outline" disabled={!!busy} onClick={() => void validate()}>{busy === 'validate' ? <LoaderCircle className="animate-spin" /> : <Code2 />}{t('importer.validate')}</Button><Button disabled={!!busy || !preview || validatedText !== text} onClick={() => void importModel()}>{busy === 'import' ? <LoaderCircle className="animate-spin" /> : <ArrowUpFromLine />}{t('importer.import')}</Button></DialogFooter>
+      <DialogFooter className="border-t border-app-line pt-4"><Button variant="ghost" disabled={!!busy} onClick={onClose}>{t('common:actions.cancel')}</Button><Button variant="outline" disabled={!!busy} onClick={() => void validate()}>{busy === 'validate' ? <CircleNotchIcon className="animate-spin" /> : <CodeIcon />}{t('importer.validate')}</Button><Button disabled={!!busy || !preview || validatedText !== text} onClick={() => void importModel()}>{busy === 'import' ? <CircleNotchIcon className="animate-spin" /> : <UploadSimpleIcon />}{t('importer.import')}</Button></DialogFooter>
     </DialogContent>
   </Dialog>
 }

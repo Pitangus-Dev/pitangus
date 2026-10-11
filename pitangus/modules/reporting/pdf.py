@@ -21,7 +21,7 @@ from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer,
 from pitangus.modules.reporting.design import BRAND, BRAND_HEX, INK, LINE, MUTED, SOFT
 from pitangus.shared.i18n import t
 
-AMBER = colors.HexColor("#8a4c00")
+QUOTE_INK = colors.HexColor("#3d434a")  # ink-2
 
 STYLES = {
     "eyebrow": ParagraphStyle("eyebrow", fontName="Helvetica-Bold", fontSize=9, leading=13, textColor=BRAND, spaceAfter=8),
@@ -31,7 +31,7 @@ STYLES = {
     "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=10.5, leading=15, textColor=INK, spaceBefore=11, spaceAfter=5, keepWithNext=True),
     "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9, leading=14, textColor=INK, spaceAfter=6, wordWrap="CJK"),
     "small": ParagraphStyle("small", fontName="Helvetica", fontSize=8, leading=12, textColor=MUTED, spaceAfter=5, wordWrap="CJK"),
-    "quote": ParagraphStyle("quote", fontName="Helvetica", fontSize=9, leading=14, textColor=AMBER, leftIndent=10, spaceBefore=5, spaceAfter=9, borderColor=LINE, borderWidth=0.5, borderPadding=8),
+    "quote": ParagraphStyle("quote", fontName="Helvetica", fontSize=9, leading=14, textColor=QUOTE_INK, leftIndent=10, spaceBefore=5, spaceAfter=9, borderColor=LINE, borderWidth=0.5, borderPadding=8),
     "table": ParagraphStyle("table", fontName="Helvetica", fontSize=7.5, leading=11, textColor=INK, wordWrap="CJK"),
 }
 

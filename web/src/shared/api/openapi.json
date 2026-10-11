@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Pitangus",
-    "version": "0.12"
+    "version": "0.13"
   },
   "paths": {
     "/api/auth/session": {
@@ -3262,7 +3262,7 @@
           "sources"
         ],
         "summary": "Domain List",
-        "description": "The registered domains (at most `limit`), with whether each one's TXT proof is current.",
+        "description": "The registered domains (at most `limit`), with whether each one's proof is current and its scheduled scan.",
         "operationId": "domain_list_api_domains_get",
         "responses": {
           "200": {
@@ -3282,7 +3282,7 @@
           "sources"
         ],
         "summary": "Domain Register",
-        "description": "Registers an HTTPS domain and answers the TXT record that proves control of it. Nothing is tested.",
+        "description": "Registers an HTTPS domain and answers the ways to prove control of it. Nothing is tested.",
         "operationId": "domain_register_api_domains_post",
         "requestBody": {
           "content": {
@@ -3336,13 +3336,44 @@
         }
       }
     },
+    "/api/domains/egress": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Egress Detect",
+        "description": "Asks a public echo service (https://api.ipify.org) once for the address this server is seen from, and keeps\nit for the panel to show to site owners who filter by IP. Only on this explicit request, and only when the server\ndoesn't declare PITANGUS_EGRESS_IPS. One HTTPS GET, no redirects, 10 seconds and 64 bytes at most.",
+        "operationId": "domain_egress_detect_api_domains_egress_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Egress"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Declared by the server"
+          },
+          "429": {
+            "description": "Too many attempts"
+          },
+          "502": {
+            "description": "The echo service failed"
+          }
+        }
+      }
+    },
     "/api/domains/verify": {
       "post": {
         "tags": [
           "sources"
         ],
         "summary": "Domain Verify",
-        "description": "Looks the domain's TXT record up once. Seen, the domain is an asset for 90 days; a daily re-check extends or\nwithdraws the proof.",
+        "description": "Asks for the proof once: the TXT record (dns), the well-known file (file) or the homepage's meta tag (meta).\nSeen, the domain is an asset for 90 days; a daily re-check of the same proof extends or withdraws it.",
         "operationId": "domain_verify_api_domains_verify_post",
         "requestBody": {
           "content": {
@@ -3353,6 +3384,16 @@
                     "type": "string",
                     "pattern": "^[0-9a-f]{24}$",
                     "title": "Domain Id"
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "dns",
+                      "file",
+                      "meta"
+                    ],
+                    "title": "Method",
+                    "default": "dns"
                   }
                 },
                 "additionalProperties": false,
@@ -3360,7 +3401,8 @@
                 "required": [
                   "domain_id"
                 ],
-                "title": "DomainIdIn"
+                "title": "DomainVerifyIn",
+                "description": "`method`: dns (the TXT record, the default), file (`/.well-known/pitangus-verify.txt`) or meta (the\nhomepage's `<meta name=\"pitangus-verify\">`). Only a DNS proof lets scans include subdomains."
               }
             }
           },
@@ -3386,13 +3428,60 @@
         }
       }
     },
+    "/api/domains/probe": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Probe",
+        "description": "Checks a URL before registering it: whether its name resolves to public addresses only (nothing is sent\notherwise) and whether it answers over HTTPS with a valid certificate. One HEAD to the already-resolved address,\nno redirects. Only a hint: a domain that doesn't answer can still be registered.",
+        "operationId": "domain_probe_api_domains_probe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "title": "Url"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "title": "DomainCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainCheck"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many attempts"
+          }
+        }
+      }
+    },
     "/api/domains/check": {
       "post": {
         "tags": [
           "sources"
         ],
         "summary": "Domain Check",
-        "description": "Whether the domain answers over HTTPS: one HEAD to its already-resolved public address, no redirects. Only a\nhint before registering; a domain that doesn't answer can still be registered.",
+        "description": "The same probe as `/api/domains/probe` (kept for earlier panels).",
         "operationId": "domain_check_api_domains_check_post",
         "requestBody": {
           "content": {
@@ -3439,7 +3528,7 @@
           "sources"
         ],
         "summary": "Domain Remove",
-        "description": "Removes a domain. What was imported against it (runs, findings, their triage and tickets) goes with it, like a\nrepository that left the installation: the panel says so before asking.",
+        "description": "Removes a domain's configuration: saved headers, test users, related hosts (its scope) and scheduled scan. What\nwas scanned or imported against it (runs, findings, their triage and tickets) stays as evidence, and links back if\nthe same host is added again (the asset key comes from the host).",
         "operationId": "domain_remove_api_domains_remove_post",
         "requestBody": {
           "content": {
@@ -3476,6 +3565,741 @@
           },
           "404": {
             "description": "Unknown domain"
+          }
+        }
+      }
+    },
+    "/api/domains/headers": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Headers Route",
+        "description": "Saves or removes a request header that web scans of the domain may send (API keys, bearer tokens, session\ncookies). Stored encrypted; never answered back: the list carries names, the last four characters of long values\nand when each was saved.",
+        "operationId": "domain_headers_route_api_domains_headers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  },
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "save",
+                      "remove"
+                    ],
+                    "title": "Op"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "title": "Name"
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 4160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Value"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id",
+                  "op",
+                  "name"
+                ],
+                "title": "DomainHeaderIn",
+                "description": "`save` adds or replaces a header (by name, case-insensitive); `remove` deletes it (no `value`)."
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainHeaders"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          }
+        }
+      }
+    },
+    "/api/domains/test-users": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Test Users Route",
+        "description": "Saves or removes an account web scans of the domain may sign in with (username and password, plus a TOTP seed\nfor `password_totp`). The username, password and seed are stored encrypted; the password and the seed are never\nanswered back.",
+        "operationId": "domain_test_users_route_api_domains_test_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  },
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "save",
+                      "remove"
+                    ],
+                    "title": "Op"
+                  },
+                  "id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{24}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Id"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80,
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Name"
+                  },
+                  "method": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "password",
+                          "password_totp"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Method"
+                  },
+                  "username": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Username"
+                  },
+                  "password": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1024,
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Password"
+                  },
+                  "totp": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "secret": {
+                            "type": "string",
+                            "maxLength": 300,
+                            "minLength": 16,
+                            "title": "Secret"
+                          },
+                          "digits": {
+                            "type": "integer",
+                            "title": "Digits",
+                            "default": 6
+                          },
+                          "period": {
+                            "type": "integer",
+                            "title": "Period",
+                            "default": 30
+                          },
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "SHA1",
+                              "SHA256",
+                              "SHA512"
+                            ],
+                            "title": "Algorithm",
+                            "default": "SHA1"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "secret"
+                        ],
+                        "title": "TotpIn",
+                        "description": "The TOTP seed in base32, as an authenticator app shows it, and its settings (30 s, 6 digits, SHA1 by default)."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "login_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Login Url"
+                  },
+                  "check_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Check Url"
+                  },
+                  "notes": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Notes"
+                  },
+                  "applies_to": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 260
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Applies To"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id",
+                  "op"
+                ],
+                "title": "DomainTestUserIn",
+                "description": "`save` adds a test user (no `id`) or changes one: a password or a TOTP seed left out keeps the saved one.\n`remove` deletes it (`id` only). `password_totp` needs `totp` when added or switched to."
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainTestUsers"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain or test user"
+          }
+        }
+      }
+    },
+    "/api/domains/schedule": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Schedule",
+        "description": "Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,\nat a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the\nlocal day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task\nqueues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the\ndomain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one\nof those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the\nscope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason.",
+        "operationId": "domain_schedule_api_domains_schedule_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  },
+                  "schedule": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "frequency": {
+                            "type": "string",
+                            "enum": [
+                              "daily",
+                              "weekly",
+                              "monthly"
+                            ],
+                            "title": "Frequency"
+                          },
+                          "weekdays": {
+                            "items": {
+                              "type": "integer",
+                              "maximum": 7.0,
+                              "minimum": 1.0
+                            },
+                            "type": "array",
+                            "maxItems": 7,
+                            "title": "Weekdays"
+                          },
+                          "month_days": {
+                            "items": {
+                              "type": "integer",
+                              "maximum": 28.0,
+                              "minimum": 1.0
+                            },
+                            "type": "array",
+                            "maxItems": 28,
+                            "title": "Month Days"
+                          },
+                          "time": {
+                            "type": "string",
+                            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                            "title": "Time"
+                          },
+                          "timezone": {
+                            "type": "string",
+                            "maxLength": 64,
+                            "minLength": 1,
+                            "title": "Timezone"
+                          },
+                          "test_users": {
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{24}$"
+                            },
+                            "type": "array",
+                            "maxItems": 3,
+                            "title": "Test Users"
+                          },
+                          "use_headers": {
+                            "type": "boolean",
+                            "title": "Use Headers",
+                            "default": false
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "frequency",
+                          "time",
+                          "timezone"
+                        ],
+                        "title": "ScheduleIn",
+                        "description": "`weekdays` (1 Monday … 7 Sunday) go with weekly, `month_days` (1–28) with monthly; `time` is HH:MM in\n`timezone`, an IANA name (the browser's, by default)."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id",
+                  "schedule"
+                ],
+                "title": "DomainScheduleIn",
+                "description": "`schedule`: the rule, or null to turn the scheduled scan off."
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainRow"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain or test user"
+          },
+          "409": {
+            "description": "No saved headers, or a test user signing in outside the saved scope"
+          }
+        }
+      }
+    },
+    "/api/domains/scope": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Scope Read",
+        "description": "The hosts related to a domain (found by discovery or added by hand), which of them its scans reach, whether its\nproof lets any in, and the last discovery round.",
+        "operationId": "domain_scope_read_api_domains_scope_get",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{24}$",
+              "title": "Domain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainScope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Scope Change",
+        "description": "Saves the domain's scope, one host at a time: its scans (by hand or scheduled) reach the hosts saved in it.\nNothing is sent to any host here.",
+        "operationId": "domain_scope_change_api_domains_scope_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainScope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "409": {
+            "description": "The domain's proof doesn't cover subdomains (only a current DNS proof does)"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "`set` puts a listed host in or out of scope (`host`, `state`); `add` lists a host under the domain by hand, in\nscope; `remove` forgets a host added by hand; `exclude_all` puts every host out of scope.",
+                "properties": {
+                  "domain_id": {
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id",
+                    "type": "string"
+                  },
+                  "op": {
+                    "enum": [
+                      "set",
+                      "add",
+                      "remove",
+                      "exclude_all"
+                    ],
+                    "title": "Op",
+                    "type": "string"
+                  },
+                  "host": {
+                    "anyOf": [
+                      {
+                        "maxLength": 253,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Host"
+                  },
+                  "state": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "in_scope",
+                          "out_of_scope"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "State"
+                  }
+                },
+                "required": [
+                  "domain_id",
+                  "op"
+                ],
+                "title": "DomainScopeIn",
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domains/discover": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Discover",
+        "description": "Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,\narchives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are\nlisted out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources.",
+        "operationId": "domain_discover_api_domains_discover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id"
+                ],
+                "title": "DomainIdIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainScope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "409": {
+            "description": "Web scans off on this server, or a discovery already queued or running"
+          }
+        }
+      }
+    },
+    "/api/domains/scans": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Scan",
+        "description": "Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD\noperations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and\nsigned in as some of its test users.\nOff unless the server sets PITANGUS_DAST_ENABLED; one at a time.",
+        "operationId": "domain_scan_api_domains_scans_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "web",
+                      "api"
+                    ],
+                    "title": "Mode",
+                    "default": "web"
+                  },
+                  "hosts": {
+                    "items": {
+                      "type": "string",
+                      "maxLength": 260
+                    },
+                    "type": "array",
+                    "maxItems": 20,
+                    "title": "Hosts"
+                  },
+                  "use_scope": {
+                    "type": "boolean",
+                    "title": "Use Scope",
+                    "default": false
+                  },
+                  "use_headers": {
+                    "type": "boolean",
+                    "title": "Use Headers",
+                    "default": false
+                  },
+                  "test_users": {
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{24}$"
+                    },
+                    "type": "array",
+                    "maxItems": 3,
+                    "title": "Test Users"
+                  },
+                  "spec": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "filename": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "minLength": 1,
+                            "title": "Filename"
+                          },
+                          "content_base64": {
+                            "type": "string",
+                            "maxLength": 6990508,
+                            "minLength": 4,
+                            "title": "Content Base64"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "filename",
+                          "content_base64"
+                        ],
+                        "title": "SpecIn",
+                        "description": "An OpenAPI 3.x or Swagger 2.0 definition, JSON or YAML, at most 5 MB once decoded."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "spec_url": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Spec Url"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id"
+                ],
+                "title": "DomainScanIn",
+                "description": "A passive scan of a verified domain. `mode`: web (crawl) or api (an OpenAPI definition: `spec`, uploaded, or\n`spec_url`, on a host of the scope). `use_scope`: include the hosts saved in the domain's scope (read again when\nthe scan starts); or `hosts`: subdomains listed for this scan only (`name` or `*.name`, at most 20). Both need a\nDNS proof. `use_headers`: send the domain's saved headers to the scope's hosts. `test_users`: ids of the domain's\ntest users to sign in as (at most 3), each with its own crawl; each must sign in on a host of that scope."
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuedDomainScan"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          },
+          "409": {
+            "description": "Web scans off, domain not verified, a host private, subdomains without a DNS proof, no saved headers, a test user signing in outside the scope, or one already running"
+          },
+          "429": {
+            "description": "Queue full"
           }
         }
       }
@@ -9049,6 +9873,124 @@
         ],
         "title": "Deleted"
       },
+      "Discovery": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "requested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiscoveryCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "default": false
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Discovery",
+        "description": "The last discovery round: `note` says why it failed or couldn't run; `available` is false when this server\ndoesn't run discovery at all (web scans off), with the reason in `unavailable`."
+      },
+      "DiscoveryCounts": {
+        "properties": {
+          "found": {
+            "type": "integer",
+            "title": "Found",
+            "default": 0
+          },
+          "kept": {
+            "type": "integer",
+            "title": "Kept",
+            "default": 0
+          },
+          "private": {
+            "type": "integer",
+            "title": "Private",
+            "default": 0
+          },
+          "unresolved": {
+            "type": "integer",
+            "title": "Unresolved",
+            "default": 0
+          },
+          "new": {
+            "type": "integer",
+            "title": "New",
+            "default": 0
+          },
+          "capped": {
+            "type": "integer",
+            "title": "Capped",
+            "default": 0
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "DiscoveryCounts"
+      },
       "DomainCheck": {
         "properties": {
           "host": {
@@ -9061,6 +10003,13 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "reachable",
+              "dns_error",
+              "private_address",
+              "tls_error",
+              "unreachable"
+            ],
             "title": "Status"
           },
           "detail": {
@@ -9077,6 +10026,22 @@
               }
             ],
             "title": "Http Status"
+          },
+          "https": {
+            "type": "boolean",
+            "title": "Https",
+            "default": false
+          },
+          "public": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public"
           }
         },
         "additionalProperties": true,
@@ -9087,7 +10052,73 @@
           "status",
           "detail"
         ],
-        "title": "DomainCheck"
+        "title": "DomainCheck",
+        "description": "The probe before registering: `public` is false when the name resolves to a private or reserved address (and\nnothing was sent), null when it doesn't resolve; `https` and `reachable` mean a valid certificate and an answer."
+      },
+      "DomainHeader": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last4"
+          },
+          "saved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved At"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "DomainHeader",
+        "description": "A saved request header: its name, the last four characters of a long value and when it was saved."
+      },
+      "DomainHeaders": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "title": "Domain Id"
+          },
+          "headers": {
+            "items": {
+              "$ref": "#/components/schemas/DomainHeader"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Headers"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "domain_id",
+          "headers",
+          "limit"
+        ],
+        "title": "DomainHeaders"
       },
       "DomainPage": {
         "properties": {
@@ -9106,6 +10137,21 @@
           "limit": {
             "type": "integer",
             "title": "Limit"
+          },
+          "dast": {
+            "type": "boolean",
+            "title": "Dast",
+            "default": false
+          },
+          "egress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Egress"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": true,
@@ -9115,7 +10161,8 @@
           "total",
           "limit"
         ],
-        "title": "DomainPage"
+        "title": "DomainPage",
+        "description": "`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED); `egress`: where they leave from."
       },
       "DomainRemoved": {
         "properties": {
@@ -9127,9 +10174,9 @@
             "type": "string",
             "title": "Host"
           },
-          "runs_deleted": {
+          "runs_kept": {
             "type": "integer",
-            "title": "Runs Deleted"
+            "title": "Runs Kept"
           }
         },
         "additionalProperties": true,
@@ -9137,7 +10184,7 @@
         "required": [
           "id",
           "host",
-          "runs_deleted"
+          "runs_kept"
         ],
         "title": "DomainRemoved"
       },
@@ -9230,6 +10277,22 @@
             ],
             "title": "Checked At"
           },
+          "proof_method": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "dns",
+                  "file",
+                  "meta"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proof Method"
+          },
           "txt_name": {
             "anyOf": [
               {
@@ -9251,6 +10314,101 @@
               }
             ],
             "title": "Txt Value"
+          },
+          "verify_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verify Token"
+          },
+          "verify_file_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verify File Url"
+          },
+          "verify_meta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verify Meta"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DomainSchedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_scan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Scan"
+          },
+          "headers": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DomainHeader"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers"
+          },
+          "header_count": {
+            "type": "integer",
+            "title": "Header Count",
+            "default": 0
+          },
+          "test_users": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DomainTestUser"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Users"
+          },
+          "test_user_count": {
+            "type": "integer",
+            "title": "Test User Count",
+            "default": 0
           },
           "runs": {
             "type": "integer",
@@ -9276,7 +10434,366 @@
           "expired"
         ],
         "title": "DomainRow",
-        "description": "A registered domain. `verified` means its TXT proof is current (`verified_until` lies ahead); the TXT record\nitself (`txt_name`, `txt_value`) is only answered to administrators. `runs` and `open` say what was imported\nagainst it."
+        "description": "A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`\nsays which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,\n`verify_file_url`, `verify_meta`), the saved `headers` and the `test_users` are only answered to administrators;\neveryone gets how many there are (`header_count`, `test_user_count`). `runs` and `open`\nsay what was scanned or imported against it; `schedule` is null (off) or when its passive web scan runs on its\nown."
+      },
+      "DomainSchedule": {
+        "properties": {
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "daily",
+              "weekly",
+              "monthly"
+            ],
+            "title": "Frequency"
+          },
+          "weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 7,
+            "title": "Weekdays"
+          },
+          "month_days": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 28,
+            "title": "Month Days"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "test_users": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Test Users"
+          },
+          "use_headers": {
+            "type": "boolean",
+            "title": "Use Headers",
+            "default": false
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "frequency",
+          "time",
+          "timezone"
+        ],
+        "title": "DomainSchedule",
+        "description": "When the passive web scan runs on its own: daily, on `weekdays` (1 Monday … 7 Sunday) or on `month_days`\n(1–28), at `time` (HH:MM) in `timezone` (IANA), at most once a day. `next_run_at` (UTC) is the moment the\nscheduler queues it; `last_run_at` and `last_run_id` say what it did last and `note`, when that slot was skipped,\nwhy. The scan signs in as `test_users` (ids, at most 3) and sends the saved headers with `use_headers`."
+      },
+      "DomainScope": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "title": "Domain Id"
+          },
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "covered": {
+            "type": "boolean",
+            "title": "Covered"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "hosts": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedHost"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Hosts"
+          },
+          "in_scope": {
+            "type": "integer",
+            "title": "In Scope"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "scope_limit": {
+            "type": "integer",
+            "title": "Scope Limit"
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/Discovery"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "domain_id",
+          "root",
+          "covered",
+          "hosts",
+          "in_scope",
+          "limit",
+          "scope_limit",
+          "discovery"
+        ],
+        "title": "DomainScope",
+        "description": "The domain's related hosts and its saved scope. `covered`: its proof lets them in (a current DNS proof);\notherwise `reason` says what's missing and nothing can be put in scope. `in_scope` counts the hosts saved in\n(at most `scope_limit`); at most `limit` hosts are kept."
+      },
+      "DomainTestUser": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "password",
+              "password_totp"
+            ],
+            "title": "Method"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "applies_to": {
+            "type": "string",
+            "title": "Applies To"
+          },
+          "login_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Login Url"
+          },
+          "check_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check Url"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "method",
+          "username",
+          "applies_to"
+        ],
+        "title": "DomainTestUser",
+        "description": "A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root\nof the host it applies to; `check_url` is a page only a signed-in user sees, asked for after signing in to confirm\nit worked; `last_used_at` is when a scan last signed in with it."
+      },
+      "DomainTestUsers": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "title": "Domain Id"
+          },
+          "test_users": {
+            "items": {
+              "$ref": "#/components/schemas/DomainTestUser"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Test Users"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "per_scan": {
+            "type": "integer",
+            "title": "Per Scan"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "domain_id",
+          "test_users",
+          "limit",
+          "per_scan"
+        ],
+        "title": "DomainTestUsers",
+        "description": "The domain's test users after a change; `limit` per domain, `per_scan` a scan may sign in with."
+      },
+      "Egress": {
+        "properties": {
+          "ips": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Ips"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "setting",
+                  "detected"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "detected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected At"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "Egress",
+        "description": "The public addresses web scans leave from, for sites that filter by IP: declared by the server\n(`source` setting, PITANGUS_EGRESS_IPS), detected once by an administrator (`detected`, with `detected_at`), or\nunknown (no `ips`)."
       },
       "Euvd": {
         "properties": {
@@ -9999,6 +11516,21 @@
               }
             ],
             "title": "Verification"
+          },
+          "guidance": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GuidanceLink"
+                },
+                "type": "array",
+                "maxItems": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guidance"
           }
         },
         "additionalProperties": true,
@@ -10207,6 +11739,30 @@
         ],
         "title": "GitHubStatus",
         "description": "What the GitHub App needs, whether it's connected, its installations and, read live, their permissions."
+      },
+      "GuidanceLink": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "url",
+          "kind"
+        ],
+        "title": "GuidanceLink",
+        "description": "An OWASP page about a finding (`modules/findings/references.py`): a cheat sheet, its Top 10 category, an API\nSecurity Top 10 risk or a Web Security Testing Guide test."
       },
       "Health": {
         "properties": {
@@ -12439,6 +13995,31 @@
         ],
         "title": "PullRow"
       },
+      "QueuedDomainScan": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "run": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Run"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/DomainRow"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "run_id",
+          "run",
+          "domain"
+        ],
+        "title": "QueuedDomainScan",
+        "description": "`run_id` is the queued run (also in `run`, with its status)."
+      },
       "QueuedImageScan": {
         "properties": {
           "run": {
@@ -12658,6 +14239,72 @@
         "title": "RegistryRow",
         "description": "A registry's saved credentials: the user and the last four characters of the token, never the token."
       },
+      "RelatedHost": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "in_scope",
+              "out_of_scope"
+            ],
+            "title": "State"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "discovered",
+              "manual"
+            ],
+            "title": "Origin"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "host",
+          "state",
+          "origin"
+        ],
+        "title": "RelatedHost",
+        "description": "A host under the domain: `state` says whether its scans reach it; `origin` whether discovery found it or\nsomeone added it; `last_seen` is the last discovery that found it."
+      },
       "RemovedImage": {
         "properties": {
           "key": {
@@ -12826,7 +14473,7 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 5,
+            "maxItems": 6,
             "title": "Ran"
           },
           "queued": {
@@ -12834,7 +14481,7 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 5,
+            "maxItems": 6,
             "title": "Queued"
           },
           "failed": {
@@ -12842,7 +14489,7 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 5,
+            "maxItems": 6,
             "title": "Failed"
           }
         },
@@ -13755,6 +15402,21 @@
               }
             ],
             "title": "Verification"
+          },
+          "guidance": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GuidanceLink"
+                },
+                "type": "array",
+                "maxItems": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guidance"
           },
           "asset": {
             "$ref": "#/components/schemas/ScopeAssetRef"

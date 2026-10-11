@@ -165,6 +165,8 @@ def _where(finding: dict) -> str:
     package = finding.get("package") or {}
     if package.get("name"):
         return f"{package['name']} {package.get('version') or ''}".strip()
+    if finding.get("scanner") == "dast" or not finding.get("line"):  # a URL has no line
+        return str(finding.get("path") or "")
     return f"{finding.get('path')}:{finding.get('line')}"
 
 
@@ -186,7 +188,8 @@ def findings_message(record: dict, opened: list[dict], locale: str | None = None
     top = sorted(opened, key=lambda item: (ORDER.index(item.get("severity", "info")) if item.get("severity") in ORDER else 9, not item.get("kev")))[:5]
     name = text((record.get("source") or {}).get("name") or record.get("target"), locale) or t("integrations.notifications.asset_fallback", locale)
     origin = {"advisory_watch": msg("integrations.notifications.origin.advisory_watch"),
-              "image_scan": msg("integrations.notifications.origin.image_scan")}.get(record.get("type"), msg("integrations.notifications.origin.full_scan"))
+              "image_scan": msg("integrations.notifications.origin.image_scan"),
+              "dast_scan": msg("integrations.notifications.origin.dast_scan")}.get(record.get("type"), msg("integrations.notifications.origin.full_scan"))
     if (record.get("trigger") or {}).get("kind") == "branch":
         origin = msg("integrations.notifications.origin.branch")
     elif record.get("type") == "sarif_import":

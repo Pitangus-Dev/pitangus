@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { LucideIcon } from 'lucide-react'
+import type { Icon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Bone } from '@/shared/ui/loading'
 
 // One policy in one line: what it is, what it says now, and the action. Explanations live in the dialog or the help.
 export function PolicyRow({ icon: Icon, title, summary, action, notice, state = 'ready', onRetry }: {
-  icon: LucideIcon; title: string; summary?: ReactNode; action?: ReactNode; notice?: string
+  icon: Icon; title: string; summary?: ReactNode; action?: ReactNode; notice?: string
   state?: 'loading' | 'error' | 'ready'; onRetry?: () => void
 }) {
   const { t } = useTranslation('policies')
@@ -18,7 +18,7 @@ export function PolicyRow({ icon: Icon, title, summary, action, notice, state = 
         : state === 'error' ? <p role="alert" className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-danger">{t('load_failed')}
           {onRetry && <Button size="xs" variant="outline" onClick={onRetry}>{t('common:actions.retry')}</Button>}</p>
         : <p className="mt-0.5 text-sm text-app-muted">{summary}</p>}
-      <p role="status" className="mt-0.5 text-xs text-brand empty:hidden">{notice}</p>
+      <p role="status" className="mt-0.5 text-xs text-success empty:hidden">{notice}</p>
     </div>
     {state === 'ready' && action}
   </div>

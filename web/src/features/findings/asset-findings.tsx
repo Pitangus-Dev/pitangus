@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, TriangleAlert } from 'lucide-react'
+import { CircleNotchIcon } from '@phosphor-icons/react'
 import type { SessionUser } from '@/features/auth/session'
 import { RunProgress } from '@/features/analyses/run-progress'
 import { assetOption, type Asset } from '@/features/sources/asset-option'
@@ -10,11 +10,13 @@ import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Skeleton } from '@/shared/ui/loading'
 import { assetRunsQuery, assetSearchQuery, assetStateQuery, invalidateFindings, keys, runQuery } from '@/shared/api/queries'
 import { formatDate } from '@/shared/lib/types'
+import { assetKindOf } from '@/shared/lib/asset-kind'
 import { RepositoryResult } from '@/features/findings/repository-result'
 import { RepositorySettings } from '@/features/findings/repository-settings'
 import { FindingTabs } from '@/features/findings/finding-tabs'
 import { CURRENT, runOption, type AssetSelection, type RunDetail } from '@/features/findings/asset-selection'
 import type { FindingTab } from '@/features/findings/finding-model'
+import { Notice } from '@/shared/ui/notice'
 
 const active = (status?: string) => status === 'queued' || status === 'running'
 
@@ -47,7 +49,7 @@ export function AssetPickers({ selection }: { selection: AssetSelection }) {
 function Failed({ message, busy, onRetry }: { message: string; busy: boolean; onRetry: () => void }) {
   const { t } = useTranslation('findings')
   return <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger">
-    {message}<Button size="xs" variant="outline" disabled={busy} onClick={onRetry}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.retry')}</Button></p>
+    {message}<Button size="xs" variant="outline" disabled={busy} onClick={onRetry}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.retry')}</Button></p>
 }
 
 // One asset's findings: its current state (the registry: scans and pull requests together, by tab) with its own
@@ -77,6 +79,7 @@ export function AssetFindings({ selection, tab, onTab, user, onNew, onOpenPolici
     was.current = status
   }, [status, queryClient])
   const admin = user.role === 'admin'
+  const kind = assetKindOf(asset?.key)
   const body = !asset ? selection.failed ? <Failed message={t('page.assets_failed', { error: selection.failed.message })} busy={selection.retrying} onRetry={selection.retry} />
       : selection.starting ? <Skeleton tiles={6} rows={5} /> : null
     : !detail || result.isPlaceholderData ? result.isError ? null : <Skeleton tiles={6} rows={5} />
@@ -84,9 +87,10 @@ export function AssetFindings({ selection, tab, onTab, user, onNew, onOpenPolici
     : <RepositoryResult key={`${run}:${tab}`} run={detail} onNew={onNew} canAccept={admin} canManage={admin} onChanged={reload} initialView={run === CURRENT && tab !== 'open' ? 'all' : 'active'} exportStatus={tab}
         focus={run === CURRENT && focus.repo === asset.key ? focus.finding : null} />
   return <>
-    {asset?.removed_at && <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger"><TriangleAlert className="mt-0.5 size-4 shrink-0" /><span>{t('page.removed', { date: formatDate(asset.removed_at) })}</span></div>}
+    {asset?.removed_at && <Notice role="status" tone="critical">{t('page.removed', { date: formatDate(asset.removed_at) })}</Notice>}
     {/* This asset's own settings in one strip: the findings list is what matters. Global policies live in Policies. */}
-    {run === CURRENT && asset && <RepositorySettings key={asset.key} assetKey={asset.key} name={asset.name} secrets={!asset.key.startsWith('image:')}
+    {/* Excluded paths and secret entries are about files: a site's scope lives on its domain page. */}
+    {run === CURRENT && asset && kind !== 'domain' && <RepositorySettings key={asset.key} assetKey={asset.key} name={asset.name} kind={kind}
       canEdit={admin} onOpenPolicies={onOpenPolicies} />}
     {run === CURRENT && asset && <FindingTabs tab={tab} counts={detail?.summary.lifecycle} onChange={onTab} />}
     {asset && result.isError && <Failed message={t('page.load_failed', { error: result.error.message })} busy={result.isFetching} onRetry={() => void result.refetch()} />}

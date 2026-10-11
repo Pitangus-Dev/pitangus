@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCheck, ChevronDown, CircleDot, Clock3, LoaderCircle, RotateCcw, ShieldX, ThumbsUp, Wrench } from 'lucide-react'
+import { formatCalendarDay } from '@/shared/i18n/format'
+import { ArrowCounterClockwiseIcon, CaretDownIcon, ChecksIcon, CircleNotchIcon, ClockIcon, RecordIcon, ShieldSlashIcon, ThumbsUpIcon, WrenchIcon } from '@phosphor-icons/react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
@@ -13,10 +14,10 @@ import { stateId } from '@/features/findings/finding-model'
 
 const triageClass: Record<TriageStatus, string> = {
   open: 'border-app-line text-app-muted', in_progress: 'border-info-line text-info',
-  false_positive: 'border-app-line bg-app-soft text-app-subtle line-through decoration-app-faint', accepted: 'border-brand/30 text-brand',
+  false_positive: 'border-app-line text-app-subtle line-through decoration-app-faint', accepted: 'border-app-line text-app-secondary',
   fixed: 'border-success-line text-success',
 }
-const icon: Record<TriageStatus, typeof CircleDot> = { open: RotateCcw, in_progress: Wrench, false_positive: ShieldX, accepted: ThumbsUp, fixed: CheckCheck }
+const icon: Record<TriageStatus, typeof RecordIcon> = { open: ArrowCounterClockwiseIcon, in_progress: WrenchIcon, false_positive: ShieldSlashIcon, accepted: ThumbsUpIcon, fixed: ChecksIcon }
 const VERB = {
   open: 'triage.verb.open', in_progress: 'triage.verb.in_progress', false_positive: 'triage.verb.false_positive', accepted: 'triage.verb.accepted', fixed: 'triage.verb.fixed',
 } as const satisfies Record<TriageStatus, string>
@@ -47,8 +48,8 @@ export function TriageActions({ current, canAccept, onPick, size = 'sm' }: { cur
   if (!primary) return null
   const Primary = icon[primary]
   return <div className="flex flex-wrap gap-1.5">
-    <Button type="button" size={size} variant="outline" onClick={() => onPick(primary)} className="border-app-line bg-app-soft"><Primary />{t(VERB[primary])}</Button>
-    {rest.length > 0 && <Menu><MenuTrigger render={<Button type="button" size={size} variant="outline" className="border-app-line bg-app-soft" />}>{t('triage.more_states')}<ChevronDown className="size-3.5" /></MenuTrigger>
+    <Button type="button" size={size} variant="outline" onClick={() => onPick(primary)} className="border-input bg-card"><Primary />{t(VERB[primary])}</Button>
+    {rest.length > 0 && <Menu><MenuTrigger render={<Button type="button" size={size} variant="outline" />}>{t('triage.more_states')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
       <MenuContent align="start">{rest.map(status => { const Icon = icon[status]; return <MenuItem key={status} onClick={() => onPick(status)}><Icon />{t(VERB[status])}</MenuItem> })}</MenuContent></Menu>}
   </div>
 }
@@ -93,14 +94,14 @@ export function TriageDialog({ runId = '', status, fingerprints = [], selections
       <div className="space-y-1.5"><label htmlFor="triage-reason" className="text-xs text-app-muted">{needsReason(status) ? t('triage.reason') : t('triage.reason_optional')}</label>
         <textarea id="triage-reason" required={needsReason(status)} minLength={needsReason(status) ? 10 : undefined} maxLength={500} rows={3} value={reason} onChange={event => setReason(event.target.value)}
           placeholder={placeholder ? t(placeholder) : ''}
-          className="w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand/40" /></div>
-      {status === 'accepted' && <div className="space-y-1.5"><label htmlFor="triage-expires" className="text-xs text-app-muted">{t('triage.expires')}</label><Input id="triage-expires" type="date" required min={inDays(1)} max={inDays(365)} value={expires} onChange={event => setExpires(event.target.value)} className="w-48 border-app-line bg-app-soft" /></div>}
-      <div className="space-y-1.5"><label htmlFor="triage-note" className="text-xs text-app-muted">{t('triage.note')}</label><Input id="triage-note" maxLength={1000} value={note} onChange={event => setNote(event.target.value)} className="border-app-line bg-app-soft" /></div>
+          className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand/40" /></div>
+      {status === 'accepted' && <div className="space-y-1.5"><label htmlFor="triage-expires" className="text-xs text-app-muted">{t('triage.expires')}</label><Input id="triage-expires" type="date" required min={inDays(1)} max={inDays(365)} value={expires} onChange={event => setExpires(event.target.value)} className="w-48 border-input bg-card" /></div>}
+      <div className="space-y-1.5"><label htmlFor="triage-note" className="text-xs text-app-muted">{t('triage.note')}</label><Input id="triage-note" maxLength={1000} value={note} onChange={event => setNote(event.target.value)} className="border-input bg-card" /></div>
       {error && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{error}</div>}
       {selections && failed.length > 0 && <div role="alert" className="space-y-1 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">
         <p className="font-medium">{t('scope.triage_partial', { count: selections.length - failed.length, total: selections.length })}</p>
         <ul className="max-h-32 space-y-0.5 overflow-y-auto">{failed.map(part => <li key={part.asset}><span className="font-medium">{part.name}</span> · {part.error}</li>)}</ul></div>}
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || (needsReason(status) && reason.trim().length < 10)} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="motion-safe:animate-spin" />}{failed.length ? t('scope.triage_retry', { count: failed.length }) : t('common:actions.save')}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || (needsReason(status) && reason.trim().length < 10)}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{failed.length ? t('scope.triage_retry', { count: failed.length }) : t('common:actions.save')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -111,7 +112,7 @@ export function TriageHistory({ state }: { state?: TriageState }) {
   if (!history.length) return null
   return <details className="mt-3"><summary className="cursor-pointer text-xs text-app-muted">{t('triage.history', { total: history.length })}</summary>
     <ol className="mt-2 space-y-1.5 border-l border-app-line pl-3 text-xs">{[...history].reverse().map((event, index) => <li key={index} className="text-app-muted">
-      <span className="flex items-center gap-1.5"><Clock3 className="size-3 text-app-subtle" /><span className="font-medium text-app-secondary">{t(TRIAGE_LABEL[event.status])}</span> · {event.by} · {formatDate(event.at)}{event.expires_at ? ` · ${t('triage.expires_on', { date: event.expires_at })}` : ''}</span>
+      <span className="flex items-center gap-1.5"><ClockIcon className="size-3 text-app-subtle" /><span className="font-medium text-app-secondary">{t(TRIAGE_LABEL[event.status])}</span> · {event.by} · {formatDate(event.at)}{event.expires_at ? ` · ${t('triage.expires_on', { date: formatCalendarDay(event.expires_at) })}` : ''}</span>
       {event.reason && <span className="block pl-4.5">{event.reason}</span>}{event.note && <span className="block pl-4.5 text-app-subtle">{event.note}</span>}
     </li>)}</ol></details>
 }

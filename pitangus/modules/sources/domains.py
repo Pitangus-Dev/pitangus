@@ -1,9 +1,16 @@
-"""Registry of HTTPS targets, with DNS TXT proof of control before they count as assets.
+"""Registry of HTTPS targets, with a proof of control before they count as assets.
 
-A domain becomes the asset `domain:<host>` once its TXT record (`_pitangus.<host>` = `pitangus-verify=<token>`) is
-seen, and stays one for VERIFY_DAYS. The periodic `recheck` task looks the record up again: present, the proof is
-extended; gone, the domain is no longer an asset until someone verifies it again. The TXT proves technical control
-of the DNS zone, not authorization to test anything: that stays with whoever operates Pitangus.
+A domain becomes the asset `domain:<host>` once one proof is seen, and stays one for VERIFY_DAYS:
+
+* **dns**: the TXT record `_pitangus.<host>` = `pitangus-verify=<token>`, asked to the zone's own nameservers.
+* **file**: `https://<host>/.well-known/pitangus-verify.txt` answering 200 with the token in its body.
+* **meta**: `<meta name="pitangus-verify" content="<token>">` in the homepage (`https://<host>/`).
+
+The periodic `recheck` task asks the same proof again: present, it is extended; gone, the domain is no longer an
+asset until someone verifies it again. Only a DNS proof covers subdomains (whoever controls the zone controls them);
+a file or a meta tag proves that exact host. HTTPS fetches go to an address already checked as public, with SNI and
+certificate validation for the name, no redirects, short timeouts and a 64 KB cap. A proof shows technical control,
+not authorization to test anything: that stays with whoever operates Pitangus.
 """
 
 from __future__ import annotations
@@ -15,13 +22,17 @@ import secrets
 import socket
 import ssl
 import subprocess
+import time
 from datetime import datetime, timedelta, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 
+from pitangus.modules.sources import domain_schedule
+from pitangus.modules.sources.domain_schedule import ScheduleError
 from pitangus.modules.sources.tables import domain_registry
 from pitangus.shared import db, documents
 from pitangus.shared import log as logging_setup
@@ -43,10 +54,18 @@ class DomainError(ValueError):
 KINDS = ("web", "api", "surface")
 CONTEXT_LIMIT = 400
 LIMIT = 20            # registered domains per workspace
-VERIFY_DAYS = 90      # how long one sighting of the TXT record counts
+VERIFY_DAYS = 90      # how long one sighting of the proof counts
 RECHECK_SECONDS = 24 * 3600
 ID = re.compile(r"[0-9a-f]{24}")
 KEY_PREFIX = "domain:"
+PROOF_METHODS = ("dns", "file", "meta")
+TOKEN_PREFIX = "pitangus-verify="  # gitleaks:allow
+WELL_KNOWN = "/.well-known/pitangus-verify.txt"
+META_NAME = "pitangus-verify"
+BODY_LIMIT = 64 * 1024
+FETCH_SECONDS = 10    # a whole HTTPS fetch, however slowly the server answers
+SCOPE_LIMIT = 20      # hosts a scan may list
+LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 
 
 def asset_key(host: str) -> str:
@@ -61,14 +80,34 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
+def token(record: dict) -> str:
+    """The random part of the TXT value: what the file and the meta tag carry."""
+    return str(record.get("txt_value") or "").removeprefix(TOKEN_PREFIX)
+
+
 def _row(row, now: datetime | None = None) -> dict:
     now = now or _now()
     verified = bool(row.verified_at and row.verified_until and row.verified_until > now)
+    secret = row.txt_value.removeprefix(TOKEN_PREFIX)
     return {"id": row.id, "host": row.host, "url": row.url, "kind": row.kind, "context": row.context,
             "txt_name": row.txt_name, "txt_value": row.txt_value, "registered_by": row.registered_by,
             "registered_at": _iso(row.registered_at), "verified": verified, "verified_at": _iso(row.verified_at),
             "verified_until": _iso(row.verified_until), "checked_at": _iso(row.checked_at),
-            "expired": bool(row.verified_at and not verified), "key": asset_key(row.host)}
+            "expired": bool(row.verified_at and not verified), "key": asset_key(row.host),
+            "proof_method": row.proof_method if row.verified_at else None,
+            "verify_token": secret, "verify_file_url": f"https://{row.host}{WELL_KNOWN}",
+            "verify_meta": f'<meta name="{META_NAME}" content="{secret}">',
+            "schedule": _schedule(row, now)}
+
+
+def _schedule(row, now: datetime) -> dict | None:
+    """The rule with when it runs next and what happened last time. A weekly schedule from before rules existed (no
+    `schedule_rule` yet: the data migration writes it) reads as the weekday and time of its next run, in UTC."""
+    if not row.schedule:
+        return None
+    rule = row.schedule_rule if isinstance(row.schedule_rule, dict) else domain_schedule.legacy(row.schedule_next_at, now=now)
+    return {**domain_schedule.timing(rule), **domain_schedule.access(rule), "next_run_at": _iso(row.schedule_next_at), "last_run_at": _iso(row.schedule_last_at),
+            "last_run_id": row.schedule_last_run, "note": row.schedule_note}
 
 
 def list_domains(data_dir: Path) -> list[dict]:
@@ -109,6 +148,14 @@ def source_for(record: dict) -> dict:
             "domain": {"id": record["id"], "host": record["host"], "url": record["url"], "kind": record["kind"]}}
 
 
+def valid_host(host: str) -> bool:
+    """A public DNS name: letters, digits and hyphens per label, an alphabetic TLD that isn't a reserved one."""
+    labels = host.split(".")
+    return (len(labels) >= 2 and len(host) <= 253 and all(LABEL.fullmatch(label) for label in labels)
+            and re.fullmatch(r"[a-z]{2,63}", labels[-1]) is not None
+            and labels[-1] not in {"local", "test", "invalid", "internal", "localhost"})
+
+
 def _host(url: str) -> tuple[str, str]:
     if not isinstance(url, str) or len(url) > 300:
         raise DomainError(msg("sources.domains.invalid_url"))
@@ -121,10 +168,7 @@ def _host(url: str) -> tuple[str, str]:
     if (parsed.scheme != "https" or parsed.username or parsed.password or port is not None
             or parsed.fragment or parsed.query or not host or len(host) > 253):
         raise DomainError(msg("sources.domains.https_only"))
-    labels = host.split(".")
-    if (len(labels) < 2 or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)
-            or not re.fullmatch(r"[a-z]{2,63}", labels[-1])
-            or labels[-1] in {"local", "test", "invalid", "internal", "localhost"}):
+    if not valid_host(host):
         raise DomainError(msg("sources.domains.invalid_domain"))
     return host, f"https://{host}{parsed.path or '/'}"
 
@@ -155,7 +199,7 @@ def register_domain(data_dir: Path, url: str, kind: str = "web", context: str = 
         domain_id = secrets.token_hex(12)
         connection.execute(insert(domain_registry).values(
             tenant_id=TENANT, id=domain_id, host=host, url=normalized, kind=kind, context=declared,
-            txt_name=f"_pitangus.{host}", txt_value=f"pitangus-verify={secrets.token_urlsafe(24)}", registered_by=by[:200]))
+            txt_name=f"_pitangus.{host}", txt_value=f"{TOKEN_PREFIX}{secrets.token_urlsafe(24)}", registered_by=by[:200]))
     return get_domain(data_dir, domain_id)
 
 
@@ -209,33 +253,148 @@ def _mark(data_dir: Path, domain_id: str, **values) -> dict:
     return get_domain(data_dir, domain_id)
 
 
-def verify_domain(data_dir: Path, domain_id: str, *, now: datetime | None = None) -> dict:
-    """Looks the TXT record up once; seen, the domain counts as verified for VERIFY_DAYS from now."""
-    record = get_domain(data_dir, domain_id)
-    now = now or _now()
+class _MetaTags(HTMLParser):
+    """The `content` of every `<meta name="pitangus-verify">`, however the page is written; nothing else is kept."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.found: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "meta":
+            values = {str(name).lower(): value or "" for name, value in attrs}
+            if values.get("name", "").strip().lower() == META_NAME:
+                self.found.append(values.get("content", "").strip())
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+
+def meta_tokens(page: bytes) -> list[str]:
+    parser = _MetaTags()
+    try:
+        parser.feed(page[:BODY_LIMIT].decode("utf-8", errors="replace"))
+        parser.close()
+    except (AssertionError, ValueError):  # malformed markup: whatever was read so far counts
+        pass
+    return parser.found
+
+
+def https_get(host: str, address: str, path: str, *, limit: int = BODY_LIMIT, seconds: int = FETCH_SECONDS) -> tuple[int, bytes]:
+    """One GET of `https://<host><path>` sent to `address` (already checked as public) with SNI and certificate
+    validation for `host`. No redirects, no proxy, at most `limit` + 1 bytes (so a caller sees it was larger) and
+    `seconds` in all. Raises OSError, ssl.SSLError or http.client.HTTPException when it can't."""
+    deadline = time.monotonic() + seconds
+    ssl_context = ssl.create_default_context()
+    with socket.create_connection((address, 443), timeout=6) as raw:
+        with ssl_context.wrap_socket(raw, server_hostname=host) as secure:
+            connection = http.client.HTTPSConnection(host, 443, timeout=6)
+            connection.sock = secure
+            connection.request("GET", path, headers={"Host": host, "User-Agent": USER_AGENT, "Accept": "*/*",
+                                                     "Accept-Encoding": "identity", "Connection": "close"})
+            response = connection.getresponse()
+            body = b""
+            while response.status == 200 and len(body) <= limit:
+                if time.monotonic() > deadline:
+                    raise TimeoutError("the body took too long")
+                chunk = response.read(min(65536, limit + 1 - len(body)))
+                if not chunk:
+                    break
+                body += chunk
+            return response.status, body
+
+
+def _fetch_proof(record: dict, method: str) -> tuple[bool | None, object]:
+    """(present, reason) for the file or meta proof: None when the host couldn't be asked (that proves nothing)."""
+    host = record["host"]
+    path = WELL_KNOWN if method == "file" else "/"
+    url = f"https://{host}{path}"
+    try:
+        address = public_address(host)
+        status, body = https_get(host, address, path)
+    except DomainError as exc:
+        return None, exc.message
+    except (OSError, ssl.SSLError, http.client.HTTPException):
+        return None, msg("sources.domains.proof_unreachable", host=host)
+    if 300 <= status < 400:
+        return False, msg("sources.domains.redirected", url=url, code=status)
+    if status >= 500:
+        return None, msg("sources.domains.proof_unreachable", host=host)
+    secret = token(record)
+    if status == 200 and len(body) <= BODY_LIMIT and len(secret) >= 16:
+        if method == "file" and secret.encode() in body:
+            return True, None
+        if method == "meta" and any(found in (secret, record["txt_value"]) for found in meta_tokens(body)):
+            return True, None
+    return False, (msg("sources.domains.file_missing", url=url) if method == "file"
+                   else msg("sources.domains.meta_missing", host=host))
+
+
+def proof_present(record: dict, method: str | None = None) -> tuple[bool | None, object]:
+    """(present, reason): whether the domain's proof (`method`, else the one that verified it) is there right now.
+    None: DNS or the host couldn't be asked, which proves nothing either way."""
+    method = method or record.get("proof_method") or "dns"
+    if method in ("file", "meta"):
+        return _fetch_proof(record, method)
     values = lookup_txt(record["txt_name"])
     if values is None:
-        raise DomainError(msg("sources.domains.dns_unavailable"))
-    if record["txt_value"] not in values:
+        return None, msg("sources.domains.dns_unavailable")
+    return (True, None) if record["txt_value"] in values else (False, msg("sources.domains.txt_missing"))
+
+
+def _gone(record: dict, method: str):
+    key = {"file": "sources.domains.proof_gone_file", "meta": "sources.domains.proof_gone_meta"}.get(method, "sources.domains.proof_gone")
+    return msg(key, host=record["host"])
+
+
+def verify_domain(data_dir: Path, domain_id: str, method: str = "dns", *, now: datetime | None = None) -> dict:
+    """Asks for the proof once (DNS TXT, the well-known file or the meta tag); seen, the domain counts as verified
+    for VERIFY_DAYS from now, and the re-check asks that same proof again."""
+    if method not in PROOF_METHODS:
+        raise DomainError(msg("sources.domains.invalid_method"))
+    record = get_domain(data_dir, domain_id)
+    now = now or _now()
+    present, reason = proof_present(record, method)
+    if present is None:
+        raise DomainError(reason)
+    if not present:
         _mark(data_dir, domain_id, checked_at=now)
-        raise DomainError(msg("sources.domains.txt_missing"))
-    return _mark(data_dir, domain_id, verified_at=now, verified_until=now + timedelta(days=VERIFY_DAYS), checked_at=now)
+        raise DomainError(reason)
+    return _mark(data_dir, domain_id, verified_at=now, verified_until=now + timedelta(days=VERIFY_DAYS), checked_at=now,
+                 proof_method=method)
+
+
+def confirm_control(data_dir: Path, domain_id: str, *, now: datetime | None = None) -> dict:
+    """The domain, only if its proof is current and still published right now: what a scan that reaches it checks
+    before it starts. A proof gone withdraws it, as `recheck` does; DNS or the host not answering proves nothing, so
+    nothing starts either."""
+    record = get_domain(data_dir, domain_id)
+    if not record["verified"]:
+        raise DomainError(msg("sources.domains.not_verified", host=record["host"]))
+    present, reason = proof_present(record)
+    if present is None:
+        raise DomainError(reason)
+    if not present:
+        _mark(data_dir, domain_id, verified_at=None, verified_until=None, checked_at=now or _now())
+        _log.warning("domain_proof_withdrawn", extra={"reason": record["host"]})
+        raise DomainError(_gone(record, record["proof_method"] or "dns"))
+    return record
 
 
 def recheck(data_dir: Path, *, now: datetime | None = None) -> dict:
-    """The periodic re-verification: every domain with a proof is looked up again. Present, the proof is extended;
-    gone, it is withdrawn (the TXT was removed: whoever controls the zone no longer vouches). DNS not answering
-    changes nothing: the proof simply runs out at `verified_until`."""
+    """The periodic re-verification: every domain with a proof asks the same proof again. Present, it is extended;
+    gone, it is withdrawn (whoever controls the zone or the site no longer vouches). Not answering changes nothing:
+    the proof simply runs out at `verified_until`."""
     now = now or _now()
     outcome = {"kept": 0, "withdrawn": 0, "unanswered": 0}
     for record in list_domains(data_dir):
         if not record["verified_at"]:
             continue
-        values = lookup_txt(record["txt_name"])
-        if values is None:
+        present, _ = proof_present(record)
+        if present is None:
             outcome["unanswered"] += 1
             continue
-        if record["txt_value"] in values:
+        if present:
             _mark(data_dir, record["id"], verified_until=now + timedelta(days=VERIFY_DAYS), checked_at=now)
             outcome["kept"] += 1
         else:
@@ -246,11 +405,131 @@ def recheck(data_dir: Path, *, now: datetime | None = None) -> dict:
 
 
 def remove_domain(data_dir: Path, domain_id: str) -> dict:
-    """Deletes the row and returns what it was (the caller purges the asset's runs, if any)."""
+    """Deletes the row (its test users go with it, by foreign key) and its saved headers, and returns what it was (the
+    caller purges the asset's runs, if any)."""
+    from pitangus.modules.sources import domain_headers
     record = get_domain(data_dir, domain_id)
     with db.transaction(data_dir) as connection:
         connection.execute(delete(domain_registry).where(domain_registry.c.tenant_id == TENANT, domain_registry.c.id == domain_id))
+    domain_headers.forget(domain_id)
     return record
+
+
+def scan_scope(record: dict, hosts=None) -> dict:
+    """The hosts a scan of `record` may reach: its own host, plus the subdomains listed in `hosts` (at most
+    SCOPE_LIMIT entries, `name` or `*.name`). Only a DNS proof covers subdomains; a file or meta proof keeps the scan
+    on the registered host. Wildcards only widen ZAP's context: just the hosts named one by one are pinned to a
+    checked address and crawled (the container resolves nothing else)."""
+    root = record["host"]
+    hosts = [] if hosts is None else hosts
+    if not isinstance(hosts, list) or len(hosts) > SCOPE_LIMIT:
+        raise DomainError(msg("sources.domains.scope.too_many", max=SCOPE_LIMIT))
+    concrete, wildcards = [root], []
+    for entry in hosts:
+        if not isinstance(entry, str) or len(entry) > 260:
+            raise DomainError(msg("sources.domains.scope.invalid_host", host=str(entry)[:80]))
+        name = entry.strip().lower().rstrip(".")
+        wildcard = name.startswith("*.")
+        bare = name[2:] if wildcard else name
+        if not valid_host(bare):
+            raise DomainError(msg("sources.domains.scope.invalid_host", host=name[:80]))
+        if bare != root and not bare.endswith("." + root):
+            raise DomainError(msg("sources.domains.scope.outside", host=name, root=root))
+        if (wildcard or bare != root) and (record.get("proof_method") or "dns") != "dns":
+            raise DomainError(msg("sources.domains.scope.needs_dns", host=name, root=root))
+        if wildcard and name not in wildcards:
+            wildcards.append(name)
+        elif not wildcard and bare not in concrete:
+            concrete.append(bare)
+    return {"hosts": concrete, "wildcards": wildcards}
+
+
+def in_scope(host: str, scope: dict) -> bool:
+    """`host` is one of the scope's hosts or a subdomain matched by one of its wildcards."""
+    host = (host or "").lower().rstrip(".")
+    return host in scope.get("hosts", []) or any(host.endswith(pattern[1:]) for pattern in scope.get("wildcards", []))
+
+
+def set_schedule(data_dir: Path, domain_id: str, rule: dict | None, *, now: datetime | None = None,
+                 last_scan_at: datetime | None = None) -> dict:
+    """Sets the scheduled passive scan (`domain_schedule` rule) or turns it off (None). The next run is the rule's first
+    moment after now, never on the local day of the domain's last scan (`last_scan_at`): at most one a day. Saving
+    the same rule again keeps the next run, so a slot that is due but not yet queued isn't lost."""
+    now = now or _now()
+    record = get_domain(data_dir, domain_id)
+    if rule is None:
+        return _mark(data_dir, domain_id, schedule=None, schedule_rule=None, schedule_next_at=None, schedule_note=None)
+    try:
+        rule = domain_schedule.normalize(rule)
+    except ScheduleError as exc:
+        raise DomainError(exc.message) from exc
+    current = record["schedule"]
+    if current and current["next_run_at"] and domain_schedule.timing(current) == domain_schedule.timing(rule):
+        # Same moments: only what the scan does may change, and a due slot isn't lost.
+        if domain_schedule.access(current) == domain_schedule.access(rule):
+            return record
+        return _mark(data_dir, domain_id, schedule_rule=rule)
+    not_on = domain_schedule.local_day(last_scan_at, rule) if last_scan_at else None
+    return _mark(data_dir, domain_id, schedule=rule["frequency"], schedule_rule=rule, schedule_note=None,
+                 schedule_next_at=domain_schedule.next_run(rule, now, not_on=not_on))
+
+
+def due_scans(data_dir: Path, *, now: datetime | None = None, lock: bool = False) -> list[dict]:
+    """Domains whose scheduled scan is due, the longest overdue first. `lock`: their rows stay locked until the
+    caller's transaction ends (and rows another round holds are left out), so queuing a scan and moving the schedule
+    on happen together or not at all."""
+    now = now or _now()
+    statement = select(domain_registry).where(
+        domain_registry.c.tenant_id == TENANT, domain_registry.c.schedule.in_(domain_schedule.FREQUENCIES),
+        domain_registry.c.schedule_next_at <= now).order_by(domain_registry.c.schedule_next_at, domain_registry.c.id)
+    with db.transaction(data_dir) as connection:
+        rows = connection.execute(statement.with_for_update(skip_locked=True) if lock else statement).all()
+    return [_row(row, now) for row in rows]
+
+
+def _rule(record: dict) -> dict:
+    return {**domain_schedule.timing(record["schedule"]), **domain_schedule.access(record["schedule"])}
+
+
+def schedule_queued(data_dir: Path, domain_id: str, run_id: str, *, now: datetime | None = None, note=None,
+                    gone_users: list[str] | None = None) -> dict:
+    """The scheduled scan was queued now: the next one is the rule's next moment on a later local day. `note` says what
+    it left out; `gone_users`, test users deleted since they were chosen, leave the rule."""
+    now = now or _now()
+    rule = _rule(get_domain(data_dir, domain_id))
+    if gone_users:
+        rule["test_users"] = [user for user in rule["test_users"] if user not in gone_users]
+    return _mark(data_dir, domain_id, schedule_last_at=now, schedule_last_run=run_id, schedule_note=note, schedule_rule=rule,
+                 schedule_next_at=domain_schedule.next_run(rule, now, not_on=domain_schedule.local_day(now, rule)))
+
+
+def schedule_skipped(data_dir: Path, domain_id: str, note, *, now: datetime | None = None) -> dict:
+    """The scan was due and didn't start (`note` says why): it stays due, so the next round tries again."""
+    return _mark(data_dir, domain_id, schedule_last_at=now or _now(), schedule_note=note)
+
+
+def schedule_moved(data_dir: Path, domain_id: str, note, *, after: datetime, not_on, now: datetime | None = None) -> dict:
+    """The slot is dropped (`note` says why) and the schedule moves on to its next moment after `not_on`."""
+    rule = _rule(get_domain(data_dir, domain_id))
+    return _mark(data_dir, domain_id, schedule_last_at=now or _now(), schedule_note=note, schedule_rule=rule,
+                 schedule_next_at=domain_schedule.next_run(rule, after, not_on=not_on))
+
+
+def adopt_schedule_rules(data_dir: Path) -> int:
+    """Weekly schedules from before rules existed get theirs (data migration `scan_schedule_rules`): the weekday and
+    time of their next run, in UTC, so they keep firing when they would have. Returns how many."""
+    now = _now()
+    moved = 0
+    with db.transaction(data_dir) as connection:
+        rows = connection.execute(select(domain_registry.c.id, domain_registry.c.schedule_next_at).where(
+            domain_registry.c.tenant_id == TENANT, domain_registry.c.schedule.is_not(None),
+            domain_registry.c.schedule_rule.is_(None)).with_for_update()).all()
+        for row in rows:
+            rule = domain_schedule.legacy(row.schedule_next_at, now=now)
+            connection.execute(update(domain_registry).where(domain_registry.c.tenant_id == TENANT, domain_registry.c.id == row.id)
+                               .values(schedule="weekly", schedule_rule=rule, schedule_next_at=row.schedule_next_at or now))
+            moved += 1
+    return moved
 
 
 def import_document(data_dir: Path) -> int:
@@ -292,27 +571,42 @@ def _is_public(address: str) -> bool:
         return False
 
 
+def public_address(host: str) -> str:
+    """The address a scan of `host` is pinned to, once every address the name resolves to is public (no loopback,
+    private, link-local or cloud metadata range). IPv4 first: Docker's default bridge often has no IPv6 route."""
+    try:
+        infos = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError) as exc:
+        raise DomainError(msg("sources.domains.check.dns_error")) from exc
+    addresses = sorted({info[4][0].split("%")[0] for info in infos}, key=lambda address: (":" in address, address))
+    if not addresses:
+        raise DomainError(msg("sources.domains.check.dns_error"))
+    if not all(_is_public(address) for address in addresses):
+        raise DomainError(msg("sources.domains.check.private_address"))
+    return addresses[0]
+
+
 def check_reachability(url: str) -> dict:
     """Tells whether the target answers over HTTPS before registering it.
 
     Not a security test or a pentest: a single-hop HEAD, no redirects. It
     resolves the host and requires every address to be public before
     connecting, then connects to the already-resolved IP so the probe cannot
-    end up at an internal address.
+    end up at an internal address. `public` is None when the name doesn't resolve.
     """
     host, normalized = _host(url)
     path = urlsplit(normalized).path or "/"
     try:
         infos = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
     except socket.gaierror:
-        return {"host": host, "reachable": False, "status": "dns_error",
+        return {"host": host, "reachable": False, "status": "dns_error", "https": False, "public": None,
                 "detail": msg("sources.domains.check.dns_error")}
     addresses = sorted({info[4][0] for info in infos})
     if not addresses:
-        return {"host": host, "reachable": False, "status": "dns_error",
+        return {"host": host, "reachable": False, "status": "dns_error", "https": False, "public": None,
                 "detail": msg("sources.domains.check.dns_error")}
     if not all(_is_public(address) for address in addresses):
-        return {"host": host, "reachable": False, "status": "private_address",
+        return {"host": host, "reachable": False, "status": "private_address", "https": False, "public": False,
                 "detail": msg("sources.domains.check.private_address")}
     ssl_context = ssl.create_default_context()
     try:
@@ -324,10 +618,10 @@ def check_reachability(url: str) -> dict:
                     "Host": host, "User-Agent": USER_AGENT, "Accept": "*/*", "Connection": "close"})
                 code = connection.getresponse().status
     except ssl.SSLCertVerificationError:
-        return {"host": host, "reachable": False, "status": "tls_error",
+        return {"host": host, "reachable": False, "status": "tls_error", "https": False, "public": True,
                 "detail": msg("sources.domains.check.tls_error")}
     except (OSError, http.client.HTTPException):
-        return {"host": host, "reachable": False, "status": "unreachable",
+        return {"host": host, "reachable": False, "status": "unreachable", "https": False, "public": True,
                 "detail": msg("sources.domains.check.unreachable")}
-    return {"host": host, "reachable": True, "status": "reachable", "http_status": code,
+    return {"host": host, "reachable": True, "status": "reachable", "http_status": code, "https": True, "public": True,
             "detail": msg("sources.domains.check.reachable", code=code, address=addresses[0])}

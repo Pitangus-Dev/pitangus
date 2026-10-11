@@ -61,7 +61,8 @@
     "invalid_url": "{{name}}={{value}} no es un origen como https://pitangus.example.com (esquema y dominio, sin ruta).",
     "invalid_key": "{{name}} tiene que ser de 32 bytes aleatorios en base64. Genera uno con: openssl rand -base64 32",
     "short_token": "{{name}} es demasiado corto: usa al menos 32 caracteres (openssl rand -hex 32).",
-    "ok": "Configuración: sin problemas."
+    "ok": "Configuración: sin problemas.",
+    "invalid_addresses": "{{name}}={{value}} no es una lista de direcciones IP o rangos CIDR separados por comas (como máximo {{max}}), por ejemplo 203.0.113.10, 2001:db8::/48."
   },
   "setup_code": {
     "code": "Código de configuración: {{code}}",

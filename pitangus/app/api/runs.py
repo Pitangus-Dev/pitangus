@@ -19,7 +19,7 @@ from pitangus.modules.reporting.technical import render_technical_pdf
 from pitangus.modules.findings.kinds import FINDING_RUNS, FULL_SCANS
 from pitangus.modules.runs.store import artifact as store_artifact, find_runs, load_run, page_runs, profile_pdf_titles
 from pitangus.modules.runs.store import render_asset_report, render_profile_report, render_repository_report, render_repository_sarif
-from pitangus.modules.runs.store import render_tickets
+from pitangus.modules.runs.store import render_tickets, with_web_coverage
 from pitangus.shared.i18n import msg
 from pitangus.version import RELEASE
 
@@ -112,7 +112,7 @@ def runs_page(limit: str = "25", offset: str = "0", status: str = "", kind: str 
 
 def _record(context: Context, run_id: str) -> dict:
     # A code review's views reflect the current triage, not the one on the day of the scan.
-    return tickets.annotate(context.data_dir, triage.annotate(context.data_dir, load_run(context.data_dir, run_id)))
+    return tickets.annotate(context.data_dir, triage.annotate(context.data_dir, with_web_coverage(load_run(context.data_dir, run_id))))
 
 
 @router.get("/api/runs/{run_id}", response_model=RunDetail, **AS_RETURNED)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { GitBranch } from 'lucide-react'
+import { GitBranchIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
 import { api } from '@/shared/api/http'
@@ -41,10 +41,11 @@ export function ImageOrigin({ asset, admin, onChanged }: { asset: Image; admin: 
   const origin = built ? (built.how === 'manual'
     ? t('evidence.origin.manual', { by: built.by ?? '—', date: built.at ? formatDate(built.at) : '—' })
     : built.repository ? t('evidence.origin.label') : t('evidence.origin.label_unknown')) : ''
-  return <div className="space-y-2 rounded-xl border border-app-line bg-inset px-3 py-2 text-sm">
-    <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><GitBranch className="size-4 text-app-subtle" aria-hidden />
-      {built ? <><span>{t('evidence.origin.built_from')}</span><span className="font-mono text-xs">{built.name}{built.revision ? ` @ ${built.revision.slice(0, 12)}` : ''}</span>
-        <span className="text-xs text-app-muted">· {origin}</span></> : <span className="text-app-muted">{t('evidence.origin.none')}</span>}
+  // A plain secondary line of its row (Images) or under the picker (evidence): no box of its own.
+  return <div className="space-y-2 text-xs text-app-muted">
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><GitBranchIcon className="size-3.5 text-app-subtle" aria-hidden />
+      {built ? <><span>{t('evidence.origin.built_from')}</span><span className="font-mono text-app-secondary">{built.name}{built.revision ? ` @ ${built.revision.slice(0, 12)}` : ''}</span>
+        <span>· {origin}</span></> : <span>{t('evidence.origin.none')}</span>}
       {admin && !editing && <Button ref={opener} size="xs" variant="ghost" onClick={() => setEditing(true)}>{built ? t('evidence.origin.change') : t('evidence.origin.link')}</Button>}
       {admin && built?.how === 'manual' && !editing && <Button size="xs" variant="ghost" onClick={() => void save(null)}>{t('evidence.origin.use_label')}</Button>}
     </p>

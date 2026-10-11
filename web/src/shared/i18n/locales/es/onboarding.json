@@ -1,6 +1,6 @@
 {
   "title": "Primeros pasos",
-  "progress": "{{done}} de {{total}} hechos. Se tachan solos cuando los completas.",
+  "progress": "{{done}} de {{total, number}} hechos. Se tachan solos cuando los completas.",
   "hide": "Ocultar primeros pasos",
   "done": "(hecho)",
   "pending": "(pendiente)",
@@ -32,7 +32,7 @@
     "alerts": {
       "title": "Recibe avisos en Slack o Teams",
       "hint_admin": "Un mensaje cuando aparece algo nuevo que importa, sin abrir el panel.",
-      "hint_member": "Lo configura un administrador en Integraciones → Avisos.",
+      "hint_member": "Lo configura un administrador en Integraciones, sección Avisos.",
       "action": "Configurar"
     }
   }

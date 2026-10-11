@@ -41,6 +41,8 @@
     "dns_unavailable": "No se pudo consultar DNS",
     "dns_failed": "La consulta DNS falló",
     "txt_missing": "No se encontró el TXT de verificación; revisa el nombre, el valor y la propagación",
+    "not_verified": "{{host}} no tiene una prueba DNS vigente: verifícalo de nuevo antes de analizarlo",
+    "proof_gone": "El TXT de {{host}} ya no está publicado y el dominio dejó de contar como verificado: vuelve a publicarlo y verifícalo",
     "check": {
       "dns_error": "El dominio no resuelve en DNS.",
       "private_address": "El dominio resuelve a una dirección privada o reservada; no se sondea.",
@@ -49,6 +51,72 @@
       "reachable": "Respuesta HTTPS {{code}} desde {{address}}."
     },
     "invalid_request": "Solicitud de dominio inválida",
-    "too_many_attempts": "Demasiados intentos con este dominio; vuelve a intentarlo en {{seconds}} s"
+    "too_many_attempts": "Demasiados intentos con este dominio; vuelve a intentarlo en {{seconds}} s",
+    "invalid_method": "El método de verificación es dns, file o meta",
+    "proof_unreachable": "No se pudo llegar a {{host}} por HTTPS para comprobar su prueba; vuelve a intentarlo más tarde",
+    "redirected": "{{url}} respondió con una redirección ({{code}}): la prueba debe servirla ese mismo host, sin redirecciones",
+    "file_missing": "{{url}} no contiene el token de este dominio: publica el archivo con el token y comprueba que responda 200",
+    "meta_missing": "La página principal de {{host}} no tiene la etiqueta meta pitangus-verify con el token de este dominio",
+    "proof_gone_file": "El archivo de verificación de {{host}} ya no está publicado y el dominio dejó de contar como verificado: vuelve a publicarlo y verifícalo",
+    "proof_gone_meta": "La etiqueta meta de verificación de {{host}} ya no está y el dominio dejó de contar como verificado: vuelve a añadirla y verifícalo",
+    "scope": {
+      "too_many": "Un análisis admite como máximo {{max}} hosts adicionales",
+      "invalid_host": "{{host}} no es un nombre de host válido (usa nombre.ejemplo.com o *.ejemplo.com)",
+      "outside": "{{host}} no es {{root}} ni uno de sus subdominios",
+      "needs_dns": "No se puede analizar {{host}}: {{root}} se verificó con un archivo o una etiqueta meta, que solo prueban ese host. Verifícalo con el registro TXT en DNS para incluir subdominios",
+      "unverified": "Primero verifica {{host}}: solo se pueden incluir subdominios de un dominio verificado",
+      "dns_only": "Verifica con DNS para incluir subdominios",
+      "root": "{{host}} es el propio dominio: siempre se analiza",
+      "unknown_host": "{{host}} no está entre los hosts relacionados de este dominio",
+      "hosts_full": "Un dominio guarda como máximo {{max}} hosts relacionados",
+      "not_manual": "{{host}} lo encontró la búsqueda y sigue en la lista: exclúyelo en su lugar"
+    },
+    "schedule": {
+      "invalid": "La programación es diaria, semanal con al menos un día de la semana, o mensual con al menos un día del 1 al 28",
+      "invalid_time": "La hora va en formato HH:MM, de 00:00 a 23:59",
+      "invalid_timezone": "{{zone}} no es una zona horaria que este servidor conozca. Usa un nombre IANA, como America/Bogota o UTC",
+      "lapsed": "Omitido: la prueba del dominio caducó. Verifícalo de nuevo y el análisis programado se reanuda en la siguiente ronda",
+      "busy": "En espera: había otro análisis web en cola o en curso; se vuelve a intentar en la siguiente ronda",
+      "already_today": "Omitido: el dominio ya se analizó ese día. El siguiente análisis programado corre como estaba previsto",
+      "users_gone_one": "Se eliminó un usuario de prueba elegido para esta programación: el análisis se hace sin él",
+      "users_gone_other": "Se eliminaron {{count}} usuarios de prueba elegidos para esta programación: el análisis se hace sin ellos",
+      "users_outside_one": "{{names}} inicia sesión fuera del alcance guardado: el análisis se hace sin ese usuario de prueba",
+      "users_outside_other": "{{names}} inician sesión fuera del alcance guardado: el análisis se hace sin esos usuarios de prueba",
+      "headers_gone": "La programación envía las cabeceras guardadas, pero el dominio ya no tiene ninguna: el análisis se hace sin ellas",
+      "notes": "{{first}}. {{rest}}"
+    },
+    "headers": {
+      "invalid_request": "Solicitud de cabecera inválida",
+      "invalid_name": "El nombre de una cabecera solo admite letras, dígitos y !#$%&'*+.^_`|~-, hasta 64 caracteres",
+      "denied_name": "{{name}} la fija la propia conexión y no se puede guardar",
+      "invalid_value": "El valor de una cabecera es ASCII imprimible en una sola línea, hasta {{max}} caracteres",
+      "limit": "Un dominio guarda como máximo {{max}} cabeceras",
+      "not_found": "No hay ninguna cabecera guardada con el nombre {{name}}"
+    },
+    "discovery": {
+      "interrupted": "La búsqueda de hosts relacionados se detuvo sin terminar; vuelve a buscar.",
+      "busy": "Ya hay una búsqueda de hosts relacionados en curso para este dominio."
+    },
+    "test_users": {
+      "invalid_request": "Solicitud de usuario de prueba inválida",
+      "invalid_name": "El nombre de un usuario de prueba es una línea de hasta {{max}} caracteres",
+      "invalid_username": "El usuario o correo es una línea de hasta {{max}} caracteres, sin ${",
+      "invalid_password": "La contraseña es una línea de hasta {{max}} caracteres, sin ${",
+      "invalid_method": "Elige cómo inicia sesión: usuario y contraseña, o con app de autenticación (TOTP)",
+      "invalid_notes": "Las notas admiten hasta {{max}} caracteres",
+      "invalid_host": "{{host}} no es un host válido",
+      "outside": "{{host}} no es {{root}} ni uno de sus subdominios",
+      "invalid_login_url": "La URL de login es una página HTTPS, sin puerto ni credenciales",
+      "invalid_totp": "El secreto TOTP es la clave en base32 que muestra la app de autenticación (al menos 16 caracteres)",
+      "invalid_totp_options": "Los códigos TOTP tienen {{digits}} dígitos, duran {{periods}} segundos y usan {{algorithms}}",
+      "totp_required": "Añade el secreto TOTP para iniciar sesión con app de autenticación",
+      "password_required": "Añade la contraseña",
+      "name_taken": "Ya hay un usuario de prueba llamado {{name}}",
+      "limit": "Un dominio guarda como máximo {{max}} usuarios de prueba",
+      "not_found": "Ese usuario de prueba no existe o se eliminó",
+      "too_many": "Un análisis inicia sesión con {{max}} usuarios de prueba como máximo",
+      "not_in_scope": "{{name}} inicia sesión en {{host}}, que no está en el alcance de este análisis: añádelo al alcance o elige otro usuario de prueba",
+      "invalid_check_url": "La URL de comprobación es una página HTTPS, sin puerto ni credenciales"
+    }
   }
 }

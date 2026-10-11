@@ -51,6 +51,7 @@
   "finding_not_in_asset": "That finding isn't in the asset's registry",
   "finding_from_open_pr": "This finding comes from an open pull request: it's verified on every push to the PR",
   "no_full_scan": "This asset has no full analysis to repeat: start one from New analysis",
+  "dast_reverify_admin": "Checking this again means scanning the site, and only an administrator launches web scans: ask one to run it.",
   "demo_reverify": "This is demo data: it's analyzed again with \"make demo\". Re-verify works on your repositories and images.",
   "image_rescan_failed": "The image analysis can't be repeated: {{detail}}",
   "repository_gone": "The repository is no longer available with the configured credential",

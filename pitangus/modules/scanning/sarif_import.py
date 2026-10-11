@@ -16,7 +16,14 @@ are merged, because an import of a tool is what later proves that tool's finding
   same alert look new on every run), and the key is rule + URL + parameter name: never the evidence or the message,
   which carry request-specific values. Nuclei puts the template path where the URI belongs and the URL in its
   properties; both are read. Only the method, the parameter and a bounded evidence are kept (`web`): never the
-  request or response the tool attached, which carry cookies and authorization headers.
+  request or response the tool attached, which carry cookies and authorization headers. What the tool says about its
+  rule is kept as published, bounded and redacted: the description, the solution, the http(s) references and the WASC
+  ids; and per result, the attack it sent, if any.
+* **Strix** (AI pentest agents): a finding without a code location comes anchored to `SECURITY.md` with
+  `properties.synthetic_location`; it takes the URL of the endpoint it is about (`properties.strix.target` plus the
+  route of `properties.strix.endpoint`, "GET /api/users/{id}"), so it is a web finding; one with a code location stays
+  a code finding. Its own severity label wins over the score, and its coverage results (`properties.strix.
+  coverage_outcome`: checked, not applicable or left for a follow-up) are not findings.
 * Text written by the tool (titles, messages, help) is kept as published and only shown inside our own sentences.
 """
 
@@ -34,7 +41,7 @@ MAX_BYTES = 10_000_000
 MAX_RUNS = 20
 MAX_RESULTS = 5000
 TITLE_MAX, MESSAGE_MAX, PATH_MAX, RULE_MAX, TOOL_MAX, VERSION_MAX = 300, 2000, 1000, 200, 100, 50
-EVIDENCE_MAX, PARAMETER_MAX = 2000, 200
+EVIDENCE_MAX, PARAMETER_MAX, ATTACK_MAX, REFERENCES_MAX, REFERENCE_MAX = 2000, 200, 500, 8, 300
 
 SECRET_TOOLS = ("gitleaks", "trufflehog", "detect-secrets", "ggshield", "gitguardian", "secretlint", "talisman")
 SCA_TOOLS = ("trivy", "grype", "osv-scanner", "dependabot", "dependency-check", "npm audit", "pip-audit", "retire")
@@ -55,6 +62,8 @@ PRECISION = {"very-high": 9, "high": 8, "medium": 6, "low": 4, "very-low": 3}
 CVE = re.compile(r"CVE-\d{4}-\d{4,}", re.IGNORECASE)
 GHSA = re.compile(r"GHSA(?:-[23456789cfghjmpqrvwx]{4}){3}", re.IGNORECASE)
 CWE = re.compile(r"(?:^|[^a-z])cwe[-/:_ ]?0*(\d{1,5})\b", re.IGNORECASE)
+WASC = re.compile(r"(?:^|[^a-z])wasc[-/:_ ]?0*(\d{1,3})\b", re.IGNORECASE)
+REFERENCE = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
 OWASP = re.compile(r"\bA(\d{2}):(20\d{2})\b")
 
 
@@ -131,8 +140,39 @@ def _web_location(result: dict, uri: Any) -> str:
     return ""
 
 
+def _endpoint(result: dict) -> tuple[str, str]:
+    """(method, route or URL) of a result about an endpoint: Strix's `properties.strix.endpoint` ("GET /api/users")
+    or a logical location of kind `endpoint`."""
+    strix = _dict(_dict(result.get("properties")).get("strix"))
+    endpoint = strix.get("endpoint")
+    if not isinstance(endpoint, str) or not endpoint.strip():
+        endpoint = next((item.get("fullyQualifiedName") for location in _list(result.get("locations"))
+                         for item in map(_dict, _list(_dict(location).get("logicalLocations")))
+                         if item.get("kind") == "endpoint" and isinstance(item.get("fullyQualifiedName"), str)), "")
+    parts = str(endpoint or "").strip().split(None, 1)
+    if len(parts) == 2 and parts[0].isalpha() and parts[0].isupper() and len(parts[0]) <= 10:
+        return parts[0], parts[1].strip()
+    method = strix.get("method")
+    return clean_name(method, 10).upper() if isinstance(method, str) else "", str(endpoint or "").strip()
+
+
+def _endpoint_url(result: dict) -> str:
+    """The URL a result about an endpoint is at (Strix: its `target` joined with the endpoint's route)."""
+    _, route = _endpoint(result)
+    if url := _url(route):
+        return url
+    target = _dict(_dict(result.get("properties")).get("strix")).get("target")
+    base = _url(target) if isinstance(target, str) else ""
+    if not base:
+        return ""
+    origin = "/".join(base.split("/", 3)[:3])
+    return _url(origin + route) if route.startswith("/") else base
+
+
 def _location(result: dict, artifacts: list, *, web: bool = False) -> tuple[str, int, str]:
-    """(path, line, normalized snippet) of the result's first physical location; a web finding's path is its URL."""
+    """(path, line, normalized snippet) of the result's first physical location; a web finding's path is its URL.
+    A location the tool marks as a placeholder (Strix anchors findings without one to SECURITY.md) gives way to the
+    endpoint the result is about."""
     physical = _dict(_dict((_list(result.get("locations")) or [{}])[0]).get("physicalLocation"))
     artifact = _dict(physical.get("artifactLocation"))
     uri = artifact.get("uri")
@@ -142,7 +182,8 @@ def _location(result: dict, artifacts: list, *, web: bool = False) -> tuple[str,
     region = _dict(physical.get("region"))
     line = region.get("startLine")
     snippet = _text(_dict(region.get("snippet")).get("text"), MESSAGE_MAX) or _text(_dict(physical.get("contextRegion")).get("snippet"), MESSAGE_MAX)
-    path = (_web_location(result, uri) if web else "") or _url(uri) or _path(uri)
+    endpoint = _endpoint_url(result) if _dict(result.get("properties")).get("synthetic_location") is True else ""
+    path = endpoint or (_web_location(result, uri) if web else "") or _url(uri) or _path(uri)
     return path, line if isinstance(line, int) and not isinstance(line, bool) and 0 < line < 10_000_000 else 1, " ".join(snippet.split())
 
 
@@ -161,15 +202,57 @@ def redact(value: str) -> str:
     return CREDENTIAL_HEADER.sub(lambda match: f"{match.group(1)}: [redacted]", value)
 
 
-def _web(result: dict, snippet: str) -> dict[str, Any]:
-    """What is kept of the request that proved a web finding: method, parameter and bounded evidence. The request
-    and response the tool attached are dropped whole: they carry cookies and authorization headers."""
-    method = clean_name(_dict(result.get("webRequest")).get("method"), 10).upper()
-    return {**({"method": method} if method else {}), **({"parameter": _parameter(result)} if _parameter(result) else {}),
-            **({"evidence": redact(snippet)[:EVIDENCE_MAX]} if snippet else {})}
+def _attack(result: dict) -> str:
+    """The payload an active scanner sent (ZAP: `attack` on the result or its location); passive results have none."""
+    for properties in (_dict(result.get("properties")), *(_dict(_dict(item).get("properties")) for item in _list(result.get("locations"))[:1])):
+        value = properties.get("attack")
+        if isinstance(value, str) and value.strip():
+            return redact(value.strip())[:ATTACK_MAX]
+    return ""
+
+
+def _references(rule: dict) -> list[str]:
+    """The rule's http(s) links (ZAP: `properties.references`; others: `helpUri`), as given, without duplicates."""
+    candidates = [*_list(_dict(rule.get("properties")).get("references")), rule.get("helpUri")]
+    found = [match.group(0).rstrip(".,;)") for item in candidates if isinstance(item, str) for match in REFERENCE.finditer(item)]
+    return [url for url in dict.fromkeys(found) if len(url) <= REFERENCE_MAX][:REFERENCES_MAX]
+
+
+def _wascs(result: dict, rule: dict, tags: list[str]) -> list[int]:
+    found = [int(match.group(1)) for tag in tags for match in WASC.finditer(tag)]
+    for properties in (_dict(result.get("properties")), _dict(rule.get("properties"))):
+        value = properties.get("wascid", properties.get("wasc"))
+        if isinstance(value, (int, str)) and not isinstance(value, bool) and str(value).isdigit():
+            found.append(int(value))
+    references = [*_list(result.get("taxa")), *(_dict(item).get("target") for item in _list(rule.get("relationships")))]
+    for reference in map(_dict, references):
+        if str(_dict(reference.get("toolComponent")).get("name", "")).upper() == "WASC":
+            number = re.sub(r"(?i)^wasc-?", "", str(reference.get("id") or ""))
+            if number.isdigit():
+                found.append(int(number))
+    return sorted({item for item in found if 0 < item < 1000})[:10]
+
+
+def _web(result: dict, rule: dict, snippet: str, tags: list[str]) -> dict[str, Any]:
+    """What is kept of the request that proved a web finding: method, parameter, attack and bounded evidence, plus the
+    tool's own text about the rule. The request and response the tool attached are dropped whole: they carry cookies
+    and authorization headers."""
+    method = clean_name(_dict(result.get("webRequest")).get("method"), 10).upper() or _endpoint(result)[0]
+    properties = _dict(rule.get("properties"))
+    description = redact(_text(rule.get("fullDescription"), MESSAGE_MAX))
+    solution = redact(_text(properties.get("solution"), MESSAGE_MAX) or _text(rule.get("help"), MESSAGE_MAX))
+    parameter, attack, references, wascs = _parameter(result), _attack(result), _references(rule), _wascs(result, rule, tags)
+    return {**({"method": method} if method else {}), **({"parameter": parameter} if parameter else {}),
+            **({"evidence": redact(snippet)[:EVIDENCE_MAX]} if snippet else {}), **({"attack": attack} if attack else {}),
+            **({"description": description} if description else {}), **({"solution": solution} if solution else {}),
+            **({"references": references} if references else {}), **({"wasc": wascs} if wascs else {})}
 
 
 def _severity(result: dict, rule: dict) -> str:
+    # Strix keeps its own five-level label next to the score (its "info" would otherwise read as low).
+    label = str(_dict(_dict(result.get("properties")).get("strix")).get("severity") or "").lower()
+    if label in ("critical", "high", "medium", "low", "info"):
+        return label
     for properties in (_dict(result.get("properties")), _dict(rule.get("properties"))):
         raw = properties.get("security-severity")
         try:
@@ -235,7 +318,10 @@ def _rule(result: dict, rules: dict[str, dict], components: list[dict]) -> tuple
 
 def _suppressed(result: dict) -> bool:
     kind = result.get("kind", "fail")
-    if kind in ("pass", "notApplicable", "informational") or result.get("baselineState") == "absent":
+    # Strix records what it covered as results too (`properties.strix.coverage_outcome`): an area it checked or left for
+    # a follow-up is not a finding. A plain `open` is (Nuclei marks every finding so).
+    coverage = _dict(_dict(result.get("properties")).get("strix")).get("coverage_outcome")
+    if kind in ("pass", "notApplicable", "informational") or coverage or result.get("baselineState") == "absent":
         return True
     return any(_dict(item).get("status", "accepted") == "accepted" for item in _list(result.get("suppressions")))
 
@@ -266,6 +352,8 @@ def _finding(result: dict, rule: dict, rule_id: str, tool: str, location: tuple[
     properties = _dict(rule.get("properties"))
     # ZAP keeps the fix under `properties.solution`; `help` and `fullDescription` describe the problem.
     help_text = _text(rule.get("help"), MESSAGE_MAX) or _text(properties.get("solution"), MESSAGE_MAX) or _text(rule.get("fullDescription"), MESSAGE_MAX)
+    if web:  # a pentest tool's help retells the request it made (Strix: description + impact + remediation)
+        help_text, title = redact(help_text), redact(title)
     precision = str(properties.get("precision") or properties.get("confidence") or "").lower()
     finding = _base(scanner, rule_id, title, path, line, severity, tool=tool,
                     reason=msg("scanning.sarif.reason", tool=tool, message=message or title),
@@ -273,11 +361,13 @@ def _finding(result: dict, rule: dict, rule_id: str, tool: str, location: tuple[
                     else msg("scanning.sarif.remediation", tool=tool),
                     cwe=_cwes(result, rule, tags), owasp="", confidence=PRECISION.get(precision, 6), digest=digest)
     finding["title"], finding["cve"], finding["ghsa"] = title, cves, ghsas
-    if scanner == "dast":
-        finding["web"] = _web(result, snippet)
     finding["owasp"] = sorted({f"A{number}:{year}" for tag in tags for number, year in OWASP.findall(tag)})[:10]
-    finding["priority"]["factors"] = [msg("scanning.sarif.priority", tool=tool, severity=SEVERITY_NAME.get(finding["severity"], severity)),
-                                      msg("scanning.priority.confirm_reachability")]
+    finding["priority"]["factors"] = [msg("scanning.sarif.priority", tool=tool, severity=SEVERITY_NAME.get(finding["severity"], severity))]
+    if scanner == "dast":
+        # Reachability is a code question; what a web finding's context means is added when it is read (fix_guide).
+        finding["web"] = _web(result, rule, snippet, tags)
+    else:
+        finding["priority"]["factors"].append(msg("scanning.priority.confirm_reachability"))
     return finding
 
 

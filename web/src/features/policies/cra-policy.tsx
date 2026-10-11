@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Landmark, LoaderCircle, Power } from 'lucide-react'
+import { CircleNotchIcon, PowerIcon, ScalesIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { apiPost } from '@/shared/api/client'
@@ -43,8 +43,8 @@ export function CraPolicyRow({ canEdit }: { canEdit: boolean }) {
 
   const summary = policy && (policy.enabled ? t('cra.on') : t('cra.off')) + (policy.by && policy.at ? ` · ${t('cra.changed', { by: policy.by, date: formatDate(policy.at) })}` : '')
   return <>
-    <PolicyRow icon={Landmark} title={t('cra.title')} summary={summary} notice={notice} state={policy ? 'ready' : query.isError ? 'error' : 'loading'}
-      onRetry={() => void query.refetch()} action={canEdit && <Button size="sm" variant="outline" onClick={start}><Power />{policy?.enabled ? t('cra.turn_off') : t('cra.turn_on')}</Button>} />
+    <PolicyRow icon={ScalesIcon} title={t('cra.title')} summary={summary} notice={notice} state={policy ? 'ready' : query.isError ? 'error' : 'loading'}
+      onRetry={() => void query.refetch()} action={canEdit && <Button size="sm" variant="outline" onClick={start}><PowerIcon />{policy?.enabled ? t('cra.turn_off') : t('cra.turn_on')}</Button>} />
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
@@ -56,7 +56,7 @@ export function CraPolicyRow({ canEdit }: { canEdit: boolean }) {
             <label htmlFor={`${id}-reason`} className="text-xs text-app-muted">{t('cra.reason')}</label>
             <textarea id={`${id}-reason`} required maxLength={500} rows={3} value={reason} onChange={event => setReason(event.target.value)} placeholder={t('cra.reason_placeholder')}
               aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined}
-              className="w-full resize-y rounded-lg border border-app-line bg-app px-3 py-2 text-sm text-app-fg" />
+              className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-sm text-app-fg" />
           </div>
           {policy && policy.history.length > 0 && <div className="space-y-1">
             <p className="text-xs font-medium text-app-secondary">{t('cra.history')}</p>
@@ -67,7 +67,7 @@ export function CraPolicyRow({ canEdit }: { canEdit: boolean }) {
           {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>{t('common:actions.cancel')}</Button>
-            <Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{next ? t('cra.turn_on') : t('cra.turn_off')}</Button>
+            <Button type="submit" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{next ? t('cra.turn_on') : t('cra.turn_off')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

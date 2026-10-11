@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent, type Ref } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, Pencil } from 'lucide-react'
+import { CircleNotchIcon, PencilSimpleIcon } from '@phosphor-icons/react'
 import { apiPost } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -39,10 +39,10 @@ export function ScanBranchEditor({ source, onClose, onSaved }: { source: Source;
     <div className="flex flex-wrap items-center gap-2">
       <Input id={`${id}-branch`} value={draft} autoFocus maxLength={200} spellCheck={false} autoComplete="off" disabled={mutation.isPending}
         onChange={event => { setDraft(event.target.value); setError('') }} placeholder={fallback ?? t('repositories.branch.placeholder')}
-        aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} className="h-8 w-60 border-app-line bg-app-soft font-mono text-xs" />
-      <Button type="submit" size="sm" disabled={mutation.isPending || draft.trim() === (source.scan_branch ?? '')}>{mutation.isPending && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
+        aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} className="h-8 w-60 border-input bg-card font-mono text-xs" />
+      <Button type="submit" size="sm" disabled={mutation.isPending || draft.trim() === (source.scan_branch ?? '')}>{mutation.isPending && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
       <Button type="button" size="sm" variant="ghost" disabled={mutation.isPending} onClick={onClose}>{t('common:actions.cancel')}</Button>
-      {source.scan_branch && <Button type="button" size="sm" variant="outline" className="border-app-line bg-app-soft" disabled={mutation.isPending} onClick={reset}>{t('repositories.branch.reset')}</Button>}
+      {source.scan_branch && <Button type="button" size="sm" variant="outline" disabled={mutation.isPending} onClick={reset}>{t('repositories.branch.reset')}</Button>}
     </div>
     <p id={`${id}-help`} className="text-xs text-app-subtle">{fallback ? t('repositories.branch.help', { branch: fallback }) : t('repositories.branch.help_unknown')}</p>
     {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
@@ -52,5 +52,5 @@ export function ScanBranchEditor({ source, onClose, onSaved }: { source: Source;
 
 export function ScanBranchEdit({ source, expanded, onEdit, ref }: { source: Source; expanded: boolean; onEdit: () => void; ref?: Ref<HTMLButtonElement> }) {
   const { t } = useTranslation('sources')
-  return <Button ref={ref} type="button" size="icon-sm" variant="ghost" onClick={onEdit} aria-expanded={expanded} aria-label={t('repositories.branch.edit', { name: source.name })} title={t('repositories.branch.edit', { name: source.name })}><Pencil /></Button>
+  return <Button ref={ref} type="button" size="icon-sm" variant="ghost" onClick={onEdit} aria-expanded={expanded} aria-label={t('repositories.branch.edit', { name: source.name })} title={t('repositories.branch.edit', { name: source.name })}><PencilSimpleIcon /></Button>
 }

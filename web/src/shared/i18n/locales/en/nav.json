@@ -1,8 +1,6 @@
 {
-  "tagline": "Spot it. Fix it. Prove it.",
   "main": "Main",
   "workspace": "Workspace",
-  "eyebrow": "Security workspace / 01",
   "open_navigation": "Open navigation",
   "last_run": "Last run {{date}}",
   "role_without_2fa": "{{role}} · no 2FA",
@@ -28,15 +26,14 @@
     "users": "Users",
     "new": "New scan",
     "account": "Account",
-    "domains": "Domains"
+    "domains": "Domains & APIs"
   },
   "descriptions": {
     "overview": "What risks your code, dependencies and images carry, why they matter and how to fix them.",
     "analyses": "Scan history for this workspace, with type, status and results.",
-    "new": "Choose the target, declare the scope and review what will run before you launch.",
     "repositories": "Connect your repositories and choose the code you want to scan.",
     "images": "The container images you've analyzed and the repository each is built from.",
-    "domains": "Domains you own, proven by DNS, to bring the findings of your own ZAP or Nuclei runs. Dynamic testing from here is still in development.",
+    "domains": "Sites and APIs you control. Verify once, then scan.",
     "integrations": "Manage code providers and check the AI status.",
     "account": "Your access: password and two-factor authentication.",
     "users": "Invite your team, assign roles and revoke access.",
@@ -57,24 +54,69 @@
     "repository": "repository",
     "image": "image",
     "failed": "The {{name}} scan failed.",
-    "done_one": "{{name}} scan finished: {{count}} finding.",
-    "done_other": "{{name}} scan finished: {{count}} findings.",
-    "done_severities_one": "{{name}} scan finished: {{count}} finding ({{critical}} critical, {{high}} high).",
-    "done_severities_other": "{{name}} scan finished: {{count}} findings ({{critical}} critical, {{high}} high)."
-  },
-  "dast": {
-    "title": "Dynamic web and API application testing (DAST)",
-    "description": "Pitangus running ZAP or Nuclei for you, only against the verified domains above. Until then, import the results of your own runs.",
-    "plan": {
-      "scan": "Active scanning with ZAP or Nuclei in an isolated container, with rate and scope limits",
-      "auth": "Sign-in to the application with a test account you declare",
-      "evidence": "Findings with the request and response that prove them, in the same lifecycle as code findings"
-    }
+    "done_one": "{{name}} scan finished: {{count, number}} finding.",
+    "done_other": "{{name}} scan finished: {{count, number}} findings.",
+    "done_severities_one": "{{name}} scan finished: {{count, number}} finding ({{critical}} critical, {{high}} high).",
+    "done_severities_other": "{{name}} scan finished: {{count, number}} findings ({{critical}} critical, {{high}} high)."
   },
   "footer": "{{name}} · free software under <license>AGPL-3.0</license> · <source>source code</source> · a clean result doesn't prove there are no vulnerabilities.",
   "update": {
     "message": "A new version of the panel is available. Reload to use it, but save any unsaved work first.",
     "reload": "Reload"
   },
-  "edition": "Self-hosted · v{{version}}"
+  "edition": "Self-hosted · v{{version}}",
+  "palette": {
+    "trigger": "Search…",
+    "title": "Search and commands",
+    "search_label": "Search pages, scans, repositories and domains",
+    "placeholder": "Search pages, scans, repositories, domains…",
+    "results": "Results",
+    "groups": {
+      "actions": "Actions",
+      "pages": "Pages",
+      "recent_runs": "Recent scans",
+      "runs": "Scans",
+      "assets": "Repositories and images",
+      "domains": "Domains & APIs"
+    },
+    "actions": {
+      "new_scan": "New scan",
+      "import_sarif": "Import SARIF results",
+      "add_domain": "Add a domain",
+      "connect_provider": "Connect a code provider",
+      "shortcuts": "Keyboard shortcuts"
+    },
+    "view_all": {
+      "runs": "View all scans",
+      "repositories": "View all repositories",
+      "domains": "View all domains"
+    },
+    "open_findings_one": "{{count, number}} open finding",
+    "open_findings_other": "{{count, number}} open findings",
+    "searching": "Searching…",
+    "count_one": "{{count, number}} result",
+    "count_other": "{{count, number}} results",
+    "empty": "Nothing matches “{{query}}”.",
+    "hint": {
+      "move": "Move",
+      "open": "Open",
+      "close": "Close"
+    }
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "description": "They work anywhere in the panel, except while you type in a field or a dialog is open.",
+    "general": "General",
+    "pages": "Go to a page (press G, then the letter)",
+    "palette": "Search and commands",
+    "new_scan": "New scan",
+    "help": "Show these shortcuts",
+    "go_hint": "Shortcut: G then {{key}}",
+    "spoken": {
+      "command_k": "Command K",
+      "control_k": "Control K",
+      "then": "G, then {{key}}"
+    }
+  },
+  "breadcrumb": "Breadcrumb"
 }

@@ -37,6 +37,7 @@
     "annex": "Annex · Vulnerability index ({{count}})",
     "method_coverage": "Method and coverage",
     "references": "References: {{list}}",
+    "owasp_guidance": "OWASP guidance: {{list}}",
     "kev_mark": "Known active exploitation (CISA KEV)",
     "malicious_mark": "Known malicious package (OpenSSF)",
     "risk_label": "Risk:",
@@ -126,7 +127,11 @@
     "low_info_one": "{{count}} low or informational",
     "low_info_other": "{{count}} low or informational",
     "are_critical_one": "{{count}} is critical",
-    "are_critical_other": "{{count}} are critical"
+    "are_critical_other": "{{count}} are critical",
+    "urls_one": "{{count}} URL",
+    "urls_other": "{{count}} URLs",
+    "more_urls_one": "and {{count}} more URL",
+    "more_urls_other": "and {{count}} more URLs"
   },
   "design": {
     "listing_last": "{{items}} and {{last}}",
@@ -194,13 +199,21 @@
     "identity_import": "imported from {{tool}} (SARIF)",
     "identity_import_commit": "imported from {{tool}} (SARIF) at commit `{{commit}}`",
     "title_import": "Imported findings · {{name}}",
+    "title_web": "Passive web scan · {{name}}",
+    "identity_web": "`{{url}}` crawled and read by ZAP, no attacks",
+    "status_line_web": "Status: **{{status}}** · {{urls}} URLs with findings.",
     "run_status": {
       "queued": "queued",
       "running": "running",
       "completed": "completed",
       "incomplete": "incomplete",
       "failed": "failed"
-    }
+    },
+    "according_to": "**According to {{tool}}:** {{text}}",
+    "parameter": "Parameter: `{{name}}`",
+    "evidence": "Evidence: `{{text}}`",
+    "urls_one": "URL: {{list}}",
+    "urls_other": "URLs ({{count}}): {{list}}"
   },
   "asset": {
     "title": "Current state of findings · {{name}}",
@@ -288,7 +301,8 @@
         }
       }
     },
-    "scope_import": "`{{name}}`, findings reported by {{tool}} and imported as SARIF; Pitangus didn't analyze the code in this run."
+    "scope_import": "`{{name}}`, findings reported by {{tool}} and imported as SARIF; Pitangus didn't analyze the code in this run.",
+    "scope_web": "`{{url}}`, crawled and read by ZAP without attacks (passive dynamic analysis); neither the code nor pages behind a login were analyzed."
   },
   "audit": {
     "status": {
@@ -837,7 +851,8 @@
       "pr_review": "Pull request review",
       "asset_state": "Cumulative state",
       "default": "Scan",
-      "sarif_import": "SARIF import"
+      "sarif_import": "SARIF import",
+      "dast_scan": "Passive web scan"
     },
     "subtitle_state": "Cumulative state as of {{date}}",
     "subtitle_scan": "Scan of {{date}}",
@@ -892,7 +907,10 @@
       "before": "Before",
       "after": "After",
       "how_to_verify": "How to verify it",
-      "verify_text": "After the change, \"Verify again\" in Pitangus (or the next full scan) marks it fixed once the rule no longer finds it."
+      "verify_text": "After the change, \"Verify again\" in Pitangus (or the next full scan) marks it fixed once the rule no longer finds it.",
+      "verify_web": "Deploy the fix, then scan the domain again: “Reverify” in Pitangus (or the next scan of the domain) marks it fixed once the scanner no longer reports it.",
+      "urls_one": "URL",
+      "urls_other": "URLs ({{count}})"
     }
   },
   "pdf": {

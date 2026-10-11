@@ -15,7 +15,7 @@ from collections import Counter
 from pathlib import PurePosixPath
 
 from pitangus.modules.sources.repositories import is_manifest
-from pitangus.modules.scanning.engines import IMAGES, RULES_DIR, engine_ready, joined
+from pitangus.modules.scanning.engines import IMAGES, RULES_DIR, WEB_ENGINES, engine_ready, joined
 from pitangus.shared.i18n import msg
 
 EXTENSIONS = {
@@ -75,7 +75,7 @@ def plan(source_id: str, *, installation_id: int | None) -> dict:
     paths = files_of(source_id, installation_id=installation_id)
     paths = [path for path in (paths or []) if not SKIP.intersection(path.split("/"))] if paths is not None else None
     engines = {key: {"key": key, "name": value["name"], "version": value["version"],
-                     "available": engine_ready(key)} for key, value in IMAGES.items()}
+                     "available": engine_ready(key)} for key, value in IMAGES.items() if key not in WEB_ENGINES}
     rules = rule_counts()
     languages = Counter()
     manifests, iac, pipelines = [], [], []

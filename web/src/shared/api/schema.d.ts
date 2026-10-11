@@ -1041,15 +1041,37 @@ export interface paths {
         };
         /**
          * Domain List
-         * @description The registered domains (at most `limit`), with whether each one's TXT proof is current.
+         * @description The registered domains (at most `limit`), with whether each one's proof is current and its scheduled scan.
          */
         get: operations["domain_list_api_domains_get"];
         put?: never;
         /**
          * Domain Register
-         * @description Registers an HTTPS domain and answers the TXT record that proves control of it. Nothing is tested.
+         * @description Registers an HTTPS domain and answers the ways to prove control of it. Nothing is tested.
          */
         post: operations["domain_register_api_domains_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/egress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Egress Detect
+         * @description Asks a public echo service (https://api.ipify.org) once for the address this server is seen from, and keeps
+         *     it for the panel to show to site owners who filter by IP. Only on this explicit request, and only when the server
+         *     doesn't declare PITANGUS_EGRESS_IPS. One HTTPS GET, no redirects, 10 seconds and 64 bytes at most.
+         */
+        post: operations["domain_egress_detect_api_domains_egress_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1067,10 +1089,32 @@ export interface paths {
         put?: never;
         /**
          * Domain Verify
-         * @description Looks the domain's TXT record up once. Seen, the domain is an asset for 90 days; a daily re-check extends or
-         *     withdraws the proof.
+         * @description Asks for the proof once: the TXT record (dns), the well-known file (file) or the homepage's meta tag (meta).
+         *     Seen, the domain is an asset for 90 days; a daily re-check of the same proof extends or withdraws it.
          */
         post: operations["domain_verify_api_domains_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Probe
+         * @description Checks a URL before registering it: whether its name resolves to public addresses only (nothing is sent
+         *     otherwise) and whether it answers over HTTPS with a valid certificate. One HEAD to the already-resolved address,
+         *     no redirects. Only a hint: a domain that doesn't answer can still be registered.
+         */
+        post: operations["domain_probe_api_domains_probe_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1088,8 +1132,7 @@ export interface paths {
         put?: never;
         /**
          * Domain Check
-         * @description Whether the domain answers over HTTPS: one HEAD to its already-resolved public address, no redirects. Only a
-         *     hint before registering; a domain that doesn't answer can still be registered.
+         * @description The same probe as `/api/domains/probe` (kept for earlier panels).
          */
         post: operations["domain_check_api_domains_check_post"];
         delete?: never;
@@ -1109,10 +1152,152 @@ export interface paths {
         put?: never;
         /**
          * Domain Remove
-         * @description Removes a domain. What was imported against it (runs, findings, their triage and tickets) goes with it, like a
-         *     repository that left the installation: the panel says so before asking.
+         * @description Removes a domain's configuration: saved headers, test users, related hosts (its scope) and scheduled scan. What
+         *     was scanned or imported against it (runs, findings, their triage and tickets) stays as evidence, and links back if
+         *     the same host is added again (the asset key comes from the host).
          */
         post: operations["domain_remove_api_domains_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/headers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Headers Route
+         * @description Saves or removes a request header that web scans of the domain may send (API keys, bearer tokens, session
+         *     cookies). Stored encrypted; never answered back: the list carries names, the last four characters of long values
+         *     and when each was saved.
+         */
+        post: operations["domain_headers_route_api_domains_headers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/test-users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Test Users Route
+         * @description Saves or removes an account web scans of the domain may sign in with (username and password, plus a TOTP seed
+         *     for `password_totp`). The username, password and seed are stored encrypted; the password and the seed are never
+         *     answered back.
+         */
+        post: operations["domain_test_users_route_api_domains_test_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Schedule
+         * @description Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,
+         *     at a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the
+         *     local day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task
+         *     queues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the
+         *     domain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one
+         *     of those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the
+         *     scope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason.
+         */
+        post: operations["domain_schedule_api_domains_schedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Domain Scope Read
+         * @description The hosts related to a domain (found by discovery or added by hand), which of them its scans reach, whether its
+         *     proof lets any in, and the last discovery round.
+         */
+        get: operations["domain_scope_read_api_domains_scope_get"];
+        put?: never;
+        /**
+         * Domain Scope Change
+         * @description Saves the domain's scope, one host at a time: its scans (by hand or scheduled) reach the hosts saved in it.
+         *     Nothing is sent to any host here.
+         */
+        post: operations["domain_scope_change_api_domains_scope_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Discover
+         * @description Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,
+         *     archives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are
+         *     listed out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources.
+         */
+        post: operations["domain_discover_api_domains_discover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Scan
+         * @description Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD
+         *     operations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and
+         *     signed in as some of its test users.
+         *     Off unless the server sets PITANGUS_DAST_ENABLED; one at a time.
+         */
+        post: operations["domain_scan_api_domains_scans_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2780,22 +2965,127 @@ export interface components {
             /** Deleted */
             deleted: boolean;
         };
-        /** DomainCheck */
+        /**
+         * Discovery
+         * @description The last discovery round: `note` says why it failed or couldn't run; `available` is false when this server
+         *     doesn't run discovery at all (web scans off), with the reason in `unavailable`.
+         */
+        Discovery: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "queued" | "running" | "done" | "failed";
+            /** Requested At */
+            requested_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Note */
+            note?: string | null;
+            counts?: components["schemas"]["DiscoveryCounts"] | null;
+            /**
+             * Available
+             * @default false
+             */
+            available: boolean;
+            /** Unavailable */
+            unavailable?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** DiscoveryCounts */
+        DiscoveryCounts: {
+            /**
+             * Found
+             * @default 0
+             */
+            found: number;
+            /**
+             * Kept
+             * @default 0
+             */
+            kept: number;
+            /**
+             * Private
+             * @default 0
+             */
+            private: number;
+            /**
+             * Unresolved
+             * @default 0
+             */
+            unresolved: number;
+            /**
+             * New
+             * @default 0
+             */
+            new: number;
+            /**
+             * Capped
+             * @default 0
+             */
+            capped: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainCheck
+         * @description The probe before registering: `public` is false when the name resolves to a private or reserved address (and
+         *     nothing was sent), null when it doesn't resolve; `https` and `reachable` mean a valid certificate and an answer.
+         */
         DomainCheck: {
             /** Host */
             host: string;
             /** Reachable */
             reachable: boolean;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "reachable" | "dns_error" | "private_address" | "tls_error" | "unreachable";
             /** Detail */
             detail: string;
             /** Http Status */
             http_status?: number | null;
+            /**
+             * Https
+             * @default false
+             */
+            https: boolean;
+            /** Public */
+            public?: boolean | null;
         } & {
             [key: string]: unknown;
         };
-        /** DomainPage */
+        /**
+         * DomainHeader
+         * @description A saved request header: its name, the last four characters of a long value and when it was saved.
+         */
+        DomainHeader: {
+            /** Name */
+            name: string;
+            /** Last4 */
+            last4?: string | null;
+            /** Saved At */
+            saved_at?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** DomainHeaders */
+        DomainHeaders: {
+            /** Domain Id */
+            domain_id: string;
+            /** Headers */
+            headers: components["schemas"]["DomainHeader"][];
+            /** Limit */
+            limit: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainPage
+         * @description `dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED); `egress`: where they leave from.
+         */
         DomainPage: {
             /** Items */
             items: components["schemas"]["DomainRow"][];
@@ -2803,6 +3093,12 @@ export interface components {
             total: number;
             /** Limit */
             limit: number;
+            /**
+             * Dast
+             * @default false
+             */
+            dast: boolean;
+            egress?: components["schemas"]["Egress"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -2812,16 +3108,19 @@ export interface components {
             id: string;
             /** Host */
             host: string;
-            /** Runs Deleted */
-            runs_deleted: number;
+            /** Runs Kept */
+            runs_kept: number;
         } & {
             [key: string]: unknown;
         };
         /**
          * DomainRow
-         * @description A registered domain. `verified` means its TXT proof is current (`verified_until` lies ahead); the TXT record
-         *     itself (`txt_name`, `txt_value`) is only answered to administrators. `runs` and `open` say what was imported
-         *     against it.
+         * @description A registered domain. `verified` means its proof is current (`verified_until` lies ahead) and `proof_method`
+         *     says which one (only `dns` covers subdomains). What proves it (`txt_name`, `txt_value`, `verify_token`,
+         *     `verify_file_url`, `verify_meta`), the saved `headers` and the `test_users` are only answered to administrators;
+         *     everyone gets how many there are (`header_count`, `test_user_count`). `runs` and `open`
+         *     say what was scanned or imported against it; `schedule` is null (off) or when its passive web scan runs on its
+         *     own.
          */
         DomainRow: {
             /** Id */
@@ -2850,10 +3149,37 @@ export interface components {
             verified_until?: string | null;
             /** Checked At */
             checked_at?: string | null;
+            /** Proof Method */
+            proof_method?: ("dns" | "file" | "meta") | null;
             /** Txt Name */
             txt_name?: string | null;
             /** Txt Value */
             txt_value?: string | null;
+            /** Verify Token */
+            verify_token?: string | null;
+            /** Verify File Url */
+            verify_file_url?: string | null;
+            /** Verify Meta */
+            verify_meta?: string | null;
+            schedule?: components["schemas"]["DomainSchedule"] | null;
+            /** Last Scan */
+            last_scan?: {
+                [key: string]: unknown;
+            } | null;
+            /** Headers */
+            headers?: components["schemas"]["DomainHeader"][] | null;
+            /**
+             * Header Count
+             * @default 0
+             */
+            header_count: number;
+            /** Test Users */
+            test_users?: components["schemas"]["DomainTestUser"][] | null;
+            /**
+             * Test User Count
+             * @default 0
+             */
+            test_user_count: number;
             /**
              * Runs
              * @default 0
@@ -2864,6 +3190,141 @@ export interface components {
              * @default 0
              */
             open: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainSchedule
+         * @description When the passive web scan runs on its own: daily, on `weekdays` (1 Monday … 7 Sunday) or on `month_days`
+         *     (1–28), at `time` (HH:MM) in `timezone` (IANA), at most once a day. `next_run_at` (UTC) is the moment the
+         *     scheduler queues it; `last_run_at` and `last_run_id` say what it did last and `note`, when that slot was skipped,
+         *     why. The scan signs in as `test_users` (ids, at most 3) and sends the saved headers with `use_headers`.
+         */
+        DomainSchedule: {
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "daily" | "weekly" | "monthly";
+            /** Weekdays */
+            weekdays?: number[];
+            /** Month Days */
+            month_days?: number[];
+            /** Time */
+            time: string;
+            /** Timezone */
+            timezone: string;
+            /** Test Users */
+            test_users?: string[];
+            /**
+             * Use Headers
+             * @default false
+             */
+            use_headers: boolean;
+            /** Next Run At */
+            next_run_at?: string | null;
+            /** Last Run At */
+            last_run_at?: string | null;
+            /** Last Run Id */
+            last_run_id?: string | null;
+            /** Note */
+            note?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainScope
+         * @description The domain's related hosts and its saved scope. `covered`: its proof lets them in (a current DNS proof);
+         *     otherwise `reason` says what's missing and nothing can be put in scope. `in_scope` counts the hosts saved in
+         *     (at most `scope_limit`); at most `limit` hosts are kept.
+         */
+        DomainScope: {
+            /** Domain Id */
+            domain_id: string;
+            /** Root */
+            root: string;
+            /** Covered */
+            covered: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Hosts */
+            hosts: components["schemas"]["RelatedHost"][];
+            /** In Scope */
+            in_scope: number;
+            /** Limit */
+            limit: number;
+            /** Scope Limit */
+            scope_limit: number;
+            discovery: components["schemas"]["Discovery"];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainTestUser
+         * @description A saved test user, as administrators see it: never its password or TOTP seed. `login_url` null means the root
+         *     of the host it applies to; `check_url` is a page only a signed-in user sees, asked for after signing in to confirm
+         *     it worked; `last_used_at` is when a scan last signed in with it.
+         */
+        DomainTestUser: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "password" | "password_totp";
+            /** Username */
+            username: string;
+            /** Applies To */
+            applies_to: string;
+            /** Login Url */
+            login_url?: string | null;
+            /** Check Url */
+            check_url?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Last Used At */
+            last_used_at?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DomainTestUsers
+         * @description The domain's test users after a change; `limit` per domain, `per_scan` a scan may sign in with.
+         */
+        DomainTestUsers: {
+            /** Domain Id */
+            domain_id: string;
+            /** Test Users */
+            test_users: components["schemas"]["DomainTestUser"][];
+            /** Limit */
+            limit: number;
+            /** Per Scan */
+            per_scan: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * Egress
+         * @description The public addresses web scans leave from, for sites that filter by IP: declared by the server
+         *     (`source` setting, PITANGUS_EGRESS_IPS), detected once by an administrator (`detected`, with `detected_at`), or
+         *     unknown (no `ips`).
+         */
+        Egress: {
+            /** Ips */
+            ips?: string[];
+            /** Source */
+            source?: ("setting" | "detected") | null;
+            /** Detected At */
+            detected_at?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -3076,6 +3537,8 @@ export interface components {
             verification?: {
                 [key: string]: unknown;
             } | null;
+            /** Guidance */
+            guidance?: components["schemas"]["GuidanceLink"][] | null;
         } & {
             [key: string]: unknown;
         };
@@ -3140,6 +3603,19 @@ export interface components {
             }[] | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * GuidanceLink
+         * @description An OWASP page about a finding (`modules/findings/references.py`): a cheat sheet, its Top 10 category, an API
+         *     Security Top 10 risk or a Web Security Testing Guide test.
+         */
+        GuidanceLink: {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /** Kind */
+            kind: string;
         };
         /** Health */
         Health: {
@@ -3954,6 +4430,21 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * QueuedDomainScan
+         * @description `run_id` is the queued run (also in `run`, with its status).
+         */
+        QueuedDomainScan: {
+            /** Run Id */
+            run_id: string;
+            /** Run */
+            run: {
+                [key: string]: unknown;
+            };
+            domain: components["schemas"]["DomainRow"];
+        } & {
+            [key: string]: unknown;
+        };
         /** QueuedImageScan */
         QueuedImageScan: {
             /** Run */
@@ -4036,6 +4527,33 @@ export interface components {
             saved_at?: string | null;
             /** Saved By */
             saved_by?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * RelatedHost
+         * @description A host under the domain: `state` says whether its scans reach it; `origin` whether discovery found it or
+         *     someone added it; `last_seen` is the last discovery that found it.
+         */
+        RelatedHost: {
+            /** Host */
+            host: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "in_scope" | "out_of_scope";
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "discovered" | "manual";
+            /** First Seen */
+            first_seen?: string | null;
+            /** Last Seen */
+            last_seen?: string | null;
+            /** Changed By */
+            changed_by?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -4403,6 +4921,8 @@ export interface components {
             verification?: {
                 [key: string]: unknown;
             } | null;
+            /** Guidance */
+            guidance?: components["schemas"]["GuidanceLink"][] | null;
             asset: components["schemas"]["ScopeAssetRef"];
         } & {
             [key: string]: unknown;
@@ -6871,6 +7391,47 @@ export interface operations {
             };
         };
     };
+    domain_egress_detect_api_domains_egress_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Egress"];
+                };
+            };
+            /** @description Declared by the server */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The echo service failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     domain_verify_api_domains_verify_post: {
         parameters: {
             query?: never;
@@ -6883,6 +7444,12 @@ export interface operations {
                 "application/json": {
                     /** Domain Id */
                     domain_id: string;
+                    /**
+                     * Method
+                     * @default dns
+                     * @enum {string}
+                     */
+                    method?: "dns" | "file" | "meta";
                 };
             };
         };
@@ -6902,6 +7469,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_probe_api_domains_probe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Url */
+                    url: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainCheck"];
+                };
             };
             /** @description Too many attempts */
             429: {
@@ -6973,6 +7574,394 @@ export interface operations {
             };
             /** @description Unknown domain */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_headers_route_api_domains_headers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /**
+                     * Op
+                     * @enum {string}
+                     */
+                    op: "save" | "remove";
+                    /** Name */
+                    name: string;
+                    /** Value */
+                    value?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainHeaders"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_test_users_route_api_domains_test_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /**
+                     * Op
+                     * @enum {string}
+                     */
+                    op: "save" | "remove";
+                    /** Id */
+                    id?: string | null;
+                    /** Name */
+                    name?: string | null;
+                    /** Method */
+                    method?: ("password" | "password_totp") | null;
+                    /** Username */
+                    username?: string | null;
+                    /** Password */
+                    password?: string | null;
+                    totp?: {
+                        /** Secret */
+                        secret: string;
+                        /**
+                         * Digits
+                         * @default 6
+                         */
+                        digits?: number;
+                        /**
+                         * Period
+                         * @default 30
+                         */
+                        period?: number;
+                        /**
+                         * Algorithm
+                         * @default SHA1
+                         * @enum {string}
+                         */
+                        algorithm?: "SHA1" | "SHA256" | "SHA512";
+                    } | null;
+                    /** Login Url */
+                    login_url?: string | null;
+                    /** Check Url */
+                    check_url?: string | null;
+                    /** Notes */
+                    notes?: string | null;
+                    /** Applies To */
+                    applies_to?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainTestUsers"];
+                };
+            };
+            /** @description Unknown domain or test user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_schedule_api_domains_schedule_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    schedule: {
+                        /**
+                         * Frequency
+                         * @enum {string}
+                         */
+                        frequency: "daily" | "weekly" | "monthly";
+                        /** Weekdays */
+                        weekdays?: number[];
+                        /** Month Days */
+                        month_days?: number[];
+                        /** Time */
+                        time: string;
+                        /** Timezone */
+                        timezone: string;
+                        /** Test Users */
+                        test_users?: string[];
+                        /**
+                         * Use Headers
+                         * @default false
+                         */
+                        use_headers?: boolean;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainRow"];
+                };
+            };
+            /** @description Unknown domain or test user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No saved headers, or a test user signing in outside the saved scope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_scope_read_api_domains_scope_get: {
+        parameters: {
+            query: {
+                domain_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainScope"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_scope_change_api_domains_scope_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /**
+                     * Op
+                     * @enum {string}
+                     */
+                    op: "set" | "add" | "remove" | "exclude_all";
+                    /** Host */
+                    host?: string | null;
+                    /** State */
+                    state?: ("in_scope" | "out_of_scope") | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainScope"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The domain's proof doesn't cover subdomains (only a current DNS proof does) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_discover_api_domains_discover_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainScope"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Web scans off on this server, or a discovery already queued or running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    domain_scan_api_domains_scans_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /**
+                     * Mode
+                     * @default web
+                     * @enum {string}
+                     */
+                    mode?: "web" | "api";
+                    /** Hosts */
+                    hosts?: string[];
+                    /**
+                     * Use Scope
+                     * @default false
+                     */
+                    use_scope?: boolean;
+                    /**
+                     * Use Headers
+                     * @default false
+                     */
+                    use_headers?: boolean;
+                    /** Test Users */
+                    test_users?: string[];
+                    spec?: {
+                        /** Filename */
+                        filename: string;
+                        /** Content Base64 */
+                        content_base64: string;
+                    } | null;
+                    /** Spec Url */
+                    spec_url?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueuedDomainScan"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Web scans off, domain not verified, a host private, subdomains without a DNS proof, no saved headers, a test user signing in outside the scope, or one already running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Queue full */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

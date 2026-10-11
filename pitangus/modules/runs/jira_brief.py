@@ -52,8 +52,9 @@ def _reference_url(identifier: str) -> str | None:
 
 
 # Steps that speak to the panel (a "Verify again" button, "this advisory") or that "How to verify it" already says.
-NOT_FOR_JIRA = ("findings.fix.verify", "findings.fix.verify_dependency", "findings.fix.verify_image", "findings.fix.secret.verify",
-                "findings.fix.closes_all")
+NOT_FOR_JIRA = ("findings.fix.verify", "findings.fix.verify_dependency", "findings.fix.verify_image", "findings.fix.verify_web",
+                "findings.fix.secret.verify", "findings.fix.closes_all")
+EVIDENCE_MAX = 300
 
 
 def _fix(members: list[dict], locale: str) -> dict:
@@ -78,6 +79,8 @@ def _kind(members: list[dict], guide: dict) -> str:
     package = lead.get("package") or {}
     if lead.get("scanner") == "secrets":
         return "secret"
+    if lead.get("scanner") == "dast":
+        return "web"
     if package.get("name"):
         if fix_guide.manager(str(lead.get("path") or ""), str(package.get("ecosystem") or "")) in OS_MANAGERS:
             return "image"
@@ -143,6 +146,9 @@ def brief(group: list[dict], findings: dict, *, asset: str, source: dict | None,
         if reason:
             sentence.append(". " + _sentence(reason))
         blocks.append({"paragraph": sentence})
+        description = str((lead.get("web") or {}).get("description") or "")
+        if description:  # the scanner's own text, attributed
+            blocks.append({"paragraph": [{"strong": _t("according_to", locale, tool=str(lead.get("tool") or "?"))}, " " + description]})
         if lead.get("scanner") == "secrets":
             blocks.append({"paragraph": [_t("secret_value", locale)]})
     cwes = list(dict.fromkeys(item for member in members for item in member.get("cwe") or []))
@@ -155,10 +161,20 @@ def brief(group: list[dict], findings: dict, *, asset: str, source: dict | None,
     guide = _fix(members, locale)
     kind = _kind(members, guide)
     image = source.get("provider") == "registry" or kind == "image"
-    where: list[list] = [[_t("image" if image else "repository", locale), {"strong": asset}]
-                         + ([f" ({_t('branch', locale, branch=source['branch'])})"] if source.get("branch") and not image else [])]
     path, line = str(lead.get("path") or ""), lead.get("line") if isinstance(lead.get("line"), int) else None
-    if path:
+    web = lead.get("web") or {}
+    if kind == "web":
+        where: list[list] = [[_t("site", locale), {"strong": asset}]]
+        if path:
+            where.append([_t("url", locale), {"code": f"{web['method']} {path}" if web.get("method") else path}])
+        if web.get("parameter"):
+            where.append([_t("parameter", locale), {"code": str(web["parameter"])}])
+        if web.get("evidence"):
+            where.append([_t("evidence", locale), {"code": str(web["evidence"])[:EVIDENCE_MAX]}])
+    else:
+        where = [[_t("image" if image else "repository", locale), {"strong": asset}]
+                 + ([f" ({_t('branch', locale, branch=source['branch'])})"] if source.get("branch") and not image else [])]
+    if path and kind != "web":
         label = path if package.get("name") or not line else f"{path}:{line}"
         url = _code_url(source, path, None if package.get("name") else line)
         where.append([_t("in_image" if image else "manifest" if package.get("name") else "file", locale)]
@@ -194,7 +210,8 @@ def brief(group: list[dict], findings: dict, *, asset: str, source: dict | None,
     # References
     identifiers = list(dict.fromkeys(item for member in members for item in [*(member.get("cve") or []), *(member.get("ghsa") or [])]))
     references = [[{"link": item, "url": url}] for item in identifiers if (url := _reference_url(item))]
-    extra = [url for member in members for url in (member.get("advisory") or {}).get("references") or [] if isinstance(url, str)]
+    extra = [url for member in members for url in [*((member.get("advisory") or {}).get("references") or []),
+                                                    *((member.get("web") or {}).get("references") or [])] if isinstance(url, str)]
     references += [[{"link": url, "url": url}] for url in dict.fromkeys(extra) if url.startswith("https://")]
     if references:
         blocks += [{"heading": _t("references", locale)}, {"bullets": references[:REFERENCES_MAX]}]

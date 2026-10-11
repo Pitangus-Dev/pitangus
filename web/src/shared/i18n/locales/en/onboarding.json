@@ -1,6 +1,6 @@
 {
   "title": "Getting started",
-  "progress": "{{done}} of {{total}} done. Steps check themselves off as you complete them.",
+  "progress": "{{done}} of {{total, number}} done. Steps check themselves off as you complete them.",
   "hide": "Hide getting started",
   "done": "(done)",
   "pending": "(pending)",
@@ -32,7 +32,7 @@
     "alerts": {
       "title": "Get alerts in Slack or Teams",
       "hint_admin": "A message when something new that matters shows up, without opening the panel.",
-      "hint_member": "An administrator sets it up in Integrations → Alerts.",
+      "hint_member": "An administrator sets it up in Integrations, under Alerts.",
       "action": "Set up"
     }
   }

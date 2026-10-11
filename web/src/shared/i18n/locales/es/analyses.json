@@ -1,182 +1,298 @@
 {
   "run_type": {
-    "repository_scan": "Análisis de código", "image_scan": "Imagen de contenedor", "pr_review": "Revisión de PR",
-    "advisory_watch": "Avisos nuevos", "sarif_import": "Importación SARIF", "dast": "Pruebas dinámicas de app web o API"
+    "repository_scan": "Análisis de código",
+    "image_scan": "Imagen de contenedor",
+    "pr_review": "Revisión de PR",
+    "advisory_watch": "Avisos nuevos",
+    "sarif_import": "Importación SARIF",
+    "dast_scan": "Análisis web"
   },
-  "duration": { "minutes": "~{{value}} min", "hours": "~{{value}} h", "under_two_minutes": "menos de 2 min" },
+  "duration": {
+    "minutes": "~{{value}} min",
+    "hours": "~{{value}} h",
+    "under_two_minutes": "menos de 2 min"
+  },
   "listing_more": "{{names}} y {{rest}} más",
   "remove_item": "Quitar {{name}}",
+  "chooser": {
+    "title": "¿Qué quieres revisar?",
+    "import": "¿Ya tienes resultados de otra herramienta? <go>Importa un SARIF</go>",
+    "import_tools": "ZAP, Nuclei, CodeQL, Semgrep, Strix y más",
+    "off": "No está activado en este servidor",
+    "off_how": "Cómo activar los análisis web",
+    "off_admin": "Define <mono>PITANGUS_DAST_ENABLED=1</mono> y reinicia el servidor.",
+    "admin_only": "Solo un admin puede lanzarlo."
+  },
   "wizard": {
-    "choose_type": "Elige el tipo de análisis",
     "continue": "Continuar",
     "back": "Atrás",
-    "back_to_types": "Volver a tipos de análisis",
-    "steps": { "source": "Código fuente", "targets": "Objetivos", "image": "Imagen", "context": "Contexto", "review": "Revisar y lanzar" },
+    "skip": "Omitir",
+    "progress": "Pasos del análisis",
+    "step_of": "Paso {{current}} de {{total, number}} · {{label}}",
+    "steps": {
+      "repositories": "Repositorios",
+      "images": "Imágenes",
+      "target": "Objetivo",
+      "access": "Acceso",
+      "context": "Contexto",
+      "review": "Revisar y lanzar"
+    },
     "kinds": {
       "code": {
-        "description": "Analiza un snapshot de tu repositorio sin ejecutar su código ni instalar dependencias.",
-        "sast": "SAST multi-lenguaje (Opengrep)", "secrets": "Secretos (Gitleaks)", "dependencies": "Dependencias (Trivy + OSV-Scanner)",
-        "iac": "Infraestructura y CI/CD (Trivy + Checkov + zizmor)"
+        "title": "Código",
+        "line": "Fallos, secretos filtrados y dependencias riesgosas, antes de publicar.",
+        "points": [
+          "Fallos en tu propio código",
+          "Secretos subidos por error",
+          "Dependencias, infraestructura y pipelines riesgosos"
+        ]
       },
       "image": {
-        "description": "Analiza una imagen desde su registro (Docker Hub, GHCR, ECR…) sin ejecutarla ni construirla.",
-        "packages": "Paquetes: Trivy + Grype", "secrets": "Secretos en capas, ENV e historial", "config": "Configuración: reglas de Pitangus + Checkov"
+        "title": "Imagen de contenedor",
+        "line": "Lo que trae una imagen, antes de desplegarla.",
+        "points": [
+          "Paquetes con vulnerabilidades conocidas",
+          "Secretos olvidados en las capas",
+          "Configuración riesgosa, como correr como root"
+        ]
       },
       "web": {
-        "description": "Escaneo activo (DAST) contra tu aplicación en marcha, sobre dominios verificados. Todavía no dan resultados.",
-        "dns": "Verificación de propiedad por DNS", "isolated": "DAST en contenedor aislado", "evidence": "Evidencia con petición y respuesta"
-      },
-      "import": {
-        "description": "Trae los hallazgos de otra herramienta a un activo que ya tienes, para hacer su triage junto con todo lo demás.",
-        "tools": "Semgrep, CodeQL, Snyk, Trivy… (SARIF 2.1.0)", "existing": "En un repositorio o una imagen que ya está en Pitangus",
-        "fixes": "Una importación completa marca como remediado lo que la herramienta dejó de reportar"
+        "title": "Aplicación web o API",
+        "line": "Recorre tu sitio o API como un visitante. Nunca ataca.",
+        "points": [
+          "Cabeceras de seguridad y cookies",
+          "Información expuesta y librerías desactualizadas",
+          "Cada endpoint documentado en tu especificación OpenAPI"
+        ]
       }
-    }
+    },
+    "back_to_types": "Volver a tipos de análisis"
   },
-  "source": {
-    "description": "Elige uno o varios repositorios. Se analiza un snapshot de solo lectura de cada uno.",
-    "description_with_org": "Elige uno o varios repositorios, o una organización entera. Se analiza un snapshot de solo lectura de cada uno.",
+  "repos": {
+    "title": "¿Qué repositorios?",
     "mode": {
       "label": "Qué analizar",
-      "repos": "Repositorios", "repos_hint": "Uno o varios, elegidos a mano (hasta {{limit}})",
-      "org": "Una organización entera", "org_hint": "Todos sus repositorios, salvo los archivados"
+      "pick": "Elegir repositorios",
+      "org": "Toda la organización"
     },
-    "default_branch": "rama predeterminada",
-    "not_in_app": "no está en la GitHub App",
-    "not_in_app_single": "no está en la GitHub App: solo de uno en uno",
-    "add_more": "Añadir más repositorios",
+    "empty_title": "Ningún repositorio elegido",
+    "loading": "Cargando el repositorio",
+    "empty_text": "Elige uno o varios de GitHub, GitLab o este workspace.",
     "add": "Añadir repositorios",
-    "empty_title": "Todavía no hay repositorios",
-    "empty_text": "Elige uno o varios de tus repositorios conectados de GitHub, GitLab o este workspace.",
-    "without_app": "Varios a la vez solo funciona con repositorios de la GitHub App: su acceso se renueva automáticamente, así que aguanta un lote de horas. Quita {{names}} o analízalos de uno en uno.",
-    "over_limit": "Hasta {{limit}} a mano; para más, analiza la organización entera.",
-    "batch_active": "Ya hay un lote en curso ({{label}}): espera a que termine o cancélalo en Análisis. Mientras tanto puedes lanzar un análisis de un solo repositorio.",
-    "batch_hint": "Varios a la vez se analizan en un lote: de uno en uno y solo cuando no hay otros análisis, así los tuyos y las revisiones de PR no esperan. El progreso se ve en Análisis y puedes cancelarlo.",
-    "single_hint": "Cada ejecución analiza un repositorio: el snapshot y su hash identifican exactamente qué se revisó.",
-    "dialog_description": "Marca uno o varios. Con varios se analizan en lote (repositorios de la GitHub App, hasta {{limit}}).",
-    "no_provider": "Ningún proveedor de código conectado",
+    "add_more": "Añadir más repositorios",
+    "default_branch": "rama por defecto",
+    "not_in_app_badge": "fuera de la GitHub App",
+    "not_in_app_single": "fuera de la GitHub App: solo de a uno",
+    "org_label": "Organización",
+    "org_choose": "Elige una organización…",
+    "org_counting": "Contando repositorios…",
+    "org_count_error": "No se pudieron contar los repositorios de {{name}}. Reintenta en un momento.",
+    "org_none": "Ninguno de los repositorios de esa organización está en la GitHub App.",
+    "org_estimate_one": "{{count, number}} repositorio · unos {{duration}}",
+    "org_estimate_other": "{{count, number}} repositorios · unos {{duration}}",
+    "batch_note": "Se analizan uno tras otro. Síguelos en Análisis.",
+    "not_in_app": "{{names}} no pueden ir en un lote: solo los de la GitHub App.",
+    "over_limit": "Hasta {{limit}} a mano. Para más, elige toda la organización.",
+    "batch_busy": "Ya hay un lote en curso. Puedes analizar un solo repositorio.",
+    "no_provider": "No hay un proveedor de código conectado",
     "connect": "Conectar",
-    "selected_one": "{{count}} seleccionado", "selected_other": "{{count}} seleccionados",
+    "selected_one": "{{count, number}} elegido",
+    "selected_other": "{{count, number}} elegidos",
     "done": "Listo"
   },
-  "org": {
-    "label": "Organización",
-    "choose": "Elige una organización…",
-    "count_error": "No se pudieron contar los repositorios de {{name}}. Vuelve a intentarlo en un momento.",
-    "counting": "Contando repositorios…",
-    "estimate_one": "<strong>{{count}}</strong> repositorio · tiempo estimado {{duration}} (≈1 min por repositorio; se ajusta con lo que tarden de verdad).",
-    "estimate_other": "<strong>{{count}}</strong> repositorios · tiempo estimado {{duration}} (≈1 min por repositorio; se ajusta con lo que tarden de verdad).",
-    "none": "No hay repositorios de esa organización en la GitHub App.",
-    "dialog_title": "Analizar la organización {{name}}",
-    "dialog_description": "Se analizan todos sus repositorios (salvo los archivados), de uno en uno y solo cuando no hay otros análisis: los tuyos y las revisiones de PR no esperan. Puedes seguir usando el panel y cancelarlo cuando quieras.",
-    "scan_one": "Analizar {{count}} repositorio", "scan_other": "Analizar {{count}} repositorios",
-    "scan_pending": "Analizar repositorios"
-  },
-  "image": {
-    "title": "Imágenes",
-    "description": "Una o varias referencias, tal como las usas en <code>docker pull</code>. Se leen del registro: no se descargan en tu Docker, no se ejecutan y no se construyen.",
-    "references": "Referencias",
-    "references_hint": "(una por línea, hasta {{limit}})",
+  "images": {
+    "title": "¿Qué imágenes?",
+    "label": "Una referencia por línea",
     "placeholder": "p. ej. nginx:1.21\nghcr.io/tu-org/tu-imagen:1.0",
-    "invalid": "No parecen referencias válidas (registro/repositorio:etiqueta, en minúsculas): <mono>{{names}}</mono>",
-    "over_limit": "Como mucho {{limit}} imágenes por lote.",
-    "batch_info": "{{total}} imágenes: se analizan en un lote, de una en una y solo cuando no hay otros análisis. El progreso se ve en Análisis.",
-    "batch_active": "Ya hay un lote en curso ({{label}}): espera a que termine o analiza una sola imagen.",
+    "invalid": "Estas no parecen referencias de imagen (registro/repositorio:etiqueta, en minúsculas): <mono>{{names}}</mono>",
+    "over_limit": "Como máximo {{limit}} imágenes por lote.",
+    "batch_note": "Se analizan una tras otra. Síguelas en Análisis.",
     "try_public": "Prueba con una pública:",
-    "samples": { "old": "antigua, muchos avisos", "recent": "reciente, pocos", "vulnerable": "vulnerable a propósito" },
-    "registry_saved": "{{registry}}: con credenciales guardadas",
-    "registry_anonymous": "{{registry}}: acceso anónimo",
-    "credentials_saved": "Se usarán las credenciales guardadas para <strong>{{registry}}</strong> (usuario {{username}}, token ····{{last4}}).",
-    "credentials_missing": "Sin credenciales para <strong>{{registry}}</strong>: sirve para imágenes públicas. Si es privada, un administrador puede guardar un token de solo lectura en <link>Integraciones → Registros de contenedores</link>.",
-    "tip": "Consejo: analiza una etiqueta inmutable (versión o <mono>@sha256:</mono>) en lugar de <mono>latest</mono>, para saber exactamente qué revisaste."
-  },
-  "targets": {
-    "description": "Elige los dominios y API registrados que quieres incluir en estas pruebas.",
-    "verified": "Verificado", "unverified": "Sin verificar",
-    "add_more": "Añadir más objetivos",
-    "empty_title": "Todavía no hay objetivos",
-    "empty_text": "Elige entre tus dominios registrados o registra uno nuevo.",
-    "add_domains_ellipsis": "Añadir dominios…",
-    "limit_hint": "Hasta {{limit}} objetivos por ejecución. Incluir un dominio no le envía tráfico de prueba.",
-    "dialog_title": "Añadir dominios",
-    "dialog_description": "Elige entre los dominios registrados en este workspace. Hasta {{limit}} por ejecución.",
-    "search": "Buscar dominios registrados",
-    "search_placeholder": "app.tudominio.com…",
-    "loading": "Cargando dominios",
-    "no_match": "No hay dominios registrados que coincidan.",
-    "register": "Registrar un dominio nuevo…",
-    "selected_of": "{{selected}}/{{limit}} seleccionados",
-    "add": "Añadir objetivos"
+    "samples": {
+      "old": "vieja, con muchos avisos",
+      "recent": "reciente, con pocos",
+      "vulnerable": "vulnerable a propósito"
+    },
+    "pin_hint": "Consejo: fija una versión o digest para saber exactamente qué revisaste.",
+    "registry_saved": "{{registry}}: se usan las credenciales guardadas",
+    "registry_public": "{{registry}}: acceso público. ¿Es privada? Un admin agrega un token en <go>Integraciones</go>."
   },
   "context": {
-    "description": "Lo que cuentes aquí queda guardado con la ejecución y aparece en el reporte.",
-    "question": "¿Qué hace este objetivo?",
+    "title": "¿Algo que deba decir el informe?",
+    "label": "Qué hace y qué te preocupa más",
+    "placeholder": "Stack, cómo inician sesión, datos sensibles que maneja…",
+    "help": "Aparece en el informe como nota del equipo.",
+    "counter": "{{length}}/{{max}}"
+  },
+  "target": {
+    "title": "¿Qué sitio o API?",
+    "loading": "Cargando dominios",
+    "empty": "Añade un dominio que controles y verifícalo para analizarlo.",
+    "add": "Añadir dominio",
+    "verify": "Verificar",
+    "verify_for": "Verificar {{host}}"
+  },
+  "scope": {
+    "toggle": "Incluir subdominios",
+    "exact_only": "Solo se cubre {{host}}. Verifica por DNS para añadir subdominios.",
+    "toggle_hint": "Los hosts que marques como Analizar se guardan con el dominio para sus próximos análisis."
+  },
+  "spec": {
+    "title": "Documentación de la API",
     "optional": "(opcional)",
-    "placeholder": "Stack y framework, cómo se autentica, qué datos sensibles maneja, qué parte te preocupa más…",
-    "counter": "{{length}}/{{max}} · es una declaración del equipo: no cambia las reglas que se ejecutan ni se envía a ningún modelo de IA."
+    "add": "Añadir documentación de la API",
+    "nudge": "Una API tiene pocos enlaces que seguir: añade su especificación OpenAPI para que el análisis llame a cada endpoint documentado.",
+    "instead": "Con ella, el análisis además llama a cada endpoint documentado, aparte de recorrer el sitio.",
+    "choose": "Subir archivo OpenAPI",
+    "replace": "Reemplazar",
+    "remove": "Quitar {{name}}",
+    "reading": "Leyendo el archivo…",
+    "url_label": "O la URL de la especificación",
+    "url_file_loaded": "Quita el archivo para usar una URL.",
+    "summary_one": "OpenAPI {{version}} · {{count, number}} endpoint",
+    "summary_other": "OpenAPI {{version}} · {{count, number}} endpoints",
+    "invalid": "Ese archivo no es una especificación OpenAPI 2 o 3.",
+    "no_endpoints": "La especificación no tiene endpoints.",
+    "too_large": "Ese archivo pesa más de 5 MB.",
+    "url_foreign": "La URL debe usar HTTPS en {{host}} o en un host del alcance."
+  },
+  "access": {
+    "title": "¿Necesita iniciar sesión?",
+    "text": "Inicia sesión con un usuario de prueba, o envía un token, una API key o una cookie de sesión como cabecera.",
+    "use_all": "Enviar las cabeceras guardadas",
+    "test_account": "Navega como ese usuario: usa una cuenta de prueba.",
+    "optional": "(opcional)",
+    "users_title": "Usuarios de prueba",
+    "users_text": "Inicia sesión con estas cuentas para probar lo que alcanza un usuario con sesión. Cada una tiene su propio recorrido.",
+    "users_full": "Un análisis inicia sesión con {{max}} usuarios de prueba como máximo.",
+    "user_outside": "Inicia sesión en {{host}}, que no está en el alcance de este análisis.",
+    "headers_title": "Cabeceras personalizadas",
+    "headers_text": "Un token, una API key o una cookie de sesión, enviados como cabecera."
+  },
+  "skip": {
+    "access": {
+      "title": "No hay autenticación",
+      "text": "Sin un usuario de prueba ni una cabecera, solo se cubrirá lo público.",
+      "confirm": "Solo páginas públicas",
+      "back": "Añadir usuario de prueba"
+    }
   },
   "review": {
-    "description": "Esto es exactamente lo que se va a ejecutar y lo que no.",
-    "type": "Tipo", "target": "Objetivo",
-    "no_context": "sin contexto declarado",
-    "target_none": "sin seleccionar",
-    "target_org": "Organización {{name}}",
-    "target_org_unset": "Organización sin elegir",
-    "target_repositories": "{{total}} repositorios: {{names}}",
-    "target_images": "{{total}} imágenes: {{names}}",
-    "batch_code": "Se crea un lote: cada repositorio se analiza con su propio plan, de uno en uno y solo cuando no hay otros análisis. Lo verás avanzar en Análisis y podrás cancelarlo; lo ya analizado se conserva. En lote no se envían dependencias a api.osv.dev.",
-    "batch_image": "Se crea un lote: cada imagen se analiza con su propio plan, de una en una y solo cuando no hay otros análisis. Lo verás avanzar en Análisis y podrás cancelarlo; lo ya analizado se conserva.",
-    "plan_loading": "Leyendo el repositorio para calcular qué se analiza",
-    "languages": "Lenguajes del repositorio",
-    "languages_files_one": "Lenguajes del repositorio · {{count}} archivo", "languages_files_other": "Lenguajes del repositorio · {{count}} archivos",
-    "rules_one": "{{count}} regla", "rules_other": "{{count}} reglas",
+    "title": "Listo para lanzar",
+    "type": "Tipo",
+    "target": "Objetivo",
+    "repositories": "Repositorios",
+    "organization": "Organización",
+    "images": "Imágenes",
+    "registry": "Acceso al registro",
+    "spec": "Documentación de la API",
+    "spec_none": "Ninguna",
+    "access": "Acceso",
+    "context": "Contexto",
+    "looks_for": "Qué busca",
+    "change": "Cambiar",
+    "change_for": "Cambiar {{label}}",
+    "org_value_one": "{{name}} · {{count, number}} repositorio · unos {{duration}}",
+    "org_value_other": "{{name}} · {{count, number}} repositorios · unos {{duration}}",
+    "target_repositories": "{{total, number}} repositorios: {{names}}",
+    "target_images": "{{total, number}} imágenes: {{names}}",
+    "registry_saved": "{{registry}}: credenciales guardadas",
+    "registry_public": "{{registry}}: acceso público",
+    "scope_value_one": "{{host}} + {{count, number}} subdominio",
+    "scope_value_other": "{{host}} + {{count, number}} subdominios",
+    "access_value_one": "{{count, number}} cabecera: {{names}}",
+    "access_value_other": "{{count, number}} cabeceras: {{names}}",
+    "access_none": "Solo páginas públicas",
+    "no_context": "Sin contexto · <add>Añadir</add>",
+    "plan_failed": "No se pudo leer el repositorio; el servidor lo decide al ejecutar.",
+    "looks": {
+      "code": "tu código ({{languages}})",
+      "code_plain": "tu código",
+      "secrets": "secretos",
+      "dependencies": "dependencias",
+      "no_dependencies": "sin dependencias",
+      "infrastructure": "infraestructura",
+      "generic": "El código, los secretos, las dependencias y la infraestructura de cada repositorio"
+    },
+    "osv_label": "Consultar dependencias en línea con OSV",
+    "osv_hint": "Envía nombres y versiones de paquetes (no código) a api.osv.dev. Apagado: no se revisan dependencias.",
+    "batch_note": "Corre como un lote que puedes seguir y cancelar en Análisis.",
+    "schedule_without_spec": "Los análisis programados recorren el sitio; no usan la documentación de la API.",
+    "authorization": "Solo navega y lee; nunca ataca. Lánzalo solo contra sitios que tengas permiso de probar.",
+    "access_users": "Inicia sesión como {{names}}",
+    "egress": {
+      "allow": "Si tu sitio filtra por IP, permite:",
+      "copy": "Copiar",
+      "copy_label": "Copiar las direcciones IP",
+      "copied": "Copiado",
+      "copy_failed": "No se pudo copiar: selecciona las direcciones y cópialas a mano.",
+      "unknown": "Si tu sitio filtra por IP, tiene que permitir la dirección de este servidor, que aún no está configurada.",
+      "detect": "Detectar",
+      "detect_hint": "Pregunta una vez a api.ipify.org desde qué IP pública se ve este servidor. Si los análisis corren en otra máquina, configura PITANGUS_EGRESS_IPS.",
+      "ask_admin": "Si tu sitio filtra por IP, pide a quien administra que configure la IP de salida."
+    }
+  },
+  "details": {
+    "title": "Detalles técnicos",
+    "languages": "Lenguajes",
+    "runs": "Qué se ejecuta",
+    "skips": "Qué no se ejecuta",
+    "rules_one": "{{count, number}} regla",
+    "rules_other": "{{count, number}} reglas",
     "no_rules": "sin reglas SAST",
-    "runs": "Se ejecuta",
-    "skips": "No se ejecuta",
-    "osv_authorized": "Dependencias: consulta a api.osv.dev autorizada",
-    "osv_consent": "<strong>Consultar OSV para SCA.</strong> Al activarlo autorizas enviar nombres y versiones de dependencias de este repositorio a <mono>api.osv.dev</mono>. Solo hace falta porque Trivy no está disponible en este servidor; sin activarlo, las dependencias quedan sin revisar.",
+    "code_generic": "Cada repositorio recibe su propio plan según su árbol real: SAST para los lenguajes que tenga, secretos, dependencias, infraestructura y CI/CD.",
+    "batch": "Uno a la vez y solo cuando no hay otro análisis. Si cancelas, se conserva lo terminado.",
     "image_runs": {
-      "packages": "Paquetes del sistema y de la aplicación con Trivy y Grype; se marcan los avisos que ven ambos",
+      "packages": "Paquetes del sistema y de la aplicación con Trivy y Grype; se marcan los avisos que reportan ambos",
       "secrets": "Secretos en las capas, en las variables de entorno (ENV) y en el historial de construcción (ARG, URLs con credenciales)",
-      "config": "Configuración: usuario root, HEALTHCHECK, ADD desde URL, SSH expuesto, antigüedad",
-      "checkov": "Checkov sobre el Dockerfile reconstruido del historial: descargas sin verificar TLS, gestores de paquetes sin firma…",
-      "priority": "Prioridad con CVSS, CISA KEV y EPSS",
-      "saved_credentials": "Acceso con las credenciales guardadas para {{registry}}",
-      "anonymous": "Acceso anónimo al registro"
+      "config": "Configuración: usuario root, HEALTHCHECK, ADD desde una URL, SSH expuesto, antigüedad de la imagen",
+      "checkov": "Checkov sobre el Dockerfile reconstruido a partir del historial: descargas sin verificar TLS, gestores de paquetes sin firma…",
+      "priority": "Prioridad según CVSS, CISA KEV y EPSS"
     },
     "image_skips": {
-      "run": "La imagen no se ejecuta ni se construye",
-      "source": "No se analiza el código fuente que la generó (lánzalo sobre su repositorio)",
-      "secrets": "Ningún valor secreto encontrado se guarda: solo su ubicación"
-    },
-    "dast_unavailable": "Las pruebas dinámicas todavía no se pueden lanzar: falta el runner aislado y los límites de tasa y alcance. Esta configuración queda preparada, no ejecutada.",
-    "unverified_targets": "Hay objetivos sin verificar. La propiedad por DNS TXT es requisito previo a cualquier prueba activa."
+      "run": "La imagen nunca se ejecuta ni se construye",
+      "source": "No se analiza el código fuente que la produjo (lanza un análisis de código sobre su repositorio)",
+      "secrets": "No se guarda ningún valor secreto que aparezca, solo dónde se encontró"
+    }
   },
   "launch": {
     "queuing": "Encolando…",
-    "images": "Analizar {{total}} imágenes",
-    "image": "Analizar imagen",
+    "code": "Iniciar análisis",
+    "repositories": "Analizar {{total, number}} repositorios",
     "organization": "Analizar la organización",
-    "organization_count": "Analizar la organización ({{total}})",
-    "repositories": "Analizar {{total}} repositorios",
-    "code": "Iniciar revisión de código",
-    "dast": "Lanzar pruebas dinámicas",
-    "dast_unavailable": "El runner aislado de DAST aún no está disponible"
+    "organization_count": "Analizar la organización ({{total, number}})",
+    "image": "Analizar imagen",
+    "images": "Analizar {{total, number}} imágenes",
+    "web": "Iniciar análisis",
+    "schedule": "Programar análisis"
+  },
+  "org": {
+    "counting": "Contando repositorios…",
+    "estimate_one": "<strong>{{count, number}}</strong> repositorio · tiempo estimado {{duration}} (≈1 min por repositorio; se ajusta con lo que tarden de verdad).",
+    "estimate_other": "<strong>{{count, number}}</strong> repositorios · tiempo estimado {{duration}} (≈1 min por repositorio; se ajusta con lo que tarden de verdad).",
+    "dialog_title": "Analizar la organización {{name}}",
+    "dialog_description": "Se analizan todos sus repositorios (salvo los archivados), de uno en uno y solo cuando no hay otros análisis: los tuyos y las revisiones de PR no esperan. Puedes seguir usando el panel y cancelarlo cuando quieras.",
+    "scan_one": "Analizar {{count, number}} repositorio",
+    "scan_other": "Analizar {{count, number}} repositorios",
+    "scan_pending": "Analizar repositorios"
   },
   "batch": {
-    "last_one": "Último lote · {{label}}: {{count}} analizado{{failed}}{{cancelled}}{{critical}}.",
-    "last_other": "Último lote · {{label}}: {{count}} analizados{{failed}}{{cancelled}}{{critical}}.",
-    "failed_one": ", {{count}} fallido", "failed_other": ", {{count}} fallidos",
+    "last_one": "Último lote · {{label}}: {{count, number}} analizado{{failed}}{{cancelled}}{{critical}}.",
+    "last_other": "Último lote · {{label}}: {{count, number}} analizados{{failed}}{{cancelled}}{{critical}}.",
+    "failed_one": ", {{count, number}} fallido",
+    "failed_other": ", {{count, number}} fallidos",
     "cancelled": " · cancelado",
-    "critical_one": " · {{count}} crítico", "critical_other": " · {{count}} críticos",
+    "critical_one": " · {{count, number}} crítico",
+    "critical_other": " · {{count, number}} críticos",
     "cancel_title": "¿Cancelar el lote?",
     "keep_running": "Seguir con el lote",
     "confirm_cancel": "Lo ya analizado se conserva y el análisis en curso termina.",
     "running": "Lote en curso · {{label}}",
     "cancel": "Cancelar lote",
-    "progress_label": "Lote: {{done}} de {{total}} analizados",
-    "progress": "{{done}} de {{total}} analizados{{failed}} · {{critical}} críticos y {{high}} altos hasta ahora · quedan {{duration}}. Avanza cuando no hay otros análisis: puedes seguir usando el panel.",
-    "progress_failed_one": " ({{count}} fallido)", "progress_failed_other": " ({{count}} fallidos)",
+    "progress_label": "Lote: {{done}} de {{total, number}} analizados",
+    "progress": "{{done}} de {{total, number}} analizados{{failed}} · {{critical}} críticos y {{high}} altos hasta ahora · quedan {{duration}}. Avanza cuando no hay otros análisis: puedes seguir usando el panel.",
+    "progress_failed_one": " ({{count, number}} fallido)",
+    "progress_failed_other": " ({{count, number}} fallidos)",
     "show_failed": "Ver fallidos"
   },
   "import": {
@@ -188,8 +304,8 @@
     "file": {
       "label": "Archivo SARIF",
       "hint": "(.sarif o .json, hasta {{max}} MB)",
-      "summary_one": "{{name}} · {{size}} · {{tools}} · {{count}} resultado",
-      "summary_other": "{{name}} · {{size}} · {{tools}} · {{count}} resultados",
+      "summary_one": "{{name}} · {{size}} · {{tools}} · {{count, number}} resultado",
+      "summary_other": "{{name}} · {{size}} · {{tools}} · {{count, number}} resultados",
       "unknown_tool": "herramienta sin nombre",
       "too_large": "{{name}} pesa {{size}} y el límite es {{max}} MB. Divídelo por herramienta o por módulo e importa cada parte como parcial.",
       "invalid_json": "{{name}} no es un JSON válido.",
@@ -197,26 +313,37 @@
     },
     "scope": {
       "label": "Alcance",
-      "full": "Completa", "full_hint": "Todo lo que la herramienta revisó en este activo: lo que ya no reporte se marca como remediado",
-      "partial": "Parcial", "partial_hint": "Solo algunos archivos o un módulo: agrega y actualiza, no marca nada como remediado",
+      "full": "Completa",
+      "full_hint": "Todo lo que la herramienta revisó en este activo: lo que ya no reporte se marca como remediado",
+      "partial": "Parcial",
+      "partial_hint": "Solo algunos archivos o un módulo: agrega y actualiza, no marca nada como remediado",
       "note": "Los análisis de Pitangus nunca cierran hallazgos importados, ni una importación cierra los suyos."
     },
     "more": "Más opciones",
     "optional": "(opcional)",
-    "tool": "Nombre de la herramienta", "tool_hint": "Reemplaza el nombre que trae el archivo.",
-    "commit": "Commit", "commit_invalid": "Usa el SHA del commit: de 7 a 64 caracteres hexadecimales.",
-    "branch": "Rama", "branch_invalid": "Ese no es un nombre de rama válido.",
-    "submit": "Importar hallazgos", "submitting": "Importando…",
+    "tool": "Nombre de la herramienta",
+    "tool_hint": "Reemplaza el nombre que trae el archivo.",
+    "commit": "Commit",
+    "commit_invalid": "Usa el SHA del commit: de 7 a 64 caracteres hexadecimales.",
+    "branch": "Rama",
+    "branch_invalid": "Ese no es un nombre de rama válido.",
+    "submit": "Importar hallazgos",
+    "submitting": "Importando…",
     "too_large": "El archivo supera el límite de {{max}} MB del servidor.",
     "result": {
       "title": "Importado en {{name}}",
       "description_full": "Una ejecución por herramienta. Lo que cada una ya no reporta quedó como remediado.",
       "description_partial": "Una ejecución por herramienta. Importación parcial: no se marcó nada como remediado.",
-      "findings_one": "{{count}} hallazgo", "findings_other": "{{count}} hallazgos",
-      "opened_one": "{{count}} nuevo", "opened_other": "{{count}} nuevos",
-      "fixed_one": "{{count}} remediado", "fixed_other": "{{count}} remediados",
-      "skipped_one": "{{count}} sin importar (suprimido o sin problemas)", "skipped_other": "{{count}} sin importar (suprimidos o sin problemas)",
-      "open": "Ver hallazgos", "open_label": "Ver hallazgos de {{tool}}",
+      "findings_one": "{{count, number}} hallazgo",
+      "findings_other": "{{count, number}} hallazgos",
+      "opened_one": "{{count, number}} nuevo",
+      "opened_other": "{{count, number}} nuevos",
+      "fixed_one": "{{count, number}} remediado",
+      "fixed_other": "{{count, number}} remediados",
+      "skipped_one": "{{count, number}} sin importar (suprimido o sin problemas)",
+      "skipped_other": "{{count, number}} sin importar (suprimidos o sin problemas)",
+      "open": "Ver hallazgos",
+      "open_label": "Ver hallazgos de {{tool}}",
       "another": "Importar otro archivo"
     }
   },
@@ -232,12 +359,27 @@
     "empty_title": "Aún no hay análisis",
     "empty_text": "Aquí aparecerán tus análisis. Lanza el primero sobre un repositorio o una imagen de contenedor.",
     "new": "Nuevo análisis",
-    "columns": { "status": "Estado", "analysis": "Análisis", "type": "Tipo", "findings": "Hallazgos", "started": "Iniciado" },
-    "fallback": { "asset": "Activo", "repository": "Repositorio", "image": "Imagen", "pull_request": "Pull request", "analysis": "Análisis" },
+    "columns": {
+      "status": "Estado",
+      "analysis": "Análisis",
+      "type": "Tipo",
+      "findings": "Hallazgos",
+      "started": "Iniciado"
+    },
+    "fallback": {
+      "asset": "Activo",
+      "repository": "Repositorio",
+      "image": "Imagen",
+      "pull_request": "Pull request",
+      "analysis": "Análisis"
+    },
     "hint": {
-      "pr_review_one": "nuevo en el PR", "pr_review_other": "nuevos en el PR",
-      "advisory_watch_one": "aviso nuevo", "advisory_watch_other": "avisos nuevos",
-      "candidates_one": "candidato", "candidates_other": "candidatos"
+      "pr_review_one": "nuevo en el PR",
+      "pr_review_other": "nuevos en el PR",
+      "advisory_watch_one": "aviso nuevo",
+      "advisory_watch_other": "avisos nuevos",
+      "candidates_one": "candidato",
+      "candidates_other": "candidatos"
     },
     "trigger_branch": "· automático: cambió la rama",
     "trigger_branch_sha": "· automático: cambió la rama ({{sha}})",
@@ -245,9 +387,19 @@
     "trigger_advisories": "· automático: publicados después del último análisis",
     "trigger_import": "· desde {{tool}}",
     "trigger_import_partial": "· desde {{tool}}, parcial",
-    "severity_letter": { "critical": "C", "high": "A", "medium": "M", "low": "B" },
-    "severity_count": "{{severity}}: {{value}}",
-    "noun": "análisis"
+    "severity_badge": {
+      "critical_one": "{{count, number}} crítica",
+      "critical_other": "{{count, number}} críticas",
+      "high_one": "{{count, number}} alta",
+      "high_other": "{{count, number}} altas",
+      "medium_one": "{{count, number}} media",
+      "medium_other": "{{count, number}} medias",
+      "low_one": "{{count, number}} baja",
+      "low_other": "{{count, number}} bajas"
+    },
+    "noun": "análisis",
+    "findings_pending": "analizando…",
+    "findings_none_failed": "Sin resultado: la ejecución falló"
   },
   "progress": {
     "scan": "escaneo",

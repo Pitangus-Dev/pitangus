@@ -1,0 +1,91 @@
+id: pitangus-metadata-files
+
+info:
+  name: Development metadata file exposed
+  author: pitangus
+  severity: low
+  description: |
+    A file that development tools leave in a working copy (a Finder index, an ignore list, an IDE workspace, a
+    Mercurial configuration) is served by the site. It reveals file names, paths or internal settings that were never
+    meant to be published.
+  remediation: |
+    Remove these files from what gets deployed (exclude them in the build or the upload step) and block dot-files in
+    the web server. See the referenced OWASP testing guide page for this check.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information
+    - https://cwe.mitre.org/data/definitions/538.html
+  classification:
+    cwe-id: CWE-538
+  metadata:
+    max-request: 4
+    pitangus-name-es: Archivo de metadatos de desarrollo expuesto
+    pitangus-description-es: |
+      El sitio sirve un archivo que las herramientas de desarrollo dejan en una copia de trabajo (un índice de Finder,
+      una lista de ignorados, un espacio de trabajo del IDE, una configuración de Mercurial). Revela nombres de
+      archivos, rutas o ajustes internos que nunca debieron publicarse.
+    pitangus-remediation-es: |
+      Saca estos archivos de lo que se despliega (exclúyelos en el build o en el paso de subida) y bloquea los
+      archivos que empiezan por punto en el servidor web. Consulta la página de la guía de pruebas de OWASP
+      referenciada para este control.
+  tags: exposure,files,pitangus
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.DS_Store"
+    matchers:
+      - type: binary
+        name: ds-store
+        part: body
+        binary:
+          - "0000000142756431"
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/.gitignore"
+    matchers-condition: and
+    matchers:
+      - type: regex
+        name: gitignore
+        part: body
+        regex:
+          - '(?m)^/?(?:node_modules|vendor|dist|build|target|__pycache__|\.env[A-Za-z0-9.]*|\*\.log|\.DS_Store|\.idea|\.vscode)/?\s*$'
+      - type: word
+        part: body
+        negative: true
+        words:
+          - "<html"
+          - "<HTML"
+          - "<!DOCTYPE"
+          - "<!doctype"
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/.idea/workspace.xml"
+    matchers:
+      - type: regex
+        name: idea-workspace
+        part: body
+        regex:
+          - '<project version="[0-9]+"'
+          - '<component name="'
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/.hg/hgrc"
+    matchers-condition: and
+    matchers:
+      - type: regex
+        name: mercurial-config
+        part: body
+        regex:
+          - '(?m)^\[(?:paths|ui|extensions)\]\s*$'
+      - type: word
+        part: body
+        negative: true
+        words:
+          - "<html"
+          - "<HTML"
+          - "<!DOCTYPE"
+          - "<!doctype"

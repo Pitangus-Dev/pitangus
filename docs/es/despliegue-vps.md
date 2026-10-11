@@ -8,7 +8,7 @@ Con un servidor recién creado y un registro DNS que ya apunte a él, son cuatro
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.12.2                                   # la versión que quieras (ver Actualizar)
+git checkout v0.13.0                                   # la versión que quieras (ver Actualizar)
 make setup DOMAIN=pitangus.example.com PREBUILT=1   # HTTPS con Caddy + imágenes publicadas
 make up                                             # muestra https://pitangus.example.com y el código de configuración
 ```
@@ -99,7 +99,7 @@ Con el usuario `pitangus`:
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.12.2
+git checkout v0.13.0
 make setup DOMAIN=pitangus.example.com PREBUILT=1
 make doctor
 ```
@@ -131,7 +131,7 @@ Guarda una copia de `.env` en tu gestor de contraseñas: contiene la contraseña
 Con las imágenes publicadas, instala antes [cosign](https://docs.sigstore.dev/cosign/system_config/installation/): así `make up` comprueba sus firmas antes de arrancar nada y fija en `.env` el digest comprobado, de modo que cada arranque posterior (también `docker compose up`) usa exactamente esa imagen. Sin cosign arranca igual y lo avisa en una línea. `make verify-images` hace la misma comprobación por separado.
 
 ```bash
-make up    # Signature verified: ghcr.io/pitangus-dev/pitangus@sha256:…  Pinned in .env: PITANGUS_IMAGE_TAG=0.12@sha256:…
+make up    # Signature verified: ghcr.io/pitangus-dev/pitangus@sha256:…  Pinned in .env: PITANGUS_IMAGE_TAG=0.13@sha256:…
 ```
 
 `make up` descarga (o construye) las imágenes, arranca todo, espera a que el panel responda, descarga los motores y muestra la URL y el **código de configuración**. Abre `https://<dominio>`, introduce el código y crea tu usuario administrador; después activa el segundo factor en **Cuenta**. Si la página no carga, `make logs SERVICE=caddy` te dice si se emitió el certificado (lo habitual: el DNS todavía no apunta aquí, o el puerto 80 está cerrado).
@@ -206,13 +206,13 @@ Si se pierde `config/master.key` (o cambia `PITANGUS_MASTER_KEY`), los secretos 
 ## Actualizar
 
 ```bash
-git fetch --tags && git checkout v0.12.2   # o quédate en main y deja que make update lo traiga
+git fetch --tags && git checkout v0.13.0   # o quédate en main y deja que make update lo traiga
 make update
 ```
 
 `make update` trae el código (`git pull --ff-only` si estás en una rama; en una etiqueta mantiene la versión que elegiste), hace una copia con `make backup` (si hay análisis en marcha se detiene: vuelve a intentarlo luego), descarga las imágenes nuevas y reinicia; la app migra la base de datos al arrancar. Lee las notas de la versión antes de saltar de versión menor. Para volver atrás: vuelve a la etiqueta anterior y `make restore FROM=backups/<la copia que hizo make update> CONFIRM=restore`, y después `make up`.
 
-Con `PREBUILT`, la etiqueta de la imagen sigue al código que tienes (`pitangus/version.py`), así que los ficheros de compose, las reglas y las imágenes siempre coinciden. `make up` fija esa etiqueta al digest que comprobó (`PITANGUS_IMAGE_TAG=0.12@sha256:…`) y lo mantiene mientras no cambie la versión; `make update` comprueba la imagen más reciente de la versión y vuelve a fijarla (a mano: `make verify-images REPIN=1`). Un `PITANGUS_IMAGE_TAG` puesto por ti (`0.12.1`, `0.12.1@sha256:…`) se comprueba pero nunca se sustituye. Sin socket, la imagen del worker se comprueba y se fija igual (`PITANGUS_WORKER_IMAGE_TAG`); con socket, la de Opengrep se comprueba por su etiqueta.
+Con `PREBUILT`, la etiqueta de la imagen sigue al código que tienes (`pitangus/version.py`), así que los ficheros de compose, las reglas y las imágenes siempre coinciden. `make up` fija esa etiqueta al digest que comprobó (`PITANGUS_IMAGE_TAG=0.13@sha256:…`) y lo mantiene mientras no cambie la versión; `make update` comprueba la imagen más reciente de la versión y vuelve a fijarla (a mano: `make verify-images REPIN=1`). Un `PITANGUS_IMAGE_TAG` puesto por ti (`0.12.1`, `0.12.1@sha256:…`) se comprueba pero nunca se sustituye. Sin socket, la imagen del worker se comprueba y se fija igual (`PITANGUS_WORKER_IMAGE_TAG`); con socket, la de Opengrep se comprueba por su etiqueta.
 
 ## Monitorización
 

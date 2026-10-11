@@ -1,8 +1,6 @@
 {
-  "tagline": "Detéctalo. Corrígelo. Demuéstralo.",
   "main": "Principal",
   "workspace": "Workspace",
-  "eyebrow": "Security workspace / 01",
   "open_navigation": "Abrir navegación",
   "last_run": "Última ejecución {{date}}",
   "role_without_2fa": "{{role}} · sin 2FA",
@@ -28,15 +26,14 @@
     "users": "Usuarios",
     "new": "Nuevo análisis",
     "account": "Cuenta",
-    "domains": "Dominios"
+    "domains": "Dominios y APIs"
   },
   "descriptions": {
     "overview": "Qué riesgos tiene tu código, sus dependencias y tus imágenes, por qué importan y cómo se corrigen.",
     "analyses": "Historial de análisis de este workspace, con su tipo, estado y resultados.",
-    "new": "Define el objetivo, declara el alcance y revisa qué se ejecuta antes de lanzar.",
     "repositories": "Conecta tus repositorios y elige el código que quieres analizar.",
     "images": "Las imágenes de contenedor que has analizado y el repositorio desde el que se construye cada una.",
-    "domains": "Dominios propios, demostrados por DNS, para traer los hallazgos de tus propias ejecuciones de ZAP o Nuclei. Las pruebas dinámicas desde aquí siguen en desarrollo.",
+    "domains": "Sitios y APIs que controlas. Verifícalos una vez y analízalos.",
     "integrations": "Administra los proveedores de código y consulta el estado de la IA.",
     "account": "Tu acceso: contraseña y segundo factor.",
     "users": "Invita a tu equipo, asigna roles y retira accesos.",
@@ -57,24 +54,69 @@
     "repository": "repositorio",
     "image": "imagen",
     "failed": "El escaneo de {{name}} falló.",
-    "done_one": "Escaneo de {{name}} terminado: {{count}} hallazgo.",
-    "done_other": "Escaneo de {{name}} terminado: {{count}} hallazgos.",
-    "done_severities_one": "Escaneo de {{name}} terminado: {{count}} hallazgo ({{critical}} críticos, {{high}} altos).",
-    "done_severities_other": "Escaneo de {{name}} terminado: {{count}} hallazgos ({{critical}} críticos, {{high}} altos)."
-  },
-  "dast": {
-    "title": "Pruebas dinámicas de aplicaciones web y API (DAST)",
-    "description": "Pitangus ejecutando ZAP o Nuclei por ti, solo contra los dominios verificados de arriba. Mientras tanto, importa los resultados de tus propias ejecuciones.",
-    "plan": {
-      "scan": "Escaneo activo con ZAP o Nuclei en un contenedor aislado, con límites de velocidad y de alcance",
-      "auth": "Autenticación en la aplicación con una cuenta de prueba que tú declares",
-      "evidence": "Hallazgos con la petición y la respuesta que los demuestran, en el mismo ciclo de vida que los del código"
-    }
+    "done_one": "Escaneo de {{name}} terminado: {{count, number}} hallazgo.",
+    "done_other": "Escaneo de {{name}} terminado: {{count, number}} hallazgos.",
+    "done_severities_one": "Escaneo de {{name}} terminado: {{count, number}} hallazgo ({{critical}} críticos, {{high}} altos).",
+    "done_severities_other": "Escaneo de {{name}} terminado: {{count, number}} hallazgos ({{critical}} críticos, {{high}} altos)."
   },
   "footer": "{{name}} · software libre bajo <license>AGPL-3.0</license> · <source>código fuente</source> · los resultados negativos no prueban ausencia de vulnerabilidades.",
   "update": {
     "message": "Hay una versión nueva del panel. Recarga para usarla; guarda antes lo que tengas sin guardar.",
     "reload": "Recargar"
   },
-  "edition": "Autoalojado · v{{version}}"
+  "edition": "Autoalojado · v{{version}}",
+  "palette": {
+    "trigger": "Buscar…",
+    "title": "Búsqueda y comandos",
+    "search_label": "Busca páginas, análisis, repositorios y dominios",
+    "placeholder": "Busca páginas, análisis, repositorios, dominios…",
+    "results": "Resultados",
+    "groups": {
+      "actions": "Acciones",
+      "pages": "Páginas",
+      "recent_runs": "Análisis recientes",
+      "runs": "Análisis",
+      "assets": "Repositorios e imágenes",
+      "domains": "Dominios y APIs"
+    },
+    "actions": {
+      "new_scan": "Nuevo análisis",
+      "import_sarif": "Importar resultados SARIF",
+      "add_domain": "Añadir un dominio",
+      "connect_provider": "Conectar un proveedor de código",
+      "shortcuts": "Atajos de teclado"
+    },
+    "view_all": {
+      "runs": "Ver todos los análisis",
+      "repositories": "Ver todos los repositorios",
+      "domains": "Ver todos los dominios"
+    },
+    "open_findings_one": "{{count, number}} hallazgo abierto",
+    "open_findings_other": "{{count, number}} hallazgos abiertos",
+    "searching": "Buscando…",
+    "count_one": "{{count, number}} resultado",
+    "count_other": "{{count, number}} resultados",
+    "empty": "Nada coincide con «{{query}}».",
+    "hint": {
+      "move": "Moverte",
+      "open": "Abrir",
+      "close": "Cerrar"
+    }
+  },
+  "shortcuts": {
+    "title": "Atajos de teclado",
+    "description": "Funcionan en todo el panel, salvo mientras escribes en un campo o hay un diálogo abierto.",
+    "general": "Generales",
+    "pages": "Ir a una página (pulsa G y luego la letra)",
+    "palette": "Búsqueda y comandos",
+    "new_scan": "Nuevo análisis",
+    "help": "Ver estos atajos",
+    "go_hint": "Atajo: G y luego {{key}}",
+    "spoken": {
+      "command_k": "Comando K",
+      "control_k": "Control K",
+      "then": "G y luego {{key}}"
+    }
+  },
+  "breadcrumb": "Ruta de navegación"
 }

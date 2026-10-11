@@ -1,0 +1,72 @@
+id: pitangus-api-description
+
+info:
+  name: API description published
+  author: pitangus
+  severity: info
+  description: |
+    An OpenAPI or Swagger definition, or the Swagger UI page, is published at this path. It lists every endpoint and
+    parameter of the API: fine when the API is public by design, a map for an attacker when it isn't.
+  remediation: |
+    If the API isn't meant to be public, serve its definition and its documentation page only to authenticated users
+    or internal networks. If it is, you can upload this definition to scan the API in API mode. See the referenced
+    OWASP pages for this check.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/05-Enumerate_Infrastructure_and_Application_Admin_Interfaces
+    - https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html
+  classification:
+    cwe-id: CWE-200
+  metadata:
+    max-request: 11
+    pitangus-name-es: Descripción de la API publicada
+    pitangus-description-es: |
+      En esta ruta se publica una definición OpenAPI o Swagger, o la página de Swagger UI. Enumera cada endpoint y
+      parámetro de la API: está bien si la API es pública por diseño, y es un mapa para un atacante si no lo es.
+    pitangus-remediation-es: |
+      Si la API no debe ser pública, sirve su definición y su página de documentación solo a usuarios autenticados o
+      a redes internas. Si lo es, puedes subir esta definición para analizar la API en modo API. Consulta las páginas
+      de OWASP referenciadas para este control.
+  tags: exposure,api,swagger,pitangus
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/openapi.json"
+      - "{{BaseURL}}/swagger.json"
+      - "{{BaseURL}}/api-docs"
+      - "{{BaseURL}}/v2/api-docs"
+      - "{{BaseURL}}/v3/api-docs"
+      - "{{BaseURL}}/swagger/v1/swagger.json"
+      - "{{BaseURL}}/api/openapi.json"
+      - "{{BaseURL}}/api/swagger.json"
+    matchers:
+      - type: regex
+        name: openapi-definition
+        part: body
+        regex:
+          - '"(?:openapi|swagger)"\s*:\s*"[23]\.'
+          - '"paths"\s*:\s*\{'
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/openapi.yaml"
+    matchers:
+      - type: regex
+        name: openapi-definition
+        part: body
+        regex:
+          - '(?m)^(?:openapi|swagger):\s*[''"]?[23]\.'
+          - '(?m)^paths:'
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/swagger-ui.html"
+      - "{{BaseURL}}/swagger-ui/index.html"
+    matchers:
+      - type: regex
+        name: swagger-ui
+        part: body
+        regex:
+          - '(?i)<title>\s*Swagger UI\s*</title>'

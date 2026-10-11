@@ -1,0 +1,193 @@
+[
+ {
+  "id": "service",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "HTTP"
+ },
+ {
+  "id": "pre_128cipher",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "No 128 cipher limit bug"
+ },
+ {
+  "id": "SSLv2",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "OK",
+  "finding": "not offered"
+ },
+ {
+  "id": "SSLv3",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "OK",
+  "finding": "not offered"
+ },
+ {
+  "id": "TLS1",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "not offered"
+ },
+ {
+  "id": "TLS1_1",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "not offered"
+ },
+ {
+  "id": "TLS1_2",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "OK",
+  "finding": "offered"
+ },
+ {
+  "id": "TLS1_3",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "OK",
+  "finding": "offered with final"
+ },
+ {
+  "id": "NPN",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "offered with h2, http/1.1 (advertised)"
+ },
+ {
+  "id": "ALPN_HTTP2",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "OK",
+  "finding": "h2"
+ },
+ {
+  "id": "ALPN",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "http/1.1"
+ },
+ {
+  "id": "cipherlist_NULL",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "OK",
+  "cwe": "CWE-327",
+  "finding": "not offered"
+ },
+ {
+  "id": "engine_problem",
+  "ip": "/",
+  "port": "443",
+  "severity": "WARN",
+  "finding": "No engine or GOST support via engine with your /usr/bin/openssl"
+ },
+ {
+  "id": "cipherlist_OBSOLETED",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "cwe": "CWE-310",
+  "finding": "offered"
+ },
+ {
+  "id": "cipher-tls1_2_xc009",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc009   ECDHE-ECDSA-AES128-SHA            ECDH 253   AES         128      TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xc00a",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc00a   ECDHE-ECDSA-AES256-SHA            ECDH 253   AES         256      TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xc023",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc023   ECDHE-ECDSA-AES128-SHA256         ECDH 253   AES         128      TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_xc024",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc024   ECDHE-ECDSA-AES256-SHA384         ECDH 253   AES         256      TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384"
+ },
+ {
+  "id": "cipher-tls1_2_xc013",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc013   ECDHE-RSA-AES128-SHA              ECDH 253   AES         128      TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_x2f",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x2f     AES128-SHA                        RSA        AES         128      TLS_RSA_WITH_AES_128_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xc014",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc014   ECDHE-RSA-AES256-SHA              ECDH 253   AES         256      TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_x35",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x35     AES256-SHA                        RSA        AES         256      TLS_RSA_WITH_AES_256_CBC_SHA"
+ },
+ {
+  "id": "cipher-tls1_2_xc027",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc027   ECDHE-RSA-AES128-SHA256           ECDH 253   AES         128      TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_x3c",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x3c     AES128-SHA256                     RSA        AES         128      TLS_RSA_WITH_AES_128_CBC_SHA256"
+ },
+ {
+  "id": "cipher-tls1_2_xc028",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   xc028   ECDHE-RSA-AES256-SHA384           ECDH 253   AES         256      TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384"
+ },
+ {
+  "id": "cipher-tls1_2_x3d",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "LOW",
+  "finding": "TLSv1.2   x3d     AES256-SHA256                     RSA        AES         256      TLS_RSA_WITH_AES_256_CBC_SHA256"
+ },
+ {
+  "id": "scanTime",
+  "ip": "pitangus.dev/172.67.153.40",
+  "port": "443",
+  "severity": "INFO",
+  "finding": "114"
+ }
+]

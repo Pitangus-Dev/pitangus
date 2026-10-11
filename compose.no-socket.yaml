@@ -12,7 +12,7 @@ services:
   worker:
     build:
       target: worker-standalone
-    image: localhost/pitangus/worker:${PITANGUS_VERSION:-0.12}
+    image: localhost/pitangus/worker:${PITANGUS_VERSION:-0.13}
     environment:
       # Engines write their temporary files (image layers, databases) to disk, not to the small in-memory /tmp.
       TMPDIR: /data/tmp

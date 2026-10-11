@@ -3,11 +3,13 @@
     "commands": {
       "update": "Actualiza",
       "reinstall": "Reinstala",
-      "install": "Instala"
+      "install": "Instala",
+      "check": "Revisa las cabeceras de la respuesta"
     },
     "verify": "Después: sube el cambio a la rama principal y haz clic en «Reverificar» (o espera al análisis automático de la rama).",
     "verify_dependency": "Después: regenera el lockfile, sube el cambio a la rama principal y haz clic en «Reverificar» (o espera al análisis automático de la rama).",
     "verify_image": "Después: reconstruye y publica la imagen con la misma etiqueta y haz clic en «Reverificar».",
+    "verify_web": "Después, despliega la corrección y vuelve a analizar el dominio con «Reverificar», o importa un reporte nuevo si el hallazgo vino de tu propio escáner.",
     "no_fix": {
       "none_published": "No hay versión corregida publicada de {{package}}.",
       "check_usage": "Comprueba si tu código usa la parte vulnerable (el aviso suele decir qué función o formato).",
@@ -123,6 +125,15 @@
       "low_other": "{{count}} bajas",
       "info_one": "{{count}} informativa",
       "info_other": "{{count}} informativas"
+    }
+  },
+  "web": {
+    "factor": {
+      "header": "Está en las cabeceras de la respuesta: afecta a todos los que abren esta URL, y a menudo a todo el sitio",
+      "cookie": "Está en cómo la respuesta define la cookie: todo navegador que abre esta URL la recibe así",
+      "info": "Informativo: describe el sitio, no es una debilidad por sí solo",
+      "attack": "El escáner lo reprodujo con una petición que armó para eso",
+      "observed": "Se vio en una respuesta real del sitio: confirma su impacto en la aplicación"
     }
   }
 }

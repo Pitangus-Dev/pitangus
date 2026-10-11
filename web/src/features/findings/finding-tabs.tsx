@@ -10,6 +10,6 @@ export function FindingTabs({ tab, counts, onChange }: { tab: FindingTab; counts
     ['excluded', t('page.tabs.excluded'), counts ? counts.excluded ?? 0 : null],
     ['all', t('common:state.all'), counts ? counts.open + counts.suppressed + counts.fixed + (counts.excluded ?? 0) : null]]
   return <div className="flex flex-wrap gap-1.5">{tabs.filter(([key]) => key !== 'excluded' || tab === 'excluded' || (counts?.excluded ?? 0) > 0).map(([key, text, count]) =>
-    <button key={key} type="button" aria-pressed={tab === key} onClick={() => onChange(key)} className={`rounded-lg border px-3 py-1.5 text-sm ${tab === key ? 'border-brand/50 bg-brand/10 text-brand' : 'border-app-line bg-app-soft text-app-muted'}`}>
+    <button key={key} type="button" aria-pressed={tab === key} onClick={() => onChange(key)} className={`rounded-lg border px-3 py-1.5 text-sm ${tab === key ? 'border-app-fg bg-app-soft text-app-fg' : 'border-input bg-card text-app-muted'}`}>
       {text}{count !== null ? ` · ${count}` : ''}</button>)}</div>
 }

@@ -17,10 +17,10 @@
     "failed": "Falló",
     "new_commits": "Hay commits nuevos",
     "clean": "Sin hallazgos nuevos",
-    "new_one": "{{count}} nuevo",
-    "new_other": "{{count}} nuevos",
-    "blocking_one": "{{count}} crítico/alto",
-    "blocking_other": "{{count}} críticos/altos"
+    "new_one": "{{count, number}} nuevo",
+    "new_other": "{{count, number}} nuevos",
+    "blocking_one": "{{count, number}} crítico/alto",
+    "blocking_other": "{{count, number}} críticos/altos"
   },
   "loading": {
     "watched": "Cargando repositorios vigilados",
@@ -52,7 +52,7 @@
   },
   "list": {
     "title": "PRs abiertos",
-    "title_count": "PRs abiertos · {{total}}",
+    "title_count": "PRs abiertos · {{total, number}}",
     "empty": "No hay pull requests abiertos en este repositorio.",
     "draft": "borrador",
     "reviewed": "revisado {{date}}",
@@ -64,7 +64,7 @@
     "queued_notice": "PR #{{number}} en cola para revisión."
   },
   "watch": {
-    "title": "Repositorios vigilados · {{total}}",
+    "title": "Repositorios vigilados · {{total, number}}",
     "description": "Los vigilados revisan solos cada push de sus PRs (se comprueba cada {{minutes}} min).",
     "member_hint": "Solo un administrador cambia qué se vigila.",
     "bulk": "Acciones en bloque",
@@ -75,8 +75,8 @@
     "search": "Buscar repositorio",
     "search_placeholder": "Buscar…",
     "only_watched": "Solo vigilados",
-    "selected_one": "{{count}} seleccionado",
-    "selected_other": "{{count}} seleccionados",
+    "selected_one": "{{count, number}} seleccionado",
+    "selected_other": "{{count, number}} seleccionados",
     "enable": "Activar",
     "disable": "Desactivar",
     "clear_selection": "Quitar selección",
@@ -87,8 +87,8 @@
     "panel_only": "solo en el panel",
     "branch_current": "ramas de destino al día",
     "not_watched": "sin vigilancia",
-    "reviewed_one": "{{count}} PR revisado",
-    "reviewed_other": "{{count}} PR revisados",
+    "reviewed_one": "{{count, number}} PR revisado",
+    "reviewed_other": "{{count, number}} PR revisados",
     "on": "Activa",
     "off": "Inactiva",
     "toggle": "Vigilar {{name}}",

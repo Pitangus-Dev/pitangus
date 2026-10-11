@@ -552,5 +552,200 @@
       "too_many_results": "Una importación SARIF admite como máximo {{max}} resultados: divídela por herramienta o por carpeta",
       "no_tool": "Indica la herramienta: el SARIF no dice cuál lo generó"
     }
+  },
+  "web": {
+    "progress": {
+      "starting": "ZAP {{version}}: recorriendo {{host}} hasta {{minutes}} minutos y leyendo sus respuestas (pasivo, sin ataques)…",
+      "starting_api": "ZAP {{version}}: importando {{count}} operaciones GET y HEAD de la definición OpenAPI contra {{target}} y leyendo las respuestas (pasivo, sin ataques)…",
+      "scope": "También en el alcance: {{hosts}}. Solo se alcanzan los hosts listados por nombre; un comodín amplía el contexto, pero sus hosts no se resuelven.",
+      "headers_one": "Las peticiones al alcance llevan 1 cabecera guardada: {{names}}.",
+      "headers_other": "Las peticiones al alcance llevan {{count}} cabeceras guardadas: {{names}}.",
+      "login_one": "Inicia sesión con 1 usuario de prueba ({{names}}) desde un navegador y recorre el sitio con él hasta {{minutes}} minutos.",
+      "login_other": "Inicia sesión con {{count}} usuarios de prueba ({{names}}) desde un navegador y recorre el sitio con cada uno hasta {{minutes}} minutos.",
+      "known_files": "Leyendo robots.txt y los sitemaps de {{hosts}} en busca de más URL que revisar…"
+    },
+    "detail": "{{count}} hallazgos en el dominio ({{results}} alertas leídas).",
+    "remediation": "Corrígelo con la guía de {{tool}} para esta alerta. El próximo análisis web lo marca remediado cuando deje de reportarlo.",
+    "steps": {
+      "passive": {
+        "name": "Análisis web pasivo (ZAP)",
+        "detail": "Spider sobre {{host}} hasta {{minutes}} minutos y después las reglas pasivas de ZAP sobre cada respuesta: cabeceras, cookies, fugas de información. {{count}} hallazgos."
+      },
+      "active": {
+        "name": "Pruebas activas",
+        "detail": "No se ejecutaron: este análisis nunca envía ataques (inyecciones, fuzzing, envío de formularios)."
+      },
+      "review": {
+        "detail": "Las alertas pasivas son señales: confirma cada una contra la aplicación y su despliegue antes de actuar."
+      },
+      "api": {
+        "name": "Análisis pasivo de API (ZAP)",
+        "detail": "{{count}} operaciones GET y HEAD de la definición OpenAPI pedidas en {{target}} y después las reglas pasivas de ZAP sobre cada respuesta. {{findings}} hallazgos."
+      },
+      "login": {
+        "name": "Inicio de sesión con usuarios de prueba",
+        "detail_one": "{{signed_in}} de {{count}} usuario de prueba inició sesión, comprobado antes del recorrido.",
+        "detail_other": "{{signed_in}} de {{count}} usuarios de prueba iniciaron sesión, comprobado antes del recorrido."
+      },
+      "with_seeds": "{{detail}} También pidió las {{count}} URL que encontró katana.",
+      "with_ajax_one": "{{detail}} El spider AJAX, que sigue enlaces en un navegador durante hasta {{minutes}} minutos, encontró {{count}} URL.",
+      "with_ajax_other": "{{detail}} El spider AJAX, que sigue enlaces en un navegador durante hasta {{minutes}} minutos, encontró {{count}} URL.",
+      "merge": {
+        "name": "Un hallazgo por problema",
+        "detail_one": "{{count}} reporte del mismo problema en la misma URL hecho por otra herramienta se unió a su hallazgo, que lista todas las herramientas que lo vieron.",
+        "detail_other": "{{count}} reportes del mismo problema en la misma URL hechos por otra herramienta se unieron a sus hallazgos, que listan todas las herramientas que los vieron.",
+        "none": "Ninguna herramienta reportó el mismo problema en la misma URL que otra."
+      },
+      "with_inventory": "{{detail}} Antes de su spider también pidió {{count}} URL del inventario (el recorrido de katana, robots.txt, los sitemaps y la definición de la API).",
+      "inventory": {
+        "name": "Inventario de URL",
+        "detail_one": "{{count}} URL dentro del alcance, sin query strings: {{katana}} del recorrido de katana, {{robots}} de robots.txt, {{sitemap}} de los sitemaps, {{zap}} más del spider de ZAP y {{openapi}} de la definición de la API. nuclei leyó cada página.",
+        "detail_other": "{{count}} URL dentro del alcance, sin query strings: {{katana}} del recorrido de katana, {{robots}} de robots.txt, {{sitemap}} de los sitemaps, {{zap}} más del spider de ZAP y {{openapi}} de la definición de la API. nuclei leyó sus páginas."
+      }
+    },
+    "limitations": {
+      "passive": "Análisis pasivo: ZAP solo leyó las respuestas a peticiones normales. No probó inyecciones ni otros ataques, así que no verlos aquí no demuestra nada.",
+      "unauthenticated": "Sin iniciar sesión: las páginas detrás de un login no se alcanzaron.",
+      "spider": "El spider se detiene a los {{minutes}} minutos: un sitio grande no se cubre entero y lo que no alcanzó no se analizó.",
+      "not_pentest": "Es un análisis dinámico automatizado, no una prueba de penetración.",
+      "headers": "Las peticiones llevaron las cabeceras guardadas del dominio; no se comprobó que autenticaran de verdad, así que pueden faltar páginas detrás de un login.",
+      "api": "Solo se pidieron las {{count}} operaciones GET y HEAD de la definición, con valores de ejemplo: quedaron fuera POST, PUT, PATCH y DELETE, y no se probaron endpoints que la definición no lista.",
+      "wildcards": "Los hosts que solo encajan con un comodín no se resolvieron y no se analizaron: lista un host por nombre para incluirlo.",
+      "login_one": "Inició sesión con 1 usuario de prueba, comprobado antes del recorrido. Lo alcanzado muestra lo que ve esa cuenta, no lo que ven otros roles, y un recorrido con tiempo limitado aún puede dejarse páginas.",
+      "login_other": "Inició sesión con {{count}} usuarios de prueba, cada uno comprobado antes del recorrido. Lo alcanzado muestra lo que ven esas cuentas, no lo que ven otros roles, y un recorrido con tiempo limitado aún puede dejarse páginas.",
+      "login_failed_one": "No se pudo iniciar sesión como {{names}}: lo que solo ve esa cuenta no se analizó, así que no verlo aquí no demuestra nada.",
+      "login_failed_other": "No se pudo iniciar sesión como {{names}}: lo que solo ven esas cuentas no se analizó, así que no verlo aquí no demuestra nada.",
+      "tools_anonymous": "Solo ZAP inició sesión con los usuarios de prueba: katana, nuclei, testssl.sh y httpx miraron el sitio sin sesión.",
+      "tool_skipped": "{{tool}} no se ejecutó en este análisis, así que lo que solo revisa esa herramienta no se miró.",
+      "tool_partial": "{{tool}} no terminó: su parte del análisis está incompleta y lo que no alcanzó a ver no se marca como remediado.",
+      "nuclei": "nuclei solo ejecutó plantillas de detección (archivos expuestos, configuraciones incorrectas, versiones, takeovers, TLS): quedaron fuera las que explotan, hacen fuzzing, prueban contraseñas o llaman a servidores externos.",
+      "tls_capped": "testssl.sh revisó solo los primeros {{max}} hosts del alcance.",
+      "ajax": "El spider AJAX solo sigue enlaces, en un navegador, durante {{minutes}} minutos: no abrió páginas a las que solo se llega con botones, formularios o texto escrito.",
+      "versions": "Las vulnerabilidades conocidas de versiones expuestas salen de la versión que muestra una respuesta, no de probarla: una cabecera puede reescribirse y un parche retroportado mantiene el número viejo, así que confirma primero la versión en el servidor.",
+      "tool_unreached": "{{tool}} no pudo revisar {{hosts}}: su parte del análisis quedó incompleta ahí, y lo que había reportado antes no se marca como remediado."
+    },
+    "errors": {
+      "disabled": "Los análisis web están apagados en este servidor: define PITANGUS_DAST_ENABLED=1 en su entorno y reinícialo.",
+      "needs_docker": "Los análisis web necesitan el runner de Docker: el worker sin socket de Docker no incluye ZAP.",
+      "failed": "ZAP no terminó el análisis.",
+      "timeout": "ZAP pasó del límite de {{minutes}} minutos y el análisis se detuvo.",
+      "unreadable": "No se pudo leer el informe de ZAP.",
+      "busy": "Ya hay un análisis web en cola o en curso; espera a que termine.",
+      "address": "No se puede analizar {{host}}: {{reason}}",
+      "no_headers": "Este dominio no tiene cabeceras guardadas: añádelas antes de pedir un análisis que las use.",
+      "variable": "Una cabecera guardada o la ruta del servidor de la definición de API contiene ${, que ZAP leería como una variable: quítalo y vuelve a analizar."
+    },
+    "spec": {
+      "empty": "La definición OpenAPI está vacía.",
+      "too_large": "La definición OpenAPI pasa de {{max}} MB o está anidada demasiado.",
+      "type": "Sube la definición OpenAPI como archivo .json, .yaml o .yml.",
+      "not_base64": "La definición OpenAPI debe llegar en base64.",
+      "unreadable": "La definición OpenAPI no es JSON ni YAML válido (no se aceptan anclas ni alias de YAML).",
+      "not_openapi": "No es una definición OpenAPI 3.x ni Swagger 2.0 con rutas.",
+      "remote_ref": "La definición OpenAPI referencia otro documento ($ref fuera de ella); júntala primero en un solo archivo.",
+      "no_operations": "La definición OpenAPI no tiene operaciones GET ni HEAD, y un análisis pasivo solo envía esas.",
+      "too_many_operations": "La definición OpenAPI tiene más de {{max}} operaciones GET y HEAD.",
+      "bad_url": "La URL de la definición debe ser HTTPS, sin usuario, puerto ni fragmento.",
+      "url_outside": "{{host}} no es un host de este análisis: la definición solo se descarga del dominio o de un subdominio listado por nombre.",
+      "fetch_failed": "No se pudo descargar la definición OpenAPI de {{url}}.",
+      "fetch_status": "{{url}} respondió {{code}} en vez de la definición OpenAPI (no se siguen redirecciones).",
+      "missing": "El modo API necesita una definición OpenAPI."
+    },
+    "login": {
+      "signed_in": "Sesión iniciada como «{{name}}».",
+      "failed": "No pudo iniciar sesión como «{{name}}»: {{reason}} No se recorrieron sus páginas detrás del login.",
+      "check_status": "su página de comprobación {{url}} respondió {{status}} en vez de 200.",
+      "check_status_zap": "su página de comprobación {{url}} respondió {{status}} en vez de 200 (ZAP: {{reason}}).",
+      "check_unreached": "no se pudo pedir su página de comprobación {{url}}.",
+      "zap_failed": "ZAP informa {{reason}}",
+      "unconfirmed": "ZAP no pudo confirmar que el inicio de sesión funcionara."
+    },
+    "tools": {
+      "needs_docker": "Necesita el ejecutor con Docker.",
+      "image_missing": "La imagen de {{tool}} no está en este servidor: ejecuta make engines.",
+      "timeout": "Se detuvo a los {{minutes}} minutos.",
+      "failed": "{{tool}} no terminó.",
+      "katana": {
+        "name": "Recorrido (katana)",
+        "progress": "katana {{version}}: recorriendo el alcance con un navegador sin interfaz, hasta 2 minutos, para encontrar las URL que leerán ZAP y nuclei…",
+        "detail_one": "Recorrió los hosts del alcance con un navegador sin interfaz, {{depth}} niveles de profundidad y hasta {{minutes}} minutos: {{count}} URL, entregada a ZAP y nuclei.",
+        "detail_other": "Recorrió los hosts del alcance con un navegador sin interfaz, {{depth}} niveles de profundidad y hasta {{minutes}} minutos: {{count}} URL, entregadas a ZAP y nuclei.",
+        "detail_plain_one": "El navegador no pudo arrancar, así que katana recorrió los hosts del alcance sin él (enlaces del HTML y de los scripts, sin renderizar), {{depth}} niveles de profundidad y hasta {{minutes}} minutos: {{count}} URL, entregada a ZAP y nuclei.",
+        "detail_plain_other": "El navegador no pudo arrancar, así que katana recorrió los hosts del alcance sin él (enlaces del HTML y de los scripts, sin renderizar), {{depth}} niveles de profundidad y hasta {{minutes}} minutos: {{count}} URL, entregadas a ZAP y nuclei."
+      },
+      "nuclei": {
+        "name": "Plantillas de detección (nuclei)",
+        "progress": "nuclei {{version}}: ejecutando solo plantillas de detección en cada host y en las páginas recorridas…",
+        "reason": "La plantilla {{template}} de nuclei coincidió: {{title}}.",
+        "no_templates": "Las plantillas de nuclei (versión {{release}}) no se pudieron descargar o no coincidieron con su checksum.",
+        "detail_one": "{{templates}} plantillas de detección de la versión {{release}} en la raíz de cada host, y las de página sobre {{pages}} páginas recorridas, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgo.",
+        "detail_other": "{{templates}} plantillas de detección de la versión {{release}} en la raíz de cada host, y las de página sobre {{pages}} páginas recorridas, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos.",
+        "detail_own_one": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas del inventario, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgo.",
+        "detail_own_other": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas del inventario, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos."
+      },
+      "testssl": {
+        "name": "Configuración TLS (testssl.sh)",
+        "progress": "testssl.sh {{version}}: leyendo protocolos TLS, cifrados, certificado y HSTS de cada host…",
+        "detail_one": "Protocolos, cifrados, certificado y cabeceras HTTP de seguridad de {{hosts}}. {{count}} hallazgo de severidad baja o mayor.",
+        "detail_other": "Protocolos, cifrados, certificado y cabeceras HTTP de seguridad de {{hosts}}. {{count}} hallazgos de severidad baja o mayor.",
+        "detail_capped_one": "Protocolos, cifrados, certificado y cabeceras HTTP de seguridad de {{hosts}} (los primeros {{max}} de {{total}} hosts). {{count}} hallazgo de severidad baja o mayor.",
+        "detail_capped_other": "Protocolos, cifrados, certificado y cabeceras HTTP de seguridad de {{hosts}} (los primeros {{max}} de {{total}} hosts). {{count}} hallazgos de severidad baja o mayor."
+      },
+      "httpx": {
+        "name": "Tecnologías (httpx)",
+        "progress": "httpx {{version}}: identificando las tecnologías con que responde cada host…",
+        "detail_one": "{{count}} tecnología identificada en los hosts del alcance ({{hosts}}), visible en la página del dominio.",
+        "detail_other": "{{count}} tecnologías identificadas en los hosts del alcance ({{hosts}}), visibles en la página del dominio."
+      },
+      "unreached": "{{detail}} No pudo revisar {{hosts}} (no hubo respuesta o se rechazó la dirección), así que no encontrar nada ahí no prueba nada."
+    },
+    "testssl": {
+      "reason": "testssl.sh califica {{check}} en {{host}} como un problema: {{finding}}",
+      "titles": {
+        "sslv2": "Se ofrece SSLv2",
+        "sslv3": "Se ofrece SSLv3",
+        "tls1": "Se ofrece TLS 1.0",
+        "tls1_1": "Se ofrece TLS 1.1",
+        "hsts": "HSTS falta o es demasiado corto",
+        "fs": "No se ofrece forward secrecy",
+        "expiration": "El certificado venció o está por vencer",
+        "trust": "La cadena del certificado no es de confianza",
+        "name": "El certificado no corresponde al nombre del host",
+        "ciphers": "Se ofrecen suites de cifrado débiles ({{check}})",
+        "certificate": "Problema con el certificado ({{check}})",
+        "other": "Problema de configuración TLS ({{check}})",
+        "certificate_family_one": "Problema con el certificado ({{checks}})",
+        "certificate_family_other": "{{count}} problemas con el certificado ({{checks}})"
+      }
+    },
+    "versions": {
+      "name": "Vulnerabilidades conocidas de versiones expuestas (httpx + OSV)",
+      "title": "{{product}} {{version}} con vulnerabilidades conocidas",
+      "reason_one": "El sitio muestra {{product}} {{version}} ({{hosts}}) y 1 aviso publicado afecta a esa versión: {{ids}}. Detectado por versión expuesta, sin verificar.",
+      "reason_other": "El sitio muestra {{product}} {{version}} ({{hosts}}) y {{count}} avisos publicados afectan a esa versión: {{ids}}. Detectado por versión expuesta, sin verificar.",
+      "remediation": "Confirma la versión en el servidor y actualiza {{product}} de {{version}} a {{fixed}} o posterior, la versión que corrige todos los avisos listados. Revisa las referencias antes de actualizar.",
+      "remediation_partial_one": "Confirma la versión en el servidor y actualiza {{product}} de {{version}} a {{fixed}} o posterior. 1 aviso aún no tiene corrección publicada: revisa sus referencias para una mitigación.",
+      "remediation_partial_other": "Confirma la versión en el servidor y actualiza {{product}} de {{version}} a {{fixed}} o posterior. {{count}} avisos aún no tienen corrección publicada: revisa sus referencias para una mitigación.",
+      "no_fix": "Ninguna corrección publicada cubre aún {{product}} {{version}}. Confirma la versión en el servidor y revisa las referencias de los avisos para una mitigación.",
+      "factor": "Detectado por la versión que muestra el sitio, sin verificar",
+      "none": "No hay versiones expuestas de productos con avisos de paquetes (Flask, Django, Express, jQuery…) que consultar.",
+      "not_looked_up": "Sin consultar (no hay datos de paquetes para servidores web y runtimes): {{products}}.",
+      "failed": "OSV-Scanner no pudo consultar las versiones expuestas.",
+      "detail_one": "Se consultaron {{products}} en las bases de OSV locales: {{count}} versión de producto con vulnerabilidades conocidas.",
+      "detail_other": "Se consultaron {{products}} en las bases de OSV locales: {{count}} versiones de producto con vulnerabilidades conocidas."
+    }
+  },
+  "discovery": {
+    "disabled": "La búsqueda de hosts relacionados solo funciona con los análisis web activos: define PITANGUS_DAST_ENABLED=1 en este servidor.",
+    "needs_docker": "La búsqueda de hosts relacionados necesita el runner de Docker: el worker sin socket de Docker no incluye subfinder.",
+    "no_docker": "No se pudo buscar hosts relacionados: {{reason}}",
+    "image_missing": "La imagen de subfinder aún no está en este servidor: ejecuta make engines (o haz docker pull) y vuelve a buscar.",
+    "timeout": "subfinder pasó de su límite de {{seconds}} segundos y se detuvo; vuelve a buscar más tarde.",
+    "failed": "subfinder no terminó: comprueba que el servidor tenga salida a internet y vuelve a buscar."
+  },
+  "egress": {
+    "declared": "Este servidor declara sus direcciones de salida en {{name}}: cámbialas ahí.",
+    "unreachable": "El servicio que devuelve la IP no respondió. Inténtalo más tarde o configura PITANGUS_EGRESS_IPS en el servidor.",
+    "unexpected": "El servicio que devuelve la IP no respondió con una única dirección pública. Configura PITANGUS_EGRESS_IPS en el servidor."
   }
 }

@@ -40,7 +40,7 @@ The two gaps people ask about most:
           with:
             upload: never
             output: codeql
-        - uses: Pitangus-Dev/pitangus@v0.12.2
+        - uses: Pitangus-Dev/pitangus@v0.13.0
           if: always()
           with:
             scan: false
@@ -52,13 +52,17 @@ The two gaps people ask about most:
   CodeQL is free for public repositories and, through GitHub Advanced Security, for private ones; running its CLI
   elsewhere is governed by the GitHub CodeQL Terms. The same step with Semgrep is in
   [cli.md](cli.md#other-tools-results).
-- **Dynamic testing.** Pitangus never runs or attacks your applications. Until it offers that, run ZAP or Nuclei
-  yourself, against systems you own, and import their SARIF against a verified domain: see
-  [Bring your own DAST](#bring-your-own-dast) below.
+- **Dynamic testing.** Pitangus runs [passive web and API scans](features.md#passive-web-scan) with ZAP of a
+  verified domain (crawl and read, or the GET and HEAD operations of an OpenAPI definition; never attack) when the
+  server sets `PITANGUS_DAST_ENABLED=1`: on demand or on a schedule, over listed subdomains when the domain has a DNS proof,
+  and with request headers saved for the domain (API keys, bearer tokens, cookies). The domain can be proved with a DNS
+  TXT record, a file under `/.well-known/` or a meta tag. For anything deeper (active scans, form sign-in, Nuclei, an
+  AI pentest such as Strix), run the scanner yourself, against systems you own, and import its SARIF against the
+  verified domain: see [Bring your own DAST](#bring-your-own-dast) below.
 
 ### Bring your own DAST
 
-Pitangus doesn't run web scanners yet (that's listed under [in development](features.md#in-development)). If your pipeline already runs **OWASP ZAP** or **Nuclei**, their SARIF goes into the registry like any other import, with a **verified domain** as the asset: the findings get the same triage, deadlines, Jira issues and notifications as code findings, and a later full import marks fixed whatever the scanner no longer reports.
+Pitangus's own web scan is passive and runs from the panel ([Passive web scan](features.md#passive-web-scan)): it stores ZAP's findings exactly as an import of ZAP's SARIF would, with the same fingerprints, so both can feed the same domain without duplicates. For active scans, authenticated scans or Nuclei, or to keep the scanner in your pipeline: if it already runs **OWASP ZAP** or **Nuclei**, their SARIF goes into the registry like any other import, with a **verified domain** as the asset: the findings get the same triage, deadlines, Jira issues and notifications as code findings, and a later full import marks fixed whatever the scanner no longer reports.
 
 1. In **Scanning → Domains**, an administrator adds the domain (`https://app.example.com`) and publishes the TXT record the panel shows (`_pitangus.app.example.com` = `pitangus-verify=…`), then verifies it. The domain is now the asset `domain:app.example.com`. The record is looked up again every day; if it disappears, or 90 days go by without a check, the domain stops being an asset until someone verifies it again.
 2. The pipeline writes SARIF and sends it with the Action's `import-sarif`, `server`, `token` and `asset` inputs (or `python -m pitangus import-sarif … --asset domain:app.example.com --server …`).
@@ -104,7 +108,7 @@ jobs:
           docker run --rm -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2 \
             zap.sh -cmd -autorun /zap/wrk/zap.yaml
           # the sarif-json template writes zap.json
-      - uses: Pitangus-Dev/pitangus@v0.12.2
+      - uses: Pitangus-Dev/pitangus@v0.13.0
         if: always()
         with:
           scan: false
@@ -122,7 +126,7 @@ Nuclei writes SARIF with `-se` ([options](https://docs.projectdiscovery.io/tools
           docker run --rm -v "$PWD:/out" projectdiscovery/nuclei:v3.3.5 \
             -u https://app.example.com -rl 20 -c 10 -severity low,medium,high,critical \
             -etags dos,fuzz,intrusive -se /out/nuclei.sarif
-      - uses: Pitangus-Dev/pitangus@v0.12.2
+      - uses: Pitangus-Dev/pitangus@v0.13.0
         if: always()
         with:
           scan: false
@@ -133,6 +137,8 @@ Nuclei writes SARIF with `-se` ([options](https://docs.projectdiscovery.io/tools
 ```
 
 What Pitangus does with it: findings of a web scanner get `scanner: dast`; the location is the URL without its query string or fragment (a session token or a cache-buster in the URL must not turn the same alert into a new finding on every run); the fingerprint is rule, URL and parameter name, never the evidence; and only the method, the parameter and a bounded evidence are kept, never the request or response ZAP attaches (they carry cookies and authorization headers). Nuclei puts the template path where SARIF expects a file and the URL in the result's properties; Pitangus reads the URL. One run with both tools is fine: each tool only marks fixed what it reported itself.
+
+**Strix** ([usestrix/strix](https://github.com/usestrix/strix), Apache-2.0: AI agents that try to exploit what they find) writes `findings.sarif` next to its other reports. Import it against the verified domain like any other SARIF (`import-sarif: strix_runs/<run>/findings.sarif`, `asset: domain:app.example.com`). A finding about an endpoint arrives anchored to `SECURITY.md`; Pitangus places it at the endpoint's URL instead (the run's target plus the route, `GET /api/users/{id}` → `https://app.example.com/api/users/{id}`, with the method kept), so it's a web finding. A finding with a code location stays a code finding at its file and line. Strix's own severity label is kept (its `info` doesn't become `low`), the CWE comes from its rule, the fingerprint from its partial fingerprints (a reworded title is the same finding), and the areas it records as covered or left for a follow-up aren't findings. Credentials retold in its descriptions are redacted like any web finding's; the proof-of-concept script never comes in the SARIF.
 
 **Only against systems you own or are authorized to test.** The TXT record proves control of the DNS zone to Pitangus; it isn't an authorization to test anything, and Pitangus doesn't check that you have one. Active scanning (ZAP's active scan, Nuclei's `-dast` fuzzing) can damage data and trip defenses: run it only where you're allowed to, outside production unless you know what you're doing, and keep the plan passive otherwise. This stays an *analysis*, not a pentest.
 

@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { BookOpen, ChevronRight, ExternalLink, GitBranch, LoaderCircle, Plus, Target, Trash2, X } from 'lucide-react'
+import { ArrowSquareOutIcon, BookOpenIcon, CaretRightIcon, CircleNotchIcon, GitBranchIcon, PlusIcon, TargetIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -15,7 +15,7 @@ import { elementsOf, newId, type AttackMapping, type AttackTree, type Catalog, t
 
 const select = 'text-xs'
 const inline = 'w-fit text-xs'
-const area = 'w-full rounded-lg border border-app-line bg-app-soft px-3 py-2 text-sm leading-6 text-app-fg'
+const area = 'w-full rounded-lg border border-input bg-card px-3 py-2 text-sm leading-6 text-app-fg'
 // Catalog keys: levels in `threats`, severities in `common`.
 const LEVELS: Record<Level, string> = { low: 'level.low', medium: 'level.medium', high: 'level.high' }
 const SEVERITIES = { critical: 'common:severity.critical', high: 'common:severity.high', medium: 'common:severity.medium', low: 'common:severity.low' } as const
@@ -31,7 +31,7 @@ export function MethodPicker({ value, onChange }: { value: Methodology; onChange
   const { t } = useTranslation('threats')
   return <div role="radiogroup" aria-label={t('methods.picker_label')} className="grid gap-2 sm:grid-cols-2">
     {METHOD_ORDER.map(key => <button key={key} type="button" role="radio" aria-checked={value === key} onClick={() => onChange(key)}
-      className={`rounded-xl border p-3 text-left transition ${value === key ? 'border-brand/60 bg-brand/[0.07]' : 'border-app-line bg-app-soft hover:border-app-faint'}`}>
+      className={`rounded-xl border p-3 text-left transition ${value === key ? 'border-app-fg bg-app-soft' : 'border-input bg-card hover:border-app-faint'}`}>
       <span className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{methodName(key)}</span>{key === 'stride' && <Badge variant="outline" className="border-app-line text-[11px] text-app-subtle">{t('methods.recommended')}</Badge>}</span>
       <span className="mt-1 block text-xs leading-5 text-app-muted">{guideOf(key).purpose}</span>
     </button>)}
@@ -44,7 +44,7 @@ export function MethodDialog({ current, onClose, onPick }: { current: Methodolog
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-2xl">
     <DialogHeader><DialogTitle>{t('methods.dialog_title')}</DialogTitle><DialogDescription>{t('methods.dialog_description')}</DialogDescription></DialogHeader>
     <MethodPicker value={value} onChange={setValue} />
-    <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button onClick={() => onPick(value)} className="bg-primary text-primary-foreground hover:bg-primary/90">{t('methods.use', { name: methodName(value) })}</Button></DialogFooter>
+    <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button onClick={() => onPick(value)}>{t('methods.use', { name: methodName(value) })}</Button></DialogFooter>
   </DialogContent></Dialog>
 }
 
@@ -53,19 +53,19 @@ export function MethodDialog({ current, onClose, onPick }: { current: Methodolog
 export function GuidePanel({ methodology, onClose }: { methodology: Methodology; onClose: () => void }) {
   const { t } = useTranslation('threats')
   const guide = guideOf(methodology)
-  return <aside aria-label={t('guide.title', { name: guide.name })} className="space-y-4 rounded-2xl border border-app-line bg-panel p-4 text-sm xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
-    <div className="flex items-start justify-between gap-2"><p className="flex items-center gap-2 font-semibold"><BookOpen className="size-4 text-brand" />{t('guide.title', { name: guide.name })}</p>
-      <Button size="icon-sm" variant="ghost" aria-label={t('guide.close')} onClick={onClose}><X /></Button></div>
+  return <aside aria-label={t('guide.title', { name: guide.name })} className="space-y-4 rounded-lg border border-app-line bg-panel p-4 text-sm xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+    <div className="flex items-start justify-between gap-2"><p className="flex items-center gap-2 font-semibold"><BookOpenIcon className="size-4 text-brand" />{t('guide.title', { name: guide.name })}</p>
+      <Button size="icon-sm" variant="ghost" aria-label={t('guide.close')} onClick={onClose}><XIcon /></Button></div>
     <p className="text-app-secondary">{guide.purpose}</p>
     <p className="text-xs leading-5 text-app-muted"><strong className="font-medium text-app-secondary">{t('guide.when')} </strong>{guide.when}</p>
     {guide.categories && <div className="space-y-2">{guide.categories.map(item => <div key={item.code} className="rounded-lg border border-app-line bg-inset px-3 py-2">
-      <p className="text-xs font-semibold"><span className="mr-1.5 inline-block min-w-6 rounded bg-brand/10 px-1 text-center font-mono text-brand">{item.code}</span>{item.name}{item.original && item.original !== item.name && <span className="font-normal text-app-subtle"> · {item.original}</span>}</p>
+      <p className="text-xs font-semibold"><span className="mr-1.5 inline-block min-w-6 rounded-sm border border-app-line px-1 text-center">{item.code}</span>{item.name}{item.original && item.original !== item.name && <span className="font-normal text-app-subtle"> · {item.original}</span>}</p>
       <p className="mt-1 text-xs leading-5 text-app-muted">{item.question}{item.property && <span className="text-app-subtle"> {t('guide.property', { property: item.property.toLowerCase() })}</span>}</p>
     </div>)}</div>}
     <details open={!guide.categories}><summary className="cursor-pointer text-xs font-medium text-app-secondary">{t('guide.how')}</summary>
       <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-5 text-app-muted">{guide.steps.map(step => <li key={step}>{step}</li>)}</ol></details>
     {guide.tips.map(tip => <p key={tip} className="rounded-lg bg-app-soft px-3 py-2 text-xs leading-5 text-app-muted">{tip}</p>)}
-    {guide.source && <a href={guide.source.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand hover:underline">{guide.source.label}<ExternalLink className="size-3" /></a>}
+    {guide.source && <a href={guide.source.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand underline underline-offset-2">{guide.source.label}<ArrowSquareOutIcon className="size-3" /></a>}
   </aside>
 }
 
@@ -83,9 +83,9 @@ export function ManualThreatDialog({ model, initial, methodology, onClose, onSav
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-xl">
     <DialogHeader><DialogTitle>{initial ? t('manual.edit_title') : t('manual.add_title')}</DialogTitle><DialogDescription>{t('manual.description')}</DialogDescription></DialogHeader>
     <form className="space-y-3" onSubmit={submit}>
-      <Field label={t('manual.title')}><Input required maxLength={160} value={draft.title} onChange={event => set({ title: event.target.value })} placeholder={t('manual.title_placeholder')} className="border-app-line bg-app-soft" /></Field>
+      <Field label={t('manual.title')}><Input required maxLength={160} value={draft.title} onChange={event => set({ title: event.target.value })} placeholder={t('manual.title_placeholder')} className="border-input bg-card" /></Field>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t('manual.category')}><Input list="threat-categories" maxLength={40} value={draft.category ?? ''} onChange={event => set({ category: event.target.value })} placeholder={categories.length ? t('manual.category_example', { code: categories[0].code }) : t('manual.category_placeholder')} className="border-app-line bg-app-soft" />
+        <Field label={t('manual.category')}><Input list="threat-categories" maxLength={40} value={draft.category ?? ''} onChange={event => set({ category: event.target.value })} placeholder={categories.length ? t('manual.category_example', { code: categories[0].code }) : t('manual.category_placeholder')} className="border-input bg-card" />
           <datalist id="threat-categories">{categories.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</datalist></Field>
         <Field label={t('manual.element')}><SelectField value={draft.element ?? ''} onValueChange={element => set({ element })} className={select} placeholder={t('manual.whole_system')} options={elementsOf(model).map(item => ({ value: item.id, label: item.label }))} /></Field>
       </div>
@@ -94,10 +94,10 @@ export function ManualThreatDialog({ model, initial, methodology, onClose, onSav
         <Field label={t('manual.severity')}><SelectField value={draft.severity} onValueChange={severity => set({ severity: severity as ManualThreat['severity'] })} className={select} options={Object.entries(SEVERITIES).map(([key, text]) => ({ value: key, label: t(text) }))} /></Field>
         <Field label={t('manual.likelihood')}><LevelSelect value={draft.likelihood ?? null} onChange={likelihood => set({ likelihood })} /></Field>
         <Field label={t('manual.impact')}><LevelSelect value={draft.impact ?? null} onChange={impact => set({ impact })} /></Field>
-        <Field label={t('manual.owner')}><Input maxLength={80} value={draft.owner ?? ''} onChange={event => set({ owner: event.target.value })} className="h-8 border-app-line bg-app-soft" /></Field>
+        <Field label={t('manual.owner')}><Input maxLength={80} value={draft.owner ?? ''} onChange={event => set({ owner: event.target.value })} className="h-8 border-input bg-card" /></Field>
       </div>
       <Field label={t('manual.mitigation')}><textarea rows={2} maxLength={1500} value={draft.mitigation ?? ''} onChange={event => set({ mitigation: event.target.value })} className={area} /></Field>
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || !draft.title.trim()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <LoaderCircle className="animate-spin" />}{t('common:actions.save')}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button type="submit" disabled={busy || !draft.title.trim()}>{busy && <CircleNotchIcon className="animate-spin" />}{t('common:actions.save')}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>
 }
@@ -134,7 +134,7 @@ export function PastaStages({ model, setModel, threats, catalog, onGo }: { model
   }
   return <div className="space-y-2">{catalog.methods.pasta_stages.map(stage => { const expanded = open === stage.key
     return <div key={stage.key} className="rounded-xl border border-app-line bg-panel">
-      <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : stage.key)} className="flex w-full items-center gap-2 px-4 py-3 text-left"><ChevronRight className={`size-4 text-app-subtle transition ${expanded ? 'rotate-90' : ''}`} /><span className="flex-1 text-sm font-medium">{stage.title}</span>{notes[stage.key] && <Badge variant="outline" className="border-brand/30 text-[11px] text-brand">{t('pasta.has_notes')}</Badge>}</button>
+      <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : stage.key)} className="flex w-full items-center gap-2 px-4 py-3 text-left"><CaretRightIcon className={`size-4 text-app-subtle transition ${expanded ? 'rotate-90' : ''}`} /><span className="flex-1 text-sm font-medium">{stage.title}</span>{notes[stage.key] && <Badge variant="outline" className="border-brand/30 text-[11px] text-brand">{t('pasta.has_notes')}</Badge>}</button>
       {expanded && <div className="space-y-3 border-t border-app-line px-4 py-4">
         {STAGE_HINTS[stage.key] && <p className="text-xs leading-5 text-app-subtle">{t(STAGE_HINTS[stage.key])}</p>}
         {auto[stage.key]}
@@ -147,7 +147,7 @@ function Auto({ children }: { children: ReactNode }) {
   return <p className="rounded-lg border border-app-line bg-inset px-3 py-2 text-xs leading-5 text-app-muted">{children}</p>
 }
 function Go({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return <button type="button" onClick={onClick} className="text-brand hover:underline">{children}</button>
+  return <button type="button" onClick={onClick} className="text-brand underline underline-offset-2">{children}</button>
 }
 
 // ------------------------------------------------------------------ attack trees
@@ -160,7 +160,7 @@ export function AttackTrees({ model, setModel }: { model: Model; setModel: (mode
   const add = (goal: string) => setTrees([...trees, { id: newId(goal || 'arbol', trees.map(item => item.id)), goal: goal || t('trees.new_goal'), nodes: [] }])
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center gap-2">
-      <Button size="sm" onClick={() => add('')} className="bg-primary text-primary-foreground hover:bg-primary/90"><Plus />{t('trees.tree')}</Button>
+      <Button size="sm" variant="outline" onClick={() => add('')}><PlusIcon />{t('trees.tree')}</Button>
       <SelectField aria-label={t('trees.common_goals')} value="" onValueChange={goal => { if (goal) add(goal) }} className={inline} placeholder={t('trees.start_from_goal')} options={(Array.isArray(goals) ? goals.map(String) : []).map(goal => ({ value: goal, label: goal }))} />
     </div>
     {trees.length === 0 && <p className="rounded-xl border border-dashed border-app-line px-4 py-10 text-center text-sm text-app-subtle">{t('trees.empty')}</p>}
@@ -192,25 +192,25 @@ function TreeEditor({ tree, model, onChange, onRemove }: { tree: AttackTree; mod
     const kids = children[node.id] ?? []
     const cut = blocked(node, children)
     return <div key={node.id} style={{ marginLeft: depth ? 20 : 0 }} className="space-y-1.5">
-      <div className={`flex flex-wrap items-center gap-2 rounded-lg border px-2 py-1.5 ${cut ? 'border-app-line bg-app-soft opacity-70' : 'border-app-line bg-panel'}`}>
-        <GitBranch className="size-3.5 shrink-0 text-app-subtle" />
-        <Input aria-label={t('trees.step')} value={node.text} maxLength={200} onChange={event => update(node.id, { text: event.target.value })} className={`h-7 min-w-48 flex-1 border-app-line bg-app-soft text-sm ${cut ? 'line-through' : ''}`} />
+      <div className={`flex flex-wrap items-center gap-2 rounded-lg border px-2 py-1.5 ${cut ? 'border-input bg-card opacity-70' : 'border-app-line bg-panel'}`}>
+        <GitBranchIcon className="size-3.5 shrink-0 text-app-subtle" />
+        <Input aria-label={t('trees.step')} value={node.text} maxLength={200} onChange={event => update(node.id, { text: event.target.value })} className={`h-7 min-w-48 flex-1 border-input bg-card text-sm ${cut ? 'line-through' : ''}`} />
         {kids.length > 0 && <SelectField aria-label={t('trees.gate')} value={node.gate} onValueChange={gate => update(node.id, { gate: gate as 'and' | 'or' })} className={inline} title={t('trees.gate_hint')} options={[{ value: 'or', label: t('trees.gate_or') }, { value: 'and', label: t('trees.gate_and') }]} />}
         <SelectField aria-label={t('trees.difficulty')} value={node.difficulty ?? ''} onValueChange={difficulty => update(node.id, { difficulty: (difficulty || null) as Level | null })} className={inline} placeholder={t('trees.difficulty')} options={Object.entries(LEVELS).map(([key, text]) => ({ value: key, label: t(text) }))} />
         <SelectField aria-label={t('manual.element')} value={node.element ?? ''} onValueChange={element => update(node.id, { element })} className={`${inline} max-w-40`} placeholder={t('trees.no_element')} options={elements.map(item => ({ value: item.id, label: item.label }))} />
         <label className="flex items-center gap-1 text-xs text-app-muted"><input type="checkbox" className="size-3.5 accent-brand" checked={node.mitigated} onChange={event => update(node.id, { mitigated: event.target.checked })} />{t('trees.mitigated')}</label>
-        <Button size="xs" variant="ghost" onClick={() => addNode(node.id)} aria-label={t('trees.add_step')}><Plus />{t('trees.step')}</Button>
-        <Button size="xs" variant="ghost" onClick={() => remove(node.id)} aria-label={t('trees.remove_step')}><Trash2 /></Button>
+        <Button size="xs" variant="ghost" onClick={() => addNode(node.id)} aria-label={t('trees.add_step')}><PlusIcon />{t('trees.step')}</Button>
+        <Button size="xs" variant="ghost" onClick={() => remove(node.id)} aria-label={t('trees.remove_step')}><TrashIcon /></Button>
       </div>
       {kids.map(kid => render(kid, depth + 1))}
     </div>
   }
-  return <div className="space-y-3 rounded-2xl border border-app-line bg-panel p-4">
-    <div className="flex flex-wrap items-center gap-2"><Target className="size-4 text-brand" /><Input aria-label={t('trees.goal')} value={tree.goal} maxLength={200} onChange={event => onChange({ ...tree, goal: event.target.value })} className="h-8 min-w-64 flex-1 border-app-line bg-app-soft font-medium" />
+  return <div className="space-y-3 rounded-lg border border-app-line bg-panel p-4">
+    <div className="flex flex-wrap items-center gap-2"><TargetIcon className="size-4 text-brand" /><Input aria-label={t('trees.goal')} value={tree.goal} maxLength={200} onChange={event => onChange({ ...tree, goal: event.target.value })} className="h-8 min-w-64 flex-1 border-input bg-card font-medium" />
       <span className="text-xs text-app-subtle">{roots.length ? t('trees.paths', { open, count: roots.length }) : t('trees.no_paths')}</span>
-      <Button size="xs" variant="ghost" onClick={onRemove} aria-label={t('trees.remove_tree')}><Trash2 /></Button></div>
+      <Button size="xs" variant="ghost" onClick={onRemove} aria-label={t('trees.remove_tree')}><TrashIcon /></Button></div>
     <div className="space-y-1.5">{roots.map(node => render(node, 0))}</div>
-    <Button size="sm" variant="outline" className="border-app-line bg-app-soft" onClick={() => addNode(null)}><Plus />{t('trees.path')}</Button>
+    <Button size="sm" variant="outline" onClick={() => addNode(null)}><PlusIcon />{t('trees.path')}</Button>
   </div>
 }
 
@@ -238,27 +238,27 @@ export function AttackMappings({ model, setModel, catalog }: { model: Model; set
   }).slice(0, 24)
   const byTactic = Object.entries(tactics).map(([key, name]) => ({ key, name, items: Object.entries(techniques).filter(([, item]) => item.tactics[0] === key) })).filter(group => group.items.length)
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-app-line bg-panel p-4">
+    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-app-line bg-panel p-4">
       <label className="min-w-64 flex-1 space-y-1"><span className="text-[11px] font-medium text-app-muted">{t('attack.technique')}</span>
         <SelectField value={technique} onValueChange={setTechnique} className={select} placeholder={t('attack.choose_technique')}
           groups={byTactic.map(group => ({ label: `${group.name} (${group.key})`, options: group.items.map(([id, item]) => ({ value: id, label: `${id} · ${techniqueName(item) ?? ''}` })) }))} /></label>
       <label className="min-w-48 space-y-1"><span className="text-[11px] font-medium text-app-muted">{t('manual.element')}</span>
         <SelectField value={element} onValueChange={setElement} className={select} placeholder={t('manual.whole_system')} options={elements.map(item => ({ value: item.id, label: item.label }))} /></label>
-      <Button size="sm" disabled={!technique} onClick={() => { add(technique, element); setTechnique('') }} className="bg-primary text-primary-foreground hover:bg-primary/90"><Plus />{t('attack.map')}</Button>
+      <Button size="sm" variant="outline" disabled={!technique} onClick={() => { add(technique, element); setTechnique('') }}><PlusIcon />{t('attack.map')}</Button>
     </div>
-    {proposals.length > 0 && <details className="rounded-2xl border border-app-line bg-panel p-4"><summary className="cursor-pointer text-sm font-medium">{t('attack.suggestions', { count: proposals.length })}</summary>
+    {proposals.length > 0 && <details className="rounded-lg border border-app-line bg-panel p-4"><summary className="cursor-pointer text-sm font-medium">{t('attack.suggestions', { count: proposals.length })}</summary>
       <p className="mt-1 text-xs text-app-subtle">{t('attack.suggestions_hint')}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">{proposals.map(({ id, component }) => <button key={`${id}:${component.id}`} onClick={() => add(id, component.id)} className="inline-flex items-center gap-1 rounded-lg border border-app-line bg-app-soft px-2 py-1 text-xs text-app-muted hover:border-brand/40 hover:text-brand"><Plus className="size-3" /><span className="font-mono">{id}</span> {techniqueName(techniques[id])} → {component.name}</button>)}</div>
+      <div className="mt-3 flex flex-wrap gap-1.5">{proposals.map(({ id, component }) => <button key={`${id}:${component.id}`} onClick={() => add(id, component.id)} className="inline-flex items-center gap-1 rounded-lg border border-input bg-card px-2 py-1 text-xs text-app-muted hover:border-app-faint hover:underline"><PlusIcon className="size-3" /><span className="font-mono">{id}</span> {techniqueName(techniques[id])} → {component.name}</button>)}</div>
     </details>}
     {rows.length === 0 ? <p className="rounded-xl border border-dashed border-app-line px-4 py-10 text-center text-sm text-app-subtle">{t('attack.empty')}</p>
-      : <div className="divide-y divide-app-line overflow-hidden rounded-2xl border border-app-line bg-panel">{rows.map((row, index) => { const item = techniques[row.technique]
+      : <div className="divide-y divide-app-line overflow-hidden rounded-lg border border-app-line bg-panel">{rows.map((row, index) => { const item = techniques[row.technique]
         return <div key={`${row.technique}:${row.element}`} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_130px_minmax(0,1fr)_36px] md:items-start">
-          <div className="min-w-0"><a href={attackUrl(row.technique)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium hover:text-brand"><span className="font-mono text-xs text-app-subtle">{row.technique}</span>{techniqueName(item)}<ExternalLink className="size-3 text-app-subtle" /></a>
+          <div className="min-w-0"><a href={attackUrl(row.technique)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium hover:underline"><span className="font-mono text-xs text-app-subtle">{row.technique}</span>{techniqueName(item)}<ArrowSquareOutIcon className="size-3 text-app-subtle" /></a>
             <p className="text-[11px] text-app-subtle">{[techniqueName(item) !== item?.name ? item?.name : '', item?.tactics.map(key => tactics[key]).join(', ')].filter(Boolean).join(' · ')}</p></div>
           <p className="text-xs text-app-muted">{row.element ? label[row.element] ?? '—' : t('manual.whole_system')}</p>
           <SelectField aria-label={t('attack.status_label')} value={row.status} onValueChange={status => setRows(rows.map((entry, position) => position === index ? { ...entry, status: status as AttackMapping['status'] } : entry))} className={select} options={Object.entries(MAPPING_STATUS).map(([key, text]) => ({ value: key, label: t(text) }))} />
-          <Input aria-label={t('attack.note')} value={row.note ?? ''} maxLength={600} placeholder={t('attack.note_placeholder')} onChange={event => setRows(rows.map((entry, position) => position === index ? { ...entry, note: event.target.value } : entry))} className="h-8 border-app-line bg-app-soft text-xs" />
-          <Button size="icon-sm" variant="ghost" aria-label={t('common:actions.remove')} onClick={() => setRows(rows.filter((_, position) => position !== index))}><Trash2 /></Button>
+          <Input aria-label={t('attack.note')} value={row.note ?? ''} maxLength={600} placeholder={t('attack.note_placeholder')} onChange={event => setRows(rows.map((entry, position) => position === index ? { ...entry, note: event.target.value } : entry))} className="h-8 border-input bg-card text-xs" />
+          <Button size="icon-sm" variant="ghost" aria-label={t('common:actions.remove')} onClick={() => setRows(rows.filter((_, position) => position !== index))}><TrashIcon /></Button>
         </div> })}</div>}
     <p className="text-[11px] text-app-subtle">{t('attack.trademark')}</p>
   </div>

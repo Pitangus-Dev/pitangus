@@ -1,9 +1,10 @@
 import { useCallback, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, Plus, Trash2, X } from 'lucide-react'
+import { CircleNotchIcon, PlusIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
+import { Disclosure } from '@/shared/ui/disclosure'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { ApiError } from '@/shared/api/http'
@@ -29,7 +30,7 @@ const CHANGE_LABEL: Record<string, string> = {
 }
 // Fields the form can point at; any other server error is shown above the buttons.
 const KNOWN_FIELD = /^(allowlist\.(regexes|paths|stopwords)|rules\.\d+\.(id|description|regex|keywords)|disabled_rules|reason)(\.|$)/
-const area = 'w-full rounded-lg border border-app-line bg-app px-3 py-2 font-mono text-xs leading-5 text-app-fg aria-invalid:border-danger-line'
+const area = 'w-full rounded-lg border border-input bg-card px-3 py-2 font-mono text-xs leading-5 text-app-fg aria-invalid:border-danger-line'
 
 let nextKey = 0
 const lines = (value: string) => value.split('\n').map(line => line.trim()).filter(Boolean)
@@ -156,7 +157,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
             <label htmlFor={`${base}-${name}`} className="text-[11px] font-medium text-app-muted">{label}</label>
             <Input id={`${base}-${name}`} value={rule[name]} onChange={event => setRule(rule.key, { [name]: event.target.value })} maxLength={props.maxLength}
               placeholder={props.placeholder} spellCheck={false} aria-invalid={!!error || undefined} aria-describedby={error ? `${base}-${name}-error` : undefined}
-              className={`h-8 border-app-line bg-app ${props.mono ? 'font-mono text-xs' : ''}`} />
+              className={`h-8 border-input bg-card ${props.mono ? 'font-mono text-xs' : ''}`} />
             {error && <p id={`${base}-${name}-error`} className="text-xs text-danger">{error}</p>}
           </div>
         }
@@ -165,7 +166,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             {input('id', t('secret_rules.rule_id'), { placeholder: 'acme-api-token', maxLength: 60 })}
             <Button type="button" size="icon-sm" variant="ghost" onClick={() => set({ rules: form.rules.filter(item => item.key !== rule.key) })}
-              aria-label={t('secret_rules.remove_rule', { id: rule.id || index + 1 })} title={t('secret_rules.remove_rule', { id: rule.id || index + 1 })}><Trash2 /></Button>
+              aria-label={t('secret_rules.remove_rule', { id: rule.id || index + 1 })} title={t('secret_rules.remove_rule', { id: rule.id || index + 1 })}><TrashIcon /></Button>
           </div>
           {input('description', t('secret_rules.description'), { placeholder: t('secret_rules.description_placeholder'), maxLength: limits.description })}
           {input('regex', t('secret_rules.regex'), { placeholder: 'acme_[0-9a-f]{32}', mono: true, maxLength: limits.regex })}
@@ -174,7 +175,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
       })}
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" size="sm" variant="outline" disabled={form.rules.length >= limits.rules}
-          onClick={() => set({ rules: [...form.rules, { key: nextKey++, id: '', description: '', regex: '', keywords: '' }] })}><Plus />{t('secret_rules.add_rule')}</Button>
+          onClick={() => set({ rules: [...form.rules, { key: nextKey++, id: '', description: '', regex: '', keywords: '' }] })}><PlusIcon />{t('secret_rules.add_rule')}</Button>
         <span className="text-xs text-app-subtle">{t('secret_rules.rules_limit', { count: form.rules.length, max: limits.rules })}</span>
       </div>
     </Section>
@@ -184,7 +185,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
         emptyText={catalogQuery.isError ? t('secret_rules.builtin_failed') : catalog ? t('secret_rules.no_builtin_match') : t('common:state.loading')} onSelect={(option: ComboOption) => set({ disabled: [...form.disabled, option.id].sort() })} />
       {form.disabled.length > 0 && <ul className="flex flex-wrap gap-1.5">{form.disabled.map(rule => <li key={rule} className="flex items-center gap-1 rounded border border-app-line bg-app py-0.5 pr-0.5 pl-1.5 font-mono text-xs">
         {rule}<Button type="button" size="icon-xs" variant="ghost" aria-label={t('secret_rules.enable_rule', { rule })} title={t('secret_rules.enable_rule', { rule })}
-          onClick={() => set({ disabled: form.disabled.filter(item => item !== rule) })}><X /></Button></li>)}</ul>}
+          onClick={() => set({ disabled: form.disabled.filter(item => item !== rule) })}><XIcon /></Button></li>)}</ul>}
       {errorFor('disabled_rules') && <p id={`${id}-disabled-error`} tabIndex={-1} className="text-xs text-danger">{errorFor('disabled_rules')}</p>}
     </Section>
 
@@ -205,14 +206,14 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
     <div className="space-y-1">
       <label htmlFor={`${id}-reason`} className="text-[11px] font-medium text-app-muted">{t('secret_rules.reason')}</label>
       <Input id={`${id}-reason`} value={form.reason} onChange={event => set({ reason: event.target.value })} maxLength={300} placeholder={t('secret_rules.reason_placeholder')}
-        aria-invalid={!!errorFor('reason') || undefined} aria-describedby={errorFor('reason') ? `${id}-reason-error` : undefined} className="h-9 border-app-line bg-app" />
+        aria-invalid={!!errorFor('reason') || undefined} aria-describedby={errorFor('reason') ? `${id}-reason-error` : undefined} className="h-9 border-input bg-card" />
       {errorFor('reason') && <p id={`${id}-reason-error`} className="text-xs text-danger">{errorFor('reason')}</p>}
     </div>
     <p className="text-xs leading-5 text-app-subtle">{t('secret_rules.effect')}</p>
     {general && <p role="alert" className="text-xs text-danger">{general}</p>}
     <DialogFooter>
       <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>{t('common:actions.cancel')}</Button>
-      <Button type="submit" disabled={busy}>{busy && <LoaderCircle className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
+      <Button type="submit" disabled={busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
     </DialogFooter>
   </form>
 }
@@ -220,9 +221,8 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
 function History({ entries }: { entries: SecretConfig['history'] }) {
   const { t } = useTranslation('findings')
   if (!entries.length) return null
-  return <details className="rounded-lg border border-app-line bg-inset px-3 py-2">
-    <summary className="cursor-pointer text-sm font-medium text-app-secondary">{t('secret_rules.history', { count: entries.length })}</summary>
-    <ol className="mt-2 space-y-2">{entries.map(entry => <li key={`${entry.at}-${entry.by}`} className="text-xs leading-5">
+  return <Disclosure summary={t('secret_rules.history', { count: entries.length })}>
+    <ol className="space-y-2">{entries.map(entry => <li key={`${entry.at}-${entry.by}`} className="text-xs leading-5">
       <p className="text-app-muted">{t('secret_rules.history_entry', { date: formatDate(entry.at), by: entry.by })}</p>
       {entry.reason && <p className="text-app-secondary">{entry.reason}</p>}
       {Object.entries(entry.changes ?? {}).flatMap(([section, kinds]) => Object.entries(kinds).map(([kind, items]) => {
@@ -230,5 +230,5 @@ function History({ entries }: { entries: SecretConfig['history'] }) {
         return label ? <p key={`${section}.${kind}`} className="break-all text-app-subtle">{t(label, { items: items.join(', ') })}</p> : null
       }))}
     </li>)}</ol>
-  </details>
+  </Disclosure>
 }

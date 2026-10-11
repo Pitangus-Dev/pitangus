@@ -60,6 +60,13 @@ def finish(data_dir: Path, job_id: str, *, error: str | None = None, worker: str
     return closed is not None
 
 
+def drop_from_payload(data_dir: Path, run_id: str, key: str) -> None:
+    """Removes `key` from the payload of the run's jobs: what was only needed to start it (an API definition)."""
+    with db.transaction(data_dir) as connection:
+        connection.execute(update(jobs).where(jobs.c.tenant_id == TENANT, jobs.c.run_id == run_id)
+                           .values(payload=jobs.c.payload.op("-")(key)))
+
+
 def pending(data_dir: Path) -> int:
     """Queued or running (whatever hasn't finished yet)."""
     with db.transaction(data_dir) as connection:

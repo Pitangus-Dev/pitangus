@@ -67,6 +67,7 @@ class Finding(TypedDict, total=False):
     reason: Message
     remediation: Message
     also_detected_by: list[str]
+    related_rules: list[str]   # equivalent rules of the engines that also reported it
     malicious: bool
     excluded_by: str | None
     excluded_reason: Message | None
@@ -76,6 +77,7 @@ class Finding(TypedDict, total=False):
     fix: dict[str, Any]
     lifecycle: dict[str, Any]
     verification: dict[str, Any]
+    guidance: list[dict[str, Any]]  # OWASP pages for it (findings/references.py)
 
 
 class EngineResult(TypedDict, total=False):
@@ -108,6 +110,9 @@ class RunRecord(TypedDict, total=False):
     trigger: dict[str, Any]
     pull_request: dict[str, Any]
     review: dict[str, Any]
+    scope: dict[str, Any]      # dast_scan: hosts, wildcards, header names (never values) and coverage key
+    api: dict[str, Any]        # dast_scan in API mode: the definition's SHA-256, operations and source
+    logins: list[dict[str, Any]]  # dast_scan with test users: each one's sign-in check (name, status, reason)
     steps: list[dict[str, Any]]
     findings: list[Finding]
     excluded_findings: list[Finding]
@@ -118,4 +123,5 @@ class RunRecord(TypedDict, total=False):
     dependencies: list[dict[str, Any]]
     system_packages: list[dict[str, Any]]
     inventory: dict[str, Any]
+    web_inventory: dict[str, Any]  # dast_scan: the in-scope URLs its crawler found (no query strings)
     unused_dependencies: list[Any]

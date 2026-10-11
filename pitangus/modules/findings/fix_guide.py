@@ -6,6 +6,7 @@
 - Code: a before/after example for the rule (fix_examples), in its language.
 - Secrets: rotate first; removing them from the code isn't enough, they're already in the history.
 - An image's system packages: in the Dockerfile.
+- Web: the scanner's own solution, a check of the response headers and the re-scan of the domain (web_fix).
 
 Everything interpolated comes from the scanned repository (package names, paths): it is used as text and
 whoever renders it escapes it. Odd names (spaces, quotes) get no command, only steps.
@@ -17,6 +18,7 @@ import posixpath
 import re
 
 from pitangus.modules.intel.advisories import compare_versions
+from pitangus.modules.findings import web_fix
 from pitangus.modules.findings.fix_examples import EXAMPLES
 from pitangus.shared.i18n import msg
 from pitangus.shared.model import Finding
@@ -164,6 +166,8 @@ def guide(finding: Finding, *, target: str | None = None) -> dict | None:
         return _dependency(finding, target or (finding.get("package") or {}).get("fixed_version"))
     if scanner == "secrets":
         return _secret(finding)
+    if scanner == "dast":
+        return web_fix.guide(finding)
     if scanner == "sast" and finding.get("rule_id") in EXAMPLES:
         language, before, after, note = EXAMPLES[finding["rule_id"]]
         return {"kind": "code", "steps": [finding.get("remediation") or "", VERIFY], "commands": [],
@@ -190,6 +194,8 @@ def attach(findings: list[Finding], *, among: list[Finding] | None = None) -> li
             current = targets.get(key)
             targets[key] = fixed if current is None or compare_versions(fixed, current) > 0 else current
     for finding in findings:
+        if finding.get("scanner") == "dast":
+            web_fix.prioritize(finding)
         package = finding.get("package") or {}
         key = (finding.get("path"), package.get("name"), package.get("version"))
         if key in hostile and not finding.get("malicious"):

@@ -1,0 +1,1080 @@
+{
+ "runs": [
+  {
+   "results": [
+    {
+     "level": "warning",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev"
+        },
+        "region": {
+         "startLine": 1,
+         "properties": {
+          "startLineFailure": "Resolved invalid start line: 0 - used fallback value instead."
+         },
+         "snippet": {
+          "text": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "style-src includes unsafe-inline."
+     },
+     "ruleId": "10055",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309aebc98721f-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=fFtxToHvpYZqmdQP3YmoQmI53VpVg9vzSYTz9ULwJvANeibZMjzfhkD6jq1LZZqocL04IuSrLW8JJoNacFxQOcBT7BktNUje0ck0EwgQmmxspAuE8Lbei7FmWBFoSt8%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=17,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "96023",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "warning",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/"
+        },
+        "region": {
+         "startLine": 1,
+         "properties": {
+          "startLineFailure": "Resolved invalid start line: 0 - used fallback value instead."
+         },
+         "snippet": {
+          "text": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "style-src includes unsafe-inline."
+     },
+     "ruleId": "10055",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "referer": "https://pitangus.dev/robots.txt",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b1fbb8cedc-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=gUq3xD0OAxYYOauE%2F6YlyHe3ZOLKrmfAaN%2FuVhPRU5phZ54A2zgyTyXXfsUgXlQGyZ%2F8af33RM571s9IuTqfCJ3mTizD7S3Z%2Bs6N5tbcITyUc4l9IIN2T73WuFduSoU%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=13,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "96023",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "warning",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/es/"
+        },
+        "region": {
+         "startLine": 1,
+         "properties": {
+          "startLineFailure": "Resolved invalid start line: 0 - used fallback value instead."
+         },
+         "snippet": {
+          "text": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "style-src includes unsafe-inline."
+     },
+     "ruleId": "10055",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/es/",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "referer": "https://pitangus.dev/sitemap.xml",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b1fa06b899-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=1TGlCWe42N29%2FpnfTUrjNpnzJ%2FH89u0%2BJ5Nh6ocl%2FvuE%2BKZmE1r%2B95DqIeNGVrOLFA04mNZMFahpirR5vXLTz3kPb4kSmfo3vnpNqWcOLw67y%2Fiemr68EHXq2FToMUQ%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=9,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "97679",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "note",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/_astro/Base.astro_astro_type_script_index_0_lang.CCbp9-6k.js"
+        },
+        "region": {
+         "startLine": 1,
+         "snippet": {
+          "text": "1831565813"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "1831565813, which evaluates to: 2028-01-15 16:16:53."
+     },
+     "ruleId": "10096",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/_astro/Base.astro_astro_type_script_index_0_lang.CCbp9-6k.js",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "referer": "https://pitangus.dev",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b41fdc7a68-MIA",
+       "Cache-Control": "public, max-age=31536000, immutable",
+       "Connection": "keep-alive",
+       "Content-Length": "18700",
+       "Content-Type": "text/javascript",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "ETag": "\"37757a3d6b50a3c973a31259202e63c3\"",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=R4jz2lH5ruJiNMFJOlkpaHHsy9X%2BnbR4gaZDGaiAUhbFSxexS246wfn36RbRT3jItACbujRK9c2B1RGctXPFDlGEmmrk6UHAUHwAKvrHa86LvpjnIIX7Jv1taWLYTDM%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=24,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "none",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev"
+        },
+        "region": {
+         "startLine": 1,
+         "properties": {
+          "startLineFailure": "Resolved invalid start line: 0 - used fallback value instead."
+         },
+         "snippet": {
+          "text": "public, max-age=0, must-revalidate"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "The cache-control header has not been set properly or is missing, allowing the browser and proxies to cache content. For static assets like css, js, or image files this might be intended, however, the resources should be reviewed to ensure that no sensitive content will be cached."
+     },
+     "ruleId": "10015",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309aebc98721f-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=fFtxToHvpYZqmdQP3YmoQmI53VpVg9vzSYTz9ULwJvANeibZMjzfhkD6jq1LZZqocL04IuSrLW8JJoNacFxQOcBT7BktNUje0ck0EwgQmmxspAuE8Lbei7FmWBFoSt8%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=17,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "96023",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "none",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/"
+        },
+        "region": {
+         "startLine": 1,
+         "properties": {
+          "startLineFailure": "Resolved invalid start line: 0 - used fallback value instead."
+         },
+         "snippet": {
+          "text": "public, max-age=0, must-revalidate"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "The cache-control header has not been set properly or is missing, allowing the browser and proxies to cache content. For static assets like css, js, or image files this might be intended, however, the resources should be reviewed to ensure that no sensitive content will be cached."
+     },
+     "ruleId": "10015",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "referer": "https://pitangus.dev/robots.txt",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b1fbb8cedc-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=gUq3xD0OAxYYOauE%2F6YlyHe3ZOLKrmfAaN%2FuVhPRU5phZ54A2zgyTyXXfsUgXlQGyZ%2F8af33RM571s9IuTqfCJ3mTizD7S3Z%2Bs6N5tbcITyUc4l9IIN2T73WuFduSoU%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=13,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "96023",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "none",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/es/"
+        },
+        "region": {
+         "startLine": 1,
+         "properties": {
+          "startLineFailure": "Resolved invalid start line: 0 - used fallback value instead."
+         },
+         "snippet": {
+          "text": "public, max-age=0, must-revalidate"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "The cache-control header has not been set properly or is missing, allowing the browser and proxies to cache content. For static assets like css, js, or image files this might be intended, however, the resources should be reviewed to ensure that no sensitive content will be cached."
+     },
+     "ruleId": "10015",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/es/",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "referer": "https://pitangus.dev/sitemap.xml",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b1fa06b899-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=1TGlCWe42N29%2FpnfTUrjNpnzJ%2FH89u0%2BJ5Nh6ocl%2FvuE%2BKZmE1r%2B95DqIeNGVrOLFA04mNZMFahpirR5vXLTz3kPb4kSmfo3vnpNqWcOLw67y%2Fiemr68EHXq2FToMUQ%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=9,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "97679",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "none",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/robots.txt"
+        },
+        "region": {
+         "startLine": 1,
+         "properties": {
+          "startLineFailure": "Resolved invalid start line: 0 - used fallback value instead."
+         },
+         "snippet": {
+          "text": "public, max-age=0, must-revalidate"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "The cache-control header has not been set properly or is missing, allowing the browser and proxies to cache content. For static assets like css, js, or image files this might be intended, however, the resources should be reviewed to ensure that no sensitive content will be cached."
+     },
+     "ruleId": "10015",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/robots.txt",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b16a6dcedc-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Length": "66",
+       "Content-Type": "text/plain",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "ETag": "\"7861fbb11312ddc33f873fc2c97ac02d\"",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=OnP1NqqQZMHjyXNa4Ygp%2BEtMcMud6YTLcX2%2BMlQwyy7xTqFVbsbM%2BsRXSQUqoC0hLdm58nDsnyyLstVjUOlapCetSaVgsSJ6YhJwIeJ0xvCrOIAJSXHR05Mz%2Ba6iFTg%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=24,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "none",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/sitemap.xml"
+        },
+        "region": {
+         "startLine": 1,
+         "properties": {
+          "startLineFailure": "Resolved invalid start line: 0 - used fallback value instead."
+         },
+         "snippet": {
+          "text": "public, max-age=0, must-revalidate"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "The cache-control header has not been set properly or is missing, allowing the browser and proxies to cache content. For static assets like css, js, or image files this might be intended, however, the resources should be reviewed to ensure that no sensitive content will be cached."
+     },
+     "ruleId": "10015",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/sitemap.xml",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b158aab899-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Length": "814",
+       "Content-Type": "application/xml",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "ETag": "\"dfed41801e3b343acc9f36e477ed2982\"",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=Cx%2BOkeBoM2A8LEtSgv1oN4HV5oY8ylMDTb6NccQ5DVNR5vLJKtewgt%2BPnjQGFyqVUY0AjJweNM12l71tkC5pl1vG6YYrHK%2FIiEn1YDod18i9OEc%2BIQlpHrTFICF%2Fcvc%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=14,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "none",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev"
+        },
+        "region": {
+         "startLine": 1,
+         "snippet": {
+          "text": "<!-- A plate from a case file: the sh"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "The following pattern was used: \\bFROM\\b and was detected 3 times, the first in likely comment: \"<!-- A plate from a case file: the sheet taped in, its record number typed on it, a note in pencil. -->\", see evidence field for the suspicious comment/snippet."
+     },
+     "ruleId": "10027",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309aebc98721f-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=fFtxToHvpYZqmdQP3YmoQmI53VpVg9vzSYTz9ULwJvANeibZMjzfhkD6jq1LZZqocL04IuSrLW8JJoNacFxQOcBT7BktNUje0ck0EwgQmmxspAuE8Lbei7FmWBFoSt8%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=17,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "96023",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "none",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/"
+        },
+        "region": {
+         "startLine": 1,
+         "snippet": {
+          "text": "<!-- A plate from a case file: the sh"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "The following pattern was used: \\bFROM\\b and was detected 3 times, the first in likely comment: \"<!-- A plate from a case file: the sheet taped in, its record number typed on it, a note in pencil. -->\", see evidence field for the suspicious comment/snippet."
+     },
+     "ruleId": "10027",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "referer": "https://pitangus.dev/robots.txt",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b1fbb8cedc-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=gUq3xD0OAxYYOauE%2F6YlyHe3ZOLKrmfAaN%2FuVhPRU5phZ54A2zgyTyXXfsUgXlQGyZ%2F8af33RM571s9IuTqfCJ3mTizD7S3Z%2Bs6N5tbcITyUc4l9IIN2T73WuFduSoU%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=13,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "96023",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    },
+    {
+     "level": "none",
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "https://pitangus.dev/es/"
+        },
+        "region": {
+         "startLine": 1,
+         "snippet": {
+          "text": "<!-- A plate from a case file: the sh"
+         }
+        }
+       },
+       "properties": {
+        "attack": ""
+       }
+      }
+     ],
+     "message": {
+      "text": "The following pattern was used: \\bFROM\\b and was detected 3 times, the first in likely comment: \"<!-- A plate from a case file: the sheet taped in, its record number typed on it, a note in pencil. -->\", see evidence field for the suspicious comment/snippet."
+     },
+     "ruleId": "10027",
+     "webRequest": {
+      "protocol": "HTTP",
+      "version": "1.1",
+      "target": "https://pitangus.dev/es/",
+      "method": "GET",
+      "headers": {
+       "cache-control": "no-cache",
+       "host": "pitangus.dev",
+       "pragma": "no-cache",
+       "referer": "https://pitangus.dev/sitemap.xml",
+       "user-agent": ""
+      },
+      "body": {}
+     },
+     "webResponse": {
+      "statusCode": 200,
+      "reasonPhrase": "OK",
+      "protocol": "HTTP",
+      "version": "1.1",
+      "headers": {
+       "CF-Cache-Status": "HIT",
+       "CF-RAY": "a48309b1fa06b899-MIA",
+       "Cache-Control": "public, max-age=0, must-revalidate",
+       "Connection": "keep-alive",
+       "Content-Type": "text/html",
+       "Date": "Sat, 10 Oct 2026 04:56:19 GMT",
+       "Nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "Report-To": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=1TGlCWe42N29%2FpnfTUrjNpnzJ%2FH89u0%2BJ5Nh6ocl%2FvuE%2BKZmE1r%2B95DqIeNGVrOLFA04mNZMFahpirR5vXLTz3kPb4kSmfo3vnpNqWcOLw67y%2Fiemr68EHXq2FToMUQ%3D\"}]}",
+       "Server": "cloudflare",
+       "Server-Timing": "cfEdge;dur=9,cfOrigin;dur=0",
+       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "content-length": "97679",
+       "content-security-policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-j74SK3VCF3PPVtYfEi9H6b59ilH0cImtmvrCa5udmzk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+       "cross-origin-opener-policy": "same-origin",
+       "permissions-policy": "accelerometer=(), browsing-topics=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+       "referrer-policy": "strict-origin-when-cross-origin",
+       "x-content-type-options": "nosniff",
+       "x-frame-options": "DENY"
+      },
+      "body": {
+       "text": "[body trimmed for the fixture]"
+      },
+      "noResponseReceived": false
+     }
+    }
+   ],
+   "taxonomies": [
+    {
+     "downloadUri": "https://cwe.mitre.org/data/xml/cwec_v4.8.xml.zip",
+     "guid": "b000a760-3e52-3565-a35c-f61369da53b7",
+     "informationUri": "https://cwe.mitre.org/data/published/cwe_v4.8.pdf",
+     "isComprehensive": true,
+     "language": "en",
+     "minimumRequiredLocalizedDataSemanticVersion": "4.8",
+     "name": "CWE",
+     "organization": "MITRE",
+     "releaseDateUtc": "2022-06-28",
+     "shortDescription": {
+      "text": "The MITRE Common Weakness Enumeration"
+     },
+     "taxa": [
+      {
+       "guid": "b70a7030-c124-3e5f-a628-a76f82820eed",
+       "helpUri": "https://cwe.mitre.org/data/definitions/497.html",
+       "id": "497"
+      },
+      {
+       "guid": "56c8f6e7-8a2b-3b10-b0db-7fd2adb291eb",
+       "helpUri": "https://cwe.mitre.org/data/definitions/525.html",
+       "id": "525"
+      },
+      {
+       "guid": "d1f61072-0322-321b-81bf-16250cf04a62",
+       "helpUri": "https://cwe.mitre.org/data/definitions/615.html",
+       "id": "615"
+      },
+      {
+       "guid": "c60fb1e0-6538-36e7-9dfd-7702d6cf8b1f",
+       "helpUri": "https://cwe.mitre.org/data/definitions/693.html",
+       "id": "693"
+      }
+     ],
+     "version": "4.8"
+    }
+   ],
+   "tool": {
+    "driver": {
+     "guid": "3716e880-7ee2-34d2-9cf1-0f88c0dc613a",
+     "informationUri": "https://www.zaproxy.org/",
+     "name": "ZAP",
+     "rules": [
+      {
+       "id": "10015",
+       "defaultConfiguration": {
+        "level": "none"
+       },
+       "fullDescription": {
+        "text": "The cache-control header has not been set properly or is missing, allowing the browser and proxies to cache content. For static assets like css, js, or image files this might be intended, however, the resources should be reviewed to ensure that no sensitive content will be cached."
+       },
+       "name": "Re-examine Cache-control Directives",
+       "properties": {
+        "references": [
+         "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#web-content-caching",
+         "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control",
+         "https://grayduck.mn/2021/09/13/cache-control-recommendations/"
+        ],
+        "solution": {
+         "text": "For secure content, ensure the cache-control HTTP header is set with \"no-cache, no-store, must-revalidate\". If an asset should be cached consider setting the directives \"public, max-age, immutable\"."
+        },
+        "confidence": "low"
+       },
+       "relationships": [
+        {
+         "kinds": [
+          "superset"
+         ],
+         "target": {
+          "guid": "56c8f6e7-8a2b-3b10-b0db-7fd2adb291eb",
+          "id": "525",
+          "toolComponent": {
+           "guid": "b000a760-3e52-3565-a35c-f61369da53b7",
+           "name": "CWE"
+          }
+         }
+        }
+       ],
+       "shortDescription": {
+        "text": "Re-examine Cache-control Directives"
+       }
+      },
+      {
+       "id": "10027",
+       "defaultConfiguration": {
+        "level": "none"
+       },
+       "fullDescription": {
+        "text": "The response appears to contain suspicious comments which may help an attacker."
+       },
+       "name": "Information Disclosure - Suspicious Comments",
+       "properties": {
+        "references": [],
+        "solution": {
+         "text": "Remove all comments that return information that may help an attacker and fix any underlying problems they refer to."
+        },
+        "confidence": "medium"
+       },
+       "relationships": [
+        {
+         "kinds": [
+          "superset"
+         ],
+         "target": {
+          "guid": "d1f61072-0322-321b-81bf-16250cf04a62",
+          "id": "615",
+          "toolComponent": {
+           "guid": "b000a760-3e52-3565-a35c-f61369da53b7",
+           "name": "CWE"
+          }
+         }
+        }
+       ],
+       "shortDescription": {
+        "text": "Information Disclosure - Suspicious Comments"
+       }
+      },
+      {
+       "id": "10055",
+       "defaultConfiguration": {
+        "level": "warning"
+       },
+       "fullDescription": {
+        "text": "Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks. Including (but not limited to) Cross Site Scripting (XSS), and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page — covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files."
+       },
+       "name": "CSP: style-src unsafe-inline",
+       "properties": {
+        "references": [
+         "https://www.w3.org/TR/CSP/",
+         "https://caniuse.com/#search=content+security+policy",
+         "https://content-security-policy.com/",
+         "https://github.com/HtmlUnit/htmlunit-csp",
+         "https://web.dev/articles/csp#resource-options"
+        ],
+        "solution": {
+         "text": "Ensure that your web server, application server, load balancer, etc. is properly configured to set the Content-Security-Policy header."
+        },
+        "confidence": "high"
+       },
+       "relationships": [
+        {
+         "kinds": [
+          "superset"
+         ],
+         "target": {
+          "guid": "c60fb1e0-6538-36e7-9dfd-7702d6cf8b1f",
+          "id": "693",
+          "toolComponent": {
+           "guid": "b000a760-3e52-3565-a35c-f61369da53b7",
+           "name": "CWE"
+          }
+         }
+        }
+       ],
+       "shortDescription": {
+        "text": "CSP: style-src unsafe-inline"
+       }
+      },
+      {
+       "id": "10096",
+       "defaultConfiguration": {
+        "level": "note"
+       },
+       "fullDescription": {
+        "text": "A timestamp was disclosed by the application/web server. - Unix"
+       },
+       "name": "Timestamp Disclosure - Unix",
+       "properties": {
+        "references": [
+         "https://cwe.mitre.org/data/definitions/200.html"
+        ],
+        "solution": {
+         "text": "Manually confirm that the timestamp data is not sensitive, and that the data cannot be aggregated to disclose exploitable patterns."
+        },
+        "confidence": "low"
+       },
+       "relationships": [
+        {
+         "kinds": [
+          "superset"
+         ],
+         "target": {
+          "guid": "b70a7030-c124-3e5f-a628-a76f82820eed",
+          "id": "497",
+          "toolComponent": {
+           "guid": "b000a760-3e52-3565-a35c-f61369da53b7",
+           "name": "CWE"
+          }
+         }
+        }
+       ],
+       "shortDescription": {
+        "text": "Timestamp Disclosure - Unix"
+       }
+      }
+     ],
+     "semanticVersion": "2.17.0",
+     "supportedTaxonomies": [
+      {
+       "guid": "b000a760-3e52-3565-a35c-f61369da53b7",
+       "name": "CWE"
+      }
+     ],
+     "version": "2.17.0"
+    }
+   }
+  }
+ ],
+ "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+ "version": "2.1.0"
+}

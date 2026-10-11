@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { sevColor, sevName } from '@/shared/charts/severity'
-import { formatDay } from '@/shared/i18n/format'
+import { formatDay, formatList, formatNumber } from '@/shared/i18n/format'
 
 // Gráficas SVG sin dependencias. Marcas finas, huecos de 2 px entre segmentos, rejilla recesiva,
 // leyenda siempre que haya ≥ 2 series, etiquetas directas selectivas y capa de hover con tooltip.
@@ -57,7 +57,7 @@ export function StackedSeverityBars({ data, height = 180 }: { data: { day: strin
   const ticksAt = dayTicks(data.length, innerW)
   return <div ref={ref} className="relative">
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block max-w-full" role="img" aria-label={t('new_per_day', { total })}>
-      {ticks.map(tick => { const y = padTop + innerH - (tick / max) * innerH; return <g key={tick}><line x1={padLeft} x2={width - 8} y1={y} y2={y} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{tick}</text></g> })}
+      {ticks.map(tick => { const y = padTop + innerH - (tick / max) * innerH; return <g key={tick}><line x1={padLeft} x2={width - 8} y1={y} y2={y} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{formatNumber(tick)}</text></g> })}
       {data.map((item, index) => { const x = padLeft + index * slot + (slot - bar) / 2; let y = padTop + innerH
         return <g key={item.day} onMouseEnter={event => setHover({ index, x: (event.nativeEvent as MouseEvent).offsetX, y: (event.nativeEvent as MouseEvent).offsetY })} onMouseLeave={() => setHover(null)}>
           <rect x={padLeft + index * slot} y={padTop} width={slot} height={innerH} fill="transparent" />
@@ -84,6 +84,25 @@ export function SeverityBar({ counts }: { counts: Record<string, number> }) {
   </div>
 }
 
+const PUBLISHED = ['critical', 'high', 'medium', 'low', 'none'] as const
+// CVEs published in a window, by severity, as one flat bar plus the numbers ("none": no CVSS score yet).
+export function PublishedBySeverity({ counts, days }: { counts: Record<string, number>; days: number }) {
+  const { t } = useTranslation('charts')
+  const name = (level: string) => level === 'none' ? t('unscored') : sevName[level]
+  const color = (level: string) => level === 'none' ? 'var(--app-subtle)' : sevColor[level]
+  const total = PUBLISHED.reduce((sum, level) => sum + (counts[level] ?? 0), 0)
+  const count = (level: string) => t('severity_count', { severity: name(level), count: formatNumber(counts[level] ?? 0) })
+  const breakdown = formatList(PUBLISHED.map(count))
+  return <div className="space-y-3">
+    <div className="flex h-3 w-full overflow-hidden rounded-md bg-app-soft" role="img" aria-label={t('published_by_severity', { days, total: formatNumber(total), breakdown })}>
+      {total ? PUBLISHED.map(level => (counts[level] ?? 0) > 0 ? <div key={level} title={count(level)} style={{ width: `${(100 * counts[level]) / total}%`, background: color(level) }} className="border-r-2 border-panel last:border-r-0" /> : null) : null}
+    </div>
+    <ul aria-hidden className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">{PUBLISHED.map(level => <li key={level} className="flex items-center gap-1.5">
+      <span className="inline-block size-2.5 shrink-0 rounded-sm" style={{ background: color(level) }} /><span className="text-app-muted">{name(level)}</span>
+      <span className="ml-auto font-medium tabular-nums text-app-fg">{formatNumber(counts[level] ?? 0)}</span></li>)}</ul>
+  </div>
+}
+
 /** Dos líneas: acumulado de hallados y de corregidos. */
 export function FoundVsFixed({ data, height = 200 }: { data: { day: string; found: number; fixed: number }[]; height?: number }) {
   const { t } = useTranslation('charts')
@@ -99,7 +118,7 @@ export function FoundVsFixed({ data, height = 200 }: { data: { day: string; foun
   const ticksAt = dayTicks(data.length, innerW)
   return <div ref={ref} className="relative">
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block max-w-full" role="img" aria-label={t('found_vs_fixed')}>
-      {[0, Math.ceil(max / 2), max].map(tick => <g key={tick}><line x1={padLeft} x2={width - 8} y1={y(tick)} y2={y(tick)} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y(tick) + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{tick}</text></g>)}
+      {[0, Math.ceil(max / 2), max].map(tick => <g key={tick}><line x1={padLeft} x2={width - 8} y1={y(tick)} y2={y(tick)} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y(tick) + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{formatNumber(tick)}</text></g>)}
       <path d={path('found')} fill="none" stroke="var(--series-found)" strokeWidth={2} strokeLinejoin="round" />
       <path d={path('fixed')} fill="none" stroke="var(--series-fixed)" strokeWidth={2} strokeLinejoin="round" />
       {last && <><text x={width - 10} y={y(last.found) - 4} textAnchor="end" className="fill-app-secondary" fontSize={11}>{t('found_count', { count: last.found })}</text><text x={width - 10} y={y(last.fixed) + (Math.abs(y(last.fixed) - y(last.found)) < 12 ? 12 : -4)} textAnchor="end" className="fill-app-secondary" fontSize={11}>{t('fixed_count', { count: last.fixed })}</text></>}
@@ -119,8 +138,8 @@ export function HBars({ rows, colorFor }: { rows: { label: string; value: number
   const max = Math.max(1, ...rows.map(row => row.value))
   if (!rows.length) return null
   return <ul className="space-y-2.5">{rows.map(row => <li key={row.label} className="text-xs">
-    <div className="flex items-baseline justify-between gap-3"><span className="min-w-0 break-words text-app-secondary" title={row.hint ?? row.label}>{row.label}</span><span className="shrink-0 font-medium tabular-nums text-app-fg">{row.value}</span></div>
-    <div className="mt-1 h-2 rounded-sm bg-app-soft"><div className="h-full rounded-sm" style={{ width: `${(100 * row.value) / max}%`, background: row.color ?? colorFor?.(row) ?? 'var(--seq-3)' }} /></div>
+    <div className="flex items-baseline justify-between gap-3"><span className="min-w-0 break-words text-app-secondary" title={row.hint ?? row.label}>{row.label}</span><span className="shrink-0 font-medium tabular-nums text-app-fg">{formatNumber(row.value)}</span></div>
+    <div className="mt-1 h-2 rounded-sm bg-app-soft"><div className="h-full rounded-sm" style={{ width: `${(100 * row.value) / max}%`, background: row.color ?? colorFor?.(row) ?? 'var(--chart-neutral)' }} /></div>
   </li>)}</ul>
 }
 

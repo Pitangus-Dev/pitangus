@@ -1,9 +1,10 @@
 import { useCallback, useId, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { XIcon } from '@phosphor-icons/react'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
+import { SelectField } from '@/shared/ui/select-field'
 import { evidenceAssetsQuery } from '@/shared/api/queries'
 import type { Scope } from '@/shared/lib/scope'
 
@@ -22,14 +23,16 @@ export function ScopePicker({ scope, accounts, total, one, step, onChange }: { s
     ['all', t('all', { count: total })]]
   return <fieldset className="min-w-0 space-y-3">
     <legend className="mb-3 text-xs text-app-muted">{step && <span aria-hidden>{step} · </span>}{t('legend')}</legend>
-    <div className="grid w-full grid-cols-2 gap-1 rounded-xl sm:flex sm:w-fit sm:max-w-full sm:flex-wrap border border-app-line bg-inset p-1">{kinds.map(([kind, label]) =>
-      <label key={kind} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm whitespace-nowrap has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${scope.kind === kind ? 'border-brand bg-brand/10 text-brand' : 'border-transparent text-app-muted hover:text-app-fg'}`}>
+    {/* Below sm the four choices are a list: side by side they wrap two by two inside their box. */}
+    <SelectField className="w-full sm:hidden" aria-label={t('legend')} value={scope.kind} onValueChange={kind => onChange({ ...scope, kind: kind as Scope['kind'] })} options={kinds.map(([kind, label]) => ({ value: kind, label }))} />
+    <div className="hidden w-fit max-w-full flex-wrap gap-1 rounded-xl border border-app-line bg-inset p-1 sm:flex">{kinds.map(([kind, label]) =>
+      <label key={kind} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm whitespace-nowrap has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${scope.kind === kind ? 'border-app-fg bg-app-soft text-app-fg' : 'border-transparent text-app-muted hover:text-app-fg'}`}>
         <input type="radio" name={name} value={kind} checked={scope.kind === kind} onChange={() => onChange({ ...scope, kind })} className="sr-only" />{label}</label>)}</div>
     {scope.kind === 'one' && one}
     {scope.kind === 'account' && (accounts.length
       ? <div className="max-w-sm"><Select value={scope.account || null} onValueChange={value => { if (value) onChange({ ...scope, account: String(value) }) }}>
-          <SelectTrigger aria-label={t('account')} className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{scope.account || t('choose_account')}</span></SelectTrigger>
-          <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-xl">{accounts.map(account => <SelectItem key={account} value={account}>{account}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label={t('account')} className="w-full border-input bg-card"><span className="min-w-0 truncate">{scope.account || t('choose_account')}</span></SelectTrigger>
+          <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{accounts.map(account => <SelectItem key={account} value={account}>{account}</SelectItem>)}</SelectContent>
         </Select></div>
       : <p className="text-xs text-app-muted">{t('no_accounts')}</p>)}
     {scope.kind === 'assets' && <div className="space-y-2">
@@ -39,7 +42,7 @@ export function ScopePicker({ scope, accounts, total, one, step, onChange }: { s
         className="flex max-w-full items-center gap-1 rounded-lg border border-app-line bg-inset py-0.5 pr-1 pl-2 text-xs">
         <span className="min-w-0 truncate">{item.name}</span><span className="shrink-0 text-app-subtle">· {item.image ? t('image') : t('repository')}</span>
         <button type="button" aria-label={t('remove', { name: item.name })} onClick={() => onChange({ ...scope, assets: scope.assets.filter(other => other.key !== item.key) })}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-app-muted hover:bg-app-soft hover:text-app-fg"><X className="size-3.5" /></button></li>)}</ul>}
+          className="grid size-6 shrink-0 place-items-center rounded-md text-app-muted hover:bg-app-soft hover:text-app-fg"><XIcon className="size-3.5" /></button></li>)}</ul>}
     </div>}
     {(scope.kind === 'account' || scope.kind === 'assets') && <label className="flex min-h-6 items-center gap-2 text-sm">
       <input type="checkbox" checked={scope.images} onChange={event => onChange({ ...scope, images: event.target.checked })} className="size-4 accent-brand" />
