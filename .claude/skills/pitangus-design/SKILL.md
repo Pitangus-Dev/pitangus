@@ -24,19 +24,20 @@ the source of truth; read it first. This section is how the panel implements it.
     Rufous only in the logo.
   - States, one meaning each (text · `-soft` ground · `-line` border): `danger` = critical (failure, error, Alta, KEV;
     `danger-solid` + `on-solid` only for the Crítica chip and a destructive confirm); `attention` = orange (Media, partial,
-    due soon, half-done setup; **never yellow**: the old `warning` names are aliases kept for the threat diagram only and
-    banned in components); `success` = ok (completed, connected, fixed, verified); `info` = slate blue (Baja, running,
+    due soon, half-done setup; **never yellow**: there is no `warning` token any more, and `tests/test_ui_tokens.py`
+    bans `*-warning` classes); `success` = ok (completed, connected, fixed, verified); `info` = slate blue (Baja, running,
     queued, neutral notices).
   - Severity: `SEVERITY_CLASS`/`severityClass` from `shared/ui/severity.ts`, always with its word: Crítica solid critical
     with white text, Alta critical, Media attention, Baja info, Info muted outline. States as outline badges: `STATE_CLASS`.
-  - Charts: `--sev-*` from those tokens (in light, the Crítica series is critical-solid deepened towards ink so it
-    differs from Alta), a single series in `--chart-neutral`, "fixed" in `--series-fixed` (ok), grid `--grid-line`
+  - Charts: `--sev-*` from those tokens (the Crítica series differs from the chip: deepened towards ink in light, a brighter red in dark, so it
+    differs from Alta and keeps 3:1), a single series in `--chart-neutral`, "fixed" in `--series-fixed` (ok), grid `--grid-line`
     (chart-grid), the activity ramp `--seq-1…5` (chart-neutral over surface). No decorative blues or purples; text never
     takes a series colour.
 - **Buttons** (`shared/ui/button-variants.ts`): `default` = solid sulphur, for doing the main thing: the header's "New
   scan", a form's or dialog's primary action, an empty state's call to action; at most one per zone (header, content,
   dialog). Everything else `outline` (surface + line-strong) or `ghost`; `destructive` is critical text on surface. No
-  pale-yellow buttons, no solid black buttons, no colour overrides through `className`. No "→" or arrow icon appended
+  pale-yellow buttons, no solid black buttons, no colour overrides through `className` (the one exception: the
+  confirm dialog's destructive action, solid `danger-solid` with white text, as the manual's critical-solid says). No "→" or arrow icon appended
   to a label.
 - **Notices** (`shared/ui/notice.tsx`): a row on the surface with the status icon in its family colour and the text in
   ink. Only an error that blocks the task is `blocking` (critical-soft + critical-line). No pastel boxes for information.

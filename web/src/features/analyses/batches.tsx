@@ -64,6 +64,6 @@ export function OrganizationScanDialog({ account, onClose, onStarted }: { accoun
     <p className="rounded-lg border border-app-line bg-inset p-3 text-sm">{total === null ? t('org.counting') : <Trans t={t} i18nKey="org.estimate" count={total} values={{ duration: duration(t, total * 60) }} components={{ strong: <strong /> }} />}</p>
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
-      <Button disabled={busy || !total} onClick={() => void start()} className="bg-primary text-primary-foreground hover:bg-primary/90">{busy && <CircleNotchIcon className="animate-spin" />}{total === null ? t('org.scan_pending') : t('org.scan', { count: total })}</Button></DialogFooter>
+      <Button disabled={busy || !total} onClick={() => void start()}>{busy && <CircleNotchIcon className="animate-spin" />}{total === null ? t('org.scan_pending') : t('org.scan', { count: total })}</Button></DialogFooter>
   </DialogContent></Dialog>
 }

@@ -63,7 +63,7 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
   return <div className="space-y-5">
     <p className="text-sm text-app-muted">{t('providers.accounts_connected', { count: installations.length })} · <a className="font-medium text-brand underline underline-offset-2" href="#/integrations">{t('providers.manage_github')}</a></p>
     {(error || sourcesError) && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-3 text-sm text-danger">{error || sourcesError}</div>}
-    {data?.providers.github?.error && <Notice role="alert" tone="attention">{data.providers.github.error}</Notice>}
+    {data?.providers.github?.error && <Notice role="alert" tone="critical">{data.providers.github.error}</Notice>}
 
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative w-full max-w-sm"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden /><Input aria-label={t('repositories.search')} placeholder={t('repositories.search_placeholder')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} className="border-input bg-card pl-9" /></div>

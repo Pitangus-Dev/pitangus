@@ -83,7 +83,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
           <div className="min-w-0 space-y-2">
             <label htmlFor="evidence-framework" className="block text-xs text-app-muted"><span aria-hidden>2 · </span>{t('evidence.framework')}</label>
             <div className="max-w-sm"><Select value={framework} onValueChange={choose}>
-              <SelectTrigger id="evidence-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{frameworkName}</span></SelectTrigger>
+              <SelectTrigger id="evidence-framework" className="w-full border-input bg-card"><span className="min-w-0 truncate">{frameworkName}</span></SelectTrigger>
               <FrameworkOptions frameworks={frameworks} />
             </Select></div>
             {current && <p className="max-w-sm space-x-1 text-xs text-app-subtle"><span>{tf('audit.framework_hint', { hint: tf(current[2]) })}</span>{framework !== 'general' && <span>{tf('audit.mapping_note')}</span>}</p>}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { CircleNotchIcon, WarningIcon } from '@phosphor-icons/react'
+import { CircleNotchIcon } from '@phosphor-icons/react'
 import type { SessionUser } from '@/features/auth/session'
 import { RunProgress } from '@/features/analyses/run-progress'
 import { assetOption, type Asset } from '@/features/sources/asset-option'
@@ -16,6 +16,7 @@ import { RepositorySettings } from '@/features/findings/repository-settings'
 import { FindingTabs } from '@/features/findings/finding-tabs'
 import { CURRENT, runOption, type AssetSelection, type RunDetail } from '@/features/findings/asset-selection'
 import type { FindingTab } from '@/features/findings/finding-model'
+import { Notice } from '@/shared/ui/notice'
 
 const active = (status?: string) => status === 'queued' || status === 'running'
 
@@ -86,7 +87,7 @@ export function AssetFindings({ selection, tab, onTab, user, onNew, onOpenPolici
     : <RepositoryResult key={`${run}:${tab}`} run={detail} onNew={onNew} canAccept={admin} canManage={admin} onChanged={reload} initialView={run === CURRENT && tab !== 'open' ? 'all' : 'active'} exportStatus={tab}
         focus={run === CURRENT && focus.repo === asset.key ? focus.finding : null} />
   return <>
-    {asset?.removed_at && <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger"><WarningIcon className="mt-0.5 size-4 shrink-0" /><span>{t('page.removed', { date: formatDate(asset.removed_at) })}</span></div>}
+    {asset?.removed_at && <Notice role="status" tone="critical">{t('page.removed', { date: formatDate(asset.removed_at) })}</Notice>}
     {/* This asset's own settings in one strip: the findings list is what matters. Global policies live in Policies. */}
     {/* Excluded paths and secret entries are about files: a site's scope lives on its domain page. */}
     {run === CURRENT && asset && kind !== 'domain' && <RepositorySettings key={asset.key} assetKey={asset.key} name={asset.name} kind={kind}

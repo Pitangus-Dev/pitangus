@@ -19,7 +19,7 @@ from reportlab.platypus import CondPageBreak, KeepTogether, Paragraph, Spacer, T
 
 from pitangus.modules.intel.data_sources import attribution
 from pitangus.modules.findings.remediation import action, counts_text, fix_groups
-from pitangus.modules.reporting.design import (DANGER_BG, INK, MUTED, ORDER, SEVERITY, SOFT, STYLE, SUCCESS, SUCCESS_BG, WIDTH,
+from pitangus.modules.reporting.design import (DANGER_BG, INK, MUTED, ORDER, SEVERITY, SEVERITY_INK, SOFT, STYLE, SUCCESS, SUCCESS_BG, WIDTH,
                             build, built_from, bullets, chip as _chip, count as _count, cover, coverage_gaps, day as _day, disclaimer, grid as _grid, h2, hexval, kpis as _kpis, listing, location, path, plain, rich, signoff, t as _t)
 from pitangus.shared import i18n
 from pitangus.shared.i18n import default_locale, localize, msg, text
@@ -184,11 +184,11 @@ def _group_cells(entry: dict, fallback_date, locale: str) -> tuple[str, str]:
         summary = i18n.t("reports.audit.package_group", locale, vulnerabilities=msg("reports.count.vulnerabilities", count=len(items)),
                          counts=counts_text(entry["counts"], locale=locale))
         text_ = (f"<b>{_t(entry['name'], 60)} {_t(entry['version'], 30)}</b> · {_t(summary, 200)}"
-                 f'<br/><font color="#636363">{_t(listing(entry["ids"], 4, locale=locale), 140)}</font>')
+                 f'<br/><font color="#5c636b">{_t(listing(entry["ids"], 4, locale=locale), 140)}</font>')
         return text_, path(entry["path"], 22)
     item = items[0]
     ids = ", ".join((item.get("cve") or [])[:2] or (item.get("ghsa") or [])[:1])
-    text_ = _t(item.get("title"), 140) + (f'<br/><font color="#636363">{_t(ids, 60)}</font>' if ids else "")
+    text_ = _t(item.get("title"), 140) + (f'<br/><font color="#5c636b">{_t(ids, 60)}</font>' if ids else "")
     return text_, path(location(item), 22)
 
 
@@ -331,7 +331,7 @@ def render_audit_pdf(record: dict, findings: list[dict], options: dict, *, versi
     if len(groups) < len(findings):
         sentences.append(i18n.t("reports.audit.summary_grouped", locale, actions=msg("reports.count.actions", count=len(groups))))
     figures = [(i18n.t("reports.audit.kpi.in_scope", locale), len(findings), INK, SOFT),
-               (i18n.t("reports.audit.kpi.open_critical", locale), open_counts["critical"], SEVERITY["critical"][1], DANGER_BG),
+               (i18n.t("reports.audit.kpi.open_critical", locale), open_counts["critical"], SEVERITY_INK["critical"], DANGER_BG),
                (i18n.t("reports.audit.kpi.open_high", locale), open_counts["high"], SEVERITY["high"][0], SEVERITY["high"][1]),
                (i18n.t("reports.audit.kpi.open", locale), active, INK, SOFT)]
     if record.get("type") == "asset_state" or fixed:  # a single scan doesn't know what was fixed
@@ -460,7 +460,7 @@ def render_portfolio_pdf(items: list[dict], options: dict, *, version: str, scop
     story += [Spacer(1, 10), h2(i18n.t("reports.common.summary", locale)),
               _kpis([(i18n.t("reports.audit.kpi.analysed", locale),
                       i18n.t("reports.audit.of_total", locale, done=analysed, total=known_total) if known_total else analysed, INK, SOFT),
-                     (i18n.t("reports.audit.kpi.open_critical", locale), totals["critical"], SEVERITY["critical"][1], DANGER_BG),
+                     (i18n.t("reports.audit.kpi.open_critical", locale), totals["critical"], SEVERITY_INK["critical"], DANGER_BG),
                      (i18n.t("reports.audit.kpi.open_high", locale), totals["high"], SEVERITY["high"][0], SEVERITY["high"][1]),
                      (i18n.t("reports.audit.kpi.open", locale), totals["open"], INK, SOFT),
                      (i18n.t("reports.audit.kpi.fixed", locale), totals["fixed"], SUCCESS, SUCCESS_BG),

@@ -28,7 +28,7 @@ export function ScopePicker({ scope, accounts, total, one, step, onChange }: { s
     {scope.kind === 'one' && one}
     {scope.kind === 'account' && (accounts.length
       ? <div className="max-w-sm"><Select value={scope.account || null} onValueChange={value => { if (value) onChange({ ...scope, account: String(value) }) }}>
-          <SelectTrigger aria-label={t('account')} className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{scope.account || t('choose_account')}</span></SelectTrigger>
+          <SelectTrigger aria-label={t('account')} className="w-full border-input bg-card"><span className="min-w-0 truncate">{scope.account || t('choose_account')}</span></SelectTrigger>
           <SelectContent className="border border-app-line bg-panel p-1 text-app-fg shadow-md">{accounts.map(account => <SelectItem key={account} value={account}>{account}</SelectItem>)}</SelectContent>
         </Select></div>
       : <p className="text-xs text-app-muted">{t('no_accounts')}</p>)}

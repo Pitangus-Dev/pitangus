@@ -78,7 +78,7 @@ export function Reverify({ runId, fingerprint, verification, blocked, canVerify,
           : web ? t('verify.prompt_web') : t('verify.prompt')}
       </p>
       {/* aria-disabled en vez de disabled: el foco de teclado se queda en el botón mientras se verifica. */}
-      {!blocked && canVerify && <Button size="sm" variant="outline" aria-disabled={busy || running} onClick={() => void start()} className="border-app-line bg-panel aria-disabled:opacity-60">
+      {!blocked && canVerify && <Button size="sm" variant="outline" aria-disabled={busy || running} onClick={() => void start()} className="border-input bg-card aria-disabled:opacity-60">
         {busy ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <ArrowsClockwiseIcon />}{state && !running ? t('verify.again') : t('verify.start')}</Button>}
     </div>
     {error && <p role="alert" className="text-xs text-danger">{error}</p>}

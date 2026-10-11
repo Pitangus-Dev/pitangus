@@ -42,7 +42,7 @@ export function GettingStarted({ onNavigate }: { onNavigate: (view: string) => v
           {!step.done && <span className="block text-xs text-app-muted">{step.hint}</span>}</span>
       </span>
       {!step.done && step.view && (step.id === next?.id
-        ? <Button size="sm" onClick={() => onNavigate(step.view!)} className="bg-primary text-primary-foreground hover:bg-primary/90">{step.action}</Button>
+        ? <Button size="sm" onClick={() => onNavigate(step.view!)}>{step.action}</Button>
         : <Button size="sm" variant="ghost" onClick={() => onNavigate(step.view!)} className="text-app-muted">{step.action}</Button>)}
     </li>)}</ol>
   </CardContent></Card>

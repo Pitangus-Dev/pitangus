@@ -46,9 +46,6 @@
     --color-attention: var(--attention);
     --color-attention-soft: var(--attention-soft);
     --color-attention-line: var(--attention-line);
-    --color-warning: var(--warning);
-    --color-warning-soft: var(--warning-soft);
-    --color-warning-line: var(--warning-line);
     --color-info: var(--info);
     --color-info-soft: var(--info-soft);
     --color-info-line: var(--info-line);
@@ -108,9 +105,10 @@
 }
 
 /* Tokens of the identity manual (.claude/skills/pitangus-brand/tokens.json), light and dark. Each color has one
-   meaning: sulphur is the brand and the one primary action; critical, attention (orange, never yellow), ok and info are
+   meaning: sulphur is the brand and the solid main action; critical, attention (orange, never yellow), ok and info are
    the states, and severity comes from them. The older names stay as aliases so every component keeps working:
-   danger = critical, warning = attention, success = ok, app-faint = line-strong, app-inset/app-soft = sunken.
+   danger = critical, success = ok, app-faint = line-strong, app-inset/app-soft = sunken. There is no "warning" state:
+   what was yellow is attention (orange).
    Contrast checked in both themes: text ≥ 4.5:1 on bg, surface and sunken; control borders and focus ≥ 3:1. */
 :root {
     --app-bg: var(--background);
@@ -142,9 +140,6 @@
     --attention: #9E4708;
     --attention-soft: #FDF0E5;
     --attention-line: #F2C29B;
-    --warning: var(--attention);   /* there is no yellow state: warning is attention */
-    --warning-soft: var(--attention-soft);
-    --warning-line: var(--attention-line);
     --info: #2D5A87;
     --info-soft: #EAF1F8;
     --info-line: #B6CCE3;
@@ -221,9 +216,6 @@
     --attention: #F5A35C;
     --attention-soft: #3A2614;
     --attention-line: #6E4520;
-    --warning: var(--attention);
-    --warning-soft: var(--attention-soft);
-    --warning-line: var(--attention-line);
     --info: #8DB4DD;
     --info-soft: #172636;
     --info-line: #2C4866;
@@ -312,9 +304,11 @@ body { min-width: 320px; }
 :root { --chart-neutral: #6B727B; --chart-grid: #E6E8EB; }
 .dark { --chart-neutral: #8E959D; --chart-grid: #262A2E; }
 /* In light, critical-solid and critical are the same red: a chart could not tell Crítica from Alta, so the Crítica
-   series is that red deepened towards ink (chips keep the manual's solid red with white text). */
+   series is that red deepened towards ink (10.7:1). In dark, critical-solid is 2.6:1 on the surface, below 3:1 for a
+   chart mark, so the series is a brighter red (3.8:1 on surface, 3.4:1 on sunken) that still reads darker than Alta's
+   salmon. Chips keep the manual's solid red with white text in both themes. */
 :root { --sev-critical: color-mix(in srgb, var(--danger-solid) 60%, var(--foreground)); }
-.dark { --sev-critical: var(--danger-solid); }
+.dark { --sev-critical: #DC3B2F; }
 
 @keyframes pitangus-breathe { 0%, 100% { opacity: .45; transform: scale(.985) } 50% { opacity: .95; transform: scale(1) } }
 @keyframes pitangus-progress { 0% { transform: translateX(-100%) } 100% { transform: translateX(300%) } }
@@ -326,7 +320,7 @@ body { min-width: 320px; }
 /* One focus mark, not three: the components' focus rings (a 50 % halo) are dropped in favour of the outline above. */
 :focus-visible { --tw-ring-shadow: 0 0 #0000 !important; }
 /* Text fields draw it inside (a 2 px border in the focus colour): an outline outside gets clipped by scrolling lists
-   and dialogs. Same 5.4:1 / 9.2:1 contrast. */
+   and dialogs. Same contrast as the outline (16:1 light, 10:1 dark). */
 /* `data-bare`: a field that is the whole header of its container (the command palette's search) marks focus on that
    container instead, so it doesn't draw a box inside a box. */
 :is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color], [data-bare]), textarea, [data-slot=select-trigger]):focus-visible {

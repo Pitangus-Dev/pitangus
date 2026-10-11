@@ -16,7 +16,7 @@ from reportlab.platypus import KeepTogether, Paragraph, Spacer
 
 from pitangus.modules.threats import diagram as threat_diagram
 from pitangus.modules.threats import methods as threat_methods
-from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, DANGER, DANGER_BG, INK, MUTED, cover, SEVERITY, SOFT, STYLE, SUCCESS,
+from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, DANGER, DANGER_BG, INK, MUTED, cover, SEVERITY, SEVERITY_INK, SOFT, STYLE, SUCCESS,
                             SUCCESS_BG, WIDTH, build, bullets, chip, disclaimer, h2, kpis, listing, severity_label,
                             table, wide_page, wide_size)
 from pitangus.modules.reporting.design import t as esc
@@ -198,7 +198,7 @@ def _summary(data: dict) -> tuple[str, list]:
         sentence = " ".join((total, evidence, decided))
     else:
         sentence = " ".join((r("summary_team_only", count=len(data["team"])), decided))
-    return sentence, [(r("kpi_open"), len(data["pending"]), INK, SOFT), (r("kpi_critical"), counts["critical"], SEVERITY["critical"][1], DANGER_BG),
+    return sentence, [(r("kpi_open"), len(data["pending"]), INK, SOFT), (r("kpi_critical"), counts["critical"], SEVERITY_INK["critical"], DANGER_BG),
                       (r("kpi_high"), counts["high"], DANGER, DANGER_BG), (r("kpi_evidenced"), len(data["evidenced"]), ATTENTION, ATTENTION_BG),
                       (r("kpi_team"), team_open, INK, SOFT), (r("kpi_decided"), len(data["decided"]), SUCCESS, SUCCESS_BG)]
 
@@ -259,7 +259,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
             else:
                 label = _status("evidenced", locale) if source == "evidence" else r("from_team")
                 body.append([chip(item["severity"], locale=locale),
-                             f"<b>{esc(item['title'], 140)}</b><br/><font color=\"#636363\">{esc(label, 40)}</font>",
+                             f"<b>{esc(item['title'], 140)}</b><br/><font color=\"#5c636b\">{esc(label, 40)}</font>",
                              esc(_element_name(model, data, item["element"]) if item["element"] else item["element_name"], 160),
                              esc("; ".join(item["mitigations"][:2]) or "—", 260)])
         story.append(table([r("col_severity"), r("col_threat"), r("col_where"), r("col_action")], body,
@@ -284,10 +284,10 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
         for row in data["team"]:
             extra = " · ".join(value for value in _extras(row, locale) if value)
             body.append([chip(row["severity"], locale=locale),
-                         f"<b>{esc(row['title'], 160)}</b>" + (f'<br/><font color="#636363">{esc(row["why"], 320)}</font>' if row["why"] else ""),
-                         esc(row["element_name"], 120) + (f'<br/><font color="#636363">{esc(extra, 80)}</font>' if extra else ""),
+                         f"<b>{esc(row['title'], 160)}</b>" + (f'<br/><font color="#5c636b">{esc(row["why"], 320)}</font>' if row["why"] else ""),
+                         esc(row["element_name"], 120) + (f'<br/><font color="#5c636b">{esc(extra, 80)}</font>' if extra else ""),
                          esc("; ".join(row["mitigations"]) or "—", 320),
-                         esc(_status(row["status"], locale), 30) + (f'<br/><font color="#636363">{esc(row["owner"], 60)}</font>' if row.get("owner") else "")])
+                         esc(_status(row["status"], locale), 30) + (f'<br/><font color="#5c636b">{esc(row["owner"], 60)}</font>' if row.get("owner") else "")])
         story.append(table([r("col_severity"), r("col_threat_scenario"), r("col_where"), r("col_mitigation"), r("col_status")], body,
                            [19 * mm, 62 * mm, 32 * mm, WIDTH - 131 * mm, 18 * mm]))
     if data["evidenced"]:
@@ -306,7 +306,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
     if data["patterns"]:
         story.append(h2(r("patterns_heading", patterns=len(data["patterns"]), threats=data["open_rules"])))
         body = [[chip(entry["severity"], locale=locale),
-                 f"<b>{esc(entry['title'], 140)}</b><br/><font color=\"#636363\">{esc(entry['category'], 60)}"
+                 f"<b>{esc(entry['title'], 140)}</b><br/><font color=\"#5c636b\">{esc(entry['category'], 60)}"
                  + (f" · CWE-{', CWE-'.join(str(value) for value in entry['cwe'][:3])}" if entry["cwe"] else "") + "</font>",
                  f"<b>{entry['count']}</b> · {esc(entry['counts'], 80)}<br/>{esc(entry['where'], 320)}",
                  esc("; ".join(entry["mitigations"][:3]), 300)] for entry in data["patterns"]]
@@ -334,7 +334,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
     if data["flows"]:
         story.append(h2(appendix(r("appendix_flows"), locale), number=False))
         body = [[str(data["number"][flow["id"]]), esc(f"{data['components'][flow['source']]['name']} → {data['components'][flow['target']]['name']}", 140),
-                 flow["protocol"].upper(), esc(flow.get("name") or "—", 160) + (f'<br/><font color="#636363">{esc(", ".join(data["labels"][item] for item in flow["data"]), 80)}</font>' if flow.get("data") else ""),
+                 flow["protocol"].upper(), esc(flow.get("name") or "—", 160) + (f'<br/><font color="#5c636b">{esc(", ".join(data["labels"][item] for item in flow["data"]), 80)}</font>' if flow.get("data") else ""),
                  esc(_yes(True, locale)) if flow.get("authenticated") else no.format(esc(_yes(False, locale))),
                  esc(_yes(True, locale)) if flow.get("encrypted") else no.format(esc(_yes(False, locale)))]
                 for flow in data["flows"]]
@@ -346,11 +346,11 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
         component = entry["component"]
         exposure = ", ".join(value for value in ("Internet" if component.get("internet_facing") else "",
                                                  ", ".join(data["labels"][item] for item in component.get("data") or [])) if value)
-        body.append([f"<b>{esc(component['name'], 80)}</b><br/><font color=\"#636363\">{esc(_kind(component, data['kinds']), 50)}"
+        body.append([f"<b>{esc(component['name'], 80)}</b><br/><font color=\"#5c636b\">{esc(_kind(component, data['kinds']), 50)}"
                      + (f" · {esc(component['technology'], 40)}" if component.get("technology") else "") + "</font>",
                      esc(data["member_of"].get(component["id"], "—"), 60), esc(exposure or "—", 90),
                      *[(f'<font color="{SEVERITY[level][1 if level == "critical" else 0].hexval().replace("0x", "#")}"><b>{entry["counts"][level]}</b></font>'
-                        if entry["counts"][level] else '<font color="#636363">0</font>') for level in ORDER]])
+                        if entry["counts"][level] else '<font color="#5c636b">0</font>') for level in ORDER]])
     story.append(table([r("col_component"), r("col_boundary"), r("col_exposure"), r("col_critical_short"), r("col_high_short"),
                         r("col_medium_short"), r("col_low_short")], body,
                        [54 * mm, 36 * mm, WIDTH - 146 * mm, 14 * mm, 14 * mm, 14 * mm, 14 * mm]))
@@ -388,7 +388,7 @@ def _trees_pdf(model: dict, data: dict, title, heading: str, numbered: bool = Tr
             extra = _node_extras(model, data, node)
             gate = " " + r("all_required") if node["gate"] == "and" and node["has_children"] else ""
             story.append(Paragraph("&nbsp;" * 6 * depth + "•&nbsp;&nbsp;" + esc(node["text"], 200) + esc(gate, 40)
-                                   + (f' <font color="#636363">· {esc(", ".join(value for value in extra if value), 160)}</font>' if any(extra) else ""),
+                                   + (f' <font color="#5c636b">· {esc(", ".join(value for value in extra if value), 160)}</font>' if any(extra) else ""),
                                    STYLE["body"]))
     return story
 

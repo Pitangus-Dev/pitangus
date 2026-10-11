@@ -30,7 +30,7 @@ const CHANGE_LABEL: Record<string, string> = {
 }
 // Fields the form can point at; any other server error is shown above the buttons.
 const KNOWN_FIELD = /^(allowlist\.(regexes|paths|stopwords)|rules\.\d+\.(id|description|regex|keywords)|disabled_rules|reason)(\.|$)/
-const area = 'w-full rounded-lg border border-app-line bg-app px-3 py-2 font-mono text-xs leading-5 text-app-fg aria-invalid:border-danger-line'
+const area = 'w-full rounded-lg border border-input bg-card px-3 py-2 font-mono text-xs leading-5 text-app-fg aria-invalid:border-danger-line'
 
 let nextKey = 0
 const lines = (value: string) => value.split('\n').map(line => line.trim()).filter(Boolean)
@@ -157,7 +157,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
             <label htmlFor={`${base}-${name}`} className="text-[11px] font-medium text-app-muted">{label}</label>
             <Input id={`${base}-${name}`} value={rule[name]} onChange={event => setRule(rule.key, { [name]: event.target.value })} maxLength={props.maxLength}
               placeholder={props.placeholder} spellCheck={false} aria-invalid={!!error || undefined} aria-describedby={error ? `${base}-${name}-error` : undefined}
-              className={`h-8 border-app-line bg-app ${props.mono ? 'font-mono text-xs' : ''}`} />
+              className={`h-8 border-input bg-card ${props.mono ? 'font-mono text-xs' : ''}`} />
             {error && <p id={`${base}-${name}-error`} className="text-xs text-danger">{error}</p>}
           </div>
         }
@@ -206,7 +206,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
     <div className="space-y-1">
       <label htmlFor={`${id}-reason`} className="text-[11px] font-medium text-app-muted">{t('secret_rules.reason')}</label>
       <Input id={`${id}-reason`} value={form.reason} onChange={event => set({ reason: event.target.value })} maxLength={300} placeholder={t('secret_rules.reason_placeholder')}
-        aria-invalid={!!errorFor('reason') || undefined} aria-describedby={errorFor('reason') ? `${id}-reason-error` : undefined} className="h-9 border-app-line bg-app" />
+        aria-invalid={!!errorFor('reason') || undefined} aria-describedby={errorFor('reason') ? `${id}-reason-error` : undefined} className="h-9 border-input bg-card" />
       {errorFor('reason') && <p id={`${id}-reason-error`} className="text-xs text-danger">{errorFor('reason')}</p>}
     </div>
     <p className="text-xs leading-5 text-app-subtle">{t('secret_rules.effect')}</p>

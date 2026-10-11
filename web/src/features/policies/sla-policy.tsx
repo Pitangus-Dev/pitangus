@@ -62,7 +62,7 @@ export function SlaPolicyRow({ canEdit }: { canEdit: boolean }) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{LEVELS.map(([level, label]) => <div key={level} className="space-y-1">
             <label htmlFor={`${id}-${level}`} className="text-xs text-app-muted">{t('sla.days_label', { level: t(label) })}</label>
             <Input id={`${id}-${level}`} type="number" inputMode="numeric" min={1} max={3650} value={draft[level]} onChange={event => setDraft(current => ({ ...current, [level]: event.target.value }))}
-              placeholder={t('sla.placeholder')} aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="h-9 border-app-line bg-app tabular-nums" />
+              placeholder={t('sla.placeholder')} aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="h-9 border-input bg-card tabular-nums" />
           </div>)}</div>
           <p className="text-xs text-app-subtle">{changed}</p>
           {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}

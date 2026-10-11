@@ -107,12 +107,12 @@ function ExcludedPaths({ assetKey, canEdit, onSaved }: { assetKey: string; canEd
           <div className="space-y-1">
             <label className="block text-xs text-app-muted" htmlFor={`${id}-patterns`}><Trans t={t} i18nKey="exclusions.patterns_help" components={{ code: <code className="font-mono" /> }} /></label>
             <textarea id={`${id}-patterns`} value={text} onChange={event => setText(event.target.value)} rows={5} spellCheck={false} placeholder="fixtures"
-              className="w-full rounded-lg border border-app-line bg-app px-3 py-2 font-mono text-xs text-app-fg" />
+              className="w-full rounded-lg border border-input bg-card px-3 py-2 font-mono text-xs text-app-fg" />
           </div>
           <div className="space-y-1">
             <label htmlFor={`${id}-reason`} className="text-xs text-app-muted">{t('exclusions.reason')}</label>
             <Input id={`${id}-reason`} value={reason} onChange={event => setReason(event.target.value)} maxLength={300} placeholder={t('exclusions.reason_placeholder')}
-              aria-describedby={error ? `${id}-error` : undefined} className="h-9 border-app-line bg-app" />
+              aria-describedby={error ? `${id}-error` : undefined} className="h-9 border-input bg-card" />
           </div>
           {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
           <DialogFooter>

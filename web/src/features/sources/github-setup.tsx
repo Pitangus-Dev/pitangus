@@ -222,11 +222,11 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
       <li><Trans t={t} i18nKey="github.install.step_install" components={{ b: STRONG }} /></li>
       <li><Trans t={t} i18nKey="github.install.step_detect" components={{ b: STRONG }} /></li>
     </ol>
-    {error && <Notice role="alert" tone="attention" className="text-xs">{error}</Notice>}
+    {error && <Notice role="alert" tone="critical" className="text-xs">{error}</Notice>}
     <div className="flex flex-wrap gap-2">
-      {canManage ? <a href={`https://github.com/apps/${status.slug}/installations/new`} target="_blank" rel="noopener noreferrer" className={buttonVariants(offer ? { variant: 'outline' } : {})}>{t('github.install.install')} <ArrowSquareOutIcon /><span className="sr-only">{t('new_tab')}</span></a>
+      {canManage ? <a href={`https://github.com/apps/${status.slug}/installations/new`} target="_blank" rel="noopener noreferrer" className={buttonVariants(offer || listed.some(item => !status.installations.some(current => current.installation_id === item.installation_id)) ? { variant: 'outline' } : {})}>{t('github.install.install')} <ArrowSquareOutIcon /><span className="sr-only">{t('new_tab')}</span></a>
         : <Button disabled>{t('github.install.install')} <ArrowSquareOutIcon /></Button>}
-      <Button variant="outline" disabled={!canManage || busy || looking} onClick={() => void detect()} className="border-input bg-card">{busy || looking ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <ArrowsClockwiseIcon />}{t('github.install.detect')}</Button>
+      <Button variant="outline" disabled={!canManage || busy || looking} onClick={() => void detect()}>{busy || looking ? <CircleNotchIcon className="motion-safe:animate-spin" /> : <ArrowsClockwiseIcon />}{t('github.install.detect')}</Button>
     </div>
     {listed.length > 0 && <div className="space-y-2 rounded-lg border border-app-line bg-panel p-3">
       <p className="text-xs font-medium text-app-secondary">{t('github.install.installed_on')}</p>
@@ -235,7 +235,7 @@ export function GitHubInstall({ status, canManage, onChanged }: { status: GitHub
         return <div key={item.installation_id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-app-line bg-panel px-3 py-2 text-sm">
           <div><p className="font-medium">{item.account ?? t('github.install.installation', { id: item.installation_id })}</p>
             <p className="text-xs text-app-muted">{item.account_type === 'Organization' ? t('github.install.organization') : t('github.install.personal')} · {item.repository_selection === 'selected' ? t('github.install.selected_repositories') : t('github.install.all_repositories')}</p></div>
-          <Button size="sm" variant={connected ? 'outline' : 'default'} disabled={busy || !canManage || connected} onClick={() => void connect(item.installation_id)}>
+          <Button size="sm" variant="outline" disabled={busy || !canManage || connected} onClick={() => void connect(item.installation_id)}>
             {connected ? t('github.install.connected') : t('github.install.connect')}
           </Button>
         </div>

@@ -326,7 +326,7 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
         <Controls showInteractive={false} />
         <Panel position="bottom-right"><Legend model={model} setModel={setModel} /></Panel>
         <Panel position="top-left" className="flex flex-wrap gap-1.5">
-          <Select value={null} onValueChange={value => { if (value) addComponent(value as Kind) }}><SelectTrigger aria-label={t('canvas.add_component')} className="h-8 border-app-line bg-panel text-xs shadow-sm"><PlusIcon className="size-3.5" /><SelectValue placeholder={t('canvas.component_placeholder')} /></SelectTrigger><SelectContent>{Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}<SelectItem value="custom">{t('canvas.other_kind')}</SelectItem></SelectContent></Select>
+          <Select value={null} onValueChange={value => { if (value) addComponent(value as Kind) }}><SelectTrigger aria-label={t('canvas.add_component')} className="h-8 border-input bg-card text-xs shadow-sm"><PlusIcon className="size-3.5" /><SelectValue placeholder={t('canvas.component_placeholder')} /></SelectTrigger><SelectContent>{Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}<SelectItem value="custom">{t('canvas.other_kind')}</SelectItem></SelectContent></Select>
           <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={addBoundary}><SquareIcon />{t('canvas.boundary')}</Button>
           <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={tidy} title={t('canvas.tidy_hint')}><SquaresFourIcon />{t('canvas.tidy')}</Button>
         </Panel>

@@ -135,8 +135,8 @@ function Products({ counts, admin, onChange, onNew }: { counts: Counts; admin: b
       <div className="text-xs text-app-muted"><span>{t('products.asset')}</span>
         <Combobox className="mt-1" label={t('products.asset')} placeholder={t('products.choose')} emptyText={t('products.no_candidates')} value={picked} search={search}
           onSelect={option => { setPicked(option); if (!name) setName(option.label) }} /></div>
-      <label className="text-xs text-app-muted">{t('products.name')}<Input required maxLength={120} value={name} onChange={event => setName(event.target.value)} className="mt-1 h-9 border-app-line bg-app" /></label>
-      <label className="text-xs text-app-muted">{t('products.support_until')}<Input type="date" value={until} onChange={event => setUntil(event.target.value)} className="mt-1 h-9 border-app-line bg-app" /></label>
+      <label className="text-xs text-app-muted">{t('products.name')}<Input required maxLength={120} value={name} onChange={event => setName(event.target.value)} className="mt-1 h-9 border-input bg-card" /></label>
+      <label className="text-xs text-app-muted">{t('products.support_until')}<Input type="date" value={until} onChange={event => setUntil(event.target.value)} className="mt-1 h-9 border-input bg-card" /></label>
       <div className="flex gap-2"><Button type="submit" size="sm" disabled={!picked || !name.trim() || busy}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('common:actions.save')}</Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>{t('common:actions.cancel')}</Button></div>
     </form>}
@@ -211,7 +211,7 @@ function Assess({ event, admin, onChange }: { event: CraEvent; admin: boolean; o
     </div> : <form onSubmit={submit} className="space-y-2" noValidate>
       {mode === 'not_affected' ? <div className="space-y-1"><label htmlFor={`${id}-reason`} className="text-xs text-app-muted">{t('assess.reason')}</label>
         <textarea id={`${id}-reason`} required maxLength={500} rows={2} value={reason} onChange={formEvent => setReason(formEvent.target.value)} placeholder={t('assess.reason_placeholder')}
-          aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="w-full resize-y rounded-lg border border-app-line bg-app px-3 py-2 text-sm text-app-fg" /></div>
+          aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-sm text-app-fg" /></div>
         : <p className="text-xs text-attention">{t('assess.exploited_help')}</p>}
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-danger">{error}</p>}
       <div className="flex flex-wrap gap-2">

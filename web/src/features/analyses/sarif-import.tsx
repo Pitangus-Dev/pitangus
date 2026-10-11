@@ -154,7 +154,7 @@ function ImportResult({ result, scope, onOpenRun, onAnother, onBack }: { result:
         <span className="min-w-0"><span className="block truncate text-sm font-medium">{run.tool}{run.version ? <span className="font-normal text-app-subtle"> {run.version}</span> : null}</span>
           <span className="text-xs text-app-muted">{[t('import.result.findings', { count: run.findings }), t('import.result.opened', { count: run.opened }),
             ...(run.scope === 'full' ? [t('import.result.fixed', { count: run.fixed })] : []), ...(run.skipped ? [t('import.result.skipped', { count: run.skipped })] : [])].join(' · ')}</span></span>
-        <Button variant={single ? 'default' : 'outline'} size="sm" aria-label={t('import.result.open_label', { tool: run.tool })} onClick={() => void onOpenRun(run.id)} className={single ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border-app-line bg-panel'}>{t('import.result.open')}</Button>
+        <Button variant={single ? 'default' : 'outline'} size="sm" aria-label={t('import.result.open_label', { tool: run.tool })} onClick={() => void onOpenRun(run.id)}>{t('import.result.open')}</Button>
       </li>)}</ul></CardContent></Card>
     <div className="flex items-center justify-between gap-3 border-t border-app-line pt-5">
       <Button variant="ghost" onClick={onBack}><ArrowLeftIcon /> {t('wizard.back_to_types')}</Button>

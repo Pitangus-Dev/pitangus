@@ -56,7 +56,7 @@ export function CraPolicyRow({ canEdit }: { canEdit: boolean }) {
             <label htmlFor={`${id}-reason`} className="text-xs text-app-muted">{t('cra.reason')}</label>
             <textarea id={`${id}-reason`} required maxLength={500} rows={3} value={reason} onChange={event => setReason(event.target.value)} placeholder={t('cra.reason_placeholder')}
               aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined}
-              className="w-full resize-y rounded-lg border border-app-line bg-app px-3 py-2 text-sm text-app-fg" />
+              className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-sm text-app-fg" />
           </div>
           {policy && policy.history.length > 0 && <div className="space-y-1">
             <p className="text-xs font-medium text-app-secondary">{t('cra.history')}</p>

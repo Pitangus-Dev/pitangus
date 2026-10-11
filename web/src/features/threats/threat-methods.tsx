@@ -44,7 +44,7 @@ export function MethodDialog({ current, onClose, onPick }: { current: Methodolog
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-2xl">
     <DialogHeader><DialogTitle>{t('methods.dialog_title')}</DialogTitle><DialogDescription>{t('methods.dialog_description')}</DialogDescription></DialogHeader>
     <MethodPicker value={value} onChange={setValue} />
-    <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button onClick={() => onPick(value)} className="bg-primary text-primary-foreground hover:bg-primary/90">{t('methods.use', { name: methodName(value) })}</Button></DialogFooter>
+    <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button><Button onClick={() => onPick(value)}>{t('methods.use', { name: methodName(value) })}</Button></DialogFooter>
   </DialogContent></Dialog>
 }
 
@@ -160,7 +160,7 @@ export function AttackTrees({ model, setModel }: { model: Model; setModel: (mode
   const add = (goal: string) => setTrees([...trees, { id: newId(goal || 'arbol', trees.map(item => item.id)), goal: goal || t('trees.new_goal'), nodes: [] }])
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center gap-2">
-      <Button size="sm" onClick={() => add('')} className="bg-primary text-primary-foreground hover:bg-primary/90"><PlusIcon />{t('trees.tree')}</Button>
+      <Button size="sm" variant="outline" onClick={() => add('')}><PlusIcon />{t('trees.tree')}</Button>
       <SelectField aria-label={t('trees.common_goals')} value="" onValueChange={goal => { if (goal) add(goal) }} className={inline} placeholder={t('trees.start_from_goal')} options={(Array.isArray(goals) ? goals.map(String) : []).map(goal => ({ value: goal, label: goal }))} />
     </div>
     {trees.length === 0 && <p className="rounded-xl border border-dashed border-app-line px-4 py-10 text-center text-sm text-app-subtle">{t('trees.empty')}</p>}
@@ -244,7 +244,7 @@ export function AttackMappings({ model, setModel, catalog }: { model: Model; set
           groups={byTactic.map(group => ({ label: `${group.name} (${group.key})`, options: group.items.map(([id, item]) => ({ value: id, label: `${id} · ${techniqueName(item) ?? ''}` })) }))} /></label>
       <label className="min-w-48 space-y-1"><span className="text-[11px] font-medium text-app-muted">{t('manual.element')}</span>
         <SelectField value={element} onValueChange={setElement} className={select} placeholder={t('manual.whole_system')} options={elements.map(item => ({ value: item.id, label: item.label }))} /></label>
-      <Button size="sm" disabled={!technique} onClick={() => { add(technique, element); setTechnique('') }} className="bg-primary text-primary-foreground hover:bg-primary/90"><PlusIcon />{t('attack.map')}</Button>
+      <Button size="sm" variant="outline" disabled={!technique} onClick={() => { add(technique, element); setTechnique('') }}><PlusIcon />{t('attack.map')}</Button>
     </div>
     {proposals.length > 0 && <details className="rounded-lg border border-app-line bg-panel p-4"><summary className="cursor-pointer text-sm font-medium">{t('attack.suggestions', { count: proposals.length })}</summary>
       <p className="mt-1 text-xs text-app-subtle">{t('attack.suggestions_hint')}</p>

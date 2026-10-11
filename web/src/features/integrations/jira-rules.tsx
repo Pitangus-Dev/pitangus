@@ -84,7 +84,7 @@ export function RulesSection({ routing, backfills, onRemove }: { routing: JiraRo
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium"><span className="truncate">{rule.name}</span>
             {!rule.enabled && <span className="rounded border border-app-line px-1.5 text-[11px] font-normal text-app-muted">{t('jira.rules.off')}</span>}
-            <span className={`rounded border px-1.5 text-[11px] font-normal ${rule.mode === 'auto' ? 'border-info-line text-info' : 'border-app-line text-app-muted'}`}>{rule.mode === 'auto' ? t('jira.rules.auto_from', { severity: t(SEVERITIES[rule.min_severity]) }) : t('jira.rules.manual')}</span></p>
+            <span className={`rounded-sm border px-1.5 text-[11px] font-normal ${rule.mode === 'auto' ? 'border-app-line text-app-secondary' : 'border-app-line text-app-muted'}`}>{rule.mode === 'auto' ? t('jira.rules.auto_from', { severity: t(SEVERITIES[rule.min_severity]) }) : t('jira.rules.manual')}</span></p>
           <p className="text-xs text-app-subtle">{rule.default ? t('jira.rules.matches_rest') : <Matches rule={rule} />}</p>
           <p className="text-xs text-app-muted">{destination ? <>{t('jira.rules.to', { name: destination.name })} · <span className="font-mono">{destinationTarget(destination)}</span></> : t('jira.rules.no_destination')}</p>
           {backfill && <BackfillLine backfill={backfill} />}

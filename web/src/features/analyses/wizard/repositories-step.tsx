@@ -61,7 +61,7 @@ export function RepositoriesStep({ value, onChange, orgTotal, isAdmin, batchBusy
       : <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-app-line py-12 text-center">
           <CodeIcon className="size-6 text-app-muted" aria-hidden /><p className="text-sm font-medium">{t('repos.empty_title')}</p>
           <p className="max-w-sm text-sm text-app-muted">{t('repos.empty_text')}</p>
-          <Button onClick={() => setPicking(true)}><PlusIcon aria-hidden />{t('repos.add')}</Button>
+          <Button variant="outline" onClick={() => setPicking(true)}><PlusIcon aria-hidden />{t('repos.add')}</Button>
         </div>}
     {note}
     <SourceDialog open={picking} onOpenChange={setPicking} selected={sources.map(item => item.id)} onToggle={toggle} onManageConnections={onManageConnections} />

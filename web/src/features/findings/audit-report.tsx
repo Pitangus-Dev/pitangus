@@ -67,7 +67,7 @@ export function AuditReportDialog({ open, onClose, target, name, selected, filte
       {/* Hick's law: the frameworks grouped by region in one selector, with what the chosen one covers below. */}
       <div className="space-y-2"><label htmlFor="audit-framework" className={label}>{t('audit.framework')}</label>
         <Select value={framework} onValueChange={value => setFramework((value ?? 'general') as Framework)}>
-          <SelectTrigger id="audit-framework" className="w-full border-app-line bg-inset"><span className="min-w-0 truncate">{current && t(current[1])}</span></SelectTrigger>
+          <SelectTrigger id="audit-framework" className="w-full border-input bg-card"><span className="min-w-0 truncate">{current && t(current[1])}</span></SelectTrigger>
           <FrameworkOptions frameworks={frameworks} />
         </Select>
         <p className="space-x-1 text-xs text-app-muted">{current && <span>{t('audit.framework_hint', { hint: t(current[2]) })}</span>}{framework !== 'general' && <span>{t('audit.mapping_note')}</span>}</p></div>
