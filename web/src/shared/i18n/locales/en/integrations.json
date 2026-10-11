@@ -341,8 +341,8 @@
       "medium": "Medium and above"
     },
     "hint": {
-      "slack": "In Slack: Apps → Incoming Webhooks → Add to Slack, pick the channel and copy the URL (https://hooks.slack.com/…).",
-      "teams": "In Teams: on the channel, … → Workflows → \"Post to a channel when a webhook request is received\", then copy the URL.",
+      "slack": "In Slack, open Apps, find Incoming Webhooks and click Add to Slack; pick the channel and copy the URL (https://hooks.slack.com/…).",
+      "teams": "In Teams, open the channel's … menu, choose Workflows and the \"Post to a channel when a webhook request is received\" template, then copy the URL.",
       "webhook": "Any service that accepts a JSON POST. Every notification carries the X-Pitangus-Signature header (HMAC-SHA256 of the body)."
     },
     "saved": "Channel \"{{name}}\" saved. Send a test to check it.",

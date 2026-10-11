@@ -207,7 +207,7 @@
   },
   "registries": {
     "title": "Registros de contenedores",
-    "description": "Para analizar imágenes privadas (Nuevo análisis → Imagen de contenedor). Las públicas no necesitan nada. Usa siempre un token de <b>solo lectura</b>.",
+    "description": "Para analizar imágenes privadas: en Nuevo análisis, elige Imagen de contenedor. Las públicas no necesitan nada. Usa siempre un token de <b>solo lectura</b>.",
     "loading": "Cargando registros",
     "token_last4": "token ····{{last4}}",
     "saved_by": "por {{name}}",
@@ -233,7 +233,7 @@
       "docker": {
         "host": "docker.io",
         "user": "tu usuario de Docker Hub",
-        "token": "access token de solo lectura (Account settings → Personal access tokens)"
+        "token": "access token de solo lectura (en Account settings, sección Personal access tokens)"
       },
       "ecr": {
         "host": "<cuenta>.dkr.ecr.<región>.amazonaws.com",

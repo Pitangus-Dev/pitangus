@@ -207,7 +207,7 @@
   },
   "registries": {
     "title": "Container registries",
-    "description": "For scanning private images (New scan → Container image). Public images need nothing. Always use a <b>read-only</b> token.",
+    "description": "For scanning private images: in New scan, choose Container image. Public images need nothing. Always use a <b>read-only</b> token.",
     "loading": "Loading registries",
     "token_last4": "token ····{{last4}}",
     "saved_by": "by {{name}}",
@@ -233,7 +233,7 @@
       "docker": {
         "host": "docker.io",
         "user": "your Docker Hub username",
-        "token": "read-only access token (Account settings → Personal access tokens)"
+        "token": "read-only access token (in Account settings, under Personal access tokens)"
       },
       "ecr": {
         "host": "<account>.dkr.ecr.<region>.amazonaws.com",

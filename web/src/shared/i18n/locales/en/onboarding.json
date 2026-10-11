@@ -32,7 +32,7 @@
     "alerts": {
       "title": "Get alerts in Slack or Teams",
       "hint_admin": "A message when something new that matters shows up, without opening the panel.",
-      "hint_member": "An administrator sets it up in Integrations → Alerts.",
+      "hint_member": "An administrator sets it up in Integrations, under Alerts.",
       "action": "Set up"
     }
   }
