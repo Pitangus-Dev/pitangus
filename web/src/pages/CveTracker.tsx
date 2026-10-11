@@ -119,7 +119,15 @@ export function CveTracker({ onNew }: { onNew: () => void }) {
         {error ? <div role="alert" className="m-4 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>
           : !page ? <div className="p-4"><Skeleton rows={6} /></div>
           : <div className={`overflow-x-auto transition-opacity ${loading ? 'opacity-60' : ''}`}>
-            <table className="w-full min-w-[720px] table-fixed text-sm">
+            {/* Below md a list instead of the wide table: id, severity with its score and date, then the description. */}
+            <ul className="divide-y divide-app-line md:hidden">{page.items.map(item => <li key={item.id}><button type="button" onClick={() => show(item.id)} className="block w-full px-4 py-3 text-left hover:bg-app-soft">
+              <span className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs font-medium">{item.id}</span><SeverityPill severity={item.severity} score={item.score} />
+                {item.kev && <span className="inline-flex items-center gap-0.5 rounded-sm border border-danger-line bg-danger-soft px-1 py-0.5 text-[11px] font-medium text-danger" title={t('table.kev_title')}><FlameIcon className="size-2.5" />KEV</span>}
+                {item.affects && !filters.mine && <span className="rounded-sm border border-danger-line px-1 text-[11px] text-danger" title={t('table.affects_title')}>{t('table.affects')}</span>}
+                <span className="ml-auto text-[11px] whitespace-nowrap text-app-subtle">{day(item.published)}</span></span>
+              {item.description && <span className="mt-1 line-clamp-2 text-xs leading-5 text-app-muted">{item.description}</span>}
+            </button></li>)}</ul>
+            <table className="w-full min-w-[720px] table-fixed text-sm max-md:hidden">
               <thead><tr className="border-b border-app-line text-left text-xs text-app-subtle">
                 <th className="w-40 px-4 py-2.5 font-normal">CVE</th><th className="w-24 px-3 py-2.5 font-normal">{t('table.severity')}</th><th className="w-16 px-3 py-2.5 text-right font-normal">CVSS</th>
                 <th className="w-16 px-3 py-2.5 text-right font-normal">EPSS</th><th className="w-28 px-3 py-2.5 font-normal">{t('table.published')}</th><th className="px-4 py-2.5 font-normal">{t('table.description')}</th></tr></thead>
