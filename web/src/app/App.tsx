@@ -23,6 +23,7 @@ import { UpdateNotice } from '@/app/update-notice'
 import type { SessionActions, SessionUser } from '@/features/auth/session'
 import { api } from '@/shared/api/http'
 import { readRoute, writeRoute } from '@/shared/lib/route'
+import { useRouteState } from '@/app/route-state'
 import { Account } from '@/features/auth/account'
 import { Dashboard } from '@/pages/Dashboard'
 import { Findings } from '@/pages/Findings'
@@ -45,8 +46,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/se
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/shared/ui/sheet'
 
 type Theme = 'system' | 'light' | 'dark'
-// Unknown or retired tabs (the old `access`, now part of the overview) open the overview.
-const domainTabOf = (tab: string | null): DomainTab => tab === 'findings' || tab === 'scans' || tab === 'scope' || tab === 'users' ? tab : 'overview'
 
 const DESCRIPTION: Partial<Record<View, string>> = {
   overview: 'descriptions.overview', analyses: 'descriptions.analyses', repositories: 'descriptions.repositories', images: 'descriptions.images',
@@ -57,36 +56,18 @@ const DESCRIPTION: Partial<Record<View, string>> = {
 
 function App({ user, session }: { user: SessionUser; session: SessionActions }) {
   const { t, i18n } = useTranslation('nav')
-  const [view, setView] = useState<View>(() => (readRoute().view as View | null) ?? 'overview')
+  const { view, setView, selectedId, setSelectedId, wizardStart, setWizardStart, domainRoute, setDomainRoute } = useRouteState()
   const runsResult = useQuery(runsQuery())
   const health = useQuery(healthQuery())
   const version = health.data?.version
   const rows = useMemo(() => runsResult.data ?? [], [runsResult.data])
   const queryClient = useQueryClient()
   const [detail, setDetail] = useState<RunRow | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(() => readRoute().params.get('run'))
-  // La URL manda: Atrás, Adelante y refrescar restauran vista y ejecución.
-  useEffect(() => {
-    const sync = () => {
-      const route = readRoute()
-      if (!route.view) return
-      setView(route.view as View); setSelectedId(route.params.get('run'))
-      if (route.view === 'domain') setDomainRoute({ id: route.params.get('id') ?? '', tab: domainTabOf(route.params.get('tab')) })
-    }
-    // hashchange too: a link or an edited address in the same tab changes the hash without always firing popstate.
-    window.addEventListener('popstate', sync)
-    window.addEventListener('hashchange', sync)
-    return () => { window.removeEventListener('popstate', sync); window.removeEventListener('hashchange', sync) }
-  }, [])
   useEffect(() => { if (!readRoute().view) writeRoute(view, {}, { replace: true }) }, [view])
   // Cada vista empieza arriba: sin esto hereda el scroll de la anterior (p. ej. el CVE tracker abría al pie).
   useEffect(() => { window.scrollTo({ top: 0 }) }, [view])
   const [error, setError] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [selectedSource, setSelectedSource] = useState<string | null>(null)
-  // What the wizard starts with, also from the address (a domain's "New scan" or "Import results").
-  const [wizardStart, setWizardStart] = useState(() => { const params = readRoute().params; return { domain: params.get('domain'), type: params.get('type') } })
-  const [domainRoute, setDomainRoute] = useState(() => { const params = readRoute().params; return { id: params.get('id') ?? '', tab: domainTabOf(params.get('tab')) } })
   // The domain page's host follows its section in the header crumb (the same cached list the page reads).
   const domainList = useQuery({ ...domainsQuery(), enabled: view === 'domain' })
   const domainHost = view === 'domain' ? domainList.data?.items.find(item => item.id === domainRoute.id)?.host : undefined
@@ -145,19 +126,19 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
       setError(null)
       return run
     } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)) }
-  }, [])
+  }, [setSelectedId, setView])
   // Entrar en Hallazgos desde el menú muestra el estado actual; abrir una ejecución concreta pasa por openRun.
-  const selectView = (next: View) => { if (next === 'new') { setSelectedSource(null); setWizardStart({ domain: null, type: null }) } if (next === 'findings') setSelectedId(null); setView(next); setMobileOpen(false); writeRoute(next) }
+  const selectView = (next: View) => { if (next === 'new') setWizardStart({ source: null, domain: null, type: null }); if (next === 'findings') setSelectedId(null); setView(next); setMobileOpen(false); writeRoute(next) }
   // Un CVE concreto del Resumen: la URL lleva su id (lo lee el tracker al montarse) y la vista cambia a la vez.
   const openTracker = (id?: string) => { if (!id) return selectView('cves'); writeRoute('cves', { id }); setView('cves'); setMobileOpen(false) }
   // The images built from a repository (from Repositories), and an image's findings (from Images).
   const openImages = (repository: { key: string; name: string }) => { writeRoute('images', { repo: repository.key, name: repository.name }); setView('images'); setMobileOpen(false) }
   const openAssetFindings = (key: string) => { setSelectedId(null); writeRoute('findings', { repo: key }); setView('findings'); setMobileOpen(false) }
-  const scanSource = (id: string) => { setSelectedSource(id); setWizardStart({ domain: null, type: null }); setView('new'); setMobileOpen(false) }
+  const scanSource = (id: string) => { setWizardStart({ source: id, domain: null, type: null }); setView('new'); setMobileOpen(false) }
   const openDomain = (domain: { id: string }, tab: DomainTab = 'overview') => { setDomainRoute({ id: domain.id, tab }); setView('domain'); writeRoute('domain', { id: domain.id, tab: tab === 'overview' ? null : tab }) }
   const domainTab = (tab: DomainTab) => { setDomainRoute(current => ({ ...current, tab })); writeRoute('domain', { id: domainRoute.id, tab: tab === 'overview' ? null : tab }, { replace: true }) }
-  const scanDomain = (domain: DomainRow) => { setSelectedSource(null); setWizardStart({ domain: domain.id, type: 'web' }); setView('new'); writeRoute('new', { domain: domain.id, type: 'web' }) }
-  const importResults = () => { setSelectedSource(null); setWizardStart({ domain: null, type: 'import' }); setView('new'); writeRoute('new', { type: 'import' }) }
+  const scanDomain = (domain: DomainRow) => { setWizardStart({ source: null, domain: domain.id, type: 'web' }); setView('new'); writeRoute('new', { domain: domain.id, type: 'web' }) }
+  const importResults = () => { setWizardStart({ source: null, domain: null, type: 'import' }); setView('new'); writeRoute('new', { type: 'import' }) }
   const completedRepositoryScan = async (id: string) => { await refresh(); await openRun(id, 'findings') }
 
   // El asistente vive dentro de Análisis: la sección sigue marcada mientras se crea una ejecución.
@@ -207,7 +188,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
     if (view === 'new') {
       // `api` is the old address of what is now one web scan for sites and APIs.
       const type = wizardStart.type === 'api' ? 'web' : wizardStart.type === 'code' || wizardStart.type === 'image' || wizardStart.type === 'web' || wizardStart.type === 'import' ? wizardStart.type : null
-      return <AnalysisWizard key={selectedSource ?? `${wizardStart.domain ?? ''}:${type ?? 'new'}`} initialSourceId={selectedSource} initialDomainId={wizardStart.domain} initialKind={type} isAdmin={user.role === 'admin'}
+      return <AnalysisWizard key={wizardStart.source ?? `${wizardStart.domain ?? ''}:${type ?? 'new'}`} initialSourceId={wizardStart.source} initialDomainId={wizardStart.domain} initialKind={type} isAdmin={user.role === 'admin'}
         onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onScheduled={id => openDomain({ id })} onManageConnections={() => selectView('integrations')} onCancel={() => selectView('analyses')} />
     }
     if (view === 'analyses') return <AnalysisList refreshKey={rows.length * 1000 + rows.filter(row => row.status === 'running' || row.status === 'queued').length} onOpen={id => openRun(id, 'findings')} onNew={() => selectView('new')} viewer={{ username: user.username, admin: user.role === 'admin' }} />
