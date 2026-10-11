@@ -173,14 +173,20 @@ body {
   color: var(--p-ink);
 }
 
-/* The current page: ink text on sunken with an ink rule, never a brand tint. */
+/* The current page: ink text on sunken, never a brand tint. The ink rule is drawn on the group's own guide line,
+   straight, instead of inside the rounded item. */
 .sidebar-content a[aria-current='page'],
 .sidebar-content a[aria-current='page']:hover,
 .sidebar-content a[aria-current='page']:focus {
   background: var(--p-sunken);
-  box-shadow: inset 2px 0 0 var(--p-ink);
+  box-shadow: none;
   color: var(--p-ink);
   font-weight: 500;
+}
+
+.sidebar-content li:has(> a[aria-current='page']) {
+  border-inline-start: 2px solid var(--p-ink);
+  padding-inline-start: calc(var(--sl-sidebar-item-padding-inline, 8px) - 1px);
 }
 
 starlight-toc a[aria-current='true'],
