@@ -338,7 +338,7 @@ class ApiTests(HttpCase):
             self.assertIn("already queued or running", answer["error"])
 
 
-SECRET = "pk_live_4f0c2b1e9a77d3c5aa01"
+SECRET = "pkfixture_4f0c2b1e9a77d3c5aa01"
 SPEC = {"openapi": "3.0.3", "info": {"title": "Agenda", "version": "1", "description": "internal-only-description"},
         "servers": [{"url": "http://localhost:8080/v1"}],
         "paths": {"/users": {"get": {"responses": {"200": {"description": "ok"}}},

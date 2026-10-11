@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import http.client
 import ssl
+import time
 from typing import Any, Callable
 from xml.etree import ElementTree
 
@@ -26,6 +27,7 @@ SITEMAP_MAX = 2 * 1024 * 1024
 SITEMAPS_MAX = 5          # sitemap documents read per host, a sitemap index's children included
 ROBOTS_LINES = 2000
 FETCH_SECONDS = 20
+SEEDS_SECONDS = 120  # robots.txt and sitemaps of every host, together
 INVENTORY_MAX = 500       # URLs kept in all (stored with the run)
 FORBIDDEN_XML = (b"<!doctype", b"<!entity")
 
@@ -90,8 +92,10 @@ def known_files(hosts: list[str], pins: dict[str, str], *, fetch: Fetch | None =
     the sitemaps it names on that host and /sitemap.xml, a sitemap index followed down to `SITEMAPS_MAX` documents."""
     fetch = fetch or domains.https_get
     found: dict[str, list[str]] = {"robots": [], "sitemap": []}
+    # One budget for every host: a slow site can't hold the (one at a time) web scan queue for long.
+    deadline = time.monotonic() + SEEDS_SECONDS
     for host in hosts:
-        if host not in pins:
+        if host not in pins or time.monotonic() > deadline:
             continue
         named: list[str] = []
         body = _get(fetch, f"https://{host}{ROBOTS}", pins, ROBOTS_MAX)
@@ -100,7 +104,7 @@ def known_files(hosts: list[str], pins: dict[str, str], *, fetch: Fetch | None =
             found["robots"] += paths
         queue = list(dict.fromkeys([*(url for url in named if url.startswith(f"https://{host}/")), f"https://{host}{SITEMAP}"]))
         read = 0
-        while queue and read < SITEMAPS_MAX:
+        while queue and read < SITEMAPS_MAX and time.monotonic() <= deadline:
             url = queue.pop(0)
             read += 1
             body = _get(fetch, url, pins, SITEMAP_MAX)
