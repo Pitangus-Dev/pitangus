@@ -27,7 +27,17 @@
     "analyzing_image": "Analyzing the image {{reference}} (read from the registry; it can take a couple of minutes)…",
     "image_done_one": "Image: 1 finding ({{status}}).",
     "image_done_other": "Image: {{count}} findings ({{status}}).",
-    "ready": "Done: open the panel and look at Overview, Findings and Threats."
+    "ready": "Done: open the panel and look at Overview, Findings and Threats.",
+    "no_recordings": "Can't find the recorded engine outputs in {{path}} (tests/fixtures and tests/engine-outputs)",
+    "full_repositories": "Lapis Labs (made up): {{count}} repositories, {{runs}} new scans and {{reviews}} new pull request reviews.",
+    "full_image": "Image {{reference}}: ready.",
+    "full_domains": "Domains: {{verified}} (verified for the demo, with scope, schedule and test user) and {{pending}} (pending).",
+    "full_members_one": "Members: 1 demo member, invited without a password.",
+    "full_members_other": "Members: {{count}} demo members, invited without a password.",
+    "full_members_skipped": "Members: create the administrator first (in the panel or with `pitangus user create --admin`), then run the demo again.",
+    "full_no_feeds": "KEV and EPSS: no feeds downloaded yet, so the demo findings show neither. Open the panel's Overview once (it downloads them) before running the demo.",
+    "full_integrations": "Slack and Jira: not added, because saving them contacts their servers.",
+    "ready_full": "Done: open the panel and look at Overview, Findings, Domains, Images, Threats and Users."
   },
   "engines": {
     "ready": "ready",

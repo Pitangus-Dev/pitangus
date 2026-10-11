@@ -7,6 +7,22 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Added
+
+- **A full demo organization.** `make demo FULL=1` (`pitangus demo --full`) builds Lapis Labs, a made-up company, so
+  every view has something to show in screenshots and trials: five repositories with a month of scans (trends, fixed
+  findings, MTTR, due dates), a pull request review, a container image, a domain verified for the demo
+  (`tienda.example.com`, with scope, weekly schedule, test user, technologies and two passive web scans), a pending
+  one, two members and a few triage decisions. It runs offline: findings are engine outputs recorded against the
+  bundled samples, replayed through the normal parsers, registry and triage. Everything is marked as demo, it never
+  notifies channels or Jira, and running it again adds nothing.
+
+### Changed
+
+- **Demo domains are never asked or scanned.** A domain the demo registers under a name reserved for examples
+  (`example.com`, `example.net`, `example.org`) skips the daily proof re-check, refuses scans, and its schedule moves
+  on with a note instead of queuing one.
+
 ## [0.13.0] - 2026-10-10
 
 ### Breaking

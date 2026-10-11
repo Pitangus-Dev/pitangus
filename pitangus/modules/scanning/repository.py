@@ -6,6 +6,7 @@ import ast
 import hashlib
 import json
 import re
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -18,7 +19,7 @@ from pitangus.modules.scanning.coverage import owasp_coverage
 from pitangus.modules.scanning.config_engines import merge_repository, run_checkov, run_zizmor
 from pitangus.modules.scanning.dependency_merge import merge_dependencies
 from pitangus.modules.scanning import secret_rules
-from pitangus.modules.scanning.engines import SECRET_SEVERITY, EngineStep, ScanContext, report_done, run_engines, SEVERITY_NAME, and_list, engines_available, joined as join_messages, host_mount_problem, run_osv_scanner, runner, socket_problem, merge_secrets, run_gitleaks, run_opengrep, run_trivy, masked_lead, secret_context, with_secret_identities
+from pitangus.modules.scanning.engines import SECRET_SEVERITY, Engine, EngineStep, ScanContext, report_done, run_engines, SEVERITY_NAME, and_list, engines_available, joined as join_messages, host_mount_problem, run_osv_scanner, runner, socket_problem, merge_secrets, run_gitleaks, run_opengrep, run_trivy, masked_lead, secret_context, with_secret_identities
 from pitangus.shared.i18n import msg
 from pitangus.shared.model import RunRecord
 from pitangus.version import USER_AGENT
@@ -181,7 +182,10 @@ REQUIRED_ENGINES = frozenset(engine.key for engine in CODE_ENGINES if engine.req
 
 
 def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
-                    context: str = "", data_dir: Path | None = None, progress=None) -> RunRecord:
+                    context: str = "", data_dir: Path | None = None, progress=None,
+                    replay: Sequence[Engine] | None = None, feeds: dict | None = None) -> RunRecord:
+    """`replay`: engines that stand in for CODE_ENGINES (one per key) and need no Docker: the demo replays recorded
+    engine outputs through them. `feeds`: the KEV/EPSS feeds already at hand, instead of loading them."""
     def report(level: str, message) -> None:
         if progress is not None:
             progress(level, message)
@@ -203,9 +207,10 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
     for path in files:
         relative = path.relative_to(root).as_posix()
         digest.update(relative.encode() + b"\0" + hashlib.sha256(path.read_bytes()).digest())
-    engines = engines_available()
-    docker = runner() == "docker"
-    feeds = load_feeds(data_dir or Path("data")) if (engines or allow_osv_upload) else {"kev": {}, "epss": {}}
+    engines = replay is not None or engines_available()
+    docker = replay is None and runner() == "docker"
+    if feeds is None:
+        feeds = load_feeds(data_dir or Path("data")) if (engines or allow_osv_upload) else {"kev": {}, "epss": {}}
     tools: list[dict] = []
     misconfigured = None if engines or not docker else socket_problem()
     if misconfigured:
@@ -218,7 +223,7 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
             report("warn", mount_problem)
         # The defaults plus this repository's own entries apply to both secret engines.
         secret_settings = secret_rules.for_scan(data_dir, source.get("uid") or source.get("id") or source.get("name"))
-        results = run_engines(CODE_ENGINES, ScanContext(root, data_dir or Path("data"), feeds, secret_settings, allow_osv_upload), report)
+        results = run_engines(CODE_ENGINES if replay is None else replay, ScanContext(root, data_dir or Path("data"), feeds, secret_settings, allow_osv_upload), report)
         sast, secrets_gitleaks, trivy = results["opengrep"], results["gitleaks"], results["trivy"]
         osv, checkov, zizmor = results["osv-scanner"], results["checkov"], results["zizmor"]
         tools = list(results.values())

@@ -231,6 +231,19 @@ def load_feeds(data_dir: Path) -> dict:
             "epss": _feed("epss.csv.gz", EPSS_URL, data_dir, _parse_epss)}
 
 
+def cached_feeds(data_dir: Path) -> dict:
+    """The KEV and EPSS feeds already downloaded to `data_dir`, however old, without going to the network: empty when
+    there is no copy (the demo data, which never leaves the machine)."""
+    feeds = {}
+    for key, name, parse in (("kev", "kev.json", _parse_kev), ("epss", "epss.csv.gz", _parse_epss)):
+        path = data_dir / "feeds" / name
+        try:
+            feeds[key] = parse(path.read_bytes()) if path.is_file() else {}
+        except (ValueError, OSError, UnicodeDecodeError, KeyError, csv.Error):
+            feeds[key] = {}
+    return feeds
+
+
 def _parse_nvd(body: bytes) -> dict:
     data = json.loads(body)
     items = []

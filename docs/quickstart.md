@@ -47,6 +47,17 @@ threat model. In the panel you'll see the **demo** asset:
 
 `make demo IMAGE=nginx:1.21` also scans a public image (Trivy + Grype, a couple of minutes).
 
+`make demo FULL=1` also builds **Lapis Labs**, a made-up organization that fills every view, offline and in seconds:
+five `lapis-labs/…` repositories with a month of scans (trends, fixed findings, MTTR, due dates, some overdue), a pull
+request review, a container image, the domain `tienda.example.com` verified for the demo (scope, a weekly schedule,
+a test user, detected technologies and two passive web scans), `soporte.example.net` pending, two members marked
+"(demo)" and a few triage decisions. Its findings are engine outputs recorded against these same samples
+(`tests/fixtures`, `tests/engine-outputs`), replayed through the normal parsers and registry: nothing is scanned or
+contacted. Create the admin account first (the members wait for it), and open the Overview once before running it if
+you want KEV and EPSS on the findings (it downloads those feeds; the demo only reads them). The demo domains, under
+names reserved for examples, are never verified or scanned for real. Running it again adds nothing. Slack and Jira
+are left out: saving them contacts their servers.
+
 ## 3. Connect your GitHub repositories (5 min)
 
 Under **Integrations → Code providers**, the panel walks you through creating your server's GitHub App with only
