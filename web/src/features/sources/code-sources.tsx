@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { imagesQuery } from '@/shared/api/queries'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/shared/api/http'
-import { ArrowsClockwiseIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, GitBranchIcon, LockKeyIcon, MagnifyingGlassIcon, StackIcon } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon, CaretDownIcon, CircleNotchIcon, DotsThreeIcon, FileTextIcon, GitBranchIcon, LockKeyIcon, MagnifyingGlassIcon, StackIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { FilterChip } from '@/shared/ui/filter-chip'
 import { Input } from '@/shared/ui/input'
@@ -13,7 +13,7 @@ import { SkeletonList } from '@/shared/ui/loading'
 import { BatchPanel, OrganizationScanDialog } from '@/features/analyses/batches'
 import { useBatches } from '@/features/analyses/use-batches'
 import { AuditReportDialog } from '@/features/findings/audit-report'
-import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/shared/ui/menu'
+import { Menu, MenuContent, MenuGroup, MenuItem, MenuSeparator, MenuTrigger } from '@/shared/ui/menu'
 import { formatDay } from '@/shared/i18n/format'
 import { useSourcePage } from '@/features/sources/sources'
 import { ScanBranchEdit, ScanBranchEditor, ScanBranchLabel } from '@/features/sources/scan-branch'
@@ -68,7 +68,14 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative w-full max-w-sm"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden /><Input aria-label={t('repositories.search')} placeholder={t('repositories.search_placeholder')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} className="border-input bg-card pl-9" /></div>
       {data && <span className="text-xs text-app-muted">{t('common:count.repositories', { count: data.total })}{data.partial ? ` · ${t('repositories.partial')}` : ''}</span>}
-      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+      {/* On a phone the three secondary actions share one menu instead of three stacked buttons. */}
+      <Menu><MenuTrigger render={<Button variant="outline" className="ml-auto sm:hidden" />}><DotsThreeIcon />{t('common:actions.more')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
+        <MenuContent>
+          <MenuItem disabled={loading} onClick={() => reload(true)}><ArrowsClockwiseIcon />{t('repositories.refresh')}</MenuItem>
+          {canManage && accounts.length > 0 && !batch && <><MenuSeparator /><MenuGroup label={t('repositories.scan_organization')}>{accounts.map(account => <MenuItem key={account} onClick={() => setOrganization(account)}><StackIcon />{account}</MenuItem>)}</MenuGroup></>}
+          {accounts.length > 0 && <><MenuSeparator /><MenuGroup label={t('repositories.organization_report')}>{accounts.map(account => <MenuItem key={account} onClick={() => setReportFor(account)}><FileTextIcon />{account}</MenuItem>)}</MenuGroup></>}
+        </MenuContent></Menu>
+      <div className="hidden flex-wrap items-center gap-2 sm:ml-auto sm:flex">
         <Button variant="outline" disabled={loading} onClick={() => reload(true)} className="border-input bg-card"><ArrowsClockwiseIcon className={loading ? 'motion-safe:animate-spin' : ''} /> {t('repositories.refresh')}</Button>
         {canManage && accounts.length > 0 && <Menu><MenuTrigger render={<Button variant="outline" disabled={!!batch} />}><StackIcon />{t('repositories.scan_organization')}<CaretDownIcon className="size-3.5" /></MenuTrigger>
           <MenuContent>{accounts.map(account => <MenuItem key={account} onClick={() => setOrganization(account)}>{account}</MenuItem>)}</MenuContent></Menu>}
@@ -96,21 +103,23 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
       {data?.sources.map(source => {
         const last = runs.find(run => run.source?.name === source.name)
         const images = source.uid ? imageCount.get(source.uid) : undefined
-        return <div key={source.id} className={`grid gap-x-3 gap-y-1 border-b border-app-line px-4 py-3 last:border-b-0 md:items-center ${grid}`}>
-          {source.installation_id ? <input type="checkbox" aria-label={t('repositories.select_one', { name: source.name })} className="size-4 accent-brand" checked={selected.has(source.id)}
+        // Below md: checkbox, name and Analyze on one line; branch, source and last scan on the line under the name.
+        return <div key={source.id} className={`grid grid-cols-[20px_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 border-b border-app-line px-4 py-3 last:border-b-0 md:items-center ${grid}`}>
+          {source.installation_id ? <input type="checkbox" aria-label={t('repositories.select_one', { name: source.name })} className="mt-0.5 size-4 accent-brand md:mt-0" checked={selected.has(source.id)}
             onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(source.id); else next.delete(source.id); return next })} /> : <span />}
           <div className="min-w-0">
-            <div className="flex min-w-0 items-start gap-2"><GitBranchIcon className="mt-0.5 size-4 shrink-0 text-app-muted" aria-hidden /><span className="min-w-0 text-sm font-medium [overflow-wrap:anywhere]">{source.name}</span>{source.private && <LockKeyIcon className="mt-1 size-3 shrink-0 text-app-subtle" aria-hidden />}</div>
-            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 pl-6 text-xs">
+            <div className="flex min-w-0 items-start gap-2"><GitBranchIcon className="mt-0.5 size-4 shrink-0 text-app-muted max-md:hidden" aria-hidden /><span className="min-w-0 text-sm font-medium [overflow-wrap:anywhere]">{source.name}</span>{source.private && <LockKeyIcon className="mt-1 size-3 shrink-0 text-app-subtle" aria-hidden />}</div>
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-xs md:pl-6">
               <span className="flex min-w-0 items-center gap-1"><span className="text-app-subtle">{t('repositories.columns.branch')}</span><ScanBranchLabel source={source} />{canManage && source.installation_id && source.uid && <ScanBranchEdit source={source} ref={editButton(source.id)} expanded={editingBranch === source.id} onEdit={() => setEditingBranch(current => current === source.id ? null : source.id)} />}</span>
               <span className="text-app-muted">{source.account ?? source.provider.toUpperCase()}</span>
+              <span className="text-app-muted md:hidden">{last ? formatDay(last.created_at) : t('repositories.not_scanned')}</span>
               {onImages && source.uid && (images || (canManage && last)) ? <button type="button" onClick={() => onImages({ key: source.uid ?? '', name: source.name })}
                 aria-label={images ? t('images.count_for', { count: images, name: source.name }) : t('images.link_for', { name: source.name })}
                 className="min-h-6 whitespace-nowrap text-brand underline underline-offset-2">{images ? t('images.count', { count: images }) : t('images.link_from_repository')}</button> : null}
             </div>
           </div>
-          <span className="pl-6 text-xs text-app-muted md:pl-0">{last ? formatDay(last.created_at) : t('repositories.not_scanned')}</span>
-          <Button variant="outline" size="sm" onClick={() => onScan?.(source.id)} className="ml-6 w-fit border-input bg-card md:ml-0">{t('repositories.scan')}</Button>
+          <span className="text-xs text-app-muted max-md:hidden">{last ? formatDay(last.created_at) : t('repositories.not_scanned')}</span>
+          <Button variant="outline" size="sm" onClick={() => onScan?.(source.id)} className="w-fit border-input bg-card">{t('repositories.scan')}</Button>
           {editingBranch === source.id && <ScanBranchEditor source={source} onClose={() => closeBranchEditor(source.id)} onSaved={() => reload()} />}
         </div>
       })}

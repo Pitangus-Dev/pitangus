@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { XIcon } from '@phosphor-icons/react'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
+import { SelectField } from '@/shared/ui/select-field'
 import { evidenceAssetsQuery } from '@/shared/api/queries'
 import type { Scope } from '@/shared/lib/scope'
 
@@ -22,7 +23,9 @@ export function ScopePicker({ scope, accounts, total, one, step, onChange }: { s
     ['all', t('all', { count: total })]]
   return <fieldset className="min-w-0 space-y-3">
     <legend className="mb-3 text-xs text-app-muted">{step && <span aria-hidden>{step} · </span>}{t('legend')}</legend>
-    <div className="grid w-full grid-cols-2 gap-1 rounded-xl sm:flex sm:w-fit sm:max-w-full sm:flex-wrap border border-app-line bg-inset p-1">{kinds.map(([kind, label]) =>
+    {/* Below sm the four choices are a list: side by side they wrap two by two inside their box. */}
+    <SelectField className="w-full sm:hidden" aria-label={t('legend')} value={scope.kind} onValueChange={kind => onChange({ ...scope, kind: kind as Scope['kind'] })} options={kinds.map(([kind, label]) => ({ value: kind, label }))} />
+    <div className="hidden w-fit max-w-full flex-wrap gap-1 rounded-xl border border-app-line bg-inset p-1 sm:flex">{kinds.map(([kind, label]) =>
       <label key={kind} className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm whitespace-nowrap has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${scope.kind === kind ? 'border-app-fg bg-app-soft text-app-fg' : 'border-transparent text-app-muted hover:text-app-fg'}`}>
         <input type="radio" name={name} value={kind} checked={scope.kind === kind} onChange={() => onChange({ ...scope, kind })} className="sr-only" />{label}</label>)}</div>
     {scope.kind === 'one' && one}
