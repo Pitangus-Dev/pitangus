@@ -513,6 +513,29 @@ footer .meta a {
   width: min(10rem, 40vw);
 }
 
+/* The hero's picture is the panel's Overview, one capture per theme, framed like the screenshots in the guides. */
+.hero > .hero-html {
+  width: 100%;
+}
+
+.hero-shot {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--p-line);
+  border-radius: 8px;
+  background: var(--p-bg);
+}
+
+@media (min-width: 50rem) {
+  .hero {
+    grid-template-columns: 5fr 6fr;
+  }
+
+  .hero > .hero-html {
+    width: 100%;
+  }
+}
+
 .paths {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
