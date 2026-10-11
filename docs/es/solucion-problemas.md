@@ -51,7 +51,7 @@ o dominios que prefieras no publicar.
 
 | Síntoma | Causa probable | Solución |
 | --- | --- | --- |
-| Todo va muy lento en WSL2 | El repositorio está en el disco de Windows (`/mnt/c/...`), que WSL2 lee mucho más despacio. | Clónalo dentro de Linux: `cd ~ && git clone --branch v0.13.0 https://github.com/Pitangus-Dev/pitangus.git`. |
+| Todo va muy lento en WSL2 | El repositorio está en el disco de Windows (`/mnt/c/...`), que WSL2 lee mucho más despacio. | Clónalo dentro de Linux: `cd ~ && git clone --branch v0.13.1 https://github.com/Pitangus-Dev/pitangus.git`. |
 | `Permission denied` en `data/` con WSL2 | Las carpetas se crearon desde Windows o las creó Docker como root. | Clona dentro de Linux como arriba y ejecuta ahí `make setup` antes de `make up`. |
 
 ## VPN y proxy
