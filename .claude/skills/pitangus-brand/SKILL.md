@@ -24,6 +24,10 @@ Pitangus is a self-hosted application security tool: it analyses code, images an
 5. **Cool neutrals, not cream.** `bg` cool stone, `surface` white. Cream with a terracotta accent is the "AI default" look; Pitangus does not use it.
 6. **Content decides the form.** Monospace only for code, paths, hosts, rule ids, CVEs and versions. No letter-spaced uppercase labels, no decorative numbering (01 / 02), no "→" appended to text.
 
+## Chrome: the crown
+
+Identity lives in the app's frame, not in the data. The sidebar (and its mobile sheet) is `chrome`, near-black ink in both themes like the kiskadee's black crown: text `on-chrome`, group labels `on-chrome-muted`, dividers `chrome-line`, the active item on `chrome-raised` with `chrome-active` (sulphur) text and icon, and the logo with its tile at the top. Header and content stay on `bg`/`surface`. Nothing else in the panel uses `chrome`.
+
 ## Color
 
 - Text: `ink` on `bg`, `surface`, `sunken`; `ink-2` secondary; `muted` for labels and metadata. All ≥ 4.5:1 in both themes.
