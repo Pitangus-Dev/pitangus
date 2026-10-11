@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { healthQuery, keys, runsQuery, domainsQuery } from '@/shared/api/queries'
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { CaretRightIcon, ClockIcon, ListIcon, MagnifyingGlassIcon, MonitorIcon, MoonIcon, ScanIcon, SignOutIcon, SunIcon } from '@phosphor-icons/react'
+import { CaretRightIcon, ClockIcon, ListIcon, MagnifyingGlassIcon, MonitorIcon, MoonIcon, ScanIcon, SignOutIcon, SunIcon, XIcon } from '@phosphor-icons/react'
 import { navigation, visibleNavigation, type View } from '@/app/navigation'
 import { LAST_RUN_VIEWS, lastAnalysis } from '@/app/last-run'
 import { CommandPalette } from '@/app/command-palette'
@@ -42,7 +42,7 @@ import { formatDate } from '@/shared/i18n/format'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui/select'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/shared/ui/sheet'
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/shared/ui/sheet'
 
 type Theme = 'system' | 'light' | 'dark'
 // Unknown or retired tabs (the old `access`, now part of the overview) open the overview.
@@ -182,25 +182,25 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   })
   const paletteKeys = [isMac() ? '⌘' : 'Ctrl', 'K']
   const search = <button type="button" onClick={openPalette} aria-keyshortcuts={isMac() ? 'Meta+K' : 'Control+K'}
-    className="flex min-h-8 w-full items-center gap-2 rounded-lg border border-app-line bg-app px-3 py-1.5 text-left text-sm text-app-muted transition hover:bg-app-soft hover:text-app-fg">
-    <MagnifyingGlassIcon aria-hidden className="size-4" /><span className="flex-1">{t('palette.trigger')}</span><Keys keys={paletteKeys} className="max-lg:hidden" />
+    className="flex min-h-8 w-full items-center gap-2 rounded-lg border border-chrome-line bg-chrome-raised px-3 py-1.5 text-left text-sm text-on-chrome-muted transition hover:border-on-chrome-muted hover:text-on-chrome">
+    <MagnifyingGlassIcon aria-hidden className="size-4" /><span className="flex-1">{t('palette.trigger')}</span><Keys keys={paletteKeys} className="max-lg:hidden [&_kbd]:border-chrome-line [&_kbd]:text-on-chrome-muted" />
   </button>
   const nav = <nav aria-label={t('main')} className="space-y-5">{visibleNavigation(admin).map(group => {
     const id = `nav-${group.id}`
     return <div key={group.id} role="group" aria-labelledby={id} className="space-y-1">
-      <p id={id} className="px-3 pb-1 text-xs font-medium text-app-subtle">{t(group.label)}</p>
-      {group.items.map(item => <button key={item.id} onClick={() => selectView(item.id)} title={t('shortcuts.go_hint', { key: item.go.toUpperCase() })} aria-current={activeNav === item.id ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${activeNav === item.id ? 'bg-panel font-medium text-app-fg ring-1 ring-app-line [&>svg]:text-brand' : 'text-app-muted hover:bg-app-soft hover:text-app-fg'}`}><item.icon aria-hidden className="size-5" />{t(item.label)}</button>)}
+      <p id={id} className="px-3 pb-1 text-xs font-medium text-on-chrome-muted">{t(group.label)}</p>
+      {group.items.map(item => <button key={item.id} onClick={() => selectView(item.id)} title={t('shortcuts.go_hint', { key: item.go.toUpperCase() })} aria-current={activeNav === item.id ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${activeNav === item.id ? 'bg-chrome-raised font-medium text-chrome-active' : 'text-on-chrome hover:bg-chrome-raised'}`}><item.icon aria-hidden className="size-5" />{t(item.label)}</button>)}
     </div>
   })}</nav>
 
   const role = user.role === 'admin' ? t('auth:role.admin') : t('auth:role.member')
-  const userCard = <div className="space-y-2 border-t border-app-line pt-3">
-    <button onClick={() => selectView('account')} className={`flex w-full items-center gap-3 rounded-lg p-1 text-left transition hover:bg-app-soft ${view === 'account' ? 'text-brand' : ''}`}>
-      <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-md border border-app-line bg-panel text-xs font-semibold text-app-secondary">{(Array.from(user.display_name)[0] ?? '').toUpperCase()}</span>
-      <span className="min-w-0"><span className="block truncate text-sm font-medium">{user.display_name}</span><span className="block truncate text-xs text-app-subtle">{user.totp_enabled ? role : t('role_without_2fa', { role })}</span></span>
+  const userCard = <div className="space-y-1 border-t border-chrome-line pt-3">
+    <button onClick={() => selectView('account')} aria-current={view === 'account' ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg p-1 text-left transition hover:bg-chrome-raised ${view === 'account' ? 'bg-chrome-raised text-chrome-active' : 'text-on-chrome'}`}>
+      <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-md border border-chrome-line bg-chrome-raised text-xs font-semibold text-on-chrome">{(Array.from(user.display_name)[0] ?? '').toUpperCase()}</span>
+      <span className="min-w-0"><span className="block truncate text-sm font-medium">{user.display_name}</span><span className="block truncate text-xs text-on-chrome-muted">{user.totp_enabled ? role : t('role_without_2fa', { role })}</span></span>
       {!user.totp_enabled && <span role="img" aria-label={t('two_factor_off')} className="ml-auto size-2 shrink-0 rounded-full bg-attention" />}
     </button>
-    <Button variant="ghost" size="sm" onClick={() => void session.logout()} className="w-full justify-start text-app-muted"><SignOutIcon />{t('auth:sign_out')}</Button>
+    <button type="button" onClick={() => void session.logout()} className="flex min-h-8 w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm text-on-chrome-muted transition hover:bg-chrome-raised hover:text-on-chrome"><SignOutIcon aria-hidden className="size-4" />{t('auth:sign_out')}</button>
   </div>
 
   const renderMain = () => {
@@ -231,8 +231,8 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   }
 
   return <div className="min-h-screen bg-app text-app-fg"><TopProgress /><div className="flex min-h-screen">
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-app-line bg-inset px-4 py-6 lg:flex"><div className="mb-5 px-2"><BrandLockup /></div><div className="mb-5">{search}</div>{nav}<div className="mt-auto">{userCard}</div></aside>
-    <div className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-app-line bg-app px-4 sm:px-8"><div className="flex items-center gap-3"><Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetTrigger render={<Button aria-label={t('open_navigation')} variant="ghost" size="icon" className="lg:hidden" />}><ListIcon /></SheetTrigger><SheetContent side="left" className="w-72 border-app-line bg-inset"><SheetHeader><SheetTitle className="text-left"><BrandLockup size={32} /></SheetTitle></SheetHeader><div className="space-y-6 px-3">{search}{nav}{userCard}</div></SheetContent></Sheet><span className="hidden text-sm text-app-muted sm:inline">{t('workspace')}</span><CaretRightIcon className="hidden size-3 text-app-subtle sm:block" />{view === 'domain'
+    <aside data-chrome className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-chrome-line bg-chrome px-4 py-6 lg:flex"><div className="mb-5 px-2"><BrandLockup chrome /></div><div className="mb-5">{search}</div>{nav}<div className="mt-auto">{userCard}</div></aside>
+    <div className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-app-line bg-app px-4 sm:px-8"><div className="flex items-center gap-3"><Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetTrigger render={<Button aria-label={t('open_navigation')} variant="ghost" size="icon" className="lg:hidden" />}><ListIcon /></SheetTrigger><SheetContent side="left" showCloseButton={false} data-chrome className="w-72 overflow-y-auto border-chrome-line bg-chrome text-on-chrome"><SheetHeader className="flex-row items-center justify-between"><SheetTitle className="text-left"><BrandLockup size={32} chrome /></SheetTitle><SheetClose className="grid size-8 place-items-center rounded-lg text-on-chrome-muted transition hover:bg-chrome-raised hover:text-on-chrome"><XIcon aria-hidden className="size-4" /><span className="sr-only">{t('common:actions.close')}</span></SheetClose></SheetHeader><div className="space-y-6 px-3 pb-6">{search}{nav}{userCard}</div></SheetContent></Sheet><span className="hidden text-sm text-app-muted sm:inline">{t('workspace')}</span><CaretRightIcon className="hidden size-3 text-app-subtle sm:block" />{view === 'domain'
         ? <nav aria-label={t('breadcrumb')} className="flex min-w-0 items-center gap-1.5 text-sm"><button type="button" onClick={() => selectView('domains')} className="min-h-6 text-app-muted underline-offset-2 hover:text-app-fg hover:underline">{currentTitle}</button>{domainHost && <><CaretRightIcon aria-hidden className="size-3 shrink-0 text-app-subtle" /><span aria-current="page" className="truncate font-medium">{domainHost}</span></>}</nav>
         : <span className="hidden text-sm font-medium sm:inline">{currentTitle}</span>}</div><div className="flex items-center gap-2 sm:gap-3"><JiraBackgroundWork onNotice={toasts.push} /><LocaleSwitch /><Select value={theme} onValueChange={value => setTheme(value as Theme)}><SelectTrigger aria-label={t('theme.label')} size="sm" className="border-input bg-card text-app-secondary sm:min-w-32">{theme === 'dark' ? <MoonIcon className="size-3.5" /> : theme === 'light' ? <SunIcon className="size-3.5" /> : <MonitorIcon className="size-3.5" />}<span className="hidden min-w-0 flex-1 text-left sm:block">{theme === 'system' ? t('theme.system') : theme === 'light' ? t('theme.light') : t('theme.dark')}</span></SelectTrigger><SelectContent align="end" className="border border-app-line bg-panel p-1 text-app-fg shadow-md"><SelectItem value="system">{t('theme.system')}</SelectItem><SelectItem value="light">{t('theme.light')}</SelectItem><SelectItem value="dark">{t('theme.dark')}</SelectItem></SelectContent></Select>{health.isPending ? <Bone className="hidden h-5 w-32 sm:block" /> : version && <Badge variant="outline" className="hidden border-app-line text-app-muted sm:inline-flex">{t('edition', { version })}</Badge>}<Button aria-label={t('items.new')} onClick={() => selectView('new')}><ScanIcon /><span className="hidden sm:inline">{t('items.new')}</span></Button></div></header>
     <main className="max-w-[1600px] space-y-6 px-4 py-6 sm:px-8 sm:py-8">{view !== 'domain' && view !== 'domains' && <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-2xl font-semibold tracking-tight">{currentTitle}</h1>{view !== 'new' && <p className="mt-1 max-w-2xl text-sm text-app-muted">{t(DESCRIPTION[view] ?? 'descriptions.default')}</p>}</div>{latest && LAST_RUN_VIEWS.has(view) && <div className="flex items-center gap-2 text-xs text-app-subtle"><ClockIcon className="size-3.5" />{t('last_run', { date: formatDate(latest.created_at) })}</div>}</div>}

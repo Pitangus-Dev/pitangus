@@ -34,6 +34,12 @@
     --color-sulphur-soft: var(--sulphur-soft);
     --color-sulphur-line: var(--sulphur-line);
     --color-focus: var(--focus);
+    --color-chrome: var(--chrome);
+    --color-chrome-raised: var(--chrome-raised);
+    --color-chrome-line: var(--chrome-line);
+    --color-on-chrome: var(--on-chrome);
+    --color-on-chrome-muted: var(--on-chrome-muted);
+    --color-chrome-active: var(--chrome-active);
     --color-tone-purple: var(--tone-purple);
     --color-tone-ochre: var(--tone-ochre);
     --color-tone-ochre-soft: var(--tone-ochre-soft);
@@ -184,6 +190,13 @@
     --sidebar-accent-foreground: #16181B;
     --sidebar-border: #DADDE1;
     --sidebar-ring: var(--focus);
+    /* Chrome (manual: the crown): the sidebar and its mobile sheet are near-black ink in both themes. */
+    --chrome: #16181B;
+    --chrome-raised: #24272B;
+    --chrome-line: #2E3236;
+    --on-chrome: #ECEEF0;   /* 15.3:1 on chrome, 12.9:1 on chrome-raised */
+    --on-chrome-muted: #A0A6AE;   /* 7.3:1 on chrome, 6.1:1 on chrome-raised */
+    --chrome-active: #F2C230;   /* sulphur: 10.6:1 on chrome, 9.0:1 on chrome-raised */
 }
 
 .dark {
@@ -259,7 +272,17 @@
     --sidebar-accent-foreground: #ECEEF0;
     --sidebar-border: #2C3136;
     --sidebar-ring: var(--focus);
+    --chrome: #0B0C0E;
+    --chrome-raised: #1A1D21;
+    --chrome-line: #24282C;
+    --on-chrome: #ECEEF0;   /* 16.8:1 on chrome, 14.5:1 on chrome-raised */
+    --on-chrome-muted: #9AA1A9;   /* 7.5:1 on chrome, 6.5:1 on chrome-raised */
+    --chrome-active: #F2C230;   /* 11.7:1 on chrome, 10.1:1 on chrome-raised */
 }
+
+/* Inside the chrome the ground is ink in both themes: focus is sulphur (10.6:1 light, 11.7:1 dark) and the attention
+   dot takes its dark-theme orange (≥ 3:1 on ink). */
+[data-chrome] { --focus: var(--chrome-active); --attention: #F5A35C; color: var(--on-chrome); }
 
 html { background: var(--app-bg); color-scheme: light; }
 html.dark { color-scheme: dark; }
