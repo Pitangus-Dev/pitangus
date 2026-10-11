@@ -26,12 +26,20 @@ function useWidth(fallback: number) {
   return [ref, width] as const
 }
 
-// Qué días del eje llevan etiqueta: una cada ~64 px, siempre la última y nunca dos pegadas.
-function dayTicks(length: number, innerW: number) {
-  const step = Math.max(1, Math.ceil(length / Math.max(2, Math.floor(innerW / 64))))
+// A day label ("10/08" at 11 px) and the least room between two.
+const DAY_LABEL = 36, DAY_GAP = 12
+type DayLabel = { x: number; anchor: 'start' | 'middle' | 'end' }
+const labelSpan = ({ x, anchor }: DayLabel) => anchor === 'start' ? [x, x + DAY_LABEL] : anchor === 'end' ? [x - DAY_LABEL, x] : [x - DAY_LABEL / 2, x + DAY_LABEL / 2]
+
+// Which days get a label: one every ~64 px and always the last. The last is aligned to the edge, so it reaches further
+// left than a centred one: a label that would come closer to it than DAY_GAP is dropped.
+function dayTicks(length: number, innerW: number, label: (index: number) => DayLabel) {
   const ticks = new Set<number>()
-  for (let index = 0; index < length; index += step) if (length - 1 - index >= step / 2 || index === length - 1) ticks.add(index)
-  if (length) ticks.add(length - 1)
+  if (!length) return ticks
+  const step = Math.max(1, Math.ceil(length / Math.max(2, Math.floor(innerW / 64))))
+  const lastLeft = labelSpan(label(length - 1))[0]
+  for (let index = 0; index < length - 1; index += step) if (labelSpan(label(index))[1] + DAY_GAP <= lastLeft) ticks.add(index)
+  ticks.add(length - 1)
   return ticks
 }
 
@@ -54,7 +62,8 @@ export function StackedSeverityBars({ data, height = 180 }: { data: { day: strin
   const slot = innerW / Math.max(1, data.length), bar = Math.max(2, Math.min(18, slot * 0.7))
   const ticks = [0, Math.ceil(max / 2), max]
   const total = data.reduce((sum, item) => sum + item.critical + item.high + item.medium + item.low, 0)
-  const ticksAt = dayTicks(data.length, innerW)
+  const dayLabel = (index: number): DayLabel => index === data.length - 1 ? { x: width - 8, anchor: 'end' } : { x: padLeft + index * slot + slot / 2, anchor: 'middle' }
+  const ticksAt = dayTicks(data.length, innerW, dayLabel)
   return <div ref={ref} className="relative">
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block max-w-full" role="img" aria-label={t('new_per_day', { total })}>
       {ticks.map(tick => { const y = padTop + innerH - (tick / max) * innerH; return <g key={tick}><line x1={padLeft} x2={width - 8} y1={y} y2={y} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{formatNumber(tick)}</text></g> })}
@@ -63,7 +72,7 @@ export function StackedSeverityBars({ data, height = 180 }: { data: { day: strin
           <rect x={padLeft + index * slot} y={padTop} width={slot} height={innerH} fill="transparent" />
           {SEV.map(level => { const value = item[level]; if (!value) return null; const h = (value / max) * innerH; y -= h
             return <rect key={level} x={x} y={y + 1} width={bar} height={Math.max(0, h - 2)} rx={level === 'critical' || y + 1 <= padTop + 2 ? 2 : 0} fill={sevColor[level]} /> })}
-          {ticksAt.has(index) && <text x={index === data.length - 1 ? width - 8 : padLeft + index * slot + slot / 2} y={height - 6} textAnchor={index === data.length - 1 ? 'end' : 'middle'} className="fill-app-subtle" fontSize={11}>{shortDay(item.day)}</text>}
+          {ticksAt.has(index) && <text x={dayLabel(index).x} y={height - 6} textAnchor={dayLabel(index).anchor} className="fill-app-subtle" fontSize={11}>{shortDay(item.day)}</text>}
         </g> })}
       <line x1={padLeft} x2={width - 8} y1={padTop + innerH} y2={padTop + innerH} stroke="var(--axis-line)" strokeWidth={1} />
     </svg>
@@ -115,7 +124,8 @@ export function FoundVsFixed({ data, height = 200 }: { data: { day: string; foun
   const y = (value: number) => padTop + innerH - (value / max) * innerH
   const path = (key: 'found' | 'fixed') => data.map((item, index) => `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(item[key]).toFixed(1)}`).join(' ')
   const last = data[data.length - 1]
-  const ticksAt = dayTicks(data.length, innerW)
+  const dayLabel = (index: number): DayLabel => ({ x: x(index), anchor: index === data.length - 1 ? 'end' : index === 0 ? 'start' : 'middle' })
+  const ticksAt = dayTicks(data.length, innerW, dayLabel)
   return <div ref={ref} className="relative">
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block max-w-full" role="img" aria-label={t('found_vs_fixed')}>
       {[0, Math.ceil(max / 2), max].map(tick => <g key={tick}><line x1={padLeft} x2={width - 8} y1={y(tick)} y2={y(tick)} stroke="var(--grid-line)" strokeWidth={1} /><text x={padLeft - 6} y={y(tick) + 3} textAnchor="end" className="fill-app-subtle" fontSize={11}>{formatNumber(tick)}</text></g>)}
@@ -124,7 +134,7 @@ export function FoundVsFixed({ data, height = 200 }: { data: { day: string; foun
       {last && <><text x={width - 10} y={y(last.found) - 4} textAnchor="end" className="fill-app-secondary" fontSize={11}>{t('found_count', { count: last.found })}</text><text x={width - 10} y={y(last.fixed) + (Math.abs(y(last.fixed) - y(last.found)) < 12 ? 12 : -4)} textAnchor="end" className="fill-app-secondary" fontSize={11}>{t('fixed_count', { count: last.fixed })}</text></>}
       {hover && <><line x1={x(hover.index)} x2={x(hover.index)} y1={padTop} y2={padTop + innerH} stroke="var(--axis-line)" strokeDasharray="3 3" /><circle cx={x(hover.index)} cy={y(data[hover.index].found)} r={4} fill="var(--series-found)" stroke="var(--app-panel)" strokeWidth={2} /><circle cx={x(hover.index)} cy={y(data[hover.index].fixed)} r={4} fill="var(--series-fixed)" stroke="var(--app-panel)" strokeWidth={2} /></>}
       <rect x={padLeft} y={padTop} width={innerW} height={innerH} fill="transparent" onMouseMove={event => { const rect = (event.currentTarget as SVGRectElement).getBoundingClientRect(); const ratio = (event.clientX - rect.left) / rect.width; setHover({ index: Math.round(ratio * (data.length - 1)), x: (event.nativeEvent as MouseEvent).offsetX, y: (event.nativeEvent as MouseEvent).offsetY }) }} onMouseLeave={() => setHover(null)} />
-      {data.map((item, index) => ticksAt.has(index) && <text key={item.day} x={x(index)} y={height - 6} textAnchor={index === data.length - 1 ? 'end' : index === 0 ? 'start' : 'middle'} className="fill-app-subtle" fontSize={11}>{shortDay(item.day)}</text>)}
+      {data.map((item, index) => ticksAt.has(index) && <text key={item.day} x={dayLabel(index).x} y={height - 6} textAnchor={dayLabel(index).anchor} className="fill-app-subtle" fontSize={11}>{shortDay(item.day)}</text>)}
       <line x1={padLeft} x2={width - 8} y1={padTop + innerH} y2={padTop + innerH} stroke="var(--axis-line)" strokeWidth={1} />
     </svg>
     {hover && <Tooltip x={hover.x} y={hover.y}><div className="font-medium">{data[hover.index].day}</div><div className="flex justify-between gap-3"><span>{t('found')}</span><span className="tabular-nums">{data[hover.index].found}</span></div><div className="flex justify-between gap-3"><span>{t('fixed')}</span><span className="tabular-nums">{data[hover.index].fixed}</span></div></Tooltip>}
