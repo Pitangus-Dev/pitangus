@@ -1,43 +1,120 @@
-:root {
-  --sl-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --sl-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  --sl-content-width: 52rem;
-  --sl-sidebar-width: 18rem;
-  --sl-color-accent-low: #f7e6c6;
-  --sl-color-accent: #9c4a1e;
-  --sl-color-accent-high: #642b10;
-  --sl-color-white: #1c1a16;
-  --sl-color-gray-1: #332f26;
-  --sl-color-gray-2: #4d4638;
-  --sl-color-gray-3: #6b614e;
-  --sl-color-gray-4: #a79b82;
-  --sl-color-gray-5: #ded3bb;
-  --sl-color-gray-6: #f1e6cc;
-  --sl-color-black: #fffdf5;
-  --sl-color-bg: #fbf5e6;
-  --sl-color-bg-nav: color-mix(in srgb, #fbf5e6 94%, transparent);
-  --sl-color-bg-sidebar: #f7efd9;
-  --sl-color-hairline-light: #ded3bb;
-  --sl-color-hairline: #c9bda4;
+/* Pitangus identity manual (.claude/skills/pitangus-brand/tokens.json) applied to Starlight. Cool neutrals, ink text,
+   sulphur only for the logo and the one primary call to action, one meaning per state colour, small radii, no
+   gradients. The ink sidebar ("chrome") belongs to the app; the docs use a calm light and dark theme. */
+
+:root,
+:root[data-theme='light'] {
+  --p-bg: #F5F6F7;
+  --p-surface: #FFFFFF;
+  --p-sunken: #ECEEF1;
+  --p-line: #DADDE1;
+  --p-line-strong: #80868E;
+  --p-ink: #16181B;
+  --p-ink-2: #3D434A;
+  --p-muted: #5C636B;
+  --p-sulphur: #F2C230;
+  --p-on-sulphur: #16181B;
+  --p-sulphur-soft: #FCEFC4;
+  --p-focus: #16181B;
+  --p-critical: #B42318;
+  --p-critical-soft: #FDECEA;
+  --p-critical-line: #F3B8B1;
+  --p-attention: #9E4708;
+  --p-attention-soft: #FDF0E5;
+  --p-attention-line: #F2C29B;
+  --p-ok: #1E7444;
+  --p-ok-soft: #E7F5EC;
+  --p-ok-line: #A8D9BA;
+  --p-info: #2D5A87;
+  --p-info-soft: #EAF1F8;
+  --p-info-line: #B6CCE3;
+  --p-shadow-float: 0 4px 12px rgba(22, 24, 27, 0.10);
+  --p-shadow-dialog: 0 12px 32px rgba(22, 24, 27, 0.16);
 }
 
 :root[data-theme='dark'] {
-  --sl-color-accent-low: #3b2c16;
-  --sl-color-accent: #f5cd4a;
-  --sl-color-accent-high: #fff1b7;
-  --sl-color-white: #fff8e8;
-  --sl-color-gray-1: #e8dfca;
-  --sl-color-gray-2: #cfc5ac;
-  --sl-color-gray-3: #aaa087;
-  --sl-color-gray-4: #6f6756;
-  --sl-color-gray-5: #3a3529;
-  --sl-color-gray-6: #29251c;
-  --sl-color-black: #16140f;
-  --sl-color-bg: #16140f;
-  --sl-color-bg-nav: color-mix(in srgb, #16140f 94%, transparent);
-  --sl-color-bg-sidebar: #211e16;
-  --sl-color-hairline-light: #3a3529;
-  --sl-color-hairline: #4d4638;
+  --p-bg: #111315;
+  --p-surface: #181B1E;
+  --p-sunken: #202428;
+  --p-line: #2C3136;
+  --p-line-strong: #666E76;
+  --p-ink: #ECEEF0;
+  --p-ink-2: #C3C8CE;
+  --p-muted: #9AA1A9;
+  --p-sulphur-soft: #3A3116;
+  --p-focus: #F2C230;
+  --p-critical: #FF8B7B;
+  --p-critical-soft: #3A1A17;
+  --p-critical-line: #6B2A23;
+  --p-attention: #F5A35C;
+  --p-attention-soft: #3A2614;
+  --p-attention-line: #6E4520;
+  --p-ok: #5CC98A;
+  --p-ok-soft: #13301F;
+  --p-ok-line: #23573A;
+  --p-info: #8DB4DD;
+  --p-info-soft: #172636;
+  --p-info-line: #2C4866;
+  --p-shadow-float: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --p-shadow-dialog: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* Starlight's palette, mapped onto the tokens (the same names in both themes). */
+:root,
+:root[data-theme='light'],
+:root[data-theme='dark'] {
+  --sl-font: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  --sl-content-width: 48rem;
+  --sl-sidebar-width: 17.5rem;
+
+  --sl-color-white: var(--p-ink);
+  --sl-color-gray-1: var(--p-ink);
+  --sl-color-gray-2: var(--p-ink-2);
+  --sl-color-gray-3: var(--p-muted);
+  --sl-color-gray-4: var(--p-line-strong);
+  --sl-color-gray-5: var(--p-line);
+  --sl-color-gray-6: var(--p-sunken);
+  --sl-color-gray-7: var(--p-bg);
+  --sl-color-black: var(--p-surface);
+
+  --sl-color-accent-low: var(--p-sunken);
+  --sl-color-accent: var(--p-ink);
+  --sl-color-accent-high: var(--p-ink);
+
+  --sl-color-text: var(--p-ink);
+  --sl-color-text-accent: var(--p-ink);
+  --sl-color-text-invert: var(--p-surface);
+  --sl-color-bg: var(--p-surface);
+  --sl-color-bg-nav: var(--p-surface);
+  --sl-color-bg-sidebar: var(--p-bg);
+  --sl-color-bg-inline-code: var(--p-sunken);
+  --sl-color-bg-accent: var(--p-sunken);
+  --sl-color-hairline: var(--p-line);
+  --sl-color-hairline-light: var(--p-line);
+  --sl-color-hairline-shade: var(--p-line);
+  --sl-color-backdrop-overlay: rgba(17, 19, 21, 0.55);
+
+  --sl-shadow-sm: none;
+  --sl-shadow-md: var(--p-shadow-float);
+  --sl-shadow-lg: var(--p-shadow-dialog);
+
+  --sl-line-height: 1.7;
+  --sl-line-height-headings: 1.25;
+  --sl-text-h1: 2rem;
+  --sl-text-h2: 1.5rem;
+  --sl-text-h3: 1.1875rem;
+  --sl-text-h4: 1.0625rem;
+  --sl-text-h5: 1rem;
+}
+
+@media (min-width: 50em) {
+  :root {
+    --sl-text-h1: 2.25rem;
+    --sl-text-h2: 1.625rem;
+    --sl-text-h3: 1.25rem;
+    --sl-text-h4: 1.0625rem;
+  }
 }
 
 html {
@@ -45,16 +122,28 @@ html {
 }
 
 body {
-  background-image: radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--sl-color-accent) 5%, transparent), transparent 28rem);
+  background: var(--p-surface);
+  color: var(--p-ink);
 }
 
-:focus-visible {
-  outline: 2px solid var(--sl-color-accent);
-  outline-offset: 3px;
+:where(:focus-visible) {
+  outline: 2px solid var(--p-focus);
+  outline-offset: 2px;
 }
+
+::selection {
+  background: var(--p-sulphur-soft);
+  color: var(--p-ink);
+}
+
+/* Header and sidebar */
 
 .site-title {
-  letter-spacing: -0.02em;
+  gap: 0.625rem;
+  color: var(--p-ink);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .site-title img {
@@ -62,53 +151,353 @@ body {
   height: 2rem;
 }
 
-.hero {
-  padding-block: clamp(3rem, 8vw, 6rem);
+.sidebar-pane {
+  border-inline-end: 1px solid var(--p-line);
 }
 
-.hero h1 {
-  max-width: 15ch;
-  letter-spacing: -0.04em;
+.sidebar-content .top-level > li > details > summary .group-label > span,
+.sidebar-content .group-label .large {
+  color: var(--p-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
-.hero .tagline {
-  max-width: 46rem;
-  color: var(--sl-color-gray-2);
+.sidebar-content a {
+  border-radius: 6px;
+  color: var(--p-ink-2);
+  font-size: 0.9375rem;
 }
 
-.sl-link-button.primary {
-  border-color: #f2c230;
-  background: #f2c230;
-  color: #1c1a16;
+.sidebar-content a:hover {
+  background: var(--p-sunken);
+  color: var(--p-ink);
 }
 
-.sl-link-button.primary:hover {
-  border-color: var(--sl-color-white);
-  background: var(--sl-color-white);
-  color: var(--sl-color-black);
+/* The current page: ink text on sunken with an ink rule, never a brand tint. */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+  background: var(--p-sunken);
+  box-shadow: inset 2px 0 0 var(--p-ink);
+  color: var(--p-ink);
+  font-weight: 500;
 }
 
-.card-grid > article,
-.sl-link-card {
-  border-radius: 0.9rem;
-  border-color: var(--sl-color-hairline);
-  box-shadow: 0 12px 35px color-mix(in srgb, var(--sl-color-black) 4%, transparent);
+starlight-toc a[aria-current='true'],
+starlight-toc a[aria-current='true']:hover {
+  color: var(--p-ink);
+  font-weight: 500;
 }
 
-.sl-markdown-content :is(h2, h3) {
-  letter-spacing: -0.02em;
+starlight-toc a {
+  color: var(--p-muted);
 }
 
-.sl-markdown-content table {
-  font-size: 0.92rem;
+/* Search, selects and buttons: 6px radius, controls outlined in line-strong. */
+site-search button[data-open-modal] {
+  border-color: var(--p-line-strong);
+  border-radius: 6px;
+  background: var(--p-surface);
+  color: var(--p-muted);
 }
 
-.sl-markdown-content th {
-  color: var(--sl-color-white);
+starlight-theme-select select,
+starlight-lang-select select {
+  border-radius: 6px;
+}
+
+dialog[aria-label] {
+  border-radius: 8px;
+}
+
+/* Content */
+
+.sl-markdown-content {
+  color: var(--p-ink);
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4, h5) {
+  color: var(--p-ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sl-markdown-content h2 {
+  padding-top: 0.25rem;
+}
+
+h1#_top {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.sl-markdown-content a:not(.sl-link-button, .sl-link-card, .sl-anchor-link) {
+  color: var(--p-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--p-line-strong);
+  text-underline-offset: 0.18em;
+}
+
+.sl-markdown-content a:not(.sl-link-button, .sl-link-card, .sl-anchor-link):hover {
+  text-decoration-color: var(--p-ink);
 }
 
 .sl-markdown-content code:not(:where(.expressive-code *)) {
-  border: 1px solid var(--sl-color-hairline-light);
+  border: 1px solid var(--p-line);
+  border-radius: 4px;
+  padding: 0.0625rem 0.3125rem;
+  background: var(--p-sunken);
+  color: var(--p-ink);
+  font-size: 0.875em;
+}
+
+.sl-markdown-content table {
+  display: block;
+  overflow-x: auto;
+  border: 1px solid var(--p-line);
+  border-radius: 8px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9375rem;
+}
+
+.sl-markdown-content :is(th, td) {
+  border: 0;
+  border-bottom: 1px solid var(--p-line);
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
+
+.sl-markdown-content tr:last-child td {
+  border-bottom: 0;
+}
+
+.sl-markdown-content th {
+  background: var(--p-bg);
+  color: var(--p-ink-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: start;
+}
+
+.sl-markdown-content hr {
+  border-color: var(--p-line);
+}
+
+.sl-markdown-content kbd {
+  border: 1px solid var(--p-line-strong);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  background: var(--p-surface);
+  font-family: var(--__sl-font-mono);
+  font-size: 0.8125em;
+}
+
+/* Asides follow the manual's notices: a row on the surface with the family colour in the icon, title and rule, the
+   text in ink. Only `danger` (a risk of damage) gets the critical tint. Never yellow. */
+.starlight-aside {
+  border: 0;
+  border-inline-start: 3px solid var(--sl-color-asides-border);
+  border-radius: 0;
+  padding-block: 0.25rem;
+  background: var(--p-surface);
+  color: var(--p-ink);
+}
+
+.starlight-aside--note {
+  --sl-color-asides-text-accent: var(--p-info);
+  --sl-color-asides-border: var(--p-info);
+}
+
+.starlight-aside--tip {
+  --sl-color-asides-text-accent: var(--p-ok);
+  --sl-color-asides-border: var(--p-ok);
+}
+
+.starlight-aside--caution {
+  --sl-color-asides-text-accent: var(--p-attention);
+  --sl-color-asides-border: var(--p-attention);
+}
+
+.starlight-aside--danger {
+  --sl-color-asides-text-accent: var(--p-critical);
+  --sl-color-asides-border: var(--p-critical);
+  border: 1px solid var(--p-critical-line);
+  border-inline-start: 3px solid var(--p-critical);
+  border-radius: 6px;
+  padding-block: 1rem;
+  background: var(--p-critical-soft);
+}
+
+.starlight-aside__title {
+  font-size: 0.9375rem;
+}
+
+.starlight-aside__content a {
+  color: var(--p-ink);
+}
+
+/* Badges: chips in their state family (text, soft ground, line), never Starlight's purple or blue. */
+.sl-badge {
+  border-radius: 4px;
+  font-family: var(--__sl-font);
+  font-weight: 500;
+}
+
+:root {
+  --sl-badge-default-border: var(--p-line-strong);
+  --sl-badge-default-bg: var(--p-surface);
+  --sl-badge-default-text: var(--p-ink);
+  --sl-badge-note-border: var(--p-info-line);
+  --sl-badge-note-bg: var(--p-info-soft);
+  --sl-badge-note-text: var(--p-info);
+  --sl-badge-tip-border: var(--p-ok-line);
+  --sl-badge-tip-bg: var(--p-ok-soft);
+  --sl-badge-tip-text: var(--p-ok);
+  --sl-badge-success-border: var(--p-ok-line);
+  --sl-badge-success-bg: var(--p-ok-soft);
+  --sl-badge-success-text: var(--p-ok);
+  --sl-badge-caution-border: var(--p-attention-line);
+  --sl-badge-caution-bg: var(--p-attention-soft);
+  --sl-badge-caution-text: var(--p-attention);
+  --sl-badge-danger-border: var(--p-critical-line);
+  --sl-badge-danger-bg: var(--p-critical-soft);
+  --sl-badge-danger-text: var(--p-critical);
+}
+
+/* No blur behind the search dialog: the overlay is enough. */
+dialog::backdrop {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+#starlight__search :is(.pagefind-ui__result-nested, .pagefind-ui__result-title):focus-within {
+  outline: 2px solid var(--p-focus);
+}
+
+/* Screenshots: the panel at 1440×900, framed by a hairline. */
+.sl-markdown-content figure.screenshot {
+  margin: 1.5rem 0;
+}
+
+.sl-markdown-content figure.screenshot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--p-line);
+  border-radius: 8px;
+  background: var(--p-bg);
+}
+
+.sl-markdown-content figure.screenshot--pending {
+  border: 1px dashed var(--p-line-strong);
+  border-radius: 8px;
+  padding: 1rem;
+  color: var(--p-muted);
+  font-size: 0.875rem;
+}
+
+/* Previous / next and page footer */
+.pagination-links a {
+  border-color: var(--p-line);
+  border-radius: 8px;
+  box-shadow: none;
+  color: var(--p-ink);
+}
+
+.pagination-links a:hover {
+  border-color: var(--p-line-strong);
+}
+
+.pagination-links .link-title {
+  color: var(--p-ink);
+  font-size: 1.0625rem;
+}
+
+footer .meta,
+footer .meta a {
+  color: var(--p-muted);
+}
+
+/* Buttons: the hero's primary is the one solid sulphur action; the rest are outline. */
+.sl-link-button {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.sl-link-button.primary {
+  border-color: var(--p-sulphur);
+  background: var(--p-sulphur);
+  color: var(--p-on-sulphur);
+}
+
+.sl-link-button.primary:hover {
+  box-shadow: inset 0 0 0 1px var(--p-on-sulphur);
+  color: var(--p-on-sulphur);
+}
+
+.sl-link-button.secondary {
+  border-color: var(--p-line-strong);
+  background: var(--p-surface);
+  color: var(--p-ink);
+}
+
+.sl-link-button.secondary:hover {
+  background: var(--p-sunken);
+}
+
+/* Home page */
+
+.hero {
+  padding-block: clamp(2.5rem, 6vw, 4.5rem) clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.hero h1 {
+  max-width: none;
+  font-size: clamp(2.25rem, 4.5vw, 3rem);
+  color: var(--p-ink);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.hero .tagline {
+  max-width: 40rem;
+  color: var(--p-ink-2);
+}
+
+.hero > img {
+  width: min(10rem, 40vw);
+}
+
+.paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 0 2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paths li {
+  margin: 0;
+  border-top: 1px solid var(--p-line);
+  padding: 0.875rem 0;
+}
+
+.paths a {
+  font-weight: 600;
+}
+
+.paths p {
+  margin: 0.25rem 0 0;
+  color: var(--p-ink-2);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.sl-markdown-content .paths + h2,
+.sl-markdown-content .paths + p {
+  margin-top: 2rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -123,9 +512,9 @@ body {
 }
 
 @media (forced-colors: active) {
-  .hero .action.primary,
-  .card-grid > article,
-  .sl-link-card {
+  .starlight-aside,
+  .sl-markdown-content table,
+  figure.screenshot img {
     border: 1px solid CanvasText;
   }
 }

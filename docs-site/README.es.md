@@ -34,7 +34,14 @@ No edites `src/content/docs/`: se genera y Git lo ignora.
 - Las portadas de Starlight viven en `content/` porque usan componentes MDX y metadatos propios del sitio.
 - `scripts/sync-content.mjs` alinea los slugs de ambos idiomas, añade metadatos y enlaces de edición, ajusta enlaces al repositorio y copia los recursos documentales, el logo y el favicon.
 
-Cada comando `dev`, `check` y `build` sincroniza primero. Al añadir un documento en inglés, añade su versión en español y actualiza el mapa de archivos, los metadatos y la barra lateral.
+Cada comando `dev`, `check` y `build` sincroniza primero. Al añadir un documento en inglés, añade su versión en español, su nombre de archivo y su descripción en ambos idiomas en `scripts/pages.mjs` (es la meta descripción de la página, de 50 a 160 caracteres) y su lugar en la barra lateral (`astro.config.mjs`). `scripts/check-sources.mjs` detiene el build si una página no tiene contraparte, no tiene descripción, tiene más de un H1 o repite el título de otra.
+
+Dos convenciones de Markdown funcionan en GitHub y en el sitio:
+
+- Las alertas de GitHub (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`, `> [!CAUTION]`) se convierten en avisos con los colores de estado del manual de identidad: note en info, tip en ok, warning en atención (naranja) y caution en crítico.
+- `<!-- screenshot: nombre | texto alternativo -->` en su propia línea se convierte en una figura con `public/screenshots/nombre-light.png` y `nombre-dark.png`, según el tema de quien lee. Mientras falten las imágenes el build la omite y `pnpm run dev` muestra un marcador. La lista de capturas, con rutas y qué debe verse en cada una, está en [SCREENSHOTS.md](SCREENSHOTS.md).
+
+El sitio sigue el manual de identidad (`.claude/skills/pitangus-brand`) en `src/styles/custom.css`: IBM Plex Sans y Mono servidas desde el propio sitio con `@fontsource` (sin CDN de fuentes), neutros fríos, texto y enlaces en tinta, azufre solo para el logo y la acción principal de la portada, y bloques de código con los mismos tokens, definidos en `astro.config.mjs`. `public/og.png` es la imagen que muestran los enlaces compartidos.
 
 ## Referencia de API generada
 

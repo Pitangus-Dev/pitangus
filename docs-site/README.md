@@ -41,7 +41,14 @@ Do not edit `src/content/docs/`. It is generated and ignored by Git.
 - The Starlight home pages live in `content/` because they use MDX components and site-specific frontmatter.
 - `scripts/sync-content.mjs` gives translated pages matching slugs, adds metadata and edit links, rewrites repository links, and copies documentation assets, the logo, and the favicon.
 
-Every `dev`, `check`, and `build` command runs the sync first. When adding an English document, add its Spanish counterpart and update the filename map, metadata, and sidebar.
+Every `dev`, `check`, and `build` command runs the sync first. When adding an English document, add its Spanish counterpart, its file name and its description in both languages in `scripts/pages.mjs` (the description is the page's meta description, 50 to 160 characters), and its place in the sidebar (`astro.config.mjs`). `scripts/check-sources.mjs` fails the build when a page has no counterpart, no description, more than one H1 or a title another page already uses.
+
+Two Markdown conventions work on GitHub and on the site:
+
+- GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`, `> [!CAUTION]`) become asides in the identity manual's state colours: note in info, tip in ok, warning in attention (orange) and caution in critical.
+- `<!-- screenshot: name | alt text -->` on its own line becomes a figure with `public/screenshots/name-light.png` and `name-dark.png`, following the reader's theme. While the images are missing the build leaves it out and `pnpm run dev` shows a placeholder. The list of captures, with routes and what each must show, is in [SCREENSHOTS.md](SCREENSHOTS.md).
+
+The site follows the identity manual (`.claude/skills/pitangus-brand`) in `src/styles/custom.css`: IBM Plex Sans and Mono self-hosted through `@fontsource` (no font CDN), cool neutrals, ink text and links, sulphur only for the logo and the home page's primary action, and code blocks themed in `astro.config.mjs` with the same tokens. `public/og.png` is the image shared links show.
 
 ## Generated API reference
 
