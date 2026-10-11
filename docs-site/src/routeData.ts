@@ -5,10 +5,11 @@ import { defineRouteMiddleware } from '@astrojs/starlight/route-data'
 
 const ORGANIZATION = {
   '@type': 'Organization',
-  '@id': 'https://pitangus.dev/#organization',
-  name: 'Pitangus',
-  url: 'https://pitangus.dev/',
-  sameAs: ['https://github.com/Pitangus-Dev', 'https://pitangus.dev/'],
+  // The same entity pitangus.dev declares, so both sites resolve to one publisher.
+  '@id': 'https://pitangus.dev/#arodium',
+  name: 'Arodium',
+  url: 'https://arodium.com',
+  sameAs: ['https://github.com/Pitangus-Dev'],
 }
 
 const NAMES = {
