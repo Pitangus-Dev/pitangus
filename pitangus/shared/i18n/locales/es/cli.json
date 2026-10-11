@@ -27,7 +27,17 @@
     "analyzing_image": "Analizando la imagen {{reference}} (se lee del registro; puede tardar un par de minutos)…",
     "image_done_one": "Imagen: 1 hallazgo ({{status}}).",
     "image_done_other": "Imagen: {{count}} hallazgos ({{status}}).",
-    "ready": "Listo: abre el panel y mira Resumen, Hallazgos y Amenazas."
+    "ready": "Listo: abre el panel y mira Resumen, Hallazgos y Amenazas.",
+    "no_recordings": "No encuentro las salidas grabadas de los motores en {{path}} (tests/fixtures y tests/engine-outputs)",
+    "full_repositories": "Lapis Labs (inventada): {{count}} repositorios, {{runs}} análisis nuevos y {{reviews}} revisiones de pull request nuevas.",
+    "full_image": "Imagen {{reference}}: lista.",
+    "full_domains": "Dominios: {{verified}} (verificado para la demo, con alcance, programación y usuario de prueba) y {{pending}} (pendiente).",
+    "full_members_one": "Miembros: 1 miembro de demostración, invitado sin contraseña.",
+    "full_members_other": "Miembros: {{count}} miembros de demostración, invitados sin contraseña.",
+    "full_members_skipped": "Miembros: crea primero el administrador (en el panel o con `pitangus user create --admin`) y vuelve a ejecutar la demo.",
+    "full_no_feeds": "KEV y EPSS: aún no hay fuentes descargadas, así que los hallazgos de la demo no los muestran. Abre una vez el Resumen del panel (las descarga) antes de ejecutar la demo.",
+    "full_integrations": "Slack y Jira: no se añaden, porque guardarlos contacta sus servidores.",
+    "ready_full": "Listo: abre el panel y mira Resumen, Hallazgos, Dominios, Imágenes, Amenazas y Usuarios."
   },
   "engines": {
     "ready": "listo",

@@ -26,6 +26,12 @@ class Onboarding(BaseModel):
     admin: bool
 
 
+def _demo(row: dict) -> bool:
+    """Demo data: the bundled samples or the fictional organization (`pitangus demo --full`)."""
+    source = row.get("source") or {}
+    return source.get("id") == DEMO_SOURCE_ID or source.get("demo") is True
+
+
 @router.get("/api/onboarding", response_model=Onboarding)
 def onboarding(context: Context = Depends(guard())) -> dict:
     user, data_dir = context.user, context.data_dir
@@ -37,8 +43,7 @@ def onboarding(context: Context = Depends(guard())) -> dict:
     return {
         "mfa": bool((user.get("totp") or {}).get("enabled")),
         "github": bool(github_installations(data_dir)),
-        "analyzed": any(row["type"] in FULL_SCANS and row["status"] == "completed"
-                        and (row.get("source") or {}).get("id") != DEMO_SOURCE_ID for row in runs),
+        "analyzed": any(row["type"] in FULL_SCANS and row["status"] == "completed" and not _demo(row) for row in runs),
         "demo": any((row.get("source") or {}).get("id") == DEMO_SOURCE_ID for row in runs),
         "watching": any(config.get("enabled") for config in pr_watch.load(data_dir, reviews=False)["repositories"].values()),
         "alerts": alerts, "admin": user.get("role") == "admin"}

@@ -130,13 +130,15 @@ def with_web_coverage(record: dict) -> dict:
     return {**record, "owasp_coverage": web_owasp_coverage(findings, record.get("steps") or [])}
 
 
-def save_repository_scan(data_dir: Path, scan: RunRecord, *, run_id: str | None = None, created_at: str | None = None) -> RunRecord:
-    return save_and_apply(data_dir, scan, run_id=run_id, created_at=created_at)[0]
+def save_repository_scan(data_dir: Path, scan: RunRecord, *, run_id: str | None = None, created_at: str | None = None,
+                         quiet: bool = False) -> RunRecord:
+    return save_and_apply(data_dir, scan, run_id=run_id, created_at=created_at, quiet=quiet)[0]
 
 
 def save_and_apply(data_dir: Path, scan: RunRecord, *, run_id: str | None = None,
-                   created_at: str | None = None) -> tuple[RunRecord, dict]:
-    """Saves a finished run and applies it to the findings registry; also returns what the registry changed."""
+                   created_at: str | None = None, quiet: bool = False) -> tuple[RunRecord, dict]:
+    """Saves a finished run and applies it to the findings registry; also returns what the registry changed.
+    `quiet`: nothing goes to the notification channels or to Jira (demo data)."""
     # A background scan already has its ID and its folder from the moment it was queued.
     record = {"schema_version": "0.3.0", "id": run_id or uuid.uuid4().hex,
               "created_at": created_at or datetime.now(timezone.utc).isoformat(), **scan}
@@ -157,7 +159,7 @@ def save_and_apply(data_dir: Path, scan: RunRecord, *, run_id: str | None = None
         # What is new and matters goes to the configured channels (Slack, Teams, webhook) through the outbox, and to
         # Jira: issues for automatic rules, comments on fixed or reappeared findings (runs/jira_sync.py).
         # Present findings count too: one fixed by hand in triage that shows up again changes nothing in the registry.
-        if changes.get("new") or changes.get("fixed_now") or changes.get("reopened") or saved.get("findings"):
+        if not quiet and (changes.get("new") or changes.get("fixed_now") or changes.get("reopened") or saved.get("findings")):
             from pitangus.modules.integrations import notifications
             from pitangus.modules.findings import triage
             from pitangus.modules.runs import jira_sync

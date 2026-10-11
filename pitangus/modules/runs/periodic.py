@@ -138,6 +138,10 @@ def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> objec
     now = now or datetime.now(timezone.utc)
     with db.transaction(data_dir):
         for record in domains.due_scans(data_dir, now=now, lock=True):
+            if domains.is_demo(record):
+                domains.schedule_moved(data_dir, record["id"], msg("sources.domains.demo", host=record["host"]), after=now,
+                                       not_on=domain_schedule.local_day(now, record["schedule"]), now=now)
+                continue
             if not record["verified"]:
                 domains.schedule_skipped(data_dir, record["id"], msg("sources.domains.schedule.lapsed"), now=now)
                 _log.warning("scheduled_scan_skipped", extra={"reason": f"{record['host']}: proof lapsed"})

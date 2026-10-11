@@ -86,6 +86,18 @@ En el panel verás el activo **demo · ejemplos vulnerables**:
 
 Con `make demo IMAGE=nginx:1.21` también se analiza una imagen de contenedor pública (Trivy y Grype, un par de minutos).
 
+`make demo FULL=1` además crea **Lapis Labs**, una organización inventada que llena todas las vistas, sin conexión y en
+segundos: cinco repositorios `lapis-labs/…` con un mes de análisis (tendencias, hallazgos remediados, MTTR, plazos de
+corrección, algunos vencidos), una revisión de pull request, una imagen de contenedor, el dominio `tienda.example.com`
+verificado para la demo (alcance, programación semanal, usuario de prueba, tecnologías detectadas y dos análisis web
+pasivos), `soporte.example.net` pendiente, dos miembros marcados «(demo)» y algunas decisiones de triage. Sus hallazgos
+son salidas de los motores grabadas sobre estos mismos ejemplos (`tests/fixtures`, `tests/engine-outputs`) y
+reproducidas con los parsers y el registro de siempre: no se analiza ni se contacta nada. Crea antes la cuenta de
+administrador (los miembros la esperan) y, si quieres KEV y EPSS en los hallazgos, abre una vez el Resumen antes de
+ejecutarla (descarga esas fuentes; la demo solo las lee). Los dominios de la demo usan nombres reservados para ejemplos
+y nunca se verifican ni se analizan de verdad. Ejecutarla otra vez no añade nada. Slack y Jira quedan fuera: guardarlos
+contacta sus servidores.
+
 ## 3. Conectar tus repositorios de GitHub (5 min)
 
 En **Integraciones → Proveedores de código**, el panel te guía para crear la GitHub App de tu servidor con los permisos

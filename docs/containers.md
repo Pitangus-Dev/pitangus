@@ -44,7 +44,7 @@ It works the same on macOS (Apple Silicon and Intel), Linux, and Windows with WS
 | `make setup` | Only creates `.env` and the folders; never touches an existing `.env`. `make setup PREBUILT=1` runs the published images instead of building them. On a server, `make setup DOMAIN=pitangus.example.com [PREBUILT=1]` switches it to HTTPS with Caddy (and the published images): see [deploy-vps.md](deploy-vps.md). |
 | `make build` | Builds the app and Opengrep images. |
 | `make up` | Builds if needed, starts, pulls any missing engines and prints the URL and setup code. |
-| `make demo` | Scans the repository's vulnerable examples and imports a threat model, so you can try it without connecting anything. `IMAGE=nginx:1.21` adds an image. |
+| `make demo` | Scans the repository's vulnerable examples and imports a threat model, so you can try it without connecting anything. `IMAGE=nginx:1.21` adds an image; `FULL=1` adds a made-up organization (Lapis Labs) that fills every view, offline. |
 | `make down` | Stops and removes the containers. `data/` and `config/` are kept. |
 | `make restart` | Restarts the app. Running scans are marked as failed. |
 | `make status` | State of the containers and the engine images. |

@@ -429,7 +429,10 @@ def _finish_package(finding: dict) -> dict:
 
 # --- full scan ----------------------------------------------------------------------------
 
-def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None) -> RunRecord:
+def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None, replay: dict | None = None,
+               feeds: dict | None = None) -> RunRecord:
+    """`replay`: recorded engine results to use instead of reaching the registry (the demo):
+    {"trivy": (result, metadata), "grype": result, "checkov": result}. `feeds`: the KEV/EPSS feeds already at hand."""
     from pitangus.modules.intel.advisories import load_feeds
 
     def report(level: str, message) -> None:
@@ -437,20 +440,22 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None)
             progress(level, message)
 
     # Checked again here, when the engines are about to connect, and pinned: the request was checked minutes ago.
-    hosts = check_registry_address(image["registry"])
-    feeds = load_feeds(data_dir)
-    credentials = credentials_for(image["registry"])
+    hosts = check_registry_address(image["registry"]) if replay is None else {}
+    feeds = load_feeds(data_dir) if feeds is None else feeds
+    credentials = credentials_for(image["registry"]) if replay is None else None
     report("info", msg("scanning.image.progress.reading_credentials" if credentials else "scanning.image.progress.reading_public",
                        reference=image["reference"]))
-    trivy, metadata = run_trivy_image(image["reference"], data_dir / "trivy-cache", feeds, credentials, hosts)
+    trivy, metadata = run_trivy_image(image["reference"], data_dir / "trivy-cache", feeds, credentials, hosts) if replay is None \
+        else replay["trivy"]
     report("ok" if trivy["status"] == "completed" else "warn", msg("scanning.progress.engine", engine="Trivy", detail=trivy["detail"]))
     report("info", msg("scanning.image.progress.grype"))
-    grype = run_grype_image(image["reference"], data_dir / "grype-cache", feeds, credentials, image["registry"], hosts)
+    grype = run_grype_image(image["reference"], data_dir / "grype-cache", feeds, credentials, image["registry"], hosts) if replay is None \
+        else replay["grype"]
     report("ok" if grype["status"] == "completed" else "warn", msg("scanning.progress.engine", engine="Grype", detail=grype["detail"]))
 
     if metadata:
         report("info", msg("scanning.image.progress.checkov"))
-        checkov = run_checkov_image(metadata, image, data_dir / "tmp")
+        checkov = run_checkov_image(metadata, image, data_dir / "tmp") if replay is None else replay["checkov"]
     else:
         checkov = _result("checkov", "not_tested", msg("scanning.image.checkov_without_config"))
     report("ok" if checkov["status"] == "completed" else "warn", msg("scanning.progress.engine", engine="Checkov", detail=checkov["detail"]))

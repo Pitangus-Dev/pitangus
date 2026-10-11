@@ -1,5 +1,28 @@
 {
   "source_name": "demo · ejemplos vulnerables",
   "context": "Ejemplos vulnerables a propósito que trae Pitangus para que lo pruebes: código, dependencias, secretos y un Dockerfile.",
-  "model_name": "Demo · Portal de clientes (STRIDE)"
+  "model_name": "Demo · Portal de clientes (STRIDE)",
+  "replayed_one": "Salida grabada y reproducida para la demo: 1 hallazgo.",
+  "replayed_other": "Salida grabada y reproducida para la demo: {{count}} hallazgos.",
+  "limitation": "Datos de demostración: no se analizó nada. Estos hallazgos vienen de salidas de los motores grabadas sobre los ejemplos vulnerables de Pitangus y reproducidas aquí; los análisis posteriores omiten algunos para mostrar qué se corrige.",
+  "no_grype": "Para la demo no hay salida grabada de Grype, así que el análisis de esta imagen queda incompleto.",
+  "org": {
+    "context": "Lapis Labs es una empresa inventada para la demo. Sus repositorios no existen en ningún lado.",
+    "image_context": "Imagen del servicio de checkout de Lapis Labs (inventada para la demo).",
+    "domain_context": "Tienda en línea de Lapis Labs (inventada para la demo). Es un nombre reservado: Pitangus nunca lo verifica ni lo analiza.",
+    "pending_context": "Centro de ayuda de Lapis Labs (inventado para la demo), aún sin su prueba de control."
+  },
+  "pull": {
+    "title": "Widget de reseñas de productos",
+    "not_posted": "Datos de demostración: no se publicó nada en GitHub."
+  },
+  "test_user": {
+    "name": "Comprador de prueba",
+    "notes": "Cuenta inventada para la demo, con una contraseña aleatoria. Nunca ha iniciado sesión en ningún lado."
+  },
+  "triage": {
+    "false_positive": "El modo de depuración solo está activo en la configuración de desarrollo local; producción carga otra configuración.",
+    "accepted": "Integración heredada con un socio que exige este cifrado hasta que el socio migre el próximo trimestre.",
+    "in_progress": "Estamos pasando estas consultas a sentencias parametrizadas en el próximo sprint."
+  }
 }

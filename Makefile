@@ -117,9 +117,11 @@ scan: ## Scan a local folder: make scan DIR=../my-repo ARGS="--base main --fail-
 	@[ -d "$(DIR)" ] || { echo 'Give the folder: make scan DIR=../my-repo (and options in ARGS="--base main")'; exit 2; }
 	@$(COMPOSE) run --rm --no-deps -T -v "$(abspath $(DIR))":/src:ro worker python -m pitangus scan /src --name "$(notdir $(abspath $(DIR)))" $(ARGS)
 
-demo: ## Demo data: scans the vulnerable examples and imports a threat model (IMAGE=nginx:1.21 adds an image)
+demo: ## Demo data: scans the vulnerable examples and imports a threat model (IMAGE=nginx:1.21 adds an image; FULL=1 adds a fictional organization, offline)
 	@$(COMPOSE) run --rm -T -v "$(abspath fixtures)":/demo/fixtures:ro -v "$(abspath web/src/examples/threat-models)":/demo/models:ro \
-		worker python -m pitangus --data-dir /data demo --fixtures /demo/fixtures --models /demo/models $(if $(IMAGE),--image "$(IMAGE)",)
+		$(if $(FULL),-v "$(abspath tests/fixtures)":/demo/recordings/fixtures:ro -v "$(abspath tests/engine-outputs)":/demo/recordings/engine-outputs:ro,) \
+		worker python -m pitangus --data-dir /data demo --fixtures /demo/fixtures --models /demo/models $(if $(IMAGE),--image "$(IMAGE)",) \
+		$(if $(FULL),--full --recordings /demo/recordings,)
 
 update: ## Back up, update the code (git pull), pull or rebuild the images and restart (migrates on start)
 	@if git symbolic-ref -q HEAD >/dev/null; then git pull --ff-only; \
