@@ -95,5 +95,6 @@ cero workers significa que nada se analiza.
   presupuesto de memoria compartido, y dar prioridad a las revisiones de PR sobre los análisis completos.
 - **Manifiestos de autoescalado.** Las métricas están; los ejemplos de Kubernetes/KEDA, no.
 - **Una medición publicada.** La tabla de dimensionado es derivada, no medida.
-- **Pruebas dinámicas.** Los análisis nunca ejecutan ni atacan tus aplicaciones; ver
-  [funcionalidades.md](funcionalidades.md#qué-cubre-pitangus-y-qué-no).
+- **Pruebas dinámicas activas.** Los análisis nunca atacan tus aplicaciones: los análisis web son pasivos y corren
+  de a uno por instalación; ver [Analizar un sitio web o una API](analisis-web.md) y
+  [qué cubre Pitangus](vista-general.md#qué-cubre-pitangus-y-qué-no).

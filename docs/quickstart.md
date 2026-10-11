@@ -1,35 +1,61 @@
 English · [Español](es/inicio-rapido.md)
 
-# Quickstart
+# Quickstart: from zero to a verified fix
 
-From zero to a verified fix in about 15 minutes. Steps marked **optional** can wait.
+This guide takes you from nothing to Pitangus running on your machine, a scan of real vulnerable code, and a fix
+Pitangus confirms, in about 15 minutes. You don't need to know application security: each step says what you'll see.
+Steps marked **optional** can wait. New to the terms? See [What is Pitangus](overview.md) and the
+[glossary](glossary.md).
+
+## Prerequisites
+
+- **Docker** (Engine 24 or later with Compose v2.24 or later), **make** and **git**.
+- 4 GB of memory and 8 GB of free disk.
+- macOS, Linux, or Windows with WSL2 (clone inside Linux, not under `/mnt/c`).
 
 ## 1. Start it (5 min)
-
-You need Docker (Engine 24+ with Compose v2.24+), `make` and `git`. `make doctor` checks that everything is in
-place.
 
 ```bash
 git clone --branch v0.13.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
+make doctor
+```
+
+`make doctor` checks Docker, Compose, disk, the port and permissions. Every line should start with `✓`:
+
+```text
+Result: 14 passed, 0 warnings, 0 errors
+```
+
+A `✗` line says what to fix on the line below it. Then:
+
+```bash
 make setup PREBUILT=1
 make up
 ```
 
-`make setup PREBUILT=1` uses the published, signed images instead of building them (leave it out to build from the
-code). The first run pulls them and the engines, about 800 MB: under a minute on a fast connection, some 2 minutes at
-50 Mbps (measured from scratch: about 1 minute at 150 Mbps, 3 on a laptop with WSL2). Behind a corporate VPN or
-proxy the first download can take much longer: see [troubleshooting.md](troubleshooting.md). When it's done it prints the URL (<http://127.0.0.1:8766>) and a
-single-use **setup code**: you use it to create the admin account in the panel. If you lose it, `make setup-code`
-prints it again.
+`make setup PREBUILT=1` creates `.env` and the folders and chooses the published, signed images instead of building
+them (leave it out to build from the code). `make up` pulls them and the engines, about 800 MB: under a minute on a
+fast connection, some 2 minutes at 50 Mbps (measured from scratch: about 1 minute at 150 Mbps, 3 on a laptop with WSL2).
+Behind a corporate VPN or proxy the first download can take much longer: see [Troubleshooting](troubleshooting.md).
+It ends like this:
+
+```text
+Waiting for the panel to respond.....
+Engines: ready.
+Panel: http://127.0.0.1:8766
+Setup code: …
+```
+
+Open <http://127.0.0.1:8766> and create the administrator account with the **setup code**. If you lose it,
+`make setup-code` prints it again.
 
 Right after that the panel asks you to turn on two-factor authentication (TOTP) with your authenticator app: it's
-mandatory for admins (`PITANGUS_REQUIRE_TOTP`, see [configuration.md](configuration.md)), and nothing else opens until
-it's on. Save the backup codes it shows you.
+mandatory for administrators (`PITANGUS_REQUIRE_TOTP`, see [Configuration](configuration.md)), and nothing else opens
+until it's on. Save the backup codes it shows you.
 
-The panel follows your browser's language; switch it any time from the sidebar or the sign-in screen. PR comments,
-notifications, Jira, reports and CLI output use `PITANGUS_DEFAULT_LOCALE` (`en` by default, see
-[configuration.md](configuration.md)).
+The panel follows your browser's language; switch it any time from the header or the sign-in screen. PR comments,
+notifications, Jira, reports and CLI output use `PITANGUS_DEFAULT_LOCALE` (`en` by default).
 
 ## 2. See it work without connecting anything (2 min)
 
@@ -37,52 +63,104 @@ notifications, Jira, reports and CLI output use `PITANGUS_DEFAULT_LOCALE` (`en` 
 make demo
 ```
 
-It runs a real scan, with the same engines as the panel, over the intentionally vulnerable examples shipped with
-the repository (code in seven languages, dependencies with CVEs, a secret and a Dockerfile) and imports a sample
-threat model. In the panel you'll see the **demo** asset:
+It runs a real scan, with the same engines as the panel, over the intentionally vulnerable examples shipped with the
+repository (code in seven languages, dependencies with known vulnerabilities, a secret and a Dockerfile), and imports a
+sample threat model:
 
-- **Overview:** findings by severity, active exploitation (KEV) and what to handle first.
-- **Findings:** expand one and look at **How to fix it** (the command or the code example). **Verify again** works on your own repositories.
+```text
+Analyzing … example files with Pitangus's engines…
+Code: … findings (completed).
+Example threat model imported: "Demo · Customer portal (STRIDE)".
+Done: open the panel and look at Overview, Findings and Threats.
+```
+
+In the panel you'll see the **demo · vulnerable samples** asset:
+
+- **Overview:** findings by severity, actively exploited vulnerabilities (KEV), and what to handle first.
+- **Findings:** expand one and look at **How to fix it** (the command or the code example).
 - **Threats:** the diagram, the threats and the PDF report.
 
-`make demo IMAGE=nginx:1.21` also scans a public image (Trivy + Grype, a couple of minutes).
+<!-- screenshot: overview | The Overview dashboard after make demo, with findings by severity and the Getting started checklist -->
+
+`make demo IMAGE=nginx:1.21` also scans a public container image (Trivy and Grype, a couple of minutes).
 
 ## 3. Connect your GitHub repositories (5 min)
 
-Under **Integrations → Code providers**, the panel walks you through creating your server's GitHub App with only
-the permissions it needs (read code, comment and set statuses on PRs). At the end you install it on the
-repositories you want: *Only select repositories* is the best way to start. Details in [github-app.md](github-app.md).
+Under **Integrations → Code providers**, the panel walks you through creating your server's GitHub App with only the
+permissions it needs (read code, comment and set statuses on PRs). At the end you install it on the repositories you
+want: *Only select repositories* is a good way to start. Details in [Connect GitHub](github-app.md).
 
 Not on GitHub (GitLab, Bitbucket, Azure DevOps or a local folder)? Use [`scan` in the terminal or in CI](cli.md).
 
 ## 4. First scan and first fix
 
-1. **New scan → Code scan**, pick one or more repositories (or a whole organization) and launch it.
-2. In **Findings**, start with anything marked KEV or critical. Every finding includes **How to fix it**.
-3. Apply the fix, push it to the main branch and click **Verify again**: when the scan finishes it tells you
-   "Fixed ✓" or "Still present".
+1. Click **New scan** in the header (or press `N`). The guided flow has a step rail on the side: pick **Code**, then
+   **Add repositories** and choose one or more (or **Whole organization**). Optionally add **Context** for the report,
+   then check **Review and launch** and click **Start scan**.
+2. The scan runs in the background; follow it in **Scans**. When it finishes, the panel shows a notice.
+3. In **Findings**, start with anything marked KEV or critical. Every finding includes **How to fix it**.
+4. Apply the fix, push it to the main branch and click **Reverify** on the finding. When the scan finishes, it says
+   **Fixed ✓ · no longer found in the scan** or **Still present in the scan**. If the scan was incomplete, it says so,
+   because an incomplete scan proves nothing.
 
-If you decide not to fix something, record it in triage (accepted risk or false positive) with a reason and an
-expiry date: it stays as evidence and stops getting in your way.
+<!-- screenshot: new-scan | The New scan guided flow on its first step, with the Code, Container image and Web app or API types -->
+
+If you decide not to fix something, record it in triage (accepted risk or false positive) with a reason, and for an
+accepted risk an expiry date: it stays as evidence and stops getting in your way. See [Findings](findings.md).
 
 ## 5. Let it run on its own (optional, recommended)
 
-- **Pull requests and main branch:** in **Pull requests**, an admin turns on watching for your repositories. Every
-  PR is reviewed automatically (only what it introduces counts) and the main branch is rescanned after each merge.
+- **Pull requests and main branch:** in **Pull requests**, an administrator turns on watching for your repositories.
+  Every PR is reviewed automatically (only what it introduces counts) and the main branch is rescanned after each
+  merge. See [Scan your code](scanning-code.md).
 - **Daily new-advisory check:** on by default. Once a day your dependencies are checked, offline, against the
   advisories published since the last scan.
-- **Alerts in your channel:** under **Integrations → Alerts**, add Slack, Teams or a webhook so you hear about
-  things without opening the panel. For messages to link to the finding, set `PITANGUS_PUBLIC_URL`.
+- **Notifications in your channel:** under **Integrations → Notifications**, an administrator adds Slack, Teams or a
+  webhook so you hear about things without opening the panel. For messages to link to the finding, set
+  `PITANGUS_PUBLIC_URL`.
 
-## 6. Later on (optional)
+## 6. Scan your website, passively (optional)
 
-- **Team:** invite more people under **Users** (member or admin role).
-- **Jira:** under **Integrations**, to turn findings into issues without duplicates.
-- **Private images:** read-only credentials under **Integrations → Container registries**.
-- **Audits:** in Findings, **More formats → Audit evidence (SOC 2, ISO…)** generates the PDF (or **Report on selected** for the ones you check).
+If you run a website or an API, Pitangus can read it like a visitor would and flag missing security headers, cookie
+flags, exposed files, weak TLS and outdated libraries. It never attacks. It's off until the server sets
+`PITANGUS_DAST_ENABLED=1`:
+
+```bash
+echo 'PITANGUS_DAST_ENABLED=1' >> .env
+make up
+```
+
+Then, as an administrator: **Domains & APIs → Add domain**, prove you control it (a DNS TXT record, a file or a meta
+tag), and launch **New scan → Web app or API**. The full walkthrough, including test users and schedules, is in
+[Scan a website or API](scanning-web.md).
+
+## 7. Later on (optional)
+
+- **Team:** invite more people under **Users** (member or administrator role).
+- **Jira:** under **Integrations → Issue tracking**, to turn findings into issues without duplicates.
+- **Private images:** read-only credentials under **Integrations → Container registries**. See
+  [Scan container images](scanning-images.md).
+- **Audits:** in **Findings**, **More formats → Audit evidence (SOC 2, ISO, PCI…)…** generates the PDF (or **Report on
+  selected** for the ones you tick). See [Compliance](compliance.md).
 - **Upgrades:** you installed a fixed version, so `make update` alone stays on it. When a new one comes out
-  ([Releases](https://github.com/Pitangus-Dev/pitangus/releases)): `git fetch --tags && git checkout v<new> && make update`
-  ([installation.md](installation.md#upgrade)).
-- **From another machine:** put it behind HTTPS (see the README); outside `127.0.0.1` it won't start without HTTPS.
+  ([Releases](https://github.com/Pitangus-Dev/pitangus/releases)), see [Upgrade Pitangus](upgrading.md).
+- **From another machine:** put it behind HTTPS ([Deploy on a VPS](deploy-vps.md)); outside `127.0.0.1` it won't start
+  without HTTPS.
 
-Something not working? See [troubleshooting.md](troubleshooting.md) or run `make doctor`.
+## If something goes wrong
+
+| Symptom | Fix |
+| --- | --- |
+| `make doctor` shows a `✗` | Do what the line below it says, then run `make doctor` again. |
+| The first `make up` is very slow | You're probably behind a VPN or proxy: see [Troubleshooting](troubleshooting.md#vpn-and-proxy). |
+| You lost the setup code | `make setup-code`. |
+| An engine shows as *Not tested* | `make status` lists missing images; `make engines` pulls them. |
+
+More in [Troubleshooting](troubleshooting.md).
+
+## Next steps
+
+- [Key concepts](concepts.md): runs, findings, fingerprints and triage.
+- [Scan your code](scanning-code.md), [Scan container images](scanning-images.md),
+  [Scan a website or API](scanning-web.md).
+- [Integrations and automation](integrations.md): CI, SARIF, Jira and notifications.

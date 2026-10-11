@@ -30,7 +30,9 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 | **Watch** | Automatic rescans when the main branch changes, a daily offline check of new advisories against your dependencies, and messages to **Slack, Teams or a webhook** when something important shows up. |
 | **Prove** | Technical and evidence PDF reports (SOC 2 Type II, ISO/IEC 27001:2022, organization roll-up), SARIF, JSON and Markdown; threat modeling (STRIDE, LINDDUN, PASTA, attack trees, ATT&CK) with a diagram; a local CVE tracker built from NVD. |
 
-**In development** (grayed out in the panel): dynamic testing (DAST), GitLab/Bitbucket/Azure DevOps (covered today by [`scan` in CI](docs/cli.md)) and optional AI assistance.
+**Websites and APIs:** a passive scan of a domain you verify (ZAP, katana, nuclei detection templates, testssl.sh and httpx; it never attacks), with its scope, test users and a schedule; see [docs/scanning-web.md](docs/scanning-web.md). It needs `PITANGUS_DAST_ENABLED=1`.
+
+**In development** (grayed out in the panel): active web scans, GitLab/Bitbucket/Azure DevOps (covered today by [`scan` in CI](docs/cli.md)) and optional AI assistance.
 
 ## Try it in 5 minutes
 
@@ -58,7 +60,9 @@ The panel follows your browser's language and has a language switch in the sideb
 
 | | |
 | --- | --- |
+| [What is Pitangus](docs/overview.md) | What it does, what it covers and what it doesn't, and a tour of the panel |
 | [Quickstart](docs/quickstart.md) | From zero to your first verified fix, and what to set up next |
+| [Key concepts](docs/concepts.md) | Runs, findings, fingerprints, lifecycle, triage and roles |
 | [Installation](docs/installation.md) | Requirements, first run, upgrades, backups, uninstalling |
 | [Where to deploy](docs/deploy.md) | One compose file for any server or Docker panel; Render, Railway, Vercel for the API and Kubernetes (untested) |
 | [Deploy on a VPS](docs/deploy-vps.md) | Your own server with a domain: HTTPS, backups, upgrades, monitoring, Coolify and Dokploy |
@@ -66,12 +70,20 @@ The panel follows your browser's language and has a language switch in the sideb
 | [Integrations and automation](docs/integrations.md) | GitHub, CI and SARIF, Jira, notifications, webhooks and periodic tasks |
 | [Terminal and CI](docs/cli.md) | `scan`: check a folder or just what a change introduces, with SARIF output and exit codes; in CI, one step with the GitHub Action |
 | [Skills for coding assistants](skills/README.md) | Claude Code, Cursor or Codex fix what Pitangus finds and verify it, or wire it into your CI |
-| [Features](docs/features.md) | What each part does and the reasoning behind it |
+| [Scan your code](docs/scanning-code.md) | Code, dependencies, secrets, infrastructure and pull request review |
+| [Scan container images](docs/scanning-images.md) | Images read from the registry, never run |
+| [Scan a website or API](docs/scanning-web.md) | Passive web and API scans of a verified domain |
+| [Findings](docs/findings.md) | Triage, deadlines, verification and exports |
+| [Compliance](docs/compliance.md) | SBOM, VEX, audit evidence and the CRA |
+| [Threat modeling](docs/threat-modeling.md) | System models checked against your scans |
+| [Upgrade](docs/upgrading.md) | Moving to a new version, and what changes in 0.13 |
 | [Configuration](docs/configuration.md) | `.env` variables |
 | [Security](docs/security.md) | Secrets, transport, what leaves your machine, and trade-offs |
 | [Containers and Makefile](docs/containers.md) | `make` commands, images and hardening |
 | [Architecture](docs/architecture.md) | Components, how a scan flows, and data on disk |
 | [Troubleshooting](docs/troubleshooting.md) | Common errors |
+| [FAQ](docs/faq.md) | Short answers to common questions |
+| [Glossary](docs/glossary.md) | Every term, defined |
 | [Development](docs/development.md) | Running without containers, the CLI and tests |
 | [Third-party software](docs/third-party-notices.md) | Licenses for the engines, advisory databases and dependencies |
 

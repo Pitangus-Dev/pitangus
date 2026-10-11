@@ -30,7 +30,9 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 | **Vigilar** | Reanálisis automático cuando cambia la rama principal, avisos nuevos a diario contra tus dependencias (sin conexión) y mensajes a **Slack, Teams o un webhook** cuando aparece algo que importa. |
 | **Demostrar** | Informes PDF técnicos y de evidencia (SOC 2 Tipo II, ISO/IEC 27001:2022, consolidado de organización), SARIF, JSON y Markdown; modelado de amenazas (STRIDE, LINDDUN, PASTA, árboles, ATT&CK) con diagrama; CVE tracker local de NVD. |
 
-**En desarrollo** (en gris en el panel): pruebas dinámicas (DAST), GitLab/Bitbucket/Azure DevOps (hoy se cubren con [`scan` en CI](docs/es/cli.md)) y asistencia con IA opcional.
+**Sitios web y APIs:** un análisis pasivo de un dominio que verificas (ZAP, katana, plantillas de detección de nuclei, testssl.sh y httpx; nunca ataca), con su alcance, usuarios de prueba y programación; mira [docs/es/analisis-web.md](docs/es/analisis-web.md). Requiere `PITANGUS_DAST_ENABLED=1`.
+
+**En desarrollo** (en gris en el panel): análisis web activos, GitLab/Bitbucket/Azure DevOps (hoy se cubren con [`scan` en CI](docs/es/cli.md)) y asistencia con IA opcional.
 
 ## Pruébalo en 5 minutos
 
@@ -58,7 +60,9 @@ El panel sigue el idioma de tu navegador y tiene un selector de idioma en la bar
 
 | | |
 | --- | --- |
+| [Qué es Pitangus](docs/es/vista-general.md) | Qué hace, qué cubre y qué no, y un recorrido por el panel |
 | [Inicio rápido](docs/es/inicio-rapido.md) | De cero al primer hallazgo corregido, y qué configurar después |
+| [Conceptos clave](docs/es/conceptos.md) | Ejecuciones, hallazgos, huellas, ciclo de vida, triage y roles |
 | [Instalación](docs/es/instalacion.md) | Requisitos, primer arranque, actualizar, copias de seguridad, desinstalar |
 | [Dónde desplegar](docs/es/despliegue.md) | Un archivo de compose para cualquier servidor o panel de Docker; Render, Railway, Vercel para la API y Kubernetes (sin probar) |
 | [Desplegar en un VPS](docs/es/despliegue-vps.md) | Tu propio servidor con dominio: HTTPS, copias, actualizaciones, monitorización, Coolify y Dokploy |
@@ -66,12 +70,20 @@ El panel sigue el idioma de tu navegador y tiene un selector de idioma en la bar
 | [Integraciones y automatización](docs/es/integraciones.md) | GitHub, CI y SARIF, Jira, notificaciones, webhooks y tareas periódicas |
 | [Terminal y CI](docs/es/cli.md) | `scan`: analiza una carpeta o lo que introduce un cambio, con salida SARIF y códigos de salida; en CI, un solo paso con la GitHub Action |
 | [Skills para asistentes](skills/README.md) | Claude Code, Cursor o Codex corrigen lo que encuentra Pitangus y lo verifican, o lo montan en tu CI |
-| [Funcionalidades](docs/es/funcionalidades.md) | Qué hace cada parte y con qué criterio |
+| [Analizar tu código](docs/es/analisis-de-codigo.md) | Código, dependencias, secretos, infraestructura y revisión de pull requests |
+| [Analizar imágenes de contenedor](docs/es/analisis-de-imagenes.md) | Imágenes leídas del registro, nunca ejecutadas |
+| [Analizar un sitio web o una API](docs/es/analisis-web.md) | Análisis web y de API pasivos de un dominio verificado |
+| [Hallazgos](docs/es/hallazgos.md) | Triage, plazos, verificación y exportaciones |
+| [Cumplimiento](docs/es/cumplimiento.md) | SBOM, VEX, evidencia para auditorías y CRA |
+| [Modelado de amenazas](docs/es/modelado-de-amenazas.md) | Modelos del sistema contrastados con tus análisis |
+| [Actualizar](docs/es/actualizar.md) | Pasar a una versión nueva, y qué cambia en 0.13 |
 | [Configuración](docs/es/configuracion.md) | Variables de `.env` |
 | [Seguridad](docs/es/seguridad.md) | Secretos, transporte, qué sale de tu máquina y concesiones |
 | [Contenedores y Makefile](docs/es/contenedores.md) | Comandos `make`, imágenes y endurecimiento |
 | [Arquitectura](docs/es/arquitectura.md) | Componentes, flujo de un análisis y datos en disco |
 | [Solución de problemas](docs/es/solucion-problemas.md) | Errores frecuentes |
+| [Preguntas frecuentes](docs/es/preguntas-frecuentes.md) | Respuestas cortas a dudas comunes |
+| [Glosario](docs/es/glosario.md) | Cada término, definido |
 | [Desarrollo](docs/es/desarrollo.md) | Sin contenedores, CLI y pruebas |
 | [Software de terceros](docs/es/avisos-de-terceros.md) | Licencias de los motores, las bases de avisos y las dependencias |
 
