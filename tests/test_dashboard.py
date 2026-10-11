@@ -153,7 +153,7 @@ class DashboardTests(unittest.TestCase):
     def test_open_fixed_mttr_and_exploitability_come_from_consecutive_runs(self):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch("pitangus.modules.reporting.dashboard.load_feeds", return_value={"kev": {"__meta__": {"version": "2026.09.22"}, "CVE-2026-1": {"date_added": "2026-09-20", "ransomware": True, "name": "Prueba"}}}), \
-                patch("pitangus.modules.reporting.dashboard.load_recent_cves", return_value={"__meta__": {"total": 3}, "items": [{"cve": "CVE-2026-9", "published": "2026-09-23T00:00:00", "score": 9.8, "severity": "critical", "description": "axios does something bad"}]}):
+                patch("pitangus.modules.reporting.dashboard.load_recent_cves", return_value={"__meta__": {"total": 3}, "items": [{"cve": "CVE-2026-9", "published": "2026-09-23T00:00:00", "score": 9.8, "severity": "critical", "description": "axios before 1.8.2 does something bad"}]}):
             data_dir = Path(temporary)
             (data_dir / "feeds").mkdir(parents=True)
             now = datetime.now(timezone.utc)
@@ -186,6 +186,15 @@ class DashboardTests(unittest.TestCase):
         self.assertTrue(result["cve_news"]["items"][0]["affects"], "menciona un paquete abierto (axios)")
         self.assertEqual(len(result["activity"]), 365)
         self.assertEqual(sum(day["runs"] for day in result["activity"]), 2)
+
+    def test_a_package_affects_a_cve_only_when_named_as_a_product(self):
+        from pitangus.modules.reporting.dashboard import _names_package
+        packages = {"axios", "ms", "next", "once"}
+        self.assertTrue(_names_package("Axios 1.6.0 through 1.7.3 allows SSRF", packages))
+        self.assertTrue(_names_package("axios before 1.8.2 leaks credentials", packages))
+        # A short or common package name inside ordinary prose is not a mention.
+        self.assertFalse(_names_package("An attacker can use the next request within 10 ms once logged in", packages))
+        self.assertFalse(_names_package("GenOffice through 0.11.505 contains an incorrect permissions issue", packages))
 
     def test_days_are_counted_in_the_viewer_timezone_and_cached(self):
         """«Today» is the viewer's: in Bogotá, a scan at 21:00 on the 25th counts on the 25th, not the 26th (UTC)."""

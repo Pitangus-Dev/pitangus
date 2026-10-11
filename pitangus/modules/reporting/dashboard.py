@@ -10,10 +10,10 @@ Dismissed findings are counted separately so they don't vanish without a trace.
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from collections import Counter, defaultdict
-import re
 from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -39,6 +39,16 @@ MAX_TOOLS = 20
 CWE_NAMED = frozenset((79, 89, 78, 22, 502, 798, 295, 918, 601, 347, 327, 328, 916, 95, 1333, 1321, 400, 770, 20, 200, 287, 352, 611, 94,
                        1104, 285, 306, 74, 1336, 915, 125, 787, 119, 120, 416, 415, 476, 190, 191, 401, 404, 674, 835, 362, 367, 369, 908,
                        459, 59, 732, 269, 522, 319, 297, 330, 203, 444, 113, 117, 23, 434, 639, 862, 863, 1395))
+
+
+# A package counts as mentioned only when the description names it as a product: followed by a version or by
+# "before/through/prior to". A bare substring matched short or common package names ("ms", "next") in any text.
+_VERSIONED = r"\s+(?:v?\d+(?:\.\d+)+|before\b|through\b|prior to\b|versions?\b)"
+
+
+def _names_package(description: str, packages: set[str]) -> bool:
+    text = (description or "").lower()
+    return any(re.search(rf"(?<![\w@/.-]){re.escape(package)}(?![\w@/-]){_VERSIONED}", text) for package in packages if len(package) > 1)
 
 
 def _day(stamp: str) -> str:
@@ -250,8 +260,7 @@ def compute(data_dir: Path, days: int = 30, where: tzinfo = timezone.utc) -> dic
                 "by_severity": {level: sum(1 for item in shown if item.get("severity") == level) for level in ("critical", "high", "medium", "low")}
                 | {"none": sum(1 for item in shown if not item.get("severity"))},
                 "total_reported": meta.get("total"),
-                "items": [{**item, "affects": item["cve"] in open_cves
-                           or any(package and package in item["description"].lower() for package in open_packages)}
+                "items": [{**item, "affects": item["cve"] in open_cves or _names_package(item["description"], open_packages)}
                           for item in recent["items"][:12]]}
     top_issues = sorted(open_findings, key=lambda pair: (
         {"act": 0, "attend": 1, "track": 2}.get((pair[1].get("priority") or {}).get("action"), 3),
