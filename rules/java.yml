@@ -121,12 +121,19 @@ rules:
             es: "Contraseña o secreto escrito en el código. Muévelo a configuración externa y rótalo: ya está expuesto en el repositorio."}}
     patterns:
       - pattern: String $NAME = "$VALUE";
+      - pattern-not: String $NAME = $A + $B;
       - metavariable-regex:
           metavariable: $NAME
           regex: (?i).*(password|passwd|pwd|secret|apikey|api_key|token).*
+      # A name for where a credential goes or what it looks like (a path, a parameter, a header, a property key, a
+      # pattern, a message) or for a salt holds no credential.
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i)^(?!.*(path|url|uri|endpoint|route|param|field|header|property|attr|label|message|msg|regex|pattern|format|column|prefix|suffix|salt|length|policy|placeholder|hint|file|key_?name)).*$
+      # Nor does a value that is a path or URL, a template, prose, or a dotted property key (`spring.datasource.password`).
       - metavariable-regex:
           metavariable: $VALUE
-          regex: .{8,}
+          regex: ^(?![/#])(?!.*(://|\$\{|%[sd]|\{\d*\}|\s))(?![a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$).{8,}$
   - id: appsec.java.spring-csrf-disabled
     languages: [java]
     severity: WARNING

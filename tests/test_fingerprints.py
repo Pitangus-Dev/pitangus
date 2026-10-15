@@ -9,17 +9,21 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from pitangus.modules.scanning.secret_location import entropy
 from pitangus.modules.findings import registry, tickets, triage, verifications
 from pitangus.modules.intel.advisories import dependency_finding, fingerprint
 from pitangus.modules.pullrequests.review import classify
 from pitangus.modules.runs import registry as run_registry
 from pitangus.modules.runs.store import save_repository_scan
-from pitangus.modules.scanning import engines, image
+from pitangus.modules.intel.packages import dependency_fingerprint
+from pitangus.modules.scanning import config_engines, engines, image
 from test_dashboard import _finding, _scan
 
 # Placeholders stand where the secrets were: the parser only reads what precedes each one.
-FIRST, SECOND, PAIR_A, PAIR_B = "A" * 40, "B" * 40, "C" * 40, "D" * 40
-KEY_VALUE = "E" * 32
+# Shaped like issued tokens: a run like "AAAA…" is a placeholder (secret_filter) and would never be a finding.
+FIRST, SECOND = "gNSWPH8prVqsUeQCtDR3zzX6hqo35uwZqxZOOHjk", "JQQrkaPehMvbfrn2yzL7C5Mg3PR4hLLOOxl3gV3F"
+PAIR_A, PAIR_B = "GRmrCNnFZsGqgh0frrhbkVAhRHLfBERkIyDtFDBA", "M0gqEzpC3N8FeKjFTrKCb0Tz8BbwTKx8EqwtHmcO"
+KEY_VALUE = "JEZqgygcmtbaLGsH7Zwqhc9jXmaoq3Gq"  # gitleaks:allow
 
 
 def source(first=FIRST, pair_a=PAIR_A):
@@ -27,20 +31,20 @@ def source(first=FIRST, pair_a=PAIR_A):
             f'pair = ["{pair_a}", "{PAIR_B}"]\n')
 
 
-def gitleaks(shift: int) -> list[dict]:
-    """What Gitleaks 8.30.1 reported (--redact) for `source()`, and with `shift` lines added on top (recorded).
-    It counts columns from 1 on a file's first line and from 2 on the rest."""
-    first = 17 if shift == 0 else 18
-    return [{"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 1 + shift, "StartColumn": first, "EndColumn": first + 39,
-             "Match": "REDACTED", "Entropy": 4.9},
-            {"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 3 + shift, "StartColumn": 11, "EndColumn": 50,
-             "Match": "REDACTED", "Entropy": 4.9},
-            {"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 5 + shift, "StartColumn": 11, "EndColumn": 50,
-             "Match": "REDACTED", "Entropy": 5.1},
-            {"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 5 + shift, "StartColumn": 55, "EndColumn": 94,
-             "Match": "REDACTED", "Entropy": 5.2},
-            {"RuleID": "generic-api-key", "File": "/src/app.py", "StartLine": 4 + shift, "StartColumn": 2, "EndColumn": 45,
-             "Match": 'api_key = "REDACTED"', "Entropy": 5.0}]
+def betterleaks(shift: int, first: str = FIRST, pair_a: str = PAIR_A) -> list[dict]:
+    """What Betterleaks reports (--redact) for `source(first, pair_a)`, and with `shift` lines added on top: a Gitleaks
+    8.30.1 recording with its columns as Betterleaks gives them (from 1 on every line, the last one included; checked
+    with 1.9.0), and each secret's entropy."""
+    return [{"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 1 + shift, "StartColumn": 17, "EndColumn": 56,
+             "Match": "REDACTED", "Entropy": entropy(first)},
+            {"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 3 + shift, "StartColumn": 10, "EndColumn": 49,
+             "Match": "REDACTED", "Entropy": entropy(SECOND)},
+            {"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 5 + shift, "StartColumn": 10, "EndColumn": 49,
+             "Match": "REDACTED", "Entropy": entropy(pair_a)},
+            {"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 5 + shift, "StartColumn": 54, "EndColumn": 93,
+             "Match": "REDACTED", "Entropy": entropy(PAIR_B)},
+            {"RuleID": "generic-api-key", "File": "/src/app.py", "StartLine": 4 + shift, "StartColumn": 1, "EndColumn": 44,
+             "Match": 'api_key = "REDACTED"', "Entropy": entropy(KEY_VALUE)}]
 
 
 def trivy(shift: int) -> dict:
@@ -64,9 +68,9 @@ class SecretIdentityTests(unittest.TestCase):
         (root / "app.py").write_text(text)
         return root
 
-    def test_gitleaks_secrets_keep_their_fingerprint_when_lines_are_added_above(self):
-        before = engines.parse_gitleaks(gitleaks(0), None, self.snapshot(source()))
-        after = engines.parse_gitleaks(gitleaks(2), None, self.snapshot("import os\n\n" + source()))
+    def test_betterleaks_secrets_keep_their_fingerprint_when_lines_are_added_above(self):
+        before = engines.parse_betterleaks(betterleaks(0), None, self.snapshot(source()))
+        after = engines.parse_betterleaks(betterleaks(2), None, self.snapshot("import os\n\n" + source()))
         self.assertEqual([item["fingerprint"] for item in before], [item["fingerprint"] for item in after])
         self.assertEqual(len({item["fingerprint"] for item in before}), 5)
         # The former, line-based fingerprint travels along so the registry can carry the finding over.
@@ -76,20 +80,25 @@ class SecretIdentityTests(unittest.TestCase):
     def test_no_secret_value_goes_into_a_fingerprint(self):
         """The second secret on a line is identified by what precedes it with the first one masked: changing the
         first one's value changes nothing."""
-        before = engines.parse_gitleaks(gitleaks(0), None, self.snapshot(source()))
-        rotated = engines.parse_gitleaks(gitleaks(0), None, self.snapshot(source(first="F" * 40, pair_a="G" * 40)))
+        before = engines.parse_betterleaks(betterleaks(0), None, self.snapshot(source()))
+        first, pair_a = "ZtWh0bA6yv4UdR1mLx9Kq8cNp3eHs7Ug2fJo5iXb", "Pd3kQw9Lz1Vb7Nt4Hy0Rc6Mx2Jf8Gs5Ue1Ka3Op7"
+        rotated = engines.parse_betterleaks(betterleaks(0, first, pair_a), None, self.snapshot(source(first=first, pair_a=pair_a)))
         self.assertEqual([item["fingerprint"] for item in before], [item["fingerprint"] for item in rotated])
 
     def test_trivy_secrets_keep_their_fingerprint_when_lines_are_added_above(self):
-        before = engines.parse_trivy(trivy(0), {})
-        after = engines.parse_trivy(trivy(2), {})
+        before = engines.parse_trivy(trivy(0), {}, root=self.snapshot(source()))
+        after = engines.parse_trivy(trivy(2), {}, root=self.snapshot("import os\n\n" + source()))
         self.assertEqual([item["fingerprint"] for item in before], [item["fingerprint"] for item in after])
         self.assertEqual(len({item["fingerprint"] for item in before}), 4)  # both on the pair line are kept
         self.assertEqual(before[0]["previous_fingerprint"], engines._stable("secrets", "github-pat", "app.py", "1"))
 
-    def test_without_the_snapshot_a_secret_keeps_the_line_based_fingerprint(self):
-        found = engines.parse_gitleaks(gitleaks(0))
-        self.assertEqual(found[0]["fingerprint"], engines._stable("secrets", "github-pat", "app.py", "1"))
+    def test_without_the_snapshot_a_secret_is_unlinkable_and_never_named_by_its_place(self):
+        """Without the file its value can't be read: the rule, the file and the line are any value's, so they never
+        name it (R2); each report gets a name of its own."""
+        found, again = engines.parse_betterleaks(betterleaks(0)), engines.parse_betterleaks(betterleaks(0))
+        self.assertTrue(all(item.get("unlinkable") for item in found))
+        self.assertNotEqual(found[0]["fingerprint"], engines._stable("secrets", "github-pat", "app.py", "1"))
+        self.assertFalse({item["fingerprint"] for item in found} & {item["fingerprint"] for item in again})
         self.assertNotIn("previous_fingerprint", found[0])
 
     def test_internal_patterns_keep_their_fingerprint_when_lines_are_added_above(self):
@@ -107,16 +116,16 @@ class SecretIdentityTests(unittest.TestCase):
         starts = [found.start() for found in re.finditer(FIRST, line)]
         self.assertEqual(len(starts), count)
         report = [{"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 1, "StartColumn": start + 1, "EndColumn": start + 40,
-                   "Match": "REDACTED", "Entropy": 4.9} for start in starts]
+                   "Match": "REDACTED", "Entropy": entropy(FIRST)} for start in starts]
         started = time.monotonic()
-        found = engines.parse_gitleaks(report, None, self.snapshot(line + "\n"))
+        found = engines.parse_betterleaks(report, None, self.snapshot(line + "\n"))
         self.assertLess(time.monotonic() - started, 5)
         self.assertEqual(len({item["fingerprint"] for item in found}), count)
 
     def test_a_path_outside_the_snapshot_is_never_read(self):
         root = self.snapshot(source())
-        outside = [{**gitleaks(0)[0], "File": "/src/../../etc/passwd"}]
-        found = engines.parse_gitleaks(outside, None, root)
+        outside = [{**betterleaks(0)[0], "File": "/src/../../etc/passwd"}]
+        found = engines.parse_betterleaks(outside, None, root)
         self.assertNotIn("previous_fingerprint", found[0])
 
 
@@ -196,22 +205,112 @@ class CarryOverTests(unittest.TestCase):
         self.assertEqual({digest: entry["status"] for digest, entry in after.items()},
                          {digest: entry["status"] for digest, entry in before.items()})
 
-    def test_a_decision_already_under_the_new_fingerprint_wins(self):
+    def test_different_decisions_under_the_new_and_the_old_fingerprint_leave_it_for_review(self):
         self.run_([_finding(OLD), _finding(NEW)])
         state = registry.view(self.data_dir, KEY, status="all")
         triage.decide(self.data_dir, state, [OLD], "false_positive", reason="Old decision about the old one", user=USER)
         triage.decide(self.data_dir, state, [NEW], "in_progress", user=USER)
         self.run_([{**_finding(NEW), "previous_fingerprint": OLD}])
-        self.assertEqual(triage.load_asset(self.data_dir, KEY)[NEW]["status"], "in_progress")
-        # Both existed: nothing moves, and the old one is fixed by the scan that no longer sees it.
+        decision = triage.load_asset(self.data_dir, KEY)[NEW]
+        self.assertEqual(decision["status"], "open")
+        self.assertEqual({event["status"] for event in decision["history"]}, {"false_positive", "in_progress", "open"})
+        # Both existed: they were the same finding all along, so the old one folds into the new one instead of being fixed.
         self.assertEqual({digest: entry["status"] for digest, entry in registry.load(self.data_dir, KEY)["findings"].items()},
-                         {OLD: "fixed", NEW: "open"})
+                         {NEW: "open"})
 
     def test_a_pull_request_baseline_scanned_before_knows_the_former_fingerprint(self):
         finding = {**_finding(NEW), "previous_fingerprint": OLD}
-        outcome = classify([finding], {"package-lock.json": None}, {OLD})
+        outcome = classify([finding], {"package-lock.json": None}, [_finding(OLD)])
         self.assertEqual((outcome["introduced"], outcome["preexisting"]), ([], [finding]))
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class IdentityChangeTests(CarryOverTests):
+    """Fingerprints that changed for reasons that aren't the finding's: it keeps its state and triage."""
+
+    def test_an_advisory_that_gets_a_cve_stays_the_same_finding(self):
+        ghsa = "GHSA-aaaa-bbbb-cccc"
+        # Its identity comes from its advisory and package (no fixture identity): the subject here.
+        before = {key: value for key, value in _finding("x").items() if key != "identity"} | {"rule_id": ghsa, "cve": [], "ghsa": [ghsa]}
+        before["fingerprint"] = dependency_fingerprint({ghsa}, ghsa, "npm", "axios", "1.0.0")
+        (stored,) = self.run_([before])["findings"]   # the engine's fingerprint, or in v2 the identity that replaces it
+        state = registry.view(self.data_dir, KEY, status="all")
+        triage.decide(self.data_dir, state, [stored["fingerprint"]], "false_positive", reason="Only in the build tooling, never shipped",
+                      user=USER)
+        # The advisory database now lists its CVE: the canonical identifier, so the fingerprint changes.
+        after = {**before, "rule_id": ghsa, "cve": ["CVE-2026-9"], "ghsa": [ghsa]}
+        after["fingerprint"] = dependency_fingerprint({ghsa, "CVE-2026-9"}, ghsa, "npm", "axios", "1.0.0")
+        self.assertNotEqual(after["fingerprint"], before["fingerprint"])
+        (now,) = self.run_([after])["findings"]
+        entries = registry.load(self.data_dir, KEY)["findings"]
+        self.assertEqual({digest: entry["status"] for digest, entry in entries.items()}, {now["fingerprint"]: "open"})
+        self.assertEqual(triage.load_asset(self.data_dir, KEY)[now["fingerprint"]]["status"], "false_positive")
+
+    def test_a_report_folded_into_another_one_isnt_marked_fixed(self):
+        self.run_([_finding(OLD), _finding(NEW)])  # two engines' reports of one advisory, before names were compared
+        self.run_([{**_finding(NEW), "previous_fingerprints": [OLD]}])
+        self.assertEqual({digest: entry["status"] for digest, entry in registry.load(self.data_dir, KEY)["findings"].items()}, {NEW: "open"})
+
+
+class StableIdentityTests(unittest.TestCase):
+    def test_a_zizmor_finding_keeps_its_fingerprint_when_lines_are_added_above(self):
+        workflow = ("name: ci\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                    "      - uses: actions/checkout@v4\n")
+        step = workflow.index("- uses")
+
+        def report(text, offset):
+            start = step + offset
+            return [{"ident": "artipacked", "desc": "credential persistence", "determinations": {"severity": "Medium", "confidence": "Low"},
+                     "locations": [{"symbolic": {"key": {"Local": {"verbatim_path": "/src/.github/workflows/ci.yml"}},
+                                                 "annotation": "does not set persist-credentials: false", "kind": "Primary",
+                                                 "route": {"route": [{"Key": "jobs"}, {"Key": "build"}, {"Key": "steps"}, {"Index": 0}]}},
+                                    "concrete": {"location": {"start_point": {"row": text[:start].count("\n"), "column": 8},
+                                                              "end_point": {"row": text[:start].count("\n"), "column": 40},
+                                                              "offset_span": {"start": start, "end": start + 33}}}}]}]
+
+        with tempfile.TemporaryDirectory() as folder:
+            snapshot = Path(folder)
+            (snapshot / ".github" / "workflows").mkdir(parents=True)
+            target = snapshot / ".github" / "workflows" / "ci.yml"
+            target.write_text(workflow)
+            (first,) = config_engines.parse_zizmor(report(workflow, 0), snapshot)
+            moved = "# Build and test on every push.\n# Owners: platform team.\n"
+            target.write_text(moved + workflow)
+            (second,) = config_engines.parse_zizmor(report(moved + workflow, len(moved)), snapshot)
+        self.assertEqual(second["line"], first["line"] + 2)
+        self.assertEqual(second["fingerprint"], first["fingerprint"])
+        # The former, line-based fingerprint goes along, so a finding stored with it keeps its state.
+        self.assertEqual(first["previous_fingerprint"], engines._stable("cicd", "artipacked", ".github/workflows/ci.yml", str(first["line"])))
+
+    def test_an_image_history_step_is_known_by_its_command_not_its_position(self):
+        build = "RUN curl -H 'Authorization: Bearer " + "abcdefgh" + "12345678' https://example.com/x.tgz | tar xz"   # built here: not a secret in this file
+
+        def findings(history):
+            metadata = {"ImageConfig": {"config": {"User": "app", "Healthcheck": {"Test": ["CMD", "true"]}},
+                                        "history": [{"created_by": step} for step in history]}}
+            return {item["rule_id"]: item for item in image.config_findings(metadata, {"asset": "image:ghcr.io/org/api", "tag": "1"})}
+
+        before = findings(["ADD rootfs.tar /", build])["IMG-BUILD-URL-CREDENTIAL"]
+        after = findings(["ADD rootfs.tar /", "RUN apk add --no-cache ca-certificates", build])["IMG-BUILD-URL-CREDENTIAL"]
+        self.assertEqual((before["path"], after["path"]), ("image-history/step-2", "image-history/step-3"))
+        self.assertEqual(after["fingerprint"], before["fingerprint"])
+        self.assertNotEqual(before["previous_fingerprint"], before["fingerprint"])  # the position-based one, for the registry
+
+    def test_trivy_and_grype_agree_on_java_and_go_names(self):
+        def trivy(name, version, ecosystem):
+            return {"rule_id": "CVE-2021-44228", "cve": ["CVE-2021-44228"], "ghsa": [], "confidence": 8, "fingerprint": f"t-{name}",
+                    "package": {"ecosystem": ecosystem, "name": name, "version": version, "fixed_version": None}}
+
+        def grype(name, version, ecosystem):
+            return {"rule_id": "CVE-2021-44228", "fingerprint": f"g-{name}", "advisory": {"aliases": ["CVE-2021-44228"]},
+                    "package": {"ecosystem": ecosystem, "name": name, "version": version, "fixed_version": "2.17.1"}}
+
+        merged, counts = image.merge_packages([trivy("org.apache.logging.log4j:log4j-core", "2.14.1", "jar"), trivy("stdlib", "v1.22.1", "gobinary")],
+                                              [grype("log4j-core", "2.14.1", "java-archive"), grype("stdlib", "go1.22.1", "go-module")])
+        self.assertEqual((len(merged), counts["both"], counts["only_grype"]), (2, 2, 0))
+        self.assertEqual(merged[0]["package"]["fixed_version"], "2.17.1")
+        # Grype's report, a finding of its own before, folds into Trivy's instead of being marked fixed.
+        self.assertEqual(merged[0]["previous_fingerprints"], ["g-log4j-core"])

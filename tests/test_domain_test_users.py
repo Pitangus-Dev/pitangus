@@ -17,7 +17,7 @@ import testenv
 from pitangus.modules.runs.jobs import ScanJobs
 from pitangus.modules.runs.store import load_run
 from pitangus.modules.runs.tables import jobs
-from pitangus.modules.scanning import engines, web
+from pitangus.modules.scanning import engines, web, web_tools
 from pitangus.modules.sources import domains, test_users
 from pitangus.modules.sources.tables import domain_test_users
 from pitangus.shared import db, vault
@@ -199,7 +199,9 @@ class PlanTests(unittest.TestCase):
 
     def test_hosts_saved_out_of_scope_stay_out_of_every_users_context_too(self):
         plan = web.plan(HOST, f"https://{HOST}/", wildcards=["*.pitangus.dev"], excluded=["admin.pitangus.dev"], users=self.USERS[:1])
-        self.assertEqual([context.get("excludePaths") for context in plan["env"]["contexts"]], [[web.host_pattern("admin.pitangus.dev")]] * 2)
+        # With a session to keep, every context also leaves the sign-out links alone.
+        self.assertEqual([context.get("excludePaths") for context in plan["env"]["contexts"]],
+                         [[web.host_pattern("admin.pitangus.dev"), web_tools.LOGOUT_ZAP]] * 2)
         self.assertEqual([job["parameters"].get("user") for job in plan["jobs"] if job["type"] == "spider"], [None, "login-1"])
 
     def test_in_api_mode_the_definition_is_imported_as_each_user(self):

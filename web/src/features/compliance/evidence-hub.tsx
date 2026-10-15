@@ -17,6 +17,7 @@ import { ALL, scopeBody, scopeQuery, scopeReady, type Scope } from '@/shared/lib
 import { ImageOrigin } from '@/features/compliance/image-origin'
 
 type Asset = Response<'/api/evidence/assets'>['items'][number]
+const KIND = { repository: 'evidence.repository', image: 'evidence.image', domain: 'evidence.domain' } as const
 type Item = 'sbom' | 'vex' | 'technical' | 'audit' | 'portfolio' | 'portfolio_sbom' | 'portfolio_vex'
 const withQuery = (url: string, extra: string) => {
   const base = url.replace(/\?$/, '')
@@ -44,7 +45,7 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
   const [error, setError] = useState('')
 
   const search = useCallback((q: string) => queryClient.fetchQuery(evidenceAssetsQuery(q)).then(page => ({
-    options: page.items.map(asset => ({ id: asset.key, label: asset.name, hint: asset.kind === 'image' ? t('evidence.image') : t('evidence.repository'), asset })),
+    options: page.items.map(asset => ({ id: asset.key, label: asset.name, hint: t(KIND[asset.kind]), asset })),
     total: page.total })), [queryClient, t])
   const download = async (item: Item, run: () => Promise<void>) => {
     if (busy) return
@@ -66,7 +67,11 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
   const many = scope.kind !== 'one'
   const ready = many && scopeReady(scope)
   const covered = summary.data
-  const empty = covered ? covered.repositories + covered.images === 0 : false
+  // Everything in scope (the audit evidence covers it all); the SBOM and VEX only the repositories and images with a
+  // completed full scan, and the summary says which ones are left out of them and why.
+  const inScope = covered ? covered.repositories + covered.images + covered.domains : 0
+  const empty = covered ? inScope === 0 : false
+  const unscanned = covered ? covered.repositories + covered.images - covered.complete : 0
   const pickOne = <div className="max-w-xl space-y-2">
     <Combobox className="max-w-sm" label={t('evidence.asset')} placeholder={t('evidence.choose')} emptyText={t('evidence.no_match')} value={picked} search={search}
       onSelect={option => { setPicked(option as ComboOption & { asset: Asset }); setError('') }} />
@@ -87,23 +92,26 @@ export function EvidenceHub({ onNew, admin = false }: { onNew: () => void; admin
               <FrameworkOptions frameworks={frameworks} />
             </Select></div>
             {current && <p className="max-w-sm space-x-1 text-xs text-app-subtle"><span>{tf('audit.framework_hint', { hint: tf(current[2]) })}</span>{framework !== 'general' && <span>{tf('audit.mapping_note')}</span>}</p>}
-            <div role="status" aria-atomic="true" className="mt-4 max-w-xl space-y-1 border-l-2 border-app-line pl-3 text-sm">
+            <div role="status" aria-atomic="true" className="mt-4 max-w-xl space-y-1 border-t border-app-line pt-3 text-sm">
               {asset ? <><p className="font-medium">{asset.name}</p>
-                  <p className="text-app-muted">{asset.kind === 'image' ? t('evidence.image') : t('evidence.repository')} · {asset.last_complete ? t('evidence.summary.last_complete', { date: formatDate(asset.last_complete) }) : t('evidence.summary.no_complete')}</p></>
+                  <p className="text-app-muted">{t(KIND[asset.kind])} · {asset.last_complete ? t('evidence.summary.last_complete', { date: formatDate(asset.last_complete) }) : t('evidence.summary.no_complete')}</p></>
                 : !many ? <p className="text-app-muted">{t('evidence.summary.pick')}</p>
                 : !ready ? <p className="text-app-muted">{t('scope:incomplete')}</p>
                 : summary.isError ? <p className="text-danger">{t('evidence.summary.failed')}</p>
                 : !covered ? <p className="text-app-muted">{t('evidence.summary.counting')}</p>
-                : <><p className="font-medium">{t('evidence.summary.assets', { count: covered.repositories + covered.images })}</p>
+                : <><p className="font-medium">{t('evidence.summary.assets', { count: inScope })}</p>
                   <p className="text-app-muted">{[t('evidence.summary.repositories', { count: covered.repositories }), t('evidence.summary.images', { count: covered.images }),
-                    t('evidence.summary.complete', { count: covered.complete })].join(' · ')}</p></>}
+                    ...(covered.domains ? [t('evidence.summary.domains', { count: covered.domains })] : [])].join(' · ')}</p>
+                  {!empty && <p className="text-app-muted">{covered.complete ? t('evidence.summary.in_files', { count: covered.complete }) : t('evidence.summary.in_files_none')}</p>}
+                  {covered.complete > 0 && unscanned > 0 && <p className="text-app-muted">{t('evidence.summary.unscanned', { count: unscanned })}</p>}
+                  {covered.complete > 0 && covered.domains > 0 && <p className="text-app-muted">{t('evidence.summary.domains_left', { count: covered.domains })}</p>}</>}
             </div>
           </div>
         </div>
 
         <section aria-labelledby="evidence-downloads" className="space-y-2">
           <h3 id="evidence-downloads" className="text-xs font-normal text-app-muted"><span aria-hidden>3 · </span>{asset ? t('evidence.downloads_one', { name: asset.name })
-            : ready && covered && !empty ? t('evidence.downloads_many', { count: covered.repositories + covered.images }) : t('evidence.downloads')}</h3>
+            : ready && covered && !empty ? t('evidence.downloads_many', { count: inScope }) : t('evidence.downloads')}</h3>
           {!many ? (asset ? <ul className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line bg-panel">
             <Row name={t('evidence.items.audit')} hint={t('evidence.items.audit_hint', { framework: frameworkName })} busy={busy === 'audit'} waiting={busy !== null}
               onClick={() => void download('audit', () => api.downloadPost('/api/reports/audit', 'audit-report', { asset: asset.key, status: 'all', options: { framework } }, auditFile(asset.name)))} />

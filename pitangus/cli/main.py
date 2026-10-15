@@ -37,9 +37,21 @@ def _json(value) -> str:
     return json.dumps(localize(value), ensure_ascii=False, indent=2)
 
 
+def _scan_logs(data_dir: Path) -> None:
+    """`scan` speaks through its report and its progress lines: the internal log reaches the terminal only when asked
+    for (PITANGUS_LOG_LEVEL); otherwise Python's last-resort handler would print bare event names to a developer."""
+    import logging
+    from pitangus.shared import log, settings
+    if settings.is_set("PITANGUS_LOG_LEVEL"):
+        log.configure(data_dir)
+    elif not logging.getLogger("pitangus").handlers:
+        logging.getLogger("pitangus").addHandler(logging.NullHandler())
+
+
 def _scan_command(args) -> int:
     from pitangus.modules.runs.local import (EXIT_ERROR, EXIT_INCOMPLETE, EXIT_OK, LocalScanError, render_json, render_markdown,
-                                             render_sarif, render_text, run)
+                                             render_prompt, render_sarif, render_text, run)
+    _scan_logs(args.data_dir)
 
     def progress(level: str, message: str) -> None:
         # Progress goes to stderr so stdout stays clean for JSON or SARIF.
@@ -49,11 +61,11 @@ def _scan_command(args) -> int:
     try:
         result = run(args.path, data_dir=args.data_dir, base=args.base, baseline=not args.no_baseline, name=args.name,
                      fail_on=args.fail_on, allow_osv_upload=args.allow_osv_upload, progress=progress,
-                     exclude=args.exclude)
+                     exclude=args.exclude, revision=args.commit, staged=args.staged)
     except (LocalScanError, OSError) as exc:
         print(t("cli.error", detail=_detail(exc)), file=sys.stderr)
         return EXIT_ERROR
-    rendered = {"text": render_text, "json": render_json, "sarif": render_sarif}[args.format](result)
+    rendered = {"text": render_text, "json": render_json, "sarif": render_sarif, "prompt": render_prompt}[args.format](result)
     if args.output:
         args.output.write_text(rendered, encoding="utf-8")
         if args.format != "text":
@@ -84,11 +96,18 @@ def build_parser() -> argparse.ArgumentParser:
                                             "2 usage error · 3 incomplete analysis.")
     local.add_argument("path", nargs="?", type=Path, default=Path("."), help="Folder to analyze (default: the current one)")
     local.add_argument("--base", help="Starting branch or commit (e.g. main or origin/main): only what the change introduces counts")
+    snapshot = local.add_mutually_exclusive_group()
+    snapshot.add_argument("--commit", metavar="REF",
+                          help="Scan this commit as git holds it, not the folder on disk: untracked files and uncommitted "
+                               "edits don't count (the pre-push hook scans the commit being pushed)")
+    snapshot.add_argument("--staged", action="store_true",
+                          help="Scan what's staged, as the next commit will hold it: untracked files and unstaged edits don't count")
     local.add_argument("--no-baseline", action="store_true",
                        help="With --base, don't analyze the starting point: faster, but everything on changed lines counts")
     local.add_argument("--fail-on", choices=("critical", "high", "medium", "low", "never"), default="high",
                        help="Severity that makes the scan fail (default high)")
-    local.add_argument("--format", choices=("text", "json", "sarif"), default="text", help="Output format (default text)")
+    local.add_argument("--format", choices=("text", "json", "sarif", "prompt"), default="text",
+                       help="Output format (default text). prompt: one prompt per finding to paste into your own AI assistant")
     local.add_argument("--output", type=Path, help="Write the result to a file instead of standard output")
     local.add_argument("--allow-incomplete", action="store_true",
                        help="Don't fail when an engine couldn't run (by default exits with 3: incomplete is not clean)")
@@ -151,6 +170,11 @@ def build_parser() -> argparse.ArgumentParser:
             action.add_argument("--password-stdin", action="store_true")
     integrity = commands.add_parser("integrity", help="Check the database for orphan rows (reads only, unless --fix)")
     integrity.add_argument("--fix", action="store_true", help="Delete the orphan rows that are leftovers and print a summary")
+    gate = commands.add_parser("identity-gate", help="Compare each repository's last two full analyses by fingerprint and by "
+                                                    "canonical identity (reads only; exit 0 when the same commit gives 0/0)")
+    gate.add_argument("--asset", action="append", help="Only this repository's asset key (repeatable)")
+    gate.add_argument("--scan", type=Path, metavar="PATH",
+                      help="Instead: scan this folder twice with the engines and compare (CI; exit 0 only with 0/0 and both complete)")
     worker = commands.add_parser("worker", help="Run queued analyses and periodic tasks (the compose `worker` service)")
     worker.add_argument("--check", action="store_true", help="Health: 0 if this worker showed signs of life recently (healthcheck)")
     commands.add_parser("check-config", help="Check the settings in the environment (exit 1 if any is invalid)")
@@ -168,11 +192,12 @@ def main(argv: list[str] | None = None) -> int:
     wiring.configure()
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.command == "scan":
-        # Runs inside the user's repository: Pitangus's data (and the advisory cache) must not end up in it.
+    if args.command == "scan" or (args.command == "identity-gate" and args.scan is not None):
+        # Runs inside the user's repository (or a CI checkout), without a database: Pitangus's data (and the advisory
+        # cache) must not end up in it.
         args.data_dir = args.data_dir or (Path(settings.text("PITANGUS_DATA_DIR")) if settings.is_set("PITANGUS_DATA_DIR")
                                           else Path.home() / ".cache" / "pitangus")
-        return _scan_command(args)
+        return _scan_command(args) if args.command == "scan" else _identity_gate_command(args)
     if args.command == "import-sarif" and args.server:
         return _import_remote(args)  # a client: no database here
     args.data_dir = args.data_dir or Path(settings.text("PITANGUS_DATA_DIR") or "data")
@@ -268,7 +293,8 @@ def main(argv: list[str] | None = None) -> int:
             rows = pull_engines(report=lambda message: print(_say(message), flush=True)) if args.pull else engine_status()
             for row in rows:
                 state = t("cli.engines.ready") if row["ready"] else t("cli.engines.missing")
-                print(f"{state:6} {row['name']} {row['version']}  {row['image']}" + (f"  ({_say(row['action'])})" if row.get("action") else ""))
+                off = f"  ({t('cli.engines.disabled')})" if not row.get("enabled", True) else ""
+                print(f"{state:6} {row['name']} {row['version']}  {row['image']}" + (f"  ({_say(row['action'])})" if row.get("action") else "") + off)
             return 0 if all(row["ready"] for row in rows) else 3
         if args.command == "import-sarif":
             return _import_local(args)
@@ -276,6 +302,8 @@ def main(argv: list[str] | None = None) -> int:
             return _user_command(args)
         if args.command == "integrity":
             return _integrity_command(args)
+        if args.command == "identity-gate":
+            return _identity_gate_command(args)
         if args.command == "ai-check":
             result = check_provider(args.provider)
             print(_json(result))
@@ -417,6 +445,37 @@ def _integrity_command(args) -> int:
     elif fixable:
         print(t("cli.integrity.run_fix", count=fixable))
     return 0 if not any(found.values()) else 3
+
+
+def _identity_gate_command(args) -> int:
+    from pitangus.modules.runs import identity_gate
+    if args.scan is not None:
+        _scan_logs(args.data_dir)
+
+        def progress(level: str, message: str) -> None:
+            # Only what went wrong: the reason a scan was incomplete belongs in the CI log.
+            if level in ("warn", "error"):
+                print(f"! {_say(message)}", file=sys.stderr, flush=True)
+        outcome = identity_gate.scan_twice(args.scan, args.data_dir, progress=progress)
+        print(t("cli.identity_gate.title_scan", path=str(args.scan)))
+        print("  " + t("cli.identity_gate.row", **{key: outcome[key] for key in (
+            "v1_opened", "v1_gone", "v2_opened", "v2_gone", "recounted", "findings", "families")}))
+        if not outcome["complete"]:
+            print(t("cli.identity_gate.incomplete"))
+        print(t("cli.identity_gate.passed" if outcome["passed"] else "cli.identity_gate.failed_scan"))
+        return 0 if outcome["passed"] else 3
+    rows = identity_gate.report(args.data_dir, args.asset)
+    print(t("cli.identity_gate.title"))
+    for row in rows:
+        if row["scans"] < 2:
+            print(f"  {row['name']}: {t('cli.identity_gate.not_enough')}")
+            continue
+        commit = t("cli.identity_gate.same_commit", commit=row["commit"]) if row["same_commit"] else t("cli.identity_gate.other_commit")
+        print(f"  {row['name']} ({commit}): " + t("cli.identity_gate.row", **{key: row[key] for key in (
+            "v1_opened", "v1_gone", "v2_opened", "v2_gone", "recounted", "findings", "families")}))
+    ok = identity_gate.passed(rows)
+    print(t("cli.identity_gate.passed" if ok else "cli.identity_gate.failed"))
+    return 0 if ok else 3
 
 
 def _read_password(from_stdin: bool) -> str:

@@ -1,0 +1,63 @@
+[t-env] Dumped HTTP request for http://edge.pitangus.test/.env
+
+
+GET /.env HTTP/1.1
+Host: edge.pitangus.test
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0
+Accept: */*
+Accept-Language: en
+Accept-Encoding: gzip
+
+
+[t-env] Dumped HTTP response http://edge.pitangus.test/.env
+
+HTTP/1.0 429 Too Many Requests
+Connection: close
+Content-Length: 9
+Content-Type: text/html
+Date: Mon, 12 Oct 2026 18:26:09 GMT
+Server: BaseHTTP/0.6 Python/3.14.4
+
+slow down
+[t-multi] Dumped HTTP request for http://edge.pitangus.test/forbidden
+
+
+GET /forbidden HTTP/1.1
+Host: edge.pitangus.test
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+Accept: */*
+Accept-Language: en
+Accept-Encoding: gzip
+
+
+[t-multi] Dumped HTTP response http://edge.pitangus.test/forbidden
+
+HTTP/1.0 403 Forbidden
+Connection: close
+Content-Length: 2
+Content-Type: text/html
+Date: Mon, 12 Oct 2026 18:26:09 GMT
+Server: BaseHTTP/0.6 Python/3.14.4
+
+no
+[t-multi] Dumped HTTP request for http://edge.pitangus.test/missing
+
+
+GET /missing HTTP/1.1
+Host: edge.pitangus.test
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:1.9.5.20) Gecko/ Firefox/3.6.8
+Accept: */*
+Accept-Language: en
+Accept-Encoding: gzip
+
+
+[t-multi] Dumped HTTP response http://edge.pitangus.test/missing
+
+HTTP/1.0 404 Not Found
+Connection: close
+Content-Length: 9
+Content-Type: text/html
+Date: Mon, 12 Oct 2026 18:26:09 GMT
+Server: BaseHTTP/0.6 Python/3.14.4
+
+not found

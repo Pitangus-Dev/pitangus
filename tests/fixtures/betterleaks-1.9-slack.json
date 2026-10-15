@@ -1,0 +1,35 @@
+[
+ {
+  "RuleID": "github-pat",
+  "StartLine": 2,
+  "EndLine": 2,
+  "StartColumn": 17,
+  "EndColumn": 56,
+  "Match": "REDACTED",
+  "Secret": "REDACTED",
+  "File": "/src/config.py",
+  "Entropy": 4.821928
+ },
+ {
+  "RuleID": "slack-bot-token",
+  "StartLine": 3,
+  "EndLine": 3,
+  "StartColumn": 10,
+  "EndColumn": 63,
+  "Match": "REDACTED",
+  "Secret": "REDACTED",
+  "File": "/src/config.py",
+  "Entropy": 4.801003
+ },
+ {
+  "RuleID": "slack-bot-token",
+  "StartLine": 4,
+  "EndLine": 4,
+  "StartColumn": 11,
+  "EndColumn": 64,
+  "Match": "REDACTED",
+  "Secret": "REDACTED",
+  "File": "/src/config.py",
+  "Entropy": 5.0323033
+ }
+]

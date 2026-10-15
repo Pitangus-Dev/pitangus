@@ -16,7 +16,7 @@
   },
   "secrets": {
     "title": "Detección de secretos predeterminada",
-    "engine_defaults": "Reglas integradas de Gitleaks y Trivy",
+    "engine_defaults": "Reglas integradas de Betterleaks y Trivy",
     "view": "Ver"
   },
   "cra": {
@@ -42,7 +42,7 @@
   "help": {
     "title": "Cómo se aplican las políticas",
     "sla": "Los plazos se aplican a todos los repositorios, al Resumen y a los informes. El reloj corre sobre lo abierto; lo remediado y las excepciones aprobadas nunca vencen.",
-    "secrets": "La detección de secretos predeterminada se aplica en cada análisis de repositorio y revisión de PR. Se ignora el .gitleaks.toml del repositorio, así que un PR no puede debilitar la detección.",
+    "secrets": "La detección de secretos predeterminada se aplica en cada análisis de repositorio y revisión de PR. Se ignora el .betterleaks.toml del repositorio, así que un PR no puede debilitar la detección.",
     "repository": "Un repositorio puede sumar entradas propias desde Hallazgos, nunca quitar lo predeterminado.",
     "critical": "Un secreto expuesto siempre es crítico.",
     "admin_only": "Solo un administrador las cambia.",

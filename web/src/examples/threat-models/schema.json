@@ -1,0 +1,938 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pitangus.dev/schemas/threat-model-v1.json",
+  "title": "Pitangus threat model (portable format, version 1)",
+  "description": "Ids, references (source, target, element, parent, boundary components) and types are strict: an error stops the import. Protocol, component kind and data classes accept your own values; ATT&CK accepts any well-formed technique ID. The importer also reads the synonyms listed under x-pitangus-aliases (fields) and x-pitangus-synonyms (values) as ours, and keeps any other field as written, exporting it back.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "pitangus-threat-model"
+    },
+    "version": {
+      "const": 1
+    },
+    "model": {
+      "$ref": "#/$defs/model"
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "model"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "model": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "methodology": {
+          "enum": [
+            "stride",
+            "linddun",
+            "pasta",
+            "attack_trees",
+            "attack",
+            "custom"
+          ]
+        },
+        "custom_modules": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "attack",
+              "elements",
+              "linddun",
+              "manual",
+              "pasta",
+              "stride",
+              "trees"
+            ]
+          },
+          "description": "Only with methodology custom"
+        },
+        "components": {
+          "type": "array",
+          "maxItems": 60,
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        },
+        "flows": {
+          "type": "array",
+          "maxItems": 150,
+          "items": {
+            "$ref": "#/$defs/flow"
+          }
+        },
+        "boundaries": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/boundary"
+          }
+        },
+        "legend": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "neutral",
+              "brand",
+              "info",
+              "success",
+              "warning",
+              "attention",
+              "danger"
+            ]
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 40
+          }
+        },
+        "repository_refs": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "level_equivalents": {
+          "type": "object",
+          "description": "Where your own levels sort among ours, e.g. {\"severity\": {\"Severe\": \"high\"}}; without one they go after the known levels",
+          "properties": {
+            "severity": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              }
+            },
+            "likelihood": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              }
+            },
+            "impact": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              }
+            },
+            "difficulty": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "assumptions": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/assumption"
+          },
+          "description": "What the model takes for granted (e.g. the cloud provider's share of the work). Plain strings are accepted too"
+        },
+        "manual_threats": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/manual_threat"
+          }
+        },
+        "attack_trees": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/attack_tree"
+          }
+        },
+        "attack_mappings": {
+          "type": "array",
+          "maxItems": 300,
+          "items": {
+            "$ref": "#/$defs/attack_mapping"
+          }
+        },
+        "pasta": {
+          "type": "object",
+          "properties": {
+            "objectives": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "scope": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "decomposition": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "threats": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "vulnerabilities": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "attacks": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "risk": {
+              "type": "string",
+              "maxLength": 4000
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "x-pitangus-aliases": {
+            "1": "objectives",
+            "2": "scope",
+            "3": "decomposition",
+            "4": "threats",
+            "5": "vulnerabilities",
+            "6": "attacks",
+            "7": "risk",
+            "application_decomposition": "decomposition",
+            "attack_analysis": "attacks",
+            "attack_modeling": "attacks",
+            "attack_simulation": "attacks",
+            "business_objectives": "objectives",
+            "risk_analysis": "risk",
+            "risk_and_impact_analysis": "risk",
+            "risk_impact_analysis": "risk",
+            "stage_1": "objectives",
+            "stage_2": "scope",
+            "stage_3": "decomposition",
+            "stage_4": "threats",
+            "stage_5": "vulnerabilities",
+            "stage_6": "attacks",
+            "stage_7": "risk",
+            "technical_scope": "scope",
+            "threat_analysis": "threats",
+            "vulnerability_analysis": "vulnerabilities",
+            "weakness_analysis": "vulnerabilities"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "approach": "methodology",
+        "attack_techniques": "attack_mappings",
+        "data_flows": "flows",
+        "dataflows": "flows",
+        "elements": "components",
+        "mappings": "attack_mappings",
+        "method": "methodology",
+        "methodology_name": "methodology",
+        "modules": "custom_modules",
+        "team_threats": "manual_threats",
+        "techniques": "attack_mappings",
+        "threats_manual": "manual_threats",
+        "title": "name",
+        "trees": "attack_trees",
+        "trust_boundaries": "boundaries"
+      }
+    },
+    "component": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "description": "Unique among components and flows: lowercase letters, digits and hyphens"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "technology": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "kind": {
+          "type": "string",
+          "maxLength": 80,
+          "examples": [
+            "actor",
+            "web_app",
+            "api",
+            "service",
+            "function",
+            "database",
+            "cache",
+            "queue",
+            "storage",
+            "external",
+            "identity",
+            "custom"
+          ],
+          "description": "Known: actor, web_app, api, service, function, database, cache, queue, storage, external, identity, custom. Any other value is kept as your own type (custom_kind), analyzed as custom_base."
+        },
+        "custom_kind": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Name of your own type when kind is custom"
+        },
+        "custom_base": {
+          "enum": [
+            "actor",
+            "web_app",
+            "api",
+            "service",
+            "function",
+            "database",
+            "cache",
+            "queue",
+            "storage",
+            "external",
+            "identity"
+          ],
+          "description": "The role a custom type is analyzed as (default service)"
+        },
+        "asset_ref": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "A repository or domain to link later; never linked automatically"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Folder of the component's code in its repository, e.g. services/api/"
+        },
+        "data": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "maxLength": 40,
+            "examples": [
+              "public",
+              "internal",
+              "confidential",
+              "pii",
+              "credentials",
+              "payment"
+            ]
+          },
+          "description": "Data classes. Known: public, internal, confidential, pii, credentials, payment. Any other short text is kept as your own class: it counts as internal data and no privacy or credential rules apply to it."
+        },
+        "internet_facing": {
+          "type": "boolean"
+        },
+        "authenticates": {
+          "type": "boolean"
+        },
+        "encrypted_at_rest": {
+          "type": "boolean"
+        },
+        "color": {
+          "enum": [
+            "neutral",
+            "brand",
+            "info",
+            "success",
+            "warning",
+            "attention",
+            "danger"
+          ]
+        },
+        "origin": {
+          "enum": [
+            "suggested",
+            "manual"
+          ]
+        },
+        "position": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "size": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "classification": "data",
+        "data_classes": "data",
+        "data_classification": "data",
+        "label": "name",
+        "stack": "technology",
+        "tech": "technology",
+        "title": "name",
+        "type": "kind"
+      }
+    },
+    "flow": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "description": "Unique among components and flows"
+        },
+        "source": {
+          "type": "string",
+          "description": "The id of a component or flow of this model"
+        },
+        "target": {
+          "type": "string",
+          "description": "The id of a component or flow of this model"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "What travels and why; plain text, line breaks allowed"
+        },
+        "protocol": {
+          "type": "string",
+          "maxLength": 24,
+          "examples": [
+            "https",
+            "http",
+            "grpc",
+            "websocket",
+            "sql",
+            "amqp",
+            "redis",
+            "smtp",
+            "sftp",
+            "other"
+          ],
+          "description": "Known: https, http, grpc, websocket, sql, amqp, redis, smtp, sftp, other. Any other short text is kept as your own protocol; Pitangus can't tell whether it's encrypted, so set encrypted."
+        },
+        "data": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "maxLength": 40,
+            "examples": [
+              "public",
+              "internal",
+              "confidential",
+              "pii",
+              "credentials",
+              "payment"
+            ]
+          },
+          "description": "Data classes. Known: public, internal, confidential, pii, credentials, payment. Any other short text is kept as your own class: it counts as internal data and no privacy or credential rules apply to it."
+        },
+        "authenticated": {
+          "type": "boolean"
+        },
+        "encrypted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "protocol"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "classification": "data",
+        "data_classes": "data",
+        "data_classification": "data",
+        "destination": "target",
+        "dst": "target",
+        "from": "source",
+        "label": "name",
+        "source_id": "source",
+        "src": "source",
+        "target_id": "target",
+        "title": "name",
+        "to": "target"
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "description": "Unique among boundaries"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "The id of a component or flow of this model"
+          },
+          "description": "Component ids; a component belongs to one boundary at most"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "What the boundary separates; plain text, line breaks allowed"
+        },
+        "box": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "color": {
+          "enum": [
+            "neutral",
+            "brand",
+            "info",
+            "success",
+            "warning",
+            "attention",
+            "danger"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "component_ids": "components",
+        "contains": "components",
+        "elements": "components",
+        "label": "name",
+        "members": "components",
+        "title": "name"
+      }
+    },
+    "assumption": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "description": "Unique among assumptions; optional, given when missing"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "What the model takes for granted; plain text, line breaks allowed"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "assumption": "text",
+        "description": "text",
+        "statement": "text",
+        "title": "text",
+        "value": "text"
+      }
+    },
+    "manual_threat": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "description": "Unique among team threats"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Free text, e.g. a STRIDE or LINDDUN category"
+        },
+        "element": {
+          "type": "string",
+          "description": "The id of a component or flow of this model"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "x-pitangus-synonyms": {
+            "blocker": "critical",
+            "crit": "critical",
+            "hi": "high",
+            "important": "high",
+            "info": "low",
+            "informational": "low",
+            "lo": "low",
+            "major": "high",
+            "med": "medium",
+            "mid": "medium",
+            "minor": "low",
+            "moderate": "medium",
+            "severe": "high",
+            "very_high": "critical"
+          }
+        },
+        "scenario": {
+          "type": "string",
+          "maxLength": 1500,
+          "description": "How the attack happens; a description written under a synonym is joined here"
+        },
+        "mitigation": {
+          "type": "string",
+          "maxLength": 1500
+        },
+        "likelihood": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            null
+          ],
+          "x-pitangus-synonyms": {
+            "critical": "high",
+            "hi": "high",
+            "lo": "low",
+            "med": "medium",
+            "mid": "medium",
+            "minimal": "low",
+            "moderate": "medium",
+            "very_high": "high",
+            "very_low": "low"
+          }
+        },
+        "impact": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            null
+          ],
+          "x-pitangus-synonyms": {
+            "critical": "high",
+            "hi": "high",
+            "lo": "low",
+            "med": "medium",
+            "mid": "medium",
+            "minimal": "low",
+            "moderate": "medium",
+            "very_high": "high",
+            "very_low": "low"
+          }
+        },
+        "owner": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "affected_element": "element",
+        "assignee": "owner",
+        "attack_scenario": "scenario",
+        "component": "element",
+        "component_id": "element",
+        "countermeasure": "mitigation",
+        "countermeasures": "mitigation",
+        "description": "scenario",
+        "element_id": "element",
+        "flow": "element",
+        "flow_id": "element",
+        "mitigations": "mitigation",
+        "name": "title",
+        "probability": "likelihood",
+        "stride": "category",
+        "stride_category": "category",
+        "target_element": "element"
+      }
+    },
+    "attack_tree": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "description": "Unique among trees"
+        },
+        "goal": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "The attacker's goal; a name written under a synonym is joined in front of it"
+        },
+        "nodes": {
+          "type": "array",
+          "maxItems": 120,
+          "items": {
+            "$ref": "#/$defs/attack_tree_node"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "goal"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "name": "goal",
+        "root": "goal",
+        "steps": "nodes",
+        "title": "goal"
+      }
+    },
+    "attack_tree_node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "description": "Unique within its tree"
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The id of another step of the same tree, or null for a path"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "gate": {
+          "enum": [
+            "and",
+            "or"
+          ],
+          "description": "Case doesn't matter",
+          "x-pitangus-synonyms": {
+            "&": "and",
+            "&&": "and",
+            "all": "and",
+            "any": "or",
+            "|": "or",
+            "||": "or"
+          }
+        },
+        "element": {
+          "type": "string",
+          "description": "The id of a component or flow of this model"
+        },
+        "difficulty": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            null
+          ],
+          "x-pitangus-synonyms": {
+            "critical": "high",
+            "hi": "high",
+            "lo": "low",
+            "med": "medium",
+            "mid": "medium",
+            "minimal": "low",
+            "moderate": "medium",
+            "very_high": "high",
+            "very_low": "low"
+          }
+        },
+        "mitigated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "affected_element": "element",
+        "component": "element",
+        "component_id": "element",
+        "description": "text",
+        "element_id": "element",
+        "flow": "element",
+        "flow_id": "element",
+        "label": "text",
+        "logic": "gate",
+        "name": "text",
+        "operator": "gate",
+        "parent_id": "parent",
+        "target_element": "element",
+        "title": "text",
+        "type": "gate"
+      }
+    },
+    "attack_mapping": {
+      "type": "object",
+      "properties": {
+        "technique": {
+          "type": "string",
+          "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$",
+          "examples": [
+            "T1190",
+            "T1133",
+            "T1078",
+            "T1199",
+            "T1195.001",
+            "T1195.002",
+            "T1566",
+            "T1189",
+            "T1059",
+            "T1203",
+            "T1648",
+            "T1610",
+            "T1505.003",
+            "T1098",
+            "T1136",
+            "T1525",
+            "T1068",
+            "T1611",
+            "T1685",
+            "T1070",
+            "T1550",
+            "T1110",
+            "T1552",
+            "T1528",
+            "T1539",
+            "T1556",
+            "T1606",
+            "T1621",
+            "T1212",
+            "T1087",
+            "T1046",
+            "T1526",
+            "T1580",
+            "T1557",
+            "T1040",
+            "T1213",
+            "T1530",
+            "T1005",
+            "T1041",
+            "T1567",
+            "T1537",
+            "T1485",
+            "T1486",
+            "T1565",
+            "T1498",
+            "T1499",
+            "T1496"
+          ],
+          "description": "A MITRE ATT&CK Enterprise technique or sub-technique ID (ATT&CK v19.2, bundled: any of them is recognized). A revoked, deprecated or unknown ID is kept, with a warning.",
+          "x-pitangus-attack-version": "19.2"
+        },
+        "element": {
+          "type": "string",
+          "description": "The id of a component or flow of this model"
+        },
+        "status": {
+          "enum": [
+            "relevant",
+            "mitigated",
+            "not_applicable"
+          ],
+          "x-pitangus-synonyms": {
+            "addressed": "mitigated",
+            "applicable": "relevant",
+            "covered": "mitigated",
+            "identified": "relevant",
+            "irrelevant": "not_applicable",
+            "likely": "relevant",
+            "mitigate": "mitigated",
+            "n/a": "not_applicable",
+            "na": "not_applicable",
+            "not_relevant": "not_applicable",
+            "open": "relevant",
+            "out_of_scope": "not_applicable",
+            "possible": "relevant",
+            "potential": "relevant",
+            "resolved": "mitigated"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 600
+        }
+      },
+      "required": [
+        "technique"
+      ],
+      "additionalProperties": false,
+      "x-pitangus-aliases": {
+        "affected_element": "element",
+        "attack_id": "technique",
+        "component": "element",
+        "component_id": "element",
+        "description": "note",
+        "element_id": "element",
+        "flow": "element",
+        "flow_id": "element",
+        "id": "technique",
+        "justification": "note",
+        "mitre_id": "technique",
+        "notes": "note",
+        "rationale": "note",
+        "target_element": "element",
+        "technique_id": "technique"
+      }
+    }
+  }
+}

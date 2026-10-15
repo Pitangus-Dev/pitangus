@@ -161,7 +161,7 @@ class ActionDefinitionTests(unittest.TestCase):
         for path in (ROOT / "action.yml", *WORKFLOWS):
             for block in run_blocks(path.read_text(encoding="utf-8")):
                 self.assertNotIn("${{", block, path)
-        self.assertEqual(len(run_blocks(ACTION)), 2)
+        self.assertEqual(len(run_blocks(ACTION)), 3)
 
     def test_every_action_is_pinned_by_commit(self):
         for path in (ROOT / "action.yml", *WORKFLOWS):
@@ -174,6 +174,25 @@ class ActionDefinitionTests(unittest.TestCase):
             self.assertEqual(documented(path, "Input|Entrada"), keys(ACTION, "inputs"), path)
             self.assertEqual(documented(path, "Output|Salida"), keys(ACTION, "outputs"), path)
             self.assertIn(f"pitangus-worker:{VERSION}", path.read_text(encoding="utf-8"), path)
+
+    def test_the_pre_commit_hook_runs_the_same_image_as_the_action(self):
+        hook = (ROOT / ".pre-commit-hooks.yaml").read_text(encoding="utf-8")
+        script = ROOT / re.search(r"entry: (\S+)", hook).group(1)
+        default = re.search(r"default: (ghcr\.io/pitangus-dev/pitangus-worker:\S+)", ACTION).group(1)
+        self.assertIn(f'image="${{PITANGUS_IMAGE:-{default}}}"', script.read_text(encoding="utf-8"))
+        self.assertTrue(os.access(script, os.X_OK), script)
+        for path in (ROOT / "docs" / "quickstart-developer.md", ROOT / "docs" / "es" / "inicio-rapido-desarrollador.md"):
+            self.assertIn(default, path.read_text(encoding="utf-8"), path)
+
+    def test_the_engine_databases_outlive_a_run(self):
+        """Downloading Trivy's and OSV-Scanner's databases on every run is most of a scan's time: the hook keeps them in
+        a Docker volume, the Action in actions/cache under the folder it hands the scan."""
+        script = (ROOT / "hooks" / "pitangus-docker").read_text(encoding="utf-8")
+        self.assertIn('-v "$volume":/data', script)
+        self.assertIn("--data-dir /data", script)
+        self.assertIn('data="$RUNNER_TEMP/pitangus"', ACTION)
+        for folder in ("trivy-cache", "osv-cache", "feeds"):
+            self.assertIn(f"${{{{ runner.temp }}}}/pitangus/{folder}", ACTION)
 
     def test_the_self_test_job_uses_the_local_action(self):
         self.assertRegex((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"), r"(?m)^\s+uses: \./(\s|$)")

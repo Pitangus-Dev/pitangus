@@ -52,6 +52,7 @@ RUN --mount=type=cache,id=pitangus-pip,target=/root/.cache/pip pip install --dis
  && pip uninstall --disable-pip-version-check -y pip
 COPY pitangus/ ./pitangus/
 COPY rules/ ./rules/
+COPY third_party/ ./third_party/
 COPY --from=web /src/pitangus/app/static ./pitangus/app/static
 # The exact release (the tag without the v, 0.12.1) for /api/health, the panel and the reports; pitangus/version.py
 # ignores a value that doesn't belong to its VERSION (the default "dev").
@@ -75,7 +76,7 @@ CMD ["python", "-m", "pitangus", "--data-dir", "/data", "serve", "--port", "8766
 # tests/test_packaging.py checks that these digests and versions match IMAGES and the Opengrep Dockerfile.
 FROM aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa AS trivy
 FROM ghcr.io/google/osv-scanner@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa AS osv-scanner
-FROM ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f AS gitleaks
+FROM ghcr.io/betterleaks/betterleaks@sha256:e3b95b0db6c2735db17165c009b0ad6d9cef34fb4578659232b98f69d7346cac AS betterleaks
 FROM anchore/grype@sha256:5c88961f4130e830542d441c7ed6c78baa28e799163abac53d2be4923fb5ab7d AS grype
 FROM ghcr.io/zizmorcore/zizmor@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101 AS zizmor
 
@@ -101,7 +102,7 @@ COPY docker/checkov/requirements.txt /tmp/checkov-requirements.txt
 COPY docker/checkov/overrides.txt /tmp/checkov-overrides.txt
 COPY --from=trivy --chmod=0755 /usr/local/bin/trivy /usr/local/bin/trivy
 COPY --from=osv-scanner --chmod=0755 /osv-scanner /usr/local/bin/osv-scanner
-COPY --from=gitleaks --chmod=0755 /usr/bin/gitleaks /usr/local/bin/gitleaks
+COPY --from=betterleaks --chmod=0755 /usr/bin/betterleaks /usr/local/bin/betterleaks
 COPY --from=grype --chmod=0755 /grype /usr/local/bin/grype
 COPY --from=zizmor --chmod=0755 /usr/bin/zizmor /usr/local/bin/zizmor
 COPY --from=opengrep --chmod=0755 /opengrep /usr/local/bin/opengrep
@@ -118,7 +119,7 @@ RUN python -m venv /opt/checkov \
  && rm /tmp/checkov-requirements.txt /tmp/checkov-overrides.txt \
  && /opt/checkov/bin/checkov --version | grep -qx "${CHECKOV_VERSION}" \
  && ln -s /opt/checkov/bin/checkov /usr/local/bin/checkov \
- && trivy --version >/dev/null && osv-scanner --version >/dev/null && gitleaks version >/dev/null && grype version >/dev/null \
+ && trivy --version >/dev/null && osv-scanner --version >/dev/null && betterleaks version >/dev/null && grype version >/dev/null \
  && zizmor --version >/dev/null && opengrep --version >/dev/null && checkov --version >/dev/null
 ENV PITANGUS_ENGINE_RUNNER=local PYTHONUTF8=1
 USER pitangus

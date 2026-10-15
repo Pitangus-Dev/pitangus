@@ -11,6 +11,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/22px var(--fon
 .ds-btn--ghost:hover{background:var(--sunken)}
 .ds-btn--danger{background:var(--surface);border-color:var(--critical-line);color:var(--critical)}
 .ds-btn[disabled]{opacity:.5;cursor:not-allowed}
+.ds-btn--primary[disabled]{opacity:1;background:var(--sunken);color:var(--muted);border-color:var(--line)}
 /* Badge */
 .ds-badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:var(--radius-sm);border:1px solid var(--line);font:500 12px/1 var(--font-sans);color:var(--muted);background:var(--surface)}
 .ds-badge--critical{background:var(--sev-critical);border-color:var(--sev-critical);color:#ffffff}

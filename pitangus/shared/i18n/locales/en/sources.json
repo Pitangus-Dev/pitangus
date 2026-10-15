@@ -91,7 +91,8 @@
       "denied_name": "{{name}} is set by the connection itself and can't be saved",
       "invalid_value": "Header values are printable ASCII on one line, up to {{max}} characters",
       "limit": "A domain keeps at most {{max}} headers",
-      "not_found": "There's no saved header named {{name}}"
+      "not_found": "There's no saved header named {{name}}",
+      "invalid_check": "The session check is an HTTPS page, without a port or credentials in it"
     },
     "discovery": {
       "interrupted": "The search for related hosts stopped without finishing; search again.",

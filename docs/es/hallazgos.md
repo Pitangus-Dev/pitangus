@@ -78,10 +78,24 @@ solo desde cuatro fuentes:
 
 Las huellas están pensadas para resistir los cambios normales:
 
-- Los secretos y los hallazgos de código de Opengrep conservan su huella cuando se agregan líneas por encima, para
-  que no parezcan remediados y nuevos a la vez.
-- Un secreto se identifica por su regla, su archivo y lo que lo precede en su línea, nunca por su valor.
-- Un aviso de dependencia tiene una sola huella, lo reporte el motor que lo reporte y lo nombre como lo nombre.
+- Los secretos, los hallazgos de código de Opengrep y los de GitHub Actions de zizmor conservan su huella cuando se
+  agregan líneas por encima, para que no parezcan remediados y nuevos a la vez. Un hallazgo en el historial de
+  construcción de una imagen se reconoce por el comando del paso, no por su posición.
+- Un secreto se identifica por su valor, leído donde dijo su motor y solo si todo lo que el motor dijo de él se
+  cumple allí (Betterleaks: su coincidencia redactada, su longitud y la entropía del valor; Trivy: su posición desde el
+  principio del archivo y el texto que enmascaró alrededor, línea a línea en una clave de varias líneas) y se cumple
+  para un único valor. Las columnas de Betterleaks solo cuentan en un archivo que lee de una vez (hasta 100 KB): más allá
+  puede contarlas desde la mitad de cualquier línea (un bundle minificado, un archivo largo), así que ahí el valor debe
+  ser el único que encaja en toda su línea. Si el valor no se puede leer así, el secreto queda *sin enlace*: se nombra por su regla, su archivo y el
+  contenido de sus líneas (con los saltos de línea normalizados), nunca solo por su regla y su sitio. El mismo
+  contenido da el mismo nombre y cualquier cambio da otro; nunca hereda el triaje de lo que había antes, y no se marca
+  como remediado mientras su motor siga encontrando en su archivo un secreto de la misma regla, u otro motor que lo vio
+  encuentre allí uno (queda abierto, sin verificar). Tampoco un secreto nombrado por su valor mientras un motor que lo
+  vio encuentre en su archivo uno cuyo valor no se pudo leer.
+- Un aviso de dependencia tiene una sola huella, lo reporte el motor que lo reporte y lo nombre como lo nombre. Cuando
+  un aviso conocido por su GHSA recibe un CVE, el hallazgo sigue siendo el mismo. Trivy y Grype coinciden en el nombre
+  de un paquete en las imágenes (el `grupo:artefacto` de un paquete Java, el `go1.22.1` de una versión de Go), y dos
+  reportes que antes eran hallazgos separados se unen en uno en vez de marcar uno de ellos como remediado.
 - Los hallazgos de versiones que calculaban las huellas de otra forma conservan su estado, triage, issue de Jira y
   verificación pendiente en el siguiente análisis.
 
@@ -90,7 +104,168 @@ mismo. Si GitHub deja de dar acceso a un repositorio (se borró o se quitó de l
 no vuelve en 24 horas, sus hallazgos, triage y tickets enlazados se borran.
 
 Un análisis en el que algún motor no corrió queda **incompleto**: no marca nada como remediado, porque «no visto» no
-es «desaparecido».
+es «desaparecido». Por la misma razón, un análisis completo no remedia un hallazgo en un archivo que no analizó: uno que
+quedó fuera de la copia por su tamaño, o uno que se saltó el motor que reporta el hallazgo (los archivos de más de 2 MB
+para Opengrep, por ejemplo).
+
+Una coincidencia de SAST silenciada en el código con un comentario `nosemgrep` aparece en **Excluidos** con ese motivo,
+nunca como remediada. Se reabre si el comentario desaparece, y se remedia cuando ya no está el código que señalaba.
+Una coincidencia de SAST en código de terceros copiado en el repositorio (una librería, un archivo minificado) queda
+excluida igual, con ese motivo.
+
+## Prueba antes de remediar
+
+Un hallazgo se marca como remediado solo cuando el motor dueño probó, en un análisis que funcionó, que miró donde
+estaba. `PITANGUS_COVERAGE_MODE` decide con qué rigor ([configuracion.md](configuracion.md)): `on` por defecto, que
+aplica todas las reglas de abajo; `shadow` guarda lo que cambiarían y remedia como antes de 0.14.
+
+- **El contrato de los motores.** Cada ejecución de un motor debe terminar con un código de salida que use para una
+  ejecución que leyó lo que debía y una salida que sea el JSON que siempre escribe, con la marca que escribe cuando
+  corrió. Cualquier otra cosa (un fallo, una salida vacía o truncada, `null`, un objeto de error, un timeout) significa
+  que la ejecución no terminó, en cualquier modo: el motor no abre nada a partir de ella ni remedia nada de lo que vio
+  antes.
+- **Cobertura por archivo o página.** Cada motor dice qué unidades examinó y cuáles no, y por qué: un archivo en el que
+  Opengrep agotó el tiempo, un lockfile o archivo de infraestructura que Trivy u OSV-Scanner no pudieron leer, un archivo
+  que Checkov no pudo parsear, un workflow que zizmor no terminó, archivos de credenciales que un escáner de secretos no
+  pudo leer, una página cuya propia herramienta recibió un estado que no prueba nada (cualquiera
+  distinto de un 2xx, un 404 o un 410; para ZAP, distinto de un 2xx; para un hallazgo de nuclei sobre una ruta, distinto
+  de un 404 o un 410). Solo esa unidad queda sin examinar; el resto de la ejecución del motor
+  sigue contando, también cuando el motor terminó **parcial**. Solo un motor que falló o rompió su contrato queda ciego
+  del todo. Un manifiesto cuyas dependencias Trivy no pudo resolver (un repositorio remoto que rechaza un `pom.xml`
+  padre, lo que detiene toda la ejecución de Trivy) queda sin examinar solo en dependencias: Trivy vuelve a correr sin
+  resolución remota, resuelve cada uno de esos manifiestos por separado, y sus archivos de infraestructura, sus secretos
+  y los demás manifiestos siguen contando. También quedan sin examinar en dependencias, y el paso los nombra: un
+  manifiesto cuyos paquetes salieron sin versión resuelta (un `pom.xml` padre o una propiedad que no se resolvió, que
+  Trivy reporta con código de salida 0 y OSV-Scanner sin avisar, o un requisito sin versión fija con `==`, que ninguno
+  revisa), con cada paquete contado; un manifiesto que no está vacío y no tiene al lado un lockfile que el motor lea
+  (`build.gradle` sin `gradle.lockfile`, `package.json` sin lock o solo con el `bun.lockb` binario, `Pipfile`,
+  `pyproject.toml`, `Gemfile`, `composer.json`, `Cargo.toml`…), declare lo que declare. Sea cual sea el gestor de
+  paquetes, un hallazgo de dependencias vive en la carpeta del proyecto de cada archivo donde se vio: un motor examinó
+  esa carpeta solo si obtuvo un paquete de algún archivo suyo en ese análisis, y solo da por desaparecido el hallazgo si
+  obtuvo paquetes del archivo del que salió, así que un aviso reportado en un lockfile que se borró, se vació, se
+  reemplazó o quedó sin paquetes nunca se remedia mientras su carpeta siga en el repositorio, y uno visto en varios
+  lockfiles espera a todos; y un manifiesto o lockfile en una codificación que el motor no lee. Una carpeta que ya no
+  está en el repositorio no tiene nada: lo que salió de ella se remedia.
+- **Cada motor que vio un hallazgo tiene que volver a mirar.** Un hallazgo que reportaron dos motores (Betterleaks y
+  Trivy, Trivy y OSV-Scanner, Trivy y Checkov) solo se remedia cuando los dos, y cualquier motor que lo vio en un
+  análisis anterior, examinaron su archivo en este. Uno que no corrió, falló o pasó por alto el archivo lo deja abierto.
+- **Lo que el commit tiene y la copia no.** Un archivo que `.gitattributes` marca como `export-ignore`, un objeto LFS que
+  no se descargó, un submódulo, un enlace o un nombre con el que no se puede escribir un archivo figura como no analizado
+  para todos los motores (ver [Análisis de código](analisis-de-codigo.md)): que el archivo del proveedor lo deje fuera
+  no remedia nada de lo que se encontró ahí.
+- **La configuración nunca remedia.** Cada análisis guarda qué motores estaban activos y qué reglas aplicó cada uno, con
+  un resumen de lo que detecta cada regla. Un hallazgo solo se remedia en un análisis en el que corrió la regla que lo
+  encontró, sin cambios desde la última vez que se vio, con su motor activo. Desactivar una regla (una regla opcional,
+  una regla personalizada que se quita, las reglas de terceros), apagar un motor opcional (Checkov, Grype) o actualizar
+  una regla deja lo que encontró como **Sin comprobar (configuración)**, con cualquier `PITANGUS_COVERAGE_MODE`; el
+  detalle del hallazgo dice qué regla o qué motor. Un secreto que una entrada de la lista de permitidos o una regla
+  desactivada empieza a filtrar queda excluido con ese motivo, nunca remediado. Los hallazgos guardados antes de la 0.14
+  cuentan como vistos con las reglas de la 0.13.1.
+- **Sin verificar.** Un hallazgo abierto que un análisis no pudo comprobar sigue abierto, marcado **Sin verificar desde**
+  el primero de esos análisis, y no cuenta en ningún plazo ni indicador. Tras `PITANGUS_UNSEEN_WARN_SCANS` análisis la
+  página del activo avisa (enseguida si el motivo es la configuración). Nunca se remedia solo; volver a verlo quita la
+  marca.
+- **La retención de remediados.** Un análisis que remediaría al menos `PITANGUS_FIX_HOLD_PERCENT` de los hallazgos
+  abiertos de un activo, y al menos `PITANGUS_FIX_HOLD_MINIMUM`, retiene sus remediados y lo dice una vez en la página del
+  activo, con el motivo: cuántos habría remediado de cuántos abiertos. El siguiente análisis completo que pruebe las
+  mismas ausencias los aplica; quien administra puede marcarlos como remediados al momento (**Marcar como remediados**).
+  Las aperturas nunca se retienen.
+- **Nada sin probar sale fuera.** Jira recibe el comentario de remediado, y los canales de notificación un hallazgo,
+  solo por lo que un análisis probó: un hallazgo retenido o sin verificar no envía nada.
+- **Salud.** `GET /api/findings/health` cuenta lo que hace dudar de los remediados: hallazgos que vuelven antes de 30
+  días, análisis que remediaron mucho más de lo habitual, hallazgos abiertos que varios motores reportan por separado,
+  hallazgos sin verificar y la parte de motores ciegos en el último análisis de cada activo.
+
+## Arréglalo con tu propia IA
+
+El detalle de cada hallazgo abierto tiene **Copiar prompt para tu IA**: un prompt listo para pegar en Claude, Cursor o
+Copilot con la regla, dónde está, el código encontrado y la corrección recomendada (`pitangus scan --format prompt` da lo
+mismo en la terminal). Nunca lleva un valor: un hallazgo de secreto y una credencial escrita en el código (CWE-798, 259,
+321, 522) no llevan fragmento, y cualquier otro fragmento es la estructura del código (ver abajo). No incluye nada fuera
+del fragmento encontrado, y Pitangus no llama a ninguna IA para esto: el asistente es tuyo.
+
+**La estructura y las palabras comunes, nunca los valores.** Todo texto que lleva código, configuración o lo que un
+motor dijo de ellos pasa por un único renderizador antes de guardarlo, mostrarlo o enviarlo, venga del motor o de la
+importación que venga: el fragmento de un hallazgo (también el snippet y la región de contexto de un SARIF importado, con
+sus líneas), el fragmento del prompt, el mensaje de un motor, los textos de las reglas de un SARIF importado, el detalle
+de un paso, el progreso, los límites, los errores que imprimieron los motores y lo que registra un análisis fallido. El
+renderizador no busca credenciales y nunca conserva una palabra por el sitio en el que está:
+
+- **Una palabra** (una racha de letras, dígitos y `_`, en cualquier alfabeto) se conserva solo si es una palabra común:
+  de un lenguaje de programación, del propio vocabulario de Pitangus en inglés y en español, o de la escritura de código
+  y de seguridad en general (`execute`, `request`, `args`, `sha256`, `injection`), o si se parte entera, por `_`, por los
+  cambios de mayúsculas y por los dígitos, en palabras así y números de hasta tres cifras (`getConnection`,
+  `DB_PASSWORD`, `admin123`). Cualquier otra palabra pasa a ser `***`, esté donde esté: una clave, un identificador, un
+  operando, el argumento de una llamada, un comentario, una cadena, el nombre de un host o un segmento de la ruta de una
+  URL.
+- **La puntuación y los operadores** se conservan, así que el código se sigue leyendo:
+  `cur.execute("SELECT k FROM t WHERE v = '…'" + q)` se lee `cur.execute("SELECT k FROM t WHERE v = '***'" + q)`, y
+  `# creds: admin / Winter2024Corp` se lee `# ***: admin / ***`.
+- **Una URL dentro de un texto** se lee igual, tras decodificar los `%`, y pierde además la información de usuario y
+  todos los valores de su query y de su fragmento: `https://api.telegram.org/bot58…:AAF…/sendMessage` se lee
+  `https://api.***.org/***:***/sendMessage`.
+
+Así, un valor sobrevive solo si está hecho entero de palabras comunes y números de hasta tres cifras (`admin123` sí;
+`Winter2024Corp`, `xK9#mP2` y cualquier token no). Está probado como propiedad: con un valor aleatorio en cualquier
+posición de cualquier formato, por todos los motores y en todas las salidas, no aparece en ninguna parte ninguna racha de
+cuatro o más de sus letras y dígitos que no sea una palabra así.
+
+Las direcciones a las que se apuntó un análisis y las páginas que visitó un análisis web (la ubicación de un hallazgo
+web, el objetivo de una ejecución, las páginas que alcanzó, las referencias de un SARIF importado) son URL como
+cualquier otra y se renderizan igual: no hay excepción para ellas. La identidad de un hallazgo web y lo que prueba que ya
+no está leen la página tal como era, antes de renderizarla: cada página guarda una clave (su esquema, host y puerto, y un
+resumen de cada trozo de su ruta y de su query, nunca su texto), así que la misma página conserva su identidad de un
+análisis al siguiente, su plantilla de ruta se construye entre análisis como antes, y dos páginas que se muestran igual
+(`/users/***`) siguen siendo dos. Los hallazgos de zizmor
+guardan solo dónde están en el workflow (`jobs:` / `build:` / `steps[2]:`), nunca el YAML al que apuntan. La identidad de
+un hallazgo, y su identidad en cualquier parte del repositorio (la de la puerta de las pull requests), se calculan del
+original antes de renderizarlo, así que nada parece nuevo, remediado ni movido. Los valores que detectaron los motores
+de secretos se cambian además allí donde aparezcan, también en sus formas codificadas. Lo que dice el catálogo de reglas
+de Pitangus y lo que dicen los avisos públicos se muestra tal cual. Al actualizar a 0.14 se renderiza igual lo ya
+guardado (migraciones de datos `render_stored_texts`, `render_stored_texts_lexicon` y `web_location_keys`:
+ejecuciones, registro y notificaciones pendientes), fijando antes la clave de cada página web guardada, así que ninguna
+identidad cambia.
+
+## Una identidad por problema
+
+Cómo se reconoce un hallazgo de un análisis al siguiente. `PITANGUS_IDENTITY_MODE` ([configuracion.md](configuracion.md))
+vale `v2` por defecto: un hallazgo por problema, según la identidad de abajo. Con `shadow`, las huellas funcionan como
+antes de 0.14 mientras cada hallazgo lleva su identidad canónica y cada análisis anota qué cambiaría agrupar por ella.
+
+- **Por su contenido, nunca por su posición.** El código es su regla, su archivo y el código encontrado sin comentarios
+  ni formato; un recurso configurado, su dirección (`aws_s3_bucket.data`); una dependencia, su aviso, su paquete como
+  purl y su versión tal como la compara su ecosistema (`v0.3.7` y `0.3.7` son la misma versión de Go); un secreto, el
+  HMAC de su valor con una clave derivada de la clave maestra (ni el valor ni el HMAC se guardan, se muestran ni se
+  exportan nunca), sea cual sea la clave que lo guarda, el formato, con comillas o sin ellas, y el motor que lo encontró
+  (`API_KEY = "…"` en un `.env` y `api_key: …` en YAML son el mismo secreto, y lo que reportan Betterleaks y Trivy de él
+  es un solo hallazgo, igual que el de un SARIF importado; un secreto o una credencial escrita en el código que llega en
+  un SARIF también se identifica por su valor, nunca por su fragmento; dos valores nunca son el mismo hallazgo, aunque
+  estén en el mismo sitio: cambiar `TOKEN = "A"` por `TOKEN = "B"` remedia A y abre B, una PR que lo hace introduce B, y
+  el triaje de A se queda en A; uno cuyo valor no se puede leer con certeza queda sin enlace, nombrado por el contenido
+  de sus líneas, como arriba); un hallazgo web, la regla de la herramienta, el host, la plantilla de la ruta, la evidencia y el tipo
+  de análisis que lo vio (un rastreo anónimo, uno con cabeceras guardadas, una definición de API o una comprobación de
+  exposición: solo un análisis de ese tipo puede decir que ya no está, así que la misma alerta vista por dos tipos son
+  dos hallazgos). Una línea añadida encima, un comentario de supresión, un reformateo o el orden en que un motor lista
+  sus resultados no cambian nada.
+- **Familias con contador.** Problemas idénticos (la misma línea pegada dos veces, el mismo secreto en dos archivos, una
+  regla en muchas páginas de una plantilla) son un solo hallazgo con su número de copias y dónde está cada una. Una
+  decisión de triage cubre las copias que había: una más lo devuelve a abierto con una nota. Una menos es una
+  remediación parcial del mismo hallazgo, que queda remediado cuando no queda ninguna donde el análisis miró. Una copia
+  en un archivo o página que el análisis no pudo comprobar sigue contando.
+- **Cuando el motor no da contenido** (una mala configuración sin dirección, un resultado importado sin código), la
+  familia es la regla en su archivo, y el contador distingue las copias.
+- **Dos motores, un problema.** Los informes solo se unen por identidad, nunca adivinando por la línea; cuando una
+  fusión anterior pliega uno en otro, la huella plegada queda entre los nombres anteriores del hallazgo.
+- **El paso a `v2`.** `pitangus identity-gate` compara los dos últimos análisis completos de cada repositorio por huella
+  y por identidad. Cambia cuando todos los repositorios analizados dos veces sobre el mismo commit den 0/0 de las dos
+  formas; el primer análisis en `v2` mueve cada entrada, su triage y su issue a su familia por sus huellas anteriores,
+  con la retención de remediados. `pitangus identity-gate --scan RUTA` hace lo mismo sin servidor: analiza la carpeta
+  dos veces con esta versión y falla (código 3) si el segundo análisis abre o remedia algo, excluidos incluidos. La CI
+  de Pitangus lo ejecuta.
+- **Plegar nunca relaja el triage.** Cuando varias huellas se pliegan en un solo hallazgo (copias agrupadas en una
+  familia, informes de dos motores unidos), las copias que coinciden conservan su decisión, con la caducidad más
+  cercana; si difieren, o alguna nunca se revisó, el hallazgo vuelve a abierto para revisarlo. El historial de cada
+  copia y todos los issues de Jira se conservan (los demás quedan enlazados bajo el primero).
 
 ## Triage
 
@@ -142,14 +317,16 @@ docs/*.md
 
 Los patrones funcionan como `.gitignore`: un patrón que coincide con una carpeta excluye todo lo que contiene
 (`fixtures` cubre `fixtures/a/b.py`), `*` no cruza carpetas y `**` sí. Se rechazan los patrones que excluirían todo
-(`**`, `*/**`), las rutas absolutas y `..`.
+(`**`, `*/**`), las rutas absolutas y `..`. Mientras escribes, el diálogo comprueba los patrones como lo haría al
+guardar y dice qué hallazgos pasarían a **Excluidos** (o volverían a abiertos), con algunas de sus rutas, antes de
+guardar nada.
 
 - Lo que cae bajo ellos no cuenta como abierto, no entra en el informe ni en el SARIF y **no bloquea PR**. No
   desaparece: queda en la pestaña **Excluidos**, y cada ejecución dice en sus limitaciones cuántos hallazgos quedaron
   fuera y por qué patrón.
 - Excluir no es corregir: un hallazgo excluido nunca pasa a remediado. Si quitas la exclusión, vuelve a estar abierto.
 - Las exclusiones viven en el servidor, **no en el repositorio**: un archivo en el repositorio permitiría que un PR
-  se excluyera a sí mismo. Por la misma razón, no se aplica el `.gitleaks.toml` del repositorio.
+  se excluyera a sí mismo. Por la misma razón, no se aplican el `.betterleaks.toml` ni el `.gitleaks.toml` del repositorio.
 
 Desde la terminal, `make scan DIR=../mi-repo ARGS="--exclude fixtures"` hace lo mismo para una ejecución ([CLI](cli.md)).
 

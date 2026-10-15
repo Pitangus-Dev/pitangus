@@ -65,10 +65,13 @@ class ModelTests(unittest.TestCase):
         good = model()
         bad_flow = {**good, "flows": [{"id": "x", "source": "api", "target": "nope", "protocol": "https"}]}
         for payload in (bad_flow, {**good, "components": good["components"] + [dict(good["components"][0])]},
-                        {**good, "components": [{**good["components"][1], "asset": "github:otro/repo"}]},
-                        {**good, "boundaries": good["boundaries"] + [{"id": "b2", "name": "Otra", "components": ["api"]}]}):
+                        {**good, "components": [{**good["components"][1], "asset": "github:otro/repo"}]}):
             with self.assertRaises(tm.ModelError):
                 tm.validate(payload, known_assets={REPO})
+        # A component in a second boundary is kept in the first one, with a warning.
+        twice, problems = tm.inspect({**good, "boundaries": good["boundaries"] + [{"id": "b2", "name": "Otra", "components": ["api"]}]}, known_assets={REPO})
+        self.assertEqual(twice["boundaries"][-1]["components"], [])
+        self.assertEqual([(item["severity"], item["path"]) for item in problems.items], [("warning", "/boundaries/3/components/0")])
 
     def test_rules_fire_on_the_right_elements(self):
         rows = tm.threats(model())
@@ -124,8 +127,10 @@ class ModelTests(unittest.TestCase):
     def test_folders_and_canvas_positions_are_validated(self):
         for folder in ("../etc", "a/../b", "a;b"):
             bad = [{**item, "path": folder} if item["id"] == "api" else item for item in model()["components"]]
-            with self.subTest(folder=folder), self.assertRaises(tm.ModelError):
-                model(components=bad)
+            with self.subTest(folder=folder):
+                current, problems = tm.inspect({**model(), "components": bad}, known_assets={REPO})
+                self.assertEqual(current["components"][1]["path"], "")  # dropped, never used to scope evidence
+                self.assertEqual([item["path"] for item in problems.items], ["/components/1/path"])
         placed = model(components=[{**item, "position": {"x": 10.26, "y": -4}} for item in model()["components"]],
                        boundaries=[{**model()["boundaries"][0], "box": {"x": 0, "y": 0, "width": 300, "height": 200}}])
         self.assertEqual(placed["components"][0]["position"], {"x": 10.3, "y": -4})
@@ -158,8 +163,9 @@ class ModelTests(unittest.TestCase):
         self.assertEqual({row["framework"] for row in tm.threats(model(methodology="custom", manual_threats=manual))}, {"manual"})
         with self.assertRaises(tm.ModelError):
             model(manual_threats=[{**manual[0], "element": "no-existe"}])
-        with self.assertRaises(tm.ModelError):
-            model(methodology="inventado")
+        # An approach Pitangus doesn't have is modeled as Custom, and its name stays as a property of the model.
+        invented = model(methodology="inventado")
+        self.assertEqual((invented["methodology"], invented["custom_properties"]), ("custom", {"methodology": "inventado"}))
 
     def test_attack_trees_and_attack_mappings_are_validated_and_reported(self):
         tree = {"id": "cuenta", "goal": "Entrar en la cuenta de otro usuario", "nodes": [
@@ -176,17 +182,24 @@ class ModelTests(unittest.TestCase):
                      "Entrar en la cuenta de otro usuario", "  - Phishing", "mitigado", "Que nadie pague por otro",
                      # The techniques are the body of an ATT&CK model, not an appendix; the summary counts them.
                      "## Técnicas de MITRE ATT&CK (1)", "1 técnica de ATT&CK asignada al modelo",
-                     "Aún alcanzable: 1 de 2 caminos", "## Anexo A · Flujos del diagrama", "## Anexo D · Árboles de ataque (1)"):
+                     "Aún alcanzable: 1 de 2 caminos", "## Anexo A · Flujos del diagrama", "## Anexo B · Fronteras de confianza", "## Anexo E · Árboles de ataque (1)"):
             self.assertIn(text, report)
-        self.assertNotIn("Anexo E", report)  # no appendix for the techniques: they are in the body
+        self.assertNotIn("Anexo F", report)  # no appendix for the techniques: they are in the body
         for bad in ({**tree, "nodes": [{"id": "a", "parent": "b", "text": "x"}, {"id": "b", "parent": "a", "text": "y"}]},
                     {**tree, "nodes": [{"id": "a", "parent": "zz", "text": "x"}]}):
             with self.assertRaises(tm.ModelError):
                 model(attack_trees=[bad])
         with self.assertRaises(tm.ModelError):
-            model(attack_mappings=[{"technique": "T9999"}])
-        with self.assertRaises(tm.ModelError):
-            model(pasta={"inventada": "x"})
+            model(attack_mappings=[{"technique": "X1110"}])
+        # Any ATT&CK technique is recognized with its official name; a well-formed ID that isn't in ATT&CK is kept and says so.
+        outside = model(methodology="attack", attack_mappings=[{"technique": "t9999"}, {"technique": "T1552.001", "element": "api"}])
+        self.assertEqual([item["technique"] for item in outside["attack_mappings"]], ["T9999", "T1552.001"])
+        report = tm.to_markdown({**outside, "updated_at": "", "updated_by": "x"}, tm.threats(outside))
+        self.assertIn("T1552.001 Credentials In Files", report)
+        self.assertIn("T9999 No existe en ATT&CK v", report)
+        # A PASTA stage Pitangus doesn't know is kept as written and exported back, not rejected.
+        kept = model(methodology="pasta", pasta={"inventada": "x", "objectives": "y"})
+        self.assertEqual(tm.to_portable(kept)["model"]["pasta"], {"inventada": "x", "objectives": "y"})
 
     def test_a_project_starts_without_repositories_and_links_them_later(self):
         blank = tm.validate({"name": "Plataforma", "components": [], "flows": [], "boundaries": []}, known_assets={REPO})
@@ -332,20 +345,18 @@ class ModelTests(unittest.TestCase):
         self.assertIn("Motor de reglas", tm.to_markdown(custom, rows))
         ast.parse(tm.to_pytm(custom))
         self.assertIn("motor", {cell["id"] for cell in tm.to_threat_dragon(custom, rows)["detail"]["diagrams"][0]["cells"]})
-        with self.assertRaises(tm.ModelError):
-            model(methodology="custom", custom_modules=["inventado"])
-        with self.assertRaises(tm.ModelError):
-            model(components=[{"id": "x", "name": "X", "kind": "custom", "custom_kind": "X", "custom_base": "inventado"}])
+        self.assertEqual(model(methodology="custom", custom_modules=["inventado", "trees"])["custom_modules"], ["trees"])
+        self.assertEqual(model(components=[*model()["components"], {"id": "x", "name": "X", "kind": "custom", "custom_kind": "X", "custom_base": "inventado"}])["components"][-1]["custom_base"], "service")
 
     def test_svg_export_escapes_labels_and_keeps_layout(self):
-        current = model(components=[{**item, "name": '<script>alert("x")</script>', "position": {"x": 120, "y": 80}} if item["id"] == "api"
+        current = model(components=[{**item, "name": '<script>alert("x")</script> a < b', "position": {"x": 120, "y": 80}} if item["id"] == "api"
                                     else {**item, "position": {"x": 350 + index * 210, "y": 100}} for index, item in enumerate(model()["components"])],
                         boundaries=[])
         svg = tm.to_svg(current)
         root = ET.fromstring(svg)
         self.assertEqual(root.tag, "{http://www.w3.org/2000/svg}svg")
-        self.assertIn('&lt;script&gt;', svg)
-        self.assertNotIn('<script>', svg)
+        self.assertIn('alert(&quot;x&quot;) a &lt; b', svg)  # markup removed from labels, the rest escaped
+        self.assertNotIn('script', svg)
         self.assertIn('x="120" y="80"', svg)
 
     def test_legend_labels_manual_colors(self):
@@ -359,9 +370,13 @@ class ModelTests(unittest.TestCase):
                      legend={"success": "Datos"})
         self.assertEqual(same["legend"], {})
         self.assertEqual(model(components=painted, legend={"danger": "   "})["legend"], {})
-        for legend in ({"red": "Rojo"}, ["danger"], "danger", {"danger": 5}, {"danger": "x" * 41}, {"danger": "a\x00b"}):
+        for legend in (["danger"], "danger", {"danger": 5}):
             with self.subTest(legend=legend), self.assertRaises(tm.ModelError):
                 model(components=painted, legend=legend)
+        for legend, expected in (({"red": "Rojo"}, {}), ({"danger": "x" * 41}, {"danger": "x" * 40}), ({"danger": "a\x00b"}, {"danger": "ab"})):
+            with self.subTest(legend=legend):
+                current_legend, problems = tm.inspect({**model(), "components": painted, "legend": legend}, known_assets={REPO})
+                self.assertEqual((current_legend["legend"], [item["severity"] for item in problems.items]), (expected, ["warning"]))
         self.assertEqual(len(model(components=painted, legend={"danger": "x" * 40})["legend"]["danger"]), 40)
         # The portable format carries the legend; documents from before it existed import without one.
         document = json.loads(json.dumps(tm.to_portable(current)))
@@ -370,14 +385,14 @@ class ModelTests(unittest.TestCase):
         self.assertNotIn("legend", tm.to_portable(model())["model"])
         del document["model"]["legend"]
         self.assertEqual(tm.from_portable(document)["legend"], {})
-        with self.assertRaises(tm.ModelError):
-            tm.from_portable({**document, "model": {**document["model"], "legend": {"purple": "x"}}})
+        self.assertEqual(tm.from_portable({**document, "model": {**document["model"], "legend": {"purple": "x"}}})["legend"], {})
 
     def test_svg_legend_lists_roles_in_use_and_manual_colors(self):
         painted = [{**item, "color": "danger"} if item["id"] == "api" else item for item in model()["components"]]
         svg = tm.to_svg(model(components=painted, legend={"danger": '<b>"PCI" & co</b>'}), locale="en")
         ET.fromstring(svg)
-        self.assertIn("&lt;b&gt;&quot;PCI&quot; &amp; co&lt;/b&gt;", svg)
+        self.assertIn("&quot;PCI&quot; &amp; co", svg)
+        self.assertNotIn("&lt;b&gt;", svg)
         self.assertNotIn("<b>", svg)
         self.assertIn(">Data<", svg)
         self.assertNotIn("APIs, services and jobs", svg)  # the only API is painted red
@@ -428,8 +443,10 @@ class ModelTests(unittest.TestCase):
             self.assertNotIn(section, exported)
             self.assertNotIn("custom_modules", exported)
             tm.from_portable(exported)
-        with self.assertRaisesRegex(tm.ModelError, "árboles"):
-            tm.from_portable({**complete, "custom_modules": ["manual", "attack", "pasta"]})
+        # Custom is full freedom: a section the model brings turns its module on instead of stopping the import.
+        imported = tm.from_portable({**complete, "custom_modules": ["manual", "attack", "pasta"]})
+        self.assertIn("trees", imported["custom_modules"])
+        self.assertEqual(len(imported["attack_trees"]), 1)
 
 
 class ConsistencyTests(unittest.TestCase):

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { GitBranchIcon } from '@phosphor-icons/react'
@@ -6,8 +6,9 @@ import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
 import { api } from '@/shared/api/http'
 import type { PostResponse } from '@/shared/api/client'
-import { evidenceAssetsQuery, keys } from '@/shared/api/queries'
+import { keys } from '@/shared/api/queries'
 import { formatDate } from '@/shared/i18n/format'
+import { useRepositorySearch } from '@/features/compliance/repository-search'
 
 type Link = PostResponse<'/api/evidence/image-link'>
 type BuiltFrom = Link['built_from']
@@ -26,8 +27,7 @@ export function ImageOrigin({ asset, admin, onChanged }: { asset: Image; admin: 
   // Back from the inline edit (saved or cancelled), the focus returns to the button that opened it.
   useEffect(() => { if (wasEditing.current && !editing) opener.current?.focus(); wasEditing.current = editing }, [editing])
   const built = asset.built_from
-  const search = useCallback((q: string) => queryClient.fetchQuery(evidenceAssetsQuery(q, 'repository')).then(page => ({
-    options: page.items.map(item => ({ id: item.key, label: item.name })), total: page.total })), [queryClient])
+  const search = useRepositorySearch()
   const save = async (repository: string | null) => {
     setError('')
     try {
@@ -49,8 +49,9 @@ export function ImageOrigin({ asset, admin, onChanged }: { asset: Image; admin: 
       {admin && !editing && <Button ref={opener} size="xs" variant="ghost" onClick={() => setEditing(true)}>{built ? t('evidence.origin.change') : t('evidence.origin.link')}</Button>}
       {admin && built?.how === 'manual' && !editing && <Button size="xs" variant="ghost" onClick={() => void save(null)}>{t('evidence.origin.use_label')}</Button>}
     </p>
+    {built?.how === 'manual' && !built.analyzed && <p className="pl-5">{t('evidence.origin.awaiting_scan')}</p>}
     {editing && <div className="flex flex-wrap items-center gap-2">
-      <Combobox autoFocus className="w-full min-w-0 max-w-sm flex-1 sm:min-w-64" label={t('evidence.origin.pick_label')} placeholder={t('evidence.origin.pick')} emptyText={t('evidence.no_match')} value={null}
+      <Combobox autoFocus className="w-full min-w-0 max-w-sm flex-1 sm:min-w-64" label={t('evidence.origin.pick_label')} placeholder={t('evidence.origin.pick')} emptyText={query => query ? t('evidence.origin.no_match', { query }) : t('evidence.origin.no_repositories')} value={null}
         search={search} onSelect={option => void save(option.id)} />
       <Button size="xs" variant="ghost" onClick={() => setEditing(false)}>{t('common:actions.cancel')}</Button></div>}
     {error && <p role="alert" className="text-xs text-danger">{error}</p>}

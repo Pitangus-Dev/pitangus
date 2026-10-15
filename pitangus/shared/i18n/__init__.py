@@ -16,7 +16,9 @@ LOCALES = ("en", "es")
 MARK = "$t"      # catalog message: {"$t": key, "params": {...}}
 INLINE = "$l"    # text that carries its own languages (rules, user content): {"$l": {"en": ..., "es": ...}}
 LOCALE_DIR = Path(__file__).resolve().parent / "locales"
-_PARAM = re.compile(r"\{\{\s*(\w+)\s*\}\}")
+# `{{name}}`, or `{{name|# file|# files}}`: the count `name` with the form that agrees with it (`#` is the number), for
+# messages with more than one count, where the `_one`/`_other` keys (which follow `count`) can't serve each.
+_PARAM = re.compile(r"\{\{\s*(\w+)\s*(?:\|([^|}]*)\|([^|}]*))?\}\}")
 
 
 def default_locale() -> str:
@@ -59,7 +61,14 @@ def t(key: str, locale: str | None = None, **params) -> str:
     text = _lookup(key, locale, params.get("count"))
     if text is None:
         return key
-    return _PARAM.sub(lambda match: str(localize(params.get(match[1], ""), locale)), text)
+    return _PARAM.sub(lambda match: _param(match, params, locale), text)
+
+
+def _param(match: re.Match, params: dict, locale: str) -> str:
+    value = str(localize(params.get(match[1], ""), locale))
+    if match[2] is None:
+        return value
+    return (match[2] if value == "1" else match[3]).replace("#", value)
 
 
 def msg(key: str, **params) -> dict:

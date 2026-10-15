@@ -137,7 +137,8 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   const scanSource = (id: string) => { setWizardStart({ source: id, domain: null, type: null }); setView('new'); setMobileOpen(false) }
   const openDomain = (domain: { id: string }, tab: DomainTab = 'overview') => { setDomainRoute({ id: domain.id, tab }); setView('domain'); writeRoute('domain', { id: domain.id, tab: tab === 'overview' ? null : tab }) }
   const domainTab = (tab: DomainTab) => { setDomainRoute(current => ({ ...current, tab })); writeRoute('domain', { id: domainRoute.id, tab: tab === 'overview' ? null : tab }, { replace: true }) }
-  const scanDomain = (domain: DomainRow) => { setWizardStart({ source: null, domain: domain.id, type: 'web' }); setView('new'); writeRoute('new', { domain: domain.id, type: 'web' }) }
+  // A domain's own scan button opens the light exposure check, always available; the full web scan (experimental) is one step back.
+  const scanDomain = (domain: DomainRow) => { setWizardStart({ source: null, domain: domain.id, type: 'exposure' }); setView('new'); writeRoute('new', { domain: domain.id, type: 'exposure' }) }
   const importResults = () => { setWizardStart({ source: null, domain: null, type: 'import' }); setView('new'); writeRoute('new', { type: 'import' }) }
   const completedRepositoryScan = async (id: string) => { await refresh(); await openRun(id, 'findings') }
 
@@ -187,7 +188,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
   const renderMain = () => {
     if (view === 'new') {
       // `api` is the old address of what is now one web scan for sites and APIs.
-      const type = wizardStart.type === 'api' ? 'web' : wizardStart.type === 'code' || wizardStart.type === 'image' || wizardStart.type === 'web' || wizardStart.type === 'import' ? wizardStart.type : null
+      const type = wizardStart.type === 'api' ? 'web' : wizardStart.type === 'code' || wizardStart.type === 'image' || wizardStart.type === 'exposure' || wizardStart.type === 'web' || wizardStart.type === 'import' ? wizardStart.type : null
       return <AnalysisWizard key={wizardStart.source ?? `${wizardStart.domain ?? ''}:${type ?? 'new'}`} initialSourceId={wizardStart.source} initialDomainId={wizardStart.domain} initialKind={type} isAdmin={user.role === 'admin'}
         onBatchStarted={() => selectView('analyses')} onComplete={completedRepositoryScan} onScheduled={id => openDomain({ id })} onManageConnections={() => selectView('integrations')} onCancel={() => selectView('analyses')} />
     }

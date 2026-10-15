@@ -244,7 +244,8 @@ class ScanScheduleRulesMigrationTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.data_dir = Path(self.directory.name) / "data"
         self.data_dir.mkdir()
-        documents.save(self.data_dir, migrations.VERSION_DOCUMENT, {"version": migrations.LATEST - 1, "history": []})
+        position = [migration.name for migration in migrations.MIGRATIONS].index("scan_schedule_rules")
+        documents.save(self.data_dir, migrations.VERSION_DOCUMENT, {"version": position, "history": []})
 
     def test_weekly_schedules_get_their_rule_once_and_the_others_are_left_alone(self):
         from datetime import datetime, timezone
@@ -260,6 +261,105 @@ class ScanScheduleRulesMigrationTests(unittest.TestCase):
                           "next_run_at": wednesday.isoformat()})
         self.assertIsNone(domains.get_domain(self.data_dir, idle["id"])["schedule"])
         self.assertEqual(migrations._scan_schedule_rules(self.data_dir), 0)  # idempotent
+
+class RegistryIdentitiesMigrationTests(unittest.TestCase):
+    """Registry entries get their canonical identity where the stored finding is enough (a dependency advisory)."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.data_dir = Path(self.directory.name) / "data"
+        self.data_dir.mkdir()
+        position = [migration.name for migration in migrations.MIGRATIONS].index("registry_identities")
+        documents.save(self.data_dir, migrations.VERSION_DOCUMENT, {"version": position, "history": []})
+
+    def test_dependency_entries_get_their_identity_and_the_rest_wait_for_their_next_scan(self):
+        from pitangus.modules.findings import registry
+        from pitangus.modules.findings.canonical import identity_of
+        dependency = {"fingerprint": "a" * 64, "scanner": "sca", "rule_id": "CVE-2026-1", "cve": ["CVE-2026-1"], "path": "go.mod",
+                      "package": {"ecosystem": "gomod", "name": "golang.org/x/net", "version": "v0.3.7"}}
+        code = {"fingerprint": "b" * 64, "scanner": "sast", "rule_id": "appsec.py.eval", "path": "app.py", "line": 3}
+        registry._save(self.data_dir, {"asset": "github#1", "name": "org/api", "applied": [], "findings": {
+            "a" * 64: {"status": "open", "finding": dependency}, "b" * 64: {"status": "open", "finding": code}}})
+        self.assertIn("registry_identities", migrations.upgrade(self.data_dir))
+        entries = registry.load(self.data_dir, "github#1")["findings"]
+        self.assertEqual(entries["a" * 64]["finding"]["identity"], identity_of({**dependency, "package": {**dependency["package"], "version": "0.3.7"}}))
+        self.assertNotIn("identity", entries["b" * 64]["finding"])
+        self.assertEqual(migrations._registry_identities(self.data_dir), 0)  # idempotent
+
+
+class RegistryCoverageUnitsMigrationTests(unittest.TestCase):
+    """Entries stored before findings declared their coverage units get them from their paths, conservatively: a
+    dependency in the project of every lockfile it was seen in, so deleting one of them never fixes it."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.data_dir = Path(self.directory.name) / "data"
+        self.data_dir.mkdir()
+        position = [migration.name for migration in migrations.MIGRATIONS].index("registry_coverage_units")
+        documents.save(self.data_dir, migrations.VERSION_DOCUMENT, {"version": position, "history": []})
+
+    def test_stored_findings_get_the_units_their_paths_stand_for_and_still_compare_by_unit(self):
+        from pitangus.modules.findings import registry
+        from pitangus.modules.scanning import engine_contract
+        stored = {
+            "a" * 64: {"scanner": "sca", "tool": "trivy", "path": "svc/Cargo.lock", "package": {"name": "serde", "also_in": ["web/yarn.lock"]}},
+            "b" * 64: {"scanner": "sca", "tool": "trivy", "path": "pom.xml"},
+            "c" * 64: {"scanner": "sast", "tool": "opengrep", "path": "app/Cargo.lock"},
+            "d" * 64: {"scanner": "dast", "tool": "zap", "path": "https://host/admin"},
+        }
+        registry._save(self.data_dir, {"asset": "github#1", "name": "org/api", "applied": [], "findings": {
+            digest: {"status": "open", "finding": {"fingerprint": digest, "rule_id": "r", **finding}} for digest, finding in stored.items()}})
+        self.assertIn("registry_coverage_units", migrations.upgrade(self.data_dir))
+        entries = registry.load(self.data_dir, "github#1")["findings"]
+        self.assertEqual({digest: entry["finding"].get("units") for digest, entry in entries.items()},
+                         {"a" * 64: ["project://svc", "project://web"], "b" * 64: ["project://."], "c" * 64: ["app/Cargo.lock"], "d" * 64: None})
+        self.assertEqual(migrations._registry_coverage_units(self.data_dir), 0)  # idempotent
+        # The yarn.lock it was also seen in went away with its package.json left: not proven gone, whatever the path.
+        record = {"type": "repository_scan", "status": "completed", "summary": {"tools": [{"name": "trivy", "status": "completed"}]},
+                  "coverage": {"trivy": engine_contract.coverage("*", by_scanner={"sca": {"web/package.json": "no_lockfile"}})}}
+        self.assertEqual(registry.unproven_reason(record, entries["a" * 64]["finding"]), "unexamined")
+        self.assertIsNone(registry.unproven_reason(record, entries["c" * 64]["finding"]))
+
+
+class RegistryRuleBaselineMigrationTests(unittest.TestCase):
+    """Entries stored before runs recorded their rules get the digest of the 0.13.1 rule they were seen with."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.data_dir = Path(self.directory.name) / "data"
+        self.data_dir.mkdir()
+        position = [migration.name for migration in migrations.MIGRATIONS].index("registry_rule_baseline")
+        documents.save(self.data_dir, migrations.VERSION_DOCUMENT, {"version": position, "history": []})
+
+    def test_our_rules_and_built_in_secret_rules_are_stamped_and_the_rest_wait_for_their_next_scan(self):
+        from pitangus.modules.findings import registry
+        from pitangus.modules.scanning import rule_set
+        baseline = rule_set.baseline()
+        rule = sorted(baseline["opengrep"])[0]
+        stored = {"a" * 64: {"tool": "opengrep", "rule_id": rule}, "b" * 64: {"tool": "gitleaks", "rule_id": "github-pat"},
+                  "c" * 64: {"tool": "betterleaks", "rule_id": "pitangus-internal-token"}, "d" * 64: {"tool": "opengrep", "rule_id": "appsec.py.added-later"},
+                  "e" * 64: {"tool": "trivy", "rule_id": "CVE-2026-1"}, "f" * 64: {"tool": "trivy", "rule_id": "slack-access-token", "scanner": "secrets"}}
+        registry._save(self.data_dir, {"asset": "github#1", "name": "org/api", "applied": [], "findings": {
+            digest: {"status": "open", "finding": {"fingerprint": digest, "scanner": "sast", "path": "app.py", "line": 1, **finding}}
+            for digest, finding in stored.items()}})
+        self.assertIn("registry_rule_baseline", migrations.upgrade(self.data_dir))
+        entries = registry.load(self.data_dir, "github#1")["findings"]
+        self.assertEqual({digest: entry.get("rule_digest") for digest, entry in entries.items()},
+                         {"a" * 64: baseline["opengrep"][rule], "b" * 64: baseline["secrets"], "c" * 64: None, "d" * 64: None, "e" * 64: None,
+                          "f" * 64: baseline["secrets"]})
+        self.assertEqual(migrations._registry_rule_baseline(self.data_dir), 0)  # idempotent
+
+    def test_the_baseline_is_the_0_13_1_rule_set(self):
+        """Our rules unchanged since 0.13.1 keep their digest, so their findings stay fixable; a changed one doesn't."""
+        from pitangus.modules.scanning import rule_set
+        baseline, now = rule_set.baseline(), rule_set.own_rules()
+        self.assertEqual(baseline["release"], "0.13.1")
+        self.assertTrue(all(rule.startswith(rule_set.OWN_PREFIX) for rule in baseline["opengrep"]))
+        self.assertGreater(sum(now.get(rule) == digest for rule, digest in baseline["opengrep"].items()), len(baseline["opengrep"]) // 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -34,19 +34,16 @@ ifeq ($(strip $(DOCKER_SOCKET_GID)),0)
 DOCKER_SOCKET_GID :=
 endif
 export DOCKER_SOCKET_GID
-# Published engine images, pinned by digest, read from the code (no Python or app image needed).
+# Published engine images, pinned by digest, read from the code (no Python or app image needed) by
+# scripts/engine-images.sh: only those this server runs (Grype and Checkov when turned on; ZAP, katana and subfinder with
+# PITANGUS_DAST_ENABLED; the exposure check's httpx, testssl.sh and nuclei always), from the environment or .env.
 # `make engines` pulls them from the host: progress is visible, there is no time limit and it doesn't depend
-# on the socket permissions inside the container.
+# on the socket permissions inside the container. `make engines LIST=1` only lists them.
 # The worker runs the engines inside its image (compose.no-socket.yaml): nothing to pull, one more image to check.
 NO_SOCKET := $(shell sed -n 's/^COMPOSE_FILE=//p' .env 2>/dev/null | tail -n1 | grep -o 'compose\.no-socket\.yaml')
-ENGINE_IMAGES := sed -n 's/.*"image": "\([^"]*@sha256:[0-9a-f]\{64\}\)".*/\1/p' pitangus/modules/scanning/engines.py
-# ZAP (web scans, ~1.2 GB), katana, nuclei, testssl.sh and httpx (the rest of a web scan, ~1 GB) and subfinder (related
-# hosts) only when web scans are on: PITANGUS_DAST_ENABLED in the environment or in .env.
-DAST_ENABLED := $(or $(PITANGUS_DAST_ENABLED),$(shell sed -n 's/^PITANGUS_DAST_ENABLED=//p' .env 2>/dev/null | tail -n1))
-WEB_IMAGES := $(if $(filter 1 true yes on TRUE YES ON True Yes On,$(strip $(DAST_ENABLED))),,| grep -v -e '/zaproxy/' -e '/subfinder:' -e '/katana:' -e '/nuclei:' -e '/testssl.sh:' -e '/httpx:')
 
 .DEFAULT_GOAL := help
-.PHONY: arch openapi standalone help doctor setup build up down restart status logs ps setup-code engines scan demo update backup restore \
+.PHONY: arch rules-test openapi attack-catalog standalone help doctor setup build up down restart status logs ps setup-code engines scan demo update backup restore \
         verify-images shell cli clean purge dev-setup lock dev test lint lint-py test-web web check
 
 ## —— Usage —————————————————————————————————————————————————————————————
@@ -101,9 +98,10 @@ logs: ## Follow the app logs (Ctrl+C to exit). Another service: make logs SERVIC
 setup-code: ## Show the code to create the first administrator
 	@sh scripts/setup-code.sh "$(URL)"
 
-engines: ## Pull the missing engine images (Trivy, OSV-Scanner, Gitleaks, Grype, Checkov, zizmor; the web scan tools and subfinder with web scans on), with progress
-	@if [ "$(NO_SOCKET)" ]; then echo 'Engines: inside the worker image (no Docker socket).'; exit 0; fi; \
-	images=$$($(ENGINE_IMAGES) $(WEB_IMAGES)); \
+engines: ## Pull missing engine images: Trivy, OSV-Scanner, Betterleaks, zizmor, httpx, testssl.sh, nuclei; Grype/Checkov when on; ZAP, katana, subfinder with web scans. LIST=1 lists them
+	@if [ "$(LIST)" ]; then sh scripts/engine-images.sh; exit 0; fi; \
+	if [ "$(NO_SOCKET)" ]; then echo 'Engines: inside the worker image (no Docker socket).'; exit 0; fi; \
+	images=$$(sh scripts/engine-images.sh); \
 	missing=0; for image in $$images; do docker image inspect "$$image" >/dev/null 2>&1 || missing=$$((missing + 1)); done; \
 	if [ $$missing -eq 0 ]; then echo 'Engines: all images are ready.'; exit 0; fi; \
 	echo "Engines: $$missing images missing; the first time can take a while depending on your connection."; \
@@ -207,13 +205,25 @@ test: ## Backend tests (starts a throwaway test Postgres if needed)
 standalone: ## Regenerate deploy/compose.yaml (one file, published images, no Docker socket)
 	python3 scripts/standalone-compose.py
 
-openapi: ## API OpenAPI schema and the panel's TypeScript types (web/src/shared/api/)
+openapi: ## API OpenAPI schema, the panel's TypeScript types (web/src/shared/api/) and the threat model JSON Schema
 	@mkdir -p web/src/shared/api
 	$(VENV)/bin/python -c "from pitangus.app.api import openapi_document; print(openapi_document(), end='')" > web/src/shared/api/openapi.json
+	$(VENV)/bin/python -c "import json; from pitangus.modules.threats.schema import build; print(json.dumps(build(), ensure_ascii=False, indent=2))" > web/src/examples/threat-models/schema.json
 	cd web/tools/openapi && pnpm install --frozen-lockfile --silent && pnpm exec openapi-typescript ../../src/shared/api/openapi.json -o ../../src/shared/api/schema.d.ts
+
+attack-catalog: ## Refresh the bundled MITRE ATT&CK Enterprise catalog from the release pinned in scripts/attack-catalog.py (FROM=file.json to use a local copy)
+	python3 scripts/attack-catalog.py $(if $(FROM),--from $(FROM))
 
 arch: ## Architecture contracts (import-linter, see pyproject.toml)
 	$(VENV)/bin/lint-imports --cache-dir .cache/import-linter
+
+rules-test: ## The Opengrep rules against their cases in rules/tests (`ruleid:` lines must match, `ok:` lines mustn't), and every rule loads
+	docker run --rm --network none -v "$(CURDIR)/rules":/rules:ro localhost/pitangus/opengrep:$(OPENGREP_VERSION) \
+		scan --test --taint-intrafile --config /rules /rules/tests
+	@# A rule Opengrep can't parse is dropped with only an error in the report: none may be dropped.
+	@docker run --rm --network none -v "$(CURDIR)/rules":/rules:ro -v "$(CURDIR)/third_party":/third_party:ro localhost/pitangus/opengrep:$(OPENGREP_VERSION) \
+		scan --json --quiet --config /rules --config /third_party/gitlab-sast-rules/rules /rules/tests \
+		| python3 -c "import json, sys; errors = [e for e in json.load(sys.stdin)['errors'] if not e.get('path')]; print('Every rule loads (ours and the third-party ones).' if not errors else errors); sys.exit(1 if errors else 0)"
 
 lint-py: ## Backend lint (ruff) and types (mypy), see pyproject.toml
 	$(VENV)/bin/ruff check pitangus tests scripts api

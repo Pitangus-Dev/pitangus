@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from pitangus.app.api.deps import ApiError, Context, Policy, documented, guard, json_body
+from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, guard, json_body
 from pitangus.app.api.deps import problem
 from pitangus.app.api.runs import DOWNLOADS, PROFILE_REPORTS, SBOM_FILE, VEX_FILE, download
 from pitangus.app.api.schemas import AS_RETURNED, Open, RunDetail
@@ -53,6 +53,28 @@ def asset_state(key: str = "", status: str = "open", context: Context = Depends(
         raise ApiError(400, msg("api.invalid_repository_status"))
     view = findings_registry.view(context.data_dir, key, status=status)
     return context.render(tickets.annotate(context.data_dir, view))
+
+
+class FixHoldIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    asset: str = Field(min_length=1, max_length=200)
+
+
+class FixHoldReleased(BaseModel):
+    released: int
+
+
+@router.post("/api/assets/fix-hold", response_model=FixHoldReleased, openapi_extra=documented(FixHoldIn),
+             responses={404: {"description": "Unknown asset"}})
+def release_fix_hold(context: Context = Depends(guard(Policy(admin=True, action="release-fix-hold", body=1000))),
+                     data: FixHoldIn = Depends(body(FixHoldIn, msg("api.invalid_json")))) -> Any:
+    """Fixes what a scan held back for fixing too much at once (findings/registry: the fix hold), without waiting for
+    the next complete scan to confirm it. For urgencies: the next scan would release it on its own."""
+    if not any(row["key"] == data.asset for row in assets_overview(context.data_dir)):
+        raise ApiError(404, msg("api.asset_not_found"))
+    released = findings_registry.release_hold(context.data_dir, data.asset, user=context.user["username"])
+    context.state.log.warning("fix_hold_released", extra={"user": context.user["username"], "reason": f"{data.asset}: {released}"})
+    return {"released": released}
 
 
 @router.get("/api/assets/export", response_class=Response, responses=DOWNLOADS)
@@ -120,6 +142,33 @@ class ExclusionsIn(BaseModel):
 
 
 EXCLUSION_FIELDS = set(ExclusionsIn.model_fields)
+
+
+class ExclusionsPreviewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(max_length=200, pattern=f"^{exclusions.ASSET_KEY.pattern}$")
+    patterns: list[str] = Field(max_length=exclusions.MAX_PATTERNS)
+
+
+class ExclusionsPreview(BaseModel):
+    """What saving these paths would move now, and a few of the paths (the same paths keep applying to later scans)."""
+    excluded: int
+    reopened: int
+    excluded_paths: list[str] = Field(max_length=findings_registry.PREVIEW_PATHS)
+    reopened_paths: list[str] = Field(max_length=findings_registry.PREVIEW_PATHS)
+    excluded_path_count: int  # distinct paths, of which `excluded_paths` are the first
+    reopened_path_count: int
+
+
+@router.post("/api/assets/exclusions/preview", openapi_extra=documented(ExclusionsPreviewIn), response_model=ExclusionsPreview)
+def preview_asset_exclusions(context: Context = Depends(guard(Policy(admin=True, action="preview-exclusions", body=20_000))),
+                             data: ExclusionsPreviewIn = Depends(body(ExclusionsPreviewIn, msg("api.invalid_request")))) -> dict[str, Any]:
+    """Checks the paths as saving would and says which findings would move, without saving anything."""
+    try:
+        active = exclusions.normalize(data.patterns)
+    except exclusions.ExclusionError as exc:
+        raise ApiError(400, problem(exc)) from exc
+    return findings_registry.preview_exclusions(context.data_dir, data.key, active)
 
 
 @router.post("/api/assets/exclusions", openapi_extra=documented(ExclusionsIn), response_model=ExclusionsSaved, **AS_RETURNED)

@@ -6,7 +6,7 @@ For contributing, or for running Pitangus without containers. Read [CONTRIBUTING
 
 ## Without containers
 
-You need Python 3.12+ and Node 22. Without Docker the engines (Trivy, Gitleaks, Opengrep) don't run: the panel says so on every scan.
+You need Python 3.12+ and Node 22. Without Docker the engines (Trivy, Betterleaks, Opengrep) don't run: the panel says so on every scan.
 
 ```bash
 make dev-setup   # .venv with the Python dependencies, plus the panel's node_modules

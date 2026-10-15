@@ -179,7 +179,7 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(queued["status"], "queued")
             record = self._wait_for_run(queued["id"])
         self.assertEqual(record["status"], "incomplete")  # no Docker in tests, so no engine runs: never «completed»
-        self.assertEqual(record["summary"]["sast"], 1)
+        self.assertEqual(record["summary"]["sast"], 0)  # no SAST without Opengrep
         # Progress is for the user: no server paths or raw output.
         messages = [event["message"] for event in record["progress"]]
         self.assertTrue(any("Terminado" in message for message in messages), messages)

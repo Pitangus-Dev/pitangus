@@ -55,7 +55,7 @@
   },
   "provenance": {
     "not_an_image": "Ese activo no es una imagen de la página Imágenes.",
-    "not_a_repository": "Ese activo no es un repositorio analizado.",
+    "not_a_repository": "No es un repositorio analizado, y ni la GitHub App ni un token conectado tienen acceso a él.",
     "image_analyzed": "Esa imagen ya se analizó: conserva su historial, así que no se puede quitar.",
     "image_not_registered": "Esa imagen no está entre las que se agregaron sin analizar.",
     "too_many_images": "No puedes tener más de {{max}} imágenes agregadas sin analizar. Analiza o quita algunas primero."

@@ -63,7 +63,7 @@ Los dos huecos por los que más preguntan:
           with:
             upload: never
             output: codeql
-        - uses: Pitangus-Dev/pitangus@v0.13.1
+        - uses: Pitangus-Dev/pitangus@v0.14.0
           if: always()
           with:
             scan: false
@@ -75,8 +75,15 @@ Los dos huecos por los que más preguntan:
   CodeQL es gratis en repositorios públicos y, con GitHub Advanced Security, en los privados; correr su CLI en otro
   sitio se rige por los términos de CodeQL de GitHub. El mismo paso con Semgrep está en
   [cli.md](cli.md#resultados-de-otras-herramientas).
-- **Pruebas dinámicas.** Pitangus hace [análisis web y de API pasivos](analisis-web.md) con
-  ZAP de un dominio verificado (recorrer y leer, o las operaciones GET y HEAD de una definición OpenAPI; nunca atacar)
+
+  CodeQL escribe un SARIF por lenguaje, cada uno con su categoría (`runAutomationDetails.id`, `/language:python/`):
+  una importación completa solo remedia lo que desapareció de la misma herramienta **y categoría**, así que importar
+  el archivo de JavaScript nunca cierra los hallazgos de Python. Un SARIF sin categoría no se distingue de otro de la
+  misma herramienta: dale una categoría a cada uno (la entrada `category` de CodeQL, `--sarif-category` en su CLI), o
+  impórtalo con `scope=partial`, que abre y actualiza pero no remedia nada.
+- **Pruebas dinámicas.** Para un dominio verificado, Pitangus ofrece siempre la [comprobación de exposición](analisis-web.md)
+  (la raíz de cada host y rutas conocidas con httpx, testssl.sh y nuclei, sin rastreo). Su análisis web y de API
+  pasivo completo, experimental, usa ZAP sobre un dominio verificado (recorrer y leer, o las operaciones GET y HEAD de una definición OpenAPI; nunca atacar)
   cuando el servidor define `PITANGUS_DAST_ENABLED=1`: a demanda o programados, sobre subdominios listados si el
   dominio tiene prueba DNS, con las cabeceras de petición guardadas para el dominio (claves de API, tokens bearer,
   cookies) e iniciando sesión con hasta 3 usuarios de prueba, junto con katana, nuclei (solo plantillas de detección),
@@ -133,7 +140,7 @@ jobs:
           docker run --rm -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2 \
             zap.sh -cmd -autorun /zap/wrk/zap.yaml
           # la plantilla sarif-json escribe zap.json
-      - uses: Pitangus-Dev/pitangus@v0.13.1
+      - uses: Pitangus-Dev/pitangus@v0.14.0
         if: always()
         with:
           scan: false
@@ -151,7 +158,7 @@ Nuclei escribe SARIF con `-se` ([opciones](https://docs.projectdiscovery.io/tool
           docker run --rm -v "$PWD:/out" projectdiscovery/nuclei:v3.3.5 \
             -u https://app.example.com -rl 20 -c 10 -severity low,medium,high,critical \
             -etags dos,fuzz,intrusive -se /out/nuclei.sarif
-      - uses: Pitangus-Dev/pitangus@v0.13.1
+      - uses: Pitangus-Dev/pitangus@v0.14.0
         if: always()
         with:
           scan: false
@@ -193,6 +200,9 @@ primera detección, plazo de corrección, etiquetas), un valor fijo entre los qu
 los campos obligatorios asignados, tipos que encajan y valores permitidos. El resumen y la descripción vienen asignados
 por defecto, y también el plazo cuando la pantalla lo tiene.
 
+Un destino también fija el idioma de sus incidencias y comentarios (el `PITANGUS_DEFAULT_LOCALE` del servidor, salvo que
+elijas inglés o español) y qué pasa cuando un análisis verifica una incidencia como corregida: ver más abajo.
+
 ### Reglas de enrutamiento
 
 Las reglas de enrutamiento eligen el destino por repositorio: repositorios concretos o patrones sobre el nombre
@@ -207,9 +217,22 @@ resto (se puede desactivar).
 - Una regla automática con **relleno** (backfill) también crea, de forma espaciada, las incidencias de los hallazgos que
   ya estaban abiertos al guardarla o activarla.
 
+El formulario de la regla muestra qué crearía antes de guardarla: cuántas incidencias, para cuántos hallazgos abiertos,
+y cómo se verá en Jira la más grave (su título y sus primeras líneas). Cuando el relleno termina, la regla muestra cuántas
+incidencias se crearon, enlaza las primeras y, si alguna falló, por qué, agrupado por motivo.
+
+### Cuando se verifica la corrección
+
 Cuando un análisis completo o una importación completa verifica como remediado un hallazgo enlazado, Pitangus **comenta
-en la incidencia**; nunca la cierra. Una incidencia que cubre varios hallazgos recibe el comentario cuando todos están
-remediados, y otro si alguno reaparece.
+en la incidencia** y le añade la etiqueta del destino (`pitangus-fixed`, salvo que la cambies o la dejes vacía), así
+encuentras las corregidas con una sola búsqueda (`labels = pitangus-fixed`). Cada equipo cierra sus incidencias a su manera, con sus
+propios flujos, así que **por defecto Pitangus no mueve ni cierra incidencias**: un administrador puede elegir, por
+destino, un estado del flujo de trabajo de ese tipo de incidencia al que moverlas. Si una incidencia no puede pasar a
+ese estado desde su estado actual, no se fuerza nada y el comentario lo dice.
+
+Una incidencia que cubre varios hallazgos recibe todo esto cuando todos están remediados. Si alguno reaparece o alguien lo
+reabre en Pitangus, Pitangus comenta y quita la etiqueta; nunca devuelve la incidencia a otro estado. Las decisiones de triage (remediado a
+mano, falso positivo, riesgo aceptado, reabierto) también se comentan.
 
 ### Crear incidencias desde Hallazgos
 
@@ -218,10 +241,15 @@ no se exporta). Cada uno va al destino que eligen las reglas de su repositorio. 
 tarea de corrección**: los avisos del mismo paquete van juntos, con la versión que los corrige todos, mientras que los
 hallazgos de código y de secretos van de a uno.
 
+El título de la incidencia dice qué hacer y dónde, por ejemplo `Alta · starlette 0.37.2 → 1.3.1 · org/api (poetry.lock)`,
+y su descripción empieza por lo que un desarrollador necesita para actuar: el cambio, el archivo, el comando y cuándo
+queda corregido; después, por qué importa (severidad, plazo, KEV y EPSS cuando aplican) y, al final, los detalles y las
+referencias.
+
 Cada incidencia lleva la etiqueta `appsec-<huella>` de cada hallazgo que cubre. Antes de crear, Pitangus busca por esas
 etiquetas, y el enlace se recuerda por repositorio y huella, así que exportar otra vez, hoy o después del siguiente
 análisis, enlaza la incidencia existente en lugar de duplicarla. Si el proyecto no permite fijar la prioridad al crear,
-Pitangus reintenta sin ella. Las incidencias se escriben en `PITANGUS_DEFAULT_LOCALE`, porque las lee todo el equipo.
+Pitangus reintenta sin ella. Las incidencias se escriben en el idioma de su destino, porque las lee todo el equipo.
 
 ## Slack, Teams y webhooks
 

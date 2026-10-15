@@ -1,8 +1,9 @@
 import type { TFunction } from 'i18next'
 export { USERS_PER_SCAN, signInHost } from '@/features/domains/test-users-model'
 
-// `web` covers sites and APIs alike: with an OpenAPI spec the server calls its endpoints instead of crawling.
-export type Kind = 'code' | 'image' | 'web'
+// `web` covers sites and APIs alike: with an OpenAPI spec the server calls its endpoints instead of crawling (the full
+// DAST, experimental). `exposure`: the light check of a domain's roots and known paths, no crawl.
+export type Kind = 'code' | 'image' | 'exposure' | 'web'
 export type StepId = 'repositories' | 'images' | 'target' | 'access' | 'context' | 'review'
 export type ScanPlan = { languages: { name: string; files: number; rules: number }[]; runs: string[]; skips: string[]; osv_needed: boolean; files: number | null
   manifests: string[]; iac: string[]; pipelines?: string[] }
@@ -13,6 +14,7 @@ export type Spec = { mode: 'file'; filename: string; content: string; version: s
 export const STEPS: Record<Kind, StepId[]> = {
   code: ['repositories', 'context', 'review'],
   image: ['images', 'context', 'review'],
+  exposure: ['target', 'review'],
   web: ['target', 'access', 'review'],
 }
 export const STEP_LABEL = {

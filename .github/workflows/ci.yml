@@ -151,6 +151,14 @@ jobs:
           load: true
           cache-from: type=gha,scope=pitangus-opengrep
           cache-to: type=gha,scope=pitangus-opengrep,mode=max
+      # Each rule against its cases (rules/tests): a rule that stops matching its vulnerable line, or starts matching a
+      # line it must leave alone, fails here before it reaches anyone's scan.
+      - name: Rule tests
+        env:
+          OPENGREP: ${{ steps.versions.outputs.opengrep }}
+        run: |
+          docker run --rm --network none -v "$PWD/rules":/rules:ro "localhost/pitangus/opengrep:$OPENGREP" \
+            scan --test --taint-intrafile --config /rules /rules/tests
       # Trivy's and OSV-Scanner's advisory databases, kept for the day: the first run of the day downloads them, the
       # rest only check for updates. A new day starts from yesterday's copy.
       - name: Day
@@ -179,12 +187,26 @@ jobs:
             scope=(--fail-on never)  # main: full inventory in code scanning, without blocking
           fi
           version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' pitangus/version.py)"  # the tag that make build just built
+          # rule_baseline.json maps each rule id to a 16-hex digest: generic-password reads `"…hardcoded-password":
+          # "<hex>"` as a password, and JSON can't carry a gitleaks:allow comment. Excluded here (counted and listed
+          # as excluded in the output, not hidden) rather than loosening the measured generic-password filter.
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock --group-add "$(stat -c %g /var/run/docker.sock)" \
             --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$PWD":/src:ro -v "$RUNNER_TEMP/pitangus-data":/data \
             "localhost/pitangus/app:$version" python -m pitangus scan /src --name pitangus \
-            --exclude fixtures/ "${scope[@]}" --format sarif --output /data/pitangus.sarif
+            --exclude fixtures/ --exclude pitangus/modules/scanning/rule_baseline.json "${scope[@]}" \
+            --format sarif --output /data/pitangus.sarif
+      # The canonical identity gate (I7): the same commit scanned twice with this code opens and fixes nothing, by
+      # fingerprint and by identity, excluded findings included (pitangus/modules/runs/identity_gate.py).
+      - name: Identity gate
+        run: |
+          version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' pitangus/version.py)"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock --group-add "$(stat -c %g /var/run/docker.sock)" \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$PWD":/src:ro -v "$RUNNER_TEMP/pitangus-data":/data \
+            "localhost/pitangus/app:$version" python -m pitangus --data-dir /data identity-gate --scan /src
       - name: Is there a SARIF?
         id: sarif
         if: always()

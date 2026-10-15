@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Pitangus",
-    "version": "0.13"
+    "version": "0.14"
   },
   "paths": {
     "/api/auth/session": {
@@ -1267,6 +1267,28 @@
         }
       }
     },
+    "/api/findings/health": {
+      "get": {
+        "tags": [
+          "findings"
+        ],
+        "summary": "Findings Health",
+        "description": "How trustworthy the registry's fixes look across every asset.",
+        "operationId": "findings_health_api_findings_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingsHealth"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/findings/scope": {
       "get": {
         "tags": [
@@ -1482,6 +1504,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TriageResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/findings/prompt": {
+      "get": {
+        "tags": [
+          "findings"
+        ],
+        "summary": "Fix Prompt",
+        "description": "A finding as a prompt for the reader's own AI assistant, in their language: rule, place, fragment and fix, never\na secret's value (findings/ai_prompt.py). Pitangus calls no AI for it.",
+        "operationId": "fix_prompt_api_findings_prompt_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "fingerprint",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16,64}$",
+              "title": "Fingerprint"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixPrompt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -2054,7 +2130,7 @@
           "compliance"
         ],
         "summary": "Set Image Link",
-        "description": "Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label.",
+        "description": "Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label. The\nrepository may be one of the workspace not analyzed yet.",
         "operationId": "set_image_link_api_evidence_image_link_post",
         "requestBody": {
           "content": {
@@ -3017,7 +3093,7 @@
           "scanning"
         ],
         "summary": "Builtin Rules",
-        "description": "Gitleaks' default rules (what can be turned off), with the Trivy rule that is turned off with each, if any.",
+        "description": "Betterleaks' default rules (what can be turned off), with the Trivy rule that is turned off with each, if any.",
         "operationId": "builtin_rules_api_secrets_builtin_rules_get",
         "responses": {
           "200": {
@@ -3645,6 +3721,60 @@
         }
       }
     },
+    "/api/domains/session-check": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Domain Session Check Route",
+        "description": "Saves the page that proves the saved headers still carry a session: a scan that sends them asks for it before\nand after, and without a 2xx the scan is incomplete and marks nothing fixed.",
+        "operationId": "domain_session_check_route_api_domains_session_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "domain_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$",
+                    "title": "Domain Id"
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2064,
+                    "title": "Url"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "domain_id",
+                  "url"
+                ],
+                "title": "DomainSessionCheckIn",
+                "description": "`url`: an HTTPS page of the domain that only opens signed in; empty removes it."
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainSessionCheck"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown domain"
+          }
+        }
+      }
+    },
     "/api/domains/test-users": {
       "post": {
         "tags": [
@@ -4192,7 +4322,8 @@
                     "type": "string",
                     "enum": [
                       "web",
-                      "api"
+                      "api",
+                      "exposure"
                     ],
                     "title": "Mode",
                     "default": "web"
@@ -5049,6 +5180,57 @@
         }
       }
     },
+    "/api/integrations/jira/projects/{project}/issue-types/{issue_type}/statuses": {
+      "get": {
+        "tags": [
+          "jira"
+        ],
+        "summary": "Jira Statuses",
+        "operationId": "jira_statuses_api_integrations_jira_projects__project__issue_types__issue_type__statuses_get",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project"
+            }
+          },
+          {
+            "name": "issue_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Issue Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JiraStatuses"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/integrations/jira/variables": {
       "get": {
         "tags": [
@@ -5218,6 +5400,60 @@
                       }
                     ],
                     "title": "Mapping"
+                  },
+                  "on_fixed": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "label": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 60
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Label"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 18
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Status"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "title": "JiraOnFixedIn",
+                        "description": "`label`: added when a scan verifies the issue fixed (empty: none). `status`: a status id of the issue type's\nworkflow to move it to (empty: never move it)."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "locale": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "en",
+                          "es"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Locale"
                   }
                 },
                 "additionalProperties": false,
@@ -5228,7 +5464,7 @@
                   "issue_type"
                 ],
                 "title": "JiraDestinationIn",
-                "description": "`project`: key or id; `issue_type`: id (or name). No `mapping`: Pitangus's suggested one."
+                "description": "`project`: key or id; `issue_type`: id (or name). No `mapping`: Pitangus's suggested one. Without `on_fixed`\nor `locale`, what the destination had stays (a new one: the `pitangus-fixed` label, no transition, the default\nlanguage)."
               }
             }
           },
@@ -6146,7 +6382,7 @@
           "threats"
         ],
         "summary": "Import Model",
-        "description": "Creates a model from the portable format (model.json).",
+        "description": "Creates a model from the portable format (model.json). Warnings don't stop it; errors answer 400 with every\nproblem (see /api/threat-models/validate).",
         "operationId": "import_model_api_threat_models_import_post",
         "requestBody": {
           "content": {
@@ -6176,7 +6412,7 @@
           "threats"
         ],
         "summary": "Validate Import",
-        "description": "Checks the portable format without creating or changing a model.",
+        "description": "Checks the portable format without creating or changing a model, and lists every problem at once.",
         "operationId": "validate_import_api_threat_models_validate_post",
         "requestBody": {
           "content": {
@@ -6722,6 +6958,54 @@
         }
       }
     },
+    "/api/assets/fix-hold": {
+      "post": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Release Fix Hold",
+        "description": "Fixes what a scan held back for fixing too much at once (findings/registry: the fix hold), without waiting for\nthe next complete scan to confirm it. For urgencies: the next scan would release it on its own.",
+        "operationId": "release_fix_hold_api_assets_fix_hold_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "title": "Asset"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "asset"
+                ],
+                "title": "FixHoldIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixHoldReleased"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown asset"
+          }
+        }
+      }
+    },
     "/api/assets/export": {
       "get": {
         "tags": [
@@ -6932,6 +7216,60 @@
         }
       }
     },
+    "/api/assets/exclusions/preview": {
+      "post": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Preview Asset Exclusions",
+        "description": "Checks the paths as saving would and says which findings would move, without saving anything.",
+        "operationId": "preview_asset_exclusions_api_assets_exclusions_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "pattern": "^[A-Za-z0-9#:_./@+-]{1,200}$",
+                    "title": "Key"
+                  },
+                  "patterns": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "maxItems": 50,
+                    "title": "Patterns"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "key",
+                  "patterns"
+                ],
+                "title": "ExclusionsPreviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExclusionsPreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/images": {
       "get": {
         "tags": [
@@ -7052,7 +7390,7 @@
             "application/json": {
               "schema": {
                 "additionalProperties": false,
-                "description": "`repository` (an analyzed repository's asset key) links it right away: administrators only. `scan` also queues\nits scan.",
+                "description": "`repository` (the asset key of an analyzed repository, or of one the GitHub App or a connected token reach)\nlinks it right away: administrators only. `scan` also queues its scan.",
                 "properties": {
                   "reference": {
                     "maxLength": 300,
@@ -7083,6 +7421,51 @@
                 ],
                 "title": "ImageRegisterIn",
                 "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/images/repositories": {
+      "get": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Linkable Repositories",
+        "description": "The repositories an image can be linked to, by name: the analyzed ones and the ones the GitHub App or the\nconnected token reach (not analyzed yet is fine), analyzed first.",
+        "operationId": "linkable_repositories_api_images_repositories_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkableRepositories"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -7802,6 +8185,7 @@
           "onboarding"
         ],
         "summary": "Onboarding",
+        "description": "Each step from the state it stands for, wherever it was done (this card, Integrations, Pull requests, the\naccount page, the CLI): nothing is ticked by clicking.",
         "operationId": "onboarding_api_onboarding_get",
         "responses": {
           "200": {
@@ -8084,8 +8468,16 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 222,
+            "maxItems": 463,
             "title": "Disabled Rules"
+          },
+          "enabled_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Enabled Rules"
           },
           "reason": {
             "anyOf": [
@@ -8175,6 +8567,14 @@
             "type": "array",
             "maxItems": 400,
             "title": "Disabled Rules"
+          },
+          "enabled_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Enabled Rules"
           },
           "reason": {
             "type": "string",
@@ -8381,6 +8781,11 @@
               }
             ],
             "title": "At"
+          },
+          "analyzed": {
+            "type": "boolean",
+            "title": "Analyzed",
+            "default": true
           }
         },
         "type": "object",
@@ -8391,7 +8796,7 @@
           "how"
         ],
         "title": "BuiltFrom",
-        "description": "The repository an image is built from: from its OCI label or set by hand. `repository` is None when the label\nnames a repository Pitangus hasn't analyzed."
+        "description": "The repository an image is built from: from its OCI label or set by hand. `repository` is None when the label\nnames a repository Pitangus hasn't analyzed; a manual link to one not analyzed yet keeps its key (`analyzed`\nfalse)."
       },
       "BuiltinRule": {
         "properties": {
@@ -8409,6 +8814,11 @@
               }
             ],
             "title": "Trivy"
+          },
+          "opt_in": {
+            "type": "boolean",
+            "title": "Opt In",
+            "default": false
           }
         },
         "type": "object",
@@ -8433,7 +8843,7 @@
               "$ref": "#/components/schemas/BuiltinRule"
             },
             "type": "array",
-            "maxItems": 222,
+            "maxItems": 463,
             "title": "Rules"
           }
         },
@@ -10390,6 +10800,17 @@
             "title": "Header Count",
             "default": 0
           },
+          "session_check": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Check"
+          },
           "test_users": {
             "anyOf": [
               {
@@ -10602,6 +11023,31 @@
         ],
         "title": "DomainScope",
         "description": "The domain's related hosts and its saved scope. `covered`: its proof lets them in (a current DNS proof);\notherwise `reason` says what's missing and nothing can be put in scope. `in_scope` counts the hosts saved in\n(at most `scope_limit`); at most `limit` hosts are kept."
+      },
+      "DomainSessionCheck": {
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "title": "Domain Id"
+          },
+          "session_check": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Check"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "domain_id"
+        ],
+        "title": "DomainSessionCheck"
       },
       "DomainTestUser": {
         "properties": {
@@ -11133,6 +11579,53 @@
         ],
         "title": "ExclusionsMoved"
       },
+      "ExclusionsPreview": {
+        "properties": {
+          "excluded": {
+            "type": "integer",
+            "title": "Excluded"
+          },
+          "reopened": {
+            "type": "integer",
+            "title": "Reopened"
+          },
+          "excluded_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Excluded Paths"
+          },
+          "reopened_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Reopened Paths"
+          },
+          "excluded_path_count": {
+            "type": "integer",
+            "title": "Excluded Path Count"
+          },
+          "reopened_path_count": {
+            "type": "integer",
+            "title": "Reopened Path Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "excluded",
+          "reopened",
+          "excluded_paths",
+          "reopened_paths",
+          "excluded_path_count",
+          "reopened_path_count"
+        ],
+        "title": "ExclusionsPreview",
+        "description": "What saving these paths would move now, and a few of the paths (the same paths keep applying to later scans)."
+      },
       "ExclusionsSaved": {
         "properties": {
           "patterns": {
@@ -11545,6 +12038,204 @@
         ],
         "title": "FindingOut",
         "description": "A finding as served: messages rendered in the reader's language, with its triage, fix and lifecycle."
+      },
+      "FindingsHealth": {
+        "properties": {
+          "assets": {
+            "type": "integer",
+            "title": "Assets"
+          },
+          "reopened_soon": {
+            "type": "integer",
+            "title": "Reopened Soon"
+          },
+          "reopened_days": {
+            "type": "integer",
+            "title": "Reopened Days"
+          },
+          "fix_spikes": {
+            "type": "integer",
+            "title": "Fix Spikes"
+          },
+          "duplicates": {
+            "type": "integer",
+            "title": "Duplicates"
+          },
+          "unverified": {
+            "type": "integer",
+            "title": "Unverified"
+          },
+          "blind_engines": {
+            "type": "integer",
+            "title": "Blind Engines"
+          },
+          "engines": {
+            "type": "integer",
+            "title": "Engines"
+          },
+          "blind_share": {
+            "type": "number",
+            "title": "Blind Share"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assets",
+          "reopened_soon",
+          "reopened_days",
+          "fix_spikes",
+          "duplicates",
+          "unverified",
+          "blind_engines",
+          "engines",
+          "blind_share"
+        ],
+        "title": "FindingsHealth",
+        "description": "Signs that fixes may not be what they seem (findings/registry.health): findings back within `reopened_days` of\nbeing fixed, scans that fixed far more than usual, open findings several engines report apart, unverified ones, and\nthe share of engines blind in each asset's last scan."
+      },
+      "FixControl": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "hold": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FixHold"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "released": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released"
+          },
+          "unseen_warn_scans": {
+            "type": "integer",
+            "title": "Unseen Warn Scans"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "unseen_warn_scans"
+        ],
+        "title": "FixControl",
+        "description": "`mode`: PITANGUS_COVERAGE_MODE. `hold`: fixes a scan held back for closing too much at once, until the next complete\nscan confirms them. `unseen_warn_scans`: after how many scans an unverified finding is warned about."
+      },
+      "FixHold": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "run": {
+            "type": "string",
+            "title": "Run"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FixHoldReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "at",
+          "run"
+        ],
+        "title": "FixHold"
+      },
+      "FixHoldReason": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "run": {
+            "type": "string",
+            "title": "Run"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "open": {
+            "type": "integer",
+            "title": "Open"
+          },
+          "minimum": {
+            "type": "integer",
+            "title": "Minimum"
+          },
+          "percent": {
+            "type": "integer",
+            "title": "Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "run",
+          "at",
+          "count",
+          "open",
+          "minimum",
+          "percent"
+        ],
+        "title": "FixHoldReason",
+        "description": "Why the fixes are held: the latest run that tripped the hold would have fixed `count` of the asset's `open`\nfindings at once, at or past both thresholds (`minimum` findings and `percent` of those open)."
+      },
+      "FixHoldReleased": {
+        "properties": {
+          "released": {
+            "type": "integer",
+            "title": "Released"
+          }
+        },
+        "type": "object",
+        "required": [
+          "released"
+        ],
+        "title": "FixHoldReleased"
+      },
+      "FixPrompt": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "title": "FixPrompt"
       },
       "GitHubManifest": {
         "properties": {
@@ -11991,6 +12682,10 @@
             "type": "integer",
             "title": "Repository Refs"
           },
+          "assumptions": {
+            "type": "integer",
+            "title": "Assumptions"
+          },
           "manual_threats": {
             "type": "integer",
             "title": "Manual Threats"
@@ -12010,6 +12705,14 @@
           "relayout": {
             "type": "boolean",
             "title": "Relayout"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ImportProblem"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Problems"
           }
         },
         "type": "object",
@@ -12020,6 +12723,7 @@
           "flows",
           "boundaries",
           "repository_refs",
+          "assumptions",
           "manual_threats",
           "attack_trees",
           "attack_mappings",
@@ -12027,7 +12731,59 @@
           "relayout"
         ],
         "title": "ImportCheck",
-        "description": "What an import would create, counted, without creating it."
+        "description": "What an import would create, counted, without creating it, and the warnings it would carry. With errors the\nroute answers 400 with `error` (the first one) and `problems` (all of them, same shape)."
+      },
+      "ImportProblem": {
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ],
+            "title": "Severity"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Path",
+            "description": "JSON Pointer (RFC 6901) into the document as sent"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "The id of the object it belongs to, when known"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Code",
+            "description": "Equal for identical problems (same message and parameters), to group them",
+            "default": ""
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "severity",
+          "path",
+          "message"
+        ],
+        "title": "ImportProblem",
+        "description": "One problem in an imported document: an error stops the import, a warning means something that matters was\nchanged or couldn't be used, an info is a harmless normalization (a synonym read, a field kept as written)."
       },
       "ImportedRun": {
         "properties": {
@@ -12038,6 +12794,17 @@
           "tool": {
             "type": "string",
             "title": "Tool"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
           },
           "version": {
             "anyOf": [
@@ -12226,6 +12993,22 @@
               }
             ],
             "title": "Last Error"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/JiraIssueLink"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Issues"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/JiraFailure"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Errors"
           }
         },
         "additionalProperties": true,
@@ -12234,7 +13017,7 @@
           "rule"
         ],
         "title": "JiraBackfill",
-        "description": "One rule's last backfill: issues queued and what became of them (`pending` still in the queue)."
+        "description": "One rule's last backfill: issues queued and what became of them (`pending` still in the queue), the first\nissues created and why the failed ones failed."
       },
       "JiraBackfills": {
         "properties": {
@@ -12324,6 +13107,24 @@
               }
             ],
             "title": "Legacy"
+          },
+          "on_fixed": {
+            "$ref": "#/components/schemas/JiraOnFixed"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "en",
+                  "es"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
           }
         },
         "additionalProperties": true,
@@ -12333,10 +13134,11 @@
           "name",
           "project",
           "issue_type",
-          "mapping"
+          "mapping",
+          "on_fixed"
         ],
         "title": "JiraDestination",
-        "description": "Project + issue type + mapping. `fields`: the snapshot of the mapped fields (null for one migrated from the\nsingle project of earlier versions, `legacy`, until it is saved again)."
+        "description": "Project + issue type + mapping. `fields`: the snapshot of the mapped fields (null for one migrated from the\nsingle project of earlier versions, `legacy`, until it is saved again). `locale`: the language of its issues and\ncomments (null: PITANGUS_DEFAULT_LOCALE)."
       },
       "JiraDestinationSaved": {
         "properties": {
@@ -12472,6 +13274,25 @@
           "fingerprint"
         ],
         "title": "JiraExportItem"
+      },
+      "JiraFailure": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "count"
+        ],
+        "title": "JiraFailure",
+        "description": "One reason issues failed, and how many."
       },
       "JiraField": {
         "properties": {
@@ -12668,6 +13489,57 @@
         "title": "JiraFields",
         "description": "The fields of an issue type's create screen and the mapping Pitangus proposes for them."
       },
+      "JiraIssueLink": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "url"
+        ],
+        "title": "JiraIssueLink"
+      },
+      "JiraIssueSample": {
+        "properties": {
+          "asset": {
+            "type": "string",
+            "title": "Asset"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Lines"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset",
+          "summary",
+          "lines",
+          "findings"
+        ],
+        "title": "JiraIssueSample",
+        "description": "One issue of the preview as Jira would show it: its title and the first lines of its description."
+      },
       "JiraIssueType": {
         "properties": {
           "id": {
@@ -12712,6 +13584,34 @@
           "truncated"
         ],
         "title": "JiraIssueTypes"
+      },
+      "JiraOnFixed": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JiraWorkflowStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "JiraOnFixed",
+        "description": "What a verified fix does besides the comment: a label (null: none) and a status to move the issue to (null:\nPitangus never transitions it, the default)."
       },
       "JiraProject": {
         "properties": {
@@ -12867,6 +13767,22 @@
             "type": "boolean",
             "title": "Force",
             "default": false
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/JiraIssueLink"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Issues"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/JiraFailure"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Errors"
           }
         },
         "type": "object",
@@ -13043,6 +13959,16 @@
           "truncated": {
             "type": "boolean",
             "title": "Truncated"
+          },
+          "sample": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JiraIssueSample"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -13054,7 +13980,7 @@
           "truncated"
         ],
         "title": "JiraRulePreview",
-        "description": "What a backfill of this rule would queue now (up to the backfill limit)."
+        "description": "What this rule would create now (up to the backfill limit): an automatic rule, the open findings at or above\nits minimum severity without an issue; a manual one, every open finding without an issue of its repositories.\n`sample`: the most severe of those issues, as it would read."
       },
       "JiraRuleSaved": {
         "properties": {
@@ -13219,6 +14145,24 @@
         "title": "JiraStatus",
         "description": "The credential (never the token: its last four characters) and, for earlier panels, the default destination."
       },
+      "JiraStatuses": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JiraWorkflowStatus"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "JiraStatuses",
+        "description": "The statuses of an issue type's workflow: where a destination may move a fixed issue."
+      },
       "JiraVariable": {
         "properties": {
           "key": {
@@ -13309,6 +14253,35 @@
         "title": "JiraVariables",
         "description": "What a mapping can use: Pitangus's variables (`source: pitangus`, or `{{key}}` in a template)."
       },
+      "JiraWorkflowStatus": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "JiraWorkflowStatus"
+      },
       "LifecycleCounts": {
         "properties": {
           "open": {
@@ -13337,6 +14310,21 @@
             },
             "type": "object",
             "title": "By Severity"
+          },
+          "unverified": {
+            "type": "integer",
+            "title": "Unverified",
+            "default": 0
+          },
+          "unverified_stale": {
+            "type": "integer",
+            "title": "Unverified Stale",
+            "default": 0
+          },
+          "unverified_configuration": {
+            "type": "integer",
+            "title": "Unverified Configuration",
+            "default": 0
           }
         },
         "type": "object",
@@ -13349,7 +14337,7 @@
           "by_severity"
         ],
         "title": "LifecycleCounts",
-        "description": "Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`) and excluded."
+        "description": "Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`), excluded, and\nopen but unverified (`unverified`: no scan could check them lately; `unverified_stale`: for long enough to warn;\n`unverified_configuration`: the scan's configuration left them unchecked, a rule or an engine off or a rule changed)."
       },
       "LinkInfo": {
         "properties": {
@@ -13373,6 +14361,51 @@
           "purpose"
         ],
         "title": "LinkInfo"
+      },
+      "LinkableRepositories": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LinkableRepository"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "LinkableRepositories"
+      },
+      "LinkableRepository": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "analyzed": {
+            "type": "boolean",
+            "title": "Analyzed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "analyzed"
+        ],
+        "title": "LinkableRepository"
       },
       "MarkIn": {
         "properties": {
@@ -14672,6 +15705,16 @@
               }
             ],
             "title": "Context"
+          },
+          "control": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FixControl"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": true,
@@ -15142,6 +16185,10 @@
             "type": "integer",
             "title": "Images"
           },
+          "domains": {
+            "type": "integer",
+            "title": "Domains"
+          },
           "complete": {
             "type": "integer",
             "title": "Complete"
@@ -15151,9 +16198,11 @@
         "required": [
           "repositories",
           "images",
+          "domains",
           "complete"
         ],
-        "title": "ScopeSummary"
+        "title": "ScopeSummary",
+        "description": "Every asset of the scope by kind, and how many of them the portfolio SBOM and VEX include."
       },
       "ScopedFinding": {
         "properties": {
@@ -15598,6 +16647,16 @@
             ],
             "title": "Context"
           },
+          "control": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FixControl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "total": {
             "type": "integer",
             "title": "Total"
@@ -15742,8 +16801,16 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 222,
+            "maxItems": 463,
             "title": "Disabled Rules"
+          },
+          "enabled_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Enabled Rules"
           },
           "reason": {
             "anyOf": [
@@ -15824,6 +16891,14 @@
             "maxItems": 400,
             "title": "Disabled Rules"
           },
+          "enabled_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Enabled Rules"
+          },
           "reason": {
             "type": "string",
             "maxLength": 2000,
@@ -15849,6 +16924,11 @@
           "disabled": {
             "type": "integer",
             "title": "Disabled"
+          },
+          "enabled": {
+            "type": "integer",
+            "title": "Enabled",
+            "default": 0
           },
           "allowlist": {
             "type": "integer",
@@ -16466,6 +17546,17 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Methods"
+          },
+          "workspace": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "maxItems": 100
+            },
+            "type": "object",
+            "title": "Workspace"
           }
         },
         "additionalProperties": true,

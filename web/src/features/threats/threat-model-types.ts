@@ -1,30 +1,44 @@
 import i18n from '@/shared/i18n'
 
 export type Point = { x: number; y: number }
+// Fields of an object Pitangus doesn't know, kept as written: shown and editable as custom properties.
+export type CustomProperties = Record<string, unknown>
+type Extensible = { custom_properties?: CustomProperties }
 export type Box = Point & { width: number; height: number }
 // Tipos del modelo de amenazas compartidos por la vista y el editor de diagramas.
 export type Kind = 'actor' | 'web_app' | 'api' | 'service' | 'function' | 'database' | 'cache' | 'queue' | 'storage' | 'external' | 'identity' | 'custom'
-export type Component = { id: string; name: string; kind: Kind; custom_kind?: string; custom_base?: Exclude<Kind, 'custom'>; description?: string; technology?: string; asset?: string | null; asset_ref?: string; path?: string; position?: Point | null; size?: { width: number; height: number } | null; data: string[]; internet_facing: boolean; authenticates: boolean; encrypted_at_rest: boolean; origin?: string; color?: string }
+export type Component = { id: string; name: string; kind: Kind; custom_kind?: string; custom_base?: Exclude<Kind, 'custom'>; description?: string; technology?: string; asset?: string | null; asset_ref?: string; path?: string; position?: Point | null; size?: { width: number; height: number } | null; data: string[]; internet_facing: boolean; authenticates: boolean; encrypted_at_rest: boolean; origin?: string; color?: string } & Extensible
 export type CustomModule = 'stride' | 'linddun' | 'manual' | 'pasta' | 'trees' | 'attack' | 'elements'
-export type Flow = { id: string; source: string; target: string; name?: string; protocol: string; data: string[]; authenticated: boolean; encrypted: boolean }
-export type Boundary = { id: string; name: string; components: string[]; box?: Box | null; color?: string }
+export type Flow = { id: string; source: string; target: string; name?: string; protocol: string; description?: string; data: string[]; authenticated: boolean; encrypted: boolean } & Extensible
+export type Boundary = { id: string; name: string; components: string[]; description?: string; box?: Box | null; color?: string } & Extensible
 export type Level = 'low' | 'medium' | 'high'
-export type ManualThreat = { id: string; title: string; category?: string; element?: string; severity: 'critical' | 'high' | 'medium' | 'low'; scenario?: string; mitigation?: string; likelihood?: Level | null; impact?: Level | null; owner?: string }
-export type TreeNode = { id: string; parent: string | null; text: string; gate: 'and' | 'or'; element?: string; difficulty?: Level | null; mitigated: boolean }
-export type AttackTree = { id: string; goal: string; nodes: TreeNode[] }
-export type AttackMapping = { technique: string; element?: string; status: 'relevant' | 'mitigated' | 'not_applicable'; note?: string }
+export type Severity = 'critical' | 'high' | 'medium' | 'low'
+// PASTA's notes by stage; a stage PASTA doesn't have, as a custom property.
+export type PastaNotes = { [stage: string]: string | CustomProperties | undefined; custom_properties?: CustomProperties }
+export type Assumption = { id: string; text: string } & Extensible
+// Where the team's own levels sort among ours: { severity: { Severe: 'high' } }.
+export type LevelEquivalents = Partial<Record<'severity' | 'likelihood' | 'impact' | 'difficulty', Record<string, string>>>
+// Severity and levels: ours, or the team's own (any short text).
+export type ManualThreat = { id: string; title: string; category?: string; element?: string; severity: string; scenario?: string; mitigation?: string; likelihood?: string | null; impact?: string | null; owner?: string } & Extensible
+export type TreeNode = { id: string; parent: string | null; text: string; gate: 'and' | 'or'; element?: string; difficulty?: string | null; mitigated: boolean } & Extensible
+export type AttackTree = { id: string; goal: string; nodes: TreeNode[] } & Extensible
+export type AttackMapping = { technique: string; element?: string; status: string; note?: string } & Extensible
 export type Model = { id: string; name: string; description?: string; components: Component[]; flows: Flow[]; boundaries: Boundary[]; updated_at?: string; updated_by?: string;
-  methodology?: import('@/features/threats/threat-guides').Methodology; custom_modules?: CustomModule[]; repositories?: string[]; repository_refs?: string[]; manual_threats?: ManualThreat[]; attack_trees?: AttackTree[]; attack_mappings?: AttackMapping[]; pasta?: Record<string, string>;
+  methodology?: import('@/features/threats/threat-guides').Methodology; custom_modules?: CustomModule[]; repositories?: string[]; repository_refs?: string[]; assumptions?: Assumption[]; level_equivalents?: LevelEquivalents; custom_properties?: CustomProperties; manual_threats?: ManualThreat[]; attack_trees?: AttackTree[]; attack_mappings?: AttackMapping[]; pasta?: PastaNotes;
   legend?: Partial<Record<import('@/features/threats/threat-colors').Tone, string>> }
 export type MethodsCatalog = { methodologies: Record<string, string>; linddun: Record<string, string>; tactics: Record<string, string>;
-  techniques: Record<string, { name: string; name_es: string; tactics: string[] }>; suggestions: Record<string, string[]>; pasta_stages: { key: string; title: string }[] }
+  techniques: Record<string, { name: string; name_es: string; tactics: string[] }>; suggestions: Record<string, string[]>; pasta_stages: { key: string; title: string }[]
+  // All of MITRE ATT&CK Enterprise, bundled on the server: [name, tactics] of each live technique; revoked → replacement.
+  attack?: { version: string; techniques: Record<string, [string, string[]]>; revoked: Record<string, string | null>; deprecated: Record<string, string> } }
 export type Evidence = { asset: string; run_id: string; fingerprint: string; title: string; severity: string; location: string }
-export type Threat = { id: string; rule: string; stride: string; category: string; title: string; why: string; mitigations: string[]; cwe: number[]; element: string; element_name: string; severity: string; status: 'evidenced' | 'open' | 'mitigated' | 'accepted' | 'not_applicable'; decision?: { status: string; reason: string; by: string; at: string } | null; contradicted?: boolean; evidence: Evidence[]; evidence_count: number; framework?: 'stride' | 'linddun' | 'manual'; manual_id?: string; likelihood?: Level | null; impact?: Level | null; owner?: string; evidence_scope?: { asset: string; path: string | null }[] }
+export type Threat = { id: string; rule: string; stride: string; category: string; title: string; why: string; mitigations: string[]; cwe: number[]; element: string; element_name: string; severity: string; severity_label?: string | null; custom_properties?: CustomProperties; status: 'evidenced' | 'open' | 'mitigated' | 'accepted' | 'not_applicable'; decision?: { status: string; reason: string; by: string; at: string } | null; contradicted?: boolean; evidence: Evidence[]; evidence_count: number; framework?: 'stride' | 'linddun' | 'manual'; manual_id?: string; likelihood?: string | null; impact?: string | null; owner?: string; evidence_scope?: { asset: string; path: string | null }[] }
 export type Summary = { total: number; by_status: Record<string, number>; by_stride: Record<string, number>; by_severity: Record<string, number> }
 // `assets`: los repositorios que el modelo referencia, con su nombre, resueltos en el servidor.
 export type View = { model: Model; threats: Threat[]; summary: Summary; assets?: Asset[] }
 export type Asset = { id: string; name: string; kind: 'repository' | 'domain'; last_run?: string | null; scanned_at?: string }
-export type Catalog = { models: { id: string; name: string; description?: string; updated_at?: string; updated_by?: string; components: number; flows: number; methodology?: string; repositories?: number }[]; assets: Asset[]; kinds: Record<Kind, string>; protocols: string[]; classifications: Record<string, string>; methods: MethodsCatalog }
+export type Catalog = { models: { id: string; name: string; description?: string; updated_at?: string; updated_by?: string; components: number; flows: number; methodology?: string; repositories?: number }[]; assets: Asset[]; kinds: Record<Kind, string>; protocols: string[]; classifications: Record<string, string>; methods: MethodsCatalog
+  // The team's own values already used in this workspace's models (protocols, custom types, data classes…).
+  workspace?: Partial<Record<'protocols' | 'kinds' | 'data' | 'categories' | 'techniques' | 'severities' | 'levels' | 'statuses', string[]>> }
 
 export const STORES: Kind[] = ['database', 'cache', 'queue', 'storage']
 export const PROCESSES: Kind[] = ['web_app', 'api', 'service', 'function']

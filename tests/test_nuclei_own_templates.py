@@ -112,7 +112,8 @@ class FilterTests(unittest.TestCase):
         paths = [path.removeprefix("{{BaseURL}}") for request in document["http"] for path in request["path"]]
         self.assertLessEqual(len(paths), 60)
         self.assertEqual(len(paths), len(set(paths)))
-        for expected in ("/ftp/", "/backup/", "/backups/", "/config/", "/metrics", "/actuator", "/actuator/env", "/server-status", "/phpinfo.php"):
+        for expected in ("/ftp/", "/backup/", "/backups/", "/config/", "/metrics", "/actuator", "/actuator/env", "/server-status", "/phpinfo.php",
+                         "/.env", "/.git/config"):
             self.assertIn(expected, paths)
         # /uploads/ names a state change for the filter (`upload`), so it can't be in a template that passes it.
         self.assertIsNotNone(nuclei_templates.STATE.search("/uploads/"))
@@ -213,6 +214,10 @@ class MatcherTests(unittest.TestCase):
             "docker-credentials": (response('{"auths": {"ghcr.io": {"auth": "dXNlcjpwYXNzd29yZA=="}}}'), response('{"auths": {}}')),  # gitleaks:allow
             "wordpress-config-backup": (response("<?php\ndefine( 'DB_PASSWORD', 'x' );\n", content_type="application/octet-stream"),
                                         response("<?php\n// nothing\n", content_type="application/octet-stream")),
+            "dotenv": (response("APP_NAME=demo\n# database\n\nDB_PASSWORD=hunter2\n", content_type="text/plain"),
+                       response("<!doctype html><html><body>\nAPP_NAME=demo\n</body></html>")),
+            "git-config": (response("[core]\n\trepositoryformatversion = 0\n\tbare = false\n", content_type="text/plain"),
+                           response("<html><pre>[core]</pre></html>")),
         }
         named = {matcher["name"] for request in document["http"] for matcher in request["matchers"] if matcher.get("name")}
         self.assertEqual(named, set(cases))

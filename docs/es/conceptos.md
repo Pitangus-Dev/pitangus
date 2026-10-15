@@ -32,9 +32,9 @@ Un **activo** es algo que Pitangus analiza y para lo que lleva un registro. Hay 
 
 | Activo | Se identifica por | Se analiza con |
 | --- | --- | --- |
-| Repositorio | Su identidad en GitHub (ID numérico), así que un repositorio renombrado sigue siendo el mismo; o una carpeta local en la CLI | Opengrep, Gitleaks, Trivy, OSV-Scanner, Checkov, zizmor. Ver [Analizar tu código](analisis-de-codigo.md). |
-| Imagen de contenedor | Registro y repositorio, sin la etiqueta: `api:1.5` y `api:1.4` son el mismo activo | Trivy, Grype, Checkov y reglas de Pitangus, leída del registro, nunca ejecutada. Ver [Analizar imágenes de contenedor](analisis-de-imagenes.md). |
-| Dominio | `domain:<host>`, una vez que quien administra demuestra que lo controla (**verificación del dominio**) | ZAP, katana, nuclei, testssl.sh y httpx, de forma pasiva. Ver [Analizar un sitio web o una API](analisis-web.md). |
+| Repositorio | Su identidad en GitHub (ID numérico), así que un repositorio renombrado sigue siendo el mismo; o una carpeta local en la CLI | Opengrep, Betterleaks, Trivy, OSV-Scanner, zizmor; Checkov si se activa. Ver [Analizar tu código](analisis-de-codigo.md). |
+| Imagen de contenedor | Registro y repositorio, sin la etiqueta: `api:1.5` y `api:1.4` son el mismo activo | Trivy y reglas de Pitangus (Grype y Checkov si se activan), leída del registro, nunca ejecutada. Ver [Analizar imágenes de contenedor](analisis-de-imagenes.md). |
+| Dominio | `domain:<host>`, una vez que quien administra demuestra que lo controla (**verificación del dominio**) | De forma pasiva: httpx, testssl.sh y nuclei en la comprobación de exposición, siempre disponible; ZAP, katana y subfinder en el análisis completo, experimental. Ver [Analizar un sitio web o una API](analisis-web.md). |
 
 Los resultados importados de otra herramienta (SARIF) siempre entran en un activo que Pitangus ya conoce.
 
@@ -73,7 +73,8 @@ consecuencias, ambas a propósito:
 Un **hallazgo** es un problema en un lugar: la versión vulnerable de un paquete, un secreto en una línea, una mala
 configuración en un archivo, una cabecera que falta en una URL. Cada hallazgo tiene una severidad (crítica, alta,
 media, baja, info), una prioridad con sus factores a la vista (**Actuar ya**, **Atender** o **Seguir**, según CVSS, KEV
-y EPSS) y una guía de corrección.
+y EPSS) y cómo corregirlo, hasta donde se sabe (un comando, un ejemplo para adaptar o el consejo de la propia
+herramienta).
 
 Cada hallazgo recibe además una **huella** (fingerprint): un identificador estable calculado a partir de qué es el
 problema y dónde está, nunca del valor de un secreto. Con la huella, Pitangus reconoce el mismo problema en la siguiente

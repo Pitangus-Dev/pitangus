@@ -38,9 +38,13 @@ class BriefTests(unittest.TestCase):
                    "path": "app/db.py", "line": 14, "severity": "high", "cwe": [89]}
         written = self.write([ticket("1" * 64)], {"1" * 64: finding}, first_seen={"1" * 64: "2026-09-20T10:00:00+00:00"},
                              panel_url="https://pitangus.acme.io/#/findings?repo=x&finding=y")
-        headings = [block["heading"] for block in written["blocks"] if "heading" in block]
-        self.assertEqual(headings[:5], ["The problem", "Where", "How to fix it", "How to verify it", "Deadline and context"])
-        self.assertIn("Due date: 2026-10-20", written["text"])
+        # The first lines are the work: what to change, where, and how to verify it; why it matters comes after.
+        self.assertEqual(written["blocks"][0], {"paragraph": [{"strong": "Use the driver's parameters."}]})
+        text = written["text"]
+        order = [text.index(part) for part in ("Use the driver's parameters.", "File: app/db.py:14", "Done when:", "Why", "Due date: 2026-10-20",
+                                                "SQL injection from request input.")]
+        self.assertEqual(order, sorted(order))
+        self.assertEqual([block["heading"] for block in written["blocks"] if "heading" in block], ["Why"])
         document = jira.adf_document(written["blocks"])
         links = [mark["attrs"]["href"] for node in nodes(document, "text") for mark in node.get("marks") or [] if mark["type"] == "link"]
         self.assertIn(f"https://github.com/acme/api/blob/{'a' * 40}/app/db.py#L14", links)
@@ -63,10 +67,26 @@ class BriefTests(unittest.TestCase):
                                                                 "direct": True}, "advisory": {"summary": "Prototype pollution", "cvss_score": 7.4}}
         findings = {"3" * 64: advisory("3" * 64, "CVE-2020-8203", "4.17.19"), "4" * 64: advisory("4" * 64, "CVE-2021-23337", "4.17.21")}
         written = self.write([ticket("3" * 64), ticket("4" * 64)], findings)
-        self.assertIn("Version 4.17.21 fixes all of them", written["text"])
+        # One action for the package: the version that closes every advisory, then the command.
+        self.assertTrue(written["text"].startswith("Update lodash from 4.17.15 to 4.17.21.\n"))
         self.assertIn("npm install lodash@4.17.21", written["text"])
+        self.assertIn("2 vulnerabilities: CVE-2020-8203, CVE-2021-23337", written["text"])
+        self.assertIn("CVE-2020-8203 · High · Prototype pollution · fixed in 4.17.19", written["text"])
         self.assertNotIn("this advisory", written["text"])
-        self.assertEqual([node["attrs"]["language"] for node in nodes(jira.adf_document(written["blocks"]), "codeBlock")], ["bash"])
+        # The update, then how to check which version ended up installed.
+        blocks = nodes(jira.adf_document(written["blocks"]), "codeBlock")
+        self.assertEqual([(node["attrs"]["language"], node["content"][0]["text"]) for node in blocks],
+                         [("bash", "npm install lodash@4.17.21"), ("bash", "npm ls lodash")])
+
+    def test_a_transitive_dependency_says_who_brings_it_in_and_what_to_update_if_it_stays(self):
+        package = {"ecosystem": "cargo", "name": "rustls-webpki", "version": "0.103.10", "fixed_version": "0.103.13", "direct": False,
+                   "introduced_by": [{"name": "rustls", "version": "0.23.20", "direct": "reqwest", "direct_version": "0.12.9", "chain": ["reqwest", "rustls"]}]}
+        finding = {"fingerprint": "6" * 64, "scanner": "sca", "rule_id": "GHSA-82j2-j2ch-gfr8", "ghsa": ["GHSA-82j2-j2ch-gfr8"], "title": "DoS",
+                   "path": "Cargo.lock", "severity": "high", "package": package}
+        written = self.write([ticket("6" * 64)], {"6" * 64: finding})
+        self.assertTrue(written["text"].startswith("Update rustls-webpki to 0.103.13; if it stays below, update reqwest, which brings it in.\n"))
+        commands = [node["content"][0]["text"] for node in nodes(jira.adf_document(written["blocks"]), "codeBlock")]
+        self.assertEqual(commands, ["cargo update -p rustls-webpki@0.103.10 --precise 0.103.13", "cargo tree --invert rustls-webpki", "cargo update -p reqwest"])
 
     def test_nothing_a_finding_carries_can_become_a_link_or_markup(self):
         finding = {"fingerprint": "5" * 64, "scanner": "sast", "rule_id": "r", "severity": "medium", "path": "a.py", "line": 1,

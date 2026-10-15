@@ -61,8 +61,10 @@ def _persist(data_dir: Path, record: dict, report: str, sarif: dict | None = Non
 
 
 def save_record(data_dir: Path, record: RunRecord) -> None:
-    """Saves a run's record (progress, status, result) without touching its report or its SARIF."""
-    values = _values(record)
+    """Saves a run's record (progress, status, result) without touching its report or its SARIF; every text in any of
+    its fields rendered (shared/masking.py), whatever a step or an engine's error put there."""
+    from pitangus.shared.masking import sanitize_record
+    values = _values(sanitize_record(record))
     statement = insert(runs).values(tenant_id=TENANT, id=_check_id(record["id"]), **values)
     with db.transaction(data_dir) as connection:
         connection.execute(statement.on_conflict_do_update(index_elements=[runs.c.tenant_id, runs.c.id], set_={**values, "updated_at": func.now()}))
@@ -148,7 +150,14 @@ def save_and_apply(data_dir: Path, scan: RunRecord, *, run_id: str | None = None
     from pitangus.modules.findings.kinds import FINDING_RUNS
     if record.get("type") in FINDING_RUNS:
         record = apply_to_record(data_dir, record, asset_key(record))
-    record = with_web_coverage(record)
+        # One identity per problem (PITANGUS_IDENTITY_MODE): grouped into families in v2, written alongside in shadow.
+        from pitangus.modules.findings import canonical, registry
+        known = registry.web_known(data_dir, asset_key(record)) if record.get("type") == "dast_scan" else []
+        record = canonical.prepare(record, known)
+    # Whatever produced the run (an image, a web scan, an import), no credential-shaped text is stored or sent; after
+    # the identities, which read the texts as they were (shared/masking.py).
+    from pitangus.shared.masking import sanitize_record
+    record = with_web_coverage(sanitize_record(record))
     from pitangus.modules.findings.registry import apply
     report, sarif = render_repository_report(record), render_repository_sarif(record)
     # The run, the findings registry and the outbox entries land together or not at all.

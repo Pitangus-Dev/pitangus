@@ -1,0 +1,49 @@
+# The words of code that aren't English prose (shared/render.py `lexicon`): builtins, the usual abbreviations of
+# identifiers, file types, protocols, formats and the names of common tools and platforms. Public vocabulary, never a
+# value: a word belongs here because code everywhere writes it, not because one project does. Lowercase; letters and
+# digits; several per line.
+abs addr alloc amd64 api apis app apps arg argc args argv arm64 arr assert async attr attrs auth authn authz avg aws
+az azure b64 backend base32 base64 bash bcrypt bin bool bools btn buf bufs builtin bytearray cb cert certs cfg cgi
+charset chmod chown cli clr cls cmd cmds cmp cnt col cols conf config configs conn conns const cpp cpu crc crlf cron
+crypto csrf css csv ctor ctx cur curl cwd daemon dao dat dbs deps desc dest dev devel dfs dict dicts dir dirs diff dll
+dns doc docs dom dst dto dyn ecdsa ec2 ed25519 elem elems enc env envs eof eol errno errs esm etc exe exec expr ext
+fd fds fifo fmt fn fns fp frontend fs ftp func funcs gcc gcp gid gif git github gitlab gnu golang goroutine gpg gpu
+grpc gui gz gzip h1 h2 h3 h4 h5 h6 hdr hdrs hmac hostname href html htm http https http2 i18n iam ico idx img ini init
+ints iter jar java javascript jdbc jpeg jpg js json jsonl jsx jwt k8s kb kotlin kube kubectl kv kwargs l10n lang len
+lhs lib libs linux localhost lsb lua lxml macos makefile malloc matplotlib max md md5 mgr mid mime min misc mkdir mod
+mongo mongodb msg msgs mssql mutex mvn mysql nginx noop npm npx ns nullptr num nums oauth oauth2 obj objs oidc oop
+openapi openssl opt opts orm os pandas param params passwd pdf perl pg php pid pids pkg pkgs png pnpm pom posix
+postgres postgresql powershell pre prev printf proc procs prod prop props proto protobuf ptr pwd px py pyc pytest
+qa qs rand readme readonly realloc redis ref refs regex regexp repl req reqs res resp rhs rpc rsa rss ruby runtime
+rust rx s3 saml sbin scala scp sdk sed sep seq sftp sha sha1 sha256 sha384 sha512 sig sizeof smtp snake sock sql
+sqlite src srv ssh ssl sso stderr stdin stdio stdlib stdout str strs struct structs subprocess sudo svc svg sys
+syscall tar tcp tcl tf tgz tls tmp todo toml tsx ttl tty tuple tx txt typedef ubuntu udp uid ui uint url urls usr
+utf utf8 utf16 util utils uuid ux v1 v2 v3 v4 v5 v6 v7 v8 v9 val vals var vars vec vm vpc wasm wget whl win32 www
+x64 x86 xhr xml xsd xss yaml yml zip zsh
+app api blog cdn org com net edu gov dev local internal intranet example test staging io co uk configure
+# The common words of security writing (rule titles, descriptions and fixes of the engines and of imported reports).
+access accessible across affected agent alert alerts alive allowing ancestors anyone appears applet applets area
+article articles attack attacked attacker attackers attacks audio author bearer behalf brute bypass bypassed cache
+cached caching captcha certain cheat cipher ciphers clickjacking client clients community concatenated concatenation
+confidence confidential constructs content cookie cookies credential credentials cross decode decoded decrypt
+decrypted defacement definitions denial deserialization deserialize directive directives disclose disclosed
+disclosure echo echoed echoing elements embed embedded encode encoded encoding encrypt encrypted encryption
+ensure entropy enumeration escalation escape escaped escaping evaluates every exploit exploitable exploited
+exposure exposures fallback font fonts force forgery forward forwarded forwards fraction frame frames framing
+greeting guidance hardcoded hash hashed hashing header headers hello hijacking hundred iframe image images inline
+injected injection input inputs insecure intended involves layer layers leak leaked leakage likely limiting
+lockout logic logins malware manually matcher media misconfiguration misconfigured mitigate mitigation neutralization
+neutralize obtain occur origin output outputs phase phone plugin plugins policies policy precision predictable
+prevent prevention prevents privilege privileges profiles proxies proxy random randomness rate recommendation
+recommendations redirect redirected redirects refer referer referrer reflect reflected reflects region releases
+render rendered resources response responses restrict restricted restriction returns salt salted sanitization
+sanitize sanitized script scripting scripts searches secure sensitive serialization server servers sheet site sites
+sniffing snippet solution special spoofing stored strict strong style styles success superset supplied suppressions
+suspicious tampering term theft thing things throttle throttling transport traversal trust trusted unescaped
+unsafe untrusted unvalidated validated vary vetted video vulnerabilities vulnerability vulnerable weak weakness
+weaknesses website websites writing
+acl cors csp cve cvss cwe dast hsts idor lfi mitre owasp rce rfi sast sca sqli ssrf ssti traceback xxe wasc zap
+# The elements of HTML (a page's evidence is HTML).
+p b br hr li ul ol dl dt dd tr td th thead tbody tfoot em strong small sub sup pre code div span nav main section
+article aside header footer form input button select option textarea label img svg iframe meta link script style
+title head body html noscript template canvas video audio source picture

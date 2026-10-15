@@ -158,11 +158,10 @@ def summarize_advisory(payload: dict) -> dict:
     score = cvss3_base_score(v3) if v3 else None
     specific = payload.get("database_specific") or {}
     aliases = [alias for alias in payload.get("aliases", []) if isinstance(alias, str)]
-    cwes = []
-    for raw in specific.get("cwe_ids", []) or []:
-        match = re.fullmatch(r"CWE-(\d+)", str(raw))
-        if match:
-            cwes.append(int(match.group(1)))
+    # GHSA writes its CWEs at the top (`cwe_ids`); OpenSSF Malicious Packages on each affected package (`cwes`).
+    raw_cwes = [*(specific.get("cwe_ids") or []), *(str(item.get("cweId") or "") for affected in payload.get("affected") or [] if isinstance(affected, dict)
+                                                    for item in (affected.get("database_specific") or {}).get("cwes") or [] if isinstance(item, dict))]
+    cwes = list(dict.fromkeys(int(match.group(1)) for raw in raw_cwes if (match := re.fullmatch(r"CWE-(\d+)", str(raw)))))
     references = [item["url"] for item in payload.get("references", [])
                   if isinstance(item, dict) and isinstance(item.get("url"), str) and item["url"].startswith("https://")][:8]
     return {"id": payload["id"], "aliases": aliases, "summary": (payload.get("summary") or "").strip()[:300],
@@ -170,7 +169,9 @@ def summarize_advisory(payload: dict) -> dict:
             "cvss_vector": v3 or (vectors[0] if vectors else None), "cvss_score": score,
             "severity": severity_from_score(score, specific.get("severity")),
             "cwe": cwes, "published": payload.get("published"), "modified": payload.get("modified"),
-            "references": references}
+            "references": references,
+            # The database says what kind of advisory it is: a malware report (OpenSSF's origins, a `malware` type).
+            "malware": bool(specific.get("malicious-packages-origins")) or str(specific.get("type") or "").lower() == "malware"}
 
 
 # --- public feeds with a daily cache -------------------------------------------------
@@ -392,9 +393,79 @@ def prioritize(severity: str, cvss_score: float | None, kev: dict | None, epss: 
 
 # --- enriched finding ---------------------------------------------------------------
 
+# CWE-506, Embedded Malicious Code, and the kinds under it (trojan horse, non-replicating and replicating malicious
+# code, trapdoor, logic bomb, spyware): how advisory databases classify a package that is malware rather than buggy.
+MALICIOUS_CWES = frozenset({506, 507, 508, 509, 510, 511, 512})
+# A sentence of an advisory saying the package itself is hostile code. Malware, a backdoor, a miner or a stealer say it
+# anywhere; "malicious …", "compromised …" or a trojan only about what was published (code, a version, a release…) and
+# in a sentence that isn't about an attack on the package ("allows an attacker to upload a malicious file"). "Account
+# takeover" and "credential exfiltration" are kinds of vulnerability, not of malware.
+_HOSTILE = re.compile(
+    r"\b(?:malware|backdoor(?:s|ed)?|crypto[\s-]?(?:currency[\s-]?)?min(?:er|ers|ing)|xmrig|info[\s-]?stealers?"
+    r"|(?:credential|password|token|secret|wallet|key)s?[\s-]+(?:steal|harvest|grabb)\w*|supply[\s-]chain\s+(?:attack|compromise))\b", re.I)
+_PUBLISHED = re.compile(
+    r"\b(?:malicious\s+(?:\w+\s+)?(?:code|packages?|projects?|versions?|releases?|software|payloads?|dependency|dependencies|crates?|gems?"
+    r"|modules?|library|binary|binaries|wheels?|scripts?|postinstall|commits?|tags?|builds?|artifacts?|dropper)\b(?!\s+(?:execution|injection))"
+    r"|(?:is|was|were|are)\s+(?:considered\s+|a\s+)?malicious\b|trojan(?:s|ed|i[sz]ed)?"
+    r"|steal(?:s|ing)?\s+(?:\S+\s+){0,2}?(?:credentials?|cryptocurrenc\w*|crypto|wallets?|secrets?|tokens?|keys?|passwords?|environment)"
+    r"|(?:compromised|hijacked|unauthori[sz]ed|rogue)\s+(?:\S+\s+){0,2}?(?:versions?|releases?|packages?|projects?|publish\w*|wheels?|tags?|builds?)\b)",
+    re.I)
+_ATTACK = re.compile(r"\b(?:attackers?|allow(?:s|ed|ing)?|enabl(?:e|es|ed|ing)|can|could|may|crafted|upload(?:s|ed|ing)?|user[\s-]supplied"
+                     r"|untrusted|unsanitized|xss|cross[\s-]site|injection|deseriali[sz]\w*)\b", re.I)
+# What a vulnerability receives ("RCE via a malicious npm package", "path traversal through malicious metadata"), or
+# what was not there ("did not directly contain malicious code").
+_RECEIVED = re.compile(r"\b(?:via|through|using|not|no|without|never)\s+(?:\S+\s+){0,2}$", re.I)
+_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+def states_malware(text: str) -> bool:
+    """Whether some sentence of `text` says the package is malware (_HOSTILE, or _PUBLISHED outside an attack and not as
+    what something receives)."""
+    return any(_HOSTILE.search(sentence) or (not _ATTACK.search(sentence) and any(
+        not _RECEIVED.search(sentence[max(0, match.start() - 30):match.start()]) for match in _PUBLISHED.finditer(sentence)))
+        for sentence in _SENTENCE.split(text[:2_300]) if sentence)
+
+
+def malware_kind(summary: dict) -> str | None:
+    """The kind of advisory that makes the package malware, or None.
+
+    Decided by type: an OpenSSF Malicious Packages report (a MAL-* id or alias, its origins: GitHub's own malware
+    advisories reach OSV only this way, as `ghsa-malware` origins of a MAL- record) or a database that types it as
+    malware. Otherwise by two independent signals of three: a malicious-code CWE (MALICIOUS_CWES), the title saying so,
+    the description saying so. One alone never decides: GitHub tags a credentials leak CWE-509, and titles such as
+    "Malicious package may avoid detection" describe a bug. Advisories for compromised releases older than the MAL-
+    feed (strong_password 0.0.7, bootstrap-sass 3.2.0.3, ultralytics 8.3.41) carry no type in any database: only their
+    title and description agree that they are."""
+    if any(str(identifier).upper().startswith("MAL-") for identifier in [summary.get("id"), *(summary.get("aliases") or [])]):
+        return "openssf"
+    if summary.get("malware"):
+        return "typed"
+    title, details = str(summary.get("summary") or "")[:300], str(summary.get("details") or "")
+    signals = (bool(set(summary.get("cwe") or []) & MALICIOUS_CWES), states_malware(title), bool(details) and details != title and states_malware(details))
+    return "corroborated" if sum(signals) >= 2 else None
+
+
 def is_malicious(summary: dict) -> bool:
-    """MAL-* advisories (OpenSSF Malicious Packages, via OSV): the package is hostile code, not a bug."""
-    return any(str(identifier).upper().startswith("MAL-") for identifier in [summary.get("id"), *(summary.get("aliases") or [])])
+    """The package is hostile code, not a bug (malware_kind). Any engine's adapter asks this with what its report says
+    (id, aliases, CWEs, title, description)."""
+    return malware_kind(summary) is not None
+
+
+def mark_malicious(finding: dict) -> dict:
+    """Any engine's dependency finding about a malicious package, as one: removed, not upgraded, and whatever installed
+    it treated as compromised. Applied where the package's advisory says so, and when such a finding is merged into
+    another engine's report of the same advisory, so the merge never loses it."""
+    package = finding.get("package") or {}
+    name, installed, path = str(package.get("name") or ""), str(package.get("version") or ""), str(finding.get("path") or "")
+    finding.update(malicious=True, severity="critical", confidence=max(int(finding.get("confidence") or 0), 9),
+                   title=msg("intel.malicious.title", package=name[:150], version=installed[:40]),
+                   priority={"action": "act", "factors": [msg("intel.priority.malicious")]},
+                   remediation=msg("intel.malicious.remediation", package=name, version=installed, path=path))
+    if 506 not in (finding.get("cwe") or []):
+        finding["cwe"] = [506, *(finding.get("cwe") or [])]
+    if package:
+        finding["package"] = {**package, "fixed_version": None}
+    return finding
 
 
 def malicious_finding(dependency: dict, summary: dict) -> dict:

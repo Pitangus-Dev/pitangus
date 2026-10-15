@@ -77,27 +77,29 @@ def resolve_source(data_dir: Path, wanted: str) -> dict:
 def _record(parsed: ParsedRun, source: dict, *, scope: str, commit: str | None, branch: str | None,
             requested_by: str, now: str) -> RunRecord:
     tool, findings = parsed["tool"], parsed["findings"]
-    full = scope == "full"
+    full, failed = scope == "full", bool(parsed.get("failed"))
     detail = msg("runs.imports.detail_full" if full else "runs.imports.detail_partial", tool=tool, count=len(findings),
                  results=parsed["results"], skipped=parsed["skipped"])
     return {
-        "type": "sarif_import", "status": "completed",
+        # A run the tool reported as failed opens what it found but fixes nothing (findings/registry: incomplete).
+        "type": "sarif_import", "status": "incomplete" if failed else "completed",
         "source": {**source, **({"commit": commit} if commit else {}), **({"branch": branch} if branch else {})},
         "target": str(source.get("name") or ""), "variant": "import", "context": "", "requested_by": requested_by,
-        "trigger": {"kind": "import", "format": "sarif", "tool": tool, "scope": scope,
+        "trigger": {"kind": "import", "format": "sarif", "tool": tool, "scope": scope, **({"category": parsed["category"]} if parsed.get("category") else {}),
                     **({"commit": commit} if commit else {}), **({"branch": branch} if branch else {})},
         "started_at": now, "finished_at": now,
-        "steps": [{"id": "sarif-import", "name": msg("runs.imports.step", tool=tool), "status": "completed" if full else "partial",
+        "steps": [{"id": "sarif-import", "name": msg("runs.imports.step", tool=tool), "status": "completed" if full and not failed else "partial",
                    "detail": detail, "tool": {"name": tool, "version": parsed["version"], "image": None, "duration_s": None}}],
         "findings": findings, "owasp_coverage": [],
         "limitations": [msg("runs.imports.limitations.third_party", tool=tool),
-                        *([] if full else [msg("runs.imports.limitations.partial", tool=tool)])],
+                        *([] if full else [msg("runs.imports.limitations.partial", tool=tool)]),
+                        *([msg("runs.imports.limitations.failed", tool=tool)] if failed else [])],
         "summary": {"files": len({item["path"] for item in findings if item.get("path")}), "dependencies": 0,
                     "candidates": len(findings), **{name: sum(1 for item in findings if item["scanner"] == name) for name in SCANNERS},
                     "severities": {level: sum(1 for item in findings if item["severity"] == level) for level in SEVERITIES},
                     "priorities": {action: sum(1 for item in findings if item["priority"]["action"] == action)
                                    for action in ("act", "attend", "track")},
-                    "kev": 0, "fixable": 0, "tools": [{"name": tool, "version": parsed["version"], "status": "completed"}]},
+                    "kev": 0, "fixable": 0, "tools": [{"name": tool, "version": parsed["version"], "status": "inconclusive" if failed else "completed"}]},
     }
 
 
@@ -122,7 +124,7 @@ def import_sarif(data_dir: Path, document: Any, *, asset: str, tool: str | None 
         for item in parsed:
             saved, changes = save_and_apply(data_dir, _record(item, source, scope=scope, commit=commit.lower() if commit else None,
                                                               branch=branch, requested_by=requested_by, now=now))
-            runs.append({"id": saved["id"], "tool": item["tool"], "version": item["version"], "scope": scope, "status": saved["status"],
+            runs.append({"id": saved["id"], "tool": item["tool"], "category": item.get("category"), "version": item["version"], "scope": scope, "status": saved["status"],
                          "findings": len(saved.get("findings") or []), "excluded": len(saved.get("excluded_findings") or []),
                          "skipped": item["skipped"], "opened": changes.get("opened", 0), "fixed": changes.get("fixed", 0)})
     key = source_assets.asset_key({"source": source})

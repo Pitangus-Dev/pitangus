@@ -40,7 +40,7 @@ Identity lives in the app's frame, not in the data. The sidebar (and its mobile 
 
 - Text: `ink` on `bg`, `surface`, `sunken`; `ink-2` secondary; `muted` for labels and metadata. All ≥ 4.5:1 in both themes.
 - Brand: `sulphur` with `on-sulphur` text. `rufous` only in the logo and illustrations. `sulphur-soft`/`sulphur-line` only highlight searched text, never buttons.
-- Selection (row, chip, option): `ink` border on `sunken`. Never a brand tint.
+- Selection (row, chip, option): `ink` border all around on `sunken` (a table row: `sunken` alone). Never a brand tint, never a left accent bar.
 - Focus: `focus`, 2px solid with 2px offset (ink on light, sulphur on dark). Text fields: 2px inner border. Underlined tabs: the underline itself.
 - Links: `ink`, underlined.
 - States (text · background · border):
@@ -76,6 +76,7 @@ Spanish uses "tú"; short sentences, concrete verbs ("Añadir dominio", "Iniciar
 | Overview / Findings / Threats / Coverage | `SquaresFour` / `ShieldWarning` / `TreeStructure` / `Target` |
 | CVE tracker / Compliance / Analyses | `Bug` / `Scales` / `ListMagnifyingGlass` |
 | Repositories / Images / Domains / Pull requests | `GitBranch` / `Package` / `Globe` / `GitPullRequest` |
+| Exposure check (what a domain shows anyone) | `Eye` |
 | Policies / Integrations / Users | `Scroll` / `PlugsConnected` / `Users` |
 | ok / failure / attention / info | `CheckCircle` / `XCircle` / `Warning` / `Info` |
 
@@ -93,4 +94,4 @@ Only in response to an action (open, expand, confirm), short (≤150ms) and behi
 
 ## Prohibited
 
-Pale-yellow buttons; full pastel notice boxes; "play" icons for scanning; cards wrapping a page; cards inside cards; grids of identical icon+title+bullets cards; radii above 8px; yellow for states; solid black buttons; letter-spaced uppercase labels; monospace labels; "→" at the end of text; gradients; blurs; sparkle icons; cream grounds.
+Pale-yellow buttons; full pastel notice boxes; "play" icons for scanning; cards wrapping a page; cards inside cards; grids of identical icon+title+bullets cards; radii above 8px; yellow for states; solid black buttons; letter-spaced uppercase labels; monospace labels; "→" at the end of text; gradients; blurs; sparkle icons; cream grounds; left accent bars or side borders (`border-l-2`, an inset shadow on one side, a `::before` strip) as a selection or emphasis indicator, especially on rounded boxes, where the rule bends with the radius.

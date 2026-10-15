@@ -97,8 +97,9 @@ fi
 echo
 echo "Analysis engines"
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  for image in $(sed -n 's/.*"image": "\([^"]*\)".*/\1/p' pitangus/modules/scanning/engines.py); do
-    if docker image inspect "$image" >/dev/null 2>&1; then pass "$image"; else note "missing $image" "'make build' builds Opengrep and 'make engines' pulls Trivy, OSV-Scanner, Gitleaks, Grype, Checkov and zizmor (otherwise they are pulled on the first scan)."; fi
+  # The images built here (Opengrep) and those `make engines` pulls for this configuration (scripts/engine-images.sh).
+  for image in $(sed -n 's/.*"image": "\(localhost\/[^"]*\)".*/\1/p' pitangus/modules/scanning/engines.py) $(sh scripts/engine-images.sh); do
+    if docker image inspect "$image" >/dev/null 2>&1; then pass "$image"; else note "missing $image" "'make build' builds Opengrep and 'make engines' pulls the rest (otherwise they are pulled on the first scan)."; fi
   done
 fi
 

@@ -2,7 +2,9 @@
 
 An image says where it comes from in its OCI labels (`org.opencontainers.image.source` and `.revision`, read at scan
 time). When that repository is analyzed too, the image is linked to it on its own. The team can set or override the
-link by hand (images without labels, mirrored registries); a manual link wins over the label.
+link by hand (images without labels, mirrored registries); a manual link wins over the label. A manual link can name a
+repository of the workspace not analyzed yet (the caller checked it is reachable and gives its name): it shows from
+the start and joins that repository's scopes once it is analyzed, under the same key.
 
 An image can also be added by hand before it is scanned (`sources.images`): it shows on the Images page and can be
 linked, but it has no findings, so it stays out of the evidence catalog and of every portfolio scope until a scan.
@@ -69,10 +71,10 @@ def _labels(data_dir: Path) -> dict[str, dict]:
 
 
 def links(data_dir: Path, rows: list[dict] | None = None) -> dict[str, dict]:
-    """{image key: {"repository": repo key or None, "name", "revision", "how": "label" | "manual"}}.
+    """{image key: {"repository": repo key or None, "name", "revision", "how": "label" | "manual", "analyzed"}}.
 
     `repository` is None when the label names a repository Pitangus hasn't analyzed (shown, but it can't bring it
-    into a scope)."""
+    into a scope). A manual link to a repository not analyzed yet keeps its key, with `analyzed: False`."""
     rows = rows if rows is not None else evidence.catalog(data_dir)
     repos = {row["key"]: row for row in rows if row["kind"] == "repository"}
     by_name: dict[str, list[dict]] = {}
@@ -89,13 +91,17 @@ def links(data_dir: Path, rows: list[dict] | None = None) -> dict[str, dict]:
             repo = repos[chosen["repository"]]
             same = label.get("repository") and str(label["repository"]).casefold() == str(repo["name"]).casefold()
             result[row["key"]] = {"repository": repo["key"], "name": repo["name"], "revision": label.get("revision") if same else None,
-                                  "how": "manual", "by": chosen.get("by"), "at": chosen.get("at")}
+                                  "how": "manual", "by": chosen.get("by"), "at": chosen.get("at"), "analyzed": True}
+        elif isinstance(chosen, dict) and isinstance(chosen.get("repository"), str) and isinstance(chosen.get("name"), str):
+            same = label.get("repository") and str(label["repository"]).casefold() == chosen["name"].casefold()
+            result[row["key"]] = {"repository": chosen["repository"], "name": chosen["name"], "revision": label.get("revision") if same else None,
+                                  "how": "manual", "by": chosen.get("by"), "at": chosen.get("at"), "analyzed": False}
         elif label.get("repository"):
             # Same name on the same forge, and only one: never a guess between two repositories.
             candidates = [repo for repo in by_name.get(str(label["repository"]).casefold(), []) if _host(repo["key"]) in (None, label.get("host"))]
             match = candidates[0] if len(candidates) == 1 else None
             result[row["key"]] = {"repository": match["key"] if match else None, "name": match["name"] if match else label["repository"],
-                                  "revision": label.get("revision"), "how": "label"}
+                                  "revision": label.get("revision"), "how": "label", "analyzed": match is not None}
     return result
 
 
@@ -108,29 +114,39 @@ def link_for(data_dir: Path, key: str) -> dict | None:
     return links(data_dir).get(key)
 
 
-def set_link(data_dir: Path, image: str, repository: str | None, *, by: str) -> dict | None:
+def analyzed_repositories(data_dir: Path, query: str = "") -> list[dict]:
+    """Analyzed repositories whose name contains `query` (ignoring case): [{"key", "name"}]."""
+    needle = query.strip().casefold()
+    return [{"key": row["key"], "name": row["name"]} for row in evidence.catalog(data_dir)
+            if row["kind"] == "repository" and needle in str(row["name"]).casefold()]
+
+
+def set_link(data_dir: Path, image: str, repository: str | None, *, by: str, name: str | None = None) -> dict | None:
     """Links an image (analyzed, or added by hand) to a repository; `repository=None` goes back to what the image's
-    label says."""
+    label says. A repository not analyzed yet needs its `name`, given only once the caller checked it is one of the
+    workspace's (reachable with the GitHub App or a connected token)."""
     rows = evidence.catalog(data_dir)
     rows += _pending(data_dir, rows)
     kinds = {row["key"]: row["kind"] for row in rows}
     if kinds.get(image) != "image":
         raise ProvenanceError(msg("compliance.provenance.not_an_image"))
-    if repository is not None and kinds.get(repository) != "repository":
+    if repository is not None and kinds.get(repository) != "repository" and (repository in kinds or not name):
         raise ProvenanceError(msg("compliance.provenance.not_a_repository"))
     with documents.edit(data_dir, DOCUMENT, {}) as state:
         if repository is None:
             state.pop(image, None)
         else:
-            state[image] = {"repository": repository, "by": by, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+            state[image] = {"repository": repository, "by": by, "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                            **({"name": name} if kinds.get(repository) != "repository" and name else {})}
     return links(data_dir, rows).get(image)
 
 
-def register_image(data_dir: Path, image: dict, *, by: str, repository: str | None = None) -> dict:
+def register_image(data_dir: Path, image: dict, *, by: str, repository: str | None = None, repository_name: str | None = None) -> dict:
     """Adds an image to the Images page without scanning it (`image` as `scanning.image.parse_reference` returns it)
-    and, with `repository`, links it by hand. Added again before its first scan, it keeps the new reference; once
-    scanned, only the link applies. Returns {"name", "reference", "created", "analyzed", "built_from"}, the name and
-    reference being what the Images page shows for it; all or nothing."""
+    and, with `repository` (plus `repository_name` when it isn't analyzed yet, as in `set_link`), links it by hand.
+    Added again before its first scan, it keeps the new reference; once scanned, only the link applies. Returns
+    {"name", "reference", "created", "analyzed", "built_from"}, the name and reference being what the Images page shows
+    for it; all or nothing."""
     key = image["asset"]
     with db.transaction(data_dir) as connection:
         db.lock(connection, "image-registry")
@@ -144,7 +160,7 @@ def register_image(data_dir: Path, image: dict, *, by: str, repository: str | No
             name, reference = image["name"], image["reference"]
         else:
             name, reference = next((row["name"] for row in rows if row["key"] == key), image["name"]), _reference(scan)
-        built = set_link(data_dir, key, repository, by=by) if repository is not None \
+        built = set_link(data_dir, key, repository, by=by, name=repository_name) if repository is not None \
             else links(data_dir, rows + _pending(data_dir, rows)).get(key)
     return {"name": name, "reference": reference, "created": created, "analyzed": scan is not None, "built_from": built}
 

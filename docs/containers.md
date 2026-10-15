@@ -51,7 +51,7 @@ It works the same on macOS (Apple Silicon and Intel), Linux, and Windows with WS
 | `make logs` | Follows the app's logs; `SERVICE=worker`, `caddy` or `backup` for another service. |
 | `make setup-code` | Prints the setup code again. |
 | `make scan` | Scans a local folder: `make scan DIR=../my-repo ARGS="--base main"`. See [cli.md](cli.md). |
-| `make engines` | Pulls, from the host and with progress, any missing Trivy, OSV-Scanner, Gitleaks, Grype, Checkov and zizmor images. `make up` already does this; use it to retry after a network failure. |
+| `make engines` | Pulls, from the host and with progress, the missing images of the engines this server runs: Trivy, OSV-Scanner, Betterleaks, zizmor and the exposure check's nuclei, testssl.sh and httpx; Grype and Checkov only when turned on (`PITANGUS_GRYPE_ENABLED`, `PITANGUS_CHECKOV_ENABLED`); ZAP, katana and subfinder only with `PITANGUS_DAST_ENABLED`. It reads them from the environment or `.env`. `make up` already does this; use it to retry after a network failure. `make engines LIST=1` lists the images without pulling. |
 | `make update` | Takes a backup, `git pull` (on a branch), pulls the published images if you use them, and restarts on the new version (the database migrates on start). |
 | `make backup` | Dumps the database and copies `data/` and `config/` into `backups/<date>/`. Refuses to run while scans are in progress (unless `FORCE=1`). |
 | `make restore FROM=backups/<date> CONFIRM=restore` | Restores a backup (database, `config/`, `data/`) after saving the current state in `backups/pre-restore-<date>/`. Then `make up`. |
@@ -97,7 +97,7 @@ scripts/
 | `worker-standalone` target | `docker/app/Dockerfile`: the app plus every engine, copied by digest from the images below (Checkov installed with pip) | 1.8 GB |
 | `localhost/pitangus/opengrep:1.30.0` | Built from `docker/engines/opengrep/` | 230 MB |
 | `aquasec/trivy` | Docker Hub, pinned by digest | 240 MB |
-| `ghcr.io/gitleaks/gitleaks` | GHCR, pinned by digest | 80 MB |
+| `ghcr.io/betterleaks/betterleaks` | GHCR, pinned by digest | 80 MB |
 | `anchore/grype` | Docker Hub, pinned by digest; container images only | 110 MB (+2.1 GB database) |
 | `bridgecrew/checkov` | Docker Hub, pinned by digest | 200 MB |
 | `ghcr.io/zizmorcore/zizmor` | GHCR, pinned by digest | 15 MB |
@@ -118,7 +118,7 @@ The base images (`node`, `python`, `debian`) are pinned by digest, so two builds
 | Port on `127.0.0.1` | Nobody outside your machine reaches the panel unless you configure it (and then HTTPS is required). With `compose.prod.yaml` the API publishes no port at all: only Caddy reaches it. |
 | Rotated logs (10 MB × 5) | Docker logs don't fill the disk. |
 
-Engines are launched per scan as ephemeral containers (`--rm`) with the code mounted read-only, `--cap-drop ALL`, `no-new-privileges`, and a cap of 3 GB of memory, 2 CPUs and 512 processes; Gitleaks, Opengrep, Checkov and zizmor run with no network.
+Engines are launched per scan as ephemeral containers (`--rm`) with the code mounted read-only, `--cap-drop ALL`, `no-new-privileges`, and a cap of 3 GB of memory, 2 CPUs and 512 processes; Betterleaks, Opengrep, Checkov and zizmor run with no network.
 
 **The remaining trade-off:** to launch the engines this way, the worker mounts `/var/run/docker.sock`, which is equivalent to root on the host. That's why the panel only listens on `127.0.0.1` by default. The alternative is the worker image with the engines inside (`PITANGUS_ENGINE_RUNNER=local`): no socket, each engine a process of the worker with its own home folder and no inherited settings, but without a container per engine. The engines that need no network get an empty network namespace where the platform allows user namespaces (not in a container with Docker's default seccomp profile).
 

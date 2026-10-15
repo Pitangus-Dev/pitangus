@@ -13,7 +13,7 @@ start, upgrades, backups, exposing it beyond your machine and uninstalling.
 | Docker | Engine 24+ and Compose v2.24+ | Docker Desktop, OrbStack or Docker Engine. |
 | make and git | any version | `make` ships with macOS; on Debian/Ubuntu, `sudo apt install make git`. On Windows, inside WSL2. |
 | Memory | 4 GB free | The app uses ~200 MB at rest; each scan runs one engine at a time, capped at 3 GB. |
-| Disk | 8 GB free | Images (~1 GB), Trivy's vulnerability database (~1.3 GB), Grype's (~2.1 GB, only if you scan container images), the local NVD copy (~0.7 GB) and your runs. |
+| Disk | 8 GB free | Images (~1 GB), Trivy's vulnerability database (~1.3 GB), Grype's (~2.1 GB, only if you turn Grype on and scan container images), the local NVD copy (~0.7 GB) and your runs. |
 | Outbound network | HTTPS to GitHub, NVD, CISA and EPSS; for the images, `ghcr.io` (its layers come from `pkg-containers.githubusercontent.com`) and Docker Hub | Details in [security.md](security.md#what-leaves-your-machine). No inbound access from the internet is needed. |
 | Account | GitHub (personal, or an organization you administer) | To create your GitHub App. |
 
@@ -61,13 +61,13 @@ New versions are listed on the [Releases page](https://github.com/Pitangus-Dev/p
 and anything to do before upgrading (also in [CHANGELOG.md](../CHANGELOG.md)). To see which one you're running:
 `git describe --tags` in the repository folder, or the version in the panel's top bar (`/api/health` answers it too).
 
-**If you installed a release** (`git clone --branch v0.13.x`, as in the [quickstart](quickstart.md)), the repository
-stays on that version on purpose, and `make update` alone won't move it: it says *On v0.13.x (a fixed version): not
+**If you installed a release** (`git clone --branch v0.14.x`, as in the [quickstart](quickstart.md)), the repository
+stays on that version on purpose, and `make update` alone won't move it: it says *On v0.14.x (a fixed version): not
 pulling*. Check out the new one first:
 
 ```bash
 git fetch --tags
-git checkout v0.13.1      # the version you want
+git checkout v0.14.0      # the version you want
 make update
 ```
 

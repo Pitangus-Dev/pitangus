@@ -1,0 +1,481 @@
+{
+ "SchemaVersion": 2,
+ "Trivy": {
+  "Version": "0.75.0"
+ },
+ "ReportID": "01a13328-f5e8-7546-956d-43ec76ff313c",
+ "CreatedAt": "2026-10-13T02:48:04.840347749Z",
+ "ArtifactName": "/src",
+ "ArtifactType": "filesystem",
+ "Results": [
+  {
+   "Target": "pom.xml",
+   "Class": "lang-pkgs",
+   "Type": "pom",
+   "Packages": [
+    {
+     "ID": "com.example:demo:0.0.1::8e5b7f5f",
+     "Name": "com.example:demo",
+     "Identifier": {
+      "PURL": "pkg:maven/com.example/demo@0.0.1",
+      "UID": "917c956584ede4f8"
+     },
+     "Version": "0.0.1",
+     "Relationship": "root",
+     "DependsOn": [
+      "log4j:log4j:1.2.17::2b2d578c",
+      "org.apache.commons:commons-text:1.9::29f06141"
+     ],
+     "AnalyzedBy": "pom"
+    },
+    {
+     "ID": "com.fasterxml.jackson.core:jackson-databind::7ee31f3e",
+     "Name": "com.fasterxml.jackson.core:jackson-databind",
+     "Identifier": {
+      "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-databind",
+      "UID": "83c34c57e78abffb"
+     },
+     "Relationship": "direct",
+     "Locations": [
+      {
+       "StartLine": 14,
+       "EndLine": 14
+      }
+     ],
+     "AnalyzedBy": "pom"
+    },
+    {
+     "ID": "log4j:log4j:1.2.17::2b2d578c",
+     "Name": "log4j:log4j",
+     "Identifier": {
+      "PURL": "pkg:maven/log4j/log4j@1.2.17",
+      "UID": "5c517365331a8f7c"
+     },
+     "Version": "1.2.17",
+     "Relationship": "direct",
+     "Locations": [
+      {
+       "StartLine": 16,
+       "EndLine": 16
+      }
+     ],
+     "AnalyzedBy": "pom"
+    },
+    {
+     "ID": "org.apache.commons:commons-text:1.9::29f06141",
+     "Name": "org.apache.commons:commons-text",
+     "Identifier": {
+      "PURL": "pkg:maven/org.apache.commons/commons-text@1.9",
+      "UID": "e0f50a3c3eef2e55"
+     },
+     "Version": "1.9",
+     "Relationship": "direct",
+     "Locations": [
+      {
+       "StartLine": 15,
+       "EndLine": 15
+      }
+     ],
+     "AnalyzedBy": "pom"
+    },
+    {
+     "ID": "org.springframework.boot:spring-boot-starter-web::c07f022f",
+     "Name": "org.springframework.boot:spring-boot-starter-web",
+     "Identifier": {
+      "PURL": "pkg:maven/org.springframework.boot/spring-boot-starter-web",
+      "UID": "9c233e116d1484e8"
+     },
+     "Relationship": "direct",
+     "Locations": [
+      {
+       "StartLine": 13,
+       "EndLine": 13
+      }
+     ],
+     "AnalyzedBy": "pom"
+    }
+   ],
+   "Vulnerabilities": [
+    {
+     "VulnerabilityID": "CVE-2019-17571",
+     "VendorIDs": [
+      "GHSA-2qrg-x229-3v8q"
+     ],
+     "PkgID": "log4j:log4j:1.2.17::2b2d578c",
+     "PkgName": "log4j:log4j",
+     "PkgIdentifier": {
+      "PURL": "pkg:maven/log4j/log4j@1.2.17",
+      "UID": "5c517365331a8f7c"
+     },
+     "InstalledVersion": "1.2.17",
+     "Status": "affected",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17571",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory Maven",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Amaven"
+     },
+     "Fingerprint": "sha256:f0a81f61379fb96cd006d56b44f7efb301b67b3d52c3071297c1c79025938f1c",
+     "Title": "log4j: deserialization of untrusted data in SocketServer",
+     "Description": "Included in Log4j 1.2 is a SocketServer class that is vulnerable to deserialization of untrusted data which can be exploited to remotely execute arbitrary code…",
+     "Severity": "CRITICAL",
+     "CweIDs": [
+      "CWE-502"
+     ],
+     "VendorSeverity": {
+      "amazon": 2,
+      "ghsa": 4,
+      "nvd": 4,
+      "oracle-oval": 3,
+      "redhat": 3,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V2Score": 7.5,
+       "V3Score": 9.8
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      }
+     },
+     "PublishedDate": "2019-12-20T17:15:11.893Z",
+     "LastModifiedDate": "2026-06-17T02:24:11.027Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2022-23305",
+     "VendorIDs": [
+      "GHSA-65fg-84f6-3jq3"
+     ],
+     "PkgID": "log4j:log4j:1.2.17::2b2d578c",
+     "PkgName": "log4j:log4j",
+     "PkgIdentifier": {
+      "PURL": "pkg:maven/log4j/log4j@1.2.17",
+      "UID": "5c517365331a8f7c"
+     },
+     "InstalledVersion": "1.2.17",
+     "Status": "affected",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-23305",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory Maven",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Amaven"
+     },
+     "Fingerprint": "sha256:96e5c0d7e6f44cb90abf083c8711e6ff81fa5009021385adcf4903e8da25b584",
+     "Title": "log4j: SQL injection in Log4j 1.x when application is configured to use JDBCAppender",
+     "Description": "By design, the JDBCAppender in Log4j 1.2.x accepts an SQL statement as a configuration parameter where the values to be inserted are converters from…",
+     "Severity": "CRITICAL",
+     "CweIDs": [
+      "CWE-89"
+     ],
+     "VendorSeverity": {
+      "alma": 3,
+      "amazon": 3,
+      "ghsa": 4,
+      "nvd": 4,
+      "oracle-oval": 3,
+      "redhat": 3,
+      "rocky": 3,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V2Score": 6.8,
+       "V3Score": 9.8
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 8.8
+      }
+     },
+     "PublishedDate": "2022-01-18T16:15:08.35Z",
+     "LastModifiedDate": "2026-06-17T04:29:50.293Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2022-23307",
+     "VendorIDs": [
+      "GHSA-f7vh-qwp3-x37m"
+     ],
+     "PkgID": "log4j:log4j:1.2.17::2b2d578c",
+     "PkgName": "log4j:log4j",
+     "PkgIdentifier": {
+      "PURL": "pkg:maven/log4j/log4j@1.2.17",
+      "UID": "5c517365331a8f7c"
+     },
+     "InstalledVersion": "1.2.17",
+     "Status": "affected",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-23307",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory Maven",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Amaven"
+     },
+     "Fingerprint": "sha256:82245117536114b01732e3ca058de540aeb6a8cea8f732bf973e3206406532d1",
+     "Title": "log4j: Unsafe deserialization flaw in Chainsaw log viewer",
+     "Description": "CVE-2020-9493 identified a deserialization issue that was present in Apache Chainsaw. Prior to Chainsaw V2.0 Chainsaw was a component of Apache Log4j 1.2.x…",
+     "Severity": "CRITICAL",
+     "CweIDs": [
+      "CWE-502"
+     ],
+     "VendorSeverity": {
+      "alma": 3,
+      "amazon": 3,
+      "ghsa": 4,
+      "nvd": 3,
+      "oracle-oval": 3,
+      "redhat": 3,
+      "rocky": 3,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:L/Au:S/C:C/I:C/A:C",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V2Score": 9,
+       "V3Score": 8.8
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 8.8
+      }
+     },
+     "PublishedDate": "2022-01-18T16:15:08.403Z",
+     "LastModifiedDate": "2026-06-17T04:29:50.5Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2021-4104",
+     "VendorIDs": [
+      "GHSA-fp5r-v3w9-4333"
+     ],
+     "PkgID": "log4j:log4j:1.2.17::2b2d578c",
+     "PkgName": "log4j:log4j",
+     "PkgIdentifier": {
+      "PURL": "pkg:maven/log4j/log4j@1.2.17",
+      "UID": "5c517365331a8f7c"
+     },
+     "InstalledVersion": "1.2.17",
+     "Status": "affected",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2021-4104",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory Maven",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Amaven"
+     },
+     "Fingerprint": "sha256:40eaa3c56650bfb5d2806855b63bca121955df252e2c4f7e8ccdcf659f626560",
+     "Title": "log4j: Remote code execution in Log4j 1.x when application is configured to use JMSAppender",
+     "Description": "JMSAppender in Log4j 1.2 is vulnerable to deserialization of untrusted data when the attacker has write access to the Log4j configuration. The attacker can…",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-502"
+     ],
+     "VendorSeverity": {
+      "alma": 3,
+      "amazon": 2,
+      "ghsa": 3,
+      "nvd": 3,
+      "oracle-oval": 3,
+      "redhat": 2,
+      "rocky": 3,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 7.5
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:M/Au:S/C:P/I:P/A:P",
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V2Score": 6,
+       "V3Score": 7.5
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 7.5
+      }
+     },
+     "PublishedDate": "2021-12-14T12:15:12.2Z",
+     "LastModifiedDate": "2026-06-17T04:19:02.513Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2022-23302",
+     "VendorIDs": [
+      "GHSA-w9p3-5cr8-m3jj"
+     ],
+     "PkgID": "log4j:log4j:1.2.17::2b2d578c",
+     "PkgName": "log4j:log4j",
+     "PkgIdentifier": {
+      "PURL": "pkg:maven/log4j/log4j@1.2.17",
+      "UID": "5c517365331a8f7c"
+     },
+     "InstalledVersion": "1.2.17",
+     "Status": "affected",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-23302",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory Maven",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Amaven"
+     },
+     "Fingerprint": "sha256:6a2c343603a295ebc4e272859b951d7ba5a3ffaed33b706d878f649c8e91b035",
+     "Title": "log4j: Remote code execution in Log4j 1.x when application is configured to use JMSSink",
+     "Description": "JMSSink in all versions of Log4j 1.x is vulnerable to deserialization of untrusted data when the attacker has write access to the Log4j configuration or if the…",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-502"
+     ],
+     "VendorSeverity": {
+      "alma": 3,
+      "amazon": 3,
+      "ghsa": 3,
+      "nvd": 3,
+      "oracle-oval": 3,
+      "redhat": 2,
+      "rocky": 3,
+      "ubuntu": 1
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 8.8
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:M/Au:S/C:P/I:P/A:P",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V2Score": 6,
+       "V3Score": 8.8
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 8.8
+      }
+     },
+     "PublishedDate": "2022-01-18T16:15:08.3Z",
+     "LastModifiedDate": "2026-06-17T04:29:49.853Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2023-26464",
+     "VendorIDs": [
+      "GHSA-vp98-w2p3-mv35"
+     ],
+     "PkgID": "log4j:log4j:1.2.17::2b2d578c",
+     "PkgName": "log4j:log4j",
+     "PkgIdentifier": {
+      "PURL": "pkg:maven/log4j/log4j@1.2.17",
+      "UID": "5c517365331a8f7c"
+     },
+     "InstalledVersion": "1.2.17",
+     "FixedVersion": "2.0",
+     "Status": "fixed",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-26464",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory Maven",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Amaven"
+     },
+     "Fingerprint": "sha256:020dfe21af8cafb27fb313f6796f8ea8d1a4ce16877f7c4732c0ede2bb4f81d3",
+     "Title": "log4j1-socketappender: DoS via hashmap logging",
+     "Description": "** UNSUPPORTED WHEN ASSIGNED **\n\nWhen using the Chainsaw or SocketAppender components with Log4j 1.x on JRE less than 1.7, an attacker that manages to cause a…",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-502"
+     ],
+     "VendorSeverity": {
+      "ghsa": 3,
+      "nvd": 3,
+      "redhat": 3
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V3Score": 7.5
+      },
+      "nvd": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V3Score": 7.5
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V3Score": 7.5
+      }
+     },
+     "PublishedDate": "2023-03-10T14:15:10.453Z",
+     "LastModifiedDate": "2026-06-17T05:43:23.487Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2022-42889",
+     "VendorIDs": [
+      "GHSA-599f-7c49-w659"
+     ],
+     "PkgID": "org.apache.commons:commons-text:1.9::29f06141",
+     "PkgName": "org.apache.commons:commons-text",
+     "PkgIdentifier": {
+      "PURL": "pkg:maven/org.apache.commons/commons-text@1.9",
+      "UID": "e0f50a3c3eef2e55"
+     },
+     "InstalledVersion": "1.9",
+     "FixedVersion": "1.10.0",
+     "Status": "fixed",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-42889",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory Maven",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Amaven"
+     },
+     "Fingerprint": "sha256:5662f083333cbe7b0a9c35b7ae18dd6d5d2651df6fca4c7ba8179ecc1c40f8cd",
+     "Title": "apache-commons-text: variable interpolation RCE",
+     "Description": "Apache Commons Text performs variable interpolation, allowing properties to be dynamically evaluated and expanded. The standard format for interpolation is…",
+     "Severity": "CRITICAL",
+     "CweIDs": [
+      "CWE-94"
+     ],
+     "VendorSeverity": {
+      "ghsa": 4,
+      "nvd": 4,
+      "redhat": 4,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      },
+      "nvd": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      }
+     },
+     "PublishedDate": "2022-10-13T13:15:10.113Z",
+     "LastModifiedDate": "2026-06-17T05:05:31.85Z"
+    }
+   ]
+  }
+ ]
+}

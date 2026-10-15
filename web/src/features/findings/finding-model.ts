@@ -12,19 +12,24 @@ export type Package = { ecosystem: string; name: string; version: string; fixed_
 export type Advisory = { id: string; aliases: string[]; summary: string; details: string; cvss_vector: string | null; cvss_score: number | null; published: string | null; modified: string | null; references: string[] }
 // Where an advisory comes from and its license (pitangus/modules/intel/data_sources.py): attributed wherever it is shown.
 export type AdvisorySource = { id: string; name: string; short?: string; url: string; license: string; terms: 'open' | 'attribution' | 'share-alike' | 'non-commercial' | 'unclear' }
-export type Lifecycle = { status: 'open' | 'fixed' | 'excluded'; excluded?: { pattern: string | null; reason?: string; at: string } | null; origin?: { kind: 'scan' | 'pr' | 'advisory' | 'import'; pr?: number; branch?: string; merged?: boolean; tool?: string | null }; first_seen?: string; last_seen?: string; fixed?: { at: string; how: string; auto: boolean } | null; reopened_at?: string | null }
+export type Lifecycle = { status: 'open' | 'fixed' | 'excluded'; excluded?: { pattern: string | null; reason?: string; at: string } | null; origin?: { kind: 'scan' | 'pr' | 'advisory' | 'import'; pr?: number; branch?: string; merged?: boolean; tool?: string | null }; first_seen?: string; last_seen?: string; fixed?: { at: string; how: string; auto: boolean } | null; reopened_at?: string | null
+  // No scan could check it lately (the engine was blind, or didn't read its file or page; or the scan's configuration
+  // didn't let it: `reason` configuration, with what changed and which rule and engine): open, but unverified.
+  unseen?: { since: string; scans: number; reason: string; cause?: 'rule_off' | 'engine_off' | 'rule_changed'; rule?: string; engine?: string } | null }
 // Findings of several assets (`asset_scope`) name their asset; the scope counts each asset's work and the tiles.
 export type ScopeAssetRef = components['schemas']['ScopeAssetRef']
 export type ScopeAsset = components['schemas']['ScopeAssetCounts']
 export type FindingKpis = components['schemas']['FindingKpis']
-export type LifecycleCounts = Pick<components['schemas']['LifecycleCounts'], 'open' | 'fixed' | 'suppressed' | 'from_pr'> & { excluded?: number }
+export type LifecycleCounts = Pick<components['schemas']['LifecycleCounts'], 'open' | 'fixed' | 'suppressed' | 'from_pr'> & { excluded?: number; unverified?: number; unverified_stale?: number; unverified_configuration?: number }
 // A web finding: the request that proved it and what the scanner says about its rule, as published (sarif_import._web).
 // `also`: what each other tool that reported the same problem at this URL saw (web_merge.py).
 export type WebDetail = { method?: string; parameter?: string; evidence?: string; attack?: string; description?: string; solution?: string; references?: string[]; wasc?: number[]
   also?: { tool: string; rule_id: string; title?: string; evidence?: string }[] }
 // An OWASP page about a finding (modules/findings/references.py).
 export type GuidanceLink = { title: string; url: string; kind: string }  // kind: cheatsheet · top10 · api_top10 · wstg
-export type RepositoryFinding = { finding_id: string; fingerprint: string; scanner: string; tool?: string; also_detected_by?: string[]; related_rules?: string[]; framework?: string; rule_id: string; title: string; path: string; line: number; severity: string; confidence: number; verdict: string; cwe: number[]; cve: string[]; ghsa: string[]; owasp: string[]; reason: string; remediation: string; package?: Package | null; advisory?: Advisory | null; kev?: { date_added: string | null; due_date: string | null; ransomware: boolean; name: string | null } | null; epss?: { score: number; percentile: number } | null; priority?: Priority; triage?: TriageState; ticket?: TicketLink; lifecycle?: Lifecycle; source?: AdvisorySource | null; fix?: FixGuide | null; verification?: Verification | null; sla?: Sla | null; malicious?: boolean; asset?: ScopeAssetRef; web?: WebDetail; guidance?: GuidanceLink[] }
+export type RepositoryFinding = { finding_id: string; fingerprint: string; scanner: string; tool?: string; also_detected_by?: string[]; related_rules?: string[]; framework?: string; rule_id: string; title: string; path: string; line: number; severity: string; confidence: number; verdict: string; cwe: number[]; cve: string[]; ghsa: string[]; owasp: string[]; reason: string; remediation: string; package?: Package | null; advisory?: Advisory | null; kev?: { date_added: string | null; due_date: string | null; ransomware: boolean; name: string | null } | null; epss?: { score: number; percentile: number } | null; priority?: Priority; triage?: TriageState; ticket?: TicketLink; lifecycle?: Lifecycle; source?: AdvisorySource | null; fix?: FixGuide | null; verification?: Verification | null; sla?: Sla | null; malicious?: boolean; asset?: ScopeAssetRef; web?: WebDetail; guidance?: GuidanceLink[]
+  // A family of identical problems (PITANGUS_IDENTITY_MODE=v2): how many copies and where; `unseen`, one the last scan couldn't check.
+  count?: number; instances?: { path: string; line?: number; unseen?: boolean }[] }
 export type ScanStep = { id: string; name: string; status: string; detail: string }
 export type PullReview = { baseline_run: string | null; gate: string; verdict: { state: 'success' | 'failure'; description: string; blocking: number }; delivery: { comment?: string; status?: string } }
 // A web scan's sign-in check per test user; `reason` comes rendered, in the reader's language.
@@ -43,7 +48,7 @@ export const SEVERITY_LABEL: Record<string, string> = { critical: 'common:severi
 export const ACTION_LABEL: Record<string, string> = { act: 'common:priority.act', attend: 'common:priority.attend', track: 'common:priority.track' }
 export const SCANNER_LABEL: Record<string, string> = { sca: 'scanner.sca', sast: 'scanner.sast', secrets: 'scanner.secrets', iac: 'scanner.iac', cicd: 'scanner.cicd', dast: 'scanner.dast' }
 export const labelOf = (t: TFunction, keys: Record<string, string>, value: string) => keys[value] ? t(keys[value]) : value
-const TOOL_NAME: Record<string, string> = { trivy: 'Trivy', gitleaks: 'Gitleaks', opengrep: 'Opengrep', grype: 'Grype', 'osv-scanner': 'OSV-Scanner', checkov: 'Checkov', zizmor: 'zizmor',
+const TOOL_NAME: Record<string, string> = { trivy: 'Trivy', betterleaks: 'Betterleaks', opengrep: 'Opengrep', grype: 'Grype', 'osv-scanner': 'OSV-Scanner', checkov: 'Checkov', zizmor: 'zizmor',
   zap: 'ZAP', katana: 'katana', nuclei: 'nuclei', testssl: 'testssl.sh', httpx: 'httpx' }
 export const toolName = (t: TFunction, tool: string) => tool === 'pitangus' ? t('findings:tool.pitangus') : TOOL_NAME[tool] ?? tool
 // The engine and, when another one confirmed it, that one too: "Trivy + Grype".
@@ -60,8 +65,23 @@ export const stateId = (key: string) => `asset:${key}`
 export const idOf = (finding: RepositoryFinding) => finding.asset ? `${finding.asset.key}|${finding.fingerprint}` : finding.fingerprint
 // Fixed by a scan (the registry no longer sees it) counts the same as fixed by hand.
 export const statusOf = (finding: RepositoryFinding): TriageStatus => finding.lifecycle?.status === 'fixed' ? 'fixed' : finding.triage?.status ?? 'open'
-// Whether a finding shows under a status view: 'all', 'active' (not dismissed) or one status.
-export const inView = (finding: RepositoryFinding, view: string) => view === 'all' || (view === 'active' ? !SUPPRESSED.includes(statusOf(finding)) : statusOf(finding) === view)
+// Whether a finding shows under a status view: 'all', 'active' (not dismissed), 'excluded' (under an excluded path) or
+// one status. What sits under an excluded path is neither pending nor any triage status, as the server counts it.
+export const inView = (finding: RepositoryFinding, view: string) => {
+  if (view === 'all') return true
+  const excluded = finding.lifecycle?.status === 'excluded'
+  if (view === 'excluded' || excluded) return view === 'excluded' && excluded
+  return view === 'active' ? !SUPPRESSED.includes(statusOf(finding)) : statusOf(finding) === view
+}
+// The status views the table offers: a run, every status; an asset's (or a scope's) tab, only those it can hold, since
+// each tab is fetched apart (the open tab never holds what is fixed, which has its tab).
+export type StatusView = 'active' | 'open' | 'in_progress' | 'fixed' | 'false_positive' | 'accepted' | 'excluded'
+export function statusViews(tab?: FindingTab): StatusView[] {
+  if (!tab) return ['active', 'open', 'in_progress', 'fixed', 'false_positive', 'accepted']
+  if (tab === 'open') return ['active', 'open', 'in_progress', 'false_positive', 'accepted']
+  if (tab === 'all') return ['active', 'open', 'in_progress', 'fixed', 'false_positive', 'accepted', 'excluded']
+  return []
+}
 // Still work to do: only these can get a Jira issue.
 export const isPending = (finding: RepositoryFinding) => finding.lifecycle?.status !== 'excluded' && !SUPPRESSED.includes(statusOf(finding))
 

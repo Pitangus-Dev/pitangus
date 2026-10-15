@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 # Major.minor; release tags are v<VERSION> or v<VERSION>.<patch> (.github/workflows/release.yml checks it).
-VERSION = "0.13"
+VERSION = "0.14"
 STAMP = Path(__file__).with_name("RELEASE")
 
 

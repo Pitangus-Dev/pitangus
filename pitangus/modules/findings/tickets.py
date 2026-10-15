@@ -31,16 +31,23 @@ remember = _remember
 
 
 def forget_issues(data_dir: Path, keys: set[str]) -> int:
-    """Drops every link to these issues (they no longer exist in Jira). Returns how many findings lost their link."""
+    """Drops every link to these issues (they no longer exist in Jira); an issue folded in (`merged`) takes the place
+    of a gone one. Returns how many findings lost their link."""
     if not keys:
         return 0
     dropped = 0
     with documents.lock(data_dir, "jira-links"):
         links = load_links(data_dir)
         for asset in links.values():
-            for fingerprint in [item for item, link in asset.items() if isinstance(link, dict) and link.get("key") in keys]:
-                del asset[fingerprint]
-                dropped += 1
+            for fingerprint, link in list(asset.items()):
+                if not isinstance(link, dict) or not any(issue.get("key") in keys for issue in _issues(link)):
+                    continue
+                remaining = [issue for issue in _issues(link) if issue.get("key") not in keys]
+                if remaining:
+                    asset[fingerprint] = fold(remaining)
+                else:
+                    del asset[fingerprint]
+                    dropped += 1
         documents.save(data_dir, "jira-links", links)
     return dropped
 
@@ -49,8 +56,9 @@ def mark(data_dir: Path, asset: str, key: str, state: str, run_id: str) -> None:
     """Records on every finding linked to issue `key` what Pitangus last told the issue (see the module notes)."""
     with documents.edit(data_dir, "jira-links", {}) as payload:
         for link in (payload.get(asset) or {}).values():
-            if isinstance(link, dict) and link.get("key") == key:
-                link["sync"], link["sync_run"] = state, run_id
+            for issue in [link, *(link.get("merged") or [])] if isinstance(link, dict) else []:
+                if issue.get("key") == key:
+                    issue["sync"], issue["sync_run"] = state, run_id
 
 
 def annotate(data_dir: Path, record: dict) -> dict:
@@ -75,16 +83,40 @@ def rename_assets(data_dir: Path, moved: dict[str, str]) -> None:
                 payload[uid] = {**merged, **payload.get(uid, {})}
 
 
+def _issues(link: dict) -> list[dict]:
+    """A link and the ones folded into it, each on its own."""
+    return [{name: value for name, value in link.items() if name != "merged"}, *(link.get("merged") or [])]
+
+
+def fold(links: list[dict]) -> dict:
+    """One link for findings folded into one, losing none of their issues: the first stays the link, the other issues
+    go in `merged`, and two links to one issue join what each replaced."""
+    issues: dict = {}
+    for link in links:
+        for issue in _issues(link) if isinstance(link, dict) else []:
+            known = issues.setdefault(issue.get("key"), dict(issue))
+            extra = [item for item in issue.get("replaces") or [] if item not in (known.get("replaces") or [])]
+            if extra:
+                known["replaces"] = [*(known.get("replaces") or []), *extra]
+    first, *rest = issues.values()
+    return {**first, "merged": rest} if rest else first
+
+
 def carry_over(data_dir: Path, key: str, moved: dict[str, str]) -> None:
-    """Findings with a new fingerprint (former → new) keep their issue, so none is created twice."""
+    """Findings with a new fingerprint (former → new) keep their issue, so none is created twice; several folded into
+    one keep every issue they had (`fold`), the one already under the new fingerprint first, else the oldest."""
     links = load_links(data_dir).get(key) or {}
     if not any(former in links for former in moved):
         return
     with documents.edit(data_dir, "jira-links", {}) as payload:
         asset = payload.setdefault(key, {})
+        groups: dict[str, list[str]] = {}
         for former, new in moved.items():
-            if former in asset and new not in asset:
-                asset[new] = asset[former]
+            if isinstance(asset.get(former), dict):
+                groups.setdefault(new, []).append(former)
+        for new, formers in groups.items():
+            older = sorted((asset[former] for former in formers), key=lambda link: (str(link.get("linked_at") or ""), str(link.get("key") or "")))
+            asset[new] = fold([*([asset[new]] if isinstance(asset.get(new), dict) else []), *older])
 
 
 def forget_asset(data_dir: Path, key: str) -> None:

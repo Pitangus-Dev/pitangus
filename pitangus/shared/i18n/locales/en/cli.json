@@ -41,7 +41,8 @@
   },
   "engines": {
     "ready": "ready",
-    "missing": "missing"
+    "missing": "missing",
+    "disabled": "disabled: not run until turned on"
   },
   "users": {
     "password_prompt": "Password (at least {{min}} characters): ",
@@ -89,5 +90,17 @@
     "too_large": "The SARIF exceeds {{max}} MB: split it by tool or by folder",
     "http_error": "The server answered {{status}}: {{detail}}",
     "unreachable": "Couldn't reach the server: {{detail}}"
+  },
+  "identity_gate": {
+    "title": "Canonical identity gate (last two full analyses of each repository)",
+    "not_enough": "fewer than two full analyses",
+    "same_commit": "same commit {{commit}}",
+    "other_commit": "different commits: informative only",
+    "row": "fingerprints +{{v1_opened}}/-{{v1_gone}} · identities +{{v2_opened}}/-{{v2_gone}}, {{recounted}} recounted · {{findings}} findings in {{families}} families",
+    "passed": "Gate passed: the same commit opens and fixes nothing either way.",
+    "failed": "Gate not passed: a repository scanned twice on one commit changed, or none was. Set PITANGUS_IDENTITY_MODE=shadow until it passes.",
+    "title_scan": "Canonical identity gate: {{path}} scanned twice on the same commit",
+    "incomplete": "A scan was incomplete: an engine didn't run, so nothing is proven.",
+    "failed_scan": "Gate not passed: the same commit changed between two scans, or a scan was incomplete."
   }
 }

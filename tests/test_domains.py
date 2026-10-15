@@ -185,21 +185,21 @@ class ApiTests(HttpCase):
         domains._mark(self.data_dir, added["id"], verified_at=now, verified_until=now + timedelta(days=1))
         import_sarif(self.data_dir, json.loads(ZAP.read_text()), asset=f"domain:{HOST}", requested_by="ci")
         _, page, _ = self.call("GET", "/api/domains", headers={"Cookie": self.cookies["admin"]})
-        self.assertEqual((page["items"][0]["runs"], page["items"][0]["open"]), (1, 4))
+        self.assertEqual((page["items"][0]["runs"], page["items"][0]["open"]), (1, 3))  # the CSP missing on two pages is one
         _, assets, _ = self.call("GET", "/api/assets", headers={"Cookie": self.cookies["admin"]})
-        self.assertEqual([(row["key"], row["name"], row["open"]["total"]) for row in assets["items"]], [(f"domain:{HOST}", HOST, 4)])
+        self.assertEqual([(row["key"], row["name"], row["open"]["total"]) for row in assets["items"]], [(f"domain:{HOST}", HOST, 3)])
         status, removed, _ = self.send("/api/domains/remove", "remove-domain", {"domain_id": added["id"]})
         self.assertEqual((status, removed), (200, {"id": added["id"], "host": HOST, "runs_kept": 1}))
         # The evidence stays: the run, its findings and the asset are still there.
         self.assertEqual(len(find_runs(self.data_dir, assets=[f"domain:{HOST}"])), 1)
         _, assets, _ = self.call("GET", "/api/assets", headers={"Cookie": self.cookies["admin"]})
-        self.assertEqual([(row["key"], row["open"]["total"]) for row in assets["items"]], [(f"domain:{HOST}", 4)])
+        self.assertEqual([(row["key"], row["open"]["total"]) for row in assets["items"]], [(f"domain:{HOST}", 3)])
         self.assertEqual(self.call("GET", "/api/domains", headers={"Cookie": self.cookies["admin"]})[1]["total"], 0)
         self.assertEqual(self.send("/api/domains/remove", "remove-domain", {"domain_id": added["id"]})[0], 404)
         # Adding the host again links its history back.
         self.send("/api/domains", "register-domain", {"url": f"https://{HOST}/"})
         _, page, _ = self.call("GET", "/api/domains", headers={"Cookie": self.cookies["admin"]})
-        self.assertEqual((page["items"][0]["runs"], page["items"][0]["open"]), (1, 4))
+        self.assertEqual((page["items"][0]["runs"], page["items"][0]["open"]), (1, 3))
 
 
 SECRET = "Bearer eyJhbGciOiJIUzI1NiJ9.c2VjcmV0"
@@ -469,6 +469,23 @@ class AccessApiTests(HttpCase):
         # Removing the domain takes its headers.
         self.send("/api/domains/remove", "remove-domain", {"domain_id": self.domain["id"]})
         self.assertNotIn(f"domain-headers:{self.domain['id']}", vault.names())
+
+    def test_the_session_check_is_an_admin_setting_on_the_domain_or_its_subdomains(self):
+        route = lambda url, role="admin": self.send("/api/domains/session-check", "domain-session-check",  # noqa: E731
+                                                    {"domain_id": self.domain["id"], "url": url}, role=role)
+        self.assertEqual(route(f"https://{HOST}/account", role="member")[0], 403)
+        for bad in ("http://%s/account" % HOST, f"https://{HOST}:8443/account", f"https://user:pw@{HOST}/", "https://evil.example/account",
+                    f"https://{HOST}/${{SECRET}}", "/account", f"https://{HOST}/a b"):
+            with self.subTest(bad=bad):
+                self.assertEqual(route(bad)[0], 400)
+        status, saved, _ = route(f"https://app.{HOST}/account?tab=me")
+        self.assertEqual((status, saved["session_check"]), (200, f"https://app.{HOST}/account?tab=me"))
+        _, page, _ = self.call("GET", "/api/domains", headers={"Cookie": self.cookies["admin"]})
+        self.assertEqual(page["items"][0]["session_check"], f"https://app.{HOST}/account?tab=me")
+        _, page, _ = self.call("GET", "/api/domains", headers={"Cookie": self.cookies["member"]})
+        self.assertNotIn("session_check", {key for key, value in page["items"][0].items() if value is not None})
+        self.assertEqual(route("")[1]["session_check"], None)  # empty removes it
+        self.assertEqual(self.send("/api/domains/session-check", "domain-session-check", {"domain_id": "f" * 24, "url": ""})[0], 404)
 
     def test_probe_verify_methods_and_schedule_routes(self):
         status, probe, _ = self.send("/api/domains/probe", "probe-domain", {"url": "https://intranet.example.com/"}, role="member")

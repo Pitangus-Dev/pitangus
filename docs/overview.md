@@ -16,8 +16,9 @@ Every scan of a repository, a container image or a verified domain follows the s
 the evidence you hand over.
 
 1. **Engines in containers.** Pitangus doesn't write its own scanners. It runs established open-source engines, each
-   pinned to a version and image digest, in a hardened container with no privileges: Opengrep, Gitleaks, Trivy, OSV-Scanner, Grype, Checkov and zizmor for
-   code and images; ZAP, katana, nuclei, testssl.sh and httpx for websites and APIs.
+   pinned to a version and image digest, in a hardened container with no privileges: Opengrep, Betterleaks, Trivy,
+   OSV-Scanner and zizmor for code and images by default, with Checkov and Grype as optional engines; httpx, testssl.sh
+   and nuclei for the exposure check of a domain, and ZAP and katana for the full web scan, experimental.
 2. **Runs.** Every scan is a **run**: a record of what was analyzed, which steps ran, which didn't and why. A step
    that didn't run is reported as *not tested*, never as clean.
 3. **Findings registry.** Each finding gets a stable **fingerprint**, so the same problem is recognized across runs.
@@ -36,12 +37,12 @@ stops. Compared with a commercial suite (Snyk, Checkmarx, Veracode…), this is 
 
 | Area | What runs | Where it falls short |
 | --- | --- | --- |
-| Dependencies (SCA) | Trivy, OSV-Scanner and Grype over NVD, GHSA and OSV, with KEV and EPSS | No reachability analysis: a vulnerable function is reported whether your code calls it or not. |
-| Secrets | Gitleaks, plus Pitangus rules with a verification step for some token types | Only the files of the scanned commit: a secret deleted in an earlier commit but still in Git history isn't seen. |
-| Container images | Trivy and Grype on the layers, history and configuration, read from the registry | The image is never run, so nothing about its behavior at runtime is checked. |
-| Infrastructure and pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) and zizmor (GitHub Actions) | Checkov's free edition gives no severity; Pitangus assigns one by rule. |
-| Your own code (SAST) | Opengrep with the 58 Pitangus rules in `rules/`, 14 of them with taint tracking inside one file | **This is the thinnest layer.** No cross-file data flow, and no framework knowledge beyond those rules. For deep analysis, run CodeQL or Semgrep and [bring their results in](integrations.md#bringing-results-from-other-scanners): they get the same lifecycle. |
-| Websites and APIs (DAST) | A passive scan of a verified domain: ZAP (spider, AJAX spider and passive rules, or the GET and HEAD operations of an OpenAPI definition), plus katana, nuclei (detection-only templates), testssl.sh and httpx. Optional saved headers and up to 3 test users per scan; on demand or on a schedule. Off unless the server sets `PITANGUS_DAST_ENABLED=1`. See [Scan a website or API](scanning-web.md). | **Passive only:** no injections or other attacks, no form submissions other than a test user's sign-in, no POST, PUT or DELETE. Crawls are capped in time, so a large site isn't covered whole. Only ZAP signs in as test users; whether saved headers authenticate isn't checked. One web scan at a time per installation. For active tests, run your own scanner and [import its results](integrations.md#bring-your-own-dast). |
+| Dependencies (SCA) | Trivy and OSV-Scanner over NVD, GHSA and OSV, with KEV and EPSS; known malicious packages (OpenSSF `MAL-*`, typed as malware, or with CWE, title and description agreeing) as findings of their own | No reachability analysis: a vulnerable function is reported whether your code calls it or not. |
+| Secrets | Betterleaks and Trivy, with your own detectors, allowlists and built-in rules turned off per repository. Credential files (`.env*`, `.npmrc`, SSH keys…) are read by them alone, in a copy deleted afterwards | Only the files of the scanned commit: a secret deleted in an earlier commit but still in Git history isn't seen. Whether a secret still works is checked only with `PITANGUS_SECRET_VALIDATION` (off by default: it sends the secret to its provider); otherwise every one is critical until rotated. |
+| Container images | Trivy on the layers, history and configuration, read from the registry; Grype as a second opinion when turned on (`PITANGUS_GRYPE_ENABLED`) | The image is never run, so nothing about its behavior at runtime is checked. |
+| Infrastructure and pipelines | Trivy (Terraform, Kubernetes, Dockerfiles…) and zizmor (GitHub Actions); Checkov adds more checks and other CI systems when turned on (`PITANGUS_CHECKOV_ENABLED`) | An engine that is off is shown as not run, never as clean. Checkov's free edition gives no severity; Pitangus assigns one by rule. |
+| Your own code (SAST) | Opengrep with the 66 Pitangus rules in `rules/` (14 with taint tracking inside one file), including what AI-written code often gets wrong; a reader of Supabase migrations and Firebase rules; optionally 259 of GitLab's rules (`PITANGUS_THIRD_PARTY_RULES`) | **This is the thinnest layer.** No cross-file data flow, and no framework knowledge beyond those rules. For deep analysis, run CodeQL or Semgrep and [bring their results in](integrations.md#bringing-results-from-other-scanners): they get the same lifecycle. |
+| Websites and APIs (DAST) | The **exposure check** of a verified domain, always available: each host's root and known paths with httpx, testssl.sh and nuclei, no crawl. The **full scan** is experimental: ZAP (spider, AJAX spider and passive rules, or the GET and HEAD operations of an OpenAPI definition), plus katana, nuclei (detection-only templates), testssl.sh and httpx. Optional saved headers and up to 3 test users per scan; on demand or on a schedule. Off unless the server sets `PITANGUS_DAST_ENABLED=1`; turning it off fixes nothing it found. See [Scan a website or API](scanning-web.md). | **Passive only:** no injections or other attacks, no form submissions other than a test user's sign-in, no POST, PUT or DELETE. Crawls are capped in time, so a large site isn't covered whole. Only ZAP signs in as test users; whether saved headers still sign in is checked only if the domain has a session check page. One web scan at a time per installation. For active tests, run your own scanner and [import its results](integrations.md#bring-your-own-dast). |
 | Scale | One scan per worker; as many workers as you need, on one machine or several | No parallel scans inside a worker, no autoscaling manifests, no published benchmark. See [Scaling](scaling.md). |
 
 What a commercial suite can't offer is the other half of the table: it runs on your server, the code never leaves it,
@@ -80,7 +81,7 @@ that ticks itself off.
 ### Findings
 
 **Findings** (`#/findings`) is the registry: the current state of every finding for one asset, an organization or
-several at once, with filters, triage, deadlines, a fix guide per finding and exports. See [Findings](findings.md).
+several at once, with filters, triage, deadlines, fix guides and exports. See [Findings](findings.md).
 
 ### Scans
 

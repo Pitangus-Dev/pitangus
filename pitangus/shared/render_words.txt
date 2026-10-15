@@ -1,0 +1,48 @@
+# Words free text keeps besides the message catalogs' (shared/render.py `vocabulary`): the common words of English
+# prose and of the messages engines, compilers, shells and servers write. Letters only; one or more per line.
+a about above accept accepted access accessed account across action active actual actually add added adding address
+after again against all allow allowed almost alone along already also although always am among an analysis and another
+any anything are argument arguments around as ask asked at attempt attempted attempting authentication authorization
+available avoid back bad based be because become been before begin being below best better between beyond both bound
+break broken buffer build built but by call called calling can cannot case caught cause caused certificate change
+changed changes check checked checking client close closed code column come command complete completed condition
+configuration configured connect connected connecting connection consider contain contains content continue could
+couldn create created current data date day default defined delete denied depends deprecated detected did different
+directory disabled do does doesn done down during each early either else empty enable enabled end ended entry
+environment equal err error errors even every exceeded exception exist existing exists exit exited expect expected
+expired expression fail failed failing fails failure false fatal field file files find first fix following for format
+found from full function further get given go got granted group had handle handler has have having header help here
+how however if ignore ignored illegal image import in include included incorrect index information initialize input
+inside instead into invalid is issue it item its itself just key keys kind known last later least left length less
+level like limit line lines list load loaded loading local location lock log long look lookup made main make malformed
+many match matched may maybe memory message method might missing mode module more most must name named need needed
+needs network new next no node none nor not note nothing now null number object of off ok on once one only open opened
+operation option options or order other our out output over overflow own package page panic param parameter parse
+parsed parser parsing part pass passed path pattern permission please point port possible possibly prefix present
+previous problem process program property provide provided pull query read reading ready reason received record
+refused registry rejected remote remove removed repository request requested require required requires resolve
+resolved resource response result retry return returned returned rule run running same scan scanning scheme section
+see seems send sent server service session set setting should show shut since size skip skipped so some something
+source specified start started state status still stop stopped string such support supported syntax system table take
+target task than that the their them then there these they this those through time timed timeout to token too
+tried true try trying type unable undefined under unexpected unknown unless unreachable unsupported until up update
+url usage use used user uses using valid validate validation value values variable version via wait want warn warning
+was way we were what when where whether which while who why will with within without word work would write written
+wrong yet you your
+config configs daemon dynamically statically directly correctly properly successfully already currently instead
+abort aborted allocate append argv args assign assigned async attribute attributes binary bind block blocked body
+boolean buffer bytes cached call callback char child chunk class closing compile compiled compiler concurrent
+const container context convert copy core count cpu credentials cycle debug decode decoded declared define
+delete depth deny destination detail details device dict digest disk display document domain double driver
+duplicate element encode encoded encoding endpoint engine entries exceeds execute executed execution expect
+export extension external fetch fetched filter finish finished flag float folder force forbidden form forward
+frame free generic global handshake hash heap host hosts http https identifier implemented import incompatible
+instance integer interrupted iterator job json kernel killed label layer library limit link linked listen
+literal loop manifest map mapping max maximum member min minimum mismatch modified mount multiple must native
+nested object offset operator outside override owner panic parent password permitted pipe platform plugin pointer
+policy pool private profile protocol proxy public queue quota range raw reached readonly receive redirect
+reference regex release reload rename replace report reset restart restricted retries root route runtime schema
+script secret secure segment select self sequence serialize shell signal signature skip socket sort spec stack
+statement stdin stdout stderr storage stream strict struct subprocess suffix symbol sync tag template temporary
+terminated test text thread throw timestamp toml trace tree trust tuple unauthorized undefined unique unit
+unmarshal unsafe unused upload utf variable vector verify view virtual volume yaml zero regexp regex goroutine

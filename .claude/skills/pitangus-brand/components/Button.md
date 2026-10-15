@@ -8,3 +8,5 @@ Botones: amarillo sólido para hacer lo principal, contorno o fantasma para el r
 - **danger** (`critical` sobre `surface`): eliminar, desconectar; la confirmación vive en un diálogo.
 
 Altura 32px, `radius-md`, texto en verbo («Añadir dominio»). Icono Phosphor del mapa del manual solo si ayuda a reconocerla (`Scan` para analizar, nunca «reproducir»). Nunca «→» al final. Sin amarillos pálidos ni botones negros.
+
+- **Disabled primary:** never a faded sulphur (it reads as the forbidden pale-yellow button). It turns neutral: `sunken` background, `muted` text, `line` border, no opacity.

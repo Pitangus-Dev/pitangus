@@ -22,7 +22,7 @@ analizar sin servidor y qué no escala todavía.
   organización: tantos repositorios como workers sin nada esperando, así que un lote se reparte entre todos los
   workers, y los análisis lanzados a mano siguen teniendo preferencia.
 - **Cachés, no estado.** Cada worker guarda las bases de los motores en su carpeta de datos (Trivy ~1,3 GB, Grype
-  ~2,1 GB si analizas imágenes). En un worker nuevo se vuelven a descargar y pueden vivir en disco efímero.
+  ~2,1 GB si está activo y analizas imágenes). En un worker nuevo se vuelven a descargar y pueden vivir en disco efímero.
 
 Un worker es, por tanto, una unidad de **4 GB de memoria y 2 CPU**, y el rendimiento crece con el número de workers.
 
@@ -47,7 +47,7 @@ docker run -d --name pitangus-worker \
   -e PITANGUS_DATABASE_URL=postgresql://usuario:contraseña@db.interna:5432/pitangus \
   -e PITANGUS_MASTER_KEY='<la misma clave que la API>' \
   -v pitangus-worker-data:/data \
-  ghcr.io/pitangus-dev/pitangus-worker:0.13
+  ghcr.io/pitangus-dev/pitangus-worker:0.14
 ```
 
 `ghcr.io/pitangus-dev/pitangus-worker` trae los motores dentro y los corre como procesos propios: esa máquina no
@@ -78,8 +78,8 @@ CI, no de tu worker.
 | 30–150 | alrededor de cien | 2–3 | 8–12 GB |
 | más | | uno más por cada ~70 repositorios, o analizar los PR en CI | +4 GB cada uno |
 
-Un análisis completo de un repositorio típico tarda unos minutos; el primero de una imagen, más, mientras Trivy y
-Grype descargan sus bases. Estas filas salen de cómo están limitados los motores, no de una medición publicada:
+Un análisis completo de un repositorio típico tarda unos minutos; el primero de una imagen, más, mientras Trivy (y Grype,
+si está activo) descarga su base. Estas filas salen de cómo están limitados los motores, no de una medición publicada:
 todavía no hemos medido cientos de repositorios bajo carga, y publicaremos las cifras cuando lo hagamos.
 
 ## Vigilar la cola

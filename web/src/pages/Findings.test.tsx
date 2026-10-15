@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { mockApi, type Call, type Reply } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
+import { choose, optionsOf } from '@/shared/test/select'
 import type { SessionUser } from '@/features/auth/session'
 import type { Asset } from '@/features/sources/asset-option'
 import type { RepositoryFinding } from '@/features/findings/finding-model'
@@ -23,6 +24,13 @@ const detail = (id: string, of: Asset, title: string, extra: Record<string, unkn
   summary: { candidates: 1, lifecycle: { open: 1, fixed: 2, suppressed: 0, from_pr: 0, excluded: 0, by_severity: {} },
     kpis: { active: 1, dismissed: 0, only_excluded: false, has_sla: false, overdue: 0, soon: 0, act: 0, attend: 1, critical: 0, high: 1, kev: 0, fixable: 0 } }, ...extra })
 const RUN = { ...detail('run-1', API, 'eval in the old scan'), type: 'repository_scan' }
+// An asset's state with one finding of each kind: pending, fixed by a later scan, dismissed in triage and excluded.
+const PENDING = finding('eval still there')
+const FIXED: RepositoryFinding = { ...finding('eval fixed by a scan'), finding_id: 'fixed', fingerprint: 'b'.repeat(64), lifecycle: { status: 'fixed', origin: { kind: 'scan' } } }
+const DISMISSED: RepositoryFinding = { ...finding('eval in a test'), finding_id: 'dismissed', fingerprint: 'c'.repeat(64), triage: { status: 'false_positive', history: [] } }
+const EXCLUDED: RepositoryFinding = { ...finding('eval in vendor'), finding_id: 'excluded', fingerprint: 'd'.repeat(64), lifecycle: { status: 'excluded', origin: { kind: 'scan' } } }
+const MIXED = { open: 1, fixed: 1, suppressed: 1, from_pr: 0, excluded: 1, by_severity: {} }
+const stateWith = (findings: RepositoryFinding[]) => ({ ...detail('state:github#1', API, ''), findings, summary: { ...detail('state:github#1', API, '').summary, lifecycle: MIXED } })
 
 // The panel's other calls (session-wide queries) answered with empty but well-formed bodies.
 function serve(routes: (call: Call) => Reply | undefined) {
@@ -107,6 +115,48 @@ describe('one asset\'s findings', () => {
     expect(await screen.findByText('eval in the old scan')).toBeTruthy()
     expect(screen.queryByRole('button', { name: new RegExp(`^${tf('page.tabs.fixed')} · `) })).toBeNull()
     await waitFor(() => expect(window.location.hash).toContain('run=run-1'))
+  })
+
+  it('offers each tab only the statuses it holds, and every status in "all" lists what the counts say', async () => {
+    serve(call => assets(call)
+      ?? (call.path === '/api/assets/state?key=github%231&status=open' ? { body: stateWith([PENDING, DISMISSED]) }
+      : call.path === '/api/assets/state?key=github%231&status=all' ? { body: stateWith([PENDING, FIXED, DISMISSED, EXCLUDED]) } : undefined))
+    const user = userEvent.setup()
+    page()
+    expect(await screen.findByText('eval still there')).toBeTruthy()
+    expect(screen.queryByText('eval in a test')).toBeNull()  // dismissed: in the open tab, out of the pending view
+    await user.click(screen.getByRole('button', { name: tf('filters.more') }))
+    const pendingView = screen.getByRole('combobox', { name: `${tf('filters.status')}: ${tf('filters.status_options.active')}` })
+    // What is fixed has its own tab: the open tab never holds it, so it isn't offered there (it could only show nothing).
+    expect(await optionsOf(user, pendingView)).not.toContain(tf('filters.status_options.fixed'))
+
+    await user.click(screen.getByRole('button', { name: `${i18n.t('common:state.all')} · 4` }))
+    expect(await screen.findByText('eval fixed by a scan')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: tf('filters.more') }))
+    const status = () => screen.getByRole('combobox', { name: new RegExp(`^${tf('filters.status')}: `) })
+    const shown = () => ['eval still there', 'eval fixed by a scan', 'eval in a test', 'eval in vendor'].filter(title => screen.queryByText(title))
+    expect(shown()).toHaveLength(4)
+    await choose(user, status(), tf('filters.status_options.fixed'))
+    expect(shown()).toEqual(['eval fixed by a scan'])
+    await choose(user, status(), tf('filters.status_options.active'))
+    expect(shown()).toEqual(['eval still there'])
+    await choose(user, status(), tf('filters.status_options.false_positive'))
+    expect(shown()).toEqual(['eval in a test'])
+    await choose(user, status(), tf('filters.status_options.excluded'))
+    expect(shown()).toEqual(['eval in vendor'])
+  })
+
+  it('shows a run as it was: every status is offered, and nothing fixed afterwards counts', async () => {
+    serve(call => assets(call) ?? (call.path === '/api/runs/run-1' ? { body: { ...RUN, findings: [PENDING, DISMISSED] } } : undefined))
+    const user = userEvent.setup()
+    page('run-1')
+    expect(await screen.findByText('eval still there')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: tf('filters.more') }))
+    const status = screen.getByRole('combobox', { name: `${tf('filters.status')}: ${tf('filters.status_options.active')}` })
+    expect(await optionsOf(user, status)).toContain(tf('filters.status_options.fixed'))
+    await choose(user, status, tf('filters.status_options.false_positive'))
+    expect(screen.getByText('eval in a test')).toBeTruthy()
+    expect(screen.queryByText('eval still there')).toBeNull()
   })
 
   it('says when the assets could not be loaded instead of claiming there are none', async () => {

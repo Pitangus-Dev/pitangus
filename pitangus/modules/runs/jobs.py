@@ -21,7 +21,7 @@ from typing import Callable
 import uuid
 
 from pitangus.modules.findings import registry as findings_registry
-from pitangus.shared import log as logging_setup, settings
+from pitangus.shared import log as logging_setup, render, settings
 from pitangus.modules.scanning.repository import scan_repository
 from pitangus.modules.sources.repositories import SourceError, snapshot_source
 from pitangus.modules.sources.assets import asset_key, scan_branch
@@ -201,13 +201,14 @@ class ScanJobs:
         from sqlalchemy import func, select
         from pitangus.modules.runs.tables import jobs
         options = options or {}
-        api = options.get("mode") == "api"
+        api, exposure = options.get("mode") == "api", options.get("mode") == "exposure"
         run_id = uuid.uuid4().hex
         record = {"schema_version": "0.3.0", "id": run_id, "type": "dast_scan", "status": "queued", "created_at": _now(),
-                  "target": domain["url"], "variant": "api" if api else "baseline", "source": domain_source(domain),
+                  "target": domain["url"], "variant": "api" if api else "exposure" if exposure else "baseline", "source": domain_source(domain),
                   "requested_by": requested_by, "context": "", "summary": {"candidates": 0, "files": 0, "dependencies": 0},
                   "steps": [], "findings": [], "owasp_coverage": [], "limitations": [],
-                  "progress": [_event("info", msg("runs.progress.queued_api" if api else "runs.progress.queued_web", host=domain["host"]))]}
+                  "progress": [_event("info", msg("runs.progress.queued_api" if api else "runs.progress.queued_exposure" if exposure
+                                                  else "runs.progress.queued_web", host=domain["host"]))]}
         if trigger:
             record["trigger"] = trigger
         with db.transaction(self.data_dir) as connection:
@@ -397,7 +398,7 @@ class ScanJobs:
         except (SourceError, GitHubAppError) as exc:
             self._fail(record, msg("runs.failure.source", reason=_reason(exc)))
         except Exception as exc:  # noqa: BLE001
-            log.error("escaneo fallido: %s", traceback.format_exc().splitlines()[-1], extra={"run_id": run_id})
+            log.error("escaneo fallido: %s", render.prose(traceback.format_exc().splitlines()[-1]), extra={"run_id": run_id})
             # The user is told it failed and in which phase, never the traceback or server paths.
             self._fail(record, msg("runs.failure.internal"))
             del exc
@@ -429,7 +430,7 @@ class ScanJobs:
             log.warning("image_scan_refused", extra={"run_id": run_id, "reason": str(exc)})
             self._fail(record, exc.message)
         except Exception as exc:  # noqa: BLE001
-            log.error("análisis de imagen fallido: %s", traceback.format_exc().splitlines()[-1], extra={"run_id": run_id})
+            log.error("análisis de imagen fallido: %s", render.prose(traceback.format_exc().splitlines()[-1]), extra={"run_id": run_id})
             self._fail(record, msg("runs.failure.image_internal"))
             del exc
 
@@ -441,7 +442,7 @@ class ScanJobs:
         from pitangus.modules.scanning import openapi_spec
         from pitangus.modules.scanning.engines import docker_problem, runner
         from pitangus.modules.scanning import web_tools, web_versions
-        from pitangus.modules.scanning.web import WebScanError, scan_domain
+        from pitangus.modules.scanning.web import WebScanError, scan_domain, scan_exposure
         from pitangus.modules.sources import domain_headers, domain_scope, test_users
         from pitangus.modules.sources.domains import DomainError, confirm_control, public_address, scan_scope
         run_id = job["run_id"]
@@ -457,10 +458,11 @@ class ScanJobs:
             log.info(text(message, "en"), extra={"run_id": run_id, "step": level})
 
         try:
-            if not settings.flag("PITANGUS_DAST_ENABLED"):
+            exposure = job.get("mode") == "exposure"
+            if not exposure and not settings.flag("PITANGUS_DAST_ENABLED"):
                 raise WebScanError(msg("scanning.web.errors.disabled"))
             if runner() == "local":
-                raise WebScanError(msg("scanning.web.errors.needs_docker"))
+                raise WebScanError(msg("scanning.web.exposure.errors.needs_docker" if exposure else "scanning.web.errors.needs_docker"))
             if problem := docker_problem():
                 raise WebScanError(problem)
             domain = confirm_control(self.data_dir, job["domain_id"])
@@ -476,7 +478,7 @@ class ScanJobs:
                     pins[name] = public_address(name)
                 except DomainError as exc:
                     raise WebScanError(msg("scanning.web.errors.address", host=name, reason=exc.message)) from exc
-            progress("ok", msg("runs.progress.web_target", host=host, address=pins[host]))
+            progress("ok", msg("runs.progress.web_target_exposure" if exposure else "runs.progress.web_target", host=host, address=pins[host]))
             # A scheduled scan starts with nobody watching: what changed since it was queued is left out and said,
             # rather than failing the whole scan.
             scheduled = (record.get("trigger") or {}).get("kind") == "schedule"
@@ -509,9 +511,15 @@ class ScanJobs:
                     raise WebScanError(exc.message) from exc
                 if api is None:
                     raise WebScanError(msg("scanning.web.spec.missing"))
-            scan = scan_domain(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope, headers=headers, api=api,
-                               excluded=excluded, users=users,
-                               tools={**web_tools.readiness(), web_versions.KEY: web_versions.readiness()})
+            if exposure:
+                from pitangus.modules.findings import registry as findings_registry
+                scan = scan_exposure(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope,
+                                     tools={**web_tools.readiness(), web_versions.KEY: web_versions.readiness()},
+                                     recheck=findings_registry.web_instances(self.data_dir, domain["key"]))
+            else:
+                scan = scan_domain(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope, headers=headers, api=api,
+                                   excluded=excluded, users=users, session_check=domain.get("session_check") or "",
+                                   tools={**web_tools.readiness(), web_versions.KEY: web_versions.readiness()})
             counts = _counts(scan["summary"])
             progress("warn" if scan["status"] == "incomplete" else "ok",
                      msg("runs.progress.finished_incomplete" if scan["status"] == "incomplete" else "runs.progress.finished", counts=counts))
@@ -528,7 +536,7 @@ class ScanJobs:
             log.warning("dast_scan_refused", extra={"run_id": run_id, "reason": text(exc.message, "en")})
             self._fail(record, exc.message)
         except Exception as exc:  # noqa: BLE001
-            log.error("dast_scan_failed: %s", traceback.format_exc().splitlines()[-1], extra={"run_id": run_id})
+            log.error("dast_scan_failed: %s", render.prose(traceback.format_exc().splitlines()[-1]), extra={"run_id": run_id})
             self._fail(record, msg("runs.failure.dast_internal"))
             del exc
 
@@ -554,7 +562,7 @@ class ScanJobs:
             log.warning("domain_discovery_skipped", extra={"path": domain["host"], "reason": text(exc.message, "en")})
             domain_scope.discovery_failed(self.data_dir, domain["id"], exc.message)
         except Exception:  # noqa: BLE001
-            log.error("domain_discovery_failed: %s", traceback.format_exc().splitlines()[-1], extra={"path": domain["host"]})
+            log.error("domain_discovery_failed: %s", render.prose(traceback.format_exc().splitlines()[-1]), extra={"path": domain["host"]})
             domain_scope.discovery_failed(self.data_dir, domain["id"], msg("scanning.discovery.failed"))
         return None
 
@@ -633,8 +641,7 @@ class ScanJobs:
                     default_branch = None
             baseline = self._baseline(source_id, (record.get("source") or {}).get("uid"), branch=pull.get("base_ref"),
                                       default_branch=default_branch)
-            prints = {item["fingerprint"] for item in baseline["findings"]} if baseline else None
-            outcome = pr_review.classify(scan["findings"], changed, prints)
+            outcome = pr_review.classify(scan["findings"], changed, baseline["findings"] if baseline else None, pr_review.renames(files))
             outcome["verdict"] = pr_review.verdict(outcome["introduced"], config["gate"])
             outcome["tools"] = scan["summary"].get("tools") or []
             # Informational and separate: declared but unused dependencies, singling out the ones the PR adds.
@@ -665,7 +672,7 @@ class ScanJobs:
         except (SourceError, GitHubAppError) as exc:
             self._fail(record, msg("runs.failure.pr", reason=_reason(exc)))
         except Exception:  # noqa: BLE001
-            log.error("revisión de PR fallida: %s", traceback.format_exc().splitlines()[-1], extra={"run_id": run_id})
+            log.error("revisión de PR fallida: %s", render.prose(traceback.format_exc().splitlines()[-1]), extra={"run_id": run_id})
             self._fail(record, msg("runs.failure.pr_internal"))
 
     def _deliver(self, installation, repository, pull, outcome, run_id, baseline, config, progress) -> dict:

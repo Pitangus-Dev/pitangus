@@ -78,16 +78,21 @@ def _write_private(path: Path, content: bytes, mode: int = stat.S_IRUSR | stat.S
     os.replace(temporary, path)
 
 
+def decoded_key(configured: str) -> bytes:
+    """A master key as configured (32 bytes in base64)."""
+    try:
+        key = base64.b64decode(configured, validate=True)
+    except ValueError as exc:
+        raise VaultError(msg("vault.errors.master_key_not_base64")) from exc
+    if len(key) != 32:
+        raise VaultError(msg("vault.errors.master_key_length"))
+    return key
+
+
 def _master_key() -> bytes:
     configured = settings.text("PITANGUS_MASTER_KEY")
     if configured:
-        try:
-            key = base64.b64decode(configured, validate=True)
-        except ValueError as exc:
-            raise VaultError(msg("vault.errors.master_key_not_base64")) from exc
-        if len(key) != 32:
-            raise VaultError(msg("vault.errors.master_key_length"))
-        return key
+        return decoded_key(configured)
     path = _dir() / KEY_FILE
     try:
         key = base64.b64decode(path.read_text(encoding="ascii").strip(), validate=True)
@@ -215,6 +220,17 @@ def unseal(sealed: str, purpose: str):
         return json.loads(AESGCM(_master_key()).decrypt(raw[:12], raw[12:], f"sealed:{purpose}".encode()))
     except (InvalidTag, ValueError, TypeError) as exc:
         raise VaultError(msg("vault.errors.cannot_unseal")) from exc
+
+
+def derived_key(context: str, master: bytes | None = None) -> tuple[str, bytes]:
+    """A key for one purpose derived from the master key (HKDF-SHA256, `context` as info), and its id: the first hex
+    characters of its own hash, which say which key made a value without revealing it. Rotating the master key changes
+    every derived key and its id. `master`: another master key (the one before a rotation) instead of the current one."""
+    import hashlib
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=context.encode()).derive(master if master is not None else _master_key())
+    return hashlib.sha256(key).hexdigest()[:8], key
 
 
 def _register(value) -> None:

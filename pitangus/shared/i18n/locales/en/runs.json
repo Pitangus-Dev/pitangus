@@ -27,7 +27,9 @@
     "comment_failed": "Couldn't comment on the PR: {{reason}}",
     "no_comment_permission": "The result wasn't posted to GitHub: the App can't write to pull requests.",
     "branch_commit": "Scanning branch {{branch}} at commit {{sha}}",
-    "queued_api": "Queued: passive API scan of {{host}}."
+    "queued_api": "Queued: passive API scan of {{host}}.",
+    "queued_exposure": "Queued: exposure check of {{host}}.",
+    "web_target_exposure": "DNS proof confirmed and {{host}} resolves to a public address ({{address}}); the exposure check sends its requests for {{host}} to that address."
   },
   "failure": {
     "restart": "The server restarted while this run was in progress, so it was interrupted. Run it again.",
@@ -60,7 +62,8 @@
     "detail_partial_other": "{{count}} findings from the {{results}} results in the SARIF ({{skipped}} suppressed or passing, not imported). Partial import: nothing is marked fixed.",
     "limitations": {
       "third_party": "Findings reported by {{tool}} and imported as they came: Pitangus didn't analyze the code in this run.",
-      "partial": "Partial import: findings {{tool}} no longer reports stay open until a full import or a manual fix."
+      "partial": "Partial import: findings {{tool}} no longer reports stay open until a full import or a manual fix.",
+      "failed": "{{tool}} reported that its run failed (or the file carries no results list): what it found is imported, and nothing it didn't report is marked fixed."
     },
     "errors": {
       "invalid_request": "Invalid import: send asset, the SARIF document and, optionally, tool, scope (full or partial), commit and branch",

@@ -13,6 +13,16 @@ from typing import Any, Required, TypedDict
 Message = str | dict[str, Any]
 
 
+class DependencyPath(TypedDict, total=False):
+    """Who requires a transitive package, from the graph Trivy resolves out of the lockfile (scanning/dependency_graph.py)."""
+    name: str                  # the package that requires it
+    version: str
+    direct: str                # the direct dependency at the top of the chain: what the project can update
+    direct_version: str
+    chain: list[str]           # from the direct dependency down to `name`
+    direct_dev: bool
+
+
 class Package(TypedDict, total=False):
     ecosystem: str
     name: str
@@ -21,6 +31,8 @@ class Package(TypedDict, total=False):
     introduced: str | None
     dev: bool
     direct: bool | None
+    introduced_by: list[DependencyPath]  # transitive only, the shortest chains first
+    also_in: list[str]         # other files with the same version (a monorepo's lockfiles): one finding, several places
 
 
 class Advisory(TypedDict, total=False):
@@ -43,12 +55,26 @@ class Priority(TypedDict, total=False):
 class Finding(TypedDict, total=False):
     finding_id: Required[str]
     fingerprint: Required[str]
-    previous_fingerprint: str  # the former formula's, so the registry carries state over (findings/registry.py)
+    previous_fingerprint: str  # the former formula's, so the registry carries state over (findings/identity.py)
+    previous_fingerprints: list[str]  # others it was known by: an earlier formula, a report folded into this one
+    family: str               # its fingerprint without the copy's order, shared by identical copies (findings/identity.py)
+    identity: str             # its canonical identity: what the problem is, whichever engine (findings/canonical.py)
+    value_formers: list[str]  # a secret named by its value: the only names it had (another key, an earlier formula)
+    identity_version: int
+    count: int                # how many places a family is in (PITANGUS_IDENTITY_MODE=v2)
+    instances: list[dict[str, Any]]
+    snippet: str              # the matched code or configuration the identity reads; never a secret's value
+    resource: str             # the configured resource's address, when the engine gives one
+    also_at: list[dict[str, Any]]  # other places the same report is in, before canonical grouping
+    validation: str           # a secret its provider says is active, revoked or unknown (PITANGUS_SECRET_VALIDATION)
+    span: list[int]           # where a secret's value is (line, start, end line, end; 0-based columns): never the value
     scanner: Required[str]     # sast · secrets · sca · iac · cicd · image-config · dast (imported from a web scanner)
     tool: str
     rule_id: Required[str]
     title: Message
     path: Required[str]
+    # The coverage units it lives in (shared/coverage_units): its file, or a dependency's project (manifest + lockfile)
+    units: list[str]
     line: int
     severity: Required[str]    # critical · high · medium · low · info
     confidence: int
@@ -84,7 +110,7 @@ class EngineResult(TypedDict, total=False):
     tool: Required[str]
     name: str
     version: str
-    image: str
+    image: str | None          # None: built into Pitangus (the policy reader)
     status: Required[str]      # completed · inconclusive · not_tested
     detail: Message
     findings: list[Finding]
@@ -92,6 +118,11 @@ class EngineResult(TypedDict, total=False):
     packages: list[dict[str, Any]]
     system_packages: list[dict[str, Any]]
     withheld: list[Finding] | None
+    graph: dict[str, Any]      # Trivy only: the lockfiles' dependency graphs, used during the scan, never stored
+    coverage: dict[str, Any]   # what it examined and what not, and why (engine_contract.coverage)
+    contract: dict[str, Any]   # the engine contract's verdict (engine_contract.recorded)
+    disabled: bool             # an optional engine the operator didn't turn on
+    screened: dict[str, int]   # secret engines: matches set aside as not secrets, by reason (secret_filter.REASONS)
 
 
 class RunRecord(TypedDict, total=False):
@@ -116,6 +147,14 @@ class RunRecord(TypedDict, total=False):
     steps: list[dict[str, Any]]
     findings: list[Finding]
     excluded_findings: list[Finding]
+    # Code scans: files it didn't analyze, for the registry ("*": left out of the snapshot; an engine: skipped by it;
+    # "engine:scanner": skipped by that scanner of the engine only)
+    unexamined: dict[str, list[str]]
+    # What each engine examined, by unit (engine_contract.coverage): {engine: {"examined": "*" | [...], "unexamined": {unit: why},
+    # "by_scanner": {scanner: {unit: why}}}}
+    coverage: dict[str, dict[str, Any]]
+    # Which engines were on and which rules each applied (scanning/rule_set): {"engines": {engine: spec}}
+    configuration: dict[str, Any]
     summary: dict[str, Any]
     owasp_coverage: list[Any]
     limitations: list[Message]

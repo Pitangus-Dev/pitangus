@@ -17,7 +17,10 @@ from pitangus.modules.scanning.engines import and_list, joined
 from pitangus.modules.scanning.owasp import WEB_TOP_10_2025
 
 RULES_DIR = paths.RULES_DIR
-RULE_LINE = re.compile(r"^  - id: (?P<id>\S+)|^\s+metadata: \{.*?owasp: \"(?P<owasp>A\d\d):2025\"", re.M)
+RULE_LINE = re.compile(r"^  - id: (?P<id>\S+)|^\s+languages: \[(?P<languages>[^\]]*)\]|^\s+metadata: \{.*?owasp: \"(?P<owasp>A\d\d):2025\"", re.M)
+# The languages `snapshot_languages` names, as our rules list them in `languages:`.
+RULE_LANGUAGE_IDS = {"JavaScript": "javascript", "TypeScript": "typescript", "Python": "python", "Java": "java", "Go": "go",
+                     "PHP": "php", "Ruby": "ruby", "C#": "csharp"}
 UNTESTABLE = {
     "A06": msg("coverage.untestable.a06"),
     "A09": msg("coverage.untestable.a09"),
@@ -26,24 +29,39 @@ UNTESTABLE = {
 
 
 @lru_cache(maxsize=1)
-def rules_by_category() -> dict[str, int]:
-    """How many of our own rules target each OWASP category."""
-    counts: dict[str, int] = {}
+def _rules() -> tuple[tuple[str, frozenset[str]], ...]:
+    """Each of our own rules: its OWASP category and its languages."""
+    found: list[tuple[str, frozenset[str]]] = []
     for path in sorted(RULES_DIR.glob("*.yml")):
-        current = None
+        current: str | None = None
+        languages: frozenset[str] = frozenset()
         for match in RULE_LINE.finditer(path.read_text(encoding="utf-8")):
             if match.group("id"):
-                current = match.group("id")
+                current, languages = match.group("id"), frozenset()
+            elif current and match.group("languages") is not None:
+                languages = frozenset(item.strip() for item in match.group("languages").split(",") if item.strip())
             elif current and match.group("owasp"):
-                counts[match.group("owasp")] = counts.get(match.group("owasp"), 0) + 1
+                found.append((match.group("owasp"), languages))
                 current = None
+    return tuple(found)
+
+
+def rules_by_category(languages: frozenset[str] | None = None) -> dict[str, int]:
+    """How many of our own rules target each OWASP category: only those for `languages` (rule ids such as "go"), when
+    given, since a Go repository isn't covered by Python rules."""
+    counts: dict[str, int] = {}
+    for category, rule_languages in _rules():
+        if languages is None or rule_languages & languages:
+            counts[category] = counts.get(category, 0) + 1
     return counts
 
 
 def owasp_coverage(findings: list[dict], *, sast_ran: bool, sca_status: str, iac_ran: bool,
                    iac_files: int, secrets_ran: bool, engines: bool, iac_tools: tuple[str, ...] = ("Trivy",),
-                   cicd_tools: tuple[str, ...] = (), pipeline_files: int = 0) -> list[dict]:
-    rules = rules_by_category() if sast_ran else {}
+                   cicd_tools: tuple[str, ...] = (), pipeline_files: int = 0, languages: frozenset[str] | None = None) -> list[dict]:
+    """`languages`: the repository's languages that have our own rules (rule ids), so a category only counts the rules
+    that could run on it."""
+    rules = rules_by_category(languages) if sast_ran else {}
     per_category: dict[str, int] = {}
     for finding in findings:
         for category in finding.get("owasp", []):
@@ -84,9 +102,6 @@ def owasp_coverage(findings: list[dict], *, sast_ran: bool, sca_status: str, iac
         if identifier in ("A01", "A05", "A07", "A08") and rules.get(identifier):
             status = "partial"
             parts.append(msg("coverage.rules.opengrep", count=rules[identifier]))
-        if identifier == "A05" and not sast_ran and not engines:
-            status = "partial"
-            parts.append(msg("coverage.internal_ast"))
         if identifier in UNTESTABLE and status == "not_tested":
             parts.append(UNTESTABLE[identifier])
         if status == "not_tested" and not parts:

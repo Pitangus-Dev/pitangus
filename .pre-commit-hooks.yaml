@@ -1,0 +1,12 @@
+# Pitangus as a pre-commit hook (https://pre-commit.com): the published worker image scans what you're about to push
+# (the pushed commit as git holds it: untracked files and uncommitted edits don't count) and blocks it on what the push
+# introduces (findings at high or above). It runs at `pre-push`: a scan takes some seconds, too long for every commit. The engines' databases live in the `pitangus-cache` Docker volume, kept between
+# runs: only the first scan downloads them (hooks/pitangus-docker).
+- id: pitangus
+  name: Pitangus security scan
+  description: Blocks a push on the vulnerabilities, secrets and misconfigurations it introduces.
+  language: script
+  entry: hooks/pitangus-docker
+  pass_filenames: false
+  always_run: true
+  stages: [pre-push]

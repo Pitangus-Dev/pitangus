@@ -44,6 +44,29 @@ describe('images page', () => {
     expect(screen.queryByRole('button', { name: tr('images.remove_for', { name: PENDING.name }) })).toBeNull()
   })
 
+  it('links an image to a repository that has not been analyzed yet, and says it is waiting for its scan', async () => {
+    const tc = (key: string, options?: Record<string, unknown>) => i18n.t(`compliance:${key}`, options)
+    let built: unknown = null
+    const calls = mockApi(call => {
+      if (call.path === '/api/images/repositories') return { body: { items: [{ key: 'github:org/api', name: 'org/api', analyzed: true }, { key: 'github#42', name: 'org/new', analyzed: false }], total: 2 } }
+      if (call.path.startsWith('/api/images') && call.method === 'GET') return { body: page([{ ...PENDING, built_from: built }]) }
+      if (call.path === '/api/evidence/image-link') {
+        built = { repository: 'github#42', name: 'org/new', revision: null, how: 'manual', by: 'jefa', at: '2026-10-11T00:00:00Z', analyzed: false }
+        return { body: { image: PENDING.key, built_from: built } }
+      }
+    })
+    const user = userEvent.setup()
+    renderWithQueries(list(true))
+    await user.click(await screen.findByRole('button', { name: tc('evidence.origin.link') }))
+    await user.click(screen.getByRole('button', { name: `${tc('evidence.origin.pick_label')}: ${tc('evidence.origin.pick')}` }))
+    // The repository picker lists the ones GitHub gives access to, not only the analyzed ones, and says which is which.
+    const option = await screen.findByRole('option', { name: new RegExp('org/new') })
+    expect(within(option).getByText(tc('evidence.origin.not_analyzed'))).toBeTruthy()
+    await user.click(option)
+    expect(calls.find(call => call.method === 'POST')?.body).toEqual({ image: PENDING.key, repository: 'github#42' })
+    expect(await screen.findByText(tc('evidence.origin.awaiting_scan'))).toBeTruthy()
+  })
+
   it('shows why an image could not be added, inside the dialog', async () => {
     mockApi(call => {
       if (call.method === 'GET') return { body: page([]) }

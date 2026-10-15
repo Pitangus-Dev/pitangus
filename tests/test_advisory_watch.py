@@ -10,6 +10,7 @@ from pathlib import Path
 from pitangus.modules.runs import advisory_watch
 from pitangus.modules.findings import registry as findings_registry
 from pitangus.modules.runs.store import list_runs, save_repository_scan
+from pitangus.modules.scanning import engine_contract
 from test_dashboard import _finding, _scan
 
 OSV_OUTPUT = (Path(__file__).resolve().parent / "engine-outputs" / "osv-scanner.json").read_text()
@@ -60,8 +61,14 @@ class AdvisoryWatchTests(unittest.TestCase):
             # Another pass over the same baseline: nothing new.
             self.assertEqual(advisory_watch.check(data, run=engine(calls))["opened"], 0)
             self.assertEqual(len([row for row in list_runs(data) if row["type"] == "advisory_watch"]), 1)
-            # The next full scan wins: what no longer shows up (the dependency was upgraded) is fixed.
+            # The next full scan wins: what no longer shows up (the dependency was upgraded) is fixed. All twelve at once
+            # trip the fix hold (PITANGUS_COVERAGE_MODE=on): the scan after it confirms them.
             save_repository_scan(data, {**_scan("acme/api", [], "2026-09-26"), "dependencies": [], "created_at": "2026-09-26T10:00:00+00:00"})
+            state = findings_registry.load(data, "github:acme/api")
+            held = engine_contract.mode() == "on"
+            self.assertEqual({entry["status"] for entry in state["findings"].values()}, {"open" if held else "fixed"})
+            self.assertEqual(len((state["control"].get("hold") or {}).get("digests") or []), 12 if held else 0)
+            save_repository_scan(data, {**_scan("acme/api", [], "2026-09-27"), "dependencies": [], "created_at": "2026-09-27T10:00:00+00:00"})
             state = findings_registry.load(data, "github:acme/api")["findings"]
             self.assertTrue(all(entry["status"] == "fixed" for entry in state.values()))
             self.assertEqual(base["type"], "repository_scan")

@@ -18,18 +18,19 @@
     "static_severity": "Static finding, {{severity}} severity",
     "confirm_reachability": "Confirm it is reachable in the context of the application",
     "internal_pattern": "Static pattern, {{severity}} severity; confirm it is reachable",
-    "dev_dependency": "Development dependency: it doesn't reach production, but it runs on your machine and in CI"
+    "dev_dependency": "Development dependency: it doesn't reach production, but it runs on your machine and in CI",
+    "secret_outside_code": "In tests, docs or examples: rotate it if it's real, but it rarely is the one production uses"
   },
   "progress": {
     "engine": "{{engine}}: {{detail}}",
     "opengrep": "Opengrep {{version}}: multi-language SAST with Pitangus rules…",
-    "gitleaks": "Gitleaks {{version}}: looking for secrets…",
+    "betterleaks": "Betterleaks {{version}}: looking for secrets…",
     "trivy": "Trivy {{version}}: dependencies, infrastructure and secrets…",
     "osv": "OSV-Scanner {{version}}: dependencies against the OSV database (the first run downloads the advisory databases)…",
     "checkov": "Checkov {{version}}: infrastructure as code and pipelines…",
     "zizmor": "zizmor {{version}}: GitHub Actions security…",
     "engines_failed": "Couldn't run: {{engines}}. This result doesn't mean «no findings»; check on the server that the images are built (docker compose build).",
-    "no_docker": "Docker isn't available: using the internal rules (Python only) and secret patterns.",
+    "no_docker": "Docker isn't available: no SAST, and secrets with internal patterns only.",
     "feeds": "Matching advisories against CISA KEV and EPSS to prioritize…"
   },
   "engines": {
@@ -44,14 +45,16 @@
       "no_docker": "Docker not available",
       "pulled": "downloaded",
       "pull_failed": "download failed",
-      "not_installed": "Not installed in this image"
+      "not_installed": "Not installed in this image",
+      "disabled": "turned off: not pulled"
     },
     "unreadable": "{{engine}} didn't return readable output.",
     "timeout": "{{engine}} exceeded the time limit.",
     "failed": "{{engine}} ended with an error",
     "failed_early": "{{engine}} ended with an error before producing results",
     "not_installed": "{{engine}} isn't installed on this worker ({{binary}} isn't on the PATH): that part of the analysis didn't run.",
-    "none_installed": "No analysis engine is installed on this worker and PITANGUS_ENGINE_RUNNER=local: use the worker-standalone image, or give the worker the Docker socket."
+    "none_installed": "No analysis engine is installed on this worker and PITANGUS_ENGINE_RUNNER=local: use the worker-standalone image, or give the worker the Docker socket.",
+    "disabled": "{{engine}}: not run (disabled). Turn it on with {{setting}}=1; what it found before stays open, never fixed."
   },
   "opengrep": {
     "no_docker": "Docker isn't available: multi-language SAST didn't run. {{problem}}",
@@ -60,13 +63,30 @@
     "exit_code": "Opengrep ended with an error (code {{code}}); SAST didn't finish",
     "timeout": "Opengrep exceeded the time limit; SAST didn't finish.",
     "no_covered_language": "none with rules",
-    "detail": "{{rulesets}} sets of Pitangus rules over {{languages}}; {{candidates}} candidates.",
+    "detail": "{{rulesets|# set|# sets}} of Pitangus rules over {{languages}}; {{candidates|# candidate|# candidates}}.",
     "uncovered": "No rules yet for: {{languages}}.",
     "minified_one": "{{count}} compiled or minified file was left out of SAST (it's still searched for secrets).",
     "minified_other": "{{count}} compiled or minified files were left out of SAST (they're still searched for secrets).",
     "errors_one": "{{count}} file couldn't be analyzed (syntax or size).",
     "errors_other": "{{count}} files couldn't be analyzed (syntax or size).",
-    "reason": "`{{snippet}}` in {{path}}:{{line}}."
+    "reason": "The code at {{path}}:{{line}} matches the rule's pattern.",
+    "skipped": "Opengrep skipped {{count}} files on its own (size or unreadable): they weren't analyzed.",
+    "silenced_one": "{{count}} match is silenced in the code with a nosemgrep comment: it's listed as excluded.",
+    "silenced_other": "{{count}} matches are silenced in the code with nosemgrep comments: they're listed as excluded.",
+    "silenced_reason": "Silenced in the code with a nosemgrep comment. Remove the comment once it's fixed, or the next change to that line may hide a real problem.",
+    "silenced_limitation_one": "{{count}} SAST match is silenced with nosemgrep in the code: it's excluded, not fixed, and reopens if the comment goes away.",
+    "silenced_limitation_other": "{{count}} SAST matches are silenced with nosemgrep in the code: they're excluded, not fixed, and reopen if the comment goes away.",
+    "rules_not_loaded_one": "1 rule didn't load: findings it reported before stay open.",
+    "rules_not_loaded_other": "{{count}} rules didn't load: findings they reported before stay open.",
+    "vendored_one": "{{count}} match is in third-party code copied into the repository (a vendor folder, a known library, a minified file): it's listed as excluded.",
+    "vendored_other": "{{count}} matches are in third-party code copied into the repository (vendor folders, known libraries, minified files): they're listed as excluded.",
+    "vendored_limitation_one": "{{count}} SAST match is in third-party code copied into the repository: it's excluded, not fixed, and comes back if the file stops looking like a library.",
+    "vendored_limitation_other": "{{count}} SAST matches are in third-party code copied into the repository: they're excluded, not fixed, and come back if the file stops looking like a library.",
+    "skipped_one": "Opengrep skipped 1 file on its own (size or unreadable): it wasn't analyzed.",
+    "opt_in_one": "1 rule is off by default ({{rules}}): PITANGUS_SAST_OPT_IN_RULES turns it on.",
+    "opt_in_other": "{{count}} rules are off by default ({{rules}}): PITANGUS_SAST_OPT_IN_RULES turns them on.",
+    "tests_one": "1 test folder or file was left out of SAST on purpose: it's listed as not analyzed (it's still searched for secrets).",
+    "tests_other": "{{count}} test folders or files were left out of SAST on purpose: they're listed as not analyzed (they're still searched for secrets)."
   },
   "sca": {
     "upgrade": "Update {{package}} from {{installed}} to {{fixed}} or later in {{target}} and regenerate the lockfile.",
@@ -81,7 +101,7 @@
     "exposed_rule": "Exposed secret ({{rule}})",
     "trivy_reason": "{{category}} pattern in {{path}}:{{line}}; value redacted.",
     "trivy_reason_generic": "Secret pattern in {{path}}:{{line}}; value redacted.",
-    "gitleaks_reason": "Rule {{rule}} in {{path}}:{{line}} (entropy {{entropy}}); value redacted.",
+    "betterleaks_reason": "Rule {{rule}} in {{path}}:{{line}} (entropy {{entropy}}); value redacted.",
     "rotate": "Rotate the credential now and move it to a secrets manager. If the repository is public, consider rewriting its history.",
     "titles": {
       "jwt": "Exposed JSON Web Token",
@@ -107,32 +127,56 @@
       "azure_ad_client_secret": "Exposed Azure AD client secret",
       "heroku_api_key": "Exposed Heroku API key"
     },
-    "custom_reason": "Your organization's rule {{rule}} matched in {{path}}:{{line}}; value redacted."
+    "custom_reason": "Your organization's rule {{rule}} matched in {{path}}:{{line}}; value redacted.",
+    "validation": {
+      "active": "Its provider says it is still active: revoke it now",
+      "revoked": "Its provider says it no longer works: still remove it from the code and its history",
+      "unknown": "Its provider couldn't say whether it is still active: treat it as active"
+    },
+    "ignore_file": {
+      "excluded": "Listed in the repository's {{file}} ({{path}}:{{line}}). The secret is still there: it's excluded, not fixed."
+    },
+    "inline": {
+      "excluded": "Allowed by a gitleaks:allow comment on its line in the code ({{path}}:{{line}}). The secret is still there: it's excluded, not fixed.",
+      "detail": "{{count|# secret was|# secrets were}} allowed by gitleaks:allow comments in the code or by the repository's .gitleaksignore, excluded and listed: {{places}}.",
+      "unknown": "Couldn't check which matches the gitleaks:allow comments in the code allow, so the analysis is incomplete and no secret is marked as fixed.",
+      "limitation": "{{count|# secret is|# secrets are}} allowed by gitleaks:allow comments in the code or by the repository's .gitleaksignore ({{places}}). They're still there: you can see them in Findings → Excluded."
+    }
   },
   "trivy": {
     "no_docker": "Docker isn't available: dependencies, IaC and secrets with Trivy didn't run.",
     "failed_download": "Trivy ended with an error before producing results (no access to its vulnerability database)",
     "timeout": "Trivy exceeded the time limit; dependencies and IaC didn't finish.",
-    "detail": "Examined {{manifests}} dependency manifests and {{configs}} infrastructure files: {{sca}} dependency advisories, {{iac}} misconfigurations, {{secrets}} secrets.",
-    "detail_dev": "Examined {{manifests}} dependency manifests and {{configs}} infrastructure files: {{sca}} dependency advisories ({{dev}} in development dependencies, with lower priority), {{iac}} misconfigurations, {{secrets}} secrets.",
+    "detail": "Examined {{manifests|# dependency manifest|# dependency manifests}} and {{configs|# infrastructure file|# infrastructure files}}: {{sca|# dependency advisory|# dependency advisories}}, {{iac|# misconfiguration|# misconfigurations}}, {{secrets|# secret|# secrets}}.",
+    "detail_dev": "Examined {{manifests|# dependency manifest|# dependency manifests}} and {{configs|# infrastructure file|# infrastructure files}}: {{sca|# dependency advisory|# dependency advisories}} ({{dev}} in development dependencies, with lower priority), {{iac|# misconfiguration|# misconfigurations}}, {{secrets|# secret|# secrets}}.",
     "no_feeds": "KEV/EPSS unavailable; priority uses CVSS only.",
     "secret_config_rejected": "Trivy rejected your organization's secret detection settings: it analyzed dependencies and IaC, but not secrets.",
-    "secret_config_rejected_cause": "Trivy rejected your organization's secret detection settings: it analyzed dependencies and IaC, but not secrets. Cause: {{cause}}"
+    "secret_config_rejected_cause": "Trivy rejected your organization's secret detection settings: it analyzed dependencies and IaC, but not secrets. Cause: {{cause}}",
+    "unresolved_one": "The dependencies of {{count}} manifest couldn't be resolved against its remote repository ({{manifests}}): they weren't examined; everything else was.",
+    "unresolved_other": "The dependencies of {{count}} manifests couldn't be resolved against their remote repository ({{manifests}}): they weren't examined; everything else was."
   },
   "osv": {
     "no_docker": "Docker isn't available: dependencies with OSV-Scanner didn't run.",
     "no_manifests": "There are no dependency manifests that OSV-Scanner recognizes.",
     "timeout": "OSV-Scanner exceeded the time limit (the first run downloads the advisory databases).",
-    "detail": "{{manifests}} manifests with {{packages}} vulnerable packages: {{advisories}} advisories, matched locally against the OSV database (transitive dependencies not resolved: the dependency list isn't sent).",
-    "detail_resolved": "{{manifests}} manifests with {{packages}} vulnerable packages: {{advisories}} advisories, matched locally against the OSV database."
+    "detail": "{{manifests|# manifest|# manifests}} with {{packages|# vulnerable package|# vulnerable packages}}: {{advisories|# advisory|# advisories}}, matched locally against the OSV database (transitive dependencies not resolved: the dependency list isn't sent).",
+    "detail_resolved": "{{manifests|# manifest|# manifests}} with {{packages|# vulnerable package|# vulnerable packages}}: {{advisories|# advisory|# advisories}}, matched locally against the OSV database.",
+    "unread_one": "{{count}} lockfile couldn't be read ({{files}}): it wasn't examined.",
+    "unread_other": "{{count}} lockfiles couldn't be read ({{files}}): they weren't examined."
   },
-  "gitleaks": {
-    "no_docker": "Docker isn't available: secret detection with Gitleaks didn't run.",
-    "unreadable": "Gitleaks didn't return a readable report.",
-    "detail": "Gitleaks rules over the snapshot: {{secrets}} secrets; values redacted.",
-    "detail_configured": "Gitleaks rules over the snapshot, with your organization's settings ({{rules}} custom rules, {{disabled}} built-in rules turned off, {{allowlist}} allowlist entries): {{secrets}} secrets; values redacted.",
-    "config_failed": "Gitleaks rejected your organization's secret detection settings, so it didn't analyze secrets. Review them under Findings → Secret detection.",
-    "config_failed_cause": "Gitleaks rejected your organization's secret detection settings, so it didn't analyze secrets. Review them under Findings → Secret detection. Cause: {{cause}}"
+  "dependency_coverage": {
+    "no_lockfile": "{{count|# manifest has|# manifests have}} no lockfile this engine reads beside {{count|it|them}} ({{manifests}}): whatever {{count|it declares wasn't|they declare wasn't}} examined. Commit the lockfile so it is.",
+    "empty_lockfile": "{{count|# manifest has|# manifests have}} a lockfile beside {{count|it|them}} that gave this engine no package ({{manifests}}): whatever {{count|it declares wasn't|they declare wasn't}} examined. Commit the lockfile your package manager generates so it is.",
+    "unversioned": "{{packages|# dependency|# dependencies}} in {{manifests}} had no resolved version (a parent, a property or a range that didn't resolve, or a requirement without a pin): {{count|that manifest's dependencies weren't|the dependencies of those manifests weren't}} examined.",
+    "encoding": "{{count|# file is|# files are}} in an encoding this engine doesn't read, such as UTF-16 ({{files}}): not examined. Save {{count|it|them}} as UTF-8."
+  },
+  "betterleaks": {
+    "no_docker": "Docker isn't available: secret detection with Betterleaks didn't run.",
+    "unreadable": "Betterleaks didn't return a readable report.",
+    "detail": "Betterleaks rules over the snapshot: {{secrets|# secret|# secrets}}; values redacted.",
+    "detail_configured": "Betterleaks rules over the snapshot, with your organization's settings ({{rules|# custom rule|# custom rules}}, {{disabled|# built-in rule|# built-in rules}} turned off, {{allowlist|# allowlist entry|# allowlist entries}}): {{secrets|# secret|# secrets}}; values redacted.",
+    "config_failed": "Betterleaks rejected your organization's secret detection settings, so it didn't analyze secrets. Review them under Findings → Secret detection.",
+    "config_failed_cause": "Betterleaks rejected your organization's secret detection settings, so it didn't analyze secrets. Review them under Findings → Secret detection. Cause: {{cause}}"
   },
   "checkov": {
     "image_reason": "Checkov ({{rule}}) on the Dockerfile rebuilt from the image history.",
@@ -143,12 +187,14 @@
     "remediation_generic": "Adjust the resource so it meets «{{check}}». Policy index: {{index}}",
     "no_docker": "Docker isn't available: infrastructure and pipelines with Checkov didn't run.",
     "timeout": "Checkov exceeded the time limit; infrastructure and pipelines didn't finish.",
-    "detail": "{{failures}} misconfigurations in {{frameworks}}.",
+    "detail": "{{failures|# misconfiguration|# misconfigurations}} in {{frameworks}}.",
     "clean": "No failures in the repository's infrastructure as code or pipelines.",
     "image_no_docker": "Docker isn't available: Checkov didn't review the image configuration.",
     "image_no_history": "The image keeps no build history: Checkov has no Dockerfile to review.",
     "image_timeout": "Checkov exceeded the time limit with the image history.",
-    "image_detail": "{{failures}} failures in the Dockerfile rebuilt from {{steps}} history steps."
+    "image_detail": "{{failures|# failure|# failures}} in the Dockerfile rebuilt from {{steps|# history step|# history steps}}.",
+    "unparsed": "Checkov couldn't parse {{count}} files, so its results are incomplete: nothing it reported before counts as fixed in this run.",
+    "unparsed_one": "Checkov couldn't parse 1 file, so its results are incomplete: nothing it reported before counts as fixed in this run."
   },
   "zizmor": {
     "audits": {
@@ -185,8 +231,8 @@
     "remediation": "zizmor guidance and fix: {{url}}",
     "no_docker": "Docker isn't available: GitHub Actions workflows weren't audited with zizmor.",
     "nothing_to_audit": "The repository has no GitHub workflows or actions to audit.",
-    "detail": "{{audited}} GitHub workflows or actions audited offline: {{problems}} problems in {{affected}} of them.",
-    "clean": "{{audited}} GitHub workflows or actions audited offline: no problems."
+    "detail": "{{audited|# GitHub workflow or action|# GitHub workflows or actions}} audited offline: {{problems|# problem|# problems}} in {{affected}} of them.",
+    "clean": "{{audited|# GitHub workflow or action|# GitHub workflows or actions}} audited offline: no problems."
   },
   "image": {
     "errors": {
@@ -201,11 +247,11 @@
     "timeout": "{{engine}} exceeded the time limit with this image.",
     "trivy_detail": "{{sca}} package advisories, {{iac}} image configuration problems and {{secrets}} secrets in layers, environment variables or history.",
     "grype_detail": "{{advisories}} package advisories.",
+    "grype_detail_platform": "{{advisories}} package advisories, on {{platform}}: the platform Trivy analyzed.",
     "registry": {
       "denied": "The registry denied access: check that the image exists and that the credentials saved for that registry have read permission.",
       "credentials_needed": "The registry requires credentials: save them in Integrations → Container registries.",
-      "not_found": "The registry doesn't have that image or tag.",
-      "unreadable": "Couldn't read the image from the registry."
+      "not_found": "The registry doesn't have that image or tag."
     },
     "rules": {
       "root": {
@@ -299,18 +345,6 @@
   },
   "internal": {
     "remediation": "Review the flow and the affected version; confirm it is reachable before prioritizing.",
-    "sql": {
-      "title": "Dynamically built SQL",
-      "reason": "Query built with interpolation or concatenation; check whether it takes untrusted input."
-    },
-    "shell": {
-      "title": "Command with shell=True",
-      "reason": "The call goes through a shell interpreter; check where its arguments come from."
-    },
-    "dynamic_code": {
-      "title": "Dynamic code execution",
-      "reason": "eval/exec needs a review of where the input comes from and validation of its content."
-    },
     "secret_reason": "Credential pattern detected. The value was left out of the report and never sent to the browser.",
     "secret_titles": {
       "github_token": "Possible GitHub token",
@@ -326,24 +360,38 @@
   "repository": {
     "snapshot": {
       "copied": "{{files}} files copied read-only, without installing dependencies or running scripts.",
-      "skipped": "{{detail}} {{skipped}} were left out: {{not_analyzable}} not analyzable (binaries, images, bundles), {{too_large}} because of file size.",
-      "skipped_budget": "{{detail}} {{skipped}} were left out: {{not_analyzable}} not analyzable (binaries, images, bundles), {{too_large}} because of file size and {{over_budget}} when the snapshot budget ran out."
+      "skipped": "{{detail}} {{skipped|# was|# were}} left out: {{not_analyzable}} not analyzable (binaries, images, bundles), {{too_large}} because of file size.",
+      "skipped_budget": "{{detail}} {{skipped|# was|# were}} left out: {{not_analyzable}} not analyzable (binaries, images, bundles), {{too_large}} because of file size and {{over_budget}} when the snapshot budget ran out.",
+      "left_out": "{{detail}} {{skipped|# was|# were}} left out: {{too_large}} because of file size.",
+      "left_out_budget": "{{detail}} {{skipped|# was|# were}} left out: {{too_large}} because of file size and {{over_budget}} when the snapshot budget ran out.",
+      "secret_only_one": "{{detail}} 1 file the code engines don't read (a binary, an image, a hidden folder…) was read by the secret scanners only.",
+      "secret_only_other": "{{detail}} {{count}} files the code engines don't read (binaries, images, hidden folders…) were read by the secret scanners only.",
+      "credentials_one": "{{detail}} 1 credential file (.env, .npmrc, a private key…) was read only by the secret scanners, apart from the rest, and deleted right after.",
+      "credentials_other": "{{detail}} {{count}} credential files (.env, .npmrc, private keys…) were read only by the secret scanners, apart from the rest, and deleted right after.",
+      "apart_one": "{{detail}} 1 dependency or build output folder ({{folders}}) was read only by the secret scanners: the other engines list it as not analyzed.",
+      "apart_other": "{{detail}} {{count}} dependency or build output folders ({{folders}}) were read only by the secret scanners: the other engines list them as not analyzed.",
+      "local_only_one": "{{detail}} 1 folder that tools install or cache on this machine ({{folders}}) was left out: it isn't committed.",
+      "local_only_other": "{{detail}} {{count}} folders that tools install or cache on this machine ({{folders}}) were left out: they aren't committed.",
+      "not_held_one": "{{detail}} 1 committed entry isn't in the provider's archive or can't be copied as committed ({{paths}}): it's listed as not analyzed.",
+      "not_held_other": "{{detail}} {{count}} committed entries aren't in the provider's archive or can't be copied as committed ({{paths}}…): they're listed as not analyzed.",
+      "transcoded_one": "{{detail}} 1 file in UTF-16 or UTF-32 was read as UTF-8, so the engines see its text.",
+      "transcoded_other": "{{detail}} {{count}} files in UTF-16 or UTF-32 were read as UTF-8, so the engines see their text."
     },
     "steps": {
       "snapshot": "Code snapshot",
-      "internal_sast": {
-        "name": "Internal SAST (Python)",
-        "detail": "{{candidates}} candidates with internal AST rules. Docker isn't available: without Opengrep, only Python is covered."
+      "no_sast": {
+        "name": "SAST",
+        "detail": "Not run: Opengrep needs Docker, which isn't available on this server."
       },
       "internal_secrets": {
         "name": "Secrets (internal patterns)",
-        "detail": "{{candidates}} candidates; values redacted. Docker isn't available: without Gitleaks or Trivy."
+        "detail": "{{candidates}} candidates; values redacted. Docker isn't available: without Betterleaks or Trivy."
       },
       "sca": "Dependencies · {{engines}}",
       "review": "Static results are candidates; review flow, reachability and applicability."
     },
-    "osv_merged": "{{detail}} {{joined}} match Trivy and were merged into the same finding; {{new}} are new.",
-    "checkov_merged": "{{detail}} {{joined}} match Trivy or zizmor and were merged into the same finding; {{new}} are new.",
+    "osv_merged": "{{detail}} {{joined|# matches Trivy and was|# match Trivy and were}} merged into the same finding; {{new|# is|# are}} new.",
+    "checkov_merged": "{{detail}} {{joined|# matches Trivy or zizmor and was|# match Trivy or zizmor and were}} merged into the same finding; {{new|# is|# are}} new.",
     "sca": {
       "scope_first": "the first {{versions}} pinned versions",
       "scope": "{{versions}} pinned versions",
@@ -362,7 +410,7 @@
       "truncated": "The snapshot was truncated: {{files}} files weren't analyzed because of the total size limit. Coverage of this repository is partial.",
       "no_execution": "No repository code was run",
       "sast_rules": "SAST with Pitangus rules: coverage limited to languages with rules and no cross-file analysis",
-      "no_docker": "Without Docker: Python-only SAST with internal rules and pattern-based secrets",
+      "no_docker": "Without Docker: no SAST, and pattern-based secrets only",
       "sca_cap": "SCA caps the lookup at 250 versions per run",
       "osv_not_exploit": "OSV advisories don't prove exploitation",
       "no_ai_dast": "AI and DAST weren't part of this run"
@@ -382,9 +430,8 @@
     "runs": {
       "snapshot": "Read-only snapshot of the repository and SHA-256 hash of its content",
       "sast": "SAST with {{engine}} {{version}}: {{languages}}",
-      "internal_sast": "Internal SAST for Python only (Opengrep isn't available on this server)",
       "secrets": "Secrets with {{engine}} {{version}} across the whole snapshot; the value is never stored",
-      "internal_secrets": "Secrets with internal patterns (Gitleaks isn't available)",
+      "internal_secrets": "Secrets with internal patterns (Betterleaks isn't available)",
       "dependencies": "Dependencies with {{engine}} {{version}}, with its advisory databases stored locally: {{manifests}} ({{sample}}), matched against CISA KEV and EPSS",
       "dependencies_osv": "Dependencies with {{engine}} {{version}} and {{osv}} {{osv_version}} (OSV database, Dependabot's included), with their advisory databases stored locally: {{manifests}} ({{sample}}), matched against CISA KEV and EPSS; an advisory both detect counts once",
       "iac": "Infrastructure as code with {{engine}}: {{sample}}",
@@ -395,6 +442,7 @@
       "languages_later": "Languages will be known once the snapshot is downloaded (this provider doesn't let us list them beforehand)"
     },
     "skips": {
+      "no_sast": "No SAST: Opengrep needs Docker, which isn't available on this server",
       "no_execution": "The repository's code is never installed or run: the analysis is static",
       "sast_no_files": "SAST: there are no files in the languages covered by Pitangus rules",
       "no_rules": "No Pitangus SAST rules for {{languages}}: only their secrets and dependencies are reviewed",
@@ -403,12 +451,13 @@
       "no_checkov": "Checkov isn't available: infrastructure is reviewed with Trivy only",
       "no_zizmor": "zizmor isn't available: GitHub Actions workflows are reviewed by Checkov only",
       "no_dast": "No dynamic testing: no traffic is sent to any application",
-      "no_ai": "No AI: no source code is sent to OpenAI or Anthropic"
+      "no_ai": "No AI: no source code is sent to OpenAI or Anthropic",
+      "checkov_disabled": "{{engine}}: not run (disabled; PITANGUS_CHECKOV_ENABLED=1 turns it on)."
     }
   },
   "local": {
     "errors": {
-      "no_git": "Comparing with --base requires git to be installed",
+      "no_git": "This needs git installed: --base, --commit and --staged read the repository's history",
       "git_timeout": "git {{command}} took too long",
       "git_failed": "git {{command}}: {{detail}}",
       "git_failed_silently": "git {{command}}: failed",
@@ -416,12 +465,16 @@
       "unknown_ref": "The reference {{ref}} doesn't exist in this repository (missing `git fetch`?)",
       "exclude": "--exclude: {{error}}",
       "not_a_folder": "Not a folder: {{path}}",
-      "fail_on": "--fail-on must be one of: {{options}}"
+      "fail_on": "--fail-on must be one of: {{options}}",
+      "commit_and_staged": "--commit and --staged can't go together: scan either a commit or what's staged",
+      "no_merge_base": "{{base}} and {{head}} share no history: there's no starting point to compare with"
     },
     "progress": {
       "copied": "Read-only copy: {{files}} files to analyze.",
       "comparing": "Comparing with {{base}} (merge-base {{commit}}): {{files}} files changed.",
-      "baseline": "Analyzing the starting point so what was already there doesn't count ({{files}} files)…"
+      "baseline": "Analyzing the starting point so what was already there doesn't count ({{files}} files)…",
+      "copied_commit": "Read-only copy of commit {{commit}}, as git holds it (untracked files and unstaged edits don't count): {{files}} files to analyze.",
+      "copied_staged": "Read-only copy of what's staged, as the next commit will hold it (untracked files and unstaged edits don't count): {{files}} files to analyze."
     },
     "no_docker": "Docker isn't available: the engines didn't run.",
     "not_analyzed_step": "{{step}}: {{detail}}"
@@ -483,6 +536,43 @@
       "fixed_one": "#### Fixed by this change (1)",
       "fixed_other": "#### Fixed by this change ({{count}})",
       "more": "… and {{count}} more: every one is in `--format json` and in the SARIF."
+    },
+    "at_commit": "commit {{commit}}",
+    "at_staged": "staged changes",
+    "preexisting_one": "1 already existed in the code you're touching: it doesn't block.",
+    "excluded_one": "1 in excluded paths ({{patterns}}): it doesn't count.",
+    "unexamined_one": "{{engine}} didn't examine 1 file ({{reason}}): {{paths}}",
+    "unexamined_other": "{{engine}} didn't examine {{count}} files ({{reason}}): {{paths}}",
+    "left_out_one": "1 file was left out of the copy (size or budget), so no engine examined it: {{paths}}",
+    "left_out_other": "{{count}} files were left out of the copy (size or budget), so no engine examined them: {{paths}}",
+    "suppressed_inline": "Allowed by gitleaks:allow comments or the repository's .gitleaksignore: {{count}} ({{places}}). Excluded, not fixed."
+  },
+  "secret_filter": {
+    "screened_one": "{{count}} match set aside as not a secret: {{reasons}}.",
+    "screened_other": "{{count}} matches set aside as not secrets: {{reasons}}.",
+    "limitation": "{{detail}} They are counted here and not listed as findings.",
+    "reasons": {
+      "public_one": "{{count}} key that is public by design",
+      "public_other": "{{count}} keys that are public by design",
+      "unsigned_one": "{{count}} unsigned token",
+      "unsigned_other": "{{count}} unsigned tokens",
+      "path": "{{count}} outside the code (tests, docs, examples or translations)",
+      "reference_one": "{{count}} reference or template",
+      "reference_other": "{{count}} references or templates",
+      "prose": "{{count}} that read as text",
+      "identifier_one": "{{count}} identifier",
+      "identifier_other": "{{count}} identifiers",
+      "placeholder_one": "{{count}} placeholder",
+      "placeholder_other": "{{count}} placeholders",
+      "weak": "{{count}} too short or simple to be a password",
+      "checksum_one": "{{count}} checksum or integrity hash",
+      "checksum_other": "{{count}} checksums or integrity hashes",
+      "version_one": "{{count}} version number",
+      "version_other": "{{count}} version numbers",
+      "keyless_one": "{{count}} key header or marker with no key in it",
+      "keyless_other": "{{count}} key headers or markers with no key in them",
+      "link_one": "{{count}} public download link to a stored file",
+      "link_other": "{{count}} public download links to stored files"
     }
   },
   "secret_rules": {
@@ -490,7 +580,7 @@
       "not_settings": "The secret detection settings aren't valid.",
       "not_text": "Enter text.",
       "not_list": "Expected a list.",
-      "not_rule": "Each custom rule needs an ID, a description, a regular expression and a severity.",
+      "not_rule": "Each custom rule needs an ID, a description and a regular expression.",
       "too_long": "Use at most {{max}} characters.",
       "control_characters": "Remove line breaks, tabs and other control characters.",
       "too_many_entries": "Add at most {{max}} entries to each allowlist.",
@@ -501,7 +591,7 @@
       "description_required": "Describe what rule {{id}} detects (at least 3 characters).",
       "regex_required": "Enter a regular expression.",
       "triple_quote": "The expression “{{pattern}}” can't contain three single quotes in a row (''').",
-      "regex_unsupported": "The expression “{{pattern}}” uses {{construct}}, which Gitleaks and Trivy don't support.",
+      "regex_unsupported": "The expression “{{pattern}}” uses {{construct}}, which Betterleaks and Trivy don't support.",
       "regex_invalid": "The expression “{{pattern}}” isn't a valid regular expression.",
       "regex_empty": "The expression “{{pattern}}” matches empty text, so it would flag every line. Make it require at least one character.",
       "allow_everything": "The expression “{{pattern}}” matches empty text, so it would silence every secret. Make it more specific.",
@@ -512,7 +602,7 @@
       "path_not_relative": "The path “{{pattern}}” must be relative to the repository root, without . or ..",
       "path_everything": "The path “{{pattern}}” would cover the whole repository.",
       "stopword_invalid": "The stopword “{{word}}” isn't valid: use 3 to 60 letters, digits or _ . -.",
-      "unknown_rule": "{{rule}} isn't a built-in Gitleaks rule.",
+      "unknown_rule": "{{rule}} isn't a built-in Betterleaks rule.",
       "reason_required": "Explain why you're changing the settings (at least 5 characters)."
     },
     "withheld": {
@@ -582,6 +672,10 @@
         "name": "Passive API analysis (ZAP)",
         "detail": "{{count}} GET and HEAD operations of the OpenAPI definition requested at {{target}}, then ZAP's passive rules over every response. {{findings}} findings."
       },
+      "session": {
+        "name": "Session of the saved headers",
+        "detail": "Before the scan: {{before}} After: {{after}}"
+      },
       "login": {
         "name": "Sign-in as test users",
         "detail_one": "{{signed_in}} of {{count}} test user signed in, checked before the crawl.",
@@ -608,7 +702,10 @@
       "unauthenticated": "Without signing in: pages behind a login weren't reached.",
       "spider": "The spider stops after {{minutes}} minutes: a large site isn't covered whole, and pages it didn't reach weren't analyzed.",
       "not_pentest": "This is an automated dynamic analysis, not a penetration test.",
-      "headers": "Requests carried the domain's saved headers; whether they actually authenticated wasn't checked, so pages behind a login may still be missing.",
+      "headers": "Requests carried the domain's saved headers, but the domain has no session check page, so whether they still signed in wasn't verified: pages behind a login may be missing, and this scan marks nothing it found with them fixed. Set a session check page in the domain's headers.",
+      "headers_checked": "Requests carried the domain's saved headers, and its session check page answered with them before and after the scan.",
+      "blocked": "{{hosts}} turned the scan away (most requests got a refusal such as 401, 403, 406, 418 or 5xx instead of a page, a 404 or a redirect, or were rate-limited with 429): the scan is incomplete and marks nothing fixed. Allow the addresses scans leave from in the WAF or CDN (the new analysis wizard lists them) and scan again.",
+      "session_lost": "The session of the saved headers couldn't be confirmed ({{reason}}): the scan is incomplete and marks nothing fixed.",
       "api": "Only the {{count}} GET and HEAD operations of the definition were requested, with example values: POST, PUT, PATCH and DELETE operations were left out, and endpoints the definition doesn't list weren't tried.",
       "wildcards": "Hosts matched only by a wildcard weren't resolved, so they weren't analyzed: list a host by name to include it.",
       "login_one": "Signed in as 1 test user, checked before the crawl. Pages it reached show what that account can see, not what other roles can, and a crawl capped in time may still miss some.",
@@ -651,6 +748,14 @@
       "fetch_status": "{{url}} answered {{code}} instead of the OpenAPI definition (redirects aren't followed).",
       "missing": "API mode needs an OpenAPI definition."
     },
+    "session": {
+      "before": "Session check before the scan: {{detail}}",
+      "after": "Session check after the scan: {{detail}}",
+      "answered": "{{url}} answered {{status}} with the saved headers.",
+      "status": "{{url}} answered {{status}} with the saved headers instead of a 2xx: they no longer sign in.",
+      "unreached": "{{url}} couldn't be requested.",
+      "outside": "{{url}} is on a host outside this scan's scope."
+    },
     "login": {
       "signed_in": "Signed in as «{{name}}».",
       "failed": "Couldn't sign in as «{{name}}»: {{reason}} Its pages behind the login weren't crawled.",
@@ -681,7 +786,9 @@
         "detail_one": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} finding.",
         "detail_other": "{{templates}} detection templates of release {{release}} on each host's root, and the page-level ones on {{pages}} crawled pages, at most {{rate}} requests a second. {{count}} findings.",
         "detail_own_one": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} pages of the inventory, at most {{rate}} requests a second. {{count}} finding.",
-        "detail_own_other": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} pages of the inventory, at most {{rate}} requests a second. {{count}} findings."
+        "detail_own_other": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, and the page-level ones on {{pages}} pages of the inventory, at most {{rate}} requests a second. {{count}} findings.",
+        "detail_roots_one": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, at most {{rate}} requests a second. {{count}} finding.",
+        "detail_roots_other": "{{templates}} detection templates of release {{release}} and {{own}} of Pitangus' own on each host's root, at most {{rate}} requests a second. {{count}} findings."
       },
       "testssl": {
         "name": "TLS configuration (testssl.sh)",
@@ -697,7 +804,8 @@
         "detail_one": "{{count}} technology named on the scope's hosts ({{hosts}}), shown on the domain's page.",
         "detail_other": "{{count}} technologies named on the scope's hosts ({{hosts}}), shown on the domain's page."
       },
-      "unreached": "{{detail}} It couldn't check {{hosts}} (no answer, or the address was refused), so finding nothing there proves nothing."
+      "unreached": "{{detail}} It couldn't check {{hosts}} (no answer, or the address was refused), so finding nothing there proves nothing.",
+      "blocked": "{{detail}} {{hosts}} refused most of its requests (401, 403, 406, 418, 5xx or any other answer that isn't a page, a 404 or a redirect) or rate-limited the scan (429): a WAF, bot protection or a rate limit turned the scan away."
     },
     "testssl": {
       "reason": "testssl.sh rates {{check}} on {{host}} as a problem: {{finding}}",
@@ -733,6 +841,24 @@
       "failed": "OSV-Scanner couldn't look up the exposed versions.",
       "detail_one": "Looked up {{products}} in the local OSV databases: {{count}} product version with known vulnerabilities.",
       "detail_other": "Looked up {{products}} in the local OSV databases: {{count}} product versions with known vulnerabilities."
+    },
+    "exposure": {
+      "step": {
+        "name": "Exposure check",
+        "detail": "{{hosts|# host|# hosts}} and {{pages|# known path|# known paths}} checked: {{answered}} answered, {{count|# finding|# findings}}."
+      },
+      "limitations": {
+        "scope": "Exposure check: each host's root and known paths only, over HTTPS and plain HTTP (exposed files, debug and status consoles, TLS, response headers). No other page is requested and none is attacked; the full DAST, experimental, follows the site's links."
+      },
+      "progress": {
+        "nuclei": "nuclei {{version}}: running detection-only templates on each host's root, over HTTPS and plain HTTP…",
+        "testssl": "testssl.sh {{version}}: reading each host's TLS protocols, ciphers, certificate and HSTS…",
+        "httpx": "httpx {{version}}: naming the technologies each host answers with and reading the status of each known path…"
+      },
+      "errors": {
+        "unpinned": "A host of the scope has no checked address, so the exposure check didn't start: check the domain again.",
+        "needs_docker": "The exposure check needs the Docker runner: the worker without a Docker socket doesn't carry nuclei, testssl.sh or httpx."
+      }
     }
   },
   "discovery": {
@@ -747,5 +873,101 @@
     "declared": "This server declares its outgoing addresses in {{name}}: change them there.",
     "unreachable": "The address echo service didn't answer. Try again later, or set PITANGUS_EGRESS_IPS on the server.",
     "unexpected": "The address echo service didn't answer with one public IP address. Set PITANGUS_EGRESS_IPS on the server instead."
+  },
+  "contract": {
+    "exit_code": "{{engine}} ended with exit code {{code}}, which it never uses for a run that read its input.",
+    "empty": "{{engine}} gave no output, so there's no proof it read its input.",
+    "invalid": "{{engine}}'s output isn't the JSON it writes, so it can't be trusted.",
+    "unexpected": "{{engine}}'s output is valid JSON but not what it writes when it reads its input."
+  },
+  "policies": {
+    "detail": "{{files}} policy files read (Supabase migrations, Firebase rules): {{findings}} problems.",
+    "none": "No Supabase migrations or Firebase rules in the repository.",
+    "factor": "Access policy: it decides who can read and change the data, before any code runs",
+    "product": {
+      "firestore": "Firestore",
+      "storage": "Cloud Storage",
+      "database": "Realtime Database"
+    },
+    "rls": {
+      "title": "Table {{table}} without row level security",
+      "reason": "The migrations create {{table}} in the public schema and never enable row level security on it ({{path}}). Supabase serves that schema through its API: anyone with the anon key, which ships in the frontend, can read and change every row.",
+      "fix": "Add `alter table public.{{table}} enable row level security;` in a migration, then a policy for each operation the app needs (for example, rows whose user_id = auth.uid()). Without a policy, nothing gets through.",
+      "reason_schema": "The migrations create {{table}} in the {{schema}} schema, which this project's API serves, and never enable row level security on it ({{path}}): anyone with the anon key, which ships in the frontend, can read and change every row.",
+      "fix_schema": "Add `alter table {{schema}}.{{table}} enable row level security;` in a migration, then a policy for each operation the app needs (for example, rows whose user_id = auth.uid()). Without a policy, nothing gets through."
+    },
+    "firebase": {
+      "open": {
+        "title": "{{product}} open to anyone",
+        "reason": "`allow {{operations}}` on {{path}} has no condition ({{file}}): anyone, signed in or not, can do it.",
+        "fix": "Require a signed-in user and check that the data is theirs, for example `allow read, write: if request.auth != null && request.auth.uid == userId;`, and deny everything else.",
+        "reason_database": "`.{{operations}}` on {{path}} is `true` ({{file}}): anyone, signed in or not, can do it there and everywhere below.",
+        "fix_database": "Require a signed-in user and check that the data is theirs, for example `\".read\": \"auth != null && auth.uid === $uid\"` under `$uid`, and leave the rest without a rule (denied)."
+      },
+      "test-mode": {
+        "title": "{{product}} left in test mode",
+        "reason": "`allow {{operations}}` on {{path}} only checks a date ({{file}}): until then anyone can do it, and when it passes the app stops working.",
+        "fix": "Replace the date with real rules: a signed-in user, and only on their own data (`request.auth.uid == userId`).",
+        "reason_database": "`.{{operations}}` on {{path}} only checks a date ({{file}}): until then anyone can do it, and when it passes the app stops working.",
+        "fix_database": "Replace the date with real rules: a signed-in user, and only on their own data (`auth.uid === $uid`)."
+      },
+      "any-signed-in": {
+        "title": "{{product}}: every signed-in user can reach all the data",
+        "reason": "`allow {{operations}}` on {{path}} only checks that someone is signed in ({{file}}): any account, including one created a minute ago, reads and writes every document.",
+        "fix": "Match each collection apart and check ownership (`request.auth.uid == resource.data.owner`), instead of one rule for every document.",
+        "reason_database": "`.{{operations}}` at the root only checks that someone is signed in ({{file}}): any account, including one created a minute ago, reaches the whole database.",
+        "fix_database": "Give each node its own rule and check ownership (`auth.uid === $uid`), instead of one rule at the root for everything."
+      }
+    }
+  },
+  "vendored": {
+    "reason": "In third-party code copied into the repository ({{why}}). Update the library instead of patching it here. It's excluded, not fixed: it comes back if the file stops looking like someone else's code.",
+    "why": {
+      "folder": "under {{detail}}/",
+      "library": "{{detail}} is a known library",
+      "minified": "{{detail}} is minified",
+      "banner": "the file opens with the license banner of {{detail}}"
+    }
+  },
+  "coverage": {
+    "reason": {
+      "left_out": "left out of the copy: size or budget",
+      "not_read": "no result from the engine",
+      "parse_error": "parse error",
+      "skipped": "skipped by the engine",
+      "minified": "minified code",
+      "timeout": "time limit reached",
+      "too_large": "too large",
+      "unreadable": "unreadable",
+      "partialparsing": "only partly parsed",
+      "syntax_error": "syntax error",
+      "lexical_error": "syntax error",
+      "other_syntax_error": "syntax error",
+      "out_of_memory": "out of memory",
+      "error": "engine error",
+      "other": "engine error ({{code}})",
+      "blocked": "the site turned the scan away",
+      "no_answer": "no answer",
+      "http": "answered {{status}}, which proves nothing about the page",
+      "no_lockfile": "no lockfile",
+      "workspace": "resolved in the workspace's lockfile",
+      "empty_lockfile": "lockfile without packages",
+      "unresolved_versions": "dependencies without a resolved version",
+      "resolution_failed": "remote resolution failed",
+      "encoding": "an encoding the engine doesn't read",
+      "dependencies": "installed or vendored dependencies, read only by the secret scanners",
+      "generated": "build output, read only by the secret scanners",
+      "tests": "test code, left out of SAST",
+      "present": "still answers with a page: only a 404 or a 410 proves the path gone",
+      "skipped_by_engine": "the engine passed over it without reading it",
+      "allowlisted": "in a path your secret detection settings allow",
+      "unwritable_name": "committed under a name no file can be written under here",
+      "not_in_archive": "committed, but the provider's archive doesn't hold it (export-ignore)",
+      "lfs_object": "a Git LFS pointer: the file it stands for wasn't downloaded",
+      "submodule": "a submodule: another repository, not part of this analysis",
+      "symlink": "a symbolic link: never followed",
+      "tree_unlisted": "the provider didn't list what this commit holds here",
+      "no_inventory": "no engine listed a package from this folder"
+    }
   }
 }

@@ -1,13 +1,14 @@
-import { useCallback, useId, useState, type FormEvent, type RefObject } from 'react'
+import { useId, useState, type FormEvent, type RefObject } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { CircleNotchIcon } from '@phosphor-icons/react'
 import { apiPost, type PostResponse } from '@/shared/api/client'
-import { evidenceAssetsQuery, keys } from '@/shared/api/queries'
+import { keys } from '@/shared/api/queries'
 import { Button } from '@/shared/ui/button'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
+import { useRepositorySearch } from '@/features/compliance/repository-search'
 
 export type RegisteredImage = PostResponse<'/api/images'>
 
@@ -32,8 +33,7 @@ export function AddImageDialog({ open, onOpenChange, admin, repository, onAdded,
     setWasOpen(open)
     if (open) { setReference(''); setBuilt(preset); setScan(false); setError('') }
   }
-  const search = useCallback((q: string) => queryClient.fetchQuery(evidenceAssetsQuery(q, 'repository')).then(page => ({
-    options: page.items.map(item => ({ id: item.key, label: item.name })), total: page.total })), [queryClient])
+  const search = useRepositorySearch()
   const mutation = useMutation({
     mutationFn: () => apiPost('/api/images', 'register-image', { reference: reference.trim(), scan, ...(admin && built ? { repository: built.id } : {}) }),
     onSuccess: image => {
@@ -65,7 +65,7 @@ export function AddImageDialog({ open, onOpenChange, admin, repository, onAdded,
       {admin && <div className="space-y-2">
         <span className="block text-sm text-app-secondary">{t('images.add.built_from')} <span className="text-app-muted">{t('images.add.optional')}</span></span>
         <div className="flex flex-wrap items-center gap-2">
-          <Combobox className="w-full min-w-0 flex-1" label={t('images.add.built_from_label')} placeholder={t('images.add.built_from_placeholder')} emptyText={t('images.add.no_repository')}
+          <Combobox className="w-full min-w-0 flex-1" label={t('images.add.built_from_label')} placeholder={t('images.add.built_from_placeholder')} emptyText={query => query ? t('images.add.no_repository', { query }) : t('images.add.no_repositories')}
             value={built} search={search} onSelect={setBuilt} describedBy={`${id}-built-hint`} />
           {built && <Button type="button" size="sm" variant="ghost" aria-label={t('images.add.clear_repository_for', { name: built.label })} onClick={() => setBuilt(null)}>{t('images.add.clear_repository')}</Button>}
         </div>

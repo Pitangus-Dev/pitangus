@@ -18,7 +18,7 @@ const API = { key: 'github#1', name: 'org/api' }
 const WEB = { key: 'github#2', name: 'org/web' }
 // The same fingerprint in two repositories: two findings, one row each.
 const SCOPE = { id: 'scope', type: 'asset_scope', status: 'completed', created_at: '2026-10-01T00:00:00Z', total: 2, truncated: false, steps: [], limitations: [], owasp_coverage: [],
-  summary: { lifecycle: { open: 2, fixed: 0, suppressed: 0, from_pr: 0, excluded: 0, by_severity: { critical: 1, high: 1, medium: 0, low: 0 } }, candidates: 2, sla: {},
+  summary: { lifecycle: { open: 2, fixed: 0, suppressed: 0, from_pr: 0, excluded: 0, unverified: 0, unverified_stale: 0, unverified_configuration: 0, by_severity: { critical: 1, high: 1, medium: 0, low: 0 } }, candidates: 2, sla: {},
     kpis: { active: 2, dismissed: 0, only_excluded: false, has_sla: false, overdue: 0, soon: 0, act: 0, attend: 2, critical: 1, high: 1, kev: 0, fixable: 0 } },
   by_asset: [{ ...API, kind: 'repository', open: 1, critical: 1, high: 0, fixed: 0, suppressed: 0, excluded: 0, shown: 1 },
     { ...WEB, kind: 'repository', open: 1, critical: 0, high: 1, fixed: 0, suppressed: 0, excluded: 0, shown: 1 }],

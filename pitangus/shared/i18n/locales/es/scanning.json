@@ -18,18 +18,19 @@
     "static_severity": "Hallazgo estático de severidad {{severity}}",
     "confirm_reachability": "Requiere confirmar alcanzabilidad en el contexto de la aplicación",
     "internal_pattern": "Patrón estático de severidad {{severity}}; requiere confirmar alcanzabilidad",
-    "dev_dependency": "Dependencia de desarrollo: no llega a producción, pero se ejecuta en tu equipo y en la CI"
+    "dev_dependency": "Dependencia de desarrollo: no llega a producción, pero se ejecuta en tu equipo y en la CI",
+    "secret_outside_code": "En pruebas, documentación o ejemplos: rótalo si es real, aunque rara vez es el que usa producción"
   },
   "progress": {
     "engine": "{{engine}}: {{detail}}",
     "opengrep": "Opengrep {{version}}: SAST multi-lenguaje con las reglas de Pitangus…",
-    "gitleaks": "Gitleaks {{version}}: buscando secretos…",
+    "betterleaks": "Betterleaks {{version}}: buscando secretos…",
     "trivy": "Trivy {{version}}: dependencias, infraestructura y secretos…",
     "osv": "OSV-Scanner {{version}}: dependencias con la base OSV (la primera vez descarga las bases de avisos)…",
     "checkov": "Checkov {{version}}: infraestructura como código y pipelines…",
     "zizmor": "zizmor {{version}}: seguridad de GitHub Actions…",
     "engines_failed": "No se pudieron ejecutar: {{engines}}. El resultado no equivale a «sin hallazgos»; revisa en el servidor que las imágenes estén construidas (docker compose build).",
-    "no_docker": "Docker no disponible: se usan las reglas internas (solo Python) y patrones de secretos.",
+    "no_docker": "Docker no disponible: sin SAST, y secretos solo con patrones internos.",
     "feeds": "Cruzando avisos con CISA KEV y EPSS para priorizar…"
   },
   "engines": {
@@ -44,14 +45,16 @@
       "no_docker": "docker no disponible",
       "pulled": "descargada",
       "pull_failed": "falló la descarga",
-      "not_installed": "No está instalado en esta imagen"
+      "not_installed": "No está instalado en esta imagen",
+      "disabled": "desactivado: no se descarga"
     },
     "unreadable": "{{engine}} no devolvió una salida legible.",
     "timeout": "{{engine}} superó el tiempo máximo.",
     "failed": "{{engine}} terminó con error",
     "failed_early": "{{engine}} terminó con error antes de producir resultados",
     "not_installed": "{{engine}} no está instalado en este worker ({{binary}} no está en el PATH): esa parte del análisis no se hizo.",
-    "none_installed": "Este worker no tiene ningún motor de análisis instalado y PITANGUS_ENGINE_RUNNER=local: usa la imagen worker-standalone o dale al worker el socket de Docker."
+    "none_installed": "Este worker no tiene ningún motor de análisis instalado y PITANGUS_ENGINE_RUNNER=local: usa la imagen worker-standalone o dale al worker el socket de Docker.",
+    "disabled": "{{engine}}: no ejecutado (desactivado). Se activa con {{setting}}=1; lo que encontró antes sigue abierto, nunca remediado."
   },
   "opengrep": {
     "no_docker": "Docker no disponible: el SAST multi-lenguaje no se ejecutó. {{problem}}",
@@ -60,13 +63,30 @@
     "exit_code": "Opengrep terminó con error (código {{code}}); el SAST no concluyó",
     "timeout": "Opengrep superó el tiempo máximo; el SAST no concluyó.",
     "no_covered_language": "ninguno con reglas",
-    "detail": "{{rulesets}} conjuntos de reglas de Pitangus sobre {{languages}}; {{candidates}} candidatos.",
+    "detail": "{{rulesets|# conjunto|# conjuntos}} de reglas de Pitangus sobre {{languages}}; {{candidates|# candidato|# candidatos}}.",
     "uncovered": "Sin reglas todavía para: {{languages}}.",
     "minified_one": "{{count}} archivo compilado o minificado quedó fuera del SAST (sigue en la búsqueda de secretos).",
     "minified_other": "{{count}} archivos compilados o minificados quedaron fuera del SAST (siguen en la búsqueda de secretos).",
     "errors_one": "{{count}} archivo no se pudo analizar (sintaxis o tamaño).",
     "errors_other": "{{count}} archivos no se pudieron analizar (sintaxis o tamaño).",
-    "reason": "`{{snippet}}` en {{path}}:{{line}}."
+    "reason": "El código en {{path}}:{{line}} coincide con el patrón de la regla.",
+    "skipped": "Opengrep se saltó {{count}} archivos por su cuenta (tamaño o ilegibles): no se analizaron.",
+    "silenced_one": "{{count}} coincidencia está silenciada en el código con un comentario nosemgrep: aparece como excluida.",
+    "silenced_other": "{{count}} coincidencias están silenciadas en el código con comentarios nosemgrep: aparecen como excluidas.",
+    "silenced_reason": "Silenciado en el código con un comentario nosemgrep. Quita el comentario cuando esté corregido, o el próximo cambio en esa línea podría ocultar un problema real.",
+    "silenced_limitation_one": "{{count}} coincidencia de SAST está silenciada con nosemgrep en el código: queda excluida, no remediada, y se reabre si el comentario desaparece.",
+    "silenced_limitation_other": "{{count}} coincidencias de SAST están silenciadas con nosemgrep en el código: quedan excluidas, no remediadas, y se reabren si el comentario desaparece.",
+    "rules_not_loaded_one": "1 regla no cargó: lo que había encontrado antes sigue abierto.",
+    "rules_not_loaded_other": "{{count}} reglas no cargaron: lo que habían encontrado antes sigue abierto.",
+    "vendored_one": "{{count}} coincidencia está en código de terceros copiado en el repositorio (una carpeta vendor, una librería conocida, un archivo minificado): aparece como excluida.",
+    "vendored_other": "{{count}} coincidencias están en código de terceros copiado en el repositorio (carpetas vendor, librerías conocidas, archivos minificados): aparecen como excluidas.",
+    "vendored_limitation_one": "{{count}} coincidencia de SAST está en código de terceros copiado en el repositorio: queda excluida, no remediada, y vuelve si el archivo deja de parecer una librería.",
+    "vendored_limitation_other": "{{count}} coincidencias de SAST están en código de terceros copiado en el repositorio: quedan excluidas, no remediadas, y vuelven si el archivo deja de parecer una librería.",
+    "skipped_one": "Opengrep se saltó 1 archivo por su cuenta (tamaño o ilegible): no se analizó.",
+    "opt_in_one": "1 regla viene desactivada por defecto ({{rules}}): PITANGUS_SAST_OPT_IN_RULES la activa.",
+    "opt_in_other": "{{count}} reglas vienen desactivadas por defecto ({{rules}}): PITANGUS_SAST_OPT_IN_RULES las activa.",
+    "tests_one": "1 carpeta o archivo de pruebas quedó fuera del SAST a propósito: aparece como no analizado (se sigue buscando secretos ahí).",
+    "tests_other": "{{count}} carpetas o archivos de pruebas quedaron fuera del SAST a propósito: aparecen como no analizados (se siguen buscando secretos ahí)."
   },
   "sca": {
     "upgrade": "Actualiza {{package}} de {{installed}} a {{fixed}} o superior en {{target}} y regenera el lockfile.",
@@ -81,7 +101,7 @@
     "exposed_rule": "Secreto expuesto ({{rule}})",
     "trivy_reason": "Patrón {{category}} en {{path}}:{{line}}; valor redactado.",
     "trivy_reason_generic": "Patrón de secreto en {{path}}:{{line}}; valor redactado.",
-    "gitleaks_reason": "Regla {{rule}} en {{path}}:{{line}} (entropía {{entropy}}); valor redactado.",
+    "betterleaks_reason": "Regla {{rule}} en {{path}}:{{line}} (entropía {{entropy}}); valor redactado.",
     "rotate": "Rota la credencial ahora y muévela a un gestor de secretos. Si el repositorio es público, considera reescribir el historial.",
     "titles": {
       "jwt": "JSON Web Token expuesto",
@@ -107,32 +127,56 @@
       "azure_ad_client_secret": "Secreto de cliente de Azure AD expuesto",
       "heroku_api_key": "Clave de API de Heroku expuesta"
     },
-    "custom_reason": "La regla {{rule}} de tu organización coincidió en {{path}}:{{line}}; valor redactado."
+    "custom_reason": "La regla {{rule}} de tu organización coincidió en {{path}}:{{line}}; valor redactado.",
+    "validation": {
+      "active": "Su proveedor dice que sigue activo: revócalo ya",
+      "revoked": "Su proveedor dice que ya no funciona: aun así, quítalo del código y de su historial",
+      "unknown": "Su proveedor no pudo confirmar si sigue activo: trátalo como activo"
+    },
+    "ignore_file": {
+      "excluded": "Está en el {{file}} del repositorio ({{path}}:{{line}}). El secreto sigue ahí: está excluido, no remediado."
+    },
+    "inline": {
+      "excluded": "Permitido por un comentario gitleaks:allow en su línea del código ({{path}}:{{line}}). El secreto sigue ahí: está excluido, no remediado.",
+      "detail": "{{count|# secreto quedó permitido|# secretos quedaron permitidos}} por comentarios gitleaks:allow en el código o por el .gitleaksignore del repositorio, excluidos y listados: {{places}}.",
+      "unknown": "No se pudo comprobar qué coincidencias permiten los comentarios gitleaks:allow del código, así que el análisis queda incompleto y ningún secreto se marca como remediado.",
+      "limitation": "{{count|# secreto está permitido|# secretos están permitidos}} por comentarios gitleaks:allow en el código o por el .gitleaksignore del repositorio ({{places}}). Siguen ahí: los ves en Hallazgos → Excluidos."
+    }
   },
   "trivy": {
     "no_docker": "Docker no disponible: dependencias, IaC y secretos con Trivy no se ejecutaron.",
     "failed_download": "Trivy terminó con error antes de producir resultados (sin acceso a su base de vulnerabilidades)",
     "timeout": "Trivy superó el tiempo máximo; dependencias e IaC no concluyeron.",
-    "detail": "{{manifests}} manifiestos de dependencias y {{configs}} archivos de infraestructura examinados: {{sca}} avisos de dependencias, {{iac}} fallos de configuración, {{secrets}} secretos.",
-    "detail_dev": "{{manifests}} manifiestos de dependencias y {{configs}} archivos de infraestructura examinados: {{sca}} avisos de dependencias ({{dev}} en dependencias de desarrollo, con menos prioridad), {{iac}} fallos de configuración, {{secrets}} secretos.",
+    "detail": "{{manifests|# manifiesto de dependencias|# manifiestos de dependencias}} y {{configs|# archivo de infraestructura|# archivos de infraestructura}} examinados: {{sca|# aviso de dependencias|# avisos de dependencias}}, {{iac|# fallo de configuración|# fallos de configuración}}, {{secrets|# secreto|# secretos}}.",
+    "detail_dev": "{{manifests|# manifiesto de dependencias|# manifiestos de dependencias}} y {{configs|# archivo de infraestructura|# archivos de infraestructura}} examinados: {{sca|# aviso de dependencias|# avisos de dependencias}} ({{dev}} en dependencias de desarrollo, con menos prioridad), {{iac|# fallo de configuración|# fallos de configuración}}, {{secrets|# secreto|# secretos}}.",
     "no_feeds": "KEV/EPSS no disponibles; la prioridad usa solo CVSS.",
     "secret_config_rejected": "Trivy rechazó la configuración de detección de secretos de tu organización: analizó dependencias e IaC, pero no secretos.",
-    "secret_config_rejected_cause": "Trivy rechazó la configuración de detección de secretos de tu organización: analizó dependencias e IaC, pero no secretos. Causa: {{cause}}"
+    "secret_config_rejected_cause": "Trivy rechazó la configuración de detección de secretos de tu organización: analizó dependencias e IaC, pero no secretos. Causa: {{cause}}",
+    "unresolved_one": "No se pudieron resolver las dependencias de {{count}} manifiesto contra su repositorio remoto ({{manifests}}): quedan sin examinar; el resto sí se examinó.",
+    "unresolved_other": "No se pudieron resolver las dependencias de {{count}} manifiestos contra su repositorio remoto ({{manifests}}): quedan sin examinar; el resto sí se examinó."
   },
   "osv": {
     "no_docker": "Docker no disponible: dependencias con OSV-Scanner no se ejecutaron.",
     "no_manifests": "No hay manifiestos de dependencias que OSV-Scanner reconozca.",
     "timeout": "OSV-Scanner superó el tiempo máximo (la primera vez descarga las bases de avisos).",
-    "detail": "{{manifests}} manifiestos con {{packages}} paquetes vulnerables: {{advisories}} avisos, comparados en local con la base OSV (sin resolver transitivas: no se envía la lista de dependencias).",
-    "detail_resolved": "{{manifests}} manifiestos con {{packages}} paquetes vulnerables: {{advisories}} avisos, comparados en local con la base OSV."
+    "detail": "{{manifests|# manifiesto|# manifiestos}} con {{packages|# paquete vulnerable|# paquetes vulnerables}}: {{advisories|# aviso|# avisos}}; la comparación se hace en local con la base OSV (sin resolver transitivas: no se envía la lista de dependencias).",
+    "detail_resolved": "{{manifests|# manifiesto|# manifiestos}} con {{packages|# paquete vulnerable|# paquetes vulnerables}}: {{advisories|# aviso|# avisos}}; la comparación se hace en local con la base OSV.",
+    "unread_one": "No se pudo leer {{count}} lockfile ({{files}}): queda sin examinar.",
+    "unread_other": "No se pudieron leer {{count}} lockfiles ({{files}}): quedan sin examinar."
   },
-  "gitleaks": {
-    "no_docker": "Docker no disponible: la detección de secretos con Gitleaks no se ejecutó.",
-    "unreadable": "Gitleaks no devolvió un reporte legible.",
-    "detail": "Reglas de Gitleaks sobre el snapshot: {{secrets}} secretos; valores redactados.",
-    "detail_configured": "Reglas de Gitleaks sobre el snapshot, con la configuración de tu organización ({{rules}} reglas personalizadas, {{disabled}} reglas integradas desactivadas, {{allowlist}} entradas en la lista de permitidos): {{secrets}} secretos; valores redactados.",
-    "config_failed": "Gitleaks rechazó la configuración de detección de secretos de tu organización, así que no analizó secretos. Revísala en Hallazgos → Detección de secretos.",
-    "config_failed_cause": "Gitleaks rechazó la configuración de detección de secretos de tu organización, así que no analizó secretos. Revísala en Hallazgos → Detección de secretos. Causa: {{cause}}"
+  "dependency_coverage": {
+    "no_lockfile": "{{count|# manifiesto no tiene|# manifiestos no tienen}} al lado un lockfile que este motor lea ({{manifests}}): lo que {{count|declara|declaran}} no se examinó. Sube el lockfile al repositorio para que se examine.",
+    "empty_lockfile": "{{count|# manifiesto tiene|# manifiestos tienen}} al lado un lockfile del que este motor no obtuvo ningún paquete ({{manifests}}): lo que {{count|declara|declaran}} no se examinó. Sube el lockfile que genera tu gestor de paquetes para que se examine.",
+    "unversioned": "{{packages|# dependencia|# dependencias}} de {{manifests}} no tenían una versión resuelta (un padre, una propiedad o un rango que no se resolvió, o un requisito sin versión fija): {{count|las dependencias de ese manifiesto no se examinaron|las dependencias de esos manifiestos no se examinaron}}.",
+    "encoding": "{{count|# archivo está|# archivos están}} en una codificación que este motor no lee, como UTF-16 ({{files}}): {{count|no se examinó|no se examinaron}}. {{count|Guárdalo|Guárdalos}} en UTF-8."
+  },
+  "betterleaks": {
+    "no_docker": "Docker no disponible: la detección de secretos con Betterleaks no se ejecutó.",
+    "unreadable": "Betterleaks no devolvió un reporte legible.",
+    "detail": "Reglas de Betterleaks sobre el snapshot: {{secrets|# secreto|# secretos}}; valores redactados.",
+    "detail_configured": "Reglas de Betterleaks sobre el snapshot, con la configuración de tu organización ({{rules|# regla personalizada|# reglas personalizadas}}, {{disabled|# regla integrada desactivada|# reglas integradas desactivadas}}, {{allowlist|# entrada en la lista de permitidos|# entradas en la lista de permitidos}}): {{secrets|# secreto|# secretos}}; valores redactados.",
+    "config_failed": "Betterleaks rechazó la configuración de detección de secretos de tu organización, así que no analizó secretos. Revísala en Hallazgos → Detección de secretos.",
+    "config_failed_cause": "Betterleaks rechazó la configuración de detección de secretos de tu organización, así que no analizó secretos. Revísala en Hallazgos → Detección de secretos. Causa: {{cause}}"
   },
   "checkov": {
     "image_reason": "Checkov ({{rule}}) sobre el Dockerfile reconstruido del historial de la imagen.",
@@ -143,12 +187,14 @@
     "remediation_generic": "Ajusta el recurso para cumplir «{{check}}». Índice de reglas: {{index}}",
     "no_docker": "Docker no disponible: infraestructura y pipelines con Checkov no se ejecutaron.",
     "timeout": "Checkov superó el tiempo máximo; infraestructura y pipelines no concluyeron.",
-    "detail": "{{failures}} fallos de configuración en {{frameworks}}.",
+    "detail": "{{failures|# fallo de configuración|# fallos de configuración}} en {{frameworks}}.",
     "clean": "Sin fallos en la infraestructura como código ni en los pipelines del repositorio.",
     "image_no_docker": "Docker no disponible: Checkov no revisó la configuración de la imagen.",
     "image_no_history": "La imagen no guarda historial de construcción: Checkov no tiene Dockerfile que revisar.",
     "image_timeout": "Checkov superó el tiempo máximo con el historial de la imagen.",
-    "image_detail": "{{failures}} fallos en el Dockerfile reconstruido de {{steps}} pasos del historial."
+    "image_detail": "{{failures|# fallo|# fallos}} en el Dockerfile reconstruido de {{steps|# paso|# pasos}} del historial.",
+    "unparsed": "Checkov no pudo leer {{count}} archivos, así que sus resultados están incompletos: nada de lo que reportó antes cuenta como remediado en este análisis.",
+    "unparsed_one": "Checkov no pudo leer 1 archivo, así que sus resultados están incompletos: nada de lo que reportó antes cuenta como remediado en este análisis."
   },
   "zizmor": {
     "audits": {
@@ -185,8 +231,8 @@
     "remediation": "Guía y corrección de zizmor: {{url}}",
     "no_docker": "Docker no disponible: los workflows de GitHub Actions no se auditaron con zizmor.",
     "nothing_to_audit": "El repositorio no tiene workflows ni acciones de GitHub que auditar.",
-    "detail": "{{audited}} workflows o acciones de GitHub auditados sin conexión: {{problems}} problemas en {{affected}} de ellos.",
-    "clean": "{{audited}} workflows o acciones de GitHub auditados sin conexión: sin problemas."
+    "detail": "{{audited|# workflow o acción de GitHub auditado|# workflows o acciones de GitHub auditados}} sin conexión: {{problems|# problema|# problemas}} en {{affected}} de ellos.",
+    "clean": "{{audited|# workflow o acción de GitHub auditado|# workflows o acciones de GitHub auditados}} sin conexión: sin problemas."
   },
   "image": {
     "errors": {
@@ -201,11 +247,11 @@
     "timeout": "{{engine}} superó el tiempo máximo con esta imagen.",
     "trivy_detail": "{{sca}} avisos en paquetes, {{iac}} problemas de configuración de la imagen y {{secrets}} secretos en capas, variables de entorno o historial.",
     "grype_detail": "{{advisories}} avisos en paquetes.",
+    "grype_detail_platform": "{{advisories}} avisos en paquetes, en {{platform}}: la plataforma que analizó Trivy.",
     "registry": {
       "denied": "El registro rechazó el acceso: revisa que la imagen exista y que las credenciales guardadas para ese registro tengan permiso de lectura.",
       "credentials_needed": "El registro pide credenciales: guárdalas en Integraciones → Registros de contenedores.",
-      "not_found": "El registro no tiene esa imagen o esa etiqueta.",
-      "unreadable": "No se pudo leer la imagen del registro."
+      "not_found": "El registro no tiene esa imagen o esa etiqueta."
     },
     "rules": {
       "root": {
@@ -299,18 +345,6 @@
   },
   "internal": {
     "remediation": "Revisar el flujo y la versión afectada; validar la alcanzabilidad antes de priorizar.",
-    "sql": {
-      "title": "SQL construido dinámicamente",
-      "reason": "Consulta formada con interpolación o concatenación; revisar si incorpora entrada no confiable."
-    },
-    "shell": {
-      "title": "Comando con shell=True",
-      "reason": "La ejecución usa intérprete de shell; revisar el origen de sus argumentos."
-    },
-    "dynamic_code": {
-      "title": "Ejecución dinámica de código",
-      "reason": "eval/exec requiere revisión del origen y validación del contenido."
-    },
     "secret_reason": "Patrón de credencial detectado. El valor se omitió del reporte y no se envió al navegador.",
     "secret_titles": {
       "github_token": "Posible GitHub token",
@@ -326,24 +360,38 @@
   "repository": {
     "snapshot": {
       "copied": "{{files}} archivos copiados en solo lectura, sin instalar dependencias ni ejecutar scripts.",
-      "skipped": "{{detail}} Se dejaron fuera {{skipped}}: {{not_analyzable}} no analizables (binarios, imágenes, bundles), {{too_large}} por tamaño de archivo.",
-      "skipped_budget": "{{detail}} Se dejaron fuera {{skipped}}: {{not_analyzable}} no analizables (binarios, imágenes, bundles), {{too_large}} por tamaño de archivo y {{over_budget}} al agotarse el presupuesto del snapshot."
+      "skipped": "{{detail}} {{skipped|Se dejó fuera #|Se dejaron fuera #}}: {{not_analyzable}} no analizables (binarios, imágenes, bundles), {{too_large}} por tamaño de archivo.",
+      "skipped_budget": "{{detail}} {{skipped|Se dejó fuera #|Se dejaron fuera #}}: {{not_analyzable}} no analizables (binarios, imágenes, bundles), {{too_large}} por tamaño de archivo y {{over_budget}} al agotarse el presupuesto del snapshot.",
+      "left_out": "{{detail}} {{skipped|Se dejó fuera #|Se dejaron fuera #}}: {{too_large}} por tamaño de archivo.",
+      "left_out_budget": "{{detail}} {{skipped|Se dejó fuera #|Se dejaron fuera #}}: {{too_large}} por tamaño de archivo y {{over_budget}} al agotarse el presupuesto del snapshot.",
+      "secret_only_one": "{{detail}} 1 archivo que los motores de código no leen (un binario, una imagen, una carpeta oculta…) lo leyeron solo los escáneres de secretos.",
+      "secret_only_other": "{{detail}} {{count}} archivos que los motores de código no leen (binarios, imágenes, carpetas ocultas…) los leyeron solo los escáneres de secretos.",
+      "credentials_one": "{{detail}} 1 archivo de credenciales (.env, .npmrc, una clave privada…) lo leyeron solo los escáneres de secretos, aparte del resto, y se borró justo después.",
+      "credentials_other": "{{detail}} {{count}} archivos de credenciales (.env, .npmrc, claves privadas…) los leyeron solo los escáneres de secretos, aparte del resto, y se borraron justo después.",
+      "apart_one": "{{detail}} 1 carpeta de dependencias o de compilación ({{folders}}) la leyeron solo los escáneres de secretos: los demás motores la listan como no analizada.",
+      "apart_other": "{{detail}} {{count}} carpetas de dependencias o de compilación ({{folders}}) las leyeron solo los escáneres de secretos: los demás motores las listan como no analizadas.",
+      "local_only_one": "{{detail}} Se dejó fuera 1 carpeta que las herramientas instalan o usan de caché en esta máquina ({{folders}}): no está en el repositorio.",
+      "local_only_other": "{{detail}} Se dejaron fuera {{count}} carpetas que las herramientas instalan o usan de caché en esta máquina ({{folders}}): no están en el repositorio.",
+      "not_held_one": "{{detail}} 1 entrada confirmada no está en el archivo del proveedor o no se puede copiar tal como se confirmó ({{paths}}): figura como no analizada.",
+      "not_held_other": "{{detail}} {{count}} entradas confirmadas no están en el archivo del proveedor o no se pueden copiar tal como se confirmaron ({{paths}}…): figuran como no analizadas.",
+      "transcoded_one": "{{detail}} 1 archivo en UTF-16 o UTF-32 se leyó como UTF-8 para que los motores vean su texto.",
+      "transcoded_other": "{{detail}} {{count}} archivos en UTF-16 o UTF-32 se leyeron como UTF-8 para que los motores vean su texto."
     },
     "steps": {
       "snapshot": "Snapshot de código",
-      "internal_sast": {
-        "name": "SAST interno (Python)",
-        "detail": "{{candidates}} candidatos con reglas AST internas. Docker no disponible: sin Opengrep, solo Python queda cubierto."
+      "no_sast": {
+        "name": "SAST",
+        "detail": "No se ejecutó: Opengrep necesita Docker, que no está disponible en este servidor."
       },
       "internal_secrets": {
         "name": "Secretos (patrones internos)",
-        "detail": "{{candidates}} candidatos; valores redactados. Docker no disponible: sin Gitleaks ni Trivy."
+        "detail": "{{candidates}} candidatos; valores redactados. Docker no disponible: sin Betterleaks ni Trivy."
       },
       "sca": "Dependencias · {{engines}}",
       "review": "Los resultados estáticos son candidatos; revisar flujo, alcanzabilidad y aplicabilidad."
     },
-    "osv_merged": "{{detail}} {{joined}} coinciden con Trivy y se unieron al mismo hallazgo; {{new}} son nuevos.",
-    "checkov_merged": "{{detail}} {{joined}} coinciden con Trivy o zizmor y se unieron al mismo hallazgo; {{new}} son nuevos.",
+    "osv_merged": "{{detail}} {{joined|# coincide con Trivy y se unió|# coinciden con Trivy y se unieron}} al mismo hallazgo; {{new|# es nuevo|# son nuevos}}.",
+    "checkov_merged": "{{detail}} {{joined|# coincide con Trivy o zizmor y se unió|# coinciden con Trivy o zizmor y se unieron}} al mismo hallazgo; {{new|# es nuevo|# son nuevos}}.",
     "sca": {
       "scope_first": "primeras {{versions}} versiones fijadas",
       "scope": "{{versions}} versiones fijadas",
@@ -362,7 +410,7 @@
       "truncated": "El snapshot se truncó: {{files}} archivos no se analizaron por límite de tamaño total. La cobertura de este repositorio es parcial.",
       "no_execution": "No se ejecutó código del repositorio",
       "sast_rules": "SAST con las reglas de Pitangus: cobertura limitada a los lenguajes con reglas y sin análisis entre archivos",
-      "no_docker": "Sin Docker: SAST solo Python con reglas internas y secretos por patrones",
+      "no_docker": "Sin Docker: sin SAST, y secretos solo por patrones",
       "sca_cap": "SCA limita la consulta a 250 versiones por ejecución",
       "osv_not_exploit": "Los avisos de OSV no prueban explotación",
       "no_ai_dast": "IA y DAST no participaron en esta ejecución"
@@ -382,9 +430,8 @@
     "runs": {
       "snapshot": "Snapshot de solo lectura del repositorio y hash SHA-256 del contenido",
       "sast": "SAST con {{engine}} {{version}}: {{languages}}",
-      "internal_sast": "SAST interno solo para Python (Opengrep no está disponible en este servidor)",
       "secrets": "Secretos con {{engine}} {{version}} en todo el snapshot; el valor nunca se guarda",
-      "internal_secrets": "Secretos con patrones internos (Gitleaks no está disponible)",
+      "internal_secrets": "Secretos con patrones internos (Betterleaks no está disponible)",
       "dependencies": "Dependencias con {{engine}} {{version}}, con sus bases de avisos en local: {{manifests}} ({{sample}}), cruzados con CISA KEV y EPSS",
       "dependencies_osv": "Dependencias con {{engine}} {{version}} y {{osv}} {{osv_version}} (base OSV, la de Dependabot incluida), con sus bases de avisos en local: {{manifests}} ({{sample}}), cruzados con CISA KEV y EPSS; un aviso que detectan los dos cuenta una vez",
       "iac": "Infraestructura como código con {{engine}}: {{sample}}",
@@ -395,6 +442,7 @@
       "languages_later": "Los lenguajes se conocerán al descargar el snapshot (este proveedor no permite listarlos antes)"
     },
     "skips": {
+      "no_sast": "Sin SAST: Opengrep necesita Docker, que no está disponible en este servidor",
       "no_execution": "No se instala ni se ejecuta el código del repositorio: el análisis es estático",
       "sast_no_files": "SAST: no hay archivos en los lenguajes que cubren las reglas de Pitangus",
       "no_rules": "Sin reglas SAST de Pitangus para {{languages}}: solo se revisan sus secretos y dependencias",
@@ -403,12 +451,13 @@
       "no_checkov": "Checkov no está disponible: la infraestructura se revisa solo con Trivy",
       "no_zizmor": "zizmor no está disponible: los workflows de GitHub Actions solo los revisa Checkov",
       "no_dast": "Sin pruebas dinámicas: no se envía tráfico a ninguna aplicación",
-      "no_ai": "Sin IA: no se envía código fuente a OpenAI ni a Anthropic"
+      "no_ai": "Sin IA: no se envía código fuente a OpenAI ni a Anthropic",
+      "checkov_disabled": "{{engine}}: no se ejecutará (desactivado; se activa con PITANGUS_CHECKOV_ENABLED=1)."
     }
   },
   "local": {
     "errors": {
-      "no_git": "Para comparar con --base hace falta git instalado",
+      "no_git": "Hace falta git instalado: --base, --commit y --staged leen el historial del repositorio",
       "git_timeout": "git {{command}} tardó demasiado",
       "git_failed": "git {{command}}: {{detail}}",
       "git_failed_silently": "git {{command}}: falló",
@@ -416,12 +465,16 @@
       "unknown_ref": "No existe la referencia {{ref}} en este repositorio (¿falta `git fetch`?)",
       "exclude": "--exclude: {{error}}",
       "not_a_folder": "No es una carpeta: {{path}}",
-      "fail_on": "--fail-on debe ser uno de: {{options}}"
+      "fail_on": "--fail-on debe ser uno de: {{options}}",
+      "commit_and_staged": "--commit y --staged no van juntos: analiza un commit o lo que está preparado (staged)",
+      "no_merge_base": "{{base}} y {{head}} no comparten historial: no hay punto de partida con el que comparar"
     },
     "progress": {
       "copied": "Copia de solo lectura: {{files}} archivos analizables.",
       "comparing": "Comparando con {{base}} (merge-base {{commit}}): {{files}} archivos cambiados.",
-      "baseline": "Analizando el punto de partida para no contar lo que ya estaba ({{files}} archivos)…"
+      "baseline": "Analizando el punto de partida para no contar lo que ya estaba ({{files}} archivos)…",
+      "copied_commit": "Copia de solo lectura del commit {{commit}}, tal como lo guarda git (los archivos sin seguimiento y los cambios sin preparar no cuentan): {{files}} archivos analizables.",
+      "copied_staged": "Copia de solo lectura de lo preparado (staged), tal como quedará en el próximo commit (los archivos sin seguimiento y los cambios sin preparar no cuentan): {{files}} archivos analizables."
     },
     "no_docker": "Docker no disponible: los motores no se ejecutaron.",
     "not_analyzed_step": "{{step}}: {{detail}}"
@@ -483,6 +536,43 @@
       "fixed_one": "#### Corregido en este cambio (1)",
       "fixed_other": "#### Corregidos en este cambio ({{count}})",
       "more": "… y {{count}} más: todos están en `--format json` y en el SARIF."
+    },
+    "at_commit": "commit {{commit}}",
+    "at_staged": "cambios preparados (staged)",
+    "preexisting_one": "1 ya existía en el código que tocas: no bloquea.",
+    "excluded_one": "1 en rutas excluidas ({{patterns}}): no cuenta.",
+    "unexamined_one": "{{engine}} no examinó 1 archivo ({{reason}}): {{paths}}",
+    "unexamined_other": "{{engine}} no examinó {{count}} archivos ({{reason}}): {{paths}}",
+    "left_out_one": "1 archivo quedó fuera de la copia (tamaño o presupuesto), así que ningún motor lo examinó: {{paths}}",
+    "left_out_other": "{{count}} archivos quedaron fuera de la copia (tamaño o presupuesto), así que ningún motor los examinó: {{paths}}",
+    "suppressed_inline": "Permitidos por comentarios gitleaks:allow o por el .gitleaksignore del repositorio: {{count}} ({{places}}). Excluidos, no remediados."
+  },
+  "secret_filter": {
+    "screened_one": "{{count}} coincidencia descartada porque no es un secreto: {{reasons}}.",
+    "screened_other": "{{count}} coincidencias descartadas porque no son secretos: {{reasons}}.",
+    "limitation": "{{detail}} Se cuentan aquí y no figuran como hallazgos.",
+    "reasons": {
+      "public_one": "{{count}} clave pública por diseño",
+      "public_other": "{{count}} claves públicas por diseño",
+      "unsigned_one": "{{count}} token sin firma",
+      "unsigned_other": "{{count}} tokens sin firma",
+      "path": "{{count}} fuera del código (pruebas, documentación, ejemplos o traducciones)",
+      "reference_one": "{{count}} referencia o plantilla",
+      "reference_other": "{{count}} referencias o plantillas",
+      "prose": "{{count}} que son texto",
+      "identifier_one": "{{count}} identificador",
+      "identifier_other": "{{count}} identificadores",
+      "placeholder_one": "{{count}} valor de relleno",
+      "placeholder_other": "{{count}} valores de relleno",
+      "weak": "{{count}} demasiado cortas o simples para ser una contraseña",
+      "checksum_one": "{{count}} suma de verificación o hash de integridad",
+      "checksum_other": "{{count}} sumas de verificación o hashes de integridad",
+      "version_one": "{{count}} número de versión",
+      "version_other": "{{count}} números de versión",
+      "keyless_one": "{{count}} cabecera o marcador de clave sin clave dentro",
+      "keyless_other": "{{count}} cabeceras o marcadores de clave sin clave dentro",
+      "link_one": "{{count}} enlace público de descarga de un archivo",
+      "link_other": "{{count}} enlaces públicos de descarga de archivos"
     }
   },
   "secret_rules": {
@@ -490,7 +580,7 @@
       "not_settings": "La configuración de detección de secretos no es válida.",
       "not_text": "Escribe un texto.",
       "not_list": "Se esperaba una lista.",
-      "not_rule": "Cada regla personalizada necesita un ID, una descripción, una expresión regular y una severidad.",
+      "not_rule": "Cada regla personalizada necesita un ID, una descripción y una expresión regular.",
       "too_long": "Usa como máximo {{max}} caracteres.",
       "control_characters": "Quita los saltos de línea, tabuladores y otros caracteres de control.",
       "too_many_entries": "Cada lista de permitidos admite como máximo {{max}} entradas.",
@@ -501,7 +591,7 @@
       "description_required": "Describe qué detecta la regla {{id}} (al menos 3 caracteres).",
       "regex_required": "Escribe una expresión regular.",
       "triple_quote": "La expresión «{{pattern}}» no puede tener tres comillas simples seguidas (''').",
-      "regex_unsupported": "La expresión «{{pattern}}» usa {{construct}}, que Gitleaks y Trivy no admiten.",
+      "regex_unsupported": "La expresión «{{pattern}}» usa {{construct}}, que Betterleaks y Trivy no admiten.",
       "regex_invalid": "La expresión «{{pattern}}» no es una expresión regular válida.",
       "regex_empty": "La expresión «{{pattern}}» coincide con un texto vacío, así que marcaría todas las líneas. Haz que exija al menos un carácter.",
       "allow_everything": "La expresión «{{pattern}}» coincide con un texto vacío, así que silenciaría todos los secretos. Hazla más específica.",
@@ -512,7 +602,7 @@
       "path_not_relative": "La ruta «{{pattern}}» debe ser relativa a la raíz del repositorio, sin . ni ..",
       "path_everything": "La ruta «{{pattern}}» abarcaría todo el repositorio.",
       "stopword_invalid": "La palabra de exclusión «{{word}}» no es válida: usa de 3 a 60 letras, dígitos o _ . -.",
-      "unknown_rule": "{{rule}} no es una regla integrada de Gitleaks.",
+      "unknown_rule": "{{rule}} no es una regla integrada de Betterleaks.",
       "reason_required": "Explica por qué cambias la configuración (al menos 5 caracteres)."
     },
     "withheld": {
@@ -582,6 +672,10 @@
         "name": "Análisis pasivo de API (ZAP)",
         "detail": "{{count}} operaciones GET y HEAD de la definición OpenAPI pedidas en {{target}} y después las reglas pasivas de ZAP sobre cada respuesta. {{findings}} hallazgos."
       },
+      "session": {
+        "name": "Sesión de las cabeceras guardadas",
+        "detail": "Antes del análisis: {{before}} Después: {{after}}"
+      },
       "login": {
         "name": "Inicio de sesión con usuarios de prueba",
         "detail_one": "{{signed_in}} de {{count}} usuario de prueba inició sesión, comprobado antes del recorrido.",
@@ -608,7 +702,10 @@
       "unauthenticated": "Sin iniciar sesión: las páginas detrás de un login no se alcanzaron.",
       "spider": "El spider se detiene a los {{minutes}} minutos: un sitio grande no se cubre entero y lo que no alcanzó no se analizó.",
       "not_pentest": "Es un análisis dinámico automatizado, no una prueba de penetración.",
-      "headers": "Las peticiones llevaron las cabeceras guardadas del dominio; no se comprobó que autenticaran de verdad, así que pueden faltar páginas detrás de un login.",
+      "headers": "Las peticiones llevaron las cabeceras guardadas del dominio, pero el dominio no tiene página de comprobación de sesión, así que no se verificó que siguieran iniciando sesión: pueden faltar páginas detrás de un login, y este análisis no marca como remediado nada de lo que encontró con ellas. Configura una página de comprobación de sesión en las cabeceras del dominio.",
+      "headers_checked": "Las peticiones llevaron las cabeceras guardadas del dominio, y su página de comprobación de sesión respondió con ellas antes y después del análisis.",
+      "blocked": "{{hosts}} rechazó el análisis (la mayoría de las peticiones recibieron un rechazo, como 401, 403, 406, 418 o 5xx, en lugar de una página, un 404 o una redirección, o un 429 por límite de ritmo): el análisis queda incompleto y no marca nada como remediado. Permite en el WAF o la CDN las direcciones desde las que salen los análisis (el asistente de nuevo análisis las lista) y vuelve a analizar.",
+      "session_lost": "No se pudo confirmar la sesión de las cabeceras guardadas ({{reason}}): el análisis queda incompleto y no marca nada como remediado.",
       "api": "Solo se pidieron las {{count}} operaciones GET y HEAD de la definición, con valores de ejemplo: quedaron fuera POST, PUT, PATCH y DELETE, y no se probaron endpoints que la definición no lista.",
       "wildcards": "Los hosts que solo encajan con un comodín no se resolvieron y no se analizaron: lista un host por nombre para incluirlo.",
       "login_one": "Inició sesión con 1 usuario de prueba, comprobado antes del recorrido. Lo alcanzado muestra lo que ve esa cuenta, no lo que ven otros roles, y un recorrido con tiempo limitado aún puede dejarse páginas.",
@@ -651,6 +748,14 @@
       "fetch_status": "{{url}} respondió {{code}} en vez de la definición OpenAPI (no se siguen redirecciones).",
       "missing": "El modo API necesita una definición OpenAPI."
     },
+    "session": {
+      "before": "Comprobación de sesión antes del análisis: {{detail}}",
+      "after": "Comprobación de sesión después del análisis: {{detail}}",
+      "answered": "{{url}} respondió {{status}} con las cabeceras guardadas.",
+      "status": "{{url}} respondió {{status}} con las cabeceras guardadas en vez de un 2xx: ya no inician sesión.",
+      "unreached": "No se pudo pedir {{url}}.",
+      "outside": "{{url}} está en un host fuera del alcance de este análisis."
+    },
     "login": {
       "signed_in": "Sesión iniciada como «{{name}}».",
       "failed": "No pudo iniciar sesión como «{{name}}»: {{reason}} No se recorrieron sus páginas detrás del login.",
@@ -681,7 +786,9 @@
         "detail_one": "{{templates}} plantillas de detección de la versión {{release}} en la raíz de cada host, y las de página sobre {{pages}} páginas recorridas, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgo.",
         "detail_other": "{{templates}} plantillas de detección de la versión {{release}} en la raíz de cada host, y las de página sobre {{pages}} páginas recorridas, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos.",
         "detail_own_one": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas del inventario, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgo.",
-        "detail_own_other": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas del inventario, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos."
+        "detail_own_other": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, y las de página sobre {{pages}} páginas del inventario, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos.",
+        "detail_roots_one": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgo.",
+        "detail_roots_other": "{{templates}} plantillas de detección de la versión {{release}} y {{own}} propias de Pitangus en la raíz de cada host, a lo sumo {{rate}} peticiones por segundo. {{count}} hallazgos."
       },
       "testssl": {
         "name": "Configuración TLS (testssl.sh)",
@@ -697,7 +804,8 @@
         "detail_one": "{{count}} tecnología identificada en los hosts del alcance ({{hosts}}), visible en la página del dominio.",
         "detail_other": "{{count}} tecnologías identificadas en los hosts del alcance ({{hosts}}), visibles en la página del dominio."
       },
-      "unreached": "{{detail}} No pudo revisar {{hosts}} (no hubo respuesta o se rechazó la dirección), así que no encontrar nada ahí no prueba nada."
+      "unreached": "{{detail}} No pudo revisar {{hosts}} (no hubo respuesta o se rechazó la dirección), así que no encontrar nada ahí no prueba nada.",
+      "blocked": "{{detail}} {{hosts}} rechazó la mayoría de sus peticiones (401, 403, 406, 418, 5xx o cualquier respuesta que no sea una página, un 404 o una redirección) o limitó el ritmo del análisis (429): un WAF, una protección contra bots o un límite de peticiones frenó el análisis."
     },
     "testssl": {
       "reason": "testssl.sh califica {{check}} en {{host}} como un problema: {{finding}}",
@@ -733,6 +841,24 @@
       "failed": "OSV-Scanner no pudo consultar las versiones expuestas.",
       "detail_one": "Se consultaron {{products}} en las bases de OSV locales: {{count}} versión de producto con vulnerabilidades conocidas.",
       "detail_other": "Se consultaron {{products}} en las bases de OSV locales: {{count}} versiones de producto con vulnerabilidades conocidas."
+    },
+    "exposure": {
+      "step": {
+        "name": "Comprobación de exposición",
+        "detail": "{{hosts|# host|# hosts}} y {{pages|# ruta conocida comprobada|# rutas conocidas comprobadas}}: {{answered}} respondieron, {{count|# hallazgo|# hallazgos}}."
+      },
+      "limitations": {
+        "scope": "Comprobación de exposición: solo la raíz de cada host y rutas conocidas, por HTTPS y por HTTP sin cifrar (archivos expuestos, consolas de depuración y de estado, TLS, cabeceras de respuesta). No se pide ninguna otra página ni se ataca ninguna; el DAST completo, experimental, sigue los enlaces del sitio."
+      },
+      "progress": {
+        "nuclei": "nuclei {{version}}: ejecutando solo plantillas de detección en la raíz de cada host, por HTTPS y por HTTP sin cifrar…",
+        "testssl": "testssl.sh {{version}}: leyendo protocolos TLS, cifrados, certificado y HSTS de cada host…",
+        "httpx": "httpx {{version}}: identificando las tecnologías con que responde cada host y leyendo el estado de cada ruta conocida…"
+      },
+      "errors": {
+        "unpinned": "Un host del alcance no tiene una dirección comprobada, así que la comprobación de exposición no empezó: vuelve a comprobar el dominio.",
+        "needs_docker": "La comprobación de exposición necesita el ejecutor con Docker: el worker sin socket de Docker no incluye nuclei, testssl.sh ni httpx."
+      }
     }
   },
   "discovery": {
@@ -747,5 +873,101 @@
     "declared": "Este servidor declara sus direcciones de salida en {{name}}: cámbialas ahí.",
     "unreachable": "El servicio que devuelve la IP no respondió. Inténtalo más tarde o configura PITANGUS_EGRESS_IPS en el servidor.",
     "unexpected": "El servicio que devuelve la IP no respondió con una única dirección pública. Configura PITANGUS_EGRESS_IPS en el servidor."
+  },
+  "contract": {
+    "exit_code": "{{engine}} terminó con el código {{code}}, que nunca usa en una ejecución que leyó lo que debía.",
+    "empty": "{{engine}} no devolvió nada, así que no hay prueba de que leyera lo que debía.",
+    "invalid": "La salida de {{engine}} no es el JSON que escribe, así que no se puede dar por buena.",
+    "unexpected": "La salida de {{engine}} es JSON válido pero no la que escribe cuando lee lo que debía."
+  },
+  "policies": {
+    "detail": "{{files}} archivos de políticas leídos (migraciones de Supabase, reglas de Firebase): {{findings}} problemas.",
+    "none": "No hay migraciones de Supabase ni reglas de Firebase en el repositorio.",
+    "factor": "Política de acceso: decide quién lee y cambia los datos, antes de que se ejecute ningún código",
+    "product": {
+      "firestore": "Firestore",
+      "storage": "Cloud Storage",
+      "database": "Realtime Database"
+    },
+    "rls": {
+      "title": "Tabla {{table}} sin seguridad por filas",
+      "reason": "Las migraciones crean {{table}} en el esquema public y nunca activan en ella la seguridad por filas ({{path}}). Supabase sirve ese esquema por su API: cualquiera con la clave anon, que va en el frontend, puede leer y cambiar todas las filas.",
+      "fix": "Añade `alter table public.{{table}} enable row level security;` en una migración y después una política por cada operación que use la app (por ejemplo, filas cuyo user_id = auth.uid()). Sin política, no pasa nada.",
+      "reason_schema": "Las migraciones crean {{table}} en el esquema {{schema}}, que la API de este proyecto sirve, y nunca activan en ella la seguridad por filas ({{path}}): cualquiera con la clave anon, que va en el frontend, puede leer y cambiar todas las filas.",
+      "fix_schema": "Añade `alter table {{schema}}.{{table}} enable row level security;` en una migración y después una política por cada operación que use la app (por ejemplo, filas cuyo user_id = auth.uid()). Sin política, no pasa nada."
+    },
+    "firebase": {
+      "open": {
+        "title": "{{product}} abierto a cualquiera",
+        "reason": "`allow {{operations}}` en {{path}} no tiene condición ({{file}}): cualquiera, con sesión o sin ella, puede hacerlo.",
+        "fix": "Exige un usuario con sesión y comprueba que los datos son suyos, por ejemplo `allow read, write: if request.auth != null && request.auth.uid == userId;`, y deniega lo demás.",
+        "reason_database": "`.{{operations}}` en {{path}} vale `true` ({{file}}): cualquiera, con sesión o sin ella, puede hacerlo ahí y en todo lo que cuelga de ahí.",
+        "fix_database": "Exige un usuario con sesión y comprueba que los datos son suyos, por ejemplo `\".read\": \"auth != null && auth.uid === $uid\"` bajo `$uid`, y deja lo demás sin regla (denegado)."
+      },
+      "test-mode": {
+        "title": "{{product}} en modo de prueba",
+        "reason": "`allow {{operations}}` en {{path}} solo comprueba una fecha ({{file}}): hasta entonces cualquiera puede hacerlo, y cuando pase la app deja de funcionar.",
+        "fix": "Sustituye la fecha por reglas de verdad: un usuario con sesión, y solo sobre sus datos (`request.auth.uid == userId`).",
+        "reason_database": "`.{{operations}}` en {{path}} solo comprueba una fecha ({{file}}): hasta entonces cualquiera puede hacerlo, y cuando pase la app deja de funcionar.",
+        "fix_database": "Sustituye la fecha por reglas de verdad: un usuario con sesión, y solo sobre sus datos (`auth.uid === $uid`)."
+      },
+      "any-signed-in": {
+        "title": "{{product}}: cualquier usuario con sesión llega a todos los datos",
+        "reason": "`allow {{operations}}` en {{path}} solo comprueba que haya sesión ({{file}}): cualquier cuenta, también una creada hace un minuto, lee y escribe todos los documentos.",
+        "fix": "Separa cada colección y comprueba la propiedad (`request.auth.uid == resource.data.owner`), en lugar de una regla para todos los documentos.",
+        "reason_database": "`.{{operations}}` en la raíz solo comprueba que haya sesión ({{file}}): cualquier cuenta, también una creada hace un minuto, llega a toda la base de datos.",
+        "fix_database": "Da a cada nodo su propia regla y comprueba la propiedad (`auth.uid === $uid`), en lugar de una regla en la raíz para todo."
+      }
+    }
+  },
+  "vendored": {
+    "reason": "En código de terceros copiado en el repositorio ({{why}}). Actualiza la librería en lugar de parchearla aquí. Queda excluido, no remediado: vuelve si el archivo deja de parecer código ajeno.",
+    "why": {
+      "folder": "dentro de {{detail}}/",
+      "library": "{{detail}} es una librería conocida",
+      "minified": "{{detail}} está minificado",
+      "banner": "el archivo empieza con la cabecera de licencia de {{detail}}"
+    }
+  },
+  "coverage": {
+    "reason": {
+      "left_out": "fuera de la copia por tamaño o presupuesto",
+      "not_read": "sin resultado del motor",
+      "parse_error": "error de lectura",
+      "skipped": "omisión del motor",
+      "minified": "código minificado",
+      "timeout": "tiempo agotado",
+      "too_large": "tamaño excesivo",
+      "unreadable": "lectura fallida",
+      "partialparsing": "lectura parcial",
+      "syntax_error": "error de sintaxis",
+      "lexical_error": "error de sintaxis",
+      "other_syntax_error": "error de sintaxis",
+      "out_of_memory": "sin memoria",
+      "error": "error del motor",
+      "other": "error del motor ({{code}})",
+      "blocked": "el sitio rechazó el análisis",
+      "no_answer": "sin respuesta",
+      "http": "respondió {{status}}, lo que no prueba nada sobre la página",
+      "no_lockfile": "sin lockfile",
+      "workspace": "resuelto en el lockfile del workspace",
+      "empty_lockfile": "lockfile sin paquetes",
+      "unresolved_versions": "dependencias sin versión resuelta",
+      "resolution_failed": "falló la resolución remota",
+      "encoding": "codificación que el motor no lee",
+      "dependencies": "dependencias instaladas o copiadas, leídas solo por los escáneres de secretos",
+      "generated": "resultado de compilación, leído solo por los escáneres de secretos",
+      "tests": "código de pruebas, fuera del SAST",
+      "present": "todavía responde con una página: solo un 404 o un 410 demuestra que la ruta ya no está",
+      "skipped_by_engine": "el motor lo pasó por alto sin leerlo",
+      "allowlisted": "en una ruta que tu configuración de detección de secretos permite",
+      "unwritable_name": "confirmado con un nombre que no se puede escribir como archivo aquí",
+      "not_in_archive": "confirmado, pero el archivo del proveedor no lo incluye (export-ignore)",
+      "lfs_object": "un puntero de Git LFS: el archivo al que apunta no se descargó",
+      "submodule": "un submódulo: otro repositorio, fuera de este análisis",
+      "symlink": "un enlace simbólico: nunca se sigue",
+      "tree_unlisted": "el proveedor no listó lo que este commit tiene aquí",
+      "no_inventory": "ningún motor listó un paquete de esta carpeta"
+    }
   }
 }

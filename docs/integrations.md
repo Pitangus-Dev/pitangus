@@ -61,7 +61,7 @@ The two gaps people ask about most:
           with:
             upload: never
             output: codeql
-        - uses: Pitangus-Dev/pitangus@v0.13.1
+        - uses: Pitangus-Dev/pitangus@v0.14.0
           if: always()
           with:
             scan: false
@@ -73,8 +73,15 @@ The two gaps people ask about most:
   CodeQL is free for public repositories and, through GitHub Advanced Security, for private ones; running its CLI
   elsewhere is governed by the GitHub CodeQL Terms. The same step with Semgrep is in
   [cli.md](cli.md#other-tools-results).
-- **Dynamic testing.** Pitangus runs [passive web and API scans](scanning-web.md) with ZAP of a
-  verified domain (crawl and read, or the GET and HEAD operations of an OpenAPI definition; never attack) when the
+
+  CodeQL writes one SARIF per language, each with its category (`runAutomationDetails.id`, `/language:python/`):
+  a full import fixes only what disappeared from the same tool **and category**, so importing the JavaScript file
+  never closes the Python findings. A SARIF without a category can't be told apart from another of the same tool:
+  give each one a category (CodeQL's `category` input, `--sarif-category` on its CLI), or import it with
+  `scope=partial`, which opens and updates but fixes nothing.
+- **Dynamic testing.** For a verified domain, Pitangus always offers the [exposure check](scanning-web.md) (each host's
+  root and known paths with httpx, testssl.sh and nuclei, no crawl). Its full passive web and API scan, experimental,
+  runs with ZAP on a verified domain (crawl and read, or the GET and HEAD operations of an OpenAPI definition; never attack) when the
   server sets `PITANGUS_DAST_ENABLED=1`: on demand or on a schedule, over listed subdomains when the domain has a DNS proof,
   with request headers saved for the domain (API keys, bearer tokens, cookies) and signed in as up to 3 test users,
   alongside katana, nuclei (detection-only templates), testssl.sh and httpx. The domain can be proved with a DNS
@@ -130,7 +137,7 @@ jobs:
           docker run --rm -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2 \
             zap.sh -cmd -autorun /zap/wrk/zap.yaml
           # the sarif-json template writes zap.json
-      - uses: Pitangus-Dev/pitangus@v0.13.1
+      - uses: Pitangus-Dev/pitangus@v0.14.0
         if: always()
         with:
           scan: false
@@ -148,7 +155,7 @@ Nuclei writes SARIF with `-se` ([options](https://docs.projectdiscovery.io/tools
           docker run --rm -v "$PWD:/out" projectdiscovery/nuclei:v3.3.5 \
             -u https://app.example.com -rl 20 -c 10 -severity low,medium,high,critical \
             -etags dos,fuzz,intrusive -se /out/nuclei.sarif
-      - uses: Pitangus-Dev/pitangus@v0.13.1
+      - uses: Pitangus-Dev/pitangus@v0.14.0
         if: always()
         with:
           scan: false
@@ -189,6 +196,9 @@ value among the ones Jira allows, or a template with `{{variables}}` (plain subs
 Pitangus checks the mapping against Jira when you save it: every required field mapped, types that fit and allowed
 values. Summary and description are mapped by default, and the due date too when the screen has it.
 
+A destination also sets the language of its issues and comments (the server's `PITANGUS_DEFAULT_LOCALE` unless you
+pick English or Spanish) and what happens when a scan verifies an issue as fixed: see below.
+
 ### Routing rules
 
 Routing rules pick the destination per repository: explicit repositories or patterns on the name (`org/payments-*`),
@@ -201,9 +211,21 @@ in order. **The first enabled rule that matches wins**, and a last default rule 
 - An automatic rule with **backfill** also creates, spaced out, the issues of the findings already open when it's saved
   or enabled.
 
-When a full scan or a full import verifies a linked finding as fixed, Pitangus **comments on the issue**; it never
-closes it. An issue covering several findings gets the comment once all of them are fixed, and another one if any
-reappears.
+The rule form shows what it would create before you save it: how many issues, for how many open findings, and how the
+most severe one will read in Jira (its title and first lines). Once the backfill runs, the rule shows how many issues were
+created, links to the first ones and, if some failed, why, grouped by reason.
+
+### When a fix is verified
+
+When a full scan or a full import verifies a linked finding as fixed, Pitangus **comments on the issue** and adds the
+destination's label (`pitangus-fixed` unless you change it or leave it empty), so the fixed issues are one search away
+(`labels = pitangus-fixed`). Every team closes issues its own way, with its own workflows, so **Pitangus doesn't move or
+close issues by default**: an administrator can pick, per destination, a status of that issue type's workflow to move
+them to. If an issue can't reach that status from where it is, nothing is forced and the comment says so.
+
+An issue covering several findings gets all this once all of them are fixed. If any reappears or someone reopens it in
+Pitangus, Pitangus comments and takes the label off; it never moves the issue back. Triage decisions (marked fixed by hand, false positive,
+accepted risk, reopened) are commented too.
 
 ### Create issues from Findings
 
@@ -212,10 +234,14 @@ triage isn't exported). Each goes to the destination its repository's rules pick
 remediation task**: advisories for the same package go together with the version that fixes them all, while code and
 secret findings go one by one.
 
+The issue's title says what to do and where, for example `High · starlette 0.37.2 → 1.3.1 · org/api (poetry.lock)`,
+and its description starts with what a developer acts on: the change, the file, the command and when it counts as fixed; then
+why it matters (severity, deadline, KEV and EPSS when they apply) and, last, the details and references.
+
 Each issue carries the `appsec-<fingerprint>` label of every finding it covers. Before creating, Pitangus searches by
 those labels, and the link is remembered per repository and fingerprint, so exporting again, today or after the next
 scan, links the existing issue instead of duplicating it. If the project doesn't allow setting the priority on
-creation, Pitangus retries without it. Issues are written in `PITANGUS_DEFAULT_LOCALE`, since the whole team reads
+creation, Pitangus retries without it. Issues are written in their destination's language, since the whole team reads
 them.
 
 ## Slack, Teams, and webhooks

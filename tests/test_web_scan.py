@@ -187,10 +187,12 @@ class ScanTests(unittest.TestCase):
             scan = web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, progress=lambda level, message: events.append(level))
         imported = [item for run in sarif_import.parse(real()) for item in run["findings"]]
         self.assertEqual([item["fingerprint"] for item in scan["findings"]], [item["fingerprint"] for item in imported])
-        self.assertEqual(len(scan["findings"]), 9)  # ZAP reports the root as https://host and https://host/: one finding each
+        # The CSP misconfigured on every page is one finding of the site, and so is the same comment of the shared template
+        # or the same Cache-Control value on every page; the hashed script, one of its own.
+        self.assertEqual(len(scan["findings"]), 4)
         self.assertTrue(all(item["scanner"] == "dast" and item["path"].startswith(f"https://{HOST}/") for item in scan["findings"]))
         self.assertEqual((scan["type"], scan["variant"], scan["status"], scan["source"]["id"]), ("dast_scan", "baseline", "completed", f"domain:{HOST}"))
-        self.assertEqual(scan["summary"]["dast"], 9)
+        self.assertEqual(scan["summary"]["dast"], 4)
         self.assertEqual([step["status"] for step in scan["steps"]], ["completed", "not_tested", "pending"])
         # Never the request or response ZAP attached, nor the response headers that came with them.
         stored = json.dumps(scan)
@@ -248,13 +250,13 @@ class GuardrailTests(unittest.TestCase):
         calls = []
         with patch.object(engines.shutil, "which", return_value="/usr/bin/docker"), fake_docker(real(), calls=calls):
             record = self.run_job()
-        self.assertEqual((record["status"], record["type"], len(record["findings"])), ("completed", "dast_scan", 9))
+        self.assertEqual((record["status"], record["type"], len(record["findings"])), ("completed", "dast_scan", 4))
         self.assertIn(f"{HOST}:104.21.32.173", calls[0])  # IPv4 first among the public answers
         state = findings_registry.load(self.data_dir, f"domain:{HOST}")
-        self.assertEqual(sum(1 for entry in state["findings"].values() if entry["status"] == "open"), 9)
+        self.assertEqual(sum(1 for entry in state["findings"].values() if entry["status"] == "open"), 4)
         outcome = import_sarif(self.data_dir, real(), asset=f"domain:{HOST}", requested_by="ci")
         self.assertEqual(outcome["runs"][0]["opened"], 0)
-        self.assertEqual(len(findings_registry.load(self.data_dir, f"domain:{HOST}")["findings"]), 9)
+        self.assertEqual(len(findings_registry.load(self.data_dir, f"domain:{HOST}")["findings"]), 4)
 
     def test_off_by_default(self):
         with patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": ""}), \
@@ -337,6 +339,23 @@ class ApiTests(HttpCase):
             self.assertEqual(status, 409)
             self.assertIn("already queued or running", answer["error"])
 
+    def test_the_exposure_check_runs_with_the_full_dast_off_and_only_anonymously(self):
+        body = {"domain_id": self.domain["id"], "mode": "exposure"}
+        with patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": ""}), resolving("104.21.32.173"):
+            with patch.object(self.state.jobs, "enqueue_dast_scan", return_value={"id": "r2", "status": "queued"}) as enqueue:
+                status, answer, _ = self.send(body)
+            self.assertEqual((status, answer["run"]["id"]), (202, "r2"))
+            self.assertEqual(enqueue.call_args.kwargs["options"]["mode"], "exposure")
+            self.assertEqual(self.send({**body, "use_headers": True})[0], 400)
+            self.assertEqual(self.send({"domain_id": self.domain["id"], "mode": "web"})[0], 409)  # the full DAST stays off
+        self.assertEqual(self.send(body, role="member")[0], 403)
+
+    def test_the_exposure_engines_are_listed_without_the_full_dast(self):
+        with patch.object(engines, "engine_ready", return_value=True), patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": ""}):
+            listed = {row["tool"] for row in engines.engine_status()}
+        self.assertTrue({"nuclei", "testssl", "httpx"} <= listed)
+        self.assertFalse({"zap", "katana", "subfinder"} & listed)
+
 
 SECRET = "pkfixture_4f0c2b1e9a77d3c5aa01"  # gitleaks:allow
 SPEC = {"openapi": "3.0.3", "info": {"title": "Agenda", "version": "1", "description": "internal-only-description"},
@@ -415,6 +434,45 @@ class SecretAndApiScanTests(unittest.TestCase):
             web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, headers=[("X-Api-Key", SECRET)])
         self.assertNotIn(SECRET, json.dumps(caught.exception.message))
 
+    def test_a_session_check_that_fails_before_or_after_leaves_the_scan_incomplete(self):
+        check = f"https://{HOST}/account"
+        asked = []
+
+        def answering(*codes):
+            replies = iter(codes)
+
+            def get(host, address, path, **options):
+                asked.append((host, address, path, options["headers"]))
+                return next(replies), b""
+            return get
+
+        def scan(*codes, url=check):
+            with fake_docker(real()), patch.object(domains, "https_get", side_effect=answering(*codes)):
+                return web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, headers=[("X-Api-Key", SECRET)],
+                                       session_check=url)
+
+        steps = lambda record: {step["id"]: step["status"] for step in record["steps"]}  # noqa: E731
+        limits = lambda record: " ".join(text(item, "en") for item in record["limitations"])  # noqa: E731
+        alive = scan(200, 204)
+        self.assertEqual((alive["status"], steps(alive)["session"]), ("completed", "completed"))
+        self.assertIn("answered with them before and after", limits(alive))
+        # Asked at the pinned address, with the saved headers, before anything else and once more at the end.
+        self.assertEqual(asked, [(HOST, "104.21.32.173", "/account", [("X-Api-Key", SECRET)])] * 2)
+        self.assertNotIn(SECRET, json.dumps(alive))
+        for codes in ((200, 302), (401, 200)):
+            lost = scan(*codes)
+            self.assertEqual((lost["status"], steps(lost)["session"]), ("incomplete", "partial"), codes)
+            self.assertIn("instead of a 2xx", limits(lost))
+        outside = scan(url="https://other.pitangus.dev/account")
+        self.assertEqual(outside["status"], "incomplete")
+        self.assertIn("outside this scan's scope", limits(outside))
+        # Without a check page, the scan says the headers weren't verified, as before.
+        with fake_docker(real()), patch.object(domains, "https_get", side_effect=AssertionError("asked")):
+            unchecked = web.scan_domain(self.record, "104.21.32.173", data_dir=self.data_dir, headers=[("X-Api-Key", SECRET)])
+        self.assertEqual(unchecked["status"], "completed")
+        self.assertNotIn("session", steps(unchecked))
+        self.assertIn("no session check page", limits(unchecked))
+
     def test_api_mode_sends_zap_only_the_safe_operations_aimed_at_the_domain_and_keeps_only_a_hash(self):
         api = {**openapi_spec.parse(json.dumps(SPEC).encode(), "agenda.json"), "source": "upload"}
         inputs, files = [], []
@@ -457,20 +515,27 @@ class CoverageTests(unittest.TestCase):
         self.data_dir = Path(self.directory.name)
         self.domain = verified_domain(self.data_dir, HOST)
 
-    def scan(self, findings, *, variant="baseline", coverage="baseline", hosts=(HOST,), steps=()):
+    def scan(self, findings, *, variant="baseline", coverage="baseline", hosts=(HOST,), steps=(), reached=None, tool=None, **scope):
         from pitangus.modules.runs.store import save_repository_scan
         base = web.findings_from(real(), HOST)[0][0]
         made = []
         for path, kind in findings:
-            made.append({**base, "path": path, "fingerprint": f"{path}|{kind}", "web": {"coverage": kind}})
+            made.append({**base, "path": path, "fingerprint": f"{path}|{kind}", "web": {"coverage": kind}, **({"tool": tool} if tool else {})})
         summary = {"files": len(made), "dependencies": 0, "candidates": len(made), "severities": {}, "priorities": {}, "kev": 0,
                    "fixable": 0, "tools": []}
         return save_repository_scan(self.data_dir, {"type": "dast_scan", "status": "completed", "source": domains.source_for(self.domain),
                                                     "target": f"https://{HOST}/", "variant": variant, "findings": made, "context": "",
-                                                    "scope": {"hosts": list(hosts), "wildcards": [], "coverage": coverage},
+                                                    "scope": {"hosts": list(hosts), "wildcards": [], "coverage": coverage,
+                                                              **({"reached": reached} if reached is not None else {}), **scope},
                                                     "summary": summary, "steps": list(steps), "limitations": [], "owasp_coverage": []})
 
     def states(self):
+        """Each finding by where it is and the kind of scan that saw it (its fingerprint here; in v2 its key is the
+        identity of its family): one entry each, so two that became one family would show."""
+        entries = findings_registry.load(self.data_dir, f"domain:{HOST}")["findings"].values()
+        return {f"{entry['finding']['path']}|{(entry['finding'].get('web') or {}).get('coverage') or 'baseline'}": entry["status"] for entry in entries}
+
+    def keys(self):
         return {digest: entry["status"] for digest, entry in findings_registry.load(self.data_dir, f"domain:{HOST}")["findings"].items()}
 
     def test_a_web_scan_measures_owasp_coverage_with_the_tools_that_ran(self):
@@ -505,6 +570,69 @@ class CoverageTests(unittest.TestCase):
         self.scan([], coverage="baseline+headers", hosts=(HOST, "docs.pitangus.dev"))
         self.assertEqual(self.states()[f"https://{HOST}/admin|baseline+headers"], "fixed")
         self.assertEqual(self.states()["https://docs.pitangus.dev/|baseline"], "open")
+
+
+    def test_only_a_page_the_crawl_reached_vouches_for_a_zap_finding(self):
+        """The crawl is bounded: a page this scan didn't get to proves nothing, so its findings stay open."""
+        self.assertEqual(web.findings_from(real(), HOST)[0][0]["tool"].lower(), "zap")
+        self.scan([(f"https://{HOST}/a", "baseline"), (f"https://{HOST}/deep/page?id=7", "baseline")])
+        self.scan([], reached=[f"https://{HOST}/a"])
+        # Stored, a URL keeps its query's names, never its values (shared/render.py).
+        self.assertEqual(self.states(), {f"https://{HOST}/a|baseline": "fixed", f"https://{HOST}/deep/page?id=***|baseline": "open"})
+        self.scan([], reached=domains_pages([f"https://{HOST}/deep/page?id=9#top"]))  # another visit to the same page counts
+        self.assertEqual(self.states()[f"https://{HOST}/deep/page?id=***|baseline"], "fixed")
+
+    def test_a_nuclei_page_finding_is_only_fixed_on_a_page_its_page_pass_requested(self):
+        self.scan([(f"https://{HOST}/", "baseline"), (f"https://{HOST}/admin/", "baseline"), (f"https://{HOST}/old", "baseline")], tool="nuclei")
+        self.scan([], probed=[f"https://{HOST}/admin"])  # the root is probed on every run; /old wasn't requested this time
+        self.assertEqual(self.states(), {f"https://{HOST}/|baseline": "fixed", f"https://{HOST}/admin/|baseline": "fixed",
+                                         f"https://{HOST}/old|baseline": "open"})
+
+    def test_a_header_scan_without_a_session_check_fixes_nothing_behind_the_login(self):
+        self.scan([(f"https://{HOST}/admin", "baseline+headers")])
+        self.scan([], coverage="baseline+headers", session_checked=False)
+        self.assertEqual(self.states(), {f"https://{HOST}/admin|baseline+headers": "open"})
+        self.scan([], coverage="baseline+headers", session_checked=True)
+        self.assertEqual(self.states(), {f"https://{HOST}/admin|baseline+headers": "fixed"})
+
+
+    def test_alerts_stored_per_page_before_fold_into_the_host_finding_instead_of_being_fixed(self):
+        """0.14 made a site-wide header one finding per host. The per-page findings stored before (some already marked
+        fixed by the first scan that ran this version) fold into it: none is reported fixed when the header is still missing."""
+        from pitangus.modules.scanning import sarif_import
+        document = real()
+        csp = [item for item in document["runs"][0]["results"] if item["ruleId"] == "10055"]
+
+        def former(result):  # how a result was keyed before folding: by its page as reported
+            path = sarif_import._location(result, [], web=True)[0]
+            message = sarif_import._text(result.get("message"), sarif_import.MESSAGE_MAX)
+            return sarif_import._stable("sarif", "zap", sarif_import._key(result, "10055", path, "", message, web=True))
+
+        old = sorted({former(result) for result in csp})  # https://host and https://host/ were one already: two pages
+        self.assertEqual(len(old), 2)
+        (host,) = [item for item in web.findings_from(document, HOST)[0][0:] if item["rule_id"].startswith("10055")]
+        # The root was keyed the same way before: only the other page needs remembering.
+        self.assertIn(host["fingerprint"], old)
+        self.assertEqual(host["previous_fingerprints"], [digest for digest in old if digest != host["fingerprint"]])
+        base = {key: value for key, value in host.items() if key != "previous_fingerprints"}
+        self.scan_findings([{**base, "fingerprint": digest, "path": f"https://{HOST}/{index}"} for index, digest in enumerate(old)])
+        self.scan_findings([])  # what the first scan after the change did: nothing under the old fingerprints
+        self.assertEqual(set(self.keys().values()), {"fixed"})
+        (stored,) = self.scan_findings([host])["findings"]   # in v2, its family's identity
+        self.assertEqual(self.keys(), {stored["fingerprint"]: "open"})
+
+    def scan_findings(self, findings):
+        from pitangus.modules.runs.store import save_repository_scan
+        summary = {"files": len(findings), "dependencies": 0, "candidates": len(findings), "severities": {}, "priorities": {}, "kev": 0,
+                   "fixable": 0, "tools": []}
+        return save_repository_scan(self.data_dir, {"type": "dast_scan", "status": "completed", "source": domains.source_for(self.domain),
+                                                    "target": f"https://{HOST}/", "variant": "baseline", "findings": findings, "context": "",
+                                                    "scope": {"hosts": [HOST], "wildcards": [], "coverage": "baseline"},
+                                                    "summary": summary, "steps": [], "limitations": [], "owasp_coverage": []})
+
+
+def domains_pages(urls):
+    return [domains.page_of(url) for url in urls]
 
 
 class ScopeGuardrailTests(unittest.TestCase):
@@ -565,6 +693,11 @@ class ScopeGuardrailTests(unittest.TestCase):
         with db.transaction(self.data_dir) as connection:
             stored = json.dumps([list(row) for row in connection.execute(select(vault.vault_entries.c.name, vault.vault_entries.c.data))])
         self.assertNotIn(SECRET, stored)  # encrypted in the vault
+        # The domain's session check goes with the headers to the scan.
+        domain_headers.set_check(self.data_dir, self.domain, f"https://{HOST}/account")
+        with patch.object(web, "scan_domain", side_effect=web.WebScanError("stop")) as scanned:
+            self.run_queued({"mode": "web", "use_headers": True})
+        self.assertEqual(scanned.call_args.kwargs["session_check"], f"https://{HOST}/account")
         domain_headers.remove(self.domain["id"], "Authorization")
         with patch.object(web, "scan_domain", side_effect=AssertionError("scanned")):
             record, _ = self.run_queued({"mode": "web", "use_headers": True})

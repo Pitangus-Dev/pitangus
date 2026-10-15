@@ -76,7 +76,7 @@ value. It lets Pitangus recognize the same finding across runs. See [Key concept
 ## I
 
 **IaC (infrastructure as code).** Infrastructure described in files: Terraform, Kubernetes manifests, Dockerfiles,
-CloudFormation, pipelines. Pitangus checks it with Checkov and Trivy. See [Scan your code](scanning-code.md).
+CloudFormation, pipelines. Pitangus checks it with Trivy and zizmor, and with Checkov too when it's turned on. See [Scan your code](scanning-code.md).
 
 ## K
 

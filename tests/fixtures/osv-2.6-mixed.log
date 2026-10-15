@@ -1,0 +1,6 @@
+Scanning dir /src
+Starting filesystem walk for root: /
+Scanned /src/a/package-lock.json file and found 1 package
+End status: 3 dirs visited, 5 inodes visited, 2 Extract calls, 1.287124ms elapsed, 1.28725ms wall time
+Loaded npm local db from /cache/osv-scalibr/npm/all.zip
+Error during extraction: (extracting as javascript/packagelockjson) src/b/package-lock.json: could not extract: invalid character 'n' looking for beginning of object key string

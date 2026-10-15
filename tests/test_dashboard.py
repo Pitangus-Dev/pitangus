@@ -1,11 +1,14 @@
 """Run index, pagination, real OWASP coverage and panel aggregates."""
 
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
+
+from hypothesis import HealthCheck, given, settings, strategies as st
 
 from pitangus.modules.reporting import dashboard
 from pitangus.modules.intel.advisories import _parse_nvd
@@ -13,9 +16,18 @@ from pitangus.modules.scanning.coverage import owasp_coverage, rules_by_category
 from pitangus.shared.i18n import localize
 from pitangus.modules.runs.store import list_runs, page_runs, save_repository_scan
 
+# The profiles of tests/test_invariants.py: the same examples on every run, many more and new ones every night.
+PROFILE = os.environ.get("HYPOTHESIS_PROFILE", "pitangus")
+settings.register_profile("pitangus", derandomize=True, database=None, print_blob=True)
+settings.register_profile("nightly", derandomize=False, database=None, print_blob=True)
+settings.load_profile(PROFILE)
+SCALE = 30 if PROFILE == "nightly" else 1
+
 
 def _finding(fingerprint, severity="high", cwe=(79,), kev=None, epss=None, package="axios"):
-    return {"finding_id": fingerprint[:16], "fingerprint": fingerprint, "scanner": "sca", "rule_id": "CVE-2026-1",
+    # Each fixture is a problem of its own: these differ only in their fingerprint, so it is their identity too (with
+    # PITANGUS_IDENTITY_MODE=v2 the same advisory in the same package would otherwise be one family).
+    return {"finding_id": fingerprint[:16], "fingerprint": fingerprint, "identity": fingerprint, "scanner": "sca", "rule_id": "CVE-2026-1",
             "title": f"{package} vulnerable", "path": "package-lock.json", "line": 1, "severity": severity,
             "confidence": 8, "verdict": "candidate", "cwe": list(cwe), "owasp": ["A03:2025"], "cve": ["CVE-2026-1"],
             "ghsa": [], "package": {"ecosystem": "npm", "name": package, "version": "1.0.0", "fixed_version": "1.0.1", "introduced": None},
@@ -120,7 +132,7 @@ class CoverageTests(unittest.TestCase):
         without = {item["id"]: item for item in localize(owasp_coverage([], sast_ran=False, sca_status="not_tested", iac_ran=False,
                                                                        iac_files=0, secrets_ran=True, engines=False))}
         self.assertEqual(without["A03"]["status"], "not_tested")
-        self.assertIn("reglas AST internas", without["A05"]["reason"])
+        self.assertEqual(without["A05"]["status"], "not_tested")  # no SAST ran: nothing pretends to cover it
 
 
     def test_web_coverage_counts_what_a_passive_scan_checked(self):
@@ -186,6 +198,33 @@ class DashboardTests(unittest.TestCase):
         self.assertTrue(result["cve_news"]["items"][0]["affects"], "menciona un paquete abierto (axios)")
         self.assertEqual(len(result["activity"]), 365)
         self.assertEqual(sum(day["runs"] for day in result["activity"]), 2)
+
+    @settings(max_examples=25 * SCALE, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+    @given(st.lists(st.tuples(st.integers(1, 60), st.sampled_from(["eval(user)", "os.system(x)", "exec(y)"])), min_size=1, max_size=6, unique=True),
+           st.sampled_from(["v1", "shadow"]))
+    def test_switching_identity_mode_on_the_same_code_shows_no_fix_and_nothing_new(self, copies, before):
+        """Metamorphic: the same code scanned before and after the switch to PITANGUS_IDENTITY_MODE=v2 (the default)
+        gives the dashboard every figure it gives when every scan was v2: the engines' fingerprints the first scan
+        stored are former names of the families, never fixed findings, and the families are never new."""
+        from pitangus.modules.findings import canonical
+        from test_canonical_identity import code
+        findings = [code(line, snippet) for line, snippet in copies]
+        now = datetime.now(timezone.utc)
+
+        def figures(modes):
+            with tempfile.TemporaryDirectory() as temporary:
+                data_dir = Path(temporary)
+                for index, mode in enumerate(modes):
+                    when = (now - timedelta(days=len(modes) - index)).isoformat()
+                    record = _scan("org/app", [dict(item) for item in findings], when)
+                    with patch.dict("os.environ", {"PITANGUS_IDENTITY_MODE": mode}):
+                        save_repository_scan(data_dir, record, created_at=when)
+                kpis = dashboard.compute(data_dir, 30)["kpis"]
+            return {key: kpis[key] for key in ("found_in_window", "fixed_in_window", "fix_rate", "mttr_days")} | {"open": kpis["open"]["total"]}
+        families = len(canonical.collapse([dict(item) for item in findings]))
+        switched = figures([before, "v2", "v2"])
+        self.assertEqual(switched, figures(["v2", "v2", "v2"]))
+        self.assertEqual((switched["fixed_in_window"], switched["mttr_days"], switched["found_in_window"], switched["open"]), (0, None, families, families))
 
     def test_a_package_affects_a_cve_only_when_named_as_a_product(self):
         from pitangus.modules.reporting.dashboard import _names_package

@@ -89,7 +89,15 @@
       "pick_type": "Pick an issue type",
       "type_required": "Pick an issue type",
       "loading_types": "Loading issue types",
-      "save": "Save destination"
+      "save": "Save destination",
+      "locale": "Language of its issues and comments",
+      "locale_default": "Server default",
+      "locale_en": "English",
+      "locale_es": "Español",
+      "on_fixed_comment": "Verified fix: comments only",
+      "on_fixed_label": "Verified fix: comments and adds {{label}}",
+      "on_fixed_move": "Verified fix: comments, adds {{label}} and moves the issue to {{status}}",
+      "on_fixed_move_only": "Verified fix: comments and moves the issue to {{status}}"
     },
     "mapping": {
       "title": "Fields",
@@ -210,13 +218,14 @@
       "result_other": "It would create {{issues}} issues now · open findings: {{findings}} · repositories: {{assets}} · already linked: {{linked}}",
       "nothing": "Nothing to create now: no open finding without an issue matches (already linked: {{linked}}).",
       "truncated": "Only the first {{max}} findings are queued; the rest go in the next run.",
-      "checking": "Checking what it would create…"
+      "checking": "Checking what it would create…",
+      "sample": "The most severe one will read like this in Jira:",
+      "sample_findings_one": "It covers {{count, number}} finding.",
+      "sample_findings_other": "It covers {{count, number}} findings."
     },
     "backfill": {
       "running_one": "Creating issues for open findings: {{count, number}} queued",
       "running_other": "Creating issues for open findings: {{count, number}} queued",
-      "done_one": "Open findings, finished {{date}}: {{count, number}} queued",
-      "done_other": "Open findings, finished {{date}}: {{count, number}} queued",
       "created_one": "{{count, number}} created",
       "created_other": "{{count, number}} created",
       "existing_one": "{{count, number}} already existed",
@@ -228,7 +237,13 @@
       "pending_one": "{{count, number}} pending",
       "pending_other": "{{count, number}} pending",
       "truncated": "limit reached: run it again for the rest",
-      "last_error": "Last error: {{error}}"
+      "last_error": "Last error: {{error}}",
+      "done": "Finished creating issues for open findings on {{date}}",
+      "open": "Open in Jira:",
+      "more_one": "and {{count, number}} more",
+      "more_other": "and {{count, number}} more",
+      "error_one": "1 issue failed: {{error}}",
+      "error_other": "{{count, number}} issues failed: {{error}}"
     },
     "history": {
       "title_one": "Recent changes ({{count, number}})",
@@ -330,6 +345,16 @@
       "connect": "Connect",
       "configure": "Configure",
       "details": "Details"
+    },
+    "on_fixed": {
+      "title": "When a scan verifies the fix",
+      "help": "Pitangus always comments on the issue. It moves the issue only if you pick a status here: every team closes issues its own way.",
+      "label": "Label to add",
+      "label_hint": "Leave it empty for none. With a label, the fixed issues are one search away in Jira.",
+      "status": "Move it to",
+      "keep": "Don't move it",
+      "loading": "Loading the workflow statuses…",
+      "status_hint": "Statuses of this issue type's workflow. If an issue can't move there from its current status, the comment says so."
     }
   },
   "notifications": {

@@ -8,8 +8,10 @@ import { readRoute, setRouteParam } from '@/shared/lib/route'
 import { formatDate, type Page, type RunRow } from '@/shared/lib/types'
 import i18n from '@/shared/i18n'
 import type { RepositoryRun } from '@/features/findings/finding-model'
+import type { FixControl } from '@/features/findings/fix-control'
 
-export type RunDetail = RepositoryRun & { type: string }
+// `control`: the asset's current state only (how its findings get fixed: held fixes, the unverified warning).
+export type RunDetail = RepositoryRun & { type: string; control?: FixControl | null }
 export const CURRENT = '__current__'
 const RUN_STATUS: Record<string, string> = {
   completed: 'common:run_status.completed', incomplete: 'common:run_status.incomplete', failed: 'common:run_status.failed',

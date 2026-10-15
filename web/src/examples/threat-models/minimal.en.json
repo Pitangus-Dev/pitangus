@@ -1,0 +1,24 @@
+{
+  "format": "pitangus-threat-model",
+  "version": 1,
+  "model": {
+    "name": "Online store",
+    "methodology": "stride",
+    "components": [
+      { "id": "customer", "name": "Customer", "kind": "actor", "internet_facing": true },
+      { "id": "api", "name": "Store API", "kind": "api", "technology": "Django", "internet_facing": true, "authenticates": true, "data": ["pii"] },
+      { "id": "db", "name": "Orders database", "kind": "database", "technology": "PostgreSQL", "data": ["pii", "payment"] }
+    ],
+    "flows": [
+      { "id": "orders", "source": "customer", "target": "api", "name": "Places orders", "protocol": "https", "data": ["pii", "payment"], "authenticated": true, "encrypted": true },
+      { "id": "queries", "source": "api", "target": "db", "protocol": "sql", "data": ["pii"], "authenticated": true }
+    ],
+    "boundaries": [
+      { "id": "internet", "name": "Internet", "components": ["customer"] },
+      { "id": "backend", "name": "Backend", "components": ["api", "db"] }
+    ],
+    "manual_threats": [
+      { "id": "card-replay", "title": "Card payment replayed", "category": "T", "element": "orders", "severity": "high", "mitigation": "Idempotency keys on payments" }
+    ]
+  }
+}

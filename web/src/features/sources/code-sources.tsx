@@ -17,6 +17,9 @@ import { Menu, MenuContent, MenuGroup, MenuItem, MenuSeparator, MenuTrigger } fr
 import { formatDay } from '@/shared/i18n/format'
 import { useSourcePage } from '@/features/sources/sources'
 import { ScanBranchEdit, ScanBranchEditor, ScanBranchLabel } from '@/features/sources/scan-branch'
+import { LinkImagesDialog } from '@/features/sources/link-images-dialog'
+import { AddImageDialog } from '@/features/sources/add-image'
+import { addedNotice } from '@/features/sources/image-notices'
 import { Notice } from '@/shared/ui/notice'
 
 export type { Source, SourcePage } from '@/features/sources/sources'
@@ -40,6 +43,11 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
   const [reportFor, setReportFor] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const [editingBranch, setEditingBranch] = useState<string | null>(null)
+  // Linking images happens here, in a dialog: the Images page is for browsing them.
+  const [linking, setLinking] = useState<{ key: string; name: string } | null>(null)
+  const [adding, setAdding] = useState<{ key: string; name: string } | null>(null)
+  const [notice, setNotice] = useState('')
+  const linkOpener = useRef<HTMLButtonElement | null>(null)
   // Closing the branch editor gives focus back to its Edit button, so keyboard users keep their place in the list.
   const editButtons = useRef(new Map<string, HTMLButtonElement>())
   const editButton = (id: string) => (element: HTMLButtonElement | null) => { if (element) editButtons.current.set(id, element); else editButtons.current.delete(id) }
@@ -64,6 +72,7 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
     <p className="text-sm text-app-muted">{t('providers.accounts_connected', { count: installations.length })} · <a className="font-medium text-brand underline underline-offset-2" href="#/integrations">{t('providers.manage_github')}</a></p>
     {(error || sourcesError) && <div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-3 text-sm text-danger">{error || sourcesError}</div>}
     {data?.providers.github?.error && <Notice role="alert" tone="critical">{data.providers.github.error}</Notice>}
+    <div role="status">{notice && <Notice tone="ok">{notice}</Notice>}</div>
 
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative w-full max-w-sm"><MagnifyingGlassIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-app-subtle" aria-hidden /><Input aria-label={t('repositories.search')} placeholder={t('repositories.search_placeholder')} value={filter} onChange={event => { setFilter(event.target.value); setPage(1) }} className="border-input bg-card pl-9" /></div>
@@ -102,7 +111,9 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
       {!data && <SkeletonList rows={8} action label={t('repositories.loading')} />}
       {data?.sources.map(source => {
         const last = runs.find(run => run.source?.name === source.name)
-        const images = source.uid ? imageCount.get(source.uid) : undefined
+        // The asset key a scan gives it: the App's stable id, or the name for a repository reached with a token.
+        const key = source.uid ?? source.id
+        const images = imageCount.get(key)
         // Below md: checkbox, name and Analyze on one line; branch, source and last scan on the line under the name.
         return <div key={source.id} className={`grid grid-cols-[20px_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 border-b border-app-line px-4 py-3 last:border-b-0 md:items-center ${grid}`}>
           {source.installation_id ? <input type="checkbox" aria-label={t('repositories.select_one', { name: source.name })} className="mt-0.5 size-4 accent-brand md:mt-0" checked={selected.has(source.id)}
@@ -113,9 +124,11 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
               <span className="flex min-w-0 items-center gap-1"><span className="text-app-subtle">{t('repositories.columns.branch')}</span><ScanBranchLabel source={source} />{canManage && source.installation_id && source.uid && <ScanBranchEdit source={source} ref={editButton(source.id)} expanded={editingBranch === source.id} onEdit={() => setEditingBranch(current => current === source.id ? null : source.id)} />}</span>
               <span className="text-app-muted">{source.account ?? source.provider.toUpperCase()}</span>
               <span className="text-app-muted md:hidden">{last ? formatDay(last.created_at) : t('repositories.not_scanned')}</span>
-              {onImages && source.uid && (images || (canManage && last)) ? <button type="button" onClick={() => onImages({ key: source.uid ?? '', name: source.name })}
-                aria-label={images ? t('images.count_for', { count: images, name: source.name }) : t('images.link_for', { name: source.name })}
-                className="min-h-6 whitespace-nowrap text-brand underline underline-offset-2">{images ? t('images.count', { count: images }) : t('images.link_from_repository')}</button> : null}
+              {onImages && images ? <button type="button" onClick={() => onImages({ key, name: source.name })} aria-label={t('images.count_for', { count: images, name: source.name })}
+                className="min-h-6 whitespace-nowrap text-brand underline underline-offset-2">{t('images.count', { count: images })}</button> : null}
+              {canManage && <button type="button" onClick={event => { linkOpener.current = event.currentTarget; setNotice(''); setLinking({ key, name: source.name }) }}
+                aria-label={t('images.link_for', { name: source.name })} className="min-h-6 whitespace-nowrap text-brand underline underline-offset-2">
+                {images ? t('images.link_another') : t('images.link_from_repository')}</button>}
             </div>
           </div>
           <span className="text-xs text-app-muted max-md:hidden">{last ? formatDay(last.created_at) : t('repositories.not_scanned')}</span>
@@ -127,6 +140,11 @@ export function CodeSources({ onScan, onImages, runs = [], canManage = false }: 
     </div>
     {data && <Pager page={page} perPage={PAGE_SIZE} total={data.total} onPage={setPage} loading={loading} />}
     <OrganizationScanDialog account={organization} onClose={() => setOrganization(null)} onStarted={() => void reloadBatches()} />
+    {linking && <LinkImagesDialog repository={linking} onClose={() => setLinking(null)}
+      onLinked={count => { setNotice(t('images.link_dialog.done', { count, name: linking.name })); setLinking(null) }}
+      onAddImage={() => { setAdding(linking); setLinking(null) }} />}
+    <AddImageDialog open={!!adding} onOpenChange={open => { if (!open) setAdding(null) }} admin repository={adding} returnFocus={linkOpener}
+      onAdded={image => setNotice(addedNotice(t, image))} />
     {reportFor && <AuditReportDialog open onClose={() => setReportFor(null)} target={{ account: reportFor }} name={reportFor} selected={[]} filtered={[]} total={0} />}
   </div>
 }

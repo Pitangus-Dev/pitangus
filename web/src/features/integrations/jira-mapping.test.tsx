@@ -32,12 +32,13 @@ const FIELDS: JiraField[] = [
   field('project', 'Project', 'managed', { required: true }),
 ]
 const DESTINATION = { id: 'd1', name: 'Payments', project: { id: '100', key: 'PAY', name: 'Payments' }, issue_type: { id: '3', name: 'Bug' },
-  mapping: { summary: { source: 'pitangus', key: 'summary' } }, fields: {} } as JiraDestination
+  mapping: { summary: { source: 'pitangus', key: 'summary' } }, fields: {}, on_fixed: { label: 'pitangus-fixed', status: null } } as JiraDestination
 
 function editor(save: (call: Call) => { status?: number; body?: unknown } | undefined = () => undefined) {
   const calls = mockApi(call => {
     if (call.path.endsWith('/issue-types')) return { body: { items: [{ id: '3', name: 'Bug', subtask: false }, { id: '9', name: 'Sub-task', subtask: true }], truncated: false } }
     if (call.path.endsWith('/fields')) return { body: { fields: FIELDS, truncated: false, suggested: {} } }
+    if (call.path.endsWith('/statuses')) return { body: { items: [{ id: '1', name: 'To Do', category: 'new' }, { id: '5', name: 'Done', category: 'done' }] } }
     if (call.path === '/api/integrations/jira/variables') return { body: VARIABLES }
     if (call.path === '/api/integrations/jira/destinations') return save(call)
   })
@@ -100,6 +101,35 @@ describe('destination field mapping', () => {
     // The optional field with the error comes out of "More fields" to show it.
     expect(screen.getByText('Story points needs a number').closest('tr')?.textContent).toContain('Story points')
     expect(screen.getAllByRole('alert').some(item => item.textContent === 'Check the highlighted fields')).toBe(true)
+  })
+})
+
+describe('what a verified fix does to the issues', () => {
+  it('keeps the label and never moves the issue unless a status of its workflow is picked', async () => {
+    const { calls, saved, user } = editor(() => ({ body: { destination: { ...DESTINATION }, warnings: [], routing: { destinations: [], rules: [], history: [], limits: {} } } }))
+    await choose(user, await screen.findByLabelText(tr('jira.mapping.source_label', { field: 'Team' })), tr('jira.mapping.source.fixed'))
+    await choose(user, screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Team' })), 'Payments')
+    const status = await screen.findByLabelText(tr('jira.on_fixed.status'))
+    expect(status.textContent).toContain(tr('jira.on_fixed.keep'))
+    expect(await optionsOf(user, status)).toEqual([tr('jira.on_fixed.keep'), 'To Do', 'Done'])
+    await choose(user, status, 'Done')
+    await choose(user, screen.getByLabelText(tr('jira.destinations.locale')), 'English')
+    await user.click(screen.getByRole('button', { name: tr('jira.destinations.save') }))
+    await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce())
+    expect(posts(calls)[0].body).toMatchObject({ on_fixed: { label: 'pitangus-fixed', status: '5' }, locale: 'en' })
+  })
+
+  it('shows a rejected label next to its field', async () => {
+    const { user } = editor(() => ({ status: 400, body: { error: 'Check the highlighted fields', errors: [{ field: 'on_fixed.label', error: 'A label takes letters and digits' }] } }))
+    await choose(user, await screen.findByLabelText(tr('jira.mapping.source_label', { field: 'Team' })), tr('jira.mapping.source.fixed'))
+    await choose(user, screen.getByLabelText(tr('jira.mapping.value_label', { field: 'Team' })), 'Payments')
+    const label = screen.getByLabelText(tr('jira.on_fixed.label'))
+    await user.clear(label)
+    await user.type(label, 'con espacio')
+    await user.click(screen.getByRole('button', { name: tr('jira.destinations.save') }))
+    expect(await screen.findByText('A label takes letters and digits')).toBeTruthy()
+    expect(label.getAttribute('aria-invalid')).toBe('true')
+    expect(document.getElementById(label.getAttribute('aria-describedby') ?? '')?.textContent).toBe('A label takes letters and digits')
   })
 })
 

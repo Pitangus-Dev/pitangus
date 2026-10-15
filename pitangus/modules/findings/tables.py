@@ -12,6 +12,8 @@ registry_assets = Table(
     Column("asset_key", Text, primary_key=True),
     Column("name", Text),
     Column("applied", JSONB, nullable=False, server_default="[]"),  # runs already merged in (idempotency)
+    # How its findings get fixed: the held fixes, the last shadow comparison, the identity version (findings/registry.py)
+    Column("control", JSONB, nullable=False, server_default="{}"),
 )
 
 registry_findings = Table(

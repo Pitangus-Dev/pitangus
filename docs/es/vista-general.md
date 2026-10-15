@@ -18,8 +18,9 @@ conectas hasta la evidencia que entregas.
 
 1. **Motores en contenedores.** Pitangus no escribe sus propios escáneres. Ejecuta motores de código abierto
    consolidados, cada uno fijado a una versión y a un digest de imagen, en un contenedor endurecido y sin privilegios:
-   Opengrep, Gitleaks, Trivy, OSV-Scanner, Grype, Checkov y zizmor para código e imágenes; ZAP, katana, nuclei,
-   testssl.sh y httpx para sitios web y APIs.
+   Opengrep, Betterleaks, Trivy, OSV-Scanner y zizmor para código e imágenes por defecto, con Checkov y Grype como
+   motores opcionales; httpx, testssl.sh y nuclei para la comprobación de exposición de un dominio, y ZAP y katana para
+   el análisis web completo, experimental.
 2. **Ejecuciones.** Cada análisis es una **ejecución**: el registro de qué se analizó, qué pasos corrieron, cuáles no y
    por qué. Un paso que no corrió aparece como *no probado*, nunca como limpio.
 3. **Registro de hallazgos.** Cada hallazgo tiene una **huella** estable, así que el mismo problema se reconoce de una
@@ -40,12 +41,12 @@ también termina. Frente a una suite comercial (Snyk, Checkmarx, Veracode…), a
 
 | Área | Qué corre | Dónde se queda corto |
 | --- | --- | --- |
-| Dependencias (SCA) | Trivy, OSV-Scanner y Grype sobre NVD, GHSA y OSV, con KEV y EPSS | Sin análisis de alcanzabilidad: una función vulnerable se reporta la llame tu código o no. |
-| Secretos | Gitleaks, más reglas de Pitangus con un paso de verificación para algunos tipos de token | Solo los archivos del commit analizado: un secreto borrado en un commit anterior pero que sigue en el historial de Git no se ve. |
-| Imágenes de contenedor | Trivy y Grype sobre las capas, el historial y la configuración, leídos del registro | La imagen nunca se ejecuta, así que no se revisa nada de su comportamiento en tiempo de ejecución. |
-| Infraestructura y pipelines | Checkov (Terraform, Kubernetes, Dockerfiles…) y zizmor (GitHub Actions) | La edición gratuita de Checkov no da severidad; Pitangus asigna una por regla. |
-| Tu propio código (SAST) | Opengrep con las 58 reglas de Pitangus de `rules/`, 14 de ellas con seguimiento de datos (taint) dentro de un archivo | **Es la capa más delgada.** Sin flujo de datos entre archivos ni conocimiento de frameworks más allá de esas reglas. Para un análisis profundo, corre CodeQL o Semgrep y [trae sus resultados](integraciones.md#traer-resultados-de-otros-analizadores): tienen el mismo ciclo de vida. |
-| Sitios web y APIs (DAST) | Un análisis pasivo de un dominio verificado: ZAP (spider, spider AJAX y reglas pasivas, o las operaciones GET y HEAD de una definición OpenAPI), más katana, nuclei (solo plantillas de detección), testssl.sh y httpx. Cabeceras guardadas opcionales y hasta 3 usuarios de prueba por análisis; a demanda o programado. Apagado salvo que el servidor defina `PITANGUS_DAST_ENABLED=1`. Ver [Analizar un sitio web o una API](analisis-web.md). | **Solo pasivo:** sin inyecciones ni otros ataques, sin enviar formularios salvo el inicio de sesión de un usuario de prueba, sin POST, PUT ni DELETE. Los recorridos tienen tiempo limitado, así que un sitio grande no se cubre entero. Solo ZAP inicia sesión como usuario de prueba; no se comprueba si las cabeceras guardadas autentican. Un análisis web a la vez por instalación. Para pruebas activas, corre tu propio escáner e [importa sus resultados](integraciones.md#trae-tu-propio-dast). |
+| Dependencias (SCA) | Trivy y OSV-Scanner sobre NVD, GHSA y OSV, con KEV y EPSS; los paquetes maliciosos conocidos (`MAL-*` de OpenSSF, tipificados como malware, o con CWE, título y descripción de acuerdo) como hallazgo propio | Sin análisis de alcanzabilidad: una función vulnerable se reporta la llame tu código o no. |
+| Secretos | Betterleaks y Trivy, con tus propios detectores, listas de permitidos y reglas integradas desactivadas por repositorio. Los archivos de credenciales (`.env*`, `.npmrc`, claves SSH…) solo los leen ellos, en una copia que se borra después | Solo los archivos del commit analizado: un secreto borrado en un commit anterior pero que sigue en el historial de Git no se ve. Si un secreto sigue funcionando solo se comprueba con `PITANGUS_SECRET_VALIDATION` (apagado por defecto: envía el secreto a su proveedor); si no, cada uno es crítico hasta rotarlo. |
+| Imágenes de contenedor | Trivy sobre las capas, el historial y la configuración, leídos del registro; Grype como segunda opinión si se activa (`PITANGUS_GRYPE_ENABLED`) | La imagen nunca se ejecuta, así que no se revisa nada de su comportamiento en ejecución. |
+| Infraestructura y pipelines | Trivy (Terraform, Kubernetes, Dockerfiles…) y zizmor (GitHub Actions); Checkov añade más comprobaciones y otros sistemas de CI si se activa (`PITANGUS_CHECKOV_ENABLED`) | Un motor apagado aparece como no ejecutado, nunca como limpio. La edición gratuita de Checkov no da severidad; Pitangus asigna una por regla. |
+| Tu propio código (SAST) | Opengrep con las 66 reglas de Pitangus de `rules/` (14 con seguimiento de datos dentro de un archivo), incluidas las de lo que el código escrito con IA suele hacer mal; un lector de migraciones de Supabase y reglas de Firebase; opcionalmente 259 reglas de GitLab (`PITANGUS_THIRD_PARTY_RULES`) | **Es la capa más delgada.** Sin flujo de datos entre archivos y sin conocimiento de frameworks más allá de esas reglas. Para un análisis profundo, corre CodeQL o Semgrep y [trae sus resultados](integraciones.md#traer-resultados-de-otros-escáneres): tienen el mismo ciclo de vida. |
+| Sitios web y APIs (DAST) | La **comprobación de exposición** de un dominio verificado, siempre disponible: la raíz de cada host y rutas conocidas con httpx, testssl.sh y nuclei, sin rastreo. El **análisis completo** es experimental: ZAP (spider, spider AJAX y reglas pasivas, o las operaciones GET y HEAD de una definición OpenAPI), más katana, nuclei (solo plantillas de detección), testssl.sh y httpx. Cabeceras guardadas opcionales y hasta 3 usuarios de prueba por análisis; a demanda o programado. Apagado salvo que el servidor defina `PITANGUS_DAST_ENABLED=1`; apagarlo no remedia nada de lo que encontró. Ver [Analizar un sitio web o una API](analisis-web.md). | **Solo pasivo:** sin inyecciones ni otros ataques, sin enviar formularios salvo el inicio de sesión de un usuario de prueba, sin POST, PUT ni DELETE. Los recorridos tienen tiempo limitado, así que un sitio grande no se cubre entero. Solo ZAP inicia sesión como usuario de prueba; si las cabeceras guardadas siguen iniciando sesión solo se comprueba si el dominio tiene página de comprobación de sesión. Un análisis web a la vez por instalación. Para pruebas activas, corre tu propio escáner e [importa sus resultados](integraciones.md#trae-tu-propio-dast). |
 | Escala | Un análisis por worker; tantos workers como necesites, en una máquina o en varias | Sin análisis en paralelo dentro de un worker, sin manifiestos de autoescalado, sin una medición publicada. Ver [Escalar](escalar.md). |
 
 Lo que una suite comercial no puede ofrecer es la otra mitad de la tabla: corre en tu servidor, el código no sale de
@@ -84,7 +85,7 @@ instalación nueva empieza con **Primeros pasos**, una lista que se tacha sola.
 ### Hallazgos
 
 **Hallazgos** (`#/findings`) es el registro: el estado actual de cada hallazgo de un activo, de una organización o de
-varios a la vez, con filtros, triage, plazos, una guía de corrección por hallazgo y exportaciones. Ver
+varios a la vez, con filtros, triage, plazos, guías de corrección y exportaciones. Ver
 [Hallazgos](hallazgos.md).
 
 ### Análisis

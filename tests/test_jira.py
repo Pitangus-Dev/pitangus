@@ -18,6 +18,7 @@ from pitangus.modules.integrations.tables import JIRA_CHANNEL, outbox
 from pitangus.modules.runs import jira_sync
 from pitangus.modules.runs.store import save_repository_scan
 from pitangus.shared import db
+from pitangus.shared.i18n import msg
 from pitangus.modules.identity.auth import Users
 from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
@@ -56,6 +57,10 @@ class FakeJira:
 
     def __init__(self, *, priority_field=True, existing_label=None, page=3):
         self.calls, self.issues, self.comments, self.deleted = [], {}, {}, set()
+        self.labels: dict[str, set] = {}
+        self.status: dict[str, str] = {}   # issue key → status id ("1", To Do, when never moved)
+        self.workflow = [("1", "To Do"), ("3", "In Progress"), ("5", "Done")]
+        self.transitions = True           # False: the workflow has no transition between those statuses
         self.priority_field, self.existing_label, self.page = priority_field, existing_label, page
         self.projects = {"SEC": {"id": "10000", "key": "SEC", "name": "Seguridad"}, "PAY": {"id": "10001", "key": "PAY", "name": "Pagos"}}
 
@@ -77,6 +82,11 @@ class FakeJira:
             wanted = query.get("query", [""])[0].lower()
             values = [item for item in self.projects.values() if wanted in item["name"].lower() or wanted in item["key"].lower()]
             return {"values": values, "total": len(values), "isLast": True}
+        if route.startswith("/rest/api/3/project/") and route.endswith("/statuses"):
+            if self._project(route.split("/")[5]) is None:
+                raise jira.JiraError("not found", status=404)
+            statuses = [{"id": key, "name": name, "statusCategory": {"key": "done" if name == "Done" else "new"}} for key, name in self.workflow]
+            return {"values": [{"id": "10001", "name": "Task", "statuses": statuses}, {"id": "10002", "name": "Bug", "statuses": statuses[:1]}]}
         if route.startswith("/rest/api/3/project/"):
             found = self._project(route.rsplit("/", 1)[1])
             if not found:
@@ -105,6 +115,24 @@ class FakeJira:
             key = f"{project}-{101 + len(self.issues)}"
             self.issues[key] = fields
             return {"key": key}
+        if route.startswith("/rest/api/3/issue/") and route.count("/") in (5, 6) and not route.endswith("/comment") \
+                and route.split("/")[5] not in ("createmeta", "bulkfetch"):
+            key = route.split("/")[5]
+            if key in self.deleted:
+                raise jira.JiraError("Issue does not exist or you do not have permission to see it.", status=404)
+            if method == "PUT":
+                for change in body["update"]["labels"]:
+                    (self.labels.setdefault(key, set()).add if "add" in change else self.labels.setdefault(key, set()).discard)(
+                        change.get("add") or change.get("remove"))
+                return {}
+            if route.endswith("/transitions"):
+                if method == "GET":
+                    current = self.status.get(key, "1")
+                    return {"transitions": [{"id": str(100 + int(target)), "name": f"Go {name}", "to": {"id": target, "name": name}}
+                                            for target, name in self.workflow if target != current and self.transitions]}
+                self.status[key] = str(int(body["transition"]["id"]) - 100)
+                return {}
+            return {"key": key, "fields": {"status": {"id": self.status.get(key, "1")}}}
         if route.endswith("/comment"):
             key = route.split("/")[5]
             if key in self.deleted:
@@ -381,7 +409,7 @@ class ExportTests(JiraCase):
         result = jira_sync.export(self.data_dir, [(self.annotated(record), [FP_A, FP_C])], by="analista")
         self.assertEqual({item["key"] for item in result["created"]}, {"SEC-101"})
         issue = self.fake.issues["SEC-101"]
-        self.assertEqual(issue["summary"], "Crítica: actualizar axios 1.0.0 a 1.2.0 (2 vulnerabilidades)")
+        self.assertEqual(issue["summary"], "Crítica · axios 1.0.0 → 1.2.0 · org/web (package-lock.json)")
         self.assertEqual(issue["priority"], {"id": "2"})  # High, matched by name among the allowed values
         # One identity label for the package's issue, not one per advisory.
         identity = jira.identity_label("github:org/web", "pkg:npm:axios@1.0.0")
@@ -500,7 +528,12 @@ class BackfillTests(JiraCase):
     def test_preview_backfill_pacing_status_and_idempotency(self):
         values = {"name": "API", "assets": ["github:org/api"], "destination": self.sec["id"], "mode": "auto", "min_severity": "high",
                   "backfill": True}
-        self.assertEqual(jira_sync.preview(self.data_dir, values), {"assets": 1, "findings": 2, "issues": 2, "linked": 0, "truncated": False})
+        preview = jira_sync.preview(self.data_dir, values)
+        self.assertEqual({key: preview[key] for key in ("assets", "findings", "issues", "linked", "truncated")},
+                         {"assets": 1, "findings": 2, "issues": 2, "linked": 0, "truncated": False})
+        # The most severe of those issues, as it would read in Jira: title (what and where) and first lines.
+        self.assertEqual(preview["sample"]["summary"], "Crítica · axios 1.0.0 → 1.0.1 · org/api (package-lock.json)")
+        self.assertEqual(preview["sample"]["lines"][:2], ["Actualiza axios de 1.0.0 a 1.0.1.", "- Repositorio: org/api"])
         saved, started = jira_sync.save_rule(self.data_dir, values, by="admin")
         self.assertEqual((started["queued"], started["findings"], started["pending"]), (2, 2, 2))
         rows = self.rows()
@@ -516,6 +549,23 @@ class BackfillTests(JiraCase):
         jira_sync.backfill(self.data_dir, saved["id"], by="admin")
         self.assertEqual((len(self.rows()), len(self.fake.issues)), (2, 2))  # everything already has its issue
         self.assertEqual(jira_sync.preview(self.data_dir, {**values, "id": saved["id"]})["linked"], 2)
+
+    def test_the_result_links_the_first_issues_and_groups_the_failures(self):
+        saved, _ = jira_sync.save_rule(self.data_dir, {"name": "API", "assets": ["github:org/api"], "destination": self.sec["id"],
+                                                       "mode": "auto", "min_severity": "low", "backfill": True}, by="admin")
+        original = self.fake.__call__
+
+        def refuse_express(credentials, method, path, body=None):
+            if path == "/rest/api/3/issue" and "express" in json.dumps(body):
+                raise jira.JiraError(msg("integrations.jira.http_error", code=400), status=400)
+            return original(credentials, method, path, body)
+        with patch.object(jira, "_http", refuse_express):
+            self.drain()
+        status = {item["rule"]: item for item in jira_sync.backfill_status(self.data_dir)}[saved["id"]]
+        self.assertEqual((status["created"], status["failed"]), (2, 1))
+        self.assertEqual([item["key"] for item in status["issues"]], ["SEC-101", "SEC-102"])
+        self.assertEqual(status["issues"][0]["url"], "https://acme.atlassian.net/browse/SEC-101")
+        self.assertEqual([(item["error"]["$t"], item["count"]) for item in status["errors"]], [("integrations.jira.http_error", 1)])
 
     def test_counts_per_rule(self):
         saved, started = jira_sync.save_rule(self.data_dir, {"name": "API", "assets": ["github:org/api"], "destination": self.sec["id"],
@@ -548,6 +598,12 @@ class CommentTests(JiraCase):
         self.assertIn(fixed["id"][:12], json.dumps(body["body"], ensure_ascii=False))
         self.assertIn("verificó la corrección", json.dumps(body["body"], ensure_ascii=False))  # PITANGUS_DEFAULT_LOCALE (es)
         self.assertEqual(body["properties"][0]["value"], {"event": "fixed", "run": fixed["id"]})
+        # By default: the comment and the label, never a transition.
+        self.assertEqual(self.fake.labels["SEC-101"], {"pitangus-fixed"})
+        self.assertNotIn("SEC-101", self.fake.status)
+        self.assertFalse([call for call in self.fake.calls if call[1].endswith("/transitions")])
+        self.assertIn("Se añadió la etiqueta pitangus-fixed", json.dumps(body["body"], ensure_ascii=False))
+        self.assertEqual(body["body"]["type"], "doc")
         # Delivered twice (at least once): the property keeps it from commenting twice.
         self.assertEqual(jira_sync.deliver(self.data_dir, self.rows()[0].payload), "existing")
         self.assertEqual(len(self.fake.comments["SEC-101"]), 1)
@@ -555,6 +611,7 @@ class CommentTests(JiraCase):
         self.assertEqual(self.comments(), [("fixed", "SEC-101"), ("reopened", "SEC-101")])
         self.drain()
         self.assertEqual(len(self.fake.comments["SEC-101"]), 2)
+        self.assertEqual(self.fake.labels["SEC-101"], set())  # reappeared: the label goes
 
     def test_a_grouped_issue_is_commented_when_all_its_findings_are_fixed(self):
         second = {**_finding(FP_C), "rule_id": "CVE-2026-2", "cve": ["CVE-2026-2"]}
@@ -565,6 +622,71 @@ class CommentTests(JiraCase):
         self.scan("org/api", [], when=self.now + timedelta(minutes=2))
         self.assertEqual(self.comments(), [("fixed", "SEC-101")])
         self.assertEqual(self.rows()[-1].payload["count"], 2)
+
+
+class FixedBehaviourTests(JiraCase):
+    """What a verified fix does to an issue: a comment and a label by default; a transition only when chosen."""
+
+    def setUp(self):
+        super().setUp()
+        self.connect()
+
+    def save(self, **extra):
+        saved, warnings = routing.save_destination(self.data_dir, {"name": "SEC", "project": "SEC", "issue_type": "10001", **extra}, by="admin")
+        return saved
+
+    def fix(self, destination):
+        self.rule(id="default", destination=destination["id"])
+        record = self.scan("org/api", [_finding(FP_A)])
+        jira_sync.export(self.data_dir, [(triage.annotate(self.data_dir, record), [FP_A])], by="analista")
+        self.scan("org/api", [], when=self.now + timedelta(minutes=1))
+        self.drain()
+        return json.dumps(self.fake.comments["SEC-101"][-1]["body"], ensure_ascii=False)
+
+    def test_a_new_destination_labels_and_never_moves(self):
+        self.assertEqual(self.save()["on_fixed"], {"label": "pitangus-fixed", "status": None})
+
+    def test_moving_the_issue_is_opt_in_and_the_status_comes_from_the_workflow(self):
+        with self.assertRaises(routing.RoutingError) as caught:
+            self.save(on_fixed={"label": "pitangus-fixed", "status": "99"})
+        self.assertEqual(caught.exception.errors[0]["field"], "on_fixed.status")
+        with self.assertRaises(routing.RoutingError) as caught:
+            self.save(on_fixed={"label": "con espacio"})
+        self.assertEqual(caught.exception.errors[0]["field"], "on_fixed.label")
+        self.assertEqual([item["name"] for item in jira.statuses("SEC", "10001")], ["To Do", "In Progress", "Done"])
+        destination = self.save(on_fixed={"label": "", "status": "5"})
+        self.assertEqual(destination["on_fixed"], {"label": None, "status": {"id": "5", "name": "Done"}})
+        body = self.fix(destination)
+        self.assertEqual(self.fake.status["SEC-101"], "5")
+        self.assertNotIn("SEC-101", self.fake.labels)
+        self.assertIn("Se movió a Done", body)
+        # Delivered again (at least once): already in Done, nothing is moved twice.
+        moves = len([call for call in self.fake.calls if call[0] == "POST" and call[1].endswith("/transitions")])
+        fixed = next(row.payload for row in self.rows() if row.payload.get("event") == "fixed")
+        self.assertEqual(jira_sync.deliver(self.data_dir, fixed), "existing")
+        self.assertEqual(len([call for call in self.fake.calls if call[0] == "POST" and call[1].endswith("/transitions")]), moves)
+
+    def test_a_workflow_without_that_transition_still_gets_the_comment_saying_so(self):
+        self.fake.transitions = False
+        body = self.fix(self.save(on_fixed={"label": "pitangus-fixed", "status": "5"}))
+        self.assertIn("No se pudo mover a Done", body)
+        self.assertIn("Se añadió la etiqueta pitangus-fixed", body)
+        self.assertEqual({row.status for row in self.rows()}, {"sent"})
+
+    def test_editing_a_destination_without_these_settings_keeps_them(self):
+        saved = self.save(on_fixed={"label": "arreglado", "status": "5"}, locale="en")
+        again = self.save(id=saved["id"])
+        self.assertEqual((again["on_fixed"], again["locale"]), ({"label": "arreglado", "status": {"id": "5", "name": "Done"}}, "en"))
+        other = self.save(id=saved["id"], project="PAY")
+        self.assertEqual(other["on_fixed"], {"label": "arreglado", "status": None})  # that status belongs to another workflow
+
+    def test_issues_and_comments_speak_the_destination_language(self):
+        destination = self.save(locale="en")
+        body = self.fix(destination)
+        issue = self.fake.issues["SEC-101"]
+        self.assertEqual(issue["summary"], "High · axios 1.0.0 → 1.0.1 · org/api (package-lock.json)")
+        self.assertEqual(issue["description"]["content"][0]["content"][0]["text"], "Update axios from 1.0.0 to 1.0.1.")
+        self.assertIn("Label pitangus-fixed added.", body)
 
 
 class TriageCommentTests(CommentTests):

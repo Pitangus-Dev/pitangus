@@ -52,7 +52,8 @@ class JobsTests(unittest.TestCase):
             record = _wait(self.data_dir, queued["id"])
         self.assertEqual(record["status"], "incomplete")  # no Docker in tests, so no engine runs: never "completed"
         self.assertEqual(record["context"], "prueba")
-        self.assertGreaterEqual(record["summary"]["sast"], 1)
+        # Without Opengrep there is no SAST at all (never a few checks of our own passing for coverage).
+        self.assertEqual((record["summary"]["sast"], next(step["status"] for step in record["steps"] if step["id"] == "sast")), (0, "not_tested"))
         levels = [event["level"] for event in record["progress"]]
         self.assertEqual(levels[0], "info")
         self.assertIn("ok", levels)

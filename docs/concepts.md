@@ -31,9 +31,9 @@ An **asset** is something Pitangus scans and keeps a registry for. There are thr
 
 | Asset | Identified by | Scanned with |
 | --- | --- | --- |
-| Repository | Its GitHub identity (numeric ID), so a renamed repository is still the same one; or a local folder in the CLI | Opengrep, Gitleaks, Trivy, OSV-Scanner, Checkov, zizmor. See [Scan your code](scanning-code.md). |
-| Container image | Registry and repository, without the tag: `api:1.5` and `api:1.4` are the same asset | Trivy, Grype, Checkov and Pitangus rules, read from the registry, never run. See [Scan container images](scanning-images.md). |
-| Domain | `domain:<host>`, once an administrator proves control of it (**domain verification**) | ZAP, katana, nuclei, testssl.sh and httpx, passively. See [Scan a website or API](scanning-web.md). |
+| Repository | Its GitHub identity (numeric ID), so a renamed repository is still the same one; or a local folder in the CLI | Opengrep, Betterleaks, Trivy, OSV-Scanner, zizmor; Checkov when turned on. See [Scan your code](scanning-code.md). |
+| Container image | Registry and repository, without the tag: `api:1.5` and `api:1.4` are the same asset | Trivy and Pitangus rules (Grype and Checkov when turned on), read from the registry, never run. See [Scan container images](scanning-images.md). |
+| Domain | `domain:<host>`, once an administrator proves control of it (**domain verification**) | Passively: httpx, testssl.sh and nuclei in the exposure check, always available; ZAP, katana and subfinder in the full scan, experimental. See [Scan a website or API](scanning-web.md). |
 
 Results imported from another tool (SARIF) always land in an asset Pitangus already knows.
 
@@ -70,7 +70,8 @@ both are deliberate:
 
 A **finding** is one problem at one place: a vulnerable package version, a secret on a line, a misconfiguration in a
 file, a missing header at a URL. Each finding has a severity (critical, high, medium, low, info), a priority with its
-factors in view (**Act now**, **Attend** or **Track**, driven by CVSS, KEV and EPSS) and a fix guide.
+factors in view (**Act now**, **Attend** or **Track**, driven by CVSS, KEV and EPSS) and how to fix it, as far as the tool
+knows (a command, an example to adapt or the scanner's own advice).
 
 Each finding also gets a **fingerprint**: a stable identifier computed from what the problem is and where it is, never
 from a secret's value. The fingerprint is how Pitangus recognizes the same problem in the next run, even if lines were

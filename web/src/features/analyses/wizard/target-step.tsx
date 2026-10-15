@@ -19,8 +19,10 @@ export type WebTarget = { domain: Domain | null; scopeOpen: boolean }
 
 // One verified domain, its scope and, optionally, its API documentation. Unverified domains stay listed with a way to
 // verify them here; the server checks the proof, the addresses and the switch again before anything is sent.
-export function TargetStep({ value, onChange, spec, onSpec, specInvalid, onBack, onContinue }: {
+// `light`: the exposure check, which takes the domain alone (no subdomain scope and no API definition).
+export function TargetStep({ value, onChange, spec, onSpec, specInvalid, onBack, onContinue, light = false }: {
   value: WebTarget; onChange: (next: WebTarget) => void; spec: Spec | null; onSpec: (spec: Spec | null) => void; specInvalid: boolean; onBack: () => void; onContinue: () => void
+  light?: boolean
 }) {
   const { t } = useTranslation('analyses')
   const queryClient = useQueryClient()
@@ -57,7 +59,8 @@ export function TargetStep({ value, onChange, spec, onSpec, specInvalid, onBack,
           })}</div>
           {addButton}
         </div>}
-    {selected?.verified && <div className="space-y-8 pt-2">
+    {selected?.verified && light && <p className="text-sm text-app-muted">{t('target.exposure_only', { host: selected.host })}</p>}
+    {selected?.verified && !light && <div className="space-y-8 pt-2">
       {coversSubdomains(selected)
         ? <div className="space-y-3">
             <Switch id="scope-toggle" checked={value.scopeOpen} onCheckedChange={scopeOpen => onChange({ ...value, scopeOpen })} label={t('scope.toggle')}

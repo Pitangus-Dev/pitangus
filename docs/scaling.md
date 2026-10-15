@@ -22,7 +22,7 @@ without a server at all, and what doesn't scale yet.
   fed: as many of its repositories as there are workers with nothing waiting, so a batch spreads across every worker,
   while scans launched by hand keep precedence.
 - **Caches, not state.** Each worker keeps its engine databases under its data folder (Trivy ~1.3 GB, Grype ~2.1 GB
-  if you scan container images). They download again on a fresh worker and can live on ephemeral disk.
+  if it's turned on and you scan container images). They download again on a fresh worker and can live on ephemeral disk.
 
 So a worker is a unit of **4 GB of memory and 2 CPUs**, and throughput grows with the number of workers.
 
@@ -46,7 +46,7 @@ docker run -d --name pitangus-worker \
   -e PITANGUS_DATABASE_URL=postgresql://user:password@db.internal:5432/pitangus \
   -e PITANGUS_MASTER_KEY='<the same key as the API>' \
   -v pitangus-worker-data:/data \
-  ghcr.io/pitangus-dev/pitangus-worker:0.13
+  ghcr.io/pitangus-dev/pitangus-worker:0.14
 ```
 
 `ghcr.io/pitangus-dev/pitangus-worker` carries the engines and runs them as its own processes: no Docker socket on
@@ -75,8 +75,8 @@ same engines inside the CI runner, from the worker image, and can push the resul
 | 30–150 | a hundred or so | 2–3 | 8–12 GB |
 | more | | one more per ~70 repositories, or scan PRs in CI | +4 GB each |
 
-A full scan of a typical repository takes a few minutes; the first scan of an image, longer, while Trivy and Grype
-download their databases. These rows come from how the engines are capped, not from a published benchmark: we
+A full scan of a typical repository takes a few minutes; the first scan of an image, longer, while Trivy (and Grype, if
+turned on) downloads its database. These rows come from how the engines are capped, not from a published benchmark: we
 haven't measured hundreds of repositories under load yet, and we'll publish the numbers when we do.
 
 ## Watching the queue

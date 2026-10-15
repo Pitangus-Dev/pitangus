@@ -261,6 +261,7 @@ class DomainRow(Open):
     last_scan: dict[str, Any] | None = None
     headers: list[DomainHeader] | None = Field(None, max_length=domain_headers.LIMIT)
     header_count: int = 0
+    session_check: str | None = None
     test_users: list[DomainTestUser] | None = Field(None, max_length=test_users.LIMIT)
     test_user_count: int = 0
     runs: int = 0
@@ -309,6 +310,11 @@ class DomainHeaders(Open):
     limit: int
 
 
+class DomainSessionCheck(Open):
+    domain_id: str
+    session_check: str | None = None
+
+
 class DomainTestUsers(Open):
     """The domain's test users after a change; `limit` per domain, `per_scan` a scan may sign in with."""
     domain_id: str
@@ -317,7 +323,7 @@ class DomainTestUsers(Open):
     per_scan: int
 
 
-ADMIN_ONLY = ("txt_name", "txt_value", "verify_token", "verify_file_url", "verify_meta")
+ADMIN_ONLY = ("txt_name", "txt_value", "verify_token", "verify_file_url", "verify_meta", "session_check")
 SPEC_BASE64 = (openapi_spec.MAX_BYTES + 2) // 3 * 4
 SCAN_BODY = SPEC_BASE64 + 16_000  # a definition in base64 plus the rest of the request
 
@@ -501,7 +507,7 @@ class DomainScanIn(BaseModel):
     test users to sign in as (at most 3), each with its own crawl; each must sign in on a host of that scope."""
     model_config = ConfigDict(extra="forbid")
     domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
-    mode: Literal["web", "api"] = "web"
+    mode: Literal["web", "api", "exposure"] = "web"
     hosts: list[Annotated[StrictStr, Field(max_length=260)]] = Field(default_factory=list, max_length=domains.SCOPE_LIMIT)
     use_scope: bool = False
     use_headers: bool = False
@@ -517,6 +523,8 @@ class DomainScanIn(BaseModel):
             raise ValueError("a definition goes with api mode only")
         if self.mode == "api" and (self.spec is None) == (self.spec_url is None):
             raise ValueError("api mode takes either spec or spec_url")
+        if self.mode == "exposure" and (self.spec is not None or self.spec_url is not None or self.use_headers or self.test_users):
+            raise ValueError("the exposure check is anonymous: no definition, headers or test users")
         return self
 
 
@@ -628,6 +636,29 @@ def domain_headers_route(context: Context = Depends(guard(Policy(admin=True, act
     context.state.log.warning("domain_header_changed", extra={"user": context.user["username"],
                                                               "reason": f"{record['host']}: {data.op} {data.name}"})
     return context.render({"domain_id": record["id"], "headers": listed, "limit": domain_headers.LIMIT})
+
+
+class DomainSessionCheckIn(BaseModel):
+    """`url`: an HTTPS page of the domain that only opens signed in; empty removes it."""
+    model_config = ConfigDict(extra="forbid")
+    domain_id: StrictStr = Field(pattern="^[0-9a-f]{24}$")
+    url: StrictStr = Field(max_length=test_users.URL_MAX + 64)
+
+
+@router.post("/api/domains/session-check", response_model=DomainSessionCheck, openapi_extra=documented(DomainSessionCheckIn),
+             **AS_RETURNED, responses={404: {"description": "Unknown domain"}})
+def domain_session_check_route(context: Context = Depends(guard(Policy(admin=True, action="domain-session-check", body=4000))),
+                               data: DomainSessionCheckIn = Depends(body(DomainSessionCheckIn, msg("sources.domains.headers.invalid_request")))) -> Any:
+    """Saves the page that proves the saved headers still carry a session: a scan that sends them asks for it before
+    and after, and without a 2xx the scan is incomplete and marks nothing fixed."""
+    record = _known(context, data.domain_id)
+    try:
+        saved = domain_headers.set_check(context.data_dir, record, data.url)
+    except domain_headers.HeaderError as exc:
+        raise ApiError(400, exc.message) from exc
+    context.state.log.warning("domain_session_check_changed", extra={"user": context.user["username"],
+                                                                     "reason": f"{record['host']}: {'set' if saved else 'removed'}"})
+    return context.render({"domain_id": record["id"], "session_check": saved})
 
 
 @router.post("/api/domains/test-users", response_model=DomainTestUsers, openapi_extra=documented(DomainTestUserIn), **AS_RETURNED,
@@ -873,7 +904,8 @@ def _scan_options(context: Context, record: dict, data: DomainScanIn | None) -> 
 def launch_domain_scan(context: Context, domain_id: str, *, trigger: dict | None = None, data: DomainScanIn | None = None) -> dict:
     """Queues a passive web or API scan of a verified domain; the worker checks everything again before it starts."""
     from pitangus.app.api.repositories import QUEUE_LIMIT
-    if not settings.flag("PITANGUS_DAST_ENABLED"):
+    # The full DAST (ZAP, katana) is experimental and off unless enabled; the light exposure check is always available.
+    if not settings.flag("PITANGUS_DAST_ENABLED") and (data is None or data.mode != "exposure"):
         raise ApiError(409, msg("scanning.web.errors.disabled"))
     record = _known(context, domain_id)
     if domains.is_demo(record):  # before any DNS lookup: nothing leaves the machine for demo data

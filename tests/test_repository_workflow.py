@@ -12,9 +12,14 @@ from unittest.mock import patch
 
 from pitangus.modules.sources.domains import DomainError, check_reachability, register_domain, verify_domain
 from pitangus.modules.scanning.repository import scan_repository
-from pitangus.modules.sources.repositories import SourceError, _analyzable, _extract_limited, available_sources, list_repositories, snapshot_source
+from pitangus.modules.sources.repositories import (SourceError, _analyzable, _extract_limited, available_sources, list_repositories,
+                                                   snapshot_directory, snapshot_source)
 from pitangus.modules.runs.store import save_repository_scan
 from pitangus.shared.i18n import localize, text
+
+
+COMMIT = "c0ffee" + "0" * 34
+TREE = json.dumps({"sha": COMMIT, "truncated": False, "tree": [{"path": "app.py", "mode": "100644", "type": "blob"}]}).encode()
 
 
 class RepositoryWorkflowTests(unittest.TestCase):
@@ -35,7 +40,9 @@ class RepositoryWorkflowTests(unittest.TestCase):
             (root / "requirements.txt").write_text("requests==2.30.0\n")
             with patch("pitangus.modules.scanning.repository._query_osv", side_effect=AssertionError("OSV llamado")):
                 result = scan_repository(root, {"id": "local:fixture", "name": "fixture", "provider": "local"})
-            self.assertEqual(result["summary"]["sast"], 1)
+            # No SAST without Opengrep, said in its step; the internal secret patterns still run.
+            self.assertEqual((result["summary"]["sast"], next(step for step in result["steps"] if step["id"] == "sast")["status"]),
+                             (0, "not_tested"))
             self.assertEqual(result["summary"]["secrets"], 1)
             self.assertEqual(result["summary"]["dependencies"], 1)
             self.assertEqual(next(step for step in result["steps"] if step["id"] == "sca")["status"], "not_tested")
@@ -81,7 +88,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
             archive.addfile(info, io.BytesIO(content))
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"}), \
-                patch("pitangus.modules.sources.repositories._request", side_effect=[listing, listing]) as request, \
+                patch("pitangus.modules.sources.repositories._request", side_effect=[listing, listing, COMMIT.encode(), TREE]) as request, \
                 patch("pitangus.modules.sources.repositories._download_archive",
                       side_effect=lambda *args, **kwargs: args[3].write_bytes(stream.getvalue())) as download:
             entries = list_repositories("github")
@@ -89,8 +96,11 @@ class RepositoryWorkflowTests(unittest.TestCase):
             root, selected = snapshot_source(entries[0]["id"], Path(temporary))
             self.assertEqual((root / "app.py").read_bytes(), content)
             self.assertEqual(selected["name"], "owner/project")
-            self.assertEqual(request.call_count, 2)
+            self.assertEqual(request.call_count, 4)
             self.assertEqual(download.call_args.kwargs["redirect_host"], "codeload.github.com")
+            # The archive and the tree are of one commit, resolved first.
+            self.assertTrue(download.call_args.args[0].endswith(f"/tarball/{COMMIT}"))
+            self.assertEqual(selected["commit"], COMMIT)
             # The tarball is deleted after extraction: no intermediate file is left behind.
             self.assertFalse((Path(temporary).parent / "repository.tar.gz").exists())
 
@@ -104,7 +114,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
             archive.addfile(info, io.BytesIO(content))
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.dict("os.environ", {"GITHUB_TOKEN": ""}), \
-                patch("pitangus.modules.sources.repositories._request", side_effect=[listing, listing]) as request, \
+                patch("pitangus.modules.sources.repositories._request", side_effect=[listing, listing, COMMIT.encode(), TREE]) as request, \
                 patch("pitangus.modules.sources.repositories._download_archive",
                       side_effect=lambda *args, **kwargs: args[3].write_bytes(stream.getvalue())) as download:
             sources = available_sources({"github": "session-secret"})
@@ -113,7 +123,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
             _, selected = snapshot_source("github:owner/project", Path(temporary), {"github": "session-secret"})
             self.assertEqual(selected["files"], 1)
             self.assertNotIn("session-secret", str(selected))
-            self.assertEqual([call.args[1] for call in request.call_args_list], ["session-secret"] * 2)
+            self.assertEqual([call.args[1] for call in request.call_args_list], ["session-secret"] * 4)
             self.assertEqual(download.call_args.args[1], "session-secret")
 
     def test_gitlab_stays_off_even_with_a_token(self):
@@ -136,9 +146,13 @@ class RepositoryWorkflowTests(unittest.TestCase):
                      "composer.lock", "Dockerfile", ".env.example"):
             with self.subTest(name=name):
                 self.assertTrue(_analyzable(Path(f"proyecto/{name}")), name)
-        for name in ("app.min.js", "types.d.ts", "logo.png", "video.mp4", "vendor.chunk.js"):
+        for name in ("logo.png", "video.mp4", "font.woff2"):
             with self.subTest(name=name):
                 self.assertFalse(_analyzable(Path(f"proyecto/{name}")), name)
+        # A text file's name never keeps it out: a bundle carries keys, and SAST leaves out minified code by its content.
+        for name in ("app.min.js", "types.d.ts", "vendor.chunk.js", "main.bundle.js"):
+            with self.subTest(name=name):
+                self.assertTrue(_analyzable(Path(f"proyecto/{name}")), name)
 
     def test_a_decompression_bomb_is_refused_and_says_why(self):
         """The only case where refusing is right: the archive lies about its size."""
@@ -166,7 +180,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
                 info.size = len(content)
                 tar.addfile(info, io.BytesIO(content))
             add("logo.png", b"x" * 500)            # not analyzable
-            add("app.min.js", b"x" * 500)          # bundle
+            add("app.min.js", b"x" * 500)          # text: its name doesn't keep it out
             add("enorme.py", b"x" * 5_000)         # exceeds the per-file size
             for index in range(6):
                 add(f"src/modulo_{index}.py", b"value = 1\n")
@@ -179,10 +193,99 @@ class RepositoryWorkflowTests(unittest.TestCase):
             # Going over the limits can't be an error: that would leave the user with nothing.
             stats = _extract_limited(blob, root)
         self.assertEqual(stats["files"], 4)
-        self.assertEqual(stats["skipped_not_analyzable"], 2)
+        self.assertEqual(stats["skipped_not_analyzable"], 1)
+        self.assertEqual(stats["credential_files"], 0)
         self.assertEqual(stats["skipped_too_large"], 1)
-        self.assertEqual(stats["skipped_over_budget"], 2)
+        self.assertEqual(stats["skipped_over_budget"], 3)
         self.assertTrue(stats["truncated"])
+        # The analyzable files left out are named, so their findings aren't taken as fixed; never a binary.
+        self.assertEqual(stats["unexamined"], dict.fromkeys(["enorme.py", "src/modulo_3.py", "src/modulo_4.py", "src/modulo_5.py"], "left_out"))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "app.py").write_text("value = 1\n")
+            scan = scan_repository(root, {"id": "local:demo", "name": "demo", "provider": "local", "snapshot": stats})
+        self.assertEqual(scan["unexamined"]["*"], sorted(stats["unexamined"]))
+        self.assertNotIn("unexamined", scan["source"]["snapshot"])  # stored once
+
+    def test_a_remote_archive_keeps_its_credential_files_apart_too(self):
+        from pitangus.modules.sources.repositories import secrets_root
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode="w:gz") as tar:
+            for name, content in (("repo-main/.env", b"TOKEN=x\n"), ("repo-main/.aws/credentials", b"[default]\n"), ("repo-main/app.py", b"x = 1\n"),
+                                  ("repo-main/.git/config", b"[core]\n")):
+                info = tarfile.TarInfo(name)
+                info.size = len(content)
+                tar.addfile(info, io.BytesIO(content))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "head"
+            stats = _extract_limited(archive.getvalue(), root)
+            self.assertEqual((stats["files"], stats["credential_files"]), (1, 2))
+            self.assertEqual(sorted(path.relative_to(secrets_root(root)).as_posix() for path in secrets_root(root).rglob("*") if path.is_file()),
+                             [".aws/credentials", ".env"])
+            self.assertFalse((root / ".env").exists())
+
+    def test_every_credential_file_name_goes_to_the_secret_pass_and_code_does_not(self):
+        from pitangus.modules.sources.repositories import credential_path
+        for name in (".env", ".env.production", ".npmrc", ".pypirc", ".netrc", "id_rsa", "id_ed25519_deploy", "credentials",
+                     ".git-credentials", ".dockercfg", ".s3cfg", ".boto", ".htpasswd"):
+            with self.subTest(name=name):
+                self.assertIsNotNone(credential_path(("deploy", name)))
+        for name in ("id_utils.py", "identity.ts", "credentials.py", "env.example.md"):
+            with self.subTest(name=name):
+                self.assertIsNone(credential_path(("src", name)))
+        # Committed, a dependency folder's is read too (a folder on disk leaves node_modules out before asking).
+        self.assertIsNotNone(credential_path(("node_modules", "pkg", ".npmrc")))
+        self.assertIsNone(credential_path((".git", "credentials")))
+
+    def test_credential_files_are_read_by_the_secret_scanners_alone_and_deleted(self):
+        """`.env`, `.npmrc`, `id_rsa`, `.aws/credentials`… never reached any engine; now only the secret scanners read
+        them, from a folder of their own deleted as soon as they finish."""
+        from pitangus.modules.scanning import engines as scan_engines, repository
+        from pitangus.modules.sources.repositories import secrets_root
+        token = "ghp_" + "B" * 36
+        with tempfile.TemporaryDirectory() as temporary:
+            source, head = Path(temporary) / "repo", Path(temporary) / "work" / "head"
+            for name in (".env", ".env.production", "web/.npmrc", ".aws/credentials", "deploy/id_rsa", ".git/config", "node_modules/x/.env"):
+                (source / name).parent.mkdir(parents=True, exist_ok=True)
+                (source / name).write_text(f"TOKEN={token}\n")
+            (source / "app.py").write_text("print(1)\n")
+            stats = snapshot_directory(source, head)
+            self.assertEqual(stats["credential_files"], 5)  # never from .git or node_modules
+            self.assertFalse(any(path.name in (".env", ".npmrc", "credentials", "id_rsa") for path in head.rglob("*")))
+            seen = {}
+
+            def betterleaks(root, settings=None, nested=False):
+                seen.setdefault("betterleaks", []).append(sorted(path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()))
+                finding = {"finding_id": "x", "fingerprint": f"secret-{root.name}", "scanner": "secrets", "tool": "betterleaks", "rule_id": "github-pat",
+                           "path": ".env", "line": 1, "severity": "critical", "title": "t", "reason": "", "remediation": "", "cwe": [], "owasp": [],
+                           "confidence": 8, "verdict": "candidate", "priority": {"action": "act", "factors": []}}
+                return {**scan_engines._result("betterleaks", "completed", ""), "findings": [finding] if nested and root.parent.name.endswith(".credentials") else []}
+
+            def trivy_secret_pass(root, cache, settings, screened=None, gaps=None, allowed=None):
+                seen.setdefault("trivy", []).append(root.relative_to(head.parent).as_posix())
+                return None  # Trivy's secret scanner failed on them
+
+            empty = lambda key: lambda *args, **kwargs: scan_engines._result(key, "completed", "")  # noqa: E731
+            replaced = {"engines_available": lambda: True, "host_mount_problem": lambda *args: None, "run_betterleaks": betterleaks,
+                        "trivy_secrets": trivy_secret_pass, "load_feeds": lambda *args: {"kev": {}, "epss": {}},
+                        "run_opengrep": empty("opengrep"), "run_trivy": empty("trivy"), "run_osv_scanner": empty("osv-scanner"),
+                        "run_checkov": empty("checkov"), "run_zizmor": empty("zizmor")}
+            patches = [patch.object(repository, name, side_effect=value) for name, value in replaced.items()]
+            for item in patches:
+                item.start()
+            try:
+                scan = scan_repository(head, {"id": "local:demo", "name": "demo", "provider": "local", "snapshot": stats})
+            finally:
+                for item in patches:
+                    item.stop()
+            self.assertFalse(secrets_root(head).exists())  # gone once the secret scanners finished
+            self.assertEqual(seen["betterleaks"][0], [".aws/credentials", ".env", ".env.production", "deploy/id_rsa", "web/.npmrc"])
+            self.assertEqual(seen["trivy"], ["head.credentials/files"])
+            self.assertEqual([item["path"] for item in scan["findings"] if item["scanner"] == "secrets"], [".env"])
+            # Trivy couldn't read them: for Trivy they're unexamined, so nothing it saw there before is fixed.
+            self.assertEqual(scan["unexamined"]["trivy"], [".aws/credentials", ".env", ".env.production", "deploy/id_rsa", "web/.npmrc"])
+            self.assertIn("credential files", text(scan["steps"][0]["detail"], "en"))
+            self.assertNotIn(token, json.dumps(scan))
 
     def test_truncated_snapshot_is_visible_in_the_run_and_never_reads_as_complete(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -315,7 +418,7 @@ class EngineRegistryTests(unittest.TestCase):
         keys = [engine.key for engine in repository_scan.CODE_ENGINES]
         self.assertEqual(len(keys), len(set(keys)))
         self.assertTrue(set(keys) <= set(IMAGES))
-        self.assertEqual(repository_scan.REQUIRED_ENGINES, {"opengrep", "gitleaks", "trivy", "osv-scanner"})
+        self.assertEqual(repository_scan.REQUIRED_ENGINES, {"opengrep", "betterleaks", "trivy", "osv-scanner"})
         ran, lines = [], []
         engines = [repository_scan.EngineStep(key, lambda context, key=key: ran.append(key) or _result(key, "completed", "ok"), "scanning.progress.trivy",
                                               merged=key == "zizmor") for key in keys]
@@ -329,7 +432,7 @@ class EngineRegistryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.object(repository_scan, "engines_available", return_value=True), \
                 patch.object(repository_scan, "run_opengrep", side_effect=lambda *_: _result("opengrep", "completed", "ok")), \
-                patch.object(repository_scan, "run_gitleaks", side_effect=lambda *_: _result("gitleaks", "completed", "ok")), \
+                patch.object(repository_scan, "run_betterleaks", side_effect=lambda *_: _result("betterleaks", "completed", "ok")), \
                 patch.object(repository_scan, "run_trivy", side_effect=lambda *_: _result("trivy", "completed", "ok")), \
                 patch.object(repository_scan, "run_osv_scanner", side_effect=lambda *_, **__: _result("osv-scanner", "completed", "ok")), \
                 patch.object(repository_scan, "run_checkov", side_effect=lambda *_: _result("checkov", "inconclusive", "failed")), \
@@ -339,7 +442,7 @@ class EngineRegistryTests(unittest.TestCase):
             (root / "app.py").write_text("print('hola')\n", encoding="utf-8")
             scan = repository_scan.scan_repository(root, {"id": "github:org/app", "name": "org/app", "provider": "github"}, data_dir=root)
         self.assertEqual(scan["status"], "completed")
-        self.assertEqual([step["id"] for step in scan["steps"]][1:7], ["opengrep", "gitleaks", "trivy", "osv-scanner", "checkov", "zizmor"])
+        self.assertEqual([step["id"] for step in scan["steps"]][1:7], ["opengrep", "betterleaks", "trivy", "osv-scanner", "checkov", "zizmor"])
 
 
 class EnginesDownTests(unittest.TestCase):
@@ -353,7 +456,7 @@ class EnginesDownTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.object(repository_scan, "engines_available", return_value=True), \
                 patch.object(repository_scan, "run_opengrep", side_effect=lambda *_: down("opengrep")), \
-                patch.object(repository_scan, "run_gitleaks", side_effect=lambda *_: down("gitleaks")), \
+                patch.object(repository_scan, "run_betterleaks", side_effect=lambda *_: down("betterleaks")), \
                 patch.object(repository_scan, "run_trivy", side_effect=lambda *_: down("trivy")), \
                 patch.object(repository_scan, "run_osv_scanner", side_effect=lambda *_, **__: down("osv-scanner")), \
                 patch.object(repository_scan, "run_checkov", side_effect=lambda *_: down("checkov")), \
@@ -374,8 +477,9 @@ class EngineCauseTests(unittest.TestCase):
         failed = subprocess.CompletedProcess([], 125, "", "\x1b[31mdocker: Error response from daemon: invalid mount /c/Users/yo/pitangus/data/work/x "
                                                              "token ghp_abcdefghijklmnopqrstuvwxyz123456\x1b[0m\n")
         with patch.dict("os.environ", {"PITANGUS_HOST_DATA_DIR": "/c/Users/yo/pitangus/data"}):
-            rendered = text(with_cause("Gitleaks terminó con error.", failed))
-        self.assertTrue(rendered.startswith("Gitleaks terminó con error: docker: Error response from daemon: invalid mount <datos>/work/x"))
+            rendered = text(with_cause("Betterleaks terminó con error.", failed))
+        # The cause as free text (shared/render.py): its words, never the host's paths or a value.
+        self.assertTrue(rendered.startswith("Betterleaks terminó con error: docker: Error response from daemon: invalid mount <datos>/work"))
         self.assertNotIn("ghp_", rendered)
         self.assertEqual(with_cause("Sin causa.", subprocess.CompletedProcess([], 1, "", "")), "Sin causa.")
 
@@ -457,11 +561,14 @@ class DockerAccessTests(unittest.TestCase):
 
 class MakefileEnginesTests(unittest.TestCase):
     def test_make_engines_sees_every_published_image(self):
-        """`make engines` reads the images with sed; if their format in scanners.py changes, this warns."""
-        import re
+        """`make engines` reads the images from engines.py with awk (scripts/engine-images.sh); if their format there
+        changes, this warns. With every optional engine on, it lists every published image."""
+        import os
         import subprocess
         from pitangus.modules.scanning.engines import IMAGES
         root = Path(__file__).resolve().parents[1]
-        command = re.search(r"^ENGINE_IMAGES := (.+)$", (root / "Makefile").read_text(encoding="utf-8"), re.M).group(1)
-        listed = subprocess.run(command, shell=True, cwd=root, capture_output=True, text=True, check=True).stdout.split()
+        flags = dict.fromkeys(("PITANGUS_CHECKOV_ENABLED", "PITANGUS_GRYPE_ENABLED", "PITANGUS_DAST_ENABLED"), "1")
+        with tempfile.TemporaryDirectory() as folder:
+            listed = subprocess.run(["sh", str(root / "scripts" / "engine-images.sh")], cwd=folder, env={**os.environ, **flags},
+                                    capture_output=True, text=True, check=True).stdout.split()
         self.assertEqual(listed, [meta["image"] for meta in IMAGES.values() if "@sha256:" in meta["image"]])

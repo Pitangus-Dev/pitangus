@@ -1,4 +1,4 @@
-"""Secret detection settings (Gitleaks and Trivy), organization defaults and per repository: anyone signed in reads
+"""Secret detection settings (Betterleaks and Trivy), organization defaults and per repository: anyone signed in reads
 them (without the patterns unless an admin), an admin changes them."""
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pitangus.modules.findings import registry as findings_registry
 from pitangus.modules.findings.exclusions import ASSET_KEY
 from pitangus.modules.scanning import secret_rules
 from pitangus.modules.scanning.engines import IMAGES
-from pitangus.modules.scanning.secret_builtin_rules import GITLEAKS_DEFAULT_RULES, TRIVY_EQUIVALENTS
+from pitangus.modules.scanning.secret_builtin_rules import DEFAULT_SECRET_RULES, OPT_IN_RULES, TRIVY_EQUIVALENTS
 from pitangus.modules.runs.assets import overview as assets_overview
 from pitangus.shared.i18n import msg
 
@@ -44,6 +44,7 @@ class SecretConfigIn(BaseModel):
     allowlist: SecretAllowlist
     rules: list[SecretRule] = Field(max_length=100)
     disabled_rules: list[str] = Field(max_length=400)
+    enabled_rules: list[str] = Field(default_factory=list, max_length=10)  # opt-in built-ins turned on
     reason: str = Field(max_length=_TEXT)
 
 
@@ -79,6 +80,7 @@ class SecretConfig(BaseModel):
     allowlist: SecretAllowlistView
     rules: list[SecretRuleView] = Field(max_length=secret_rules.MAX_RULES)
     disabled_rules: list[str] = Field(max_length=secret_rules.MAX_DISABLED)
+    enabled_rules: list[str] = Field(default_factory=list, max_length=10)
     reason: str | None
     by: str | None
     at: str | None
@@ -93,6 +95,7 @@ class AssetSecretConfigIn(SecretConfigIn):
 class SecretCounts(BaseModel):
     rules: int
     disabled: int
+    enabled: int = 0
     allowlist: int
 
 
@@ -105,12 +108,13 @@ class AssetSecretConfig(SecretConfig):
 class BuiltinRule(BaseModel):
     id: str
     trivy: str | None
+    opt_in: bool = False  # off unless turned on (secret_builtin_rules.OPT_IN_RULES)
 
 
 class BuiltinRules(BaseModel):
     engine: str
     version: str
-    rules: list[BuiltinRule] = Field(max_length=len(GITLEAKS_DEFAULT_RULES))
+    rules: list[BuiltinRule] = Field(max_length=len(DEFAULT_SECRET_RULES))
 
 
 HIDDEN = "••••••"
@@ -186,6 +190,6 @@ def save_asset_config(body: AssetSecretConfigIn,
 
 @router.get("/api/secrets/builtin-rules", response_model=BuiltinRules)
 def builtin_rules(context: Context = Depends(guard())) -> dict:
-    """Gitleaks' default rules (what can be turned off), with the Trivy rule that is turned off with each, if any."""
-    return {"engine": "gitleaks", "version": IMAGES["gitleaks"]["version"],
-            "rules": [{"id": rule, "trivy": TRIVY_EQUIVALENTS.get(rule)} for rule in GITLEAKS_DEFAULT_RULES]}
+    """Betterleaks' default rules (what can be turned off), with the Trivy rule that is turned off with each, if any."""
+    return {"engine": "betterleaks", "version": IMAGES["betterleaks"]["version"],
+            "rules": [{"id": rule, "trivy": TRIVY_EQUIVALENTS.get(rule), "opt_in": rule in OPT_IN_RULES} for rule in DEFAULT_SECRET_RULES]}

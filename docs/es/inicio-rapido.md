@@ -16,7 +16,7 @@ qué vas a ver. Los pasos marcados **opcional** pueden esperar. ¿Términos nuev
 ## 1. Arrancar (5 min)
 
 ```bash
-git clone --branch v0.13.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make doctor
 ```
@@ -84,7 +84,8 @@ En el panel verás el activo **demo · ejemplos vulnerables**:
 
 <!-- screenshot: overview | El Resumen después de make demo, con los hallazgos por severidad y la lista de primeros pasos -->
 
-Con `make demo IMAGE=nginx:1.21` también se analiza una imagen de contenedor pública (Trivy y Grype, un par de minutos).
+Con `make demo IMAGE=nginx:1.21` también se analiza una imagen de contenedor pública (Trivy, y también Grype si lo
+activaste; un par de minutos).
 
 `make demo FULL=1` además crea **Lapis Labs**, una organización inventada que llena todas las vistas, sin conexión y en
 segundos: cinco repositorios `lapis-labs/…` con un mes de análisis (tendencias, hallazgos remediados, MTTR, plazos de
@@ -117,7 +118,7 @@ justos (lectura de código, comentarios y estados en PRs). Al final la instalas 
    **Código**, luego **Añadir repositorios** y escoge uno o varios (o **Toda la organización**). Si quieres, añade un
    **Contexto** para el informe; después revisa **Revisar y lanzar** y pulsa **Iniciar análisis**.
 2. El análisis corre en segundo plano; síguelo en **Análisis**. Al terminar, el panel muestra un aviso.
-3. En **Hallazgos**, empieza por lo marcado como KEV o crítico. Cada hallazgo trae **Cómo corregirlo**.
+3. En **Hallazgos**, empieza por lo marcado como KEV o crítico. El **Cómo corregirlo** de cada hallazgo trae lo que se sabe de él: un comando, un ejemplo para adaptar o el consejo de la propia herramienta.
 4. Aplica la corrección, súbela a la rama principal y pulsa **Reverificar** en el hallazgo. Al terminar el análisis,
    dice **Corregido ✓ · ya no aparece en el análisis** o **Sigue presente en el análisis**. Si el análisis quedó
    incompleto, lo dice, porque un análisis incompleto no demuestra nada.
@@ -137,20 +138,25 @@ aceptado, una fecha de caducidad: queda como evidencia y no vuelve a molestar. V
 - **Avisos en tu canal:** en **Integraciones → Avisos**, un administrador añade Slack, Teams o un webhook para que te
   enteres sin abrir el panel. Para que los mensajes enlacen al hallazgo, define `PITANGUS_PUBLIC_URL`.
 
-## 6. Analizar tu sitio web, de forma pasiva (opcional)
+## 6. Comprobar qué expone tu sitio web (opcional)
 
-Si tienes un sitio web o una API, Pitangus puede leerlo como lo haría un visitante y señalar cabeceras de seguridad que
-faltan, cookies sin sus atributos, archivos expuestos, TLS débil y librerías desactualizadas. Nunca ataca. Está apagado
-hasta que el servidor define `PITANGUS_DAST_ENABLED=1`:
+Si tienes un sitio web o una API, Pitangus puede comprobar lo que muestra a cualquiera, sin activar nada: archivos
+expuestos como `.git` o `.env`, consolas de depuración y de estado, TLS débil y cabeceras de seguridad que faltan. Como
+administrador: **Dominios y APIs → Añadir dominio**, demuestra que lo controlas (un registro TXT de DNS, un archivo o
+una etiqueta meta) y lanza **Nuevo análisis → Comprobación de exposición**. Solo pide la raíz de cada host y una lista
+de rutas conocidas: no rastrea el sitio y nunca ataca.
+
+El **análisis web completo**, que recorre el sitio con ZAP, katana y subfinder como lo haría un visitante (atributos de
+las cookies, librerías desactualizadas, cada página y cada endpoint de la API, usuarios de prueba y programación), es
+experimental y está apagado hasta que el servidor define `PITANGUS_DAST_ENABLED=1`:
 
 ```bash
 echo 'PITANGUS_DAST_ENABLED=1' >> .env
 make up
 ```
 
-Después, como administrador: **Dominios y APIs → Añadir dominio**, demuestra que lo controlas (un registro TXT de DNS,
-un archivo o una etiqueta meta) y lanza **Nuevo análisis → Aplicación web o API**. El recorrido completo, con usuarios
-de prueba y programación, está en [Analizar un sitio web o una API](analisis-web.md).
+Después aparece en **Nuevo análisis → Análisis web completo**. El recorrido completo está en
+[Analizar un sitio web o una API](analisis-web.md).
 
 ## 7. Más adelante (opcional)
 

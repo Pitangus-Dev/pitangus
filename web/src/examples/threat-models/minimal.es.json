@@ -1,0 +1,24 @@
+{
+  "format": "pitangus-threat-model",
+  "version": 1,
+  "model": {
+    "name": "Tienda en línea",
+    "methodology": "stride",
+    "components": [
+      { "id": "cliente", "name": "Cliente", "kind": "actor", "internet_facing": true },
+      { "id": "api", "name": "API de la tienda", "kind": "api", "technology": "Django", "internet_facing": true, "authenticates": true, "data": ["pii"] },
+      { "id": "db", "name": "Base de pedidos", "kind": "database", "technology": "PostgreSQL", "data": ["pii", "payment"] }
+    ],
+    "flows": [
+      { "id": "pedidos", "source": "cliente", "target": "api", "name": "Hace pedidos", "protocol": "https", "data": ["pii", "payment"], "authenticated": true, "encrypted": true },
+      { "id": "consultas", "source": "api", "target": "db", "protocol": "sql", "data": ["pii"], "authenticated": true }
+    ],
+    "boundaries": [
+      { "id": "internet", "name": "Internet", "components": ["cliente"] },
+      { "id": "backend", "name": "Backend", "components": ["api", "db"] }
+    ],
+    "manual_threats": [
+      { "id": "pago-repetido", "title": "Pago con tarjeta repetido", "category": "T", "element": "pedidos", "severity": "high", "mitigation": "Claves de idempotencia en los pagos" }
+    ]
+  }
+}

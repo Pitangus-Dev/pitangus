@@ -524,10 +524,10 @@ class EvidenceHubTests(HttpCase):
         self.assertEqual(self.call("GET", "/api/evidence/assets?q=API", headers=cookie)[1]["total"], 1)
         # The scope summary previews what a portfolio file covers; nothing matching is zero, not an error.
         self.assertEqual(self.call("GET", "/api/evidence/scope")[0], 401)
-        self.assertEqual(self.call("GET", "/api/evidence/scope", headers=cookie)[1], {"repositories": 2, "images": 0, "complete": 1})
-        self.assertEqual(self.call("GET", "/api/evidence/scope?account=ORG", headers=cookie)[1], {"repositories": 2, "images": 0, "complete": 1})
-        self.assertEqual(self.call("GET", "/api/evidence/scope?assets=github:org/web", headers=cookie)[1], {"repositories": 1, "images": 0, "complete": 0})
-        self.assertEqual(self.call("GET", "/api/evidence/scope?account=other", headers=cookie)[1], {"repositories": 0, "images": 0, "complete": 0})
+        self.assertEqual(self.call("GET", "/api/evidence/scope", headers=cookie)[1], {"repositories": 2, "images": 0, "domains": 0, "complete": 1})
+        self.assertEqual(self.call("GET", "/api/evidence/scope?account=ORG", headers=cookie)[1], {"repositories": 2, "images": 0, "domains": 0, "complete": 1})
+        self.assertEqual(self.call("GET", "/api/evidence/scope?assets=github:org/web", headers=cookie)[1], {"repositories": 1, "images": 0, "domains": 0, "complete": 0})
+        self.assertEqual(self.call("GET", "/api/evidence/scope?account=other", headers=cookie)[1], {"repositories": 0, "images": 0, "domains": 0, "complete": 0})
         self.assertEqual(self.call("GET", "/api/evidence/scope?account=org&assets=github:org/web", headers=cookie)[0], 400)
         for bad in ("limit=0", "limit=101", "q=" + "a" * 101):
             self.assertEqual(self.call("GET", f"/api/evidence/assets?{bad}", headers=cookie)[0], 400, bad)
@@ -595,6 +595,69 @@ class EvidenceHubTests(HttpCase):
         self.assertEqual({(item["products"][0]["@id"], item["status"]) for item in statements},
                          {("pkg:github/org/api", "not_affected"), ("pkg:github/org/ui", "under_investigation")})
         self.assertEqual({item["products"][0]["@id"] for item in statements}, {component["bom-ref"] for component in document["components"]})
+
+
+    def test_portfolio_files_cover_every_repository_and_image_with_a_complete_scan(self):
+        """Several repositories and images, each a top-level component with its own packages; a domain and an asset
+        without a complete scan stay out of the SBOM and the VEX, and the scope summary says so."""
+        member = _login(self, "miembro")
+        cookie = {"Cookie": member}
+        now = datetime.now(timezone.utc)
+        packages = {"org/api": ["lodash", "express"], "org/ui": ["react"], "other/cli": ["click", "rich", "httpx"]}
+        for index, (name, names) in enumerate(packages.items()):
+            stamp = (now - timedelta(minutes=index)).isoformat()
+            scan = {**_scan(name, [_finding(f"{index}" * 64, "high", package=names[0])], stamp),
+                    "dependencies": [dependency(package, "1.0.0", direct=True) for package in names]}
+            save_repository_scan(self.data_dir, scan, created_at=stamp)
+        stamp = (now - timedelta(minutes=10)).isoformat()
+        save_repository_scan(self.data_dir, {**_image("ghcr.io/org/api", stamp), "dependencies": [dependency("openssl", "3.0.0")],
+                                             "system_packages": [{"name": "libc6", "version": "2.36", "ecosystem": "debian"}]}, created_at=stamp)
+        save_repository_scan(self.data_dir, {**_image("docker.io/org/worker", stamp), "dependencies": [dependency("requests", "2.0.0")]}, created_at=stamp)
+        save_repository_scan(self.data_dir, {**_scan("org/new", [], stamp), "status": "failed"}, created_at=stamp)
+        web = {**_scan("shop.example.com", [], stamp), "type": "dast_scan", "variant": "baseline", "target": "https://shop.example.com",
+               "source": {"id": "domain:shop.example.com", "name": "shop.example.com", "provider": "domain"}}
+        save_repository_scan(self.data_dir, web, created_at=stamp)
+
+        # 7 analyzed assets: 4 repositories, 2 images, 1 domain. The files cover the 5 repositories and images with a
+        # completed full scan; the summary counts the same ones the picker and the downloads do.
+        self.assertEqual(self.call("GET", "/api/evidence", headers=cookie)[1], {"assets": 7, "complete": 5, "accounts": ["org", "other"]})
+        self.assertEqual(self.call("GET", "/api/evidence/scope", headers=cookie)[1], {"repositories": 4, "images": 2, "domains": 1, "complete": 5})
+        _, page, _ = self.call("GET", "/api/evidence/assets?limit=50", headers=cookie)
+        self.assertEqual({item["key"]: item["sbom"] for item in page["items"] if not item["sbom"]}, {"github:org/new": False, "domain:shop.example.com": False})
+
+        status, document, _ = self.call("GET", "/api/evidence/portfolio/sbom", headers=cookie)
+        self.assertEqual(status, 200)
+        assert_cyclonedx(self, document)
+        assets = {component["name"]: component for component in document["components"]}
+        self.assertEqual(set(assets), {"org/api", "org/ui", "other/cli", "ghcr.io/org/api", "docker.io/org/worker"})
+        expected = {**packages, "ghcr.io/org/api": ["openssl", "libc6"], "docker.io/org/worker": ["requests"]}
+        for name, component in assets.items():
+            self.assertEqual(sorted(item["name"] for item in component["components"]), sorted(expected[name]), name)
+            self.assertTrue(all(item["bom-ref"].startswith(component["bom-ref"] + "|") for item in component["components"]), name)
+        self.assertEqual({assets["ghcr.io/org/api"]["type"], assets["org/api"]["type"]}, {"container", "application"})
+        graph = {item["ref"]: item["dependsOn"] for item in document["dependencies"]}
+        self.assertEqual(sorted(graph["urn:pitangus:portfolio"]), sorted(component["bom-ref"] for component in document["components"]))
+        properties = {item["name"]: item["value"] for item in document["metadata"]["properties"]}
+        self.assertEqual((properties["pitangus:assets"], properties["pitangus:components"]), ("5", "9"))
+        self.assertNotIn("pitangus:truncated", properties)
+        self.assertNotIn("compositions", document)
+
+        # The VEX speaks about the same products, and only those.
+        status, openvex, _ = self.call("GET", "/api/evidence/portfolio/vex", headers=cookie)
+        self.assertEqual(status, 200)
+        refs = {item["products"][0]["@id"] for item in openvex["statements"]}
+        self.assertEqual(refs, {assets[name]["bom-ref"] for name in packages})  # the images have no findings
+        self.assertNotIn("·", openvex.get("tooling", ""))  # not partial
+
+        # A scope with only the domain has nothing for the SBOM; the audit evidence still covers it.
+        self.assertEqual(self.call("GET", "/api/evidence/scope?assets=domain:shop.example.com", headers=cookie)[1],
+                         {"repositories": 0, "images": 0, "domains": 1, "complete": 0})
+        self.assertEqual(self.call("GET", "/api/evidence/portfolio/sbom?assets=domain:shop.example.com", headers=cookie)[0], 404)
+        self.assertEqual(self.call("GET", "/api/evidence/portfolio/vex?assets=domain:shop.example.com", headers=cookie)[0], 404)
+        status, pdf, _ = _send(self, "/api/evidence/portfolio", "audit-report", {"framework": "general", "assets": ["domain:shop.example.com"]}, member)
+        self.assertEqual((status, pdf[:5]), (200, b"%PDF-"))
+        # A domain has no SBOM of its own either.
+        self.assertEqual(self.call("GET", "/api/assets/export?key=domain:shop.example.com&status=all&artifact=sbom.cdx.json", headers=cookie)[0], 404)
 
 
 def _image(name, stamp, *, labels=None):
@@ -812,6 +875,74 @@ class ImageRegistrationTests(HttpCase):
         self.assertEqual(rows[0]["built_from"]["repository"], "github:org/app")  # the link set before the scan stays
         self.assertIn("image:ghcr.io/org/app", [row["key"] for row in provenance.scope(self.data_dir, assets=["github:org/app"])])
         self.assertEqual(_send(self, "/api/images/remove", "remove-image", {"key": "image:ghcr.io/org/app"}, self.admin)[0], 409)
+
+
+class ImageLinkBeforeScanTests(HttpCase):
+    """An image is linked to a repository of the workspace (reachable with the GitHub App or a token) before either is
+    scanned, from the Images page or from the repository; the link holds once the repository is scanned."""
+
+    NEW = {"id": "github:org/new", "uid": "github#42", "name": "org/new", "provider": "github", "installation_id": 7}
+
+    def setUp(self):
+        super().setUp()
+        for patcher in (patch("pitangus.app.api.images.check_registry_address", return_value={}),
+                        patch("pitangus.app.api.compliance.find_source", side_effect=self.find),
+                        patch("pitangus.app.api.images.source_page", side_effect=self.listing)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.member, self.admin = _login(self, "miembro"), _login(self, "jefa", role="admin")
+        stamp = datetime.now(timezone.utc).isoformat()
+        save_repository_scan(self.data_dir, _scan("org/api", [], stamp), created_at=stamp)
+        _send(self, "/api/images", "register-image", {"reference": "ghcr.io/org/new:1"}, self.member)
+
+    def find(self, tokens, installations, source_id):
+        return self.NEW if source_id in ("github#42", "github:org/new") else None
+
+    def listing(self, tokens, installations, *, query="", provider=None, per_page=25, **rest):
+        found = [self.NEW, {"id": "github:org/api", "name": "org/api", "provider": "github"}]
+        found = [row for row in found if query.casefold() in row["name"]]
+        return {"sources": found, "total": len(found) + (40 if not query else 0)}
+
+    def link(self, repository, cookie=None):
+        return _send(self, "/api/evidence/image-link", "image-link", {"image": "image:ghcr.io/org/new", "repository": repository}, cookie or self.admin)
+
+    def test_linked_to_a_repository_not_scanned_yet(self):
+        status, body, _ = self.link("github#42")
+        self.assertEqual(status, 200)
+        self.assertEqual({key: body["built_from"][key] for key in ("repository", "name", "how", "analyzed")},
+                         {"repository": "github#42", "name": "org/new", "how": "manual", "analyzed": False})
+        # By the key a scan will give it, nothing else: the same repository under its name would split it in two.
+        self.assertEqual(self.link("github:org/new")[0], 400)
+        self.assertEqual(self.link("github#404")[0], 400)
+        self.assertEqual(self.link("github#42", self.member)[0], 403)
+        page = self.call("GET", "/api/images?repository=github%2342", headers={"Cookie": self.member})[1]
+        self.assertEqual(([item["key"] for item in page["items"]], page["counts"]["manual"]), (["image:ghcr.io/org/new"], 1))
+        # Both scanned later: the repository is the same asset, and the link brings the image into its scope.
+        from pitangus.modules.compliance import provenance
+        stamp = datetime.now(timezone.utc).isoformat()
+        scan = _scan("org/new", [], stamp)
+        save_repository_scan(self.data_dir, {**scan, "source": {**scan["source"], "uid": "github#42"}}, created_at=stamp)
+        save_repository_scan(self.data_dir, _image("ghcr.io/org/new", stamp), created_at=stamp)
+        built = provenance.link_for(self.data_dir, "image:ghcr.io/org/new")
+        self.assertEqual((built["repository"], built["name"], built["analyzed"]), ("github#42", "org/new", True))
+        self.assertIn("image:ghcr.io/org/new", [row["key"] for row in provenance.scope(self.data_dir, assets=["github#42"])])
+
+    def test_added_by_reference_from_the_repository(self):
+        status, body, _ = _send(self, "/api/images", "register-image", {"reference": "ghcr.io/org/worker:2", "repository": "github#42"}, self.admin)
+        self.assertEqual((status, body["created"], body["built_from"]["repository"], body["built_from"]["analyzed"]), (200, True, "github#42", False))
+        self.assertEqual(_send(self, "/api/images", "register-image", {"reference": "ghcr.io/org/other:2", "repository": "github#404"}, self.admin)[0], 400)
+
+    def test_the_picker_lists_the_workspace_repositories(self):
+        self.assertEqual(self.call("GET", "/api/images/repositories")[0], 401)
+        status, body, _ = self.call("GET", "/api/images/repositories", headers={"Cookie": self.member})
+        self.assertEqual(status, 200)
+        # Analyzed first, then the ones only connected; one row per repository; more exist past the first page.
+        self.assertEqual(body["items"], [{"key": "github:org/api", "name": "org/api", "analyzed": True},
+                                         {"key": "github#42", "name": "org/new", "analyzed": False}])
+        self.assertEqual(body["total"], 2 + 40)
+        _, body, _ = self.call("GET", "/api/images/repositories?q=NEW", headers={"Cookie": self.member})
+        self.assertEqual([item["key"] for item in body["items"]], ["github#42"])
+        self.assertEqual(self.call("GET", "/api/images/repositories?q=" + "a" * 101, headers={"Cookie": self.member})[0], 400)
 
 
 class CraFrameworkGateTests(HttpCase):

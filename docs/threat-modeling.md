@@ -36,7 +36,7 @@ microfrontends). A component linked to a repository adds it to the list automati
 | LINDDUN | Threats to people's privacy | Built-in rules on the elements that hold personal data (`PV-*`) |
 | PASTA | Business risk in seven stages | Stages with notes; stages 3, 4 and 5 are fed by the diagram, STRIDE and the scans |
 | Attack trees | Paths toward an attacker's goal | AND/OR tree editor with difficulty, element and mitigation; works out which paths are still open |
-| MITRE ATT&CK | Real attackers' techniques | A selection of techniques (web, API, containers, cloud) to map onto components, with suggestions and a link to attack.mitre.org |
+| MITRE ATT&CK | Real attackers' techniques | A selection of techniques (web, API, containers, cloud) to map onto components, with suggestions and a link to attack.mitre.org; any other technique ID can be added too |
 | Custom | Your team's method | The diagram plus whichever tools you turn on: STRIDE or LINDDUN rules, your own threats, PASTA stages, attack trees, ATT&CK and the element table |
 
 In any approach you can **add your own threats**: title, scenario, category, element, severity, likelihood, impact,
@@ -114,13 +114,74 @@ says so before you decide.
 The model has a portable JSON format you can version, edit by hand or ask an AI assistant to write.
 
 **Import.** In the list, **Import JSON** opens a wizard with a complete example for each approach, an editor to
-paste or change the JSON, file upload (600 KB at most), download and copy of the example, and a prompt to copy for an
-AI assistant. **Validate JSON** checks it without creating anything; **Import model** is enabled only once the current
-text validates.
+paste or change the JSON, **Format JSON** (two-space indentation; on a syntax error it says the line and column), file
+upload (600 KB at most), download and copy of the example, and **Copy AI prompt**: the full contract (allowed values,
+id and reference rules, the ATT&CK ID format and a minimal valid example) for an AI assistant. **Validate JSON** checks
+it without creating anything and lists **every problem at once**, in three levels: **errors** (they block the
+import), **warnings** (something that matters was changed or couldn't be used) and **minor adjustments** (a synonym
+read as our field, a field kept as a custom property). Identical problems are grouped ("description read as scenario
+· in 12 team threats") and open to each place; click one to jump to it in the editor. The status line counts errors
+and warnings only ("Ready to import with 2 warnings"); the minor adjustments are folded under their count.
+
+**Saved means shown; nothing you write is thrown away.** Only structural integrity stops the import: invalid JSON, a
+wrong `format` or `version`, missing or repeated ids, references (`source`, `target`, `element`, `parent`, a
+boundary's `components`) to ids that don't exist, wrong types (text, `true`/`false`, lists), an ATT&CK ID that isn't
+one, sizes over their limit, and sections a fixed approach doesn't use. Everything else is kept and shown:
+
+- **Descriptions** on components, flows and boundaries are stored, shown in the inspector (and as a tooltip on the
+  diagram) and printed in the reports' flow and trust boundary appendices.
+- **Assumptions** (`assumptions: [{"id": "a1", "text": "…"}]`, or a plain list of sentences) are a section of the
+  model: the **Context** tab edits them and they open the report, before the analysis.
+- **Fields Pitangus doesn't know** become **custom properties** of their object: listed and editable (add, rename,
+  remove) in the inspector, the threat dialog, the tree and the ATT&CK table; on the diagram as a tooltip; in the
+  reports in a "Custom properties" appendix; and exported back to the JSON where they came from. Unknown fields of the
+  model itself are its own properties and sections, shown in **Context** and in the report (a list of objects as a
+  table, a list as bullets). A field close to one of ours ("sevirity") is still kept, with a warning asking whether
+  you meant ours.
+- **Synonyms** are read as our fields with a minor adjustment: `component_id`, `component`, `element_id` or `flow_id`
+  → `element`; a threat's `description` → `scenario` (joined to it if both are present); a tree's `name` or `title`
+  → `goal` (joined in front of it); a step's `label` → `text` and `type` → `gate`; a mapping's `technique_id` →
+  `technique` and `notes` → `note`; a flow's `from`/`to` → `source`/`target`; and more. Field names ignore case and
+  hyphens. The full list is in the JSON Schema (`x-pitangus-aliases`) and in the AI prompt. If both our field and a
+  synonym come with different values, ours is used and the synonym stays as a custom property (warning).
+
+**Your own values.** Our lists are suggestions; every team has its own. A value Pitangus doesn't know becomes a new
+option of that field for the workspace (it is offered in the selector next time):
+
+| Field | Pitangus knows | Any other value |
+| --- | --- | --- |
+| Flow `protocol` | `https`, `http`, `grpc`, `websocket`, `sql`, `amqp`, `redis`, `smtp`, `sftp`, `other` | Kept as written (24 characters at most, e.g. `wifi`, `mqtt`). Pitangus can't tell whether it's encrypted: set `encrypted` (then it's only a minor adjustment). |
+| Component `kind` | `actor`, `web_app`, `api`, `service`, `function`, `database`, `cache`, `queue`, `storage`, `external`, `identity` | Kept as your own type (`kind: custom`, `custom_kind`), analyzed as `custom_base` (default `service`). |
+| `data` classes | `public`, `internal`, `confidential`, `pii`, `credentials`, `payment` | Kept as written (40 characters at most); it counts as internal data and no privacy or credential rules apply to it. |
+| `severity`, `likelihood`, `impact`, `difficulty` | `critical`, `high`, `medium`, `low` (and the synonyms `crit`, `med`, `moderate`, `severe`…) | Kept with its name as your own level. It sorts after the known levels unless you give it an equivalent (`level_equivalents: {"severity": {"Severe": "high"}}`, or **sorts like** in the threat dialog). |
+| ATT&CK mapping `status` | `relevant`, `mitigated`, `not_applicable` (and `potential`, `possible`, `addressed`, `n/a`…) | Kept as your own status. |
+| Team threat `category` | STRIDE's and LINDDUN's categories | Free text in every approach except STRIDE and LINDDUN (see below). |
+
+**What stays the method's own.** A template keeps its principle: a **STRIDE** model has STRIDE's six categories and a
+**LINDDUN** one LINDDUN's seven (a code, or the category's name in English or Spanish, is read as its code); **PASTA**
+has its seven stages; an attack tree step is **AND** or **OR**. A value outside the method is kept as a custom
+property with a warning that suggests the **Custom** approach to model with your own categories or sections. An
+approach Pitangus doesn't have is imported as Custom, keeping its name as a property. **Custom** is full freedom: any
+category, status, scale, section or field is accepted and shown; a section the file brings turns its module on.
+
+**ATT&CK.** Pitangus includes the full MITRE ATT&CK Enterprise catalog (v19.2, every technique and sub-technique with
+its name and tactics), offline. Any real ID is recognized and named (T1552.004 is "Private Keys"); our selection is
+only what we suggest. A well-formed ID that isn't in ATT&CK is kept with the warning "not found in ATT&CK v19.2", and
+a revoked one names its replacement when MITRE gives one. To refresh it, change the pinned release in
+`scripts/attack-catalog.py` and run `make attack-catalog`.
+
+**JSON Schema.** The format is described as a JSON Schema (draft 2020-12): download it from the import wizard
+(**Download JSON Schema**) or read it in the repository at `web/src/examples/threat-models/schema.json`. It is
+generated from the same lists the importer uses (`make openapi`), and so is the AI prompt. A document that
+validates against it imports without errors. The `/api/threat-models/validate` route answers
+`{…counts, "problems": [{"severity", "path", "id", "code", "message"}]}`, where `severity` is `error`, `warning` or
+`info`, `path` is a JSON Pointer such as `/model/flows/3/protocol` and `code` is the same for identical problems; with
+errors it answers 400 with `error` (the first one) and the same `problems` list.
 
 **Export.** In the editor, **Export → Model JSON (re-importable)** downloads `model.json`: the full diagram (positions,
-components, flows and boundaries), the approach, the custom modules, the threats your team wrote, PASTA stages, attack
-trees and ATT&CK techniques.
+components, flows and boundaries, with their descriptions), the approach, the custom modules, the assumptions, the
+threats your team wrote, PASTA stages, attack trees, ATT&CK techniques, your own levels' equivalents and every custom
+property back in its place.
 
 The importer takes both the envelope the panel downloads (`{"format": "pitangus-threat-model", "version": 1,
 "model": {…}}`) and a bare model object. A minimal example:
@@ -148,10 +209,11 @@ Rules worth knowing:
   out: the editor lays everything out. If the positions don't fit their boundaries (a box smaller than its
   components, or two boxes overlapping), the model is laid out again on import and the preview warns you.
 - **Sections must match the approach.** The diagram is shared by every approach. STRIDE and LINDDUN accept your own
-  threats; PASTA accepts its stages and trees; Attack trees accepts trees; ATT&CK accepts techniques. **Custom**
-  accepts any combination, but each section needs its module in `custom_modules` (`stride`, `linddun`, `manual`,
-  `pasta`, `trees`, `attack`, `elements`). An incompatible file is rejected with a message saying which section
-  doesn't belong and suggesting another approach or Custom.
+  threats; PASTA accepts its stages and trees; Attack trees accepts trees; ATT&CK accepts techniques. A file with a
+  section its fixed approach doesn't use is rejected with a message saying which section doesn't belong and
+  suggesting another approach or Custom (the section isn't dropped silently: you'd lose it). **Custom** accepts any
+  combination: its modules (`stride`, `linddun`, `manual`, `pasta`, `trees`, `attack`, `elements`) are the ones in
+  `custom_modules` plus those of the sections the file brings.
 - When exporting a fixed approach, only its sections are included; data left over from another approach after
   switching doesn't leak into the file.
 - Instance IDs, decisions and scan findings aren't part of the portable format.
@@ -173,7 +235,11 @@ Downloads go through the authenticated API and show the actual error if they fai
 
 | What you see | Why | What to do |
 | --- | --- | --- |
-| "This isn't valid JSON" | A comma, quote or brace is wrong | Fix the syntax; validate again. |
+| "This isn't valid JSON: line 12, column 5" | A comma, quote or brace is wrong near there | Click the problem to jump to it, fix it, then **Format JSON** or validate again. |
+| "… points to «x», which isn't the id of any element" | A reference to an id that doesn't exist | Fix the id, or add the component it refers to. |
+| A warning that a value is your own | Pitangus doesn't know that protocol, type or data class | Nothing to fix: it's kept. Set what Pitangus can't infer (e.g. `encrypted`). |
+| "STRIDE has only these categories…" | A category outside the method in a STRIDE or LINDDUN model | It's kept as a custom property. Use a category of the method, or the Custom approach. |
+| "N minor adjustments" | Synonyms read as our fields, fields kept as custom properties | Nothing to fix; open them to see each one. |
 | The import says a section doesn't belong | The section isn't allowed for that approach | Change `methodology`, or use `custom` and add the module to `custom_modules`. |
 | "The file is over the 600 KB limit" | The model is too large | Split it into several models. |
 | No components are proposed from a repository | Its manifests aren't among the supported ones, or the App can't read it | Check the App's access; add components by hand. |

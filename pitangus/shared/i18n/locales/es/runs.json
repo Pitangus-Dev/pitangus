@@ -27,7 +27,9 @@
     "comment_failed": "No se pudo comentar en el PR: {{reason}}",
     "no_comment_permission": "El resultado no se publicó en GitHub: la App no tiene permiso de escritura en pull requests.",
     "branch_commit": "Se analiza la rama {{branch}} en el commit {{sha}}",
-    "queued_api": "En cola: análisis pasivo de la API de {{host}}."
+    "queued_api": "En cola: análisis pasivo de la API de {{host}}.",
+    "queued_exposure": "En cola: comprobación de exposición de {{host}}.",
+    "web_target_exposure": "Prueba DNS confirmada y {{host}} resuelve a una dirección pública ({{address}}); la comprobación de exposición envía a esa dirección sus peticiones a {{host}}."
   },
   "failure": {
     "restart": "El servidor se reinició mientras corría esta ejecución y quedó interrumpida. Vuelve a lanzarla.",
@@ -60,7 +62,8 @@
     "detail_partial_other": "{{count}} hallazgos de los {{results}} resultados del SARIF ({{skipped}} suprimidos o sin fallo, no se importan). Importación parcial: no se remedia nada.",
     "limitations": {
       "third_party": "Hallazgos reportados por {{tool}} e importados tal como llegaron: Pitangus no analizó el código en esta ejecución.",
-      "partial": "Importación parcial: los hallazgos que {{tool}} ya no reporte siguen abiertos hasta una importación completa o una corrección manual."
+      "partial": "Importación parcial: los hallazgos que {{tool}} ya no reporte siguen abiertos hasta una importación completa o una corrección manual.",
+      "failed": "{{tool}} informó que su ejecución falló (o el archivo no trae lista de resultados): se importa lo que encontró, y nada de lo que no reportó se marca como remediado."
     },
     "errors": {
       "invalid_request": "Importación no válida: envía asset, el documento SARIF y, si quieres, tool, scope (full o partial), commit y branch",

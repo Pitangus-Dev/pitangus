@@ -187,10 +187,10 @@ class DiagramTests(unittest.TestCase):
     def test_colors_come_from_the_palette_and_are_validated(self):
         current = model(components=[{**item, "color": "danger"} if item["id"] == "api" else item for item in model()["components"]])
         self.assertEqual(next(item for item in current["components"] if item["id"] == "api")["color"], "danger")
-        with self.assertRaises(tm.ModelError):
-            model(components=[{**item, "color": "#ff0000"} if item["id"] == "api" else item for item in model()["components"]])
-        with self.assertRaises(tm.ModelError):
-            model(boundaries=[{**model()["boundaries"][0], "color": "url(javascript:x)"}])
+        # Anything outside the palette is dropped (automatic color, with a warning): it never reaches the SVG or the PDF.
+        free = model(components=[{**item, "color": "#ff0000"} if item["id"] == "api" else item for item in model()["components"]])
+        self.assertEqual(next(item for item in free["components"] if item["id"] == "api")["color"], "")
+        self.assertEqual(model(boundaries=[{**model()["boundaries"][0], "color": "url(javascript:x)"}])["boundaries"][0]["color"], "")
         svg = tm.to_svg(current)
         ET.fromstring(svg)
         self.assertIn(threat_diagram.COLORS["danger"][0], svg)

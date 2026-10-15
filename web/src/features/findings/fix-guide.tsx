@@ -7,8 +7,10 @@ import { formatDate } from '@/shared/i18n/format'
 
 // Cómo corregir un hallazgo (pitangus/modules/findings/fix_guide.py) y reverificarlo (verifications.py): cierra el ciclo
 // encontrar → corregir → verificar sin buscar el hallazgo a mano en un análisis nuevo.
+// `action`: for a transitive dependency, the whole move in one line (update it; if it stays below, update what brings it in).
 export type FixGuide = { kind: 'dependency' | 'code' | 'secret' | 'config' | 'web'; steps: string[]; commands: { label: string; code: string; action?: string }[]
-  example: { language: string; before: string; after: string; note?: string } | null
+  action?: string
+  example: { language: string; before: string; after: string; note?: string; file?: string } | null
   // Web: the evidence split around the fragment the result is about, and a curl check of the response headers.
   web?: { highlight: { before: string; match: string; after: string } | null; check: string | null } }
 export type Verification = { run_id: string; by: string; at: string; state: 'running' | 'fixed' | 'present' | 'inconclusive' | 'failed'; finished_at?: string | null }
@@ -37,13 +39,14 @@ export function FixSection({ fix, remediation }: { fix?: FixGuide | null; remedi
   const steps = fix.steps.filter(Boolean)
   const example = fix.example && <div className={`grid gap-2 ${fix.example.before ? 'lg:grid-cols-2' : ''}`}>
     {fix.example.before && <div className="min-w-0 space-y-1"><p className="text-xs text-danger">{t('fix.before')}</p><CodeBlock code={fix.example.before} label={t('fix.vulnerable_example')} /></div>}
-    <div className="min-w-0 space-y-1"><p className="text-xs text-success">{fix.example.before ? t('fix.after') : t('fix.example')}</p><CodeBlock code={fix.example.after} label={t('fix.fixed_example')} /></div>
+    <div className="min-w-0 space-y-1"><p className="text-xs text-success">{fix.example.before ? t('fix.after') : fix.example.file ? t('fix.example_in', { file: fix.example.file }) : t('fix.example')}</p><CodeBlock code={fix.example.after} label={t('fix.fixed_example')} /></div>
   </div>
   const commands = fix.commands.map(command => <div key={command.code} className="space-y-1"><p className="text-xs text-app-muted">{command.label}</p><CodeBlock code={command.code} label={command.label} /></div>)
   // En una dependencia, el ejemplo es la edición (override, pom, Dockerfile): va antes del comando que la aplica.
   const editFirst = fix.kind === 'dependency' && !!fix.example && !fix.example.before
   return <section aria-labelledby={heading} className="mt-4 space-y-3 border-t border-app-line pt-4">
     <h3 id={heading} className="text-sm font-medium text-app-fg">{t('fix.title')}</h3>
+    {fix.action && <p className="text-sm font-medium text-app-fg">{fix.action}</p>}
     {steps.length > 0 && <ol className="list-decimal space-y-1 pl-5 text-sm text-app-secondary">{steps.map(step => <li key={step}>{step}</li>)}</ol>}
     {editFirst ? <>{example}{commands}</> : <>{commands}{example}</>}
     {fix.example?.note && <p className="text-xs text-app-muted">{fix.example.note}</p>}

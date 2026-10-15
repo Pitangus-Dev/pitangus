@@ -9,12 +9,14 @@ import type { FindingTab, RepositoryRun } from '@/features/findings/finding-mode
 
 // The findings of one run or of one asset's current state (`asset_state`), with that asset's files, the run's log and
 // what each engine covered. `focus`: a finding to open (links from Jira issues carry its fingerprint).
-export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage = canAccept, initialView = 'active', exportStatus = 'open', focus = null }: {
-  run: RepositoryRun; onNew: () => void; onChanged: () => void; canAccept: boolean; canManage?: boolean; initialView?: string; exportStatus?: FindingTab; focus?: string | null
+// `tab`: the state's tab shown (none for a run).
+export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage = canAccept, tab, focus = null }: {
+  run: RepositoryRun; onNew: () => void; onChanged: () => void; canAccept: boolean; canManage?: boolean; tab?: FindingTab; focus?: string | null
 }) {
   const { t } = useTranslation('findings')
   const source = run.source
   const state = run.type === 'asset_state'
+  const exportStatus = tab ?? 'open'
   // Its Jira issues go where the server routes the asset (by its key and name).
   return <div className="space-y-6">
     <FindingsTable findings={run.findings ?? []} kpis={run.summary.kpis} header={<RunHeader run={run} onNew={onNew} />}
@@ -22,7 +24,7 @@ export function RepositoryResult({ run, onNew, onChanged, canAccept, canManage =
       audit={{ name: source?.name ?? t('export.file_fallback'), fromSelection: true,
         target: state ? { asset: source?.id ?? '', status: exportStatus === 'fixed' || exportStatus === 'all' ? exportStatus : 'open' } : { runId: run.id } }}
       jira={{ selection: state && source?.id ? { asset: source.id } : { runId: run.id }, asset: source ? { key: source.uid || source.id || source.name, name: source.name } : null }}
-      runId={run.id} assetKey={source?.id} canAccept={canAccept} canManage={canManage} initialView={initialView} focus={focus} onChanged={onChanged} />
+      runId={run.id} assetKey={source?.id} canAccept={canAccept} canManage={canManage} tab={state ? exportStatus : undefined} focus={focus} onChanged={onChanged} />
     {run.progress?.length ? <RunLog run={run} progress={run.progress} /> : null}
     <RunCoverage run={run} />
   </div>

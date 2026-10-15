@@ -17,6 +17,7 @@ import { FindingTabs } from '@/features/findings/finding-tabs'
 import { CURRENT, runOption, type AssetSelection, type RunDetail } from '@/features/findings/asset-selection'
 import type { FindingTab } from '@/features/findings/finding-model'
 import { Notice } from '@/shared/ui/notice'
+import { FixControlNotices } from '@/features/findings/fix-control'
 
 const active = (status?: string) => status === 'queued' || status === 'running'
 
@@ -84,7 +85,7 @@ export function AssetFindings({ selection, tab, onTab, user, onNew, onOpenPolici
       : selection.starting ? <Skeleton tiles={6} rows={5} /> : null
     : !detail || result.isPlaceholderData ? result.isError ? null : <Skeleton tiles={6} rows={5} />
     : active(detail.status) || detail.status === 'failed' ? <RunProgress run={detail} />
-    : <RepositoryResult key={`${run}:${tab}`} run={detail} onNew={onNew} canAccept={admin} canManage={admin} onChanged={reload} initialView={run === CURRENT && tab !== 'open' ? 'all' : 'active'} exportStatus={tab}
+    : <RepositoryResult key={`${run}:${tab}`} run={detail} onNew={onNew} canAccept={admin} canManage={admin} onChanged={reload} tab={run === CURRENT ? tab : undefined}
         focus={run === CURRENT && focus.repo === asset.key ? focus.finding : null} />
   return <>
     {asset?.removed_at && <Notice role="status" tone="critical">{t('page.removed', { date: formatDate(asset.removed_at) })}</Notice>}
@@ -92,6 +93,8 @@ export function AssetFindings({ selection, tab, onTab, user, onNew, onOpenPolici
     {/* Excluded paths and secret entries are about files: a site's scope lives on its domain page. */}
     {run === CURRENT && asset && kind !== 'domain' && <RepositorySettings key={asset.key} assetKey={asset.key} name={asset.name} kind={kind}
       canEdit={admin} onOpenPolicies={onOpenPolicies} />}
+    {run === CURRENT && asset && detail && <FixControlNotices assetKey={asset.key} control={detail.control}
+      counts={detail.summary.lifecycle} admin={admin} onChanged={reload} />}
     {run === CURRENT && asset && <FindingTabs tab={tab} counts={detail?.summary.lifecycle} onChange={onTab} />}
     {asset && result.isError && <Failed message={t('page.load_failed', { error: result.error.message })} busy={result.isFetching} onRetry={() => void result.refetch()} />}
     {body}

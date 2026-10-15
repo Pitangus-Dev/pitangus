@@ -79,9 +79,10 @@ Only dependency advisories with an identifier (CVE, GHSA…) are included: first
 
 ## Malicious packages
 
-OpenSSF `MAL-*` advisories (known malicious packages, through OSV) are flagged **Malicious**, critical and Act now,
-with the actual fix: remove the package and rotate the secrets of every machine where it was installed. Never
-"update to…".
+Known malicious packages (an OpenSSF `MAL-*` advisory, one its database types as malware, or one where two of its CWE,
+title and description agree that it is; see [Scan your code](scanning-code.md)) are flagged **Malicious**, critical
+and Act now, as one finding per package version with every advisory about it, and with the actual fix: remove the
+package and rotate the secrets of every machine where it was installed. Never "update to…".
 
 ## Frameworks
 

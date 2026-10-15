@@ -1,0 +1,44 @@
+GitLab sast-rules, selected for Pitangus
+========================================
+
+Source: https://gitlab.com/gitlab-org/security-products/sast-rules
+Version: v2.10.1 (commit 53bf5cf6df3c51b6c02110f5a638b5e6213666cd, 2026-09-21)
+
+259 rule files, unchanged, each with its upstream license header. SHA256SUMS pins them.
+
+Licenses of what is included:
+- MIT (c) GitLab Inc. (238 files): LICENSE.
+- Apache License 2.0 (c) gosec authors (21 Go files derived from https://github.com/securego/gosec): LICENSE-APACHE-2.0.
+- 6 JavaScript files declare an origin in eslint-plugin-security (Apache License 2.0,
+  https://github.com/eslint-community/eslint-plugin-security): LICENSE-APACHE-2.0.
+
+Left out, with the reason (provenance checked file by file against each header, the upstream README and, for
+every MIT or Apache candidate, the semgrep-rules repository of the same language):
+
+- 153 files: LGPL
+- 97 files: Commons Clause
+- 62 files: GPL-2.0 (flawfinder)
+- 11 files: shares patterns or wording with a semgrep-rules rule (Semgrep Rules License)
+- 6 files: MIT header inside a folder the upstream README assigns another license
+- 5 files: GitLab EE license
+
+Files left out for sharing patterns or wording with semgrep-rules:
+- go/blocklist/rule-blocklist-des.yml
+- go/blocklist/rule-blocklist-md5.yml
+- go/blocklist/rule-blocklist-rc4.yml
+- go/blocklist/rule-blocklist-sha1.yml
+- go/crypto/rule-weakkeystrength.yml
+- javascript/dos/rule-non-literal-regexp.yml
+- javascript/xss/rule-mustache-escape.yml
+- python/bind_all_interfaces/rule-general-bindall-interfaces.yml
+- python/exec/rule-linux-command-wildcard-injection.yml
+- python/exec/rule-start-process-with-no-shell.yml
+- python/urlopen/rule-urllib-urlopen.yml
+
+Files left out for an ambiguous license:
+- rules/gitlab/python/exec/rule-subprocess-call-array.yml
+- rules/gitlab/python/exec/rule-start-process-path.yml
+- rules/gitlab/python/exec/rule-start-process-partial-path.yml
+- rules/gitlab/scala/unsafe/rule-InformationExposureVariant2.yml
+- rules/lgpl-cc/python/escaping/rule-django.yml
+- rules/lgpl-cc/python/django/security/injection/sql/rule-django-rawsql-used.yml

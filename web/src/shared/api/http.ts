@@ -11,6 +11,8 @@ export class ApiError extends Error {
   field?: string
   // Several inputs at once (`[{field, error}]`, e.g. a Jira mapping), each already in the reader's language.
   errors?: { field: string; error: string }[]
+  // Structured problems a route lists alongside `error` (e.g. every problem in an imported threat model).
+  details?: unknown
   constructor(message: string, status: number, retryIn?: number, code?: string, field?: string, errors?: { field: string; error: string }[]) {
     super(message); this.status = status; this.retryIn = retryIn; this.code = code; this.field = field; this.errors = errors
   }
@@ -37,13 +39,15 @@ async function parse<T>(response: Response, path: string): Promise<T> {
   let body: unknown = null
   try { body = text ? JSON.parse(text) : null } catch { body = null }
   if (!response.ok) {
-    const record = body && typeof body === 'object' ? body as { error?: unknown; retry_in?: unknown; code?: unknown; field?: unknown; errors?: unknown } : {}
+    const record = body && typeof body === 'object' ? body as { error?: unknown; retry_in?: unknown; code?: unknown; field?: unknown; errors?: unknown; problems?: unknown } : {}
     // El login también responde 401 con credenciales malas: eso no es una sesión caducada.
     if (response.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
     if (response.status === 403 && record.code === 'totp_required') window.dispatchEvent(new Event(TOTP_REQUIRED_EVENT))
-    throw new ApiError(record.error ? String(record.error) : `Error ${response.status}`, response.status,
+    const error = new ApiError(record.error ? String(record.error) : `Error ${response.status}`, response.status,
       typeof record.retry_in === 'number' ? record.retry_in : undefined, typeof record.code === 'string' ? record.code : undefined,
       typeof record.field === 'string' ? record.field : undefined, fieldErrors(record.errors))
+    error.details = record.problems
+    throw error
   }
   return body as T
 }

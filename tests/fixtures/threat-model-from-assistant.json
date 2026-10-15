@@ -1,0 +1,91 @@
+{
+  "format": "pitangus-threat-model",
+  "version": 1,
+  "model": {
+    "name": "Plataforma de telemetría de flota",
+    "description": "Modelo de amenazas de la plataforma que recibe telemetría de los vehículos, la procesa y la muestra a los operadores y a los clientes.",
+    "methodology": "custom",
+    "custom_modules": ["stride", "manual", "trees", "attack", "elements"],
+    "assumptions": [
+      {"id": "a1", "text": "La nube del proveedor (AWS) cumple su parte del modelo de responsabilidad compartida."},
+      {"id": "a2", "text": "Los dispositivos de los vehículos tienen el firmware firmado y arranque seguro."},
+      {"id": "a3", "text": "Los operadores se autentican con SSO corporativo con MFA obligatorio."},
+      {"id": "a4", "text": "No se procesan datos de pago en la plataforma."}
+    ],
+    "components": [
+      {"id": "conductor", "name": "Conductor", "kind": "actor", "description": "Usa la app móvil para ver su ruta y reportar incidencias.", "internet_facing": true, "data": ["pii"]},
+      {"id": "operador", "name": "Operador de flota", "kind": "actor", "description": "Personal interno que gestiona la flota desde el panel.", "data": ["internal"]},
+      {"id": "dispositivo", "name": "Dispositivo telemático", "kind": "external", "technology": "Firmware propio sobre Linux embebido", "description": "Unidad instalada en cada vehículo que envía GPS y sensores.", "internet_facing": true, "data": ["pii", "credentials"]},
+      {"id": "app-movil", "name": "App móvil", "kind": "web_app", "technology": "React Native", "internet_facing": true, "authenticates": true, "data": ["pii"]},
+      {"id": "panel", "name": "Panel de operación", "kind": "web_app", "technology": "Next.js", "internet_facing": true, "authenticates": true, "data": ["pii", "internal"]},
+      {"id": "api", "name": "API pública", "kind": "api", "technology": "FastAPI", "internet_facing": true, "authenticates": true, "data": ["pii", "credentials"]},
+      {"id": "ingesta", "name": "Servicio de ingesta", "kind": "service", "technology": "Go", "internet_facing": true, "authenticates": true, "data": ["pii"]},
+      {"id": "broker", "name": "Broker MQTT", "kind": "queue", "technology": "EMQX", "data": ["pii"]},
+      {"id": "procesador", "name": "Procesador de eventos", "kind": "function", "technology": "AWS Lambda", "authenticates": true, "data": ["pii"]},
+      {"id": "db", "name": "Base de datos", "kind": "database", "technology": "PostgreSQL", "encrypted_at_rest": true, "data": ["pii", "credentials"]},
+      {"id": "s3", "name": "Almacén de históricos", "kind": "storage", "technology": "Amazon S3", "encrypted_at_rest": true, "data": ["pii"]},
+      {"id": "idp", "name": "Proveedor de identidad", "kind": "identity", "technology": "Keycloak", "data": ["credentials"]}
+    ],
+    "flows": [
+      {"id": "f-conductor-app", "source": "conductor", "target": "app-movil", "protocol": "https", "data": ["pii", "credentials"], "authenticated": false, "description": "El conductor inicia sesión y consulta su ruta."},
+      {"id": "f-app-api", "source": "app-movil", "target": "api", "protocol": "https", "data": ["pii"], "authenticated": true, "description": "La app llama a la API con un token de acceso."},
+      {"id": "f-operador-panel", "source": "operador", "target": "panel", "protocol": "https", "data": ["internal"], "authenticated": false, "description": "El operador entra al panel desde la red corporativa."},
+      {"id": "f-panel-api", "source": "panel", "target": "api", "protocol": "https", "data": ["pii", "internal"], "authenticated": true, "description": "El panel consulta y modifica datos de la flota."},
+      {"id": "f-panel-idp", "source": "panel", "target": "idp", "protocol": "https", "data": ["credentials"], "authenticated": true, "description": "Redirección OIDC para el inicio de sesión con SSO."},
+      {"id": "f-app-idp", "source": "app-movil", "target": "idp", "protocol": "https", "data": ["credentials"], "authenticated": false, "description": "Flujo PKCE para obtener tokens del conductor."},
+      {"id": "f-dispositivo-ingesta", "source": "dispositivo", "target": "ingesta", "protocol": "MQTT sobre TLS", "encrypted": true, "data": ["pii"], "authenticated": true, "description": "Telemetría cada 5 segundos con certificado de cliente."},
+      {"id": "f-ingesta-broker", "source": "ingesta", "target": "broker", "protocol": "mqtt", "encrypted": false, "data": ["pii"], "authenticated": true, "description": "La ingesta publica los eventos normalizados."},
+      {"id": "f-broker-procesador", "source": "broker", "target": "procesador", "protocol": "mqtt", "encrypted": false, "data": ["pii"], "authenticated": true, "description": "El procesador consume los eventos por suscripción."},
+      {"id": "f-procesador-db", "source": "procesador", "target": "db", "protocol": "sql", "encrypted": true, "data": ["pii"], "authenticated": true, "description": "Guarda la última posición y las alertas."},
+      {"id": "f-procesador-s3", "source": "procesador", "target": "s3", "protocol": "https", "data": ["pii"], "authenticated": true, "description": "Archiva los eventos crudos por día."},
+      {"id": "f-api-db", "source": "api", "target": "db", "protocol": "sql", "encrypted": true, "data": ["pii", "credentials"], "authenticated": true, "description": "La API lee y escribe vehículos, rutas y usuarios."},
+      {"id": "f-api-s3", "source": "api", "target": "s3", "protocol": "https", "data": ["pii"], "authenticated": true, "description": "Descarga de históricos con URLs prefirmadas."},
+      {"id": "f-api-idp", "source": "api", "target": "idp", "protocol": "https", "data": ["credentials"], "authenticated": true, "description": "Valida los tokens contra las claves públicas del IdP."},
+      {"id": "f-api-dispositivo", "source": "api", "target": "dispositivo", "protocol": "MQTT sobre TLS", "encrypted": true, "data": ["internal"], "authenticated": true, "description": "Envío de comandos remotos (reinicio, actualización)."}
+    ],
+    "boundaries": [
+      {"id": "internet", "name": "Internet", "components": ["conductor", "dispositivo", "app-movil"], "description": "Todo lo que está fuera del control de la empresa."},
+      {"id": "corporativa", "name": "Red corporativa", "components": ["operador"], "description": "Oficinas con acceso por VPN y SSO."},
+      {"id": "nube-publica", "name": "Nube: zona pública", "components": ["panel", "api", "ingesta", "idp"], "description": "Servicios expuestos detrás del balanceador y el WAF."},
+      {"id": "nube-privada", "name": "Nube: zona privada", "components": ["broker", "procesador", "db", "s3"], "description": "Subredes privadas sin salida directa a Internet."}
+    ],
+    "manual_threats": [
+      {"id": "t01", "title": "Suplantación de un dispositivo con un certificado robado", "category": "S", "component_id": "dispositivo", "description": "Un atacante extrae el certificado de cliente de una unidad desmontada y envía telemetría falsa en nombre de otro vehículo.", "severity": "high", "likelihood": "medium", "impact": "high", "mitigation": "Certificados por dispositivo en elemento seguro (TPM) y revocación inmediata al dar de baja una unidad."},
+      {"id": "t02", "title": "Inyección de mensajes en el broker", "category": "T", "component_id": "broker", "description": "Sin TLS ni ACL por tópico, cualquier servicio de la zona privada puede publicar eventos falsos.", "severity": "high", "likelihood": "medium", "impact": "high", "mitigation": "TLS interno y ACL por tópico con identidad de servicio."},
+      {"id": "t03", "title": "Robo de tokens en la app móvil", "category": "I", "component_id": "app-movil", "description": "Un token de larga duración guardado sin protección se puede extraer de un teléfono con root.", "severity": "medium", "likelihood": "medium", "impact": "medium", "mitigation": "Tokens de corta duración en el almacén seguro del sistema y rotación de refresh tokens."},
+      {"id": "t04", "title": "IDOR en la consulta de vehículos", "category": "E", "component_id": "api", "description": "La API devuelve vehículos de otra empresa si se cambia el identificador en la URL.", "severity": "critical", "likelihood": "high", "impact": "high", "mitigation": "Autorización por objeto en cada consulta y pruebas automáticas de BOLA."},
+      {"id": "t05", "title": "Exposición de históricos por URLs prefirmadas", "category": "I", "component_id": "s3", "description": "Las URLs prefirmadas con validez de días se comparten y permiten descargar rutas completas.", "severity": "medium", "likelihood": "medium", "impact": "high", "mitigation": "Validez de minutos y registro de descargas."},
+      {"id": "t06", "title": "Denegación de servicio en la ingesta", "category": "D", "component_id": "ingesta", "description": "Un dispositivo comprometido envía ráfagas de mensajes que saturan la ingesta.", "severity": "medium", "likelihood": "medium", "impact": "medium", "mitigation": "Límite de mensajes por dispositivo y cuarentena automática."},
+      {"id": "t07", "title": "Comandos remotos sin confirmación", "category": "E", "component_id": "api", "description": "Un operador con sesión robada puede reiniciar o actualizar vehículos en ruta.", "severity": "high", "likelihood": "low", "impact": "high", "mitigation": "Doble aprobación para comandos remotos y reautenticación."},
+      {"id": "t08", "title": "Credenciales de la base de datos en variables de entorno", "category": "I", "component_id": "procesador", "description": "La Lambda guarda la contraseña de la base de datos en variables de entorno legibles desde la consola.", "severity": "high", "likelihood": "medium", "impact": "high", "mitigation": "Secrets Manager con rotación y autenticación IAM a la base de datos."},
+      {"id": "t09", "title": "Repudio de cambios en el panel", "category": "R", "component_id": "panel", "description": "Los cambios de configuración de la flota no quedan registrados con el usuario que los hizo.", "severity": "low", "likelihood": "medium", "impact": "low", "mitigation": "Registro de auditoría inmutable con usuario, fecha y valor anterior."},
+      {"id": "t10", "title": "Manipulación de alertas almacenadas", "category": "T", "component_id": "db", "description": "Un servicio con permisos de escritura amplios puede borrar o cambiar alertas de exceso de velocidad.", "severity": "medium", "likelihood": "low", "impact": "high", "mitigation": "Permisos mínimos por servicio y tabla de alertas de solo inserción."},
+      {"id": "t11", "title": "Clave privada de firma de firmware expuesta", "category": "T", "component_id": "dispositivo", "description": "La clave para firmar el firmware se guarda en el pipeline de CI y podría filtrarse.", "severity": "critical", "likelihood": "low", "impact": "high", "mitigation": "Firma en un HSM y aprobación manual de cada versión."},
+      {"id": "t12", "title": "Configuración débil del IdP", "category": "S", "component_id": "idp", "description": "Clientes OIDC con redirecciones comodín permiten robar códigos de autorización.", "severity": "high", "likelihood": "low", "impact": "high", "mitigation": "Redirecciones exactas y PKCE obligatorio para todos los clientes."}
+    ],
+    "attack_trees": [
+      {"id": "arbol-flota", "name": "Tomar el control de un vehículo", "goal": "Enviar comandos remotos a un vehículo ajeno", "nodes": [
+        {"id": "n1", "parent": null, "text": "Robar la sesión de un operador", "gate": "OR"},
+        {"id": "n1a", "parent": "n1", "text": "Phishing al operador", "difficulty": "low"},
+        {"id": "n1b", "parent": "n1", "text": "Robar la cookie de sesión del panel", "difficulty": "medium", "element": "panel"},
+        {"id": "n2", "parent": null, "text": "Abusar de la API de comandos", "gate": "AND"},
+        {"id": "n2a", "parent": "n2", "text": "Obtener un token válido de cualquier cliente", "difficulty": "medium", "element": "api"},
+        {"id": "n2b", "parent": "n2", "text": "Explotar el IDOR de vehículos", "difficulty": "low", "element": "api", "mitigated": false}
+      ]},
+      {"id": "arbol-datos", "name": "Robo de rutas", "goal": "Descargar el histórico de rutas de todos los clientes", "nodes": [
+        {"id": "m1", "parent": null, "text": "Reutilizar URLs prefirmadas filtradas", "gate": "OR", "element": "s3"},
+        {"id": "m2", "parent": null, "text": "Leer la base de datos con credenciales robadas", "gate": "OR", "element": "db"}
+      ]}
+    ],
+    "attack_mappings": [
+      {"technique": "T1190", "element": "api", "status": "relevant", "note": "API expuesta a Internet."},
+      {"technique": "T1552.001", "element": "procesador", "status": "potential", "note": "Credenciales en variables de entorno o archivos de configuración."},
+      {"technique": "T1565.001", "element": "db", "status": "potential", "note": "Manipulación de alertas almacenadas."},
+      {"technique": "T1552.004", "element": "dispositivo", "status": "potential", "note": "Clave privada del dispositivo o de firma de firmware."},
+      {"technique": "T1557", "element": "f-ingesta-broker", "status": "potential", "note": "MQTT sin TLS dentro de la VPC."},
+      {"technique": "T1499", "element": "ingesta", "status": "potential", "note": "Saturación por ráfagas de telemetría."},
+      {"technique": "T1078", "element": "panel", "status": "potential", "note": "Sesión robada de un operador."},
+      {"technique": "T1539", "element": "panel", "status": "relevant", "note": "Robo de la cookie de sesión."}
+    ]
+  }
+}

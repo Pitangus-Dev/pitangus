@@ -20,7 +20,7 @@ engines through environment variables, not the command line.
 
 from __future__ import annotations
 
-import json
+import hashlib
 import re
 import socket
 import subprocess
@@ -31,11 +31,15 @@ from pathlib import Path
 from pitangus.modules.intel import data_sources
 from pitangus.shared import log as logging_setup, settings
 from pitangus.shared.i18n import default_locale, msg, text
-from pitangus.modules.intel.advisories import cvss3_base_score, fingerprint as sca_fingerprint, prioritize, severity_from_score
-from pitangus.modules.intel.packages import OS_FAMILIES, canonical_id, dependency_fingerprint, family
+from pitangus.modules.intel.advisories import cvss3_base_score, fingerprint as sca_fingerprint, is_malicious, mark_malicious, prioritize, severity_from_score
+from pitangus.modules.intel.packages import OS_FAMILIES, canonical_id, dependency_fingerprint, family, package_name
 from pitangus.modules.scanning.coverage import owasp_coverage
+from pitangus.modules.scanning.dependency_merge import advisory_groups, malicious_if_any
 from pitangus.modules.scanning.config_engines import merge_image, run_checkov_image
-from pitangus.modules.scanning.engines import _pick_fixed, _result, _run, parse_trivy, trivy_packages, unavailable, writable_cache
+from pitangus.modules.scanning import engine_contract, rule_set
+from pitangus.modules.scanning.engine_contract import Contract
+from pitangus.modules.scanning.engines import (_pick_fixed, _result, _run, parse_trivy, trivy_databases, trivy_packages, switched_off, unavailable,
+                                               with_cause, writable_cache)
 from pitangus.shared.model import RunRecord
 
 _log = logging_setup.get("images")
@@ -199,12 +203,15 @@ def _former_fingerprint(identifiers: set[str], fallback: str, ecosystem: str, na
 def _with_fingerprint(finding: dict, identifiers: set[str], fallback: str, ecosystem: str, name: str, version: str) -> dict:
     digest = dependency_fingerprint(identifiers, fallback, ecosystem, name, version)
     former = _former_fingerprint(identifiers, fallback, ecosystem, name, version)
-    rest = {key: value for key, value in finding.items() if key != "previous_fingerprint"}
-    return {**rest, "fingerprint": digest, "finding_id": digest[:16], **({"previous_fingerprint": former} if former != digest else {})}
+    rest = {key: value for key, value in finding.items() if key not in ("previous_fingerprint", "previous_fingerprints")}
+    # A folded report under the same name had the same fingerprint: only a different one is worth remembering.
+    folded = [item for item in finding.get("previous_fingerprints") or [] if item not in (digest, former)]
+    return {**rest, "fingerprint": digest, "finding_id": digest[:16], **({"previous_fingerprint": former} if former != digest else {}),
+            **({"previous_fingerprints": folded} if folded else {})}
 
 
 def run_trivy_image(reference: str, cache_dir: Path, feeds: dict, credentials: dict | None,
-                    hosts: dict[str, str] | None = None) -> tuple[dict, dict]:
+                    hosts: dict[str, str] | None = None, data_dir: Path | None = None) -> tuple[dict, dict]:
     started = time.time()
     if problem := unavailable("trivy", msg("scanning.image.no_docker", engine="Trivy")):
         return _result("trivy", "not_tested", problem), {}
@@ -212,25 +219,31 @@ def run_trivy_image(reference: str, cache_dir: Path, feeds: dict, credentials: d
     (cache_dir / "tmp").mkdir(exist_ok=True)
     secrets = {"TRIVY_USERNAME": credentials["username"], "TRIVY_PASSWORD": credentials["token"]} if credentials else None
     try:
-        completed = _run("trivy", ["image", "--image-src", "remote", "--scanners", "vuln,secret", "--list-all-pkgs",
+        skips = trivy_databases(cache_dir, data_dir)
+        # The layer cache in memory, per scan: the shared one is a database file that one scan locks for itself
+        # ("cache may be in use by another process"). The cache folder only holds the databases, which scans read.
+        completed = _run("trivy", ["image", *skips, "--cache-backend", "memory", "--image-src", "remote", "--scanners", "vuln,secret", "--list-all-pkgs",
                                    "--image-config-scanners", "misconfig,secret", "--cache-dir", "/cache", "--format", "json", "--quiet",
                                    "--timeout", "14m", reference], None, network=True, secret_env=secrets,
                          # Large files of the scanned image go to disk, not to the engine's small in-memory /tmp.
                          env={"TMPDIR": "/cache/tmp"},
                          mounts=["-v", f"{_host(cache_dir)}:/cache"], hosts=hosts)
-        if completed.returncode != 0 and not completed.stdout.strip():
-            return _result("trivy", "inconclusive", _registry_error(completed.stderr, credentials), started=started), {}
-        payload = json.loads(completed.stdout or "{}")
+        payload, contract = engine_contract.verdict(TRIVY_IMAGE, completed.returncode, completed.stdout)
+        if contract:
+            return engine_contract.failed(_result("trivy", "inconclusive", _registry_error(completed, credentials, "Trivy"), started=started), contract), {}
     except subprocess.TimeoutExpired:
-        return _result("trivy", "inconclusive", msg("scanning.image.timeout", engine="Trivy"), started=started), {}
+        timeout = msg("scanning.image.timeout", engine="Trivy")
+        return engine_contract.failed(_result("trivy", "inconclusive", timeout, started=started), timeout), {}
     except (OSError, ValueError):
-        return _result("trivy", "inconclusive", msg("scanning.engines.unreadable", engine="Trivy"), started=started), {}
+        unreadable = msg("scanning.engines.unreadable", engine="Trivy")
+        return engine_contract.failed(_result("trivy", "inconclusive", unreadable, started=started), unreadable), {}
     findings = parse_trivy(payload, feeds)
     metadata = payload.get("Metadata") or {}
     counts = {kind: sum(1 for item in findings if item["scanner"] == kind) for kind in ("sca", "iac", "secrets")}
     detail = msg("scanning.image.trivy_detail", **counts)
-    return {**_result("trivy", "completed", detail, findings, started), "packages": trivy_packages(payload),
-            "system_packages": trivy_packages(payload, system=True)}, metadata
+    # One unit: the image it read (its metadata says which).
+    return engine_contract.recorded({**_result("trivy", "completed", detail, findings, started), "packages": trivy_packages(payload),
+                                     "system_packages": trivy_packages(payload, system=True), "coverage": engine_contract.coverage("*")}, None), metadata
 
 
 def _grype_finding(match: dict, feeds: dict) -> dict:
@@ -257,7 +270,7 @@ def _grype_finding(match: dict, feeds: dict) -> dict:
     ecosystem = str(artifact.get("type") or "unknown")
     cwe = sorted({int(found.group(1)) for item in vulnerability.get("cwes") or [] if (found := re.fullmatch(r"CWE-(\d+)", str(item.get("cwe"))))})
     references = [url for url in vulnerability.get("urls") or [] if isinstance(url, str) and url.startswith("https://")][:8]
-    return _with_fingerprint({"scanner": "sca", "tool": "grype", "rule_id": identifier,
+    finding = _with_fingerprint({"scanner": "sca", "tool": "grype", "rule_id": identifier,
             "title": f"{name} {installed}: {summary.splitlines()[0]}"[:200], "path": location.lstrip("/"), "line": 1,
             "severity": severity, "confidence": 8 if score is not None else 6, "verdict": "candidate", "cwe": cwe,
             "owasp": ["A03:2025"], "cve": cves, "ghsa": ghsas,
@@ -268,11 +281,32 @@ def _grype_finding(match: dict, feeds: dict) -> dict:
             "source": data_sources.from_grype(vulnerability),
             "priority": prioritize(severity, score, kev, epss, fixed), "reason": summary[:300], "remediation": ""},
         aliases, identifier, ecosystem, name, installed)
+    # Grype gives one text per record: its own, and the related record's (NVD's description of the GHSA's CVE).
+    other = next((text for item in match.get("relatedVulnerabilities") or [] if (text := str(item.get("description") or "").strip())), "")
+    if is_malicious({"id": identifier, "aliases": sorted(aliases), "cwe": cwe, "summary": summary.splitlines()[0], "details": other}):
+        mark_malicious(finding)
+    return finding
+
+
+# An image scan read its image: Trivy writes the image's metadata, Grype the image it matched against (`source`).
+TRIVY_IMAGE = Contract("Trivy", frozenset({0}), (dict,), lambda payload: "SchemaVersion" in payload and isinstance(payload.get("Metadata"), dict))
+GRYPE = Contract("Grype", frozenset({0}), (dict,), lambda payload: isinstance(payload.get("matches"), list) and isinstance(payload.get("source"), dict))
+
+
+def image_platform(metadata: dict) -> str | None:
+    """The platform Trivy analyzed (`linux/amd64`, `linux/arm64/v8`), from the image configuration it read."""
+    config = metadata.get("ImageConfig") or {}
+    parts = [str(config.get(key) or "") for key in ("os", "architecture", "variant")]
+    return "/".join(part for part in parts if part) if parts[0] and parts[1] else None
 
 
 def run_grype_image(reference: str, cache_dir: Path, feeds: dict, credentials: dict | None, registry: str,
-                    hosts: dict[str, str] | None = None) -> dict:
+                    hosts: dict[str, str] | None = None, platform: str | None = None) -> dict:
+    """`platform`: the one Trivy analyzed. Left to itself, Grype picks the host's (arm64 on an ARM server or a Mac) while
+    Trivy picks amd64, and the two reports of a multi-platform image would be about different images."""
     started = time.time()
+    if off := switched_off("grype"):
+        return off
     if problem := unavailable("grype", msg("scanning.image.no_docker", engine="Grype")):
         return _result("grype", "not_tested", problem)
     cache_dir = writable_cache(cache_dir)
@@ -281,20 +315,25 @@ def run_grype_image(reference: str, cache_dir: Path, feeds: dict, credentials: d
                 "GRYPE_REGISTRY_AUTH_USERNAME": credentials["username"], "GRYPE_REGISTRY_AUTH_PASSWORD": credentials["token"]}
                if credentials else None)
     try:
-        completed = _run("grype", [f"registry:{reference}", "-o", "json", "-q"], None, network=True, secret_env=secrets,
+        completed = _run("grype", [f"registry:{reference}", "-o", "json", "-q", *(["--platform", platform] if platform else [])],
+                         None, network=True, secret_env=secrets,
                          # Grype's image has no /tmp writable by non-root users: its temporary files
                          # (layers of the scanned image) go to disk, inside its cache.
                          env={"GRYPE_DB_CACHE_DIR": "/cache", "GRYPE_CHECK_FOR_APP_UPDATE": "false", "TMPDIR": "/cache/tmp", "HOME": "/cache/tmp"},
                          mounts=["-v", f"{_host(cache_dir)}:/cache"], hosts=hosts)
-        if completed.returncode != 0 and not completed.stdout.strip():
-            return _result("grype", "inconclusive", _registry_error(completed.stderr, credentials), started=started)
-        payload = json.loads(completed.stdout or "{}")
+        payload, contract = engine_contract.verdict(GRYPE, completed.returncode, completed.stdout)
+        if contract:
+            return engine_contract.failed(_result("grype", "inconclusive", _registry_error(completed, credentials, "Grype"), started=started), contract)
     except subprocess.TimeoutExpired:
-        return _result("grype", "inconclusive", msg("scanning.image.timeout", engine="Grype"), started=started)
+        timeout = msg("scanning.image.timeout", engine="Grype")
+        return engine_contract.failed(_result("grype", "inconclusive", timeout, started=started), timeout)
     except (OSError, ValueError):
-        return _result("grype", "inconclusive", msg("scanning.engines.unreadable", engine="Grype"), started=started)
+        unreadable = msg("scanning.engines.unreadable", engine="Grype")
+        return engine_contract.failed(_result("grype", "inconclusive", unreadable, started=started), unreadable)
     findings = [_grype_finding(match, feeds) for match in payload.get("matches") or []]
-    return _result("grype", "completed", msg("scanning.image.grype_detail", advisories=len(findings)), findings, started)
+    detail = (msg("scanning.image.grype_detail_platform", advisories=len(findings), platform=platform) if platform
+              else msg("scanning.image.grype_detail", advisories=len(findings)))
+    return engine_contract.recorded({**_result("grype", "completed", detail, findings, started), "coverage": engine_contract.coverage("*")}, None)
 
 
 def _host(path: Path) -> str:
@@ -302,13 +341,15 @@ def _host(path: Path) -> str:
     return host_path(path)
 
 
-def _registry_error(stderr: str, credentials: dict | None) -> dict:
-    output = (stderr or "").lower()
+def _registry_error(completed: subprocess.CompletedProcess, credentials: dict | None, engine: str) -> dict:
+    """Why an engine read no image: the registry refused or doesn't have it, or else the engine failed, with its own
+    words (a registry is never blamed for an engine's error)."""
+    output = (completed.stderr or "").lower()
     if any(marker in output for marker in ("unauthorized", "denied", "401", "403", "authentication required")):
         return msg("scanning.image.registry.denied") if credentials else msg("scanning.image.registry.credentials_needed")
     if "manifest unknown" in output or "not found" in output or "name unknown" in output:
         return msg("scanning.image.registry.not_found")
-    return msg("scanning.image.registry.unreadable")
+    return with_cause(msg("scanning.engines.failed_early", engine=engine), completed)
 
 
 # --- image configuration --------------------------------------------------------------------
@@ -321,12 +362,20 @@ AUTH_HEADER = re.compile(r"(?i)authorization:\s*(bearer|basic|token)\s+(?!\$)[A-
 
 
 def _config_finding(rule: str, title, severity: str, reason, remediation, cwe: int, asset: str, key: str,
-                    path: str = "image-config") -> dict:
+                    path: str = "image-config", former: str | None = None) -> dict:
+    """`former`: the key it had before (a history step by its position), carried as `previous_fingerprint`."""
     from pitangus.modules.scanning.engines import _base, _stable
     finding = _base("iac" if cwe != 798 else "secrets", rule, title, path, 1, severity, tool="pitangus",
                     reason=reason, remediation=remediation, cwe=[cwe], owasp="A02:2025" if cwe != 798 else "A04:2025",
                     confidence=8, digest=_stable("image-config", rule, asset, key))
+    if former is not None:
+        finding["previous_fingerprint"] = _stable("image-config", rule, asset, former)
     return finding
+
+
+def _step_key(step: str) -> str:
+    """A history step by its command, not its position: a step added to the base image shifts every position after it."""
+    return hashlib.sha256(" ".join(step.split()).encode()).hexdigest()[:16]
 
 
 def config_findings(metadata: dict, image: dict) -> list[dict]:
@@ -347,20 +396,21 @@ def config_findings(metadata: dict, image: dict) -> list[dict]:
                 msg("scanning.image.rules.env_secret.reason", name=name), msg("scanning.image.rules.env_secret.remediation"),
                 798, asset, f"env:{name}", path=f"ENV {name}"))
     for index, step in enumerate(history):
+        command = _step_key(step)
         for match in HISTORY_SECRET.finditer(step):
             findings.append(_config_finding("IMG-BUILD-SECRET", msg("scanning.image.rules.build_secret.title", name=match.group(1)), "critical",
                 msg("scanning.image.rules.build_secret.reason", step=index + 1, name=match.group(1)),
-                msg("scanning.image.rules.build_secret.remediation"), 798, asset, f"history:{index}:{match.group(1)}",
-                path=f"image-history/step-{index + 1}"))
+                msg("scanning.image.rules.build_secret.remediation"), 798, asset, f"history:{command}:{match.group(1)}",
+                path=f"image-history/step-{index + 1}", former=f"history:{index}:{match.group(1)}"))
         if URL_CREDENTIALS.search(step) or AUTH_HEADER.search(step):
             findings.append(_config_finding("IMG-BUILD-URL-CREDENTIAL", msg("scanning.image.rules.build_url_credential.title"), "critical",
                 msg("scanning.image.rules.build_url_credential.reason", step=index + 1),
                 msg("scanning.image.rules.build_url_credential.remediation"),
-                798, asset, f"history-url:{index}", path=f"image-history/step-{index + 1}"))
+                798, asset, f"history-url:{command}", path=f"image-history/step-{index + 1}", former=f"history-url:{index}"))
         if re.match(r"(?i)\s*ADD\s+(file:)?\s*https?://", step) or re.search(r"(?i)/bin/sh -c #\(nop\) ADD https?://", step):
             findings.append(_config_finding("IMG-ADD-URL", msg("scanning.image.rules.add_url.title"), "medium",
                 msg("scanning.image.rules.add_url.reason", step=index + 1), msg("scanning.image.rules.add_url.remediation"),
-                494, asset, f"add:{index}"))
+                494, asset, f"add:{command}", former=f"add:{index}"))
     if "22/tcp" in (config.get("ExposedPorts") or {}):
         findings.append(_config_finding("IMG-SSH", msg("scanning.image.rules.ssh.title"), "medium",
             msg("scanning.image.rules.ssh.reason"), msg("scanning.image.rules.ssh.remediation"), 1188, asset, "ssh"))
@@ -382,32 +432,39 @@ def config_findings(metadata: dict, image: dict) -> list[dict]:
     return findings
 
 
+def _merge_key(package: dict) -> tuple[str, str]:
+    """A package as both engines can agree on it: Trivy names a Java package `group:artifact` and Grype `artifact`, and
+    a Go toolchain is `v1.22.1` to one and `go1.22.1` to the other; Python names compare as PEP 503 says."""
+    name = package_name(str(package.get("ecosystem") or ""), str(package.get("name") or ""))
+    if family(str(package.get("ecosystem") or "")) == "maven":
+        name = name.rsplit(":", 1)[-1]
+    return name, re.sub(r"^(?:go|v)(?=\d)", "", str(package.get("version") or ""))
+
+
 def merge_packages(trivy: list[dict], grype: list[dict]) -> tuple[list[dict], dict]:
-    """Merges both engines' package advisories. Same package and version with a shared identifier = same advisory."""
-    index: dict[tuple[str, str], list[dict]] = {}
-    for finding in trivy:
-        package = finding.get("package") or {}
-        index.setdefault((package.get("name", "").lower(), package.get("version", "")), []).append(finding)
-    extra, agreed = [], 0
-    for finding in grype:
-        package = finding["package"]
-        aliases = set(finding["advisory"]["aliases"])
-        twin = next((item for item in index.get((package["name"].lower(), package["version"]), [])
-                     if aliases & ({item["rule_id"], *item.get("cve", []), *item.get("ghsa", [])})), None)
-        if twin is not None:
-            if "grype" not in twin.setdefault("also_detected_by", []):
-                twin["also_detected_by"].append("grype")
-                twin["confidence"] = min(10, twin["confidence"] + 1)
-                agreed += 1
+    """Merges both engines' package advisories: the same package and version with a chain of shared identifiers is the
+    same advisory, and a malicious package version is one finding (dependency_merge.advisory_groups). What is folded into
+    the kept finding is remembered (`previous_fingerprints`): before names were compared this way, it may have been a
+    finding of its own, and the registry folds it in instead of marking it fixed."""
+    merged, counts = [], {"trivy": len(trivy), "grype": len(grype), "both": 0, "only_trivy": 0, "only_grype": 0}
+    for group in advisory_groups([trivy, grype], key=lambda finding: _merge_key(finding.get("package") or {})):
+        (_, twin), rest = group[0], group[1:]
+        sources = {source for source, _ in group}
+        counts["both" if len(sources) == 2 else "only_trivy" if sources == {0} else "only_grype"] += 1
+        if len(sources) == 2 and "grype" not in twin.setdefault("also_detected_by", []):
+            twin["also_detected_by"].append("grype")
+            twin["confidence"] = min(10, int(twin.get("confidence") or 6) + 1)
+        for _, finding in rest:
+            folded = [item for item in (finding.get("fingerprint"), finding.get("previous_fingerprint"), *(finding.get("previous_fingerprints") or []))
+                      if item and item != twin.get("fingerprint")]
+            twin["previous_fingerprints"] = list(dict.fromkeys([*(twin.get("previous_fingerprints") or []), *folded]))
             if not twin.get("source") and finding.get("source"):
                 twin["source"] = finding["source"]
+            package = finding.get("package") or {}
             if not (twin.get("package") or {}).get("fixed_version") and package.get("fixed_version"):
                 twin["package"]["fixed_version"] = package["fixed_version"]
-        else:
-            extra.append(finding)
-    merged = trivy + extra
-    return merged, {"trivy": len(trivy), "grype": len(grype), "both": agreed, "only_trivy": len(trivy) - agreed,
-                    "only_grype": len(extra)}
+        merged.append(malicious_if_any(twin, group))
+    return merged, counts
 
 
 def _finish_package(finding: dict) -> dict:
@@ -417,7 +474,9 @@ def _finish_package(finding: dict) -> dict:
     kind = family(package.get("ecosystem", ""))
     fixed = package.get("fixed_version")
     name = package.get("name")
-    if kind == "os":
+    if finding.get("malicious"):
+        remediation = finding.get("remediation")   # removed, never upgraded (advisories.mark_malicious)
+    elif kind == "os":
         remediation = (msg("scanning.image.remediation.os_upgrade", package=name, fixed=fixed) if fixed
                        else msg("scanning.image.remediation.os_no_fix", package=name))
     else:
@@ -445,17 +504,19 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None,
     credentials = credentials_for(image["registry"]) if replay is None else None
     report("info", msg("scanning.image.progress.reading_credentials" if credentials else "scanning.image.progress.reading_public",
                        reference=image["reference"]))
-    trivy, metadata = run_trivy_image(image["reference"], data_dir / "trivy-cache", feeds, credentials, hosts) if replay is None \
+    trivy, metadata = run_trivy_image(image["reference"], data_dir / "trivy-cache", feeds, credentials, hosts, data_dir) if replay is None \
         else replay["trivy"]
+    trivy = engine_contract.settled(trivy)   # a run that didn't finish opens nothing, whatever its adapter did
     report("ok" if trivy["status"] == "completed" else "warn", msg("scanning.progress.engine", engine="Trivy", detail=trivy["detail"]))
     report("info", msg("scanning.image.progress.grype"))
-    grype = run_grype_image(image["reference"], data_dir / "grype-cache", feeds, credentials, image["registry"], hosts) if replay is None \
-        else replay["grype"]
+    grype = run_grype_image(image["reference"], data_dir / "grype-cache", feeds, credentials, image["registry"], hosts,
+                            platform=image_platform(metadata)) if replay is None else replay["grype"]
+    grype = engine_contract.settled(grype)
     report("ok" if grype["status"] == "completed" else "warn", msg("scanning.progress.engine", engine="Grype", detail=grype["detail"]))
 
     if metadata:
         report("info", msg("scanning.image.progress.checkov"))
-        checkov = run_checkov_image(metadata, image, data_dir / "tmp") if replay is None else replay["checkov"]
+        checkov = engine_contract.settled(run_checkov_image(metadata, image, data_dir / "tmp") if replay is None else replay["checkov"])
     else:
         checkov = _result("checkov", "not_tested", msg("scanning.image.checkov_without_config"))
     report("ok" if checkov["status"] == "completed" else "warn", msg("scanning.progress.engine", engine="Checkov", detail=checkov["detail"]))
@@ -479,6 +540,7 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None,
     config = (metadata.get("ImageConfig") or {}).get("config") or {}
     image_meta = {**image, "resolved_digest": resolved, "os": " ".join(str(os_info.get(key) or "") for key in ("Family", "Name")).strip() or None,
                   "user": config.get("User") or "root", "architecture": (metadata.get("ImageConfig") or {}).get("architecture"),
+                  "platform": image_platform(metadata),
                   "built_from": built_from(config.get("Labels"))}
     engines_ok = [tool for tool in (trivy, grype) if tool["status"] == "completed"]
     sca_count = sum(1 for item in findings if item["scanner"] == "sca")
@@ -509,7 +571,9 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None,
     severities = {level: sum(1 for item in findings if item["severity"] == level) for level in ("critical", "high", "medium", "low", "info")}
     priorities = {action: sum(1 for item in findings if (item.get("priority") or {}).get("action") == action) for action in ("act", "attend", "track")}
     tools = [trivy, grype, checkov]
-    return {"type": "image_scan", "status": "completed" if trivy["status"] == "completed" and grype["status"] == "completed" else "incomplete",
+    # An engine the operator turned off doesn't leave the scan incomplete; it only fixes nothing (it didn't look).
+    return {"type": "image_scan", "status": "completed" if trivy["status"] == "completed" and (grype["status"] == "completed" or grype.get("disabled"))
+            else "incomplete",
             "source": {"id": image["asset"], "uid": None, "name": image["name"], "provider": "registry", "image": image_meta},
             "target": image["reference"], "variant": "image", "context": " ".join(str(context).split())[:400],
             "steps": steps, "findings": findings, "owasp_coverage": coverage,
@@ -524,4 +588,5 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None,
                         "planned": 3, "executed": sum(1 for step in steps[1:4] if step["status"] in ("completed", "partial")), "confirmed": 0},
             "limitations": [msg("scanning.image.limitations.read_only"), msg("scanning.image.limitations.no_source"),
                             msg("scanning.image.limitations.backports"), msg("scanning.image.limitations.system_package")],
+            "configuration": rule_set.image(),  # an engine turned off fixes nothing it found before (findings/registry)
             "scanned_at": datetime.now(timezone.utc).isoformat()}

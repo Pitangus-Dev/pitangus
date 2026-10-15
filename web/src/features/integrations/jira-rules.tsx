@@ -1,7 +1,7 @@
 import { useCallback, useId, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowDownIcon, ArrowUpIcon, CircleNotchIcon, DotsThreeIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
+import { ArrowDownIcon, ArrowSquareOutIcon, ArrowUpIcon, CircleNotchIcon, DotsThreeIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Combobox, type ComboOption } from '@/shared/ui/combobox'
@@ -132,7 +132,8 @@ function BackfillConfirm({ rule, onClose, onStarted }: { rule: JiraRule; onClose
   }
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-md">
     <DialogHeader><DialogTitle>{t('jira.rules.rerun_title', { name: rule.name })}</DialogTitle><DialogDescription>{t('jira.rules.backfill_help')}</DialogDescription></DialogHeader>
-    <p role="status" className="text-sm text-app-muted">{preview ? <PreviewText preview={preview} /> : check.isPending ? t('jira.preview.checking') : null}</p>
+    <div className="text-sm text-app-muted"><p role="status">{preview ? <PreviewText preview={preview} /> : check.isPending ? t('jira.preview.checking') : null}</p>
+      {preview?.sample && <IssueSample sample={preview.sample} />}</div>
     {(error || check.isError) && <p role="alert" className="text-xs text-danger">{error || check.error?.message}</p>}
     <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
       <Button disabled={busy || !preview?.issues} onClick={() => void start()}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.rules.rerun_confirm', { count: preview?.issues ?? 0 })}</Button></DialogFooter>
@@ -146,6 +147,21 @@ function PreviewText({ preview }: { preview: Preview }) {
     : t('jira.preview.nothing', { linked: formatNumber(preview.linked) })}{preview.truncated ? ` ${t('jira.preview.truncated', { max: formatNumber(PREVIEW_MAX) })}` : ''}</>
 }
 
+// The most severe issue a rule would create, as Jira will show it: its title and first lines (indented ones are a
+// command). Outside the live region: it is read on demand, not announced.
+function IssueSample({ sample }: { sample: NonNullable<Preview['sample']> }) {
+  const { t } = useTranslation('integrations')
+  return <figure className="mt-2 space-y-1 border-t border-app-line pt-2">
+    <figcaption className="text-app-muted">{t('jira.preview.sample')}</figcaption>
+    <p className="font-medium text-app-fg [overflow-wrap:anywhere]">{sample.summary}</p>
+    {sample.lines.map((line, index) => line.startsWith('    ')
+      ? <code key={index} className="block font-mono whitespace-pre-wrap text-app-secondary [overflow-wrap:anywhere]">{line.trim()}</code>
+      : <p key={index} className="text-app-secondary [overflow-wrap:anywhere]">{line}</p>)}
+    {sample.findings > 1 && <p className="text-app-muted">{t('jira.preview.sample_findings', { count: sample.findings })}</p>}
+  </figure>
+}
+
+// A backfill's progress and, once it ran, what it left: links to the first issues created and why the others failed.
 function BackfillLine({ backfill }: { backfill: Backfill }) {
   const { t } = useTranslation('integrations')
   const running = backfill.pending > 0
@@ -154,9 +170,17 @@ function BackfillLine({ backfill }: { backfill: Backfill }) {
     ...(backfill.failed ? [t('jira.backfill.failed', { count: backfill.failed })] : []), ...(backfill.skipped ? [t('jira.backfill.skipped', { count: backfill.skipped })] : []),
     ...(running ? [t('jira.backfill.pending', { count: backfill.pending })] : []),
   ].join(' · ')
-  return <div className="mt-1 text-xs" role={running ? 'status' : undefined}>
-    <p className={backfill.failed ? 'text-attention' : 'text-app-muted'}>{running ? t('jira.backfill.running', { count: backfill.queued }) : t('jira.backfill.done', { count: backfill.queued, date: backfill.finished_at ? formatDate(backfill.finished_at) : '—' })} · {counts}{backfill.truncated ? ` · ${t('jira.backfill.truncated')}` : ''}</p>
-    {backfill.last_error && <p className="text-danger">{t('jira.backfill.last_error', { error: backfill.last_error })}</p>}
+  const issues = backfill.issues ?? []
+  const errors = backfill.errors ?? []
+  const unlisted = backfill.created - issues.length
+  return <div className="mt-1 space-y-0.5 text-xs" role={running ? 'status' : undefined}>
+    <p className={backfill.failed ? 'text-attention' : 'text-app-muted'}>{running ? t('jira.backfill.running', { count: backfill.queued }) : t('jira.backfill.done', { date: backfill.finished_at ? formatDate(backfill.finished_at) : '—' })} · {counts}{backfill.truncated ? ` · ${t('jira.backfill.truncated')}` : ''}</p>
+    {issues.length > 0 && <p className="text-app-muted">{t('jira.backfill.open')}{' '}
+      {issues.map((issue, index) => <span key={issue.key}>{index ? ', ' : ''}<a href={issue.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center gap-1 font-mono text-brand underline underline-offset-2">{issue.key}<ArrowSquareOutIcon className="size-3" /></a></span>)}
+      {unlisted > 0 ? ` ${t('jira.backfill.more', { count: unlisted })}` : ''}</p>}
+    {errors.length > 0
+      ? <ul className="text-danger">{errors.map(item => <li key={item.error}>{t('jira.backfill.error', { error: item.error, count: item.count })}</li>)}</ul>
+      : backfill.last_error && <p className="text-danger">{t('jira.backfill.last_error', { error: backfill.last_error })}</p>}
   </div>
 }
 
@@ -232,9 +256,9 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
             options={(Object.keys(SEVERITIES) as Severity[]).map(level => ({ value: level, label: t('jira.rules.at_least', { severity: t(SEVERITIES[level]) }) }))} />{fieldError('min_severity')}</div>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={draft.backfill} onChange={event => set({ backfill: event.target.checked })} className="mt-0.5 size-4 accent-brand" />
           <span>{t('jira.rules.backfill')}<span className="block text-xs text-app-subtle">{t('jira.rules.backfill_help')}</span></span></label>
-        {wantsBackfill && <div role="status" className="rounded-lg border border-app-line bg-panel px-3 py-2 text-xs">
-          {previewCurrent && preview ? <p><PreviewText preview={preview.result} /></p>
-            : <p className="text-app-muted">{preview ? t('jira.preview.outdated') : t('jira.preview.needed')}</p>}
+        {wantsBackfill && <div className="border-t border-app-line pt-3 text-xs">
+          <p role="status" className={previewCurrent && preview ? '' : 'text-app-muted'}>{previewCurrent && preview ? <PreviewText preview={preview.result} /> : preview ? t('jira.preview.outdated') : t('jira.preview.needed')}</p>
+          {previewCurrent && preview?.result.sample && <IssueSample sample={preview.result.sample} />}
           {!previewCurrent && <Button type="button" size="xs" variant="outline" className="mt-2" disabled={previewing} onClick={() => void runPreview()}>{previewing && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.preview.run')}</Button>}
         </div>}
       </div>}

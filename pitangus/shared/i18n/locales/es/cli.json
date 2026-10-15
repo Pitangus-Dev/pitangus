@@ -41,7 +41,8 @@
   },
   "engines": {
     "ready": "listo",
-    "missing": "falta"
+    "missing": "falta",
+    "disabled": "desactivado: no se ejecuta hasta que se active"
   },
   "users": {
     "password_prompt": "Contraseña (mínimo {{min}} caracteres): ",
@@ -89,5 +90,17 @@
     "too_large": "El SARIF supera {{max}} MB: divídelo por herramienta o por carpeta",
     "http_error": "El servidor respondió {{status}}: {{detail}}",
     "unreachable": "No se pudo contactar al servidor: {{detail}}"
+  },
+  "identity_gate": {
+    "title": "Puerta de la identidad canónica (los dos últimos análisis completos de cada repositorio)",
+    "not_enough": "menos de dos análisis completos",
+    "same_commit": "mismo commit {{commit}}",
+    "other_commit": "commits distintos: solo informativo",
+    "row": "huellas +{{v1_opened}}/-{{v1_gone}} · identidades +{{v2_opened}}/-{{v2_gone}}, {{recounted}} con otro recuento · {{findings}} hallazgos en {{families}} familias",
+    "passed": "Puerta superada: el mismo commit no abre ni remedia nada de ninguna de las dos formas.",
+    "failed": "Puerta no superada: algún repositorio analizado dos veces sobre el mismo commit cambió, o ninguno lo estaba. Pon PITANGUS_IDENTITY_MODE=shadow hasta que la supere.",
+    "title_scan": "Puerta de la identidad canónica: {{path}} analizado dos veces sobre el mismo commit",
+    "incomplete": "Un análisis quedó incompleto: algún motor no corrió, así que no se prueba nada.",
+    "failed_scan": "Puerta no superada: el mismo commit cambió entre dos análisis, o uno quedó incompleto."
   }
 }

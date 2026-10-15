@@ -1,0 +1,22 @@
+#!/bin/sh
+# The pre-commit hook (.pre-commit-hooks.yaml): the published worker image on the repository, read-only, with the
+# engines' databases in a Docker volume kept between runs. PITANGUS_IMAGE, PITANGUS_BASE and PITANGUS_CACHE_VOLUME
+# change the image, the starting point and the volume.
+set -eu
+image="${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus-worker:0.14}"
+volume="${PITANGUS_CACHE_VOLUME:-pitangus-cache}"
+# It scans what git holds, never the folder on disk: at pre-push, the commit being pushed (PRE_COMMIT_TO_REF) against
+# what the remote already has (PRE_COMMIT_FROM_REF); run by hand, HEAD against origin/main. An untracked file or an
+# uncommitted edit can't block a push. `args: [--staged]` in your config scans the index instead (for a pre-commit stage).
+staged=
+for arg in "$@"; do if [ "$arg" = --staged ]; then staged=1; fi; done
+[ "$staged" ] || set -- --commit "${PRE_COMMIT_TO_REF:-${PRE_COMMIT_LOCAL_BRANCH:-HEAD}}" "$@"
+if [ -n "${PITANGUS_BASE:-}" ]; then
+  set -- --base "$PITANGUS_BASE" "$@"
+elif [ -n "${PRE_COMMIT_FROM_REF:-}" ]; then
+  set -- --base "$PRE_COMMIT_FROM_REF" "$@"
+elif [ -z "${PRE_COMMIT_REMOTE_BRANCH:-}" ]; then
+  set -- --base origin/main "$@"
+fi  # a push of a whole new history (no FROM_REF, a remote branch): everything in it is new, no base
+exec docker run --rm -v "$(pwd)":/src:ro -v "$volume":/data "$image" \
+  python -m pitangus --data-dir /data scan /src --quiet "$@"

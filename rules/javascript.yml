@@ -30,12 +30,39 @@ rules:
           - pattern: req.headers
           - pattern: process.argv
     pattern-sinks:
+      # child_process only: `exec` is also RegExp's and many database clients' method.
       - patterns:
           - pattern-either:
-              - pattern: $CP.exec($CMD, ...)
-              - pattern: $CP.execSync($CMD, ...)
-              - pattern: exec($CMD, ...)
-              - pattern: execSync($CMD, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern: $CP.exec($CMD, ...)
+                      - pattern: $CP.execSync($CMD, ...)
+                  - pattern-either:
+                      - pattern-inside: |
+                          $CP = require("$MOD")
+                          ...
+                      - pattern-inside: |
+                          import $CP from "$MOD"
+                          ...
+                      - pattern-inside: |
+                          import * as $CP from "$MOD"
+                          ...
+              - patterns:
+                  - pattern-either:
+                      - pattern: exec($CMD, ...)
+                      - pattern: execSync($CMD, ...)
+                  - pattern-either:
+                      - pattern-inside: |
+                          const {..., $F, ...} = require("$MOD")
+                          ...
+                      - pattern-inside: |
+                          import {..., $F, ...} from "$MOD"
+                          ...
+              - pattern: require("$MOD").exec($CMD, ...)
+              - pattern: require("$MOD").execSync($CMD, ...)
+          - metavariable-regex:
+              metavariable: $MOD
+              regex: ^(node:)?child_process$
           - focus-metavariable: $CMD
   - id: appsec.js.sql-injection
     languages: [javascript, typescript]
@@ -63,7 +90,9 @@ rules:
     languages: [javascript, typescript]
     severity: WARNING
     message: "A variable is written to the DOM as HTML without escaping. Use textContent, or sanitize with DOMPurify if you need HTML."
-    metadata: {cwe: [79], owasp: "A05:2025", category: xss, confidence: MEDIUM,
+    # Off by default (PITANGUS_SAST_OPT_IN_RULES turns it on): any variable reaching innerHTML is a match, and on the
+    # measured corpus 3 of 18 were XSS (docs/scanning-code.md).
+    metadata: {cwe: [79], owasp: "A05:2025", category: xss, confidence: MEDIUM, opt_in: true,
       title: {en: "Unescaped HTML written to the DOM", es: "HTML sin escapar escrito en el DOM"},
       fix: {en: "A variable is written to the DOM as HTML without escaping. Use textContent, or sanitize with DOMPurify if you need HTML.",
             es: "Escritura de HTML sin escapar en el DOM desde una variable. Usa textContent, o sanitiza con DOMPurify si necesitas HTML."}}
@@ -73,10 +102,19 @@ rules:
           - pattern: $EL.outerHTML = $X
           - pattern: document.write($X)
           - pattern: $EL.insertAdjacentHTML($POS, $X)
+      # A literal, another element's own HTML, or HTML a sanitizer or a Trusted Types policy produced.
       - pattern-not: $EL.innerHTML = "..."
       - pattern-not: $EL.outerHTML = "..."
       - pattern-not: document.write("...")
       - pattern-not: $EL.insertAdjacentHTML($POS, "...")
+      - pattern-not: $EL.innerHTML = $OTHER.innerHTML
+      - pattern-not: $EL.innerHTML = $POLICY.createHTML(...)
+      - pattern-not: $EL.innerHTML = $SANITIZER.sanitize(...)
+      - pattern-not: $EL.outerHTML = $POLICY.createHTML(...)
+      - pattern-not: $EL.outerHTML = $SANITIZER.sanitize(...)
+      - pattern-not: $EL.insertAdjacentHTML($POS, $POLICY.createHTML(...))
+      - pattern-not: $EL.insertAdjacentHTML($POS, $SANITIZER.sanitize(...))
+      - pattern-not: document.write($SANITIZER.sanitize(...))
   - id: appsec.js.react-dangerously-set-inner-html
     languages: [javascript, typescript]
     severity: WARNING
@@ -86,7 +124,8 @@ rules:
       fix: {en: "dangerouslySetInnerHTML with non-literal content allows XSS if the value comes from external data. Render it as text, or sanitize it with DOMPurify.",
             es: "dangerouslySetInnerHTML con contenido no literal: XSS si el valor viene de datos externos. Sanitiza con DOMPurify o renderiza texto."}}
     # JSX no se parsea como patrón estructural; se detecta por regex y se excluye el literal.
-    pattern-regex: 'dangerouslySetInnerHTML=\{\{\s*__html:\s*(?!["\x27`])[^}]+\}\}'
+    # The lookahead takes the spaces too: with `\s*` outside it, a space before a literal backtracked into a match.
+    pattern-regex: 'dangerouslySetInnerHTML=\{\{\s*__html:(?!\s*["\x27`])\s*[^}]+\}\}'
   - id: appsec.js.path-traversal
     languages: [javascript, typescript]
     severity: ERROR
@@ -180,3 +219,167 @@ rules:
       - pattern: crypto.createHash("sha1")
       - pattern: crypto.createHash('md5')
       - pattern: crypto.createHash('sha1')
+  - id: appsec.js.supabase-service-role-key
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "A Supabase service_role key is in the code. It bypasses every row level security policy, and in a frontend bundle anyone can read it. Rotate it in the Supabase dashboard and keep the new one in a server-only environment variable."
+    metadata: {cwe: [798], owasp: "A07:2025", category: secrets, confidence: HIGH, severity: CRITICAL,
+      title: {en: "Supabase service_role key in the code", es: "Clave service_role de Supabase en el código"},
+      fix: {en: "A Supabase service_role key is in the code. It bypasses every row level security policy, and in a frontend bundle anyone can read it. Rotate it in the Supabase dashboard and keep the new one in a server-only environment variable.",
+            es: "Hay una clave service_role de Supabase en el código: se salta todas las políticas de seguridad por filas y, en el bundle del frontend, cualquiera puede leerla. Rótala en el panel de Supabase y guarda la nueva en una variable de entorno solo del servidor."}}
+    # A JWT whose claims say "role":"service_role", in any of the three positions base64 can put those bytes in.
+    pattern-regex: \beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*(?:NlcnZpY2Vfcm9sZ|zZXJ2aWNlX3JvbG|c2VydmljZV9yb2xl)[A-Za-z0-9_-]*\.[A-Za-z0-9_-]{8,}
+  - id: appsec.js.supabase-service-role-in-client
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Browser code reads the Supabase service_role key. It bypasses row level security: whoever opens the page gets full access to the database. Use the anon key in the browser and do privileged work in a server route."
+    metadata: {cwe: [522], owasp: "A01:2025", category: auth, confidence: HIGH, severity: CRITICAL,
+      title: {en: "Supabase service_role key used in browser code", es: "Clave service_role de Supabase usada en código del navegador"},
+      fix: {en: "Browser code reads the Supabase service_role key. It bypasses row level security: whoever opens the page gets full access to the database. Use the anon key in the browser and do privileged work in a server route.",
+            es: "Código del navegador lee la clave service_role de Supabase: se salta la seguridad por filas y quien abra la página tiene acceso total a la base de datos. Usa la clave anon en el navegador y haz lo privilegiado en una ruta del servidor."}}
+    patterns:
+      - pattern-inside: |
+          "use client";
+          ...
+      - pattern-either:
+          - pattern: process.env.$KEY
+          - pattern: import.meta.env.$KEY
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: (?i).*service_?role.*
+  - id: appsec.js.public-env-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "A variable with a public prefix (NEXT_PUBLIC_, VITE_, REACT_APP_, EXPO_PUBLIC_, PUBLIC_…) holds what its name says is a secret. The bundler copies these values into the JavaScript every visitor downloads. Drop the prefix, read the secret only on the server, and rotate it."
+    metadata: {cwe: [200], owasp: "A02:2025", category: secrets, confidence: HIGH, severity: HIGH,
+      title: {en: "Secret in a variable the bundle makes public", es: "Secreto en una variable que el bundle hace pública"},
+      fix: {en: "A variable with a public prefix (NEXT_PUBLIC_, VITE_, REACT_APP_, EXPO_PUBLIC_, PUBLIC_…) holds what its name says is a secret. The bundler copies these values into the JavaScript every visitor downloads. Drop the prefix, read the secret only on the server, and rotate it.",
+            es: "Una variable con prefijo público (NEXT_PUBLIC_, VITE_, REACT_APP_, EXPO_PUBLIC_, PUBLIC_…) guarda lo que su nombre dice que es un secreto. El bundler copia esos valores en el JavaScript que descarga cada visitante. Quita el prefijo, lee el secreto solo en el servidor y rótalo."}}
+    patterns:
+      - pattern-either:
+          - pattern: process.env.$NAME
+          - pattern: import.meta.env.$NAME
+      # A name that says secret, password or private key always counts. One that ends in an API key, access key or
+      # token counts unless it names a key that is public by design: Supabase anon and publishable keys, the Firebase
+      # web config, browser map and analytics keys, captcha site keys, search-only keys.
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: ^(?:NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|PUBLIC|NUXT_PUBLIC|GATSBY)_(?:\w*(?:SECRET|PRIVATE|SERVICE_ROLE|SERVICE_KEY|PASSWORD|PASSWD|ADMIN_KEY|MASTER_KEY)\w*|(?!\w*(?:ANON|PUBLISHABLE|PUBLIC|SITE_?KEY|FIREBASE\w*API_?KEY|MAPS\w*KEY|MAPBOX\w*TOKEN|CAPTCHA|TURNSTILE|POSTHOG\w*KEY|MIXPANEL\w*TOKEN|AMPLITUDE\w*KEY|SEGMENT\w*KEY|SEARCH(?:_ONLY)?_?(?:API_?)?KEY|MEASUREMENT))\w*(?:API_?KEY|ACCESS_?KEY|AUTH_?KEY|ENCRYPTION_?KEY|SIGNING_?KEY|JWT_?KEY|TOKEN)S?)$
+  - id: appsec.js.cors-any-origin-with-credentials
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "CORS accepts any origin (or reflects whichever asks) and sends credentials. Any website a signed-in user visits can call this API with their cookies and read the answers. List the origins that may call it, and keep credentials only for those."
+    metadata: {cwe: [942], owasp: "A02:2025", category: config, confidence: HIGH, severity: HIGH,
+      title: {en: "CORS open to any origin, with credentials", es: "CORS abierto a cualquier origen, con credenciales"},
+      fix: {en: "CORS accepts any origin (or reflects whichever asks) and sends credentials. Any website a signed-in user visits can call this API with their cookies and read the answers. List the origins that may call it, and keep credentials only for those.",
+            es: "CORS acepta cualquier origen (o refleja el que pregunte) y envía credenciales: cualquier web que visite un usuario con sesión puede llamar a esta API con sus cookies y leer las respuestas. Enumera los orígenes que pueden llamarla y deja las credenciales solo para ellos."}}
+    pattern-either:
+      - pattern: |
+          cors({..., origin: "*", ..., credentials: true, ...})
+      - pattern: |
+          cors({..., origin: true, ..., credentials: true, ...})
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $RES.$SET1("Access-Control-Allow-Origin", "*");
+                  ...
+              - pattern-inside: |
+                  $RES.$SET1("Access-Control-Allow-Origin", $REQ.headers.origin);
+                  ...
+          - pattern: $RES.$SET2("Access-Control-Allow-Credentials", "true")
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $RES.$SET2("Access-Control-Allow-Credentials", "true");
+                  ...
+          - pattern-either:
+              - pattern: $RES.$SET1("Access-Control-Allow-Origin", "*")
+              - pattern: $RES.$SET1("Access-Control-Allow-Origin", $REQ.headers.origin)
+  - id: appsec.js.route-without-auth
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "This route has none of the authentication middleware the other routes of this file use. If it isn't meant to be public, add the same middleware; if it is, say so in a comment so the next review doesn't have to ask."
+    metadata: {cwe: [306], owasp: "A01:2025", category: auth, confidence: MEDIUM, severity: HIGH,
+      title: {en: "Route without the authentication its siblings have", es: "Ruta sin la autenticación que tienen sus vecinas"},
+      fix: {en: "This route has none of the authentication middleware the other routes of this file use. If it isn't meant to be public, add the same middleware; if it is, say so in a comment so the next review doesn't have to ask.",
+            es: "Esta ruta no tiene el middleware de autenticación que usan las demás rutas del archivo. Si no debe ser pública, añade el mismo middleware; si lo es, dilo en un comentario para que la próxima revisión no tenga que preguntar."}}
+    patterns:
+      - pattern: $APP.$METHOD($PATH, $HANDLER)
+      - pattern-either:
+          - pattern-inside: |
+              $APP.$OTHER($OTHERPATH, ..., $AUTH, $OTHERHANDLER);
+              ...
+          - pattern-inside: |
+              $APP.$METHOD($PATH, $HANDLER);
+              ...
+              $APP.$OTHER($OTHERPATH, ..., $AUTH, $OTHERHANDLER);
+      # Only an authentication middleware mounted before covers the route; body parsers, helmet, cors, sessions or
+      # static files don't. Named by its callee (never its arguments: `express.static("auth")` is no guard), or written
+      # inline as a function that checks the user and answers 401/403 or redirects.
+      - pattern-not-inside:
+          patterns:
+            - pattern-inside: |
+                $APP.use(..., $GLOBAL, ...);
+                ...
+            - metavariable-regex:
+                metavariable: $GLOBAL
+                regex: (?i)^(?:[\w$]+\.)*[\w$]*(?:auth(?!or(?!i[sz]))|loggedin|ensurelogged|signedin|jwt|protect|guard|verifytoken|require(?:login|user|session|role|admin)|(?:check|ensure|verify)session|session(?:check|guard|required))[\w$]*\s*(?:\(|$)
+      - pattern-not-inside:
+          patterns:
+            - pattern-inside: |
+                $APP.use(..., $GLOBAL, ...);
+                ...
+            - metavariable-regex:
+                metavariable: $GLOBAL
+                regex: (?is)^(?:async\s*)?(?:function\b|\(|[\w$]+\s*=>)(?=.*\b(?:session|user|isAuthenticated|authorization|token)\b)(?=.*(?:\b40[13]\b|\.redirect\s*\(|unauthori[sz]ed)).*
+      # The root of the application (not of a Router, whose root is a collection) is its landing page.
+      - pattern-not-inside:
+          patterns:
+            - pattern: $APP.get("/", $HANDLER)
+            - pattern-not-inside: |
+                $APP = $EXPRESS.Router(...);
+                ...
+            - pattern-not-inside: |
+                $APP = Router(...);
+                ...
+      - metavariable-regex: {metavariable: $METHOD, regex: ^(get|post|put|patch|delete|all)$}
+      - metavariable-regex: {metavariable: $OTHER, regex: ^(get|post|put|patch|delete|all)$}
+      - metavariable-regex:
+          metavariable: $AUTH
+          regex: (?i).*(auth|protect|require(login|user|session|role|admin)|verify(token|jwt)|isloggedin|ensurelogged|checkjwt|jwtcheck|guard|session).*
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: (?i)^["'`](?!.*/(login|logout|signin|signup|sign-in|sign-up|register|auth|oauth|callback|webhooks?|health|healthz|status|ping|public|reset|forgot|verify)).*
+  - id: appsec.js.jwt-decode-unverified
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "The JWT is decoded but its signature isn't checked here: anyone can write a token with whatever claims they want. Verify it (jwt.verify, jose's jwtVerify) with the expected algorithm before trusting what it says."
+    metadata: {cwe: [347], owasp: "A07:2025", category: auth, confidence: MEDIUM, severity: HIGH,
+      title: {en: "JWT decoded without verifying its signature", es: "JWT decodificado sin verificar su firma"},
+      fix: {en: "The JWT is decoded but its signature isn't checked here: anyone can write a token with whatever claims they want. Verify it (jwt.verify, jose's jwtVerify) with the expected algorithm before trusting what it says.",
+            es: "El JWT se decodifica pero aquí no se comprueba su firma: cualquiera puede escribir un token con los datos que quiera. Verifícalo (jwt.verify, jwtVerify de jose) con el algoritmo esperado antes de fiarte de lo que dice."}}
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern: $JWT.decode($TOKEN, ...)
+              - pattern-either:
+                  - pattern-inside: |
+                      $JWT = require("jsonwebtoken");
+                      ...
+                  - pattern-inside: |
+                      import $JWT from "jsonwebtoken";
+                      ...
+                  - pattern-inside: |
+                      import * as $JWT from "jsonwebtoken";
+                      ...
+          - patterns:
+              - pattern: decodeJwt($TOKEN)
+              - pattern-inside: |
+                  import {..., decodeJwt, ...} from "jose";
+                  ...
+      - pattern-not-inside: |
+          $V = $X.verify(...);
+          ...
+      - pattern-not-inside: |
+          $V = await jwtVerify(...);
+          ...

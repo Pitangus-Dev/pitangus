@@ -22,7 +22,8 @@ user-facing is hard-coded, and nothing we store is frozen in one language.
 5. **User content is one language.** Custom rules, reasons, descriptions: stored as written, shown as written.
    A second language is optional, never required.
 6. **Never assemble sentences from fragments.** Word order differs between languages; use one key with
-   `{{params}}`. Plurals use `count` (`key_one` / `key_other`).
+   `{{params}}`. Plurals use `count` (`key_one` / `key_other`). A server message with several counts gives each its
+   forms inline: `{{files|# file|# files}}` (`#` is the number); every count a sentence shows must agree with it.
 7. **Keep names as names.** Pitangus, GitHub, GitLab, Jira, Slack, CVE, CWE, GHSA, KEV, EPSS, CVSS, SBOM, VEX,
    SARIF, OWASP, CRA, SOC 2, ISO 27001, TOTP, SAST, SCA, IaC, PR — untranslated.
 

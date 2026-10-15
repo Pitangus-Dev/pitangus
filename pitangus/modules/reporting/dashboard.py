@@ -2,7 +2,8 @@
 
 "Open" is what the latest run of each asset has, minus what triage dismissed
 (false positive or a still-valid accepted risk); "fixed" is a fingerprint that
-was in an earlier run of that asset and no longer appears in the latest one.
+was in an earlier run of that asset and no longer appears in the latest one of the same kind (each kind of web scan
+looks at its own findings: an exposure check never fixes a full scan's).
 Findings imported from other tools (SARIF) come from the registry, which already
 keeps them per tool: the open ones count, and so do the ones an import fixed.
 Dismissed findings are counted separately so they don't vanish without a trace.
@@ -20,6 +21,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pitangus.modules.findings import registry as findings_registry
 from pitangus.modules.findings import sla
+from pitangus.modules.findings.identity import formers, legacy_formers, may_take
 from pitangus.modules.findings.kinds import FULL_SCANS, IMPORT_RUNS
 from pitangus.modules.intel.advisories import load_feeds, load_recent_cves
 from pitangus.modules.sources.assets import asset_key
@@ -136,61 +138,73 @@ def compute(data_dir: Path, days: int = 30, where: tzinfo = timezone.utc) -> dic
         # By stable identity: a renamed repository is still the same asset.
         by_asset[asset_key(record)].append(record)
 
-    first_seen: dict[str, tuple[str, dict, str]] = {}
+    # Keyed by (kind of scan, fingerprint): each kind of web scan looks at its own findings (registry.lane).
+    first_seen: dict[tuple[str, str], tuple[str, dict, str]] = {}
     deadlines: dict[tuple[str, str], dict] = {}  # by (asset, fingerprint): the same fingerprint can be in two assets
     policy_days = sla.policy(data_dir)["days"]
-    fixed: dict[str, tuple[str, str]] = {}
+    fixed: dict[tuple[str, str], tuple[str, str]] = {}
     imported = _imported(data_dir, rows, decisions)
     for key, (record, entries) in imported.items():
         if key not in by_asset:
             by_asset[key] = [record]  # only other tools' findings so far
         name = (by_asset[key][-1].get("source") or {}).get("name") or key
         for entry in entries:
-            digest = entry["finding"]["fingerprint"]
+            digest = ("", entry["finding"]["fingerprint"])
             first_seen.setdefault(digest, (entry.get("first_seen") or record["created_at"], entry["finding"], name))
             if entry.get("status") == "fixed" and (entry.get("fixed") or {}).get("at"):
                 fixed.setdefault(digest, (first_seen[digest][0], entry["fixed"]["at"]))
     open_findings: list[tuple[str, dict]] = []
     top_assets = []
-    for key, runs in by_asset.items():
-        asset = runs[-1]["source"]["name"]  # the most recent name
-        # An incomplete scan neither proves that something was fixed nor represents the repository's state:
-        # complete ones count (and only if there are none, the most recent one, so the asset isn't hidden).
-        runs = [record for record in runs if record["status"] == "completed"] or runs[-1:]
-        seen_before: set[str] = set()
-        for index, record in enumerate(runs):
-            current = {item["fingerprint"]: item for item in record.get("findings", [])}
-            for digest, finding in current.items():
-                first_seen.setdefault(digest, (record["created_at"], finding, asset))
-            for digest in seen_before - set(current):
-                fixed.setdefault(digest, (first_seen[digest][0], record["created_at"]))
-            seen_before |= set(current)
-            if index == len(runs) - 1:
-                for later in advisories.get(key, []):
-                    if later["created_at"] > record["created_at"]:
-                        for item in later.get("findings", []):
-                            current.setdefault(item["fingerprint"], item)
-                            first_seen.setdefault(item["fingerprint"], (later["created_at"], item, asset))
-                for item in imported[key][0]["findings"] if key in imported else []:
-                    current.setdefault(item["fingerprint"], item)
-                triage_totals.update((item.get("triage") or {}).get("status", "open") for item in current.values())
-                current = {digest: item for digest, item in current.items() if is_active(item)}
-                open_findings.extend((asset, finding) for finding in current.values())
-                # The deadline runs from the first detection in the registry (the same date Findings shows).
-                registry = findings_registry.load(data_dir, key)["findings"]
-                for digest, finding in current.items():
-                    entry = registry.get(digest) or {}
-                    if entry.get("status", "open") != "open":
-                        continue
-                    due = sla.deadline(finding.get("severity", ""), entry.get("first_seen") or first_seen[digest][0], policy_days)
-                    if due:
-                        deadlines[(asset, digest)] = {**due, "severity": finding.get("severity")}
-                counts = Counter(item["severity"] for item in current.values())
-                previous = Counter(item["severity"] for item in runs[index - 1].get("findings", [])) if index else None
-                top_assets.append({"name": asset, "last_run": record["id"], "last_run_at": record["created_at"],
-                                   "open": len(current), **{level: counts.get(level, 0) for level in SEVERITIES},
-                                   "kev": sum(1 for item in current.values() if item.get("kev")),
-                                   "trend": (len(current) - sum(previous.values())) if previous is not None else None})
+    for key, every_run in by_asset.items():
+        asset = every_run[-1]["source"]["name"]  # the most recent name
+        streams: dict[str, list[dict]] = defaultdict(list)
+        for record in every_run:
+            streams[_kind(record)].append(record)
+        # An incomplete scan neither proves that something was fixed nor represents the asset's state: complete ones
+        # count (and only if there are none, the most recent one, so the asset isn't hidden).
+        streams = {kind: [record for record in runs if record["status"] == "completed"] or runs[-1:] for kind, runs in streams.items()}
+        counted = sorted((record for runs in streams.values() for record in runs), key=lambda record: record["created_at"])
+        last = counted[-1]
+        current: dict[tuple[str, str], dict] = {}   # each kind's latest state, side by side
+        previous: dict[str, int] | None = {} if len(counted) > 1 else None   # each kind's count before the last run
+        for kind, runs in streams.items():
+            seen_before: set[str] = set()
+            for record in runs:
+                if previous is not None and record is not last:
+                    previous[kind] = len(record.get("findings", []))
+                latest = {item["fingerprint"]: item for item in record.get("findings", [])}
+                for digest, finding in latest.items():
+                    _renamed(first_seen, seen_before, kind, digest, finding)
+                    first_seen.setdefault((kind, digest), (record["created_at"], finding, asset))
+                for digest in seen_before - set(latest):
+                    fixed.setdefault((kind, digest), (first_seen[(kind, digest)][0], record["created_at"]))
+                seen_before |= set(latest)
+            current.update({(kind, digest): item for digest, item in latest.items()})
+        record = last
+        for later in advisories.get(key, []):
+            if later["created_at"] > record["created_at"]:
+                for item in later.get("findings", []):
+                    current.setdefault(("", item["fingerprint"]), item)
+                    first_seen.setdefault(("", item["fingerprint"]), (later["created_at"], item, asset))
+        for item in imported[key][0]["findings"] if key in imported else []:
+            current.setdefault(("", item["fingerprint"]), item)
+        triage_totals.update((item.get("triage") or {}).get("status", "open") for item in current.values())
+        current = {digest: item for digest, item in current.items() if is_active(item)}
+        open_findings.extend((asset, finding) for finding in current.values())
+        # The deadline runs from the first detection in the registry (the same date Findings shows).
+        registry = findings_registry.load(data_dir, key)["findings"]
+        for (kind, digest), finding in current.items():
+            entry = registry.get(digest) or {}
+            if entry.get("status", "open") != "open":
+                continue
+            due = sla.deadline(finding.get("severity", ""), entry.get("first_seen") or first_seen[(kind, digest)][0], policy_days)
+            if due:
+                deadlines[(asset, digest)] = {**due, "severity": finding.get("severity")}
+        counts = Counter(item["severity"] for item in current.values())
+        top_assets.append({"name": asset, "last_run": record["id"], "last_run_at": record["created_at"],
+                           "open": len(current), **{level: counts.get(level, 0) for level in SEVERITIES},
+                           "kev": sum(1 for item in current.values() if item.get("kev")),
+                           "trend": (len(current) - sum(previous.values())) if previous is not None else None})
     top_assets.sort(key=lambda item: (-item["critical"], -item["high"], -item["open"]))
 
     open_by_severity = Counter(finding["severity"] for _, finding in open_findings)
@@ -294,6 +308,29 @@ def compute(data_dir: Path, days: int = 30, where: tzinfo = timezone.utc) -> dic
         "kev_news": kev_news, "cve_news": cve_news,
         "tools": ((latest or {}).get("summary", {}).get("tools") or [])[:MAX_TOOLS],
     }
+
+
+def _kind(record: dict) -> str:
+    """The kind of look a run is (`web.coverage` for a web scan, "" otherwise): only a run of the same kind tells
+    whether one of its findings is gone (registry.lane)."""
+    return str((record.get("scope") or {}).get("coverage") or "baseline") if record.get("type") == "dast_scan" else ""
+
+
+def _renamed(first_seen: dict[tuple[str, str], tuple[str, dict, str]], seen_before: set[str], kind: str, digest: str, finding: dict) -> None:
+    """A finding an earlier run of the same kind knew by another fingerprint (`identity.formers`: an engine's new
+    fingerprint, or the identity that replaced the engines' fingerprints in PITANGUS_IDENTITY_MODE=v2) is the same
+    finding: its former names never count as fixed, nor itself as new; it keeps the earliest date any of them was
+    first seen. Another kind's names are never followed, nor a secret's engine fingerprint to another value
+    (`identity.may_take`)."""
+    for former, legacy in [*((name, False) for name in formers(finding)), *((name, True) for name in legacy_formers(finding))]:
+        known = first_seen.get((kind, former))
+        if former not in seen_before or not (may_take(finding, known[1], legacy) if known else not legacy):
+            continue
+        seen_before.discard(former)
+        seen_before.add(digest)
+        earlier = first_seen.pop((kind, former), None)
+        if earlier and ((kind, digest) not in first_seen or earlier[0] < first_seen[(kind, digest)][0]):
+            first_seen[(kind, digest)] = (earlier[0], finding, earlier[2])
 
 
 _cache: dict[tuple, tuple[float, dict]] = {}

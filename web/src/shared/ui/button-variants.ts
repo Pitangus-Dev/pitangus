@@ -7,7 +7,8 @@ export const buttonVariants = cva(
       variant: {
         // primary: solid sulphur = do the main thing (the header's "New scan", a form's or dialog's primary action, an empty
         // state's call to action), at most one per zone; ink text on it (10.6:1). Everything else is outline or ghost.
-        default: "bg-sulphur text-on-sulphur hover:bg-[color-mix(in_srgb,var(--sulphur),var(--on-sulphur)_8%)]",
+        // Disabled, it turns neutral (inset, muted text, hairline): a faded sulphur would read as the forbidden pale-yellow button.
+        default: "bg-sulphur text-on-sulphur hover:bg-[color-mix(in_srgb,var(--sulphur),var(--on-sulphur)_8%)] disabled:border-app-line disabled:bg-inset disabled:text-app-muted disabled:opacity-100",
         outline:
           "border-input bg-card hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
         secondary:

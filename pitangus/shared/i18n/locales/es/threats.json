@@ -85,7 +85,11 @@
     "each_manual": "Cada amenaza propia",
     "each_node": "Cada paso del árbol",
     "each_tree": "Cada árbol",
-    "legend_label": "Etiqueta de la leyenda ({{color}})"
+    "legend_label": "Etiqueta de la leyenda ({{color}})",
+    "protocol": "Protocolo",
+    "data": "Clase de dato",
+    "assumption": "El supuesto",
+    "each_assumption": "Cada supuesto"
   },
   "errors": {
     "field_required": "{{field}}: campo obligatorio",
@@ -150,7 +154,10 @@
     "mapping_element": "Una técnica apunta a un elemento que no existe",
     "invalid_pasta": "Etapas de PASTA inválidas",
     "unique_id": "{{field}} necesita un identificador único (minúsculas, números y guiones)",
-    "flow_id_taken": "El flujo {{id}} usa el ID de un componente: cada ID debe ser único entre componentes y flujos."
+    "flow_id_taken": "El flujo {{id}} usa el ID de un componente: cada ID debe ser único entre componentes y flujos.",
+    "too_many_assumptions": "Un modelo puede tener hasta {{limit}} supuestos",
+    "invalid_assumption": "Cada supuesto debe ser un texto o un objeto con id y text",
+    "invalid_equivalents": "level_equivalents debe ser un objeto como {\"severity\": {\"Grave\": \"high\"}}"
   },
   "threat": {
     "whole_system": "Todo el sistema",
@@ -216,7 +223,8 @@
     "evidence_one": "Evidencia: {{count}} hallazgo abierto.",
     "evidence_other": "Evidencia: {{count}} hallazgos abiertos.",
     "pytm_generated": "Generado por Pitangus a partir del modelo {{name}}.",
-    "pytm_requires": "Requiere OWASP pytm: pip install pytm · uso: python3 tm.py --report docs/basic_template.md"
+    "pytm_requires": "Requiere OWASP pytm: pip install pytm · uso: python3 tm.py --report docs/basic_template.md",
+    "pytm_assumption": "Supuesto: {{text}}"
   },
   "report": {
     "status": {
@@ -397,7 +405,26 @@
     "open_rules_one": "{{count}} aún abierta",
     "open_rules_other": "{{count}} aún abiertas",
     "md_rules_one": "{{count}} sale de las reglas del enfoque ({{open_rules}}, agrupadas en **{{patterns}}**); {{team}}.",
-    "md_rules_other": "{{count}} salen de las reglas del enfoque ({{open_rules}}, agrupadas en **{{patterns}}**); {{team}}."
+    "md_rules_other": "{{count}} salen de las reglas del enfoque ({{open_rules}}, agrupadas en **{{patterns}}**); {{team}}.",
+    "assumptions_heading": "Supuestos ({{count}})",
+    "appendix_boundaries": "Fronteras de confianza",
+    "col_components": "Componentes",
+    "col_description": "Descripción",
+    "appendix_properties": "Propiedades personalizadas",
+    "col_property": "Propiedad",
+    "col_value": "Valor",
+    "model_properties": "Propiedades del modelo",
+    "property_boundary": "Frontera {{name}}",
+    "property_assumption": "Supuesto {{id}}",
+    "property_tree": "Árbol · {{goal}}",
+    "property_step": "Paso · {{text}}",
+    "likelihood_own": "probabilidad: {{value}}",
+    "impact_own": "impacto: {{value}}",
+    "difficulty_own": "dificultad: {{value}}",
+    "rest_in_json_one": "Y {{count}} más: la lista completa está en el panel y en el JSON del modelo.",
+    "rest_in_json_other": "Y {{count}} más: la lista completa está en el panel y en el JSON del modelo.",
+    "coverage_unranked_one": "{{count}} amenaza del equipo tiene una severidad propia sin nivel equivalente: no se cuenta entre las críticas o altas ni en Qué atender primero. Dale un equivalente en el diálogo de la amenaza.",
+    "coverage_unranked_other": "{{count}} amenazas del equipo tienen una severidad propia sin nivel equivalente: no se cuentan entre las críticas o altas ni en Qué atender primero. Dales un equivalente en el diálogo de la amenaza."
   },
   "rules": {
     "tm_s01": {
@@ -563,5 +590,60 @@
       "mitigation_1": "Registro de actividades de tratamiento y política de retención con borrado automático",
       "mitigation_2": "Evaluación de impacto (EIPD/DPIA) si el tratamiento es de alto riesgo"
     }
+  },
+  "problems": {
+    "more": "Hay {{count}} problemas más que no se muestran. Corrige estos y vuelve a validar.",
+    "not_text": "{{field}} debe ser texto",
+    "cleaned": "{{field}}: se quitaron etiquetas y caracteres de control",
+    "truncated": "{{field}} se recortó a {{limit}} caracteres",
+    "truncated_list": "Solo se conservaron los primeros {{limit}} valores de {{field}}",
+    "flag_text": "{{field}} está escrito como texto; se leyó como verdadero o falso",
+    "not_flag": "{{field}} debe ser true o false",
+    "unknown_value": "{{field}} desconocido: «{{value}}»; se usó {{fallback}}. Valores admitidos: {{allowed}}",
+    "unknown_field": "Pitangus no usa el campo «{{field}}»: se ignoró",
+    "not_a_list": "{{field}} debe ser una lista",
+    "unknown_module": "Módulo desconocido «{{value}}» en custom_modules: se ignoró. Valores admitidos: {{allowed}}",
+    "unknown_method": "Pitangus no tiene el enfoque «{{value}}»: el modelo se importa como Personalizado (tus propias categorías y secciones) y conserva ese nombre como propiedad. Enfoques: {{allowed}}",
+    "dangling": "{{field}} apunta a «{{value}}», que no es el id de ningún elemento del modelo",
+    "duplicate_id": "El id «{{value}}» está repetido: cada id debe ser único",
+    "technique_format": "«{{value}}» no es un ID de técnica de ATT&CK. Usa T y cuatro dígitos, con subtécnica opcional: T1552 o T1552.001",
+    "invalid_mapping": "Cada técnica mapeada debe ser un objeto con technique y, si quieres, element, status y note",
+    "duplicate_mapping": "{{value}} está mapeada dos veces al mismo elemento: se ignoró la repetida",
+    "unknown_stage": "Etapa de PASTA desconocida «{{value}}». Usa: {{allowed}}",
+    "protocol_missing": "El flujo no tiene protocolo: se usó «other»",
+    "custom_protocol": "El protocolo «{{value}}» es propio: se conserva tal cual. Pitangus no lo conoce y no puede saber si va cifrado; indica tú encrypted",
+    "custom_data": "La clase de dato «{{value}}» es propia: se conserva tal cual. Pitangus no la conoce, así que cuenta como dato interno y no le aplica reglas de privacidad ni de credenciales",
+    "custom_kind": "El tipo «{{value}}» es propio: se conserva como tipo personalizado y se analiza como servicio. Usa custom_base para cambiar el rol con que se analiza",
+    "kind_missing": "El componente no tiene kind: se importó como servicio",
+    "name_from_id": "Sin nombre: se usa el id como nombre",
+    "unknown_color": "Color desconocido «{{value}}»: se usa el automático. Valores admitidos: {{allowed}}",
+    "second_boundary": "«{{value}}» ya está dentro de la frontera «{{boundary}}»: un componente pertenece a una sola, así que esta se ignoró",
+    "custom_modules_ignored": "custom_modules solo aplica al enfoque Personalizado: se ignoró",
+    "kept_field": "«{{field}}» no es un campo de Pitangus: se conserva como propiedad personalizada, se muestra en el editor y en los informes y se exporta de vuelta",
+    "kept_typo": "«{{field}}» no es un campo de Pitangus; ¿quisiste decir {{suggestion}}? Se conserva como propiedad personalizada",
+    "kept_too_large": "No se puede conservar «{{field}}»: las propiedades personalizadas de un objeto ocupan como máximo {{limit}} caracteres, con nombres de hasta 60",
+    "alias": "«{{alias}}» se leyó como {{field}}",
+    "alias_joined": "«{{alias}}» y {{field}} se unieron en {{field}}",
+    "alias_conflict": "{{field}} ya tiene valor, así que no se usó «{{alias}}» para él; se conserva como propiedad personalizada",
+    "value_alias": "{{field}} «{{value}}» se leyó como {{used}}",
+    "list_joined": "{{field}} venía como lista: un elemento por línea",
+    "text_as_list": "{{field}} venía como texto: cada valor separado por comas se leyó como un elemento",
+    "custom_protocol_set": "El protocolo «{{value}}» es propio y se conserva tal cual; el cifrado es el que declara el flujo",
+    "technique_revoked": "{{value}} fue revocada en ATT&CK v{{version}} y la reemplaza {{replacement}} ({{name}}): se conserva tal cual; conviene actualizarla",
+    "technique_revoked_alone": "{{value}} fue revocada en ATT&CK v{{version}}, sin reemplazo: se conserva tal cual",
+    "technique_deprecated": "{{value}} está obsoleta en ATT&CK v{{version}}: se conserva tal cual, pero MITRE ya no la mantiene",
+    "technique_not_found": "{{value}} no existe en ATT&CK v{{version}}: se conserva tal cual; revisa el ID",
+    "own_value": "{{field}} «{{value}}» es propio: se conserva como una opción nueva del campo",
+    "not_a_method_category": "{{method}} solo tiene estas categorías: {{allowed}}. «{{value}}» se conserva como propiedad personalizada; para modelar con tus propias categorías, usa el enfoque Personalizado",
+    "not_a_gate": "Un paso de un árbol de ataque es AND u OR: «{{value}}» se conserva como propiedad personalizada y el paso queda en OR",
+    "not_a_pasta_stage": "PASTA solo tiene sus siete etapas: «{{value}}» se conserva y se muestra después de ellas; para añadir secciones propias, usa el enfoque Personalizado",
+    "module_added": "El enfoque Personalizado acepta {{section}} que trae el modelo: se activó su módulo",
+    "equivalents_ignored": "level_equivalents.{{field}}: solo estos niveles sirven de equivalente ({{allowed}}); el resto se ignoró"
+  },
+  "attack": {
+    "revoked_label": "Revocada en ATT&CK · ahora {{replacement}}",
+    "revoked_alone": "Revocada en ATT&CK",
+    "deprecated_label": "{{name}} (obsoleta en ATT&CK)",
+    "not_found": "No existe en ATT&CK v{{version}}"
   }
 }

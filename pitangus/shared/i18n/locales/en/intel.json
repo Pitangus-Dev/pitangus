@@ -13,7 +13,7 @@
     "cvss": "CVSS {{score}} ({{severity}})",
     "fixed": "Fix published: {{version}}",
     "no_fix": "No fixed version published",
-    "malicious": "Known malicious package (OpenSSF Malicious Packages): hostile code, not a bug"
+    "malicious": "Known malicious package (its advisory classifies it as hostile code): not a bug"
   },
   "malicious": {
     "title": "Malicious package: {{package}} {{version}}",

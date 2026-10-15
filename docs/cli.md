@@ -2,8 +2,8 @@ English · [Español](es/cli.md)
 
 # Scanning from the terminal and in CI (`scan`)
 
-`scan` analyzes a local folder with the same engines as the panel (Opengrep, Gitleaks, Trivy,
-OSV-Scanner, Checkov, zizmor). It never runs your code and never sends it to any service. Use it to
+`scan` analyzes a local folder with the same engines as the panel (Opengrep, Betterleaks, Trivy, OSV-Scanner, zizmor,
+and Checkov when `PITANGUS_CHECKOV_ENABLED=1`). It never runs your code and never sends it to any service. Use it to
 check your change before you push, and to block a pull request in CI.
 
 ## Quick start
@@ -15,11 +15,14 @@ make scan DIR=../my-repo
 make scan DIR=../my-repo ARGS="--base main"
 ```
 
-With `--base main`, Pitangus reports only what **your change introduces**. It also scans the
-starting point (the merge-base with `main`) and drops whatever was already there: touch a
-`package-lock.json` that already had vulnerabilities and they aren't charged to you; add a
-vulnerable dependency and they are. It counts what you haven't pushed yet (uncommitted changes and
-new files git doesn't ignore), so it works before the push.
+With `--base main`, Pitangus reports only what **your change introduces**. It also scans the starting point (the
+merge-base with `main`) and drops whatever was already there: touch a `package-lock.json` that already had
+vulnerabilities and they aren't charged to you; add a vulnerable dependency and they are. Moving a vulnerable line
+to another file or renaming a file isn't introducing it, nor fixing it; copying it into another file is (the same
+comparison as a PR review: [What counts as introduced](scanning-code.md#what-counts-as-introduced)). A folder is
+scanned as it is on disk: uncommitted changes and new files git doesn't ignore count too. To scan exactly what
+you're about to commit or push, add `--commit HEAD` (a commit, read from git) or `--staged` (what the next commit
+will hold): untracked files and uncommitted edits can't change the result. That's what the pre-push hook does.
 
 ```text
 Pitangus · my-repo · changes since main (merge-base 73223791, 3 files)
@@ -33,9 +36,9 @@ HIGH     settings.py:1  Exposed GitHub personal access token
 Fixed by this change (1): it was in the starting point, it's gone, and its file changed.
   HIGH     db.py:14  SQL built by concatenating strings
 
-Engines: Opengrep 1.30.0, Gitleaks 8.30.1, Trivy 0.75.0, OSV-Scanner 2.6.0
+Engines: Opengrep 1.30.0, Betterleaks 1.9.0, Trivy 0.75.0, OSV-Scanner 2.6.0
 
-BLOCKED · threshold: high or above · 7 new findings at severity high or above
+BLOCKED · threshold: high or above · 3 new findings at severity high or above
 ```
 
 **What the change fixes.** Comparing both scans also shows what the starting point had and the change no
@@ -56,9 +59,11 @@ JSON and SARIF alike. In a container, pass it with `-e PITANGUS_DEFAULT_LOCALE=e
 | Option | What it does |
 | --- | --- |
 | `--base REF` | Starting branch or commit (`main`, `origin/main`, a SHA). Only what the change introduces counts. |
+| `--commit REF` | Scan that commit as git holds it, not the folder on disk: untracked files and uncommitted edits don't count. With `--base`, the change is what goes from the merge-base to that commit. |
+| `--staged` | Scan what's staged (the index), as the next commit will hold it: untracked files and unstaged edits don't count. |
 | `--no-baseline` | With `--base`, skip scanning the starting point: it takes half the time, but everything on changed lines counts (and so does any advisory in a lockfile you touch). |
 | `--fail-on` | Severity at which the scan fails: `critical`, `high` (default), `medium`, `low` or `never` (report only). |
-| `--format` | `text` (default), `json` or `sarif` (SARIF 2.1.0, with `security-severity` for GitHub code scanning). |
+| `--format` | `text` (default), `json`, `sarif` (SARIF 2.1.0, with `security-severity` for GitHub code scanning) or `prompt`: one prompt per finding, worst first, to paste into your own AI assistant (the rule, where it is, the matched code and the fix; never a secret's value, never code beyond the fragment). Pitangus calls no AI. |
 | `--output FILE` | Write the result to a file; the text summary still goes to stderr. |
 | `--exclude PATTERN` | Path whose findings don't count: a glob relative to the root (`fixtures`, `**/testdata`, `docs/*.md`). It works like `.gitignore`: a folder excludes everything inside it; `*` doesn't cross `/`, `**` does. Repeatable. The output says how many findings were excluded. |
 | `--allow-incomplete` | Don't fail if an engine couldn't run. By default it fails: an analysis that didn't finish is not the same as "clean". |
@@ -68,6 +73,10 @@ JSON and SARIF alike. In a container, pass it with `-e PITANGUS_DEFAULT_LOCALE=e
 | `--quiet` | No progress messages. |
 
 Progress goes to stderr, so stdout stays clean for `json` and `sarif`.
+
+The verdict counts the rows it shows: a dependency's advisories are one row. Under the engines, *Not analyzed* names
+each engine that didn't run (one turned off says so), and a line like *Opengrep 1.30.0 didn't examine 2 files (parse
+error): a.py, b.py* names the files an engine that ran couldn't read: nothing it could find there counts as fixed.
 
 ## Exit codes
 
@@ -83,12 +92,17 @@ exact code.
 
 ## Before you push (pre-push)
 
-A full scan takes around half a minute, so it fits `pre-push` better than `pre-commit`. In your
-repository's `.git/hooks/pre-push` (and `chmod +x` it):
+A full scan takes around half a minute, so it fits `pre-push` better than `pre-commit`. The
+[pre-commit](https://pre-commit.com) hook (see the [developer quickstart](quickstart-developer.md)) scans what you're
+about to push: the pushed commit as git holds it, against what the remote already has, so an untracked file or an
+edit you haven't committed can't block the push. `PITANGUS_BASE` sets another starting point; `args: [--staged]`
+scans the index instead, for a `pre-commit` stage.
+
+Without pre-commit, in your repository's `.git/hooks/pre-push` (and `chmod +x` it):
 
 ```sh
 #!/bin/sh
-make -s -C ~/pitangus scan DIR="$(git rev-parse --show-toplevel)" ARGS="--base origin/main --quiet"
+make -s -C ~/pitangus scan DIR="$(git rev-parse --show-toplevel)" ARGS="--commit HEAD --base origin/main --quiet"
 ```
 
 ## Import other tools' results (`import-sarif`)
@@ -115,7 +129,7 @@ It prints one line per tool. Exit codes: `0` imported, `2` usage, document or se
 
 ## In CI
 
-In CI, Pitangus runs from the published worker image, `ghcr.io/pitangus-dev/pitangus-worker:0.13`, which carries
+In CI, Pitangus runs from the published worker image, `ghcr.io/pitangus-dev/pitangus-worker:0.14`, which carries
 the engines and runs them as processes of its own: no build, and no Docker socket.
 
 ### GitHub Actions
@@ -144,7 +158,7 @@ jobs:
           fetch-depth: 0              # history is needed to compare against the base
           persist-credentials: false
       - id: pitangus
-        uses: Pitangus-Dev/pitangus@v0.13.1   # pin it to the tag's commit SHA, as with the other actions
+        uses: Pitangus-Dev/pitangus@v0.14.0   # pin it to the tag's commit SHA, as with the other actions
         with:
           exclude: |
             fixtures/
@@ -166,9 +180,10 @@ in English unless the step sets `env: PITANGUS_DEFAULT_LOCALE: es`.
 | `exclude` | empty | One pattern per line; each becomes an `--exclude`. |
 | `name` | the repository's name | Like `--name`. |
 | `sarif` | `$RUNNER_TEMP/pitangus.sarif` | Where to write the SARIF (relative paths start at the workspace). |
-| `image` | `ghcr.io/pitangus-dev/pitangus-worker:0.13` | Worker image. Pin it by digest (`…@sha256:…`) if you want nothing to move under you. |
+| `image` | `ghcr.io/pitangus-dev/pitangus-worker:0.14` | Worker image. Pin it by digest (`…@sha256:…`) if you want nothing to move under you. |
 | `verify` | `true` | `false`: don't check the image's signature. Only for an `image` of your own (a fork, a private mirror): the published image is always checked. |
 | `allow-incomplete` | `false` | `true`: like `--allow-incomplete`. |
+| `cache` | `true` | `false`: download the engines' advisory databases on every run. By default they're kept for the day with `actions/cache`. |
 | `scan` | `true` | `false`: skip the scan and only import (below). |
 | `import-sarif` | empty | SARIF files from other tools to send to a Pitangus server, one per line. |
 | `server` | empty | The Pitangus server (`https://…`) for `import-sarif`. |
@@ -208,7 +223,7 @@ own scan:
         run: |
           python -m pip install semgrep   # pin the version
           semgrep scan --config p/ci --metrics off --sarif --output semgrep.sarif
-      - uses: Pitangus-Dev/pitangus@v0.13.1
+      - uses: Pitangus-Dev/pitangus@v0.14.0
         if: always()
         with:
           scan: false
@@ -227,7 +242,7 @@ user. No Docker socket and no Docker-in-Docker.
 ```yaml
 pitangus:
   stage: test
-  image: ghcr.io/pitangus-dev/pitangus-worker:0.13
+  image: ghcr.io/pitangus-dev/pitangus-worker:0.14
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
@@ -244,11 +259,13 @@ On a runner with the `shell` executor, use `docker run` as the Action does, with
 ```sh
 mkdir -p /tmp/pitangus-data   # created by you, not by Docker: it must belong to your user
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/src:ro -v /tmp/pitangus-data:/data \
-  ghcr.io/pitangus-dev/pitangus-worker:0.13 python -m pitangus scan /src --name "$CI_PROJECT_NAME" --base "origin/$BASE"
+  ghcr.io/pitangus-dev/pitangus-worker:0.14 python -m pitangus scan /src --name "$CI_PROJECT_NAME" --base "origin/$BASE"
 ```
 
 > Pitangus's own repository runs the Action in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), and also
-> scans itself with the image built from each commit (with `--exclude fixtures/` for its intentionally vulnerable examples).
+> scans itself with the image built from each commit (with `--exclude fixtures/` for its intentionally vulnerable examples,
+> and `--exclude` for one data file whose rule digests `generic-password` reads as passwords: JSON can't carry an
+> allow comment; both show as excluded in the output).
 > The GitLab template has been checked locally with the same image and a checkout owned by another user, but not
 > yet on a real runner. If something fails, the reason shows up on the "Not analyzed" line.
 

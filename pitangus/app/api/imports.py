@@ -52,6 +52,7 @@ class ImportedRun(BaseModel):
     """The `sarif_import` run created for one tool, and what it changed in the asset's registry."""
     id: str
     tool: str
+    category: str | None = None  # the SARIF run's category (runAutomationDetails), its own scope for fixing
     version: str | None
     scope: str
     status: str

@@ -12,8 +12,11 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from pitangus.app.api.deps import ApiError, Context, Policy, guard
 from pitangus.app.api.paging import Page, Paging, paging
 from pitangus.modules.compliance import cra, evidence, provenance
+from pitangus.modules.integrations import code_tokens
+from pitangus.modules.integrations.installations import github_installations
 from pitangus.modules.reporting.audit import FRAMEWORKS, ReportError, render_portfolio_pdf, validate_options
 from pitangus.modules.runs.assets import overview as assets_overview
+from pitangus.modules.sources.repositories import find_source
 from pitangus.shared.i18n import msg, text
 from pitangus.version import RELEASE
 
@@ -252,20 +255,22 @@ def assets(q: str = Query("", max_length=100), page: Paging = Depends(paging()),
 # /api/reports/audit (audit evidence). Only the portfolio-wide files need their own routes.
 
 class EvidenceOverview(BaseModel):
-    assets: int  # analyzed repositories and images
-    complete: int  # with a completed full scan (what an SBOM needs)
+    assets: int  # analyzed repositories, images and domains
+    complete: int  # repositories and images with a completed full scan (what an SBOM needs)
     accounts: list[str] = Field(max_length=1000)  # owners of the analyzed repositories, for the scope picker
 
 
 class BuiltFrom(BaseModel):
     """The repository an image is built from: from its OCI label or set by hand. `repository` is None when the label
-    names a repository Pitangus hasn't analyzed."""
+    names a repository Pitangus hasn't analyzed; a manual link to one not analyzed yet keeps its key (`analyzed`
+    false)."""
     repository: str | None
     name: str
     revision: str | None
     how: Literal["label", "manual"]
     by: str | None = None
     at: str | None = None
+    analyzed: bool = True
 
 
 class EvidenceAsset(BaseModel):
@@ -298,9 +303,11 @@ class PortfolioEvidenceIn(EvidenceScope):
 
 
 class ScopeSummary(BaseModel):
+    """Every asset of the scope by kind, and how many of them the portfolio SBOM and VEX include."""
     repositories: int
     images: int
-    complete: int  # with a completed full scan (what an SBOM needs)
+    domains: int  # audit evidence only: a web scan has no package inventory, so never in the SBOM or the VEX
+    complete: int  # repositories and images with a completed full scan: the assets of the portfolio SBOM and VEX
 
 
 class ImageLinkIn(BaseModel):
@@ -346,15 +353,30 @@ def evidence_scope(assets: list[AssetKey] = Query([], max_length=provenance.SCOP
     if assets and account:
         raise ApiError(400, msg("api.scope.one_kind"))
     rows = provenance.scope(context.data_dir, assets=assets or None, account=account.strip() or None, include_images=include_images)
-    return {"repositories": sum(1 for row in rows if row["kind"] == "repository"), "images": sum(1 for row in rows if row["kind"] == "image"),
-            "complete": sum(1 for row in rows if row["last_complete"])}
+    count = lambda kind: sum(1 for row in rows if row["kind"] == kind)  # noqa: E731
+    return {"repositories": count("repository"), "images": count("image"), "domains": count("domain"),
+            "complete": sum(1 for row in rows if evidence.has_inventory(row))}
+
+
+def workspace_repository(context: Context, key: str | None) -> str | None:
+    """The name of `key` when it is a repository of the workspace not analyzed yet, checked against the GitHub App or
+    the connected token (its asset key, `github#<id>` or the source id, must be the one a scan would give it); None
+    when it is analyzed or not given. Anything else is refused."""
+    if key is None or any(row["key"] == key for row in provenance.analyzed_repositories(context.data_dir)):
+        return None
+    found = find_source(code_tokens.current(), github_installations(context.data_dir), key)
+    if not found or (found.get("uid") or found.get("id")) != key or not isinstance(found.get("name"), str):
+        raise ApiError(400, msg("compliance.provenance.not_a_repository"))
+    return found["name"]
 
 
 @router.post("/api/evidence/image-link", response_model=ImageLink)
 def set_image_link(body: ImageLinkIn, context: Context = Depends(guard(Policy(admin=True, action="image-link", body=1024)))) -> dict:
-    """Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label."""
+    """Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label. The
+    repository may be one of the workspace not analyzed yet."""
+    name = workspace_repository(context, body.repository)
     try:
-        linked = provenance.set_link(context.data_dir, body.image, body.repository, by=context.user["username"])
+        linked = provenance.set_link(context.data_dir, body.image, body.repository, by=context.user["username"], name=name)
     except provenance.ProvenanceError as exc:
         raise ApiError(400, exc.message) from exc
     context.state.log.info("image_link", extra={"user": context.user["username"], "reason": f"{body.image} -> {body.repository or 'label'}"})

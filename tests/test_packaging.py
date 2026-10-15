@@ -14,6 +14,12 @@ from pitangus.version import VERSION
 from pitangus.modules.scanning.engines import IMAGES
 
 ROOT = Path(__file__).resolve().parents[1]
+def isolated_env() -> dict[str, str]:
+    """The environment without anything a developer's own installation sets (a pinned PITANGUS_IMAGE_TAG, say): the
+    compose checks are about the files in the repository. `--env-file /dev/null` keeps the local .env out too."""
+    return {name: value for name, value in os.environ.items() if not name.startswith(("PITANGUS_", "COMPOSE_"))}
+
+
 COMPOSE_FILES = ("compose.yaml", "compose.prod.yaml", "compose.images.yaml", "compose.no-socket.yaml", "compose.images.no-socket.yaml")
 
 
@@ -112,9 +118,9 @@ class PackagingTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("docker"), "needs docker compose")
     def test_production_overlays_are_valid_compose(self):
-        env = {**os.environ, "PITANGUS_DB_PASSWORD": "x", "PITANGUS_DOMAIN": "pitangus.example.com",
+        env = {**isolated_env(), "PITANGUS_DB_PASSWORD": "x", "PITANGUS_DOMAIN": "pitangus.example.com",
                "PITANGUS_IMAGE": "ghcr.io/example/pitangus", "COMPOSE_FILE": "", "COMPOSE_PROFILES": ""}
-        command = ["docker", "compose", "--project-directory", str(ROOT), "-f", str(ROOT / "compose.yaml"),
+        command = ["docker", "compose", "--env-file", os.devnull, "--project-directory", str(ROOT), "-f", str(ROOT / "compose.yaml"),
                    "-f", str(ROOT / "compose.prod.yaml"), "-f", str(ROOT / "compose.images.yaml"), "--profile", "backup",
                    "config", "--format", "json"]
         completed = subprocess.run(command, capture_output=True, text=True, env=env, timeout=60)
@@ -141,9 +147,10 @@ class PackagingTests(unittest.TestCase):
         for files, image in ((base, f"localhost/pitangus/worker:{VERSION}"),
                              (base + ["compose.images.yaml", "compose.images.no-socket.yaml"], f"ghcr.io/example/pitangus-worker:{VERSION}")):
             with self.subTest(files=files):
-                env = {**os.environ, "PITANGUS_DB_PASSWORD": "x", "PITANGUS_DOMAIN": "pitangus.example.com",
+                env = {**isolated_env(), "PITANGUS_DB_PASSWORD": "x", "PITANGUS_DOMAIN": "pitangus.example.com",
                        "PITANGUS_IMAGE": "ghcr.io/example/pitangus", "COMPOSE_FILE": "", "COMPOSE_PROFILES": "", "PITANGUS_VERSION": VERSION}
-                command = ["docker", "compose", "--project-directory", str(ROOT), *[part for name in files for part in ("-f", str(ROOT / name))],
+                command = ["docker", "compose", "--env-file", os.devnull, "--project-directory", str(ROOT),
+                           *[part for name in files for part in ("-f", str(ROOT / name))],
                            "--profile", "backup", "config", "--format", "json"]
                 completed = subprocess.run(command, capture_output=True, text=True, env=env, timeout=60)
                 self.assertEqual(completed.returncode, 0, completed.stderr)
@@ -243,7 +250,7 @@ class StandaloneWorkerImageTests(unittest.TestCase):
         from pitangus.modules.scanning.engines import IMAGES
         root = Path(__file__).resolve().parents[1]
         app = (root / "docker" / "app" / "Dockerfile").read_text(encoding="utf-8")
-        for key in ("trivy", "osv-scanner", "gitleaks", "grype", "zizmor"):
+        for key in ("trivy", "osv-scanner", "betterleaks", "grype", "zizmor"):
             self.assertIn(f"FROM {IMAGES[key]['image']} AS {key}", app, key)
         engine = (root / "docker" / "engines" / "opengrep" / "Dockerfile").read_text(encoding="utf-8")
         for name in ("OPENGREP_VERSION", "SHA_AMD64", "SHA_ARM64"):
@@ -265,9 +272,10 @@ class StandaloneWorkerImageTests(unittest.TestCase):
         self.assertIn("--require-hashes", app)
         self.assertEqual(re.search(r"^ARG OPENGREP_VERSION=(\S+)$", app, re.M).group(1), IMAGES["opengrep"]["version"])
 
-    def test_web_engines_stay_out_of_the_standalone_worker_and_are_pulled_only_with_web_scans_on(self):
+    def test_web_engines_stay_out_of_the_standalone_worker_and_the_full_dast_ones_are_pulled_only_with_web_scans_on(self):
         """ZAP (Java, ~1.2 GB), the other web scan tools and subfinder run only through the Docker runner; `make engines`
-        skips them unless DAST is on. Each is an upstream image pinned by version and multi-arch digest."""
+        pulls the exposure check's always and skips the rest unless DAST is on (tests/test_engine_images.py checks every
+        configuration). Each is an upstream image pinned by version and multi-arch digest."""
         import re
         import subprocess
         from pitangus.modules.scanning.engines import BINARIES, IMAGES, WEB_ENGINES
@@ -282,16 +290,18 @@ class StandaloneWorkerImageTests(unittest.TestCase):
         for key in ("subfinder", "katana", "nuclei", "httpx"):
             self.assertRegex(IMAGES[key]["image"], rf"^projectdiscovery/{key}:v{re.escape(IMAGES[key]['version'])}@sha256:[0-9a-f]{{64}}$")
         self.assertRegex(IMAGES["testssl"]["image"], rf"^ghcr\.io/testssl/testssl\.sh:{re.escape(IMAGES['testssl']['version'])}@sha256:[0-9a-f]{{64}}$")
-        makefile = (root / "Makefile").read_text(encoding="utf-8")
-        listing = re.search(r"^ENGINE_IMAGES := (.+)$", makefile, re.M).group(1)
-        skip = re.search(r"^WEB_IMAGES := .*,,(\| grep -v -e '/zaproxy/' -e '/subfinder:' -e '/katana:' -e '/nuclei:' -e '/testssl.sh:' "
-                         r"-e '/httpx:')\)$", makefile, re.M).group(1)
-        everything = subprocess.run(listing, shell=True, cwd=root, capture_output=True, text=True, check=True).stdout.split()
-        without = subprocess.run(f"{listing} {skip}", shell=True, cwd=root, capture_output=True, text=True, check=True).stdout.split()
-        web = {IMAGES[key]["image"] for key in WEB_ENGINES}
+        import tempfile
+        from pitangus.modules.scanning.engines import EXPOSURE_ENGINES
+        script = ["sh", str(root / "scripts" / "engine-images.sh")]
+        clean = {key: value for key, value in os.environ.items() if key != "PITANGUS_DAST_ENABLED"}
+        with tempfile.TemporaryDirectory() as folder:
+            everything = subprocess.run(script, cwd=folder, env={**clean, "PITANGUS_DAST_ENABLED": "1"}, capture_output=True,
+                                        text=True, check=True).stdout.split()
+            without = subprocess.run(script, cwd=folder, env=clean, capture_output=True, text=True, check=True).stdout.split()
+        web = {IMAGES[key]["image"] for key in WEB_ENGINES - EXPOSURE_ENGINES}
         self.assertTrue(web <= set(everything))
         self.assertEqual(without, [image for image in everything if image not in web])
-        self.assertIn("images=$$($(ENGINE_IMAGES) $(WEB_IMAGES))", makefile)
+        self.assertIn("images=$$(sh scripts/engine-images.sh)", (root / "Makefile").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
@@ -307,9 +317,9 @@ class LocalImageTests(unittest.TestCase):
                 patch.dict("os.environ", {"PITANGUS_ENGINE_RUNNER": "docker"}), \
                 patch.object(engines.subprocess, "run") as run:
             engines._run("opengrep", ["--version"], None)
-            engines._run("gitleaks", ["version"], None)
-        opengrep, gitleaks = (call.args[0] for call in run.call_args_list)
+            engines._run("betterleaks", ["version"], None)
+        opengrep, betterleaks = (call.args[0] for call in run.call_args_list)
         self.assertIn("--pull", opengrep)
         self.assertEqual(opengrep[opengrep.index("--pull") + 1], "never")
-        self.assertNotIn("--pull", gitleaks)  # pinned by digest: immutable, may be pulled
+        self.assertNotIn("--pull", betterleaks)  # pinned by digest: immutable, may be pulled
 

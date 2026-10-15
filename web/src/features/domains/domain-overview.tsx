@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDay } from '@/shared/i18n/format'
 import { Button } from '@/shared/ui/button'
-import { HeadersEditor } from '@/features/domains/headers-editor'
+import { HeadersEditor, SessionCheck } from '@/features/domains/headers-editor'
 import { ScheduleSection } from '@/features/domains/schedule-section'
 import { DisconnectDomain } from '@/features/domains/disconnect-domain'
 import { coversSubdomains, lastScanOf, type Domain } from '@/features/domains/domains'
@@ -44,6 +44,7 @@ export function DomainOverview({ domain, admin, onVerify, onDisconnect, disconne
         <p className="text-sm text-app-muted">{t('domains.page.access_text')}</p>
       </div>
       <HeadersEditor domain={domain} admin={admin} adding={addingHeader} onAddingChange={setAddingHeader} />
+      {admin && <SessionCheck domain={domain} />}
     </section>}
     {admin && <DisconnectDomain domain={domain} busy={disconnecting} error={disconnectError} onDisconnect={onDisconnect} />}
   </div>

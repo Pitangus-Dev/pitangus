@@ -8,7 +8,7 @@ como contenedores hermanos efímeros lanzados por el worker (o como procesos den
 plataformas sin socket de Docker), con el código montado en solo lectura, sin capacidades y con límites de memoria, CPU
 y procesos. El API no tiene acceso a Docker.
 
-<!-- diagram: architecture | Arquitectura de Pitangus. El navegador llega al API por HTTPS (Caddy en un servidor) o por loopback. En tu servidor, el API y uno o varios workers comparten PostgreSQL, que guarda ejecuciones, hallazgos, la cola, la configuración y los secretos cifrados; la clave maestra solo es un archivo si PITANGUS_MASTER_KEY no está definida. El worker lanza los motores por el socket de Docker o los ejecuta dentro de la imagen worker-standalone: Trivy, OSV-Scanner, Gitleaks, Opengrep con 58 reglas propias, Checkov y zizmor para el código; Trivy y Grype para las imágenes; ZAP, katana, nuclei, testssl.sh, httpx y subfinder para sitios y APIs. Las conexiones salientes van al API de GitHub, a las fuentes de avisos (NVD, CISA KEV, EPSS, OSV, EUVD), a los registros de imágenes y los sitios verificados, y a Jira, Slack, Teams y webhooks. | Los servicios de tu servidor, los motores que lanza el worker y las conexiones que abre hacia fuera. -->
+<!-- diagram: architecture | Arquitectura de Pitangus. El navegador llega al API por HTTPS (Caddy en un servidor) o por loopback. En tu servidor, el API y uno o varios workers comparten PostgreSQL, que guarda ejecuciones, hallazgos, la cola, la configuración y los secretos cifrados; la clave maestra solo es un archivo si PITANGUS_MASTER_KEY no está definida. El worker lanza los motores por el socket de Docker o los ejecuta dentro de la imagen worker-standalone: Trivy, OSV-Scanner, Betterleaks, Opengrep con 66 reglas propias y zizmor para el código, y Checkov si se activa; Trivy para las imágenes, y Grype si se activa; httpx, testssl.sh y nuclei para la comprobación de exposición de sitios y APIs, y ZAP, katana y subfinder para el análisis web completo, que es experimental. Las conexiones salientes van al API de GitHub, a las fuentes de avisos (NVD, CISA KEV, EPSS, OSV, EUVD), a los registros de imágenes y los sitios verificados, y a Jira, Slack, Teams y webhooks. | Los servicios de tu servidor, los motores que lanza el worker y las conexiones que abre hacia fuera. -->
 ```mermaid
 flowchart TB
   browser["Navegador<br/>panel React"]
@@ -22,9 +22,9 @@ flowchart TB
     worker --- db
     db -.- key
     subgraph engines["Motores: copia en solo lectura, sin capacidades, con límites de memoria, CPU y procesos"]
-      code["Código y dependencias<br/>Trivy, OSV-Scanner, Gitleaks,<br/>Opengrep (58 reglas), Checkov, zizmor"]
-      images["Imágenes de contenedor<br/>Trivy, Grype"]
-      web["Sitios y APIs<br/>ZAP, katana, nuclei,<br/>testssl.sh, httpx, subfinder"]
+      code["Código y dependencias<br/>Trivy, OSV-Scanner, Betterleaks, zizmor,<br/>Opengrep (66 reglas); Checkov opcional"]
+      images["Imágenes de contenedor<br/>Trivy; Grype opcional"]
+      web["Sitios y APIs<br/>comprobación de exposición: httpx, testssl.sh, nuclei<br/>análisis completo (experimental): ZAP, katana, subfinder"]
     end
     worker -- "socket de Docker, o dentro<br/>de la imagen worker-standalone" --> engines
   end
@@ -139,8 +139,8 @@ plataformas sin socket. Las tareas periódicas van con el reloj del worker líde
 1. Pulsas **Analizar** o se abre un PR en un repositorio vigilado.
 2. La API encola el trabajo y responde al momento; el panel muestra el progreso en vivo.
 3. El trabajador pide a GitHub un token de instalación de una hora (en memoria) y descarga una instantánea del repositorio en `data/work/`.
-4. Se calcula el plan (lenguajes, reglas aplicables, manifiestos, IaC) y se lanzan los motores uno a uno: instantánea en solo lectura, `--cap-drop ALL`, `no-new-privileges`, 3 GB de memoria, 2 CPU y 512 procesos como máximo. Gitleaks, Opengrep, Checkov y zizmor van **sin red**; Trivy y OSV-Scanner la necesitan para descargar sus bases de vulnerabilidades (la de Trivy se cachea en `data/trivy-cache/`) y no envían nada del repositorio.
-5. Los resultados se normalizan, se deduplican por huella estable, se enriquecen con KEV/EPSS y se incorporan al registro del repositorio: lo que ya no aparece queda **remediado**.
+4. Se calcula el plan (lenguajes, reglas aplicables, manifiestos, IaC) y se lanzan los motores uno a uno: instantánea en solo lectura, `--cap-drop ALL`, `no-new-privileges`, 3 GB de memoria, 2 CPU y 512 procesos como máximo. Betterleaks, Opengrep, zizmor y Checkov (si se activa) van **sin red**; Trivy y OSV-Scanner la necesitan para descargar sus bases de vulnerabilidades (la de Trivy se cachea en `data/trivy-cache/`) y no envían nada del repositorio.
+5. Los resultados se normalizan, se deduplican por huella estable, se enriquecen con KEV/EPSS y se incorporan al registro del repositorio: un hallazgo que ya no aparece queda **remediado** solo si el motor al que pertenece examinó su archivo en un análisis completo y con su regla sin cambios ([hallazgos.md](hallazgos.md)); si no, sigue abierto como sin verificar.
 6. Si era un PR, se publica un comentario único y un estado de commit según el umbral configurado.
 7. La instantánea se borra.
 

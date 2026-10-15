@@ -194,12 +194,23 @@ class ArgumentTests(unittest.TestCase):
         for flag in ("-fr", "-ss", "-screenshot", "-x", "-pa", "-tls-probe", "-csp-probe", "-vhost"):
             self.assertNotIn(flag, arguments)
 
+    def test_the_status_pass_asks_each_url_over_its_scheme_reads_a_bounded_body_and_follows_nothing(self):
+        arguments = web_tools.httpx_status_arguments(["172.67.153.40"])
+        self.assertEqual(arguments[arguments.index("-allow") + 1], "172.67.153.40")
+        for flag in ("-nfs", "-irr", "-duc", "-no-stdin"):
+            self.assertIn(flag, arguments)
+        self.assertEqual(int(arguments[arguments.index("-rstr") + 1]), web_tools.BODY_READ)
+        for flag in ("-fr", "-fhr", "-ob", "-sr", "-store-response", "-x"):
+            self.assertNotIn(flag, arguments)
+
 
 def fake_tools(outputs: dict, *, calls: list | None = None, returncodes: dict | None = None, raising: dict | None = None,
                errors: dict | None = None):
     """`docker run` of the web tools: answers each image with its fixture (stdout, or testssl.sh's JSON report written
-    into its work folder; `errors`: its stderr), and ZAP with a real SARIF."""
+    into its work folder; `errors`: its stderr), and ZAP with a real SARIF. nuclei prints its final statistics on
+    stderr, as it does on every run that read its targets, unless `errors` says otherwise."""
     images = {meta["image"]: key for key, meta in engines.IMAGES.items()}
+    errors = {"nuclei": fixture("nuclei-3.11-stats.log"), **(errors or {})}
 
     def run(command, **kwargs):
         key = next((images[part] for part in command if part in images), None)
@@ -210,17 +221,36 @@ def fake_tools(outputs: dict, *, calls: list | None = None, returncodes: dict | 
         if raising and key in raising:
             raise raising[key]
         mounts = [command[index + 1] for index, part in enumerate(command) if part == "-v"]
+        statuses = outputs.get("statuses", {})
         if key == "zap":
             work = Path(mounts[0].rsplit(":", 2)[0])
             (work / web.REPORT).write_text(fixture("zap-2.17.sarif"))
             if "zap_urls" in outputs:
                 (work / web.EXPORT).write_text(outputs["zap_urls"])
+                # Its sites tree: each URL it requested with the status it got (200 unless set), as ZAP 2.17 exports it.
+                urls = [line.strip() for line in outputs["zap_urls"].splitlines() if line.strip().startswith("http")]
+                (work / web.TREE).write_text(yaml.safe_dump([{"node": "Sites", "children": [
+                    {"node": f"GET:{url}", "url": url, "method": "GET", "statusCode": outputs.get("zap_statuses", statuses).get(url, 200)}
+                    for url in urls]}]))
+        if key == "nuclei":  # each response it got, as its stored responses give them (web_tools.NUCLEI_STATUS_AWK)
+            work = Path(mounts[0].rsplit(":", 2)[0])
+            targets = (work / "targets.txt").read_text().split()
+            pages = "/templates/pages" in command
+            asked = [url for target in targets for url in ([target] if pages else
+                                                            [target, *(target.rstrip("/") + path for path in web.known_paths())])]
+            (work / web_tools.NUCLEI_STATUSES).write_text("".join(f"{url} {statuses.get(url, 200)}\n" for url in asked))
         if key == "testssl":
             work = Path(mounts[0].rsplit(":", 2)[0])
             report = command[command.index("--jsonfile") + 1].rsplit("/", 1)[-1]
             (work / report).write_text(outputs.get("testssl", "[]"))
             return subprocess.CompletedProcess(command, (returncodes or {}).get(key, 0), "", "")
-        return subprocess.CompletedProcess(command, (returncodes or {}).get(key, 0), outputs.get(key, ""), (errors or {}).get(key, ""))
+        if key == "httpx" and f"{web_tools.WORK}/pages.txt" in command:  # the status pass: each page its status (200 unless set)
+            work = Path(mounts[0].rsplit(":", 2)[0])
+            pages = (work / "pages.txt").read_text().split()
+            outputs["checked"] = pages
+            lines = "".join(json.dumps({"input": url, "url": url, "status_code": statuses.get(url, 200)}) + "\n" for url in pages)
+            return subprocess.CompletedProcess(command, 0, lines, "")
+        return subprocess.CompletedProcess(command, (returncodes or {}).get(key, 0), outputs.get(key, ""), errors.get(key, ""))
     return patch("pitangus.modules.scanning.engines.subprocess.run", side_effect=run)
 
 
@@ -259,7 +289,9 @@ class ContainerTests(unittest.TestCase):
         (tmpfs,) = values("--tmpfs")
         self.assertIn("exec" if key == "katana" else "noexec", tmpfs.split(","))
         for mount in values("-v"):
-            self.assertTrue(mount.endswith(":ro") or (key == "testssl" and mount.endswith(":rw")), mount)
+            # testssl.sh writes its report, nuclei its trace log (the requests it sent), each in its own private folder.
+            writable = key in ("testssl", "nuclei") and mount.endswith(f":{web_tools.WORK}:rw")
+            self.assertTrue(mount.endswith(":ro") or writable, mount)
 
     def test_each_tool_runs_hardened_and_reaches_only_the_pinned_hosts(self):
         calls = []
@@ -337,7 +369,8 @@ class ParserTests(unittest.TestCase):
         self.assertTrue(urls)
         self.assertTrue(all(url.startswith(f"https://{HOST}/") and "?" not in url for url in urls))
         edge = web_tools.parse_katana(fixture("katana-1.7-edge.jsonl"), [EDGE])
-        self.assertEqual(edge, [f"https://{EDGE}/", f"https://{EDGE}/about.html", f"https://{EDGE}/old"])
+        # /old answered 301: the page is where it points, and checking the redirect's headers again only repeats them.
+        self.assertEqual(edge, [f"https://{EDGE}/", f"https://{EDGE}/about.html"])
         self.assertNotIn("169.254.169.254", json.dumps(edge))
         self.assertEqual(web_tools.parse_katana('{"request": {"method": "POST", "endpoint": "https://pitangus.dev/x"}}\nnot json\n', [HOST]), [])
 
@@ -363,6 +396,40 @@ class ParserTests(unittest.TestCase):
         self.assertFalse({"ssl-dns-names", "wildcard-tls", "tls-version", "ssl-issuer"} & {item["rule_id"] for item in real})
         # A result about a host outside the scope is never a finding.
         self.assertEqual(web_tools.parse_nuclei(fixture("nuclei-3.11-edge.jsonl"), [HOST]), ([], []))
+
+    def test_a_tech_tagged_template_of_higher_severity_is_a_finding(self):
+        """Only the technologies folder, or a `tech` template that informs, names a technology."""
+        line = json.dumps({"template-id": "unauth-etcd-server", "template-path": "/templates/hosts/http/misconfiguration/etcd.yaml",
+                           "info": {"name": "etcd unauthenticated", "severity": "high", "tags": ["tech", "etcd", "unauth"]},
+                           "matched-at": f"https://{EDGE}/v2/keys", "host": EDGE, "type": "http"})
+        findings, technologies = web_tools.parse_nuclei(line + "\n", [EDGE])
+        self.assertEqual([(item["rule_id"], item["severity"]) for item in findings], [("unauth-etcd-server", "high")])
+        self.assertEqual(technologies, [])
+
+    def test_what_nuclei_printed_before_running_out_of_time_opens_nothing(self):
+        """A pass that didn't finish neither opens nor closes: half a run's matches may be all it would have said."""
+        import subprocess
+        partial = fixture("nuclei-3.11-edge.jsonl").encode()
+        with patch.object(web_tools, "_run", side_effect=subprocess.TimeoutExpired(["nuclei"], 60, output=partial, stderr=b"")), \
+                patch.object(web_tools.nuclei_templates, "ensure", return_value=(Path("/tmp"), {"hosts": 1})), \
+                patch.object(web_tools.nuclei_templates, "ensure_own", return_value=(None, {})), \
+                patch.object(web_tools, "_pins_ok"):
+            run, _ = web_tools.run_nuclei([f"https://{EDGE}/"], [], [EDGE], {EDGE: "203.0.113.7"}, Path("/tmp"), Path("/tmp"))
+        self.assertEqual((run.status, run.findings, run.coverage()["examined"]), ("partial", [], []))
+
+    def test_nucleis_stored_responses_give_its_own_status_for_each_page(self):
+        """nuclei 3.11's stored responses (-sresp, a throwaway local site), read by the line the container runs after
+        it: each response's URL and status, never a header or a body."""
+        lines = subprocess.run(["awk", web_tools.NUCLEI_STATUS_AWK, str(OUTPUTS / "nuclei-3.11-responses.txt")], capture_output=True, text=True,
+                               check=True).stdout
+        self.assertEqual(lines.split("\n")[:3], [f"http://{EDGE}/.env 429", f"http://{EDGE}/forbidden 403", f"http://{EDGE}/missing 404"])
+        self.assertEqual(web_tools.nuclei_statuses(lines, [EDGE]), [])  # plain HTTP counts only where the scan asked for it
+        answers = web_tools.nuclei_statuses(lines + f"https://{EDGE}//a/b 200\nhttps://evil.example/ 200\nnot a line\n", [EDGE], http=True)
+        self.assertEqual(answers, [(f"http://{EDGE}/.env", 429), (f"http://{EDGE}/forbidden", 403), (f"http://{EDGE}/missing", 404),
+                                   (f"https://{EDGE}/a/b", 200)])
+        arguments = web_tools.nuclei_arguments("hosts", 10)
+        self.assertEqual(arguments[arguments.index("-srd") + 1], web_tools.NUCLEI_STORE)
+        self.assertTrue(web_tools.NUCLEI_STORE.startswith("/tmp/"))  # the memory-only tmpfs: the requests carry saved headers
 
     def test_nuclei_remediation_is_shown_verbatim_when_the_template_has_one(self):
         line = json.dumps({"template-id": "t", "matched-at": f"https://{HOST}/x", "info": {
@@ -599,7 +666,8 @@ class PipelineTests(unittest.TestCase):
     def test_every_tool_runs_in_order_and_reports_its_step(self):
         result, calls, progress = self.scan()
         # The crawl found /es/: nuclei's page-level pass reads it, after the pass on the host's root.
-        self.assertEqual([key for key, _, _ in calls], ["katana", "zap", "nuclei", "nuclei", "testssl", "httpx"])
+        # httpx twice: the roots' technologies, then the status of every page reached.
+        self.assertEqual([key for key, _, _ in calls], ["katana", "zap", "nuclei", "nuclei", "testssl", "httpx", "httpx"])
         steps = [(step["id"], step["status"]) for step in result["steps"]]
         self.assertEqual(steps, [("dast-katana", "completed"), ("dast", "completed"), ("dast-inventory", "completed"), ("dast-nuclei", "completed"),
                                  ("dast-testssl", "completed"), ("dast-httpx", "completed"), ("dast-versions", "completed"), ("dast-merge", "completed"),
@@ -625,6 +693,11 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("from the sitemaps", text(step["detail"], "en"))
         self.assertTrue({"ZAP", "nuclei", "testssl"} <= {item["tool"] for item in result["findings"]})
         self.assertTrue(all(item["web"]["coverage"] == "baseline" for item in result["findings"]))
+        # The kind of scan stays the scope's coverage key; what each tool examined, page by page, goes apart.
+        self.assertEqual(result["scope"]["coverage"], "baseline")
+        self.assertIn(f"https://{HOST}/", result["coverage"]["zap"]["examined"])  # httpx's status pass saw it answer 200
+        self.assertIn(f"https://{HOST}/es", result["coverage"]["zap"]["examined"])
+
         self.assertIn("Cloudflare", {row["name"] for row in result["summary"]["technologies"]})
         self.assertEqual({tool["name"]: tool["status"] for tool in result["summary"]["tools"]},
                          {"ZAP": "completed", "katana": "completed", "nuclei": "completed", "testssl": "completed", "httpx": "completed",
@@ -633,6 +706,41 @@ class PipelineTests(unittest.TestCase):
         plan = json.loads(calls[1][2])
         self.assertEqual(plan["jobs"][1], {"type": "import", "parameters": {"type": "url", "fileName": f"{web.WORK}/{web.SEEDS}"}})
         self.assertTrue(any("katana" in line for _, line in progress))
+
+
+    def test_only_zaps_own_answer_vouches_for_a_zap_finding(self):
+        """ZAP got 429 on /es/ and a 302 on the root; katana and httpx got 200 there: neither page is ZAP's to vouch for."""
+        self.outputs["zap_statuses"] = {f"https://{HOST}/es/": 429, f"https://{HOST}/": 302}
+        result, _, _ = self.scan()
+        examined, unexamined = result["coverage"]["zap"]["examined"], result["coverage"]["zap"]["unexamined"]
+        self.assertNotIn(f"https://{HOST}/es", examined)
+        self.assertNotIn(f"https://{HOST}/", examined)
+        self.assertEqual((unexamined[f"https://{HOST}/es"], unexamined[f"https://{HOST}/"]), ("http_429", "http_302"))
+        self.assertEqual(result["scope"]["reached"], examined)
+        self.assertTrue(examined)
+
+    def test_a_page_that_redirects_or_fails_is_not_examined(self):
+        self.outputs["statuses"] = {f"https://{HOST}/es/": 302, f"https://{HOST}/": 503}
+        result, calls, _ = self.scan()
+        examined = result["coverage"]["zap"]["examined"]
+        self.assertNotIn(f"https://{HOST}/es", examined)  # a redirect (to a login, say) isn't the page
+        self.assertNotIn(f"https://{HOST}/", examined)
+        pages = next(command for key, command, _ in calls if key == "httpx" and f"{web_tools.WORK}/pages.txt" in command)
+        self.assertNotIn("-fhr", pages)  # the status pass follows no redirect
+
+    def test_a_waf_that_turns_the_crawl_away_leaves_the_scan_incomplete(self):
+        refused = "".join(json.dumps({"request": {"method": "GET", "endpoint": f"https://{HOST}/{page}"}, "response": {"status_code": code}}) + "\n"
+                          for page, code in (("", 403), ("es/", 403), ("blog/", 429), ("about/", 403), ("cdn-cgi/l", 200),
+                                             *((f"blog/{index}/", 403) for index in range(8))))
+        blocked = web.engine_contract.blocked_hosts
+        self.assertEqual(blocked({"katana": [(HOST, status) for _, status in web_tools.katana_answers(refused, [HOST])]}), [HOST])
+        ordinary = web_tools.katana_answers(fixture("katana-1.7.jsonl"), [HOST])
+        self.assertEqual(blocked({"katana": [(HOST, status) for _, status in ordinary]}), [])  # an ordinary crawl
+        self.outputs["katana"] = refused
+        result, _, _ = self.scan()
+        katana = next(step for step in result["steps"] if step["id"] == "dast-katana")
+        self.assertEqual((katana["status"], result["status"]), ("partial", "incomplete"))
+        self.assertIn("turned the scan away", " ".join(text(item, "en") for item in result["limitations"]))
 
     def test_a_failing_tool_leaves_its_step_partial_and_the_scan_goes_on(self):
         result, calls, _ = self.scan(returncodes={"httpx": 1}, raising={"nuclei": subprocess.TimeoutExpired(["docker"], 60), "katana": OSError("boom")})
@@ -678,3 +786,106 @@ class PipelineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LogoutTests(unittest.TestCase):
+    """A crawl carrying a session never follows a sign-out link: it would scan the rest anonymously."""
+
+    def test_sign_out_links_are_left_out_of_both_crawlers(self):
+        import re
+        from pitangus.modules.scanning import web, web_tools
+        for url in ("https://app.example.com/logout", "https://app.example.com/auth/sign-out?next=/", "https://app.example.com/LogOff.aspx"):
+            self.assertTrue(re.fullmatch(web_tools.LOGOUT_ZAP, url), url)
+            self.assertTrue(re.search(web_tools.LOGOUT, url), url)
+        self.assertIsNone(re.search(web_tools.LOGOUT, "https://app.example.com/blog/logouts-explained"))
+        self.assertIn(web_tools.LOGOUT, web_tools.katana_arguments(["app.example.com"], headless=False))
+        anonymous = web.plan("app.example.com", "https://app.example.com/")
+        with_headers = web.plan("app.example.com", "https://app.example.com/", headers=[("Authorization", "Bearer x")])
+        self.assertNotIn("excludePaths", anonymous["env"]["contexts"][0])
+        self.assertEqual(with_headers["env"]["contexts"][0]["excludePaths"], [web_tools.LOGOUT_ZAP])
+
+
+class WebIdentityTests(unittest.TestCase):
+    """A header of the whole site is one finding per host; a hashed asset keeps its identity across deploys."""
+
+    def test_site_level_alerts_and_hashed_names(self):
+        from pitangus.modules.scanning import web_identity as identity
+        self.assertTrue(identity.site_level("ZAP", "10055-6"))
+        self.assertTrue(identity.site_level("nuclei", "http-missing-security-headers:content-security-policy"))
+        self.assertFalse(identity.site_level("ZAP", "10096"))
+        self.assertEqual(identity.root_of("https://Pitangus.dev/blog/post-1?x=1"), "https://pitangus.dev/")
+        for before, after in (("https://h/_astro/CSY8UEx1.js", "https://h/_astro/*.js"), ("https://h/assets/index-BkL9x2a1.css", "https://h/assets/index-*.css"),
+                              ("https://h/js/app.3f2a9b1c.js", "https://h/js/app.*.js"), ("https://h/_astro/Base.astro.CCbp9-6k.js", "https://h/_astro/Base.astro.*.js"), ("https://h/js/bootstrap5.js", "https://h/js/bootstrap5.js"),
+                              ("https://h/js/jquery-3.6.0.min.js", "https://h/js/jquery-3.6.0.min.js"), ("https://h/about/", "https://h/about/")):
+            self.assertEqual(identity.identity_path(before), after, before)
+
+    def test_the_same_comment_on_every_page_is_one_finding_and_another_comment_another(self):
+        from pitangus.modules.scanning import sarif_import
+
+        def result(page, comment):
+            return {"ruleId": "10027", "level": "note", "message": {"text": "Suspicious comment"},
+                    "locations": [{"physicalLocation": {"artifactLocation": {"uri": f"https://{EDGE}/{page}"},
+                                                        "region": {"snippet": {"text": comment}}}}]}
+        layout, missing = "<!-- TODO: remove the debug panel -->", "-- The 404 template's note"
+        document = {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "ZAP", "rules": [{"id": "10027"}]}},
+                                                  "results": [result(page, layout) for page in ("", "blog/", "about/")]
+                                                  + [result("missing", missing), result("gone", missing)]}]}
+        findings = sarif_import.parse(document)[0]["findings"]
+        self.assertEqual([item["path"] for item in findings], [f"https://{EDGE}/", f"https://{EDGE}/"])
+        # Every page's former fingerprint, the root's too: it was keyed without the evidence.
+        self.assertEqual([len(item["previous_fingerprints"]) for item in findings], [3, 2])
+
+    def test_missing_headers_on_every_page_are_one_finding_per_host(self):
+        lines = "".join(json.dumps({"template-id": "http-missing-security-headers", "matcher-name": "content-security-policy",
+                                    "info": {"name": "HTTP Missing Security Headers", "severity": "info", "tags": ["misconfig", "headers"]},
+                                    "matched-at": f"https://{EDGE}/{page}", "host": EDGE, "type": "http"}) + "\n" for page in ("", "blog/a", "about/"))
+        findings, _ = web_tools.parse_nuclei(lines, [EDGE])
+        self.assertEqual([item["path"] for item in findings], [f"https://{EDGE}/"])
+        # Each page's former fingerprint goes with it, so the per-page findings stored before fold into this one.
+        former = lambda page: engines._stable("sarif", "nuclei", "\x1f".join(("http-missing-security-headers:content-security-policy", page, "")))  # noqa: E731
+        self.assertEqual(findings[0]["previous_fingerprints"], [former(f"https://{EDGE}/blog/a"), former(f"https://{EDGE}/about/")])
+
+
+class ExposureTests(PipelineTests):
+    """The light exposure check: roots and known paths, no crawl, the same rules as a full scan."""
+
+    def exposure(self, **options):
+        calls, inputs = [], []
+        with fake_tools(self.outputs, calls=calls, **options):
+            result = web.scan_exposure(self.record, PINS["pitangus.dev"], data_dir=self.data_dir, tools=dict.fromkeys(web_tools.TOOLS),
+                                       recheck=[f"https://{HOST}/old/config.php", "https://evil.example/x"],
+                                       progress=lambda level, message: inputs.append((level, text(message, "en"))))
+        return result, calls
+
+    def test_no_crawl_no_zap_and_every_known_path_checked(self):
+        self.outputs["statuses"] = {f"https://{HOST}/.aws/credentials": 404, f"http://{HOST}/.aws/credentials": 410}
+        result, calls = self.exposure()
+        self.assertNotIn("katana", [key for key, _, _ in calls])
+        self.assertNotIn("zap", [key for key, _, _ in calls])
+        pages = next(command for key, command, _ in calls if key == "httpx" and f"{web_tools.WORK}/pages.txt" in command)
+        self.assertTrue(pages)
+        self.assertEqual((result["variant"], result["scope"]["coverage"], result["status"]), ("exposure", "exposure", "completed"))
+        self.assertTrue(all(item["web"]["coverage"] == "exposure" for item in result["findings"]))
+        examined = result["coverage"]["nuclei"]["examined"]
+        self.assertIn(f"https://{HOST}/.aws/credentials", examined)  # a known path nuclei's own requests found gone
+        self.assertIn(f"http://{HOST}/.aws/credentials", examined)   # plain HTTP on port 80 too
+        self.assertEqual(result["coverage"]["nuclei"]["unexamined"][f"https://{HOST}/.env"], "present")  # still answers 200
+        self.assertNotIn(f"https://{HOST}/old/config.php", examined)  # httpx checks it again; nuclei never asked for it
+        self.assertIn(f"https://{HOST}/old/config.php", self.outputs["checked"])
+        self.assertFalse(any("evil.example" in page for page in examined))
+
+    def test_a_404_on_a_known_path_is_examined_and_a_waf_leaves_it_incomplete(self):
+        self.outputs["statuses"] = {f"https://{HOST}/.aws/credentials": 404}
+        result, _ = self.exposure()
+        self.assertIn(f"https://{HOST}/.aws/credentials", result["coverage"]["nuclei"]["examined"])
+        paths = [f"https://{HOST}/", *(f"https://{HOST}{path}" for path in web.known_paths())]
+        self.outputs["statuses"] = dict.fromkeys(paths, 403)
+        blocked, _ = self.exposure()
+        self.assertEqual(blocked["status"], "incomplete")
+        self.assertFalse(any(page.startswith(f"https://{HOST}/.") for page in blocked["coverage"]["nuclei"]["examined"]))
+
+    def test_known_paths_come_from_the_templates(self):
+        paths = web.known_paths()
+        self.assertIn("/.aws/credentials", paths)
+        self.assertTrue(all(path.startswith("/") and "{{" not in path for path in paths))
+

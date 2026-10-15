@@ -16,7 +16,7 @@ Steps marked **optional** can wait. New to the terms? See [What is Pitangus](ove
 ## 1. Start it (5 min)
 
 ```bash
-git clone --branch v0.13.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make doctor
 ```
@@ -82,7 +82,8 @@ In the panel you'll see the **demo · vulnerable samples** asset:
 
 <!-- screenshot: overview | The Overview dashboard after make demo, with findings by severity and the Getting started checklist -->
 
-`make demo IMAGE=nginx:1.21` also scans a public container image (Trivy and Grype, a couple of minutes).
+`make demo IMAGE=nginx:1.21` also scans a public container image (Trivy, and Grype too if you turned it on; a couple
+of minutes).
 
 `make demo FULL=1` also builds **Lapis Labs**, a made-up organization that fills every view, offline and in seconds:
 five `lapis-labs/…` repositories with a month of scans (trends, fixed findings, MTTR, due dates, some overdue), a pull
@@ -114,7 +115,7 @@ Not on GitHub (GitLab, Bitbucket, Azure DevOps or a local folder)? Use [`scan` i
    **Add repositories** and choose one or more (or **Whole organization**). Optionally add **Context** for the report,
    then check **Review and launch** and click **Start scan**.
 2. The scan runs in the background; follow it in **Scans**. When it finishes, the panel shows a notice.
-3. In **Findings**, start with anything marked KEV or critical. Every finding includes **How to fix it**.
+3. In **Findings**, start with anything marked KEV or critical. Each finding's **How to fix it** has what the tool knows: a command, an example to adapt or the scanner's own advice.
 4. Apply the fix, push it to the main branch and click **Reverify** on the finding. When the scan finishes, it says
    **Fixed ✓ · no longer found in the scan** or **Still present in the scan**. If the scan was incomplete, it says so,
    because an incomplete scan proves nothing.
@@ -135,20 +136,23 @@ accepted risk an expiry date: it stays as evidence and stops getting in your way
   webhook so you hear about things without opening the panel. For messages to link to the finding, set
   `PITANGUS_PUBLIC_URL`.
 
-## 6. Scan your website, passively (optional)
+## 6. Check your website's exposure (optional)
 
-If you run a website or an API, Pitangus can read it like a visitor would and flag missing security headers, cookie
-flags, exposed files, weak TLS and outdated libraries. It never attacks. It's off until the server sets
-`PITANGUS_DAST_ENABLED=1`:
+If you run a website or an API, Pitangus can check what it shows anyone, with nothing to turn on: exposed files such
+as `.git` or `.env`, debug and status consoles, weak TLS and missing security headers. As an administrator: **Domains & APIs → Add
+domain**, prove you control it (a DNS TXT record, a file or a meta tag), and launch **New scan → Exposure check**. It
+only requests each host's root and a list of known paths: it doesn't crawl the site and it never attacks.
+
+The **full web scan**, which crawls the site with ZAP, katana and subfinder like a visitor would (cookie flags,
+outdated libraries, every page and API endpoint, test users and schedules), is experimental and off until the server
+sets `PITANGUS_DAST_ENABLED=1`:
 
 ```bash
 echo 'PITANGUS_DAST_ENABLED=1' >> .env
 make up
 ```
 
-Then, as an administrator: **Domains & APIs → Add domain**, prove you control it (a DNS TXT record, a file or a meta
-tag), and launch **New scan → Web app or API**. The full walkthrough, including test users and schedules, is in
-[Scan a website or API](scanning-web.md).
+Then it's under **New scan → Full web scan**. The full walkthrough is in [Scan a website or API](scanning-web.md).
 
 ## 7. Later on (optional)
 

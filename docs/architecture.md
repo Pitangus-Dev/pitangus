@@ -7,7 +7,7 @@ queued scans and the periodic tasks, and **PostgreSQL**, which holds all the sta
 short-lived sibling containers started by the worker (or as processes inside the worker's own image, on platforms
 without a Docker socket), with the code mounted read-only, no capabilities, and memory, CPU and process limits. The API has no access to Docker.
 
-<!-- diagram: architecture | Pitangus architecture. A browser reaches the API over HTTPS (Caddy on a server) or loopback. On your server, the API and one or more workers share PostgreSQL, which holds runs, findings, the queue, settings and the encrypted secrets; the master key is a file only when PITANGUS_MASTER_KEY is unset. The worker starts the engines through the Docker socket, or runs them inside the worker-standalone image: Trivy, OSV-Scanner, Gitleaks, Opengrep with 58 Pitangus rules, Checkov and zizmor for code; Trivy and Grype for images; ZAP, katana, nuclei, testssl.sh, httpx and subfinder for sites and APIs. Outbound connections go to the GitHub API, the advisory feeds (NVD, CISA KEV, EPSS, OSV, EUVD), image registries and verified sites, and Jira, Slack, Teams and webhooks. | The services on your server, the engines the worker runs and the connections it opens to the outside. -->
+<!-- diagram: architecture | Pitangus architecture. A browser reaches the API over HTTPS (Caddy on a server) or loopback. On your server, the API and one or more workers share PostgreSQL, which holds runs, findings, the queue, settings and the encrypted secrets; the master key is a file only when PITANGUS_MASTER_KEY is unset. The worker starts the engines through the Docker socket, or runs them inside the worker-standalone image: Trivy, OSV-Scanner, Betterleaks, Opengrep with 66 Pitangus rules and zizmor for code, and Checkov when turned on; Trivy for images, and Grype when turned on; httpx, testssl.sh and nuclei for the exposure check of sites and APIs, and ZAP, katana and subfinder for the full web scan, which is experimental. Outbound connections go to the GitHub API, the advisory feeds (NVD, CISA KEV, EPSS, OSV, EUVD), image registries and verified sites, and Jira, Slack, Teams and webhooks. | The services on your server, the engines the worker runs and the connections it opens to the outside. -->
 ```mermaid
 flowchart TB
   browser["Browser<br/>React panel"]
@@ -21,9 +21,9 @@ flowchart TB
     worker --- db
     db -.- key
     subgraph engines["Engines: read-only snapshot, no capabilities, memory, CPU and process limits"]
-      code["Code and dependencies<br/>Trivy, OSV-Scanner, Gitleaks,<br/>Opengrep (58 rules), Checkov, zizmor"]
-      images["Container images<br/>Trivy, Grype"]
-      web["Sites and APIs<br/>ZAP, katana, nuclei,<br/>testssl.sh, httpx, subfinder"]
+      code["Code and dependencies<br/>Trivy, OSV-Scanner, Betterleaks, zizmor,<br/>Opengrep (66 rules); Checkov optional"]
+      images["Container images<br/>Trivy; Grype optional"]
+      web["Sites and APIs<br/>exposure check: httpx, testssl.sh, nuclei<br/>full scan (experimental): ZAP, katana, subfinder"]
     end
     worker -- "Docker socket, or inside the<br/>worker-standalone image" --> engines
   end
@@ -133,8 +133,8 @@ in [deploy.md](deploy.md).
 1. You click **Scan**, or a pull request is opened on a watched repository.
 2. The API queues the job and answers right away; the panel shows live progress.
 3. The worker asks GitHub for a one-hour installation token (kept in memory) and downloads a snapshot of the repository into `data/work/`.
-4. It builds the plan (languages, applicable rules, manifests, IaC) and runs the engines one at a time: read-only snapshot, `--cap-drop ALL`, `no-new-privileges`, at most 3 GB of memory, 2 CPUs and 512 processes. Gitleaks, Opengrep, Checkov and zizmor run **with no network**; Trivy and OSV-Scanner need it to download their vulnerability databases (Trivy's is cached in `data/trivy-cache/`) and send nothing from the repository.
-5. Results are normalized, deduplicated by a stable fingerprint, enriched with KEV/EPSS and merged into the repository's registry: whatever no longer shows up is marked **fixed**.
+4. It builds the plan (languages, applicable rules, manifests, IaC) and runs the engines one at a time: read-only snapshot, `--cap-drop ALL`, `no-new-privileges`, at most 3 GB of memory, 2 CPUs and 512 processes. Betterleaks, Opengrep, zizmor and Checkov (when turned on) run **with no network**; Trivy and OSV-Scanner need it to download their vulnerability databases (Trivy's is cached in `data/trivy-cache/`) and send nothing from the repository.
+5. Results are normalized, deduplicated by a stable fingerprint, enriched with KEV/EPSS and merged into the repository's registry: a finding that no longer shows up is marked **fixed** only when the engine that owns it examined its file in a complete scan, with its rule unchanged ([findings.md](findings.md)); otherwise it stays open as unverified.
 6. For a pull request, a single comment and a commit status are posted according to the configured threshold.
 7. The snapshot is deleted.
 

@@ -2,7 +2,9 @@
 and who may change them."""
 
 import json
+import random
 import re
+import string
 import subprocess
 import tempfile
 import tomllib
@@ -14,10 +16,13 @@ from unittest.mock import patch
 import testenv
 
 from pitangus.app import wiring
+from pitangus.modules.findings import canonical
 from pitangus.modules.identity.auth import Users
-from pitangus.modules.scanning import engines
+from pitangus.modules.scanning import engines, secret_identity
 from pitangus.modules.runs.store import save_repository_scan
 from pitangus.modules.scanning import secret_rules as sr
+from pitangus.modules.scanning.secret_builtin_rules import TRIVY_BUILTIN_ALLOW_RULES
+from pitangus.modules.scanning.secret_location import entropy
 from pitangus.modules.runs import assets
 from pitangus.shared import documents
 from pitangus.shared.i18n import text
@@ -78,7 +83,7 @@ class ValidationTests(unittest.TestCase):
         self.assertNotIn("severity", sr.normalize(settings(rules=[{**RULE, "severity": "low"}]))["rules"][0])
         self.assert_rejected(settings(rules=[{**RULE, "description": "x"}]), "rules.0.description")
         self.assert_rejected(settings(rules=[{**RULE, "keywords": [f"k{index}" for index in range(11)]}]), "rules.0.keywords")
-        self.assert_rejected(settings(disabled_rules=["not-a-gitleaks-rule"]), "disabled_rules")
+        self.assert_rejected(settings(disabled_rules=["not-a-betterleaks-rule"]), "disabled_rules")
         for path in ("**", "*", "../x", "/abs", "a b"):
             with self.subTest(path=path):
                 self.assert_rejected(settings(allowlist={"paths": [path]}), "allowlist.paths.0")
@@ -126,7 +131,7 @@ class ReadLimitsTests(unittest.TestCase):
             documents.save(data_dir, sr.DOCUMENT, {
                 "allowlist": {"regexes": many, "paths": many, "stopwords": many},
                 "rules": [{**RULE, "id": f"rule-{index}", "keywords": many} for index in range(sr.MAX_RULES + 5)],
-                "disabled_rules": many * 3,
+                "disabled_rules": list(sr.DEFAULT_SECRET_RULES) * 3 + many,  # the ones the engine no longer has are dropped
                 "history": [{"at": "2026-09-26", "by": "ana", "reason": "x", "changes": {"paths": {"added": many}}}] * (sr.HISTORY + 5)})
             view = sr.get(data_dir)
             self.assertEqual({name: len(items) for name, items in view["allowlist"].items()},
@@ -136,12 +141,12 @@ class ReadLimitsTests(unittest.TestCase):
             self.assertEqual((len(view["history"]), len(view["history"][0]["changes"]["paths"]["added"])), (sr.HISTORY, sr.CHANGES_SHOWN))
 
 
-class GitleaksConfigTests(unittest.TestCase):
+class BetterleaksConfigTests(unittest.TestCase):
     def test_extends_defaults_with_rules_disabled_and_one_allowlist(self):
-        config = tomllib.loads(sr.gitleaks_toml(sr.normalize(settings(
+        config = tomllib.loads(sr.betterleaks_toml(sr.normalize(settings(
             rules=[RULE], disabled_rules=["jwt"], allowlist={"regexes": ["AKIA[0-9]{4}"], "paths": ["fixtures/", "**/testdata/*.json"],
                                                            "stopwords": ["example"]}))))
-        self.assertEqual(config["extend"], {"useDefault": True, "disabledRules": ["jwt"]})
+        self.assertEqual(config["extend"], {"useDefault": True, "disabledRules": ["generic-credential-uri", "jwt"]})  # plus the opt-in rule, off by default
         self.assertEqual(config["rules"], [{"id": "pitangus-acme-token", "description": "ACME internal token",
                                             "regex": r"ACME-TOKEN-[0-9a-f]{32}", "keywords": ["acme-token"]}])
         allowlist = config["allowlists"][0]
@@ -150,9 +155,9 @@ class GitleaksConfigTests(unittest.TestCase):
         self.assertEqual(allowlist["paths"], [r"^/src/fixtures/.*(?:/.*)?$", r"^/src/(?:.*/)?testdata/[^/]*\.json(?:/.*)?$"])
 
     def test_nothing_configured_writes_no_allowlist(self):
-        config = tomllib.loads(sr.gitleaks_toml(sr.normalize(settings(rules=[RULE]))))
+        config = tomllib.loads(sr.betterleaks_toml(sr.normalize(settings(rules=[RULE]))))
         self.assertNotIn("allowlists", config)
-        self.assertEqual(config["extend"], {"useDefault": True})
+        self.assertEqual(config["extend"], {"useDefault": True, "disabledRules": ["generic-credential-uri"]})
 
     def test_hostile_values_stay_values(self):
         hostile = [
@@ -164,11 +169,11 @@ class GitleaksConfigTests(unittest.TestCase):
         for description in hostile:
             with self.subTest(description=description):
                 rule = {"id": "acme-token", "description": description, "regex": r"KEY='[A-Z]{10}'\\d", "keywords": []}
-                raw = sr.gitleaks_toml({**sr.empty(), "rules": [rule]})
+                raw = sr.betterleaks_toml({**sr.empty(), "rules": [rule]})
                 config = tomllib.loads(raw)
                 self.assertEqual(config["rules"], [{"id": "pitangus-acme-token", "description": description,
                                                     "regex": r"KEY='[A-Z]{10}'\\d"}])
-                self.assertEqual(config["extend"], {"useDefault": True})
+                self.assertEqual(config["extend"], {"useDefault": True, "disabledRules": ["generic-credential-uri"]})
         # Through normalize, line breaks never even get there.
         with self.assertRaises(sr.SecretRulesError):
             sr.normalize(settings(rules=[{**RULE, "description": hostile[0]}]))
@@ -195,7 +200,9 @@ class TrivyConfigTests(unittest.TestCase):
         self.assertEqual(config["disable-rules"], ["aws-access-key-id", "jwt-token"])
 
     def test_empty_sections_are_omitted(self):
-        self.assertEqual(json.loads(sr.trivy_secret_config(sr.normalize(settings(disabled_rules=["adafruit-api-key"])))), {})
+        """Only Trivy's own exclusions are always there, turned off: its built-in allow rules and skip patterns."""
+        self.assertEqual(json.loads(sr.trivy_secret_config(sr.normalize(settings(disabled_rules=["adafruit-api-key"])))),
+                         {"disable-allow-rules": list(TRIVY_BUILTIN_ALLOW_RULES), "skip-patterns": []})
 
 
 def _mounts(command_mounts: list[str]) -> dict[str, tuple[str, str]]:
@@ -218,33 +225,41 @@ class EngineWiringTests(unittest.TestCase):
         docker = patch.dict(engines._docker_state, {"ok": True}, clear=True)
         docker.start()
         self.addCleanup(docker.stop)
+        databases = patch.object(engines, "trivy_databases", return_value=[])  # refreshed apart: test_scanners
+        databases.start()
+        self.addCleanup(databases.stop)
         testenv.docker_runner(self)
         self.addCleanup(self.folder.cleanup)
 
-    def gitleaks(self, report=None, returncode=0, stderr=""):
+    def betterleaks(self, report=None, returncode=0, stderr=""):
         def fake(key, arguments, snapshot, *, mounts=None, **kwargs):
             mounted = _mounts(mounts or [])
-            config = Path(mounted["/cfg"][0]) / "gitleaks.toml" if "/cfg" in mounted else None
+            config = Path(mounted["/cfg"][0]) / "betterleaks.toml" if "/cfg" in mounted else None
             self.calls.append({"arguments": arguments, "mounts": mounted, "config": config.read_text() if config else None})
             if report is not None:
                 (Path(mounted["/out"][0]) / "report.json").write_text(json.dumps(report))
             return subprocess.CompletedProcess(arguments, returncode, "", stderr)
         return patch.object(engines, "_run", side_effect=fake)
 
-    def test_no_settings_no_config(self):
-        with self.gitleaks([]):
-            result = engines.run_gitleaks(self.snapshot)
+    def test_without_settings_the_generated_config_only_keeps_the_opt_in_rules_off(self):
+        with self.betterleaks([]):
+            result = engines.run_betterleaks(self.snapshot)
         self.assertEqual(result["status"], "completed")
-        self.assertNotIn("--config", self.calls[0]["arguments"])
-        self.assertNotIn("/cfg", self.calls[0]["mounts"])
+        self.assertIn("--config", self.calls[0]["arguments"])
+        self.assertEqual(tomllib.loads(sr.betterleaks_toml(sr.empty())), {"title": "Pitangus", "prefilter": "false", "extend": {
+            "useDefault": True, "disabledRules": ["generic-credential-uri"]}})
+        # A repository's own `gitleaks:allow` comments are honoured (and declared: test_secret_pass_coverage).
+        self.assertNotIn("--ignore-gitleaks-allow", self.calls[0]["arguments"])
 
     def test_settings_mounted_read_only_and_custom_findings_mapped(self):
-        report = [{"RuleID": "pitangus-acme-token", "File": "/src/app/settings.py", "StartLine": 3, "Entropy": 4.1},
-                  {"RuleID": "github-pat", "File": "/src/app/other.py", "StartLine": 1, "Entropy": 4.4}]
-        with self.gitleaks(report):
-            result = engines.run_gitleaks(self.snapshot, self.settings)
+        where = _write(self.snapshot, [("pitangus-acme-token", "app/settings.py", 3, "acme"), ("github-pat", "app/other.py", 1, "ghp_other")])
+        report = [{"RuleID": rule, "File": f"/src/{path}", "StartLine": line, "EndLine": line, "StartColumn": 10,
+                   "EndColumn": 9 + len(where[(path, line)][1]), "Match": "REDACTED", "Entropy": entropy(where[(path, line)][1])}
+                  for rule, path, line in (("pitangus-acme-token", "app/settings.py", 3), ("github-pat", "app/other.py", 1))]
+        with self.betterleaks(report):
+            result = engines.run_betterleaks(self.snapshot, self.settings)
         call = self.calls[0]
-        self.assertEqual(call["arguments"][call["arguments"].index("--config") + 1], "/cfg/gitleaks.toml")
+        self.assertEqual(call["arguments"][call["arguments"].index("--config") + 1], "/cfg/betterleaks.toml")
         self.assertEqual(call["mounts"]["/cfg"][1], "ro")
         self.assertEqual(call["mounts"]["/out"][1], "")
         self.assertNotEqual(call["mounts"]["/cfg"][0], call["mounts"]["/out"][0])
@@ -253,36 +268,37 @@ class EngineWiringTests(unittest.TestCase):
         self.assertIn("1", text(result["detail"], "en"))
         custom, builtin = result["findings"]
         self.assertEqual((custom["title"], custom["severity"], custom["rule_id"], custom["tool"]),
-                         ("ACME internal token", "critical", "pitangus-acme-token", "gitleaks"))
+                         ("ACME internal token", "critical", "pitangus-acme-token", "betterleaks"))
         self.assertEqual(custom["priority"]["action"], "act")
         self.assertEqual(custom["remediation"], {"$t": "scanning.secrets.rotate"})
-        self.assertEqual(custom["fingerprint"], engines._stable("secrets", "pitangus-acme-token", "app/settings.py", "3"))
+        # Named by its value, read where Betterleaks said and checked against what it said (scanning/secret_location.py).
+        self.assertEqual(custom["identity"], secret_identity.identity(where[("app/settings.py", 3)][1]))
         self.assertNotEqual(builtin["title"], "ACME internal token")
         # The fingerprint doesn't depend on the (editable) description.
         renamed = {**self.settings, "rules": [{**self.settings["rules"][0], "description": "Other text", "severity": "low"}]}
-        again = engines.parse_gitleaks(report, sr.custom_rules(renamed))[0]
+        again = engines.parse_betterleaks(report, sr.custom_rules(renamed), self.snapshot)[0]
         self.assertEqual(again["fingerprint"], custom["fingerprint"])
         self.assertEqual((again["title"], again["severity"]), ("Other text", "critical"))
 
     def test_rejected_config_is_inconclusive_never_clean(self):
-        stderr = "8:22AM FTL unable to load gitleaks config, err: While parsing config: toml: bad\n"
-        with self.gitleaks(None, returncode=1, stderr=stderr):
-            result = engines.run_gitleaks(self.snapshot, self.settings)
+        stderr = "8:22AM FTL unable to load betterleaks config, err: While parsing config: toml: bad\n"
+        with self.betterleaks(None, returncode=1, stderr=stderr):
+            result = engines.run_betterleaks(self.snapshot, self.settings)
         self.assertEqual(result["status"], "inconclusive")
         self.assertEqual(result["findings"], [])
-        self.assertEqual(result["detail"]["$t"], "scanning.gitleaks.config_failed_cause")
-        self.assertIn("unable to load gitleaks config", result["detail"]["params"]["cause"])
-        panic = "panic: regexp: Compile(`(?<=x)`): error parsing regexp\n\ngoroutine 1 [running]:\nregexp.MustCompile(...)\n\t/go/src/github.com/zricethezav/gitleaks/v8/config/config.go:127\nmain.main()\n"
-        with self.gitleaks(None, returncode=2, stderr=panic):
-            result = engines.run_gitleaks(self.snapshot, self.settings)
+        self.assertEqual(result["detail"]["$t"], "scanning.betterleaks.config_failed_cause")
+        self.assertIn("unable to load betterleaks config", result["detail"]["params"]["cause"])
+        panic = "panic: regexp: Compile(`(?<=x)`): error parsing regexp\n\ngoroutine 1 [running]:\nregexp.MustCompile(...)\n\t/go/src/github.com/zricethezav/betterleaks/v8/config/config.go:127\nmain.main()\n"
+        with self.betterleaks(None, returncode=2, stderr=panic):
+            result = engines.run_betterleaks(self.snapshot, self.settings)
         self.assertEqual(result["status"], "inconclusive")
         self.assertTrue(result["detail"]["params"]["cause"].startswith("panic: regexp"))
         # A report missing with exit code 0 isn't "no secrets" either when settings were applied.
-        with self.gitleaks(None, returncode=0, stderr="error loading config"):
-            self.assertEqual(engines.run_gitleaks(self.snapshot, self.settings)["status"], "inconclusive")
+        with self.betterleaks(None, returncode=0, stderr="error loading config"):
+            self.assertEqual(engines.run_betterleaks(self.snapshot, self.settings)["status"], "inconclusive")
 
     def test_trivy_gets_secret_config_and_retries_without_it_when_rejected(self):
-        payload = {"Results": [{"Target": "app/settings.py", "Class": "secret", "Secrets": [
+        payload = {"SchemaVersion": 2, "Results": [{"Target": "app/settings.py", "Class": "secret", "Secrets": [
             {"RuleID": "pitangus-acme-token", "StartLine": 3, "Severity": "CRITICAL", "Title": "ACME internal token"}]}]}
         calls = []
 
@@ -307,7 +323,7 @@ class EngineWiringTests(unittest.TestCase):
 
         def failing_once(key, arguments, snapshot, *, mounts=None, **kwargs):
             calls.append(arguments)
-            return rejected if len(calls) == 1 else subprocess.CompletedProcess(arguments, 0, json.dumps({"Results": []}), "")
+            return rejected if len(calls) == 1 else subprocess.CompletedProcess(arguments, 0, json.dumps({"SchemaVersion": 2, "Results": []}), "")
 
         with patch.object(engines, "_run", side_effect=failing_once):
             result = engines.run_trivy(self.snapshot, Path(self.folder.name) / "cache", {}, self.settings)
@@ -317,17 +333,19 @@ class EngineWiringTests(unittest.TestCase):
         self.assertEqual(result["status"], "partial")
         self.assertIn("secret", text(result["detail"], "en").lower())
 
-    def test_trivy_without_settings_is_unchanged(self):
+    def test_trivy_without_settings_still_turns_its_own_exclusions_off(self):
         calls = []
 
         def fake(key, arguments, snapshot, *, mounts=None, **kwargs):
-            calls.append((arguments, _mounts(mounts or [])))
+            mounted = _mounts(mounts or [])
+            calls.append((arguments, json.loads((Path(mounted["/cfg"][0]) / "trivy-secret.yaml").read_text())))
             return subprocess.CompletedProcess(arguments, 0, "{}", "")
 
         with patch.object(engines, "_run", side_effect=fake):
             engines.run_trivy(self.snapshot, Path(self.folder.name) / "cache", {})
-        self.assertNotIn("--secret-config", calls[0][0])
-        self.assertNotIn("/cfg", calls[0][1])
+        self.assertEqual(calls[0][0][calls[0][0].index("--secret-config") + 1], "/cfg/trivy-secret.yaml")
+        self.assertEqual(calls[0][1], {"disable-allow-rules": list(TRIVY_BUILTIN_ALLOW_RULES), "skip-patterns": []})
+        self.assertIn("--debug", calls[0][0])
 
 
 class SecretRulesApiTests(HttpCase):
@@ -354,7 +372,9 @@ class SecretRulesApiTests(HttpCase):
         self.assertEqual((status, view["rules"], view["limits"]["rules"]), (200, [], sr.MAX_RULES))
         status, builtin, _ = self.call("GET", "/api/secrets/builtin-rules", headers={"Cookie": member})
         self.assertEqual(status, 200)
-        self.assertIn({"id": "aws-access-token", "trivy": "aws-access-key-id"}, builtin["rules"])
+        self.assertIn({"id": "aws-access-token", "trivy": "aws-access-key-id", "opt_in": False}, builtin["rules"])
+        self.assertIn({"id": "generic-password", "trivy": None, "opt_in": False}, builtin["rules"])
+        self.assertIn({"id": "generic-credential-uri", "trivy": None, "opt_in": True}, builtin["rules"])
         self.assertEqual(self.save("save-secret-rules", self.body(), member)[0], 403)
         self.assertEqual(self.save("wrong-action", self.body(), admin)[0], 403)
         self.assertEqual(self.save("save-secret-rules", self.body(), admin, Origin="https://evil.example")[0], 403)
@@ -375,9 +395,9 @@ class SecretRulesApiTests(HttpCase):
         bad = self.body(rules=[{**RULE, "regex": "(?<=x)abc"}])
         status, body, _ = self.save("save-secret-rules", bad, admin)
         self.assertEqual((status, body["field"]), (400, "rules.0.regex"))
-        self.assertIn("Gitleaks y Trivy no admiten", body["error"])
+        self.assertIn("Betterleaks y Trivy no admiten", body["error"])
         status, body, _ = self.save("save-secret-rules", bad, admin, **{"Accept-Language": "en"})
-        self.assertIn("which Gitleaks and Trivy don't support", body["error"])
+        self.assertIn("which Betterleaks and Trivy don't support", body["error"])
         status, body, _ = self.save("save-secret-rules", self.body(reason="no"), admin)
         self.assertEqual((status, body["field"]), (400, "reason"))
         self.assertEqual(self.call("GET", "/api/secrets/config", headers={"Cookie": admin})[1]["rules"], [])
@@ -451,8 +471,8 @@ class RepositorySettingsTests(unittest.TestCase):
         seen = []
         with patch.object(repository, "engines_available", return_value=True), \
                 patch.object(repository, "run_opengrep", return_value=_tool("opengrep")), \
-                patch.object(repository, "run_gitleaks", side_effect=lambda root, applied: seen.append(applied) or _tool("gitleaks")), \
-                patch.object(repository, "run_trivy", side_effect=lambda root, cache, feeds, applied: seen.append(applied) or _tool("trivy")), \
+                patch.object(repository, "run_betterleaks", side_effect=lambda root, applied: seen.append(applied) or _tool("betterleaks")), \
+                patch.object(repository, "run_trivy", side_effect=lambda root, cache, feeds, applied, data_dir=None: seen.append(applied) or _tool("trivy")), \
                 patch.object(repository, "run_osv_scanner", return_value=_tool("osv-scanner")), \
                 patch.object(repository, "run_checkov", return_value=_tool("checkov")), \
                 patch.object(repository, "run_zizmor", return_value=_tool("zizmor")), \
@@ -474,8 +494,8 @@ def _tool(key):
 class SecretsAreAlwaysCriticalTests(unittest.TestCase):
     def test_every_secret_engine_reports_critical(self):
         generic = [{"RuleID": "generic-api-key", "File": "/src/app.py", "StartLine": 2, "Entropy": 3.0}]
-        self.assertEqual(engines.parse_gitleaks(generic)[0]["severity"], "critical")
-        custom = engines.parse_gitleaks([{"RuleID": "pitangus-acme-token", "File": "/src/a.py", "StartLine": 1}],
+        self.assertEqual(engines.parse_betterleaks(generic)[0]["severity"], "critical")
+        custom = engines.parse_betterleaks([{"RuleID": "pitangus-acme-token", "File": "/src/a.py", "StartLine": 1}],
                                         sr.custom_rules({"rules": [{**RULE, "severity": "low"}]}))[0]
         self.assertEqual((custom["severity"], custom["priority"]["action"]), ("critical", "act"))
         payload = {"Results": [{"Target": "app/settings.py", "Class": "secret", "Secrets": [
@@ -520,7 +540,7 @@ class AssetSecretApiTests(HttpCase):
 
     def test_admins_customize_a_repository_members_see_the_shape(self):
         status, view, _ = self.call("GET", f"/api/assets/secrets?key={QUERY_KEY}", headers={"Cookie": self.member})
-        self.assertEqual((status, view["rules"], view["key"], view["defaults"]), (200, [], KEY, {"rules": 0, "disabled": 0, "allowlist": 0}))
+        self.assertEqual((status, view["rules"], view["key"], view["defaults"]), (200, [], KEY, {"rules": 0, "disabled": 0, "enabled": 0, "allowlist": 0}))
         self.assertEqual(self.save(self.body(), self.member)[0], 403)
         self.assertEqual(self.save(self.body(), self.admin, action="save-secret-rules")[0], 403)
         self.assertEqual(self.save(self.body(key="github#999"), self.admin)[0], 404)
@@ -556,9 +576,36 @@ if __name__ == "__main__":
     unittest.main()
 
 
+def _token(value: str) -> str:
+    """What stands in the file for a secret named `value` in a test: a random token of its rule's shape (the engines
+    report where it is; Pitangus reads it there and checks it against what they said)."""
+    rng = random.Random(value)
+    return ("ghp_" if value.startswith("ghp_") else "") + "".join(rng.choice(string.ascii_letters + string.digits) for _ in range(36))
+
+
+def _write(snapshot: Path, secrets) -> dict[tuple[str, int], tuple[int, str]]:
+    """Each secret (rule, path, line, value) in its file as `TOKEN = "…"` on its line: {(path, line): (offset, token)}."""
+    files: dict[str, dict[int, str]] = {}
+    for _, path, line, value in secrets:
+        files.setdefault(path, {})[line] = _token(value)
+    where = {}
+    for path, lines in files.items():
+        content = ""
+        for number in range(1, max(lines) + 1):
+            text = f'TOKEN = "{lines[number]}"' if number in lines else "x = 1"
+            if number in lines:
+                where[(path, number)] = (len(content.encode()) + len('TOKEN = "'), lines[number])
+            content += text + "\n"
+        (snapshot / path).parent.mkdir(parents=True, exist_ok=True)
+        (snapshot / path).write_text(content)
+    return where
+
+
 class _Engines:
-    """Fake Gitleaks and Trivy that honour the generated settings like the real engines: an allowlisted or disabled
-    match is dropped without a trace. `secrets`: (rule, path, line, value) in the code."""
+    """Fake Betterleaks and Trivy that honour the generated settings like the real engines: an allowlisted or disabled
+    match is dropped without a trace. `secrets`: (rule, path, line, value) in the code, written to the snapshot as
+    `_write` does; each engine reports where (Betterleaks' columns and entropy, Trivy's offset and masked line) and
+    names every file of the snapshot as read."""
 
     def __init__(self, secrets, *, fail_reference=False):
         self.secrets, self.fail_reference, self.calls = list(secrets), fail_reference, []
@@ -566,8 +613,8 @@ class _Engines:
     def __call__(self, key, arguments, snapshot, *, mounts=None, network=False, **kwargs):
         mounted = _mounts(mounts or [])
         folder = Path(mounted["/cfg"][0]) if "/cfg" in mounted else None
-        if key == "gitleaks":
-            config = tomllib.loads((folder / "gitleaks.toml").read_text()) if folder else {}
+        if key == "betterleaks":
+            config = tomllib.loads((folder / "betterleaks.toml").read_text()) if folder else {}
             allow = (config.get("allowlists") or [{}])[0]
             paths = [pattern.removeprefix("^/src/") for pattern in allow.get("paths", [])]
             regexes, stopwords = allow.get("regexes", []), allow.get("stopwords", [])
@@ -579,24 +626,33 @@ class _Engines:
             regexes, stopwords = [rule["regex"] for rule in allow if "regex" in rule], []
             disabled = set(config.get("disable-rules") or [])
         custom = {rule["id"] for rule in config.get("rules") or []}
-        filtered = bool(paths or regexes or stopwords or disabled)
+        # The opt-in rules are off in every generated configuration: that alone filters nothing (OPT_IN_RULES).
+        from pitangus.modules.scanning.secret_builtin_rules import OPT_IN_RULES
+        filtered = bool(paths or regexes or stopwords or disabled - set(OPT_IN_RULES))
         self.calls.append({"key": key, "arguments": arguments, "config": config, "network": network, "filtered": filtered})
         if self.fail_reference and not filtered:
             return subprocess.CompletedProcess(arguments, 2, "", "boom")
+        root = Path(snapshot) if snapshot else None
+        where = _write(root, self.secrets) if root else {}
+        listed = sorted(item.relative_to(root).as_posix() for item in root.rglob("*") if item.is_file()) if root else []
         seen = [(rule, path, line) for rule, path, line, value in self.secrets
                 if (not rule.startswith("pitangus-") or rule in custom) and rule not in disabled
                 and not any(re.match(pattern, path) for pattern in paths)
                 and not any(re.search(pattern, value) for pattern in regexes)
                 and not any(word in value.lower() for word in stopwords)]
-        if key == "gitleaks":
+        if key == "betterleaks":
             (Path(mounted["/out"][0]) / "report.json").write_text(json.dumps(
-                [{"RuleID": rule, "File": f"/src/{path}", "StartLine": line, "Entropy": 4.2} for rule, path, line in seen]))
-            return subprocess.CompletedProcess(arguments, 0, "", "")
+                [{"RuleID": rule, "File": f"/src/{path}", "StartLine": line, "EndLine": line, "StartColumn": 10,
+                  "EndColumn": 9 + len(where[(path, line)][1]), "Match": "REDACTED", "Entropy": entropy(where[(path, line)][1])}
+                 for rule, path, line in seen]))
+            return subprocess.CompletedProcess(arguments, 0, "", "".join(f"6:01PM TRC scanning path path={json.dumps('/src/' + path)}\n" for path in listed))
         if "secret" not in arguments[arguments.index("--scanners") + 1].split(","):
             seen = []
-        return subprocess.CompletedProcess(arguments, 0, json.dumps({"Results": [
-            {"Target": path, "Class": "secret", "Secrets": [{"RuleID": rule, "StartLine": line, "Title": rule}]}
-            for rule, path, line in seen]}), "")
+        log = "".join(f"2026-10-14T18:04:16Z\tDEBUG\t[secret] Using streaming scanner\tfile_path={json.dumps(path)}\n" for path in listed)
+        return subprocess.CompletedProcess(arguments, 0, json.dumps({"SchemaVersion": 2, "Results": [
+            {"Target": path, "Class": "secret", "Secrets": [{"RuleID": rule, "StartLine": line, "EndLine": line, "Title": rule,
+                                                          "Offset": where[(path, line)][0], "Match": 'TOKEN = "' + "*" * len(where[(path, line)][1]) + '"'}]}
+            for rule, path, line in seen]}), log)
 
 
 class WithheldSecretsTests(unittest.TestCase):
@@ -611,17 +667,21 @@ class WithheldSecretsTests(unittest.TestCase):
         docker = patch.dict(engines._docker_state, {"ok": True}, clear=True)
         docker.start()
         self.addCleanup(docker.stop)
+        # Trivy's databases are refreshed apart (test_scanners.TrivyDatabaseTests): here, only its scans are faked.
+        databases = patch.object(engines, "trivy_databases", return_value=[])
+        databases.start()
+        self.addCleanup(databases.stop)
         self.clock = datetime.now(timezone.utc)
 
-    def gitleaks(self, secrets, applied, **options):
+    def betterleaks(self, secrets, applied, **options):
         fake = _Engines(secrets, **options)
         with patch.object(engines, "_run", side_effect=fake):
-            return engines.run_gitleaks(self.snapshot, applied), fake.calls
+            return engines.run_betterleaks(self.snapshot, applied), fake.calls
 
     def test_no_second_run_without_an_allowlist_or_disabled_rules(self):
         secrets = [("github-pat", "app/a.py", 1, "ghp_x"), ("pitangus-acme-token", "app/b.py", 2, "ACME")]
         for applied in (None, sr.normalize(settings(rules=[RULE]))):
-            result, calls = self.gitleaks(secrets, applied)
+            result, calls = self.betterleaks(secrets, applied)
             self.assertEqual(len(calls), 1)
             self.assertNotIn("withheld", result)
         fake = _Engines(secrets)
@@ -634,7 +694,7 @@ class WithheldSecretsTests(unittest.TestCase):
         applied = sr.normalize(settings(rules=[RULE], allowlist={"paths": ["fixtures/"], "regexes": ["EXAMPLE-[0-9]+"], "stopwords": []}))
         secrets = [("github-pat", "fixtures/key.py", 1, "ghp_fixture"), ("generic-api-key", "app/config.py", 4, "EXAMPLE-123"),
                    ("pitangus-acme-token", "fixtures/acme.py", 2, "ACME-TOKEN-1"), ("github-pat", "app/real.py", 9, "ghp_real")]
-        result, calls = self.gitleaks(secrets, applied)
+        result, calls = self.betterleaks(secrets, applied)
         self.assertEqual([call["filtered"] for call in calls], [True, False])
         reference = calls[1]
         self.assertIn("--redact", reference["arguments"])
@@ -643,8 +703,9 @@ class WithheldSecretsTests(unittest.TestCase):
         self.assertEqual([item["path"] for item in result["findings"]], ["app/real.py"])
         withheld = {item["path"]: item for item in result["withheld"]}
         self.assertEqual(set(withheld), {"fixtures/key.py", "app/config.py", "fixtures/acme.py"})
-        self.assertEqual(withheld["fixtures/key.py"]["fingerprint"], engines._stable("secrets", "github-pat", "fixtures/key.py", "1"))
-        self.assertEqual(withheld["fixtures/acme.py"]["fingerprint"], engines._stable("secrets", "pitangus-acme-token", "fixtures/acme.py", "2"))
+        # Named by their values, as the secrets the filters let through.
+        self.assertEqual(withheld["fixtures/key.py"]["identity"], secret_identity.identity(_token("ghp_fixture")))
+        self.assertEqual(withheld["fixtures/acme.py"]["identity"], secret_identity.identity(_token("ACME-TOKEN-1")))
         self.assertEqual(withheld["fixtures/acme.py"]["title"], "ACME internal token")
         reason = withheld["fixtures/key.py"]["excluded_reason"]
         self.assertEqual((reason["$t"], reason["params"]["path"]), ("scanning.secret_rules.withheld.path", "fixtures/**"))
@@ -653,15 +714,15 @@ class WithheldSecretsTests(unittest.TestCase):
         self.assertIn("not fixed", text(reason, "en"))
         self.assertIn("no remediado", text(reason, "es"))
         # Same code, same settings: same fingerprints.
-        again, _ = self.gitleaks(secrets, applied)
+        again, _ = self.betterleaks(secrets, applied)
         self.assertEqual([item["fingerprint"] for item in again["withheld"]], [item["fingerprint"] for item in result["withheld"]])
 
     def test_disabled_rules_are_withheld_too_in_both_engines(self):
         applied = sr.normalize(settings(disabled_rules=["jwt"]))
         secrets = [("jwt", "app/token.py", 3, "eyJ"), ("jwt-token", "app/token.py", 3, "eyJ")]
-        result, calls = self.gitleaks(secrets[:1], applied)
+        result, calls = self.betterleaks(secrets[:1], applied)
         self.assertEqual(len(calls), 2)
-        self.assertNotIn("--config", calls[1]["arguments"])  # only the engine defaults: no config at all
+        self.assertFalse(calls[1]["filtered"])  # the engine defaults: only the opt-in rules stay off
         self.assertEqual(result["findings"], [])
         reason = result["withheld"][0]["excluded_reason"]
         self.assertEqual((reason["$t"], reason["params"]["rule"]), ("scanning.secret_rules.withheld.rule_disabled", "jwt"))
@@ -671,13 +732,13 @@ class WithheldSecretsTests(unittest.TestCase):
         reference = fake.calls[1]
         self.assertEqual(reference["arguments"][reference["arguments"].index("--scanners") + 1], "secret")
         self.assertFalse(reference["network"])
-        self.assertNotIn("--secret-config", reference["arguments"])
+        self.assertEqual(reference["config"], {"disable-allow-rules": list(TRIVY_BUILTIN_ALLOW_RULES), "skip-patterns": []})
         self.assertEqual(trivy["findings"], [])
         self.assertEqual(trivy["withheld"][0]["excluded_reason"]["params"]["rule"], "jwt")  # named as the user turned it off
 
     def test_a_failed_reference_run_is_partial_never_silent(self):
         applied = sr.normalize(settings(allowlist={"paths": ["fixtures/"]}))
-        result, _ = self.gitleaks([("github-pat", "fixtures/key.py", 1, "x")], applied, fail_reference=True)
+        result, _ = self.betterleaks([("github-pat", "fixtures/key.py", 1, "x")], applied, fail_reference=True)
         self.assertEqual((result["status"], result["withheld"]), ("partial", None))
         self.assertIn("incomplete", text(result["detail"], "en"))
 
@@ -700,12 +761,15 @@ class WithheldSecretsTests(unittest.TestCase):
     def test_the_registry_shows_an_allowlisted_secret_as_excluded_never_fixed(self):
         from pitangus.modules.findings import registry
         leak, real = ("github-pat", "fixtures/key.py", 1, "ghp_fixture"), ("github-pat", "app/real.py", 9, "ghp_real")
-        digest = engines._stable("secrets", "github-pat", "fixtures/key.py", "1")
 
         def entry():
             return registry.load(self.data_dir, KEY)["findings"][digest]
         record, calls = self.scan([leak, real])
-        self.assertEqual(len(calls), 2)  # one Gitleaks, one Trivy: nothing to diff
+        # Its engine fingerprint, or in v2 the identity of its value: the same in every scan after this one.
+        digest = next(item["fingerprint"] for item in record["findings"] if item["path"] == "fixtures/key.py")
+        if canonical.mode() != "v2":
+            self.assertEqual(digest, engines._stable("secrets", "github-pat", "fixtures/key.py", "1"))
+        self.assertEqual(len(calls), 2)  # one Betterleaks, one Trivy: nothing to diff
         self.assertEqual(entry()["status"], "open")
 
         sr.save(self.data_dir, settings(allowlist={"paths": ["fixtures/"]}), reason="Test fixtures", user=ADMIN, asset=KEY)
@@ -758,3 +822,46 @@ class WithheldSecretsTests(unittest.TestCase):
         self.assertEqual(reason("jwt", "samples/a.py")["params"]["scope"]["$t"], "scanning.secret_rules.withheld.scopes.defaults")
         self.assertEqual(reason("github-pat", "samples/a.py")["params"]["scope"]["$t"], "scanning.secret_rules.withheld.scopes.repository")
         self.assertEqual(reason("github-pat", "app/a.py")["$t"], "scanning.secret_rules.withheld.entry")
+
+
+class OptInRulesTests(unittest.TestCase):
+    """The generic rule that flags docs and local connection strings more than secrets starts off, and can be turned on;
+    generic-password is on by default behind the measured filter (secret_filter)."""
+
+    def test_they_are_off_in_every_scan_until_turned_on(self):
+        default = tomllib.loads(sr.betterleaks_toml(sr.empty()))
+        self.assertIn("generic-credential-uri", default["extend"]["disabledRules"])
+        self.assertNotIn("generic-password", default["extend"]["disabledRules"])
+        on = tomllib.loads(sr.betterleaks_toml(sr.normalize(settings(enabled_rules=["generic-credential-uri"]))))
+        self.assertNotIn("disabledRules", on["extend"])
+
+    def test_only_opt_in_rules_can_be_turned_on_and_they_never_count_as_a_filter(self):
+        with self.assertRaises(sr.SecretRulesError) as raised:
+            sr.normalize(settings(enabled_rules=["github-pat"]))
+        self.assertEqual(raised.exception.field, "enabled_rules")
+        turned_on = sr.normalize(settings(enabled_rules=["generic-credential-uri"]))
+        self.assertFalse(sr.filters(turned_on))  # nothing is withheld for a rule that is merely off by default
+        self.assertEqual(sr.unfiltered(turned_on)["enabled_rules"], ["generic-credential-uri"])
+        self.assertTrue(sr.configured(turned_on))
+
+    def test_a_rule_turned_on_before_it_became_a_default_stays_on_and_is_accepted(self):
+        """Settings saved when generic-password was opt-in (`enabled_rules: ["generic-password"]`) read, save and
+        generate a configuration without error; the rule runs, as it now does for everyone."""
+        with tempfile.TemporaryDirectory() as folder:
+            data_dir = Path(folder)
+            documents.save(data_dir, sr.DOCUMENT, {**sr.empty(), "enabled_rules": ["generic-password", "generic-credential-uri"]})
+            stored = sr.get(data_dir)
+            self.assertEqual(stored["enabled_rules"], ["generic-credential-uri"])
+            self.assertEqual(sr.normalize(settings(enabled_rules=["generic-password"]))["enabled_rules"], [])
+            both = sr.normalize(settings(enabled_rules=["generic-password", "generic-credential-uri"]))
+            self.assertEqual(both["enabled_rules"], ["generic-credential-uri"])
+            for config in (stored, both, sr.empty()):
+                self.assertNotIn("generic-password", tomllib.loads(sr.betterleaks_toml(config))["extend"].get("disabledRules", []))
+            saved = sr.save(data_dir, settings(enabled_rules=["generic-password"]), reason="Saved by an older panel", user=ADMIN)
+            self.assertEqual(saved["enabled_rules"], [])
+            self.assertEqual(saved["history"][-1]["changes"], {"enabled_rules": {"removed": ["generic-credential-uri"]}})
+            self.assertIsNone(sr.for_scan(data_dir))  # nothing left to apply: the scan runs with the defaults
+
+    def test_a_repository_turning_one_on_adds_to_the_defaults(self):
+        merged = sr.merged(sr.empty(), {**sr.empty(), "enabled_rules": ["generic-credential-uri"]})
+        self.assertEqual(merged["enabled_rules"], ["generic-credential-uri"])

@@ -12,11 +12,14 @@ from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, g
 from pitangus.app.api.schemas import AS_RETURNED, MANY, Open
 from pitangus.app.api.repositories import QUEUE_LIMIT, BatchSummary
 from pitangus.app.api.deps import problem
-from pitangus.app.api.compliance import AssetKey, BuiltFrom
+from pitangus.app.api.compliance import AssetKey, BuiltFrom, workspace_repository
 from pitangus.app.api.paging import Paging, paging
 from pitangus.modules.compliance import provenance
+from pitangus.modules.integrations import code_tokens
+from pitangus.modules.integrations.installations import github_installations
 from pitangus.modules.runs import batches
 from pitangus.modules.scanning.image import ImageError, check_registry_address, forget_registry, parse_reference, registries, save_registry
+from pitangus.modules.sources.repositories import source_page
 from pitangus.shared.i18n import msg, text
 
 router = APIRouter(tags=["images"])
@@ -74,9 +77,39 @@ def analyzed_images(q: str = Query("", max_length=100), link: Literal["all", "un
     return context.render({**page.slice(found["items"]), "counts": found["counts"], "repositories": found["repositories"]})
 
 
+class LinkableRepository(BaseModel):
+    key: str  # the asset key a scan gives it (github#<id>, or the source id)
+    name: str
+    analyzed: bool
+
+
+class LinkableRepositories(BaseModel):
+    items: list[LinkableRepository] = Field(max_length=200)
+    total: int  # can be more than `items`: only the first page of each connected account is asked for
+
+
+REPOSITORY_PICKS = 20
+
+
+@router.get("/api/images/repositories", response_model=LinkableRepositories)
+def linkable_repositories(q: str = Query("", max_length=100), context: Context = Depends(guard())) -> dict:
+    """The repositories an image can be linked to, by name: the analyzed ones and the ones the GitHub App or the
+    connected token reach (not analyzed yet is fine), analyzed first."""
+    analyzed = provenance.analyzed_repositories(context.data_dir, q)
+    connected = source_page(code_tokens.current(), github_installations(context.data_dir), query=q, provider="github", per_page=REPOSITORY_PICKS)
+    found = {row["key"]: {**row, "analyzed": True} for row in analyzed}
+    for source in connected["sources"]:
+        key = source.get("uid") or source.get("id")
+        if isinstance(key, str) and isinstance(source.get("name"), str) and key not in found:
+            found[key] = {"key": key, "name": source["name"], "analyzed": False}
+    rows = sorted(found.values(), key=lambda row: (not row["analyzed"], row["name"].casefold()))
+    unseen = max(0, connected["total"] - len(connected["sources"]))
+    return {"items": rows[:REPOSITORY_PICKS], "total": len(rows) + unseen}
+
+
 class ImageRegisterIn(BaseModel):
-    """`repository` (an analyzed repository's asset key) links it right away: administrators only. `scan` also queues
-    its scan."""
+    """`repository` (the asset key of an analyzed repository, or of one the GitHub App or a connected token reach)
+    links it right away: administrators only. `scan` also queues its scan."""
     model_config = ConfigDict(extra="forbid")
     reference: StrictStr = Field(max_length=300)
     repository: AssetKey | None = None
@@ -104,9 +137,10 @@ def register_image(context: Context = Depends(guard(Policy(action="register-imag
     image = _image(data.reference)
     if data.scan and context.state.jobs.pending() >= QUEUE_LIMIT:
         raise ApiError(429, msg("api.queue_full"))
+    name = workspace_repository(context, data.repository)
     user = context.user["username"]
     try:
-        result = provenance.register_image(context.data_dir, image, by=user, repository=data.repository)
+        result = provenance.register_image(context.data_dir, image, by=user, repository=data.repository, repository_name=name)
     except provenance.ProvenanceError as exc:
         raise ApiError(400, exc.message) from exc
     run = context.state.jobs.enqueue_image_scan(image=image, context="", requested_by=user) if data.scan else None

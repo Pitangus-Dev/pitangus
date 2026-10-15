@@ -14,6 +14,9 @@ import { SelectField } from '@/shared/ui/select-field'
 import { autoLayout, baseKind, bezierPath, curvePoint, drawnRect, fitBox, labelSpots, NODE_H, NODE_W, ports, routes, shift, sizeOf, type Side } from '@/features/threats/threat-layout'
 import { BOUNDARY_TONE, boundaryTone, isManual, kindTone, LEGEND, legendTones, NODE_BASE, NODE_TONE, NODE_WASH, TEXT_TONE, toneOf, TONE_NAMES, TONES, withLegendLabel, type Tone } from '@/features/threats/threat-colors'
 import { assetGroups, newId, PROCESSES, STORES, type Catalog, type Component, type Flow, type Kind, type Model, type Point, type Threat } from '@/features/threats/threat-model-types'
+import { DataField, KindField, ProtocolField } from '@/features/threats/threat-fields'
+import { CustomPropertiesField } from '@/features/threats/threat-properties'
+import { valueText } from '@/features/threats/property-values'
 
 // Editor visual del modelo: los componentes se arrastran, los flujos se crean uniendo sus puntos y las
 // fronteras son cajas que se mueven y redimensionan. La pertenencia a una frontera sale de dónde está
@@ -23,7 +26,7 @@ const SENSITIVE = ['pii', 'credentials', 'payment']
 const select = 'text-xs'
 
 type ComponentData = { component: Component; kindLabel: string; flagged: boolean }
-type BoundaryData = { name: string; tone: Tone }
+type BoundaryData = { name: string; tone: Tone; description?: string }
 type FlowData = { flow: Flow; number: number; flagged: boolean; labelAt?: number; offsets?: [number, number]; bend?: number }
 type CanvasNode = Node<ComponentData, 'component'> | Node<BoundaryData, 'boundary'>
 
@@ -50,7 +53,7 @@ function build(model: Model, threats: Threat[], kinds: Record<Kind, string>, pre
     const box = fitBox(item.box ?? layout.boxes[item.id] ?? { x: 40, y: 40, width: 320, height: 220 }, members)
     const old = before[boundaryId(item.id)]
     return { id: boundaryId(item.id), type: 'boundary', position: { x: box.x, y: box.y }, width: box.width, height: box.height,
-             data: { name: item.name, tone: boundaryTone(item.color) }, zIndex: 0, dragHandle: '.tm-drag', selected: select ? false : old?.selected ?? false }
+             data: { name: item.name, tone: boundaryTone(item.color), description: item.description }, zIndex: 0, dragHandle: '.tm-drag', selected: select ? false : old?.selected ?? false }
   })
   return [...boundaries, ...components]
 }
@@ -95,7 +98,7 @@ function ComponentNode({ data, selected }: NodeProps<Node<ComponentData, 'compon
   // líneas, tercero con borde discontinuo; el color, el del papel o el que elija el equipo.
   const shape = PROCESSES.includes(base) ? 'rounded-full px-5' : STORES.includes(base) ? 'rounded-none border-x-0 border-y-2' : base === 'external' ? 'rounded-lg border-dashed' : 'rounded-lg'
   const sensitive = component.data.some(item => SENSITIVE.includes(item))
-  return <div title={component.name} className={`tm-node flex h-full min-h-[64px] w-full flex-col items-center justify-center border-[1.5px] px-3 py-2 text-center shadow-sm ${shape}
+  return <div title={tooltip(component.name, component.description, component.custom_properties)} className={`tm-node flex h-full min-h-[64px] w-full flex-col items-center justify-center border-[1.5px] px-3 py-2 text-center shadow-sm ${shape}
     ${NODE_BASE} ${NODE_WASH[tone]} ${flagged ? 'ring-2 ring-attention' : ''} ${selected ? 'outline-2 outline-offset-2 outline-app-fg' : ''}`}>
     <NodeResizer isVisible minWidth={140} minHeight={64} maxWidth={520} maxHeight={320} keepAspectRatio={keepRatio} color="var(--brand)" lineClassName="tm-resize-line" handleClassName="tm-resize-handle" />
     {(['t', 'r', 'b', 'l'] as const).map(side => <Handle key={side} id={side} type="source" position={{ t: Position.Top, r: Position.Right, b: Position.Bottom, l: Position.Left }[side]} className="tm-handle" />)}
@@ -113,7 +116,7 @@ function BoundaryNode({ data, selected }: NodeProps<Node<BoundaryData, 'boundary
   const keepRatio = useContext(ShiftContext)
   return <div className={`tm-boundary relative h-full w-full rounded-lg border-2 border-dashed ${BOUNDARY_TONE[data.tone]} ${selected ? 'outline-2 outline-offset-2 outline-app-fg' : ''}`}>
     <NodeResizer isVisible minWidth={220} minHeight={140} keepAspectRatio={keepRatio} color="var(--brand)" lineClassName="tm-resize-line" handleClassName="tm-resize-handle" />
-    <span className={`tm-drag absolute top-2 left-3 cursor-move rounded-md bg-panel px-1.5 py-0.5 text-xs font-semibold ${data.tone === 'neutral' ? 'text-app-muted' : TEXT_TONE[data.tone]}`}>{data.name}</span>
+    <span title={tooltip(data.name, data.description)} className={`tm-drag absolute top-2 left-3 cursor-move rounded-md bg-panel px-1.5 py-0.5 text-xs font-semibold ${data.tone === 'neutral' ? 'text-app-muted' : TEXT_TONE[data.tone]}`}>{data.name}</span>
   </div>
 }
 
@@ -134,12 +137,17 @@ function FlowEdge({ id, sourceX: rawSourceX, sourceY: rawSourceY, targetX: rawTa
     {flow && label && <EdgeLabelRenderer>
       <div className="tm-flow-label nodrag nopan" data-x={labelX} data-y={labelY} ref={element => { if (element) element.style.transform = `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}>
         {/* Acotada al hueco entre columnas para no tapar componentes; completa en el título y al seleccionarla. */}
-        <span title={label} className={`inline-block truncate rounded-full border px-1.5 py-0.5 align-middle text-[11px] font-semibold ${selected ? 'max-w-[260px] border-brand/60 text-brand' : flow.encrypted ? 'max-w-[132px] border-app-line text-app-muted' : 'max-w-[132px] border-danger-line text-danger'} bg-panel`}>
+        <span title={tooltip(label, flow.description, flow.custom_properties)} className={`inline-block truncate rounded-full border px-1.5 py-0.5 align-middle text-[11px] font-semibold ${selected ? 'max-w-[260px] border-brand/60 text-brand' : flow.encrypted ? 'max-w-[132px] border-app-line text-app-muted' : 'max-w-[132px] border-danger-line text-danger'} bg-panel`}>
           {selected ? label : short}
         </span>
       </div>
     </EdgeLabelRenderer>}
   </>
+}
+
+// The full text on hover: the name, its description and its custom properties.
+function tooltip(name: string, description?: string, properties?: Record<string, unknown>) {
+  return [name, description, ...Object.entries(properties ?? {}).map(([key, value]) => `${key}: ${valueText(value)}`)].filter(Boolean).join('\n')
 }
 
 const nodeTypes = { component: ComponentNode, boundary: BoundaryNode }
@@ -337,11 +345,6 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
   </div>
 }
 
-function Chips({ value, options, onChange }: { value: string[]; options: Record<string, string>; onChange: (next: string[]) => void }) {
-  return <div className="flex flex-wrap gap-1">{Object.entries(options).map(([key, label]) => <button key={key} type="button" aria-pressed={value.includes(key)} onClick={() => onChange(value.includes(key) ? value.filter(item => item !== key) : [...value, key])}
-    className={`min-h-6 rounded border px-2 py-0.5 text-[11px] ${value.includes(key) ? 'border-app-fg bg-app-soft text-app-fg' : 'border-app-line text-app-subtle'}`}>{label}</button>)}</div>
-}
-
 function Check({ checked, onChange, children }: { checked: boolean; onChange: (value: boolean) => void; children: string }) {
   return <label className="flex items-center gap-2 text-xs text-app-secondary"><input type="checkbox" className="size-3.5 accent-brand" checked={checked} onChange={event => onChange(event.target.checked)} />{children}</label>
 }
@@ -358,9 +361,11 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
     return <aside className="space-y-4 rounded-lg border border-app-line bg-panel p-4">
       <div><p className="text-xs text-app-subtle">{t('inspector.flow')}</p><p className="text-sm font-semibold">{names[item.source]} → {names[item.target]}</p></div>
       <label className={field}><span className={label}>{t('inspector.flow_name')}</span><Input value={item.name ?? ''} maxLength={80} placeholder={t('inspector.flow_name_placeholder')} onChange={event => update({ name: event.target.value })} className="h-8 border-input bg-card" /></label>
-      <label className={field}><span className={label}>{t('inspector.protocol')}</span><SelectField value={item.protocol} onValueChange={protocol => update({ protocol })} className={select} options={catalog.protocols.map(protocol => ({ value: protocol, label: protocol.toUpperCase() }))} /></label>
-      <div className={field} role="group" aria-label={t('inspector.data')}><span aria-hidden className={label}>{t('inspector.data')}</span><Chips value={item.data} options={catalog.classifications} onChange={data => update({ data })} /></div>
+      <div className={field}><span aria-hidden className={label}>{t('inspector.protocol')}</span><ProtocolField flow={item} catalog={catalog} onChange={update} /></div>
+      <div className={field}><span aria-hidden className={label}>{t('inspector.data')}</span><DataField label={t('inspector.data')} value={item.data} catalog={catalog} onChange={data => update({ data })} /></div>
       <div className="space-y-1.5"><Check checked={item.authenticated} onChange={authenticated => update({ authenticated })}>{t('inspector.authenticated')}</Check><Check checked={item.encrypted} onChange={encrypted => update({ encrypted })}>{t('inspector.encrypted_in_transit')}</Check></div>
+      <label className={field}><span className={label}>{t('inspector.description')}</span><textarea value={item.description ?? ''} maxLength={1000} rows={2} onChange={event => update({ description: event.target.value })} placeholder={t('inspector.flow_description_placeholder')} className="field-sizing-content w-full rounded-lg border border-input bg-card px-3 py-2 text-xs text-app-fg" /></label>
+      <CustomPropertiesField compact value={item.custom_properties} onChange={custom_properties => update({ custom_properties })} />
       <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => update({ source: item.target, target: item.source })}><ArrowCounterClockwiseIcon />{t('inspector.reverse')}</Button>
         <Button size="sm" variant="ghost" onClick={onRemove}><TrashIcon />{t('common:actions.remove')}</Button></div>
     </aside>
@@ -372,6 +377,8 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
       <p className="text-xs text-app-subtle">{t('inspector.boundary_heading', { components: t('count.components', { count: item.components.length }) })}</p>
       <label className={field}><span className={label}>{t('inspector.name')}</span><Input value={item.name} maxLength={80} onChange={event => setModel({ ...model, boundaries: model.boundaries.map(entry => entry.id === item.id ? { ...entry, name: event.target.value } : entry) })} className="h-8 border-input bg-card" /></label>
       <ColorPicker label={t('inspector.boundary_color')} value={item.color} automatic={t('inspector.boundary_color_default')} onChange={color => setModel({ ...model, boundaries: model.boundaries.map(entry => entry.id === item.id ? { ...entry, color } : entry) })} />
+      <label className={field}><span className={label}>{t('inspector.description')}</span><textarea value={item.description ?? ''} maxLength={1000} rows={2} onChange={event => setModel({ ...model, boundaries: model.boundaries.map(entry => entry.id === item.id ? { ...entry, description: event.target.value } : entry) })} placeholder={t('inspector.boundary_description_placeholder')} className="field-sizing-content w-full rounded-lg border border-input bg-card px-3 py-2 text-xs text-app-fg" /></label>
+      <CustomPropertiesField compact value={item.custom_properties} onChange={custom_properties => setModel({ ...model, boundaries: model.boundaries.map(entry => entry.id === item.id ? { ...entry, custom_properties } : entry) })} />
       <p className="text-xs leading-5 text-app-subtle">{t('inspector.boundary_help')}</p>
       <Button size="sm" variant="ghost" onClick={onRemove}><TrashIcon />{t('inspector.remove_boundary')}</Button>
     </aside>
@@ -383,10 +390,9 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
     return <aside className="space-y-4 rounded-lg border border-app-line bg-panel p-4">
       <label className={field}><span className={label}>{t('inspector.name')}</span><Input value={item.name} maxLength={80} onChange={event => update({ name: event.target.value })} className="h-8 border-input bg-card" /></label>
       <div className="grid grid-cols-2 gap-2">
-        <label className={field}><span className={label}>{t('inspector.kind')}</span><Select value={item.kind} onValueChange={value => { if (value) update({ kind: value as Kind, custom_kind: value === 'custom' ? item.custom_kind || t('canvas.custom_kind_default') : '' }) }}><SelectTrigger aria-label={t('inspector.kind_label')} className="h-8 w-full border-input bg-card text-xs"><SelectValue>{catalog.kinds[item.kind]}</SelectValue></SelectTrigger><SelectContent>{Object.entries(catalog.kinds).map(([key, text]) => <SelectItem key={key} value={key}>{text}</SelectItem>)}</SelectContent></Select></label>
+        <div className={field}><span aria-hidden className={label}>{t('inspector.kind')}</span><KindField component={item} catalog={catalog} onChange={update} /></div>
         <label className={field}><span className={label}>{t('inspector.technology')}</span><Input value={item.technology ?? ''} maxLength={80} placeholder={t('inspector.technology_placeholder')} onChange={event => update({ technology: event.target.value })} className="h-8 border-input bg-card" /></label>
       </div>
-      {item.kind === 'custom' && <label className={field}><span className={label}>{t('inspector.custom_kind')}</span><Input value={item.custom_kind ?? ''} maxLength={80} onChange={event => update({ custom_kind: event.target.value })} placeholder={t('inspector.custom_kind_placeholder')} className="h-8 border-input bg-card" /></label>}
       {item.kind === 'custom' && <label className={field}><span className={label}>{t('inspector.custom_base')}</span><Select value={item.custom_base || 'service'} onValueChange={value => { if (value) update({ custom_base: value as Exclude<Kind, 'custom'> }) }}><SelectTrigger aria-label={t('inspector.custom_base')} className="h-8 w-full border-input bg-card text-xs"><SelectValue>{catalog.kinds[item.custom_base || 'service']}</SelectValue></SelectTrigger><SelectContent>{Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, text]) => <SelectItem key={key} value={key}>{text}</SelectItem>)}</SelectContent></Select><p className="mt-1 text-[11px] text-app-subtle">{t('inspector.custom_base_hint')}</p></label>}
       <ColorPicker label={t('inspector.color')} value={item.color} automatic={t('inspector.color_by_kind', { color: t(TONE_NAMES[kindTone(item)]).toLowerCase() })} onChange={color => update({ color })} />
       {isManual(item) && <LegendLabelField model={model} setModel={setModel} tone={toneOf(item)} />}
@@ -396,9 +402,10 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
         groups={assetGroups(catalog, model).map(group => ({ label: group.label, options: group.items.map(asset => ({ value: asset.id, label: asset.name })) }))} />{item.asset_ref && !item.asset && <p className="mt-1 text-xs text-attention">{t('inspector.imported_ref', { ref: item.asset_ref })}</p>}</label>
       {item.asset && <div className={field}><label htmlFor="tm-component-path" className={label}>{t('inspector.path')}</label><Input id="tm-component-path" aria-describedby="tm-component-path-hint" value={item.path ?? ''} maxLength={200} placeholder={t('inspector.path_placeholder')} onChange={event => update({ path: event.target.value })} className="h-8 border-input bg-card font-mono text-xs" />
         <p id="tm-component-path-hint" className="text-[11px] leading-4 text-app-subtle">{t('inspector.path_hint')}</p></div>}
-      <div className={field} role="group" aria-label={t('inspector.component_data')}><span aria-hidden className={label}>{t('inspector.component_data')}</span><Chips value={item.data} options={catalog.classifications} onChange={data => update({ data })} /></div>
+      <div className={field}><span aria-hidden className={label}>{t('inspector.component_data')}</span><DataField label={t('inspector.component_data')} value={item.data} catalog={catalog} onChange={data => update({ data })} /></div>
       <div className="space-y-1.5"><Check checked={item.internet_facing} onChange={internet_facing => update({ internet_facing })}>{t('canvas.internet_facing')}</Check><Check checked={item.authenticates} onChange={authenticates => update({ authenticates })}>{t('inspector.authenticates')}</Check>
         {STORES.includes(item.kind === 'custom' ? item.custom_base ?? 'service' : item.kind) && <Check checked={item.encrypted_at_rest} onChange={encrypted_at_rest => update({ encrypted_at_rest })}>{t('canvas.encrypted_at_rest')}</Check>}</div>
+      <CustomPropertiesField compact value={item.custom_properties} onChange={custom_properties => update({ custom_properties })} />
       <Button size="sm" variant="ghost" onClick={onRemove}><TrashIcon />{t('inspector.remove_component')}</Button>
     </aside>
   }

@@ -28,6 +28,7 @@ from pathlib import Path
 
 from pitangus.modules.threats import diagram as threat_diagram
 from pitangus.modules.threats import methods as threat_methods
+from pitangus.modules.threats.problems import KEPT, KEPT_LIMIT, Item, Problems, pointer
 from pitangus.modules.threats import report as threat_report
 from pitangus.modules.findings import triage
 from pitangus.shared import documents
@@ -35,11 +36,12 @@ from pitangus.shared.i18n import default_locale, localize, msg, t, text
 
 
 class ModelError(ValueError):
-    """A validation error; `message` is a language-neutral message, str() renders it in the default locale."""
+    """A validation error; `message` is a language-neutral message, str() renders it in the default locale.
+    `problems`: every problem found, when the whole model was read (see problems.py)."""
 
-    def __init__(self, message):
+    def __init__(self, message, problems: list[dict] | None = None):
         super().__init__(message)
-        self.message = message
+        self.message, self.problems = message, problems or []
 
     def __str__(self) -> str:
         return text(self.message)
@@ -124,136 +126,343 @@ def _box(raw) -> dict | None:
 
 # ------------------------------------------------------------ validation
 
-def _color(value, identifier: str) -> str:
+# Our lists are suggestions: a team's own protocol, component type or data class is kept as written (cleaned and
+# bounded). Pitangus only reasons about the values it knows (encryption by protocol, rules by type, sensitivity by
+# class); the others get no automatic checks. Closed on purpose: ids, references, colors (palette tokens), the
+# method and its modules, and the ordinal scales (severity, likelihood, impact, difficulty), which sort and score.
+PROTOCOL_LIMIT, DATA_LIMIT = 24, 40
+KIND_ALIASES = {"webapp": "web_app", "web": "web_app", "frontend": "web_app", "user": "actor", "db": "database",
+                "lambda": "function", "serverless": "function", "bucket": "storage", "idp": "identity"}
+DATA_ALIASES = {"personal": "pii", "personal_data": "pii", "secrets": "credentials", "secret": "credentials",
+                "pci": "payment", "card": "payment", "cards": "payment", "private": "confidential", "sensitive": "confidential"}
+MODEL_KEYS = {"name", "description", "methodology", "custom_modules", "components", "flows", "boundaries", "legend", "repositories",
+              "repository_refs", "assumptions", "level_equivalents", "manual_threats", "pasta", "attack_trees", "attack_mappings"}
+STORED_KEYS = {"id", "created_at", "created_by", "updated_at", "updated_by", "decisions"}
+COMPONENT_KEYS = {"id", "name", "kind", "custom_kind", "custom_base", "description", "technology", "asset", "asset_ref", "path",
+                  "position", "size", "data", "internet_facing", "authenticates", "encrypted_at_rest", "color", "origin"}
+FLOW_KEYS = {"id", "source", "target", "name", "protocol", "description", "data", "authenticated", "encrypted"}
+BOUNDARY_KEYS = {"id", "name", "components", "description", "box", "color"}
+DESCRIPTION_LIMIT = 1000  # a flow's or a boundary's description (a component's: 400, shown on the canvas)
+# Field synonyms read as ours, with an info (documented in the JSON Schema): what assistants and other tools write.
+MODEL_ALIASES = {"title": "name", "approach": "methodology", "method": "methodology", "methodology_name": "methodology",
+                 "modules": "custom_modules", "trust_boundaries": "boundaries", "data_flows": "flows", "dataflows": "flows",
+                 "elements": "components", "threats_manual": "manual_threats", "team_threats": "manual_threats",
+                 "trees": "attack_trees", "mappings": "attack_mappings", "attack_techniques": "attack_mappings", "techniques": "attack_mappings"}
+COMPONENT_ALIASES = {"type": "kind", "title": "name", "label": "name", "tech": "technology", "stack": "technology",
+                     "data_classes": "data", "data_classification": "data", "classification": "data"}
+FLOW_ALIASES = {"from": "source", "to": "target", "source_id": "source", "target_id": "target", "src": "source", "dst": "target",
+                "destination": "target", "label": "name", "title": "name", "data_classes": "data", "data_classification": "data",
+                "classification": "data"}
+BOUNDARY_ALIASES = {"members": "components", "component_ids": "components", "elements": "components", "contains": "components",
+                    "title": "name", "label": "name"}
+
+
+def _key(value: str) -> str:
+    return "_".join(value.strip().lower().replace("-", "_").split())
+
+
+def _protocol(value, problems: Problems, path: str, identifier, *, encryption_given: bool = False) -> str:
+    if value in (None, ""):
+        problems.warning(path, msg("threats.problems.protocol_missing"), identifier)
+        return "other"
+    if not isinstance(value, str):
+        problems.error(path, msg("threats.problems.not_text", field="protocol"), identifier)
+        return "other"
+    if value.strip().lower() in PROTOCOLS:
+        return value.strip().lower()
+    label = problems.text(value, PROTOCOL_LIMIT, path, msg("threats.fields.protocol"), identifier=identifier)
+    # A protocol is a short token on the diagram's arrows: letters, digits and a few separators, nothing else.
+    token = " ".join(re.sub(r"[^\w .+/:#()-]", "", label).split())
+    if token != label:
+        problems.warning(path, msg("threats.problems.cleaned", field=msg("threats.fields.protocol")), identifier)
+        label = token
+    if not label:
+        return "other"
+    # Pitangus can't tell whether the team's own protocol is encrypted: it matters only when the flow doesn't say.
+    if encryption_given:
+        problems.info(path, msg("threats.problems.custom_protocol_set", value=label), identifier)
+    else:
+        problems.warning(path, msg("threats.problems.custom_protocol", value=label), identifier)
+    return label
+
+
+def _data(value, problems: Problems, path: str, identifier) -> list[str]:
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):  # "pii, credentials": one class per comma
+        problems.info(path, msg("threats.problems.text_as_list", field="data"), identifier)
+        value = [part for part in value.split(",") if part.strip()]
+    if not isinstance(value, list):
+        problems.error(path, msg("threats.problems.not_a_list", field="data"), identifier)
+        return []
+    items: dict[str, str] = {}
+    for index, item in enumerate(value[:30]):
+        if not isinstance(item, str):
+            problems.error(f"{path}/{index}", msg("threats.problems.not_text", field="data"), identifier)
+            continue
+        key = DATA_ALIASES.get(_key(item), _key(item))
+        if key in CLASSIFICATIONS:
+            items.setdefault(key, key)
+            continue
+        label = problems.text(item, DATA_LIMIT, f"{path}/{index}", msg("threats.fields.data"), identifier=identifier)
+        if label:
+            problems.warning(f"{path}/{index}", msg("threats.problems.custom_data", value=label), identifier)
+            items.setdefault(label.lower(), label)
+    if len(value) > 30:
+        problems.warning(path, msg("threats.problems.truncated_list", field="data", limit=30), identifier)
+    known = sorted(item for item in items.values() if item in CLASSIFICATIONS)
+    return known + sorted((item for item in items.values() if item not in CLASSIFICATIONS), key=str.lower)
+
+
+def _color(value, problems: Problems, path: str, identifier) -> str:
     """Color picked in the editor: a palette token or nothing (automatic, by kind)."""
     if value in (None, ""):
         return ""
     if value not in threat_diagram.COLORS:
-        raise ModelError(msg("threats.errors.invalid_color", id=identifier))
+        problems.warning(path, msg("threats.problems.unknown_color", value=str(value)[:40], allowed=", ".join(threat_diagram.COLORS)), identifier)
+        return ""
     return value
 
 
-def _legend(raw, components: list[dict]) -> dict:
+def _legend(raw, components: list[dict], problems: Problems, path: str = "/legend") -> dict:
     """Team labels for manual colors ({tone: label}); labels of colors no component uses are dropped."""
     if raw in (None, {}):
         return {}
-    if not isinstance(raw, dict) or any(tone not in threat_diagram.COLORS for tone in raw):
-        raise ModelError(msg("threats.errors.invalid_legend"))
+    if not isinstance(raw, dict):
+        problems.error(path, msg("threats.errors.invalid_legend"))
+        return {}
+    for tone in raw:
+        if tone not in threat_diagram.COLORS:
+            problems.warning(path + pointer(tone), msg("threats.problems.unknown_color", value=str(tone)[:40], allowed=", ".join(threat_diagram.COLORS)))
     used = set(threat_diagram.legend_tones({"components": components})[1])
-    labels = {tone: _text(raw[tone], 40, msg("threats.fields.legend_label", color=threat_diagram.COLOR_NAMES[tone]))
+    labels = {tone: problems.text(raw[tone], 40, path + pointer(tone), msg("threats.fields.legend_label", color=threat_diagram.COLOR_NAMES[tone]))
               for tone in threat_diagram.COLORS if tone in raw}
     return {tone: label for tone, label in labels.items() if label and tone in used}
 
 
-def validate(payload: dict, *, known_assets: set[str]) -> dict:
-    """Normalizes a model coming from the panel. Anything unrecognized is rejected."""
+def _items(payload: dict, key: str, problems: Problems, path: str) -> list:
+    raw = payload.get(key)
+    if raw in (None, ""):
+        return []
+    if not isinstance(raw, list):
+        problems.error(path, msg("threats.problems.not_a_list", field=key))
+        return []
+    return raw
+
+
+def _component(item: Item, identifier: str, known_assets: set[str], problems: Problems) -> dict:
+    kind, custom_kind = item.get("kind"), ""
+    if kind in (None, ""):
+        problems.warning(item.at("kind"), msg("threats.problems.kind_missing"), identifier)
+        kind = "service"
+    elif not isinstance(kind, str):
+        problems.error(item.at("kind"), msg("threats.problems.not_text", field="kind"), identifier)
+        kind = "service"
+    elif KIND_ALIASES.get(_key(kind), _key(kind)) in KINDS:
+        kind = KIND_ALIASES.get(_key(kind), _key(kind))
+    else:
+        custom_kind = problems.text(kind, 80, item.at("kind"), msg("threats.fields.custom_kind"), identifier=identifier)
+        problems.warning(item.at("kind"), msg("threats.problems.custom_kind", value=custom_kind), identifier)
+        kind = "custom"
+    if item.get("name") in (None, ""):
+        problems.warning(item.at("name"), msg("threats.problems.name_from_id"), identifier)
+        name = identifier
+    else:
+        name = problems.text(item.get("name"), 80, item.at("name"), msg("threats.fields.component_name"), required=True, identifier=identifier)
+    base = ""
+    if kind == "custom":
+        custom_kind = custom_kind or problems.text(item.get("custom_kind"), 80, item.at("custom_kind"), msg("threats.fields.custom_kind"), identifier=identifier) or name
+        base = problems.choice(item.get("custom_base"), tuple(KINDS.keys() - {"custom"}), "service", item.at("custom_base"), "custom_base", identifier, aliases=KIND_ALIASES)
+    asset = item.get("asset")
+    if asset not in (None, "") and (not isinstance(asset, str) or asset not in known_assets):
+        problems.error(item.at("asset"), msg("threats.errors.unknown_asset", id=identifier), identifier)
+        asset = None
+    try:
+        folder = _folder(item.get("path"), msg("threats.fields.folder", id=identifier))
+    except ModelError as exc:
+        problems.warning(item.at("path"), exc.message, identifier)
+        folder = ""
+    return item.keep({
+        "id": identifier, "name": name, "kind": kind, "custom_kind": custom_kind, "custom_base": base,
+        "description": problems.text(item.get("description"), 400, item.at("description"), msg("threats.fields.description"), identifier=identifier),
+        "technology": problems.text(item.get("technology"), 80, item.at("technology"), msg("threats.fields.technology"), identifier=identifier),
+        "asset": asset or None, "asset_ref": problems.text(item.get("asset_ref"), 200, item.at("asset_ref"), msg("threats.fields.asset_ref"), identifier=identifier),
+        "path": folder, "position": _position(item.get("position")), "size": _size(item.get("size")),
+        "data": _data(item.get("data"), problems, item.at("data"), identifier),
+        "internet_facing": problems.flag(item.get("internet_facing"), item.at("internet_facing"), "internet_facing", identifier),
+        "authenticates": problems.flag(item.get("authenticates"), item.at("authenticates"), "authenticates", identifier),
+        "encrypted_at_rest": problems.flag(item.get("encrypted_at_rest"), item.at("encrypted_at_rest"), "encrypted_at_rest", identifier),
+        "color": _color(item.get("color"), problems, item.at("color"), identifier),
+        "origin": item.get("origin") if item.get("origin") in ("suggested", "manual") else "manual"})
+
+
+def _flow(item: Item, identifier: str, ids: set[str], problems: Problems) -> dict | None:
+    ends_ok = True
+    for end in ("source", "target"):
+        value = item.get(end)
+        if not isinstance(value, str) or value not in ids:
+            problems.error(item.at(end), msg("threats.problems.dangling", field=end, value=str(value)[:40]), identifier)
+            ends_ok = False
+    if ends_ok and item.get("source") == item.get("target"):
+        problems.error(item.at("target"), msg("threats.errors.flow_ends", id=identifier), identifier)
+        ends_ok = False
+    explicit = isinstance(item.get("encrypted"), bool)
+    protocol = _protocol(item.get("protocol"), problems, item.at("protocol"), identifier, encryption_given=explicit)
+    entry = {"id": identifier, "source": item.get("source"), "target": item.get("target"),
+             "name": problems.text(item.get("name"), 80, item.at("name"), msg("threats.fields.flow_name"), identifier=identifier), "protocol": protocol,
+             "description": problems.text(item.get("description"), DESCRIPTION_LIMIT, item.at("description"), msg("threats.fields.description"), multiline=True, identifier=identifier),
+             "data": _data(item.get("data"), problems, item.at("data"), identifier),
+             "authenticated": problems.flag(item.get("authenticated"), item.at("authenticated"), "authenticated", identifier),
+             "encrypted": problems.flag(item.get("encrypted"), item.at("encrypted"), "encrypted", identifier) or protocol in ("https", "sftp")}
+    return item.keep(entry) if ends_ok else None
+
+
+def inspect(payload, *, known_assets: set[str], problems: Problems | None = None) -> tuple[dict, Problems]:
+    """Reads a model and returns it normalized, with every problem found (it never stops at the first)."""
+    problems = problems if problems is not None else Problems()
     if not isinstance(payload, dict):
-        raise ModelError(msg("threats.errors.invalid_model"))
-    model = {"name": _text(payload.get("name"), 80, msg("threats.fields.name"), required=True),
-             "description": _text(payload.get("description"), 1000, msg("threats.fields.description"))}
+        problems.error("", msg("threats.errors.invalid_model"))
+        return {}, problems
+    top = problems.read(payload, MODEL_KEYS | STORED_KEYS, "", aliases=MODEL_ALIASES, limit=KEPT_LIMIT * 5)
+    payload = top.values
+    model = {"name": problems.text(top.get("name"), 80, top.at("name"), msg("threats.fields.name"), required=True),
+             "description": problems.text(top.get("description"), 1000, top.at("description"), msg("threats.fields.description"))}
     components, ids = [], set()
-    for raw in payload.get("components") or []:
+    for index, raw in enumerate(_items(payload, "components", problems, top.at("components"))):
+        path = top.at("components") + pointer(index)
         if not isinstance(raw, dict):
-            raise ModelError(msg("threats.errors.invalid_component"))
-        identifier = raw.get("id")
+            problems.error(path, msg("threats.errors.invalid_component"))
+            continue
+        item = problems.read(raw, COMPONENT_KEYS, path, raw.get("id"), aliases=COMPONENT_ALIASES)
+        identifier = item.get("id")
         if not isinstance(identifier, str) or not ID.fullmatch(identifier) or identifier in ids:
-            raise ModelError(msg("threats.errors.component_id"))
-        if raw.get("kind") not in KINDS:
-            raise ModelError(msg("threats.errors.invalid_kind", id=identifier))
-        if raw.get("kind") == "custom" and raw.get("custom_base", "service") not in KINDS.keys() - {"custom"}:
-            raise ModelError(msg("threats.errors.invalid_base", id=identifier))
-        data = raw.get("data") or []
-        if not isinstance(data, list) or any(item not in CLASSIFICATIONS for item in data):
-            raise ModelError(msg("threats.errors.invalid_data", id=identifier))
-        asset = raw.get("asset")
-        if asset not in (None, "") and asset not in known_assets:
-            raise ModelError(msg("threats.errors.unknown_asset", id=identifier))
+            problems.error(item.at("id"), msg("threats.problems.duplicate_id" if identifier in ids else "threats.errors.component_id", value=str(identifier)[:40]),
+                           identifier)
+            continue
         ids.add(identifier)
-        components.append({"id": identifier, "name": _text(raw.get("name"), 80, msg("threats.fields.component_name"), required=True),
-                           "kind": raw["kind"], "custom_kind": _text(raw.get("custom_kind"), 80, msg("threats.fields.custom_kind"), required=raw["kind"] == "custom") if raw["kind"] == "custom" else "",
-                           "custom_base": raw.get("custom_base", "service") if raw["kind"] == "custom" else "",
-                           "description": _text(raw.get("description"), 400, msg("threats.fields.description")),
-                           "technology": _text(raw.get("technology"), 80, msg("threats.fields.technology")),
-                           "asset": asset or None, "asset_ref": _text(raw.get("asset_ref"), 200, msg("threats.fields.asset_ref")),
-                           "path": _folder(raw.get("path"), msg("threats.fields.folder", id=identifier)),
-                           "position": _position(raw.get("position")), "size": _size(raw.get("size")), "data": sorted(set(data)),
-                           "internet_facing": bool(raw.get("internet_facing")),
-                           "authenticates": bool(raw.get("authenticates")),
-                           "encrypted_at_rest": bool(raw.get("encrypted_at_rest")),
-                           "color": _color(raw.get("color"), identifier),
-                           "origin": raw.get("origin") if raw.get("origin") in ("suggested", "manual") else "manual"})
+        components.append(_component(item, identifier, known_assets, problems))
     flows, flow_ids = [], set()
-    for raw in payload.get("flows") or []:
+    for index, raw in enumerate(_items(payload, "flows", problems, top.at("flows"))):
+        path = top.at("flows") + pointer(index)
         if not isinstance(raw, dict):
-            raise ModelError(msg("threats.errors.invalid_flow"))
-        identifier = raw.get("id")
+            problems.error(path, msg("threats.errors.invalid_flow"))
+            continue
+        item = problems.read(raw, FLOW_KEYS, path, raw.get("id"), aliases=FLOW_ALIASES)
+        identifier = item.get("id")
         if not isinstance(identifier, str) or not ID.fullmatch(identifier) or identifier in flow_ids:
-            raise ModelError(msg("threats.errors.flow_id"))
+            problems.error(item.at("id"), msg("threats.problems.duplicate_id" if identifier in flow_ids else "threats.errors.flow_id", value=str(identifier)[:40]), identifier)
+            continue
         if identifier in ids:  # threats, tree steps and techniques point at an element by its id alone
-            raise ModelError(msg("threats.errors.flow_id_taken", id=identifier))
-        if raw.get("source") not in ids or raw.get("target") not in ids or raw["source"] == raw["target"]:
-            raise ModelError(msg("threats.errors.flow_ends", id=identifier))
-        if raw.get("protocol") not in PROTOCOLS:
-            raise ModelError(msg("threats.errors.invalid_protocol", id=identifier))
-        data = raw.get("data") or []
-        if not isinstance(data, list) or any(item not in CLASSIFICATIONS for item in data):
-            raise ModelError(msg("threats.errors.invalid_data", id=identifier))
+            problems.error(item.at("id"), msg("threats.errors.flow_id_taken", id=identifier), identifier)
+            continue
         flow_ids.add(identifier)
-        flows.append({"id": identifier, "source": raw["source"], "target": raw["target"],
-                      "name": _text(raw.get("name"), 80, msg("threats.fields.flow_name")), "protocol": raw["protocol"],
-                      "data": sorted(set(data)), "authenticated": bool(raw.get("authenticated")),
-                      "encrypted": bool(raw.get("encrypted")) or raw["protocol"] in ("https", "sftp")})
-    boundaries, boundary_ids, placed = [], set(), set()
-    for raw in payload.get("boundaries") or []:
+        entry = _flow(item, identifier, ids, problems)
+        if entry:
+            flows.append(entry)
+    boundaries, boundary_ids, placed = [], set(), {}
+    for index, raw in enumerate(_items(payload, "boundaries", problems, top.at("boundaries"))):
+        path = top.at("boundaries") + pointer(index)
         if not isinstance(raw, dict):
-            raise ModelError(msg("threats.errors.invalid_boundary"))
-        identifier = raw.get("id")
-        members = raw.get("components") or []
+            problems.error(path, msg("threats.errors.invalid_boundary"))
+            continue
+        item = problems.read(raw, BOUNDARY_KEYS, path, raw.get("id"), aliases=BOUNDARY_ALIASES)
+        identifier = item.get("id")
         if not isinstance(identifier, str) or not ID.fullmatch(identifier) or identifier in boundary_ids:
-            raise ModelError(msg("threats.errors.boundary_id"))
-        if not isinstance(members, list) or any(item not in ids for item in members):
-            raise ModelError(msg("threats.errors.boundary_members", id=identifier))
-        if placed.intersection(members):
-            raise ModelError(msg("threats.errors.one_boundary"))
-        placed.update(members)
+            problems.error(item.at("id"), msg("threats.problems.duplicate_id" if identifier in boundary_ids else "threats.errors.boundary_id", value=str(identifier)[:40]), identifier)
+            continue
         boundary_ids.add(identifier)
-        boundaries.append({"id": identifier, "name": _text(raw.get("name"), 80, msg("threats.fields.boundary_name"), required=True),
-                           "components": list(dict.fromkeys(members)), "box": _box(raw.get("box")),
-                           "color": _color(raw.get("color"), identifier)})
+        members = item.get("components") or []
+        if not isinstance(members, list):
+            problems.error(item.at("components"), msg("threats.problems.not_a_list", field="components"), identifier)
+            members = []
+        kept = []
+        for position, member in enumerate(members):
+            where = item.at("components") + pointer(position)
+            if not isinstance(member, str) or member not in ids:
+                problems.error(where, msg("threats.problems.dangling", field="components", value=str(member)[:40]), identifier)
+            elif member in placed and placed[member] != identifier:
+                problems.warning(where, msg("threats.problems.second_boundary", value=member, boundary=placed[member]), identifier)
+            elif member not in kept:
+                kept.append(member)
+                placed[member] = identifier
+        if item.get("name") in (None, ""):
+            problems.warning(item.at("name"), msg("threats.problems.name_from_id"), identifier)
+            name = identifier
+        else:
+            name = problems.text(item.get("name"), 80, item.at("name"), msg("threats.fields.boundary_name"), required=True, identifier=identifier)
+        boundaries.append(item.keep({"id": identifier, "name": name, "components": kept,
+                                     "description": problems.text(item.get("description"), DESCRIPTION_LIMIT, item.at("description"), msg("threats.fields.description"),
+                                                                  multiline=True, identifier=identifier),
+                                     "box": _box(item.get("box")), "color": _color(item.get("color"), problems, item.at("color"), identifier)}))
     too_many = {"components": msg("threats.errors.too_many_components", limit=LIMITS["components"]),
                 "flows": msg("threats.errors.too_many_flows", limit=LIMITS["flows"]),
                 "boundaries": msg("threats.errors.too_many_boundaries", limit=LIMITS["boundaries"])}
     for key, items in (("components", components), ("flows", flows), ("boundaries", boundaries)):
         if len(items) > LIMITS[key]:
-            raise ModelError(too_many[key])
+            problems.error(top.at(key), too_many[key])
     repositories = payload.get("repositories") or []
     if not isinstance(repositories, list) or len(repositories) > 50 or any(not isinstance(item, str) for item in repositories):
-        raise ModelError(msg("threats.errors.invalid_repositories"))
-    if any(item not in known_assets for item in repositories):
-        raise ModelError(msg("threats.errors.unknown_repository"))
+        problems.error(top.at("repositories"), msg("threats.errors.invalid_repositories"))
+        repositories = []
+    elif any(item not in known_assets for item in repositories):
+        problems.error(top.at("repositories"), msg("threats.errors.unknown_repository"))
+        repositories = [item for item in repositories if item in known_assets]
     # The repositories the components use belong to the project even if nobody added them by hand.
     model["repositories"] = list(dict.fromkeys([*repositories, *(item["asset"] for item in components if item.get("asset") and not item["asset"].startswith("domain:"))]))
     references = payload.get("repository_refs") or []
     if not isinstance(references, list) or len(references) > 50:
-        raise ModelError(msg("threats.errors.invalid_repository_refs"))
-    model["repository_refs"] = list(dict.fromkeys(_text(item, 200, msg("threats.fields.repository_ref"), required=True) for item in references))
-    try:
-        # What is specific to the chosen approach: hand-written threats, trees, ATT&CK techniques, PASTA stages.
-        extras = threat_methods.validate(payload, elements=ids | flow_ids)
-    except threat_methods.MethodError as exc:
-        raise ModelError(exc.message) from exc
-    model["legend"] = _legend(payload.get("legend"), components)
-    return {**model, "components": components, "flows": flows, "boundaries": boundaries, **extras}
+        problems.error(top.at("repository_refs"), msg("threats.errors.invalid_repository_refs"))
+        references = []
+    model["repository_refs"] = list(dict.fromkeys(value for index, item in enumerate(references)
+                                                  if (value := problems.text(item, 200, top.at("repository_refs") + pointer(index), msg("threats.fields.repository_ref"), required=True))))
+    model["assumptions"] = threat_methods.assumptions(payload.get("assumptions"), problems, top.at("assumptions"))
+    # What is specific to the chosen approach: hand-written threats, trees, ATT&CK techniques, PASTA stages.
+    extras = threat_methods.validate(payload, elements=ids | flow_ids, problems=problems, top=top)
+    model["level_equivalents"] = threat_methods.equivalents(payload.get("level_equivalents"), problems, top.at("level_equivalents"))
+    model["legend"] = _legend(payload.get("legend"), components, problems, top.at("legend"))
+    return top.keep({**model, "components": components, "flows": flows, "boundaries": boundaries, **extras}), problems
+
+
+def _raise(problems: Problems) -> None:
+    errors = problems.errors
+    if errors:
+        raise ModelError(errors[0]["message"], problems.listing())
+
+
+def validate(payload: dict, *, known_assets: set[str]) -> dict:
+    """Normalizes a model coming from the panel; any error stops it (ModelError carries every problem)."""
+    model, problems = inspect(payload, known_assets=known_assets)
+    _raise(problems)
+    return model
+
+
+def _restored(entry: dict) -> dict:
+    """An object as the person wrote it: its custom properties go back next to our fields. One that shares a name with
+    ours (a STRIDE model's own category, say) stays under custom_properties, where the importer reads it again."""
+    kept = entry.get(KEPT) or {}
+    own = {key: _restored_value(value) for key, value in entry.items() if key != KEPT}
+    clashing = {key: value for key, value in kept.items() if key in own}
+    return {**{key: value for key, value in kept.items() if key not in own}, **own, **({KEPT: clashing} if clashing else {})}
+
+
+def _restored_value(value):
+    if isinstance(value, list):
+        return [_restored(item) if isinstance(item, dict) else item for item in value]
+    return value
 
 
 def to_portable(model: dict, assets: dict[str, dict] | None = None) -> dict:
-    """Editable format: no local IDs, decisions or scan evidence."""
+    """Editable format: no local IDs, decisions or scan evidence; the fields Pitangus kept without using, back where
+    they were."""
     assets = assets or {}
     def label(identifier: str) -> str:
         return assets.get(identifier, {}).get("name") or identifier
 
     fields = ("name", "description", "methodology", "components", "flows", "boundaries")
     portable = {key: model[key] for key in fields if key in model}
+    for key in ("assumptions", "level_equivalents"):
+        if model.get(key):
+            portable[key] = model[key]
     if model.get("legend"):
         portable["legend"] = model["legend"]
     if model.get("methodology") == "custom":
@@ -269,52 +478,126 @@ def to_portable(model: dict, assets: dict[str, dict] | None = None) -> dict:
         entry = {key: value for key, value in component.items() if key != "asset"}
         entry["asset_ref"] = label(component["asset"]) if component.get("asset") else component.get("asset_ref") or ""
         portable["components"].append(entry)
-    return {"format": "pitangus-threat-model", "version": 1, "model": portable}
+    if isinstance(portable.get("pasta"), dict):
+        portable["pasta"] = _restored(portable["pasta"])
+    if model.get(KEPT):
+        portable[KEPT] = model[KEPT]
+    return {"format": "pitangus-threat-model", "version": 1, "model": _restored(portable)}
 
 
-def from_portable(document: dict) -> dict:
-    """Imports a model without trusting asset IDs or linking them automatically."""
+def inspect_portable(document) -> tuple[dict | None, list[dict]]:
+    """Reads the portable format without trusting asset IDs or linking them automatically. Returns the model (None
+    when there are errors) and every problem, with paths into `document` as written."""
+    problems = Problems()
     if not isinstance(document, dict):
-        raise ModelError(msg("threats.errors.not_an_object"))
+        problems.error("", msg("threats.errors.not_an_object"))
+        return None, problems.listing()
     if "format" in document or "version" in document:
         # Files exported before the rename to Pitangus carry the old format name.
-        if document.get("format") not in ("pitangus-threat-model", "tamandua-threat-model") or document.get("version") != 1:
-            raise ModelError(msg("threats.errors.unsupported_format"))
+        if document.get("format") not in ("pitangus-threat-model", "tamandua-threat-model"):
+            problems.error("/format", msg("threats.errors.unsupported_format"))
+        if document.get("version") != 1:
+            problems.error("/version", msg("threats.errors.unsupported_format"))
+        problems.keys(document, {"format", "version", "model"}, "")
         raw = document.get("model")
+        problems.base = "/model"
     else:
         raw = document
     if not isinstance(raw, dict):
-        raise ModelError(msg("threats.errors.model_not_an_object"))
+        problems.error("", msg("threats.errors.model_not_an_object"))
+        return None, problems.listing()
     repositories = raw.get("repositories") or []
     references = raw.get("repository_refs") or []
-    if not isinstance(repositories, list) or not isinstance(references, list):
-        raise ModelError(msg("threats.errors.refs_not_a_list"))
+    if not isinstance(repositories, list):
+        problems.error("/repositories", msg("threats.errors.refs_not_a_list"))
+        repositories = []
+    if not isinstance(references, list):
+        problems.error("/repository_refs", msg("threats.errors.refs_not_a_list"))
+        references = []
     components = raw.get("components") or []
-    if not isinstance(components, list):
-        raise ModelError(msg("threats.errors.components_not_a_list"))
-    detached = []
-    for item in components:
-        if not isinstance(item, dict):
-            raise ModelError(msg("threats.errors.invalid_component"))
-        reference = item.get("asset_ref") or item.get("asset") or ""
-        detached.append({**item, "asset": None, "asset_ref": reference})
+    detached = components
+    if isinstance(components, list):
+        detached = [{**item, "asset": None, "asset_ref": item.get("asset_ref") or item.get("asset") or ""} if isinstance(item, dict) else item
+                    for item in components]
     clean = {**raw, "components": detached, "repositories": [], "repository_refs": [*references, *repositories]}
-    imported = validate(clean, known_assets=set())
+    imported, problems = inspect(clean, known_assets=set(), problems=problems)
+    if imported:
+        allowed = _portable_sections(imported)
+        labels = {"manual_threats": msg("threats.sections.manual_threats"), "attack_trees": msg("threats.sections.attack_trees"),
+                  "attack_mappings": msg("threats.sections.attack_mappings"), "pasta": msg("threats.sections.pasta")}
+        for section, label in labels.items():
+            value = imported.get(section)
+            if isinstance(value, dict):
+                value = {key: item for key, item in value.items() if key != KEPT}
+            if value and section not in allowed:
+                if imported["methodology"] == "custom":  # Custom is full freedom: a section it brings turns its module on
+                    module = {"manual_threats": "manual", "attack_trees": "trees", "attack_mappings": "attack", "pasta": "pasta"}[section]
+                    imported["custom_modules"] = [*imported["custom_modules"], module]
+                    problems.info(pointer(section), msg("threats.problems.module_added", section=label))
+                    continue
+                method = threat_methods.METHODOLOGIES[imported["methodology"]]
+                problems.error(pointer(section), msg("threats.errors.section_not_allowed", method=method, section=label))
+        if imported["methodology"] != "custom" and raw.get("custom_modules") not in (None, [], ["manual", "elements"]):
+            problems.warning("/custom_modules", msg("threats.problems.custom_modules_ignored"))
+    if problems.errors:
+        return None, problems.listing()
     # Positions that don't fit their boundaries (small or overlapping boxes): re-laying out beats drawing them wrong.
     if not geometry_fits(imported):
         imported = {**imported, "components": [{**item, "position": None} for item in imported["components"]],
                     "boundaries": [{**item, "box": None} for item in imported["boundaries"]]}
         imported["relayout"] = True
-    allowed = _portable_sections(imported)
-    labels = {"manual_threats": msg("threats.sections.manual_threats"), "attack_trees": msg("threats.sections.attack_trees"),
-              "attack_mappings": msg("threats.sections.attack_mappings"), "pasta": msg("threats.sections.pasta")}
-    for section, label in labels.items():
-        if imported[section] and section not in allowed:
-            method = threat_methods.METHODOLOGIES[imported["methodology"]]
-            raise ModelError(msg("threats.errors.section_not_allowed", method=method, section=label))
-    if imported["methodology"] != "custom" and raw.get("custom_modules") not in (None, [], ["manual", "elements"]):
-        raise ModelError(msg("threats.errors.custom_modules_only"))
+    return imported, problems.listing()
+
+
+def from_portable(document: dict) -> dict:
+    """Imports a model; ModelError (with every problem) if it has errors. Warnings don't stop it."""
+    imported, problems = inspect_portable(document)
+    if imported is None:
+        first = next(item for item in problems if item["severity"] == "error")
+        raise ModelError(first["message"], problems)
     return imported
+
+
+def workspace_values(data_dir: Path) -> dict:
+    """The team's own values already used in this workspace's models, offered next to ours in the editor."""
+    seen: dict[str, dict[str, str]] = {key: {} for key in ("protocols", "kinds", "data", "categories", "techniques", "severities", "levels", "statuses")}
+
+    def add(group: str, value) -> None:
+        if isinstance(value, str) and value.strip() and len(seen[group]) < 100:
+            seen[group].setdefault(value.strip().lower(), value.strip())
+    for name in documents.names(data_dir, "threat-models/"):
+        model = documents.load(data_dir, name)
+        if not isinstance(model, dict):
+            continue
+        for component in model.get("components") or []:
+            if component.get("kind") == "custom":
+                add("kinds", component.get("custom_kind"))
+            for item in component.get("data") or []:
+                if item not in CLASSIFICATIONS:
+                    add("data", item)
+        for flow in model.get("flows") or []:
+            if flow.get("protocol") not in PROTOCOLS:
+                add("protocols", flow.get("protocol"))
+            for item in flow.get("data") or []:
+                if item not in CLASSIFICATIONS:
+                    add("data", item)
+        for threat in model.get("manual_threats") or []:
+            add("categories", threat.get("category"))
+            if threat.get("severity") not in threat_methods.SEVERITIES:
+                add("severities", threat.get("severity"))
+            for key in ("likelihood", "impact"):
+                if threat.get(key) not in (None, *threat_methods.LEVELS):
+                    add("levels", threat.get(key))
+        for tree in model.get("attack_trees") or []:
+            for node in tree.get("nodes") or []:
+                if node.get("difficulty") not in (None, *threat_methods.LEVELS):
+                    add("levels", node.get("difficulty"))
+        for mapping in model.get("attack_mappings") or []:
+            if mapping.get("technique") not in threat_methods.TECHNIQUES:
+                add("techniques", mapping.get("technique"))
+            if mapping.get("status") not in threat_methods.MAPPING_STATUS:
+                add("statuses", mapping.get("status"))
+    return {group: sorted(values.values(), key=str.lower) for group, values in seen.items()}
 
 
 def geometry_fits(model: dict) -> bool:
@@ -695,6 +978,11 @@ RULES = [
 SEVERITY_ORDER = ("critical", "high", "medium", "low")
 
 
+def severity_rank(value) -> int:
+    """Where a severity sorts: ours in order, a team's own level (without an equivalent) after them."""
+    return SEVERITY_ORDER.index(value) if value in SEVERITY_ORDER else len(SEVERITY_ORDER)
+
+
 def _index(model: dict) -> tuple[dict, dict]:
     components = {item["id"]: item for item in model.get("components", [])}
     boundary_of = {member: boundary["id"] for boundary in model.get("boundaries", []) for member in boundary["components"]}
@@ -718,7 +1006,7 @@ def _targets(model: dict, rules: list[dict] | None = None) -> list[tuple[dict, d
         if applies.startswith("flow_"):
             for flow in flows:
                 crosses = boundary_of.get(flow["source"]) != boundary_of.get(flow["target"])
-                sensitive = any(CLASSIFICATIONS[item] >= 3 for item in flow["data"])
+                sensitive = any(CLASSIFICATIONS.get(item, 2) >= 3 for item in flow["data"])
                 target = components[flow["target"]]
                 if ((applies == "flow_unencrypted_boundary" and crosses and not flow["encrypted"] and set(flow["data"]) - {"public"})
                         or (applies == "flow_to_external_sensitive" and _kind(target) == "external" and sensitive)
@@ -728,8 +1016,8 @@ def _targets(model: dict, rules: list[dict] | None = None) -> list[tuple[dict, d
         for component in components.values():
             kind = _kind(component)
             process = kind in PROCESSES
-            sensitive = any(CLASSIFICATIONS[item] >= 3 for item in component["data"]) or any(
-                CLASSIFICATIONS[item] >= 3 for flow in inbound[component["id"]] + outbound[component["id"]] for item in flow["data"])
+            sensitive = any(CLASSIFICATIONS.get(item, 2) >= 3 for item in component["data"]) or any(
+                CLASSIFICATIONS.get(item, 2) >= 3 for flow in inbound[component["id"]] + outbound[component["id"]] for item in flow["data"])
             # Personal data (LINDDUN): it stores it, or it comes in or goes out through some flow.
             personal = "pii" in component["data"] or any("pii" in flow["data"] for flow in inbound[component["id"]] + outbound[component["id"]])
             match = {
@@ -745,7 +1033,7 @@ def _targets(model: dict, rules: list[dict] | None = None) -> list[tuple[dict, d
                 "process_calls_out": process and any(_kind(components[flow["target"]]) in ("external", "service", "api", "identity") for flow in outbound[component["id"]]),
                 "inbound_from_external": process and any(_kind(components[flow["source"]]) == "external" for flow in inbound[component["id"]]),
                 "store_written_unauthenticated": kind in STORES and any(not flow["authenticated"] for flow in inbound[component["id"]]),
-                "store_sensitive_unencrypted": kind in STORES and not component["encrypted_at_rest"] and any(CLASSIFICATIONS[item] >= 3 for item in component["data"]),
+                "store_sensitive_unencrypted": kind in STORES and not component["encrypted_at_rest"] and any(CLASSIFICATIONS.get(item, 2) >= 3 for item in component["data"]),
                 "store_credentials": kind in STORES and "credentials" in component["data"],
                 "store_personal": kind in STORES and "pii" in component["data"],
                 "store_personal_unencrypted": kind in STORES and "pii" in component["data"] and not component["encrypted_at_rest"],
@@ -767,7 +1055,7 @@ def _severity(model: dict, rule: dict, component: dict | None, flow: dict | None
         related = [f for f in model.get("flows", []) if component["id"] in (f["source"], f["target"])]
         data = component["data"] + [item for f in related for item in f["data"]]
         exposure = 3 if component["internet_facing"] or _kind(component) in ("external", "identity") else 2 if related else 1
-    impact = max([CLASSIFICATIONS[item] for item in data] or [2])
+    impact = max([CLASSIFICATIONS.get(item, 2) for item in data] or [2])
     level = SEVERITY_ORDER.index(rule["base"])
     if exposure == 3 and impact >= 4:
         level -= 1
@@ -843,7 +1131,7 @@ def threats(model: dict, findings_by_asset: dict[str, list[dict]] | None = None,
         rows += _manual_rows(model, decisions)
     rows = localize(rows, locale or default_locale())
     order = {"evidenced": 0, "open": 1, "accepted": 2, "mitigated": 3, "not_applicable": 4}
-    return sorted(rows, key=lambda row: (order[row["status"]], SEVERITY_ORDER.index(row["severity"]), row["stride"], row["element_name"]))
+    return sorted(rows, key=lambda row: (order[row["status"]], severity_rank(row["severity"]), row["stride"], row["element_name"]))
 
 
 def _manual_rows(model: dict, decisions: dict) -> list[dict]:
@@ -852,6 +1140,7 @@ def _manual_rows(model: dict, decisions: dict) -> list[dict]:
     flows = {flow["id"]: flow for flow in model.get("flows", [])}
     # A category code of the approach ("S", "Dd") is shown with its name; anything else, as is.
     names = threat_methods.LINDDUN if model.get("methodology") == "linddun" else STRIDE
+    equivalent = (model.get("level_equivalents") or {}).get("severity") or {}
     rows = []
     for item in model.get("manual_threats", []):
         threat_id = hashlib.sha256(f"manual|{item['id']}".encode()).hexdigest()[:16]
@@ -864,9 +1153,13 @@ def _manual_rows(model: dict, decisions: dict) -> list[dict]:
                      "framework": "manual", "manual_id": item["id"], "title": item["title"], "why": item.get("scenario") or "",
                      "mitigations": [item["mitigation"]] if item.get("mitigation") else [], "cwe": [],
                      "element": element, "element_type": "flow" if flow else "component" if element in components else "system",
-                     "element_name": name, "severity": item["severity"], "status": decision["status"] if decision else "open",
+                     "element_name": name, "status": decision["status"] if decision else "open",
+                     # A team's own severity sorts as its equivalent, if it has one, and keeps its name.
+                     "severity": item["severity"] if item["severity"] in SEVERITY_ORDER else equivalent.get(item["severity"], item["severity"]),
+                     "severity_label": None if item["severity"] in SEVERITY_ORDER else item["severity"],
                      "decision": decision, "contradicted": False, "evidence": [], "evidence_count": 0, "evidence_scope": [],
-                     "likelihood": item.get("likelihood"), "impact": item.get("impact"), "owner": item.get("owner") or ""})
+                     "likelihood": item.get("likelihood"), "impact": item.get("impact"), "owner": item.get("owner") or "",
+                     "custom_properties": item.get(KEPT) or {}})
     return rows
 
 
@@ -920,7 +1213,7 @@ def to_threat_dragon(model: dict, rows: list[dict], *, locale: str | None = None
         by_element.setdefault(row["element"], []).append({
             "id": row["id"], "number": number, "title": row["title"],
             "type": (LINDDUN_EN if privacy else STRIDE_EN).get(row["stride"], row["category"]),
-            "status": status[row["status"]], "severity": {"critical": "High", "high": "High", "medium": "Medium", "low": "Low"}[row["severity"]],
+            "status": status[row["status"]], "severity": {"critical": "High", "high": "High", "medium": "Medium", "low": "Low"}.get(row["severity"], "Low"),
             "description": row["why"] + (" " + t("threats.exports.evidence", locale, count=row["evidence_count"]) if row["evidence_count"] else ""),
             "mitigation": "; ".join(row["mitigations"]), "modelType": "LINDDUN" if privacy else "STRIDE", "score": ""})
     layout = _layout(model)
@@ -931,7 +1224,8 @@ def to_threat_dragon(model: dict, rows: list[dict], *, locale: str | None = None
             cells.append({"id": f"b-{boundary['id']}", "shape": "trust-boundary-box", "zIndex": -1,
                           "position": {"x": box["x"], "y": box["y"]}, "size": {"width": box["width"], "height": box["height"]},
                           "attrs": {"label": {"text": boundary["name"]}},
-                          "data": {"type": "tm.BoundaryBox", "name": boundary["name"], "isTrustBoundary": True, "hasOpenThreats": False}})
+                          "data": {"type": "tm.BoundaryBox", "name": boundary["name"], "description": boundary.get("description", ""),
+                                   "isTrustBoundary": True, "hasOpenThreats": False}})
     for component in model.get("components", []):
         shape, kind = shapes[_kind(component)]
         position = layout["nodes"][component["id"]]
@@ -948,7 +1242,8 @@ def to_threat_dragon(model: dict, rows: list[dict], *, locale: str | None = None
         items = by_element.get(flow["id"], [])
         cells.append({"id": flow["id"], "shape": "flow", "zIndex": 2, "source": {"cell": flow["source"]}, "target": {"cell": flow["target"]},
                       "labels": [flow["name"] or flow["protocol"].upper()],
-                      "data": {"type": "tm.Flow", "name": flow["name"] or flow["protocol"].upper(), "protocol": flow["protocol"],
+                      "data": {"type": "tm.Flow", "name": flow["name"] or flow["protocol"].upper(), "description": flow.get("description", ""),
+                               "protocol": flow["protocol"],
                                "isEncrypted": flow["encrypted"], "isPublicNetwork": False, "outOfScope": False,
                                "reasonOutOfScope": "", "threats": items, "hasOpenThreats": any(item["status"] == "Open" for item in items)}})
     return {"version": "2.2.0", "summary": {"title": model["name"], "owner": model.get("updated_by", ""),
@@ -995,8 +1290,14 @@ def to_pytm(model: dict, *, locale: str | None = None) -> str:
              "from pytm import TM, Actor, Boundary, Dataflow, Datastore, ExternalEntity, Lambda, Process, Server", "",
              f"tm = TM({name(model['name'])})", f"tm.description = {name(model.get('description') or model['name'])}",
              "tm.isOrdered = True", ""]
+    for item in model.get("assumptions") or []:
+        lines.append(comment(t("threats.exports.pytm_assumption", locale, text=item["text"])))
+    if model.get("assumptions"):
+        lines.append("")
     for boundary in model.get("boundaries", []):
         lines.append(f"{boundary_vars[boundary['id']]} = Boundary({name(boundary['name'])})")
+        if boundary.get("description"):
+            lines.append(f"{boundary_vars[boundary['id']]}.description = {name(boundary['description'])}")
     lines.append("")
     for component in model.get("components", []):
         variable = variables[component["id"]]
@@ -1014,6 +1315,8 @@ def to_pytm(model: dict, *, locale: str | None = None) -> str:
         lines += [f"{variable} = Dataflow({variables[flow['source']]}, {variables[flow['target']]}, {name(label)})",
                   f"{variable}.protocol = {name(flow['protocol'].upper())}",
                   f"{variable}.isEncrypted = {flow['encrypted']}"]
+        if flow.get("description"):
+            lines.append(f"{variable}.description = {name(flow['description'])}")
     lines += ["", 'if __name__ == "__main__":', "    tm.process()", ""]
     return "\n".join(lines)
 

@@ -74,10 +74,24 @@ next run is recognized as the same finding. The register updates itself from fou
 
 Fingerprints are built to survive normal changes:
 
-- Secrets and Opengrep code findings keep their fingerprint when lines are added above them, so they don't look
-  fixed and new at once.
-- A secret is identified by its rule, its file and what precedes it on its line, never by its value.
-- A dependency advisory has one fingerprint whichever engine reports it and whatever it calls it.
+- Secrets, Opengrep code findings and zizmor's GitHub Actions findings keep their fingerprint when lines are added
+  above them, so they don't look fixed and new at once. A finding in an image's build history is known by the step's
+  command, not its position.
+- A secret is identified by its value, read where its engine said and only if everything the engine said about it
+  holds there (Betterleaks: its redacted match, its length and the value's entropy; Trivy: its offset from the start
+  of the file and the text it masked around it, line by line over a multi-line key) and holds for one value only.
+  Betterleaks' columns only count in a file it reads in one piece (up to 100 KB): past that it may count them from the
+  middle of any line (a minified bundle, a long file), so there the value must be the only one that fits anywhere on
+  its line. When the value can't be read
+  that way, the secret is *unlinkable*: named by its rule, its file and the content of its lines (line endings
+  normalized), never by its rule and place alone. The same content gives the same name and any change another; it
+  never inherits the triage of what was there before, and it is never marked fixed while its engine still reports a
+  secret of the same rule in its file, or another engine that saw it reports one there (it stays open, unverified).
+  Nor is a secret named by its value while an engine that saw it reports, in its file, one whose value couldn't be read.
+- A dependency advisory has one fingerprint whichever engine reports it and whatever it calls it. When an advisory
+  known by its GHSA gets a CVE, the finding stays the same one. Trivy and Grype agree on a package's name in images
+  (a Java package's `group:artifact`, a Go toolchain's `go1.22.1`), and two reports that were separate findings before
+  fold into one instead of one of them being marked fixed.
 - Findings from versions that computed fingerprints differently keep their state, triage, Jira issue and pending
   verification on the next scan.
 
@@ -86,7 +100,151 @@ GitHub stops giving access to a repository (deleted, or removed from the App), t
 come back within 24 hours, its findings, triage and linked tickets are deleted.
 
 A scan where an engine didn't run is **incomplete**: it doesn't mark anything as fixed, because "not seen" isn't
-"gone".
+"gone". For the same reason a complete scan doesn't fix a finding in a file it didn't analyze: one left out of the
+snapshot for its size, or one the engine that reports the finding skipped (Opengrep's files over 2 MB, say).
+
+A SAST match silenced in the code with a `nosemgrep` comment is listed under **Excluded** with that reason, never as
+fixed. It reopens if the comment goes away, and is fixed once the code it pointed at is gone. A SAST match in
+third-party code copied into the repository (a library, a minified file) is excluded the same way, with that reason.
+
+## Proof before fixing
+
+A finding is marked fixed only when the engine that owns it proved, in a scan that worked, that it looked where the
+finding was. `PITANGUS_COVERAGE_MODE` decides how strictly ([configuration.md](configuration.md)): `on` by default,
+which applies every rule below; `shadow` records what they would change and fixes as before 0.14.
+
+- **The engine contract.** Every engine's run must end with an exit code it uses for a run that read its input, and
+  output that is the JSON it always writes, with the mark it writes whenever it ran. Anything else (a crash, an empty
+  or truncated output, `null`, an error object, a timeout) means the run didn't finish, in every mode: the engine
+  opens nothing from it and fixes nothing it saw before.
+- **Coverage per file or page.** Each engine says which units it examined and which not, and why: a file Opengrep timed
+  out on, a lockfile or infrastructure file Trivy or OSV-Scanner couldn't parse, a file Checkov couldn't parse, a
+  workflow zizmor didn't finish, credential files a secret scanner couldn't read, a page whose own tool got a status
+  that proves nothing (anything but a 2xx, a 404 or a 410; for ZAP, anything but a 2xx; for a nuclei finding about one
+  path, anything but a 404 or a 410). Only
+  that unit goes unexamined; the rest of the engine's run still counts, also when the engine ended **partial**. Only an
+  engine that failed or broke its contract is blind as a whole. A manifest whose dependencies Trivy couldn't resolve (a
+  remote repository refusing a parent `pom.xml`, which stops Trivy's whole run) goes unexamined for dependencies only:
+  Trivy runs again without remote resolution, resolves each such manifest on its own, and its infrastructure files,
+  secrets and other manifests still count. Also unexamined for dependencies, with the step naming them: a manifest
+  whose packages came out without a resolved version (a parent `pom.xml` or a property that didn't resolve, which
+  Trivy reports with exit code 0 and OSV-Scanner without a word, or a requirement without an exact `==` pin, which
+  neither checks), every package counted; a manifest that isn't empty without a lockfile the engine reads beside it
+  (`build.gradle` without `gradle.lockfile`, `package.json` with no lock or only the binary `bun.lockb`, `Pipfile`,
+  `pyproject.toml`, `Gemfile`, `composer.json`, `Cargo.toml`…), whatever it declares. Whatever the package manager, a
+  dependency finding lives in the project folder of each file it was seen in: an engine examined that folder only if it
+  listed a package from a file in it in that scan, and proves the finding gone only if it listed packages from the file
+  the finding came from, so an advisory reported in a lockfile that was deleted, emptied, replaced or left listing nothing
+  is never fixed while its folder is in the repository, and one seen in several lockfiles waits for all of them; and a
+  manifest or lockfile in an encoding the engine doesn't read. A folder no longer in the repository holds nothing: what
+  came from it is fixed.
+- **Every engine that saw a finding must look again.** A finding two engines reported (Betterleaks and Trivy, Trivy and
+  OSV-Scanner, Trivy and Checkov) is fixed only when both, and any engine that saw it in an earlier scan, examined its
+  file in this one. One that didn't run, failed or passed over the file leaves it open.
+- **What the commit holds that the copy doesn't.** A file `.gitattributes` marks `export-ignore`, an LFS object that
+  wasn't downloaded, a submodule, a link or a name no file can be written under is listed as not analyzed for every
+  engine (see [Scanning code](scanning-code.md)): nothing found there is fixed by the archive leaving it out.
+- **Configuration never fixes.** Every scan records which engines were on and which rules each applied, with a digest of
+  what each rule matches. A finding is fixed only by a scan in which the rule that reported it ran, unchanged since the
+  finding was last seen, and its engine was on. Turning a rule off (an opt-in rule, a custom rule removed, the third-party
+  rules), turning an optional engine off (Checkov, Grype) or updating a rule leaves what it found **Not checked
+  (configuration)**, in every `PITANGUS_COVERAGE_MODE`; the finding's detail names the rule or engine. A secret an
+  allowlist entry or a disabled rule starts filtering is excluded with that reason, never fixed. Findings stored before
+  0.14 count as seen with the rules of 0.13.1.
+- **Unverified.** An open finding a scan couldn't check stays open, marked **Unverified since** the first such scan, and
+  counts in no deadline or indicator. After `PITANGUS_UNSEEN_WARN_SCANS` scans the asset's page warns (at once when the
+  configuration is why). It's never fixed on its own; seeing it again clears the mark.
+- **The fix hold.** A scan that would fix at least `PITANGUS_FIX_HOLD_PERCENT` of an asset's open findings, and at least
+  `PITANGUS_FIX_HOLD_MINIMUM`, holds its fixes and says so once on the asset's page, with why: how many it would have
+  fixed out of how many open. The next complete scan that proves the same findings gone applies them; an administrator
+  can mark them fixed at once (**Mark as fixed**). Openings are never held.
+- **Nothing unproven goes out.** Jira gets the "fixed" comment, and the notification channels a finding, only for what a
+  scan proved: a held or unverified finding sends nothing.
+- **Health.** `GET /api/findings/health` counts what makes fixes look doubtful: findings back within 30 days of being
+  fixed, scans that fixed far more than usual, open findings several engines report apart, unverified findings and the
+  share of engines blind in each asset's last scan.
+
+## Fix it with your own AI
+
+Every open finding's detail has **Copy prompt for your AI**: a ready-to-paste prompt for Claude, Cursor or Copilot
+with the rule, where it is, the matched code and the recommended fix (`pitangus scan --format prompt` gives the same in
+the terminal). It never carries a value: a secret finding and a hard-coded credential (CWE-798, 259, 321, 522) have
+no fragment at all, and any other fragment is the code's structure (see below). Nothing beyond the matched fragment is
+included, and Pitangus calls no AI for it: the assistant is yours.
+
+**Structure and common words, never values.** Every text that holds code, configuration or what an engine said about
+them goes through one renderer before anything stores, prints or sends it, whichever engine or import produced it: a
+finding's snippet (an imported SARIF's snippet or context region too, with its lines), the fragment in the prompt, an
+engine's message, an imported SARIF's rule texts, a step's detail, progress, limitations, the errors engines printed
+and what a failed scan logs. The renderer doesn't look for credentials, and it never keeps a word for where it stands:
+
+- **A word** (a run of letters, digits and `_`, in any script) is kept only if it is a common word: a word of a
+  programming language, of Pitangus's own vocabulary in English and Spanish, or of code and security writing in
+  general (`execute`, `request`, `args`, `sha256`, `injection`), or if it splits entirely, at `_`, at changes of case
+  and at digits, into such words and numbers of up to three digits (`getConnection`, `DB_PASSWORD`, `admin123`). Any
+  other word becomes `***`, wherever it is: a key, an identifier, an operand, a call's argument, a comment, a string, a
+  host name or a path segment of a URL.
+- **Punctuation and operators** are kept, so the code still reads: `cur.execute("SELECT k FROM t WHERE v = '…'" + q)`
+  reads `cur.execute("SELECT k FROM t WHERE v = '***'" + q)`, and `# creds: admin / Winter2024Corp` reads
+  `# ***: admin / ***`.
+- **A URL in a text** is read the same way, after percent-decoding, and also loses its user information and every
+  query and fragment value: `https://api.telegram.org/bot58…:AAF…/sendMessage` reads `https://api.***.org/***:***/sendMessage`.
+
+So a value survives only if it is made entirely of common words and numbers of up to three digits (`admin123` does;
+`Winter2024Corp`, `xK9#mP2` and any token don't). That is tested as a property: for a random value in any position of
+any format, through every engine and every output, no run of four or more of its letters and digits that isn't such a
+word appears anywhere.
+
+The addresses a scan was pointed at and the pages a web scan visited (a web finding's location, a run's target, the
+pages a scan reached, an imported SARIF's references) are URLs like any other and are rendered the same way: no
+exception for them. A web finding's identity and what proves it gone read the page as it was, before it is rendered:
+each page keeps a key (its scheme, host and port, and a digest of each piece of its path and of its query, never their
+text), so the same page keeps its identity from one scan to the next, its path template is built across scans as
+before, and two pages shown alike (`/users/***`) are still two pages. zizmor's findings store only where they are in the workflow (`jobs:` / `build:` / `steps[2]:`), never the YAML they
+point at. A finding's identity, and its identity anywhere in the repository (the pull request gate's), are computed
+from the original before it is rendered, so nothing looks new, fixed or moved. The values the secret engines detected
+are also replaced wherever they appear, in their encoded forms. What Pitangus's own rule catalog says and what public
+advisories say is shown as published. The upgrade to 0.14 renders what is already stored the same way (data migrations
+`render_stored_texts`, `render_stored_texts_lexicon` and `web_location_keys`: runs, the registry and pending
+notifications), pinning each stored web page's key first, so no identity changes.
+
+## One identity per problem
+
+How a finding is recognized from one scan to the next. `PITANGUS_IDENTITY_MODE` ([configuration.md](configuration.md))
+is `v2` by default: one finding per problem, by the identity below. With `shadow`, fingerprints work as before 0.14 while
+every finding carries its canonical identity and each scan records what grouping by it would change.
+
+- **By content, never by position.** Code is its rule, file and matched code without comments or formatting; a
+  configured resource, its address (`aws_s3_bucket.data`); a dependency, its advisory, its package as a purl and its
+  version as its ecosystem compares it (`v0.3.7` and `0.3.7` are one Go version); a secret, the HMAC of its value with
+  a key derived from the master key (neither the value nor the HMAC is ever stored, shown or exported), whatever key
+  holds it, in whichever format, quoted or not, and whichever engine found it (`API_KEY = "…"` in a `.env` and
+  `api_key: …` in YAML are one secret, and Betterleaks', Trivy's and an imported SARIF's reports of it are one finding;
+  a SARIF secret or hard-coded credential is keyed by its value too, never by its snippet; two values are never one
+  finding, even in the same place: changing `TOKEN = "A"` to `TOKEN = "B"` fixes A and opens B, a PR that does it
+  introduces B, and A's triage stays with A; one whose value can't be read for sure is unlinkable, named by its lines'
+  content, as above); a web finding,
+  the tool's rule, the host, the URL's path template, the evidence and the kind of scan that saw it (an anonymous crawl,
+  one with saved headers, one API definition or an exposure check: only a scan of that kind can tell it's gone, so the
+  same alert seen by two kinds is two findings). A line added above, a suppression comment, a reformat or the order an
+  engine lists its results in change nothing.
+- **Families with a count.** Identical problems (the same line pasted twice, the same secret in two files, one rule on
+  many pages of a template) are one finding with its count and where each copy is. A triage decision covers the copies
+  there were: one more puts the finding back to open with a note. One fewer is a partial fix on the same finding; it's
+  fixed when none is left where the scan looked. A copy in a file or page the scan couldn't check stays counted.
+- **When the engine gives no content** (a misconfiguration without an address, an imported result without code), the
+  family is the rule in its file, and the count tells the copies apart.
+- **Two engines, one problem.** Reports are joined only by identity, never by guessing from a line; when an older merge
+  folds one into another, the folded fingerprint stays among the finding's former names.
+- **Moving to `v2`.** `pitangus identity-gate` compares each repository's last two full scans by fingerprint and by
+  identity. Switch once every repository scanned twice on one commit gives 0/0 both ways; the first `v2` scan moves
+  each entry, its triage and its issue to its family by their former fingerprints, under the fix hold.
+  `pitangus identity-gate --scan PATH` does the same without a server: it scans the folder twice with this version and
+  fails (exit 3) if the second scan opens or fixes anything, excluded findings included. Pitangus' own CI runs it.
+- **Folding never relaxes triage.** When several fingerprints fold into one finding (copies grouped into a family, two
+  engines' reports joined), copies that agree keep their decision, with the earliest expiry among them; if they differ,
+  or one was never reviewed, the finding goes back to open for review. Every copy's history and every Jira issue go
+  along (the others stay linked under the first).
 
 ## Triage
 
@@ -136,14 +294,15 @@ docs/*.md
 
 Patterns work like `.gitignore`: a pattern that matches a folder excludes everything inside it (`fixtures` covers
 `fixtures/a/b.py`), `*` doesn't cross folders and `**` does. Patterns that would exclude everything (`**`, `*/**`),
-absolute paths and `..` are rejected.
+absolute paths and `..` are rejected. While you type, the dialog checks the patterns as saving would and says which
+findings would move to **Excluded** (or back to open), with a few of their paths, before anything is saved.
 
 - What falls under them doesn't count as open, isn't in the report or the SARIF and **doesn't block PRs**. It
   doesn't disappear: it stays in the **Excluded** tab, and every run states in its limitations how many findings were
   left out and by which pattern.
 - Excluding isn't fixing: excluded findings never become fixed. Remove the exclusion and they're open again.
 - Exclusions live on the server, **not in the repository**: a file in the repository would let a PR exclude itself.
-  For the same reason, the repository's `.gitleaks.toml` isn't applied.
+  For the same reason, the repository's `.betterleaks.toml` or `.gitleaks.toml` isn't applied.
 
 From the terminal, `make scan DIR=../my-repo ARGS="--exclude fixtures"` does the same for one run ([CLI](cli.md)).
 

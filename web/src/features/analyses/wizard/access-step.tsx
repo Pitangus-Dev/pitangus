@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useConfirm } from '@/shared/ui/confirm'
 import { Switch } from '@/shared/ui/switch'
-import { HeadersEditor } from '@/features/domains/headers-editor'
+import { HeadersEditor, SessionCheck } from '@/features/domains/headers-editor'
 import { AddTestUserMenu, TestUserDialog } from '@/features/domains/test-users'
 import { TEST_USERS_MAX, testUserSummary, type Editing } from '@/features/domains/test-users-model'
 import type { Domain } from '@/features/domains/domains'
@@ -70,6 +70,7 @@ export function AccessStep({ domain, hosts, useHeaders, onUseHeaders, testUsers,
         <Switch id="use-headers" checked={useHeaders} onCheckedChange={onUseHeaders} label={t('access.use_all')} />
         <p role="status" className="pl-13 text-xs text-attention">{sending && !chosen.length ? t('access.test_account') : ''}</p>
       </div>}
+      <SessionCheck domain={domain} />
     </section>
     <TestUserDialog domain={domain} editing={editing} onClose={() => setEditing(null)}
       onSaved={user => { if (!full && !signInHost(user, domain.host, hosts)) onTestUsers([...chosen, user.id]) }} />

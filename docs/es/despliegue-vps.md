@@ -8,7 +8,7 @@ Con un servidor recién creado y un registro DNS que ya apunte a él, son cuatro
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.13.1                                   # la versión que quieras (ver Actualizar)
+git checkout v0.14.0                                   # la versión que quieras (ver Actualizar)
 make setup DOMAIN=pitangus.example.com PREBUILT=1   # HTTPS con Caddy + imágenes publicadas
 make up                                             # muestra https://pitangus.example.com y el código de configuración
 ```
@@ -39,7 +39,7 @@ Qué añade cada capa:
 | Disco | 40 GB SSD | 80 GB SSD |
 | Arquitectura | amd64 o arm64 (Hetzner CAX, Graviton, Ampere) | |
 
-En qué se va: cada análisis ejecuta un motor a la vez, con un tope de 2 CPU y 3 GB de memoria; la app y PostgreSQL ocupan unos 400 MB en reposo. En disco, las imágenes de los motores suman unos 2 GB, la base de Trivy ~1,3 GB, la de Grype ~2,1 GB (solo si analizas imágenes de contenedor), la copia local de NVD ~0,7 GB, y cada análisis guarda una instantánea del repositorio mientras corre. Deja sitio para las copias si pasan por el mismo disco antes de salir del servidor. Más repositorios de los que un worker da abasto: [escalar.md](escalar.md).
+En qué se va: cada análisis ejecuta un motor a la vez, con un tope de 2 CPU y 3 GB de memoria; la app y PostgreSQL ocupan unos 400 MB en reposo. En disco, las imágenes de los motores suman unos 2 GB, la base de Trivy ~1,3 GB, la de Grype ~2,1 GB (solo si activas Grype y analizas imágenes de contenedor), la copia local de NVD ~0,7 GB, y cada análisis guarda una instantánea del repositorio mientras corre. Deja sitio para las copias si pasan por el mismo disco antes de salir del servidor. Más repositorios de los que un worker da abasto: [escalar.md](escalar.md).
 
 Usa un **servidor dedicado** a Pitangus, no uno compartido con otras aplicaciones ni con otras personas: mira [Endurecimiento](#endurecimiento).
 
@@ -99,7 +99,7 @@ Con el usuario `pitangus`:
 
 ```bash
 git clone https://github.com/Pitangus-Dev/pitangus.git && cd pitangus
-git checkout v0.13.1
+git checkout v0.14.0
 make setup DOMAIN=pitangus.example.com PREBUILT=1
 make doctor
 ```
@@ -131,7 +131,7 @@ Guarda una copia de `.env` en tu gestor de contraseñas: contiene la contraseña
 Con las imágenes publicadas, instala antes [cosign](https://docs.sigstore.dev/cosign/system_config/installation/): así `make up` comprueba sus firmas antes de arrancar nada y fija en `.env` el digest comprobado, de modo que cada arranque posterior (también `docker compose up`) usa exactamente esa imagen. Sin cosign arranca igual y lo avisa en una línea. `make verify-images` hace la misma comprobación por separado.
 
 ```bash
-make up    # Signature verified: ghcr.io/pitangus-dev/pitangus@sha256:…  Pinned in .env: PITANGUS_IMAGE_TAG=0.13@sha256:…
+make up    # Signature verified: ghcr.io/pitangus-dev/pitangus@sha256:…  Pinned in .env: PITANGUS_IMAGE_TAG=0.14@sha256:…
 ```
 
 `make up` descarga (o construye) las imágenes, arranca todo, espera a que el panel responda, descarga los motores y muestra la URL y el **código de configuración**. Abre `https://<dominio>`, introduce el código y crea tu usuario administrador; después activa el segundo factor en **Cuenta**. Si la página no carga, `make logs SERVICE=caddy` te dice si se emitió el certificado (lo habitual: el DNS todavía no apunta aquí, o el puerto 80 está cerrado).
@@ -206,13 +206,13 @@ Si se pierde `config/master.key` (o cambia `PITANGUS_MASTER_KEY`), los secretos 
 ## Actualizar
 
 ```bash
-git fetch --tags && git checkout v0.13.1   # o quédate en main y deja que make update lo traiga
+git fetch --tags && git checkout v0.14.0   # o quédate en main y deja que make update lo traiga
 make update
 ```
 
 `make update` trae el código (`git pull --ff-only` si estás en una rama; en una etiqueta mantiene la versión que elegiste), hace una copia con `make backup` (si hay análisis en marcha se detiene: vuelve a intentarlo luego), descarga las imágenes nuevas y reinicia; la app migra la base de datos al arrancar. Lee las notas de la versión antes de saltar de versión menor. Para volver atrás: vuelve a la etiqueta anterior y `make restore FROM=backups/<la copia que hizo make update> CONFIRM=restore`, y después `make up`.
 
-Con `PREBUILT`, la etiqueta de la imagen sigue al código que tienes (`pitangus/version.py`), así que los ficheros de compose, las reglas y las imágenes siempre coinciden. `make up` fija esa etiqueta al digest que comprobó (`PITANGUS_IMAGE_TAG=0.13@sha256:…`) y lo mantiene mientras no cambie la versión; `make update` comprueba la imagen más reciente de la versión y vuelve a fijarla (a mano: `make verify-images REPIN=1`). Un `PITANGUS_IMAGE_TAG` puesto por ti (`0.12.1`, `0.12.1@sha256:…`) se comprueba pero nunca se sustituye. Sin socket, la imagen del worker se comprueba y se fija igual (`PITANGUS_WORKER_IMAGE_TAG`); con socket, la de Opengrep se comprueba por su etiqueta.
+Con `PREBUILT`, la etiqueta de la imagen sigue al código que tienes (`pitangus/version.py`), así que los ficheros de compose, las reglas y las imágenes siempre coinciden. `make up` fija esa etiqueta al digest que comprobó (`PITANGUS_IMAGE_TAG=0.14@sha256:…`) y lo mantiene mientras no cambie la versión; `make update` comprueba la imagen más reciente de la versión y vuelve a fijarla (a mano: `make verify-images REPIN=1`). Un `PITANGUS_IMAGE_TAG` puesto por ti (`0.12.1`, `0.12.1@sha256:…`) se comprueba pero nunca se sustituye. Sin socket, la imagen del worker se comprueba y se fija igual (`PITANGUS_WORKER_IMAGE_TAG`); con socket, la de Opengrep se comprueba por su etiqueta.
 
 ## Monitorización
 
@@ -257,7 +257,7 @@ Recógelas a través del dominio (la API solo acepta su `Host` público). Alerta
 
 ## Los motores y el socket de Docker
 
-En un servidor, `make setup DOMAIN=…` ejecuta los motores **dentro de la propia imagen del worker**: Trivy, OSV-Scanner, Gitleaks, Grype, Checkov, zizmor y Opengrep, en las mismas versiones fijadas. Ningún contenedor monta el socket de Docker, que en la práctica equivale a ser root en el servidor.
+En un servidor, `make setup DOMAIN=…` ejecuta los motores **dentro de la propia imagen del worker**: Trivy, OSV-Scanner, Betterleaks, Grype, Checkov, zizmor y Opengrep, en las mismas versiones fijadas. Ningún contenedor monta el socket de Docker, que en la práctica equivale a ser root en el servidor.
 
 La alternativa es lanzar cada motor en un contenedor hermano a través del socket, y hay que pedirla expresamente con `make setup DOMAIN=… SOCKET=1`. Esto es lo que aísla cada opción:
 
