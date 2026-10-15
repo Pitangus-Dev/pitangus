@@ -8,4 +8,4 @@ mypy==2.4.0
 # HTTP client for the tests (Starlette's TestClient).
 httpx==0.28.1
 # Property-based tests: generated inputs for the invariants of identity, merging and the registry (tests/test_invariants.py).
-hypothesis==6.168.3
+hypothesis==6.168.5
