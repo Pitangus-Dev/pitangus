@@ -491,10 +491,32 @@ export interface paths {
         };
         /**
          * Fix Prompt
-         * @description A finding as a prompt for the reader's own AI assistant, in their language: rule, place, fragment and fix, never
-         *     a secret's value (findings/ai_prompt.py). Pitangus calls no AI for it.
+         * @description A finding as a prompt for the reader's own AI assistant, in their language: rule, place and fix, never code nor
+         *     a secret's value (findings/ai_prompt.py): the panel adds the code the reader opened. Pitangus calls no AI for it.
          */
         get: operations["fix_prompt_api_findings_prompt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/findings/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Finding Code
+         * @description A finding's code for whoever can read the finding: the lines around it, read from the provider at the commit
+         *     its run scanned, with every secret a secret engine reported in that file masked (runs/code_view.py). Never stored,
+         *     cached or logged.
+         */
+        get: operations["finding_code_api_findings_code_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2746,6 +2768,17 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** CodeLine */
+        CodeLine: {
+            /** Number */
+            number: number;
+            /** Text */
+            text: string;
+            /** Focus */
+            focus: boolean;
+            /** Masked */
+            masked?: ("span" | "line") | null;
+        };
         /** CraAssessment */
         CraAssessment: {
             /** By */
@@ -3630,6 +3663,29 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * FindingCode
+         * @description A finding's code, read from its repository at the scanned commit now; never stored. `withheld`: only its place
+         *     and the provider's link (a secret or a credential, an imported finding, a symbolic link, a file whose secrets are
+         *     known only at another commit); `unavailable`: why not (`reason`).
+         */
+        FindingCode: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "shown" | "withheld" | "unavailable";
+            /** Reason */
+            reason: ("secret" | "imported" | "symlink" | "secret_other_commit" | "not_code" | "local" | "no_commit" | "no_location" | "file_gone" | "file_changed" | "binary" | "repository_gone" | "repository_unreachable") | null;
+            /** Path */
+            path: string;
+            /** Commit */
+            commit: string | null;
+            /** Lines */
+            lines: components["schemas"]["CodeLine"][];
+            /** Permalink */
+            permalink: string | null;
+        };
+        /**
          * FindingKpis
          * @description The Findings tiles (`modules/findings/kpis.py`): the pending work, neither fixed nor dismissed, among the findings listed.
          */
@@ -3811,10 +3867,22 @@ export interface components {
             /** Released */
             released: number;
         };
-        /** FixPrompt */
+        /**
+         * FixPrompt
+         * @description The prompt without code (`prompt`) and its parts: the panel puts the code the reader opened between `before`
+         *     and `after`, under `heading`, as a `language` block.
+         */
         FixPrompt: {
             /** Prompt */
             prompt: string;
+            /** Before */
+            before: string;
+            /** Heading */
+            heading: string;
+            /** Language */
+            language: string;
+            /** After */
+            after: string;
         };
         /**
          * GitHubManifest
@@ -6786,6 +6854,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FixPrompt"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    finding_code_api_findings_code_get: {
+        parameters: {
+            query: {
+                run_id: string;
+                fingerprint: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingCode"];
                 };
             };
             /** @description Invalid parameters */

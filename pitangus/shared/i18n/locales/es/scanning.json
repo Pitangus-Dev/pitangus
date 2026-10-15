@@ -57,6 +57,7 @@
     "disabled": "{{engine}}: no ejecutado (desactivado). Se activa con {{setting}}=1; lo que encontró antes sigue abierto, nunca remediado."
   },
   "opengrep": {
+    "no_fix": "Abre el hallazgo para ver su código y corrígelo como indica la regla {{rule}}.",
     "no_docker": "Docker no disponible: el SAST multi-lenguaje no se ejecutó. {{problem}}",
     "image_missing": "Imagen de Opengrep no construida: ejecuta make build (o docker compose build).",
     "image_error": "Docker no pudo consultar la imagen de Opengrep: {{cause}}",
@@ -141,7 +142,8 @@
       "detail": "{{count|# secreto quedó permitido|# secretos quedaron permitidos}} por comentarios gitleaks:allow en el código o por el .gitleaksignore del repositorio, excluidos y listados: {{places}}.",
       "unknown": "No se pudo comprobar qué coincidencias permiten los comentarios gitleaks:allow del código, así que el análisis queda incompleto y ningún secreto se marca como remediado.",
       "limitation": "{{count|# secreto está permitido|# secretos están permitidos}} por comentarios gitleaks:allow en el código o por el .gitleaksignore del repositorio ({{places}}). Siguen ahí: los ves en Hallazgos → Excluidos."
-    }
+    },
+    "over_budget": "{{count|# secreto no se ubicó en su línea|# secretos no se ubicaron en sus líneas}}: se agotó el trabajo que Pitangus dedica a ubicar secretos (una línea muy larga que coincide casi en cualquier parte). Se {{count|informa|informan}} sin identidad propia, así que no se {{count|puede|pueden}} relacionar con análisis anteriores."
   },
   "trivy": {
     "no_docker": "Docker no disponible: dependencias, IaC y secretos con Trivy no se ejecutaron.",
@@ -545,7 +547,7 @@
     "unexamined_other": "{{engine}} no examinó {{count}} archivos ({{reason}}): {{paths}}",
     "left_out_one": "1 archivo quedó fuera de la copia (tamaño o presupuesto), así que ningún motor lo examinó: {{paths}}",
     "left_out_other": "{{count}} archivos quedaron fuera de la copia (tamaño o presupuesto), así que ningún motor los examinó: {{paths}}",
-    "suppressed_inline": "Permitidos por comentarios gitleaks:allow o por el .gitleaksignore del repositorio: {{count}} ({{places}}). Excluidos, no remediados."
+    "suppressed_inline": "Suprimidos por comentarios o archivos de exclusión del propio repositorio: {{count}} ({{places}}). Excluidos, no remediados."
   },
   "secret_filter": {
     "screened_one": "{{count}} coincidencia descartada porque no es un secreto: {{reasons}}.",
@@ -969,5 +971,13 @@
       "tree_unlisted": "el proveedor no listó lo que este commit tiene aquí",
       "no_inventory": "ningún motor listó un paquete de esta carpeta"
     }
+  },
+  "repo_controls": {
+    "excluded": "Lo suprime {{control}} del repositorio: {{rule}} en {{path}}:{{line}}. Sigue ahí: está excluido, no remediado, y se reabre si la supresión desaparece.",
+    "detail": "{{count|# resultado quedó suprimido|# resultados quedaron suprimidos}} por comentarios o archivos de exclusión del propio repositorio, excluidos y listados: {{places}}.",
+    "unknown": "No se pudo comprobar qué resultados suprimen los comentarios o archivos de exclusión del repositorio, así que el análisis queda incompleto y nada se marca como remediado.",
+    "limitation": "{{count|# resultado está suprimido|# resultados están suprimidos}} por comentarios o archivos de exclusión del propio repositorio ({{places}}). Siguen ahí: los ves en Hallazgos → Excluidos.",
+    "comment": "un comentario {{marker}}",
+    "file": "el archivo {{file}}"
   }
 }

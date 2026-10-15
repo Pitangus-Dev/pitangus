@@ -320,7 +320,7 @@ class RendererPropertyTests(unittest.TestCase):
     def test_no_value_in_any_position_of_any_format(self, case):
         value, form = case
         _, text = _text(value, form)
-        for render_ in (render.code, render.prose):
+        for render_ in (render.prose,):
             shown = render_(text)
             self.assertEqual(leaked(value, shown, FORMATS[form][1]), [], f"{render_.__name__}: {text!r} → {shown!r}")
             self.assertNotIn(value, shown)
@@ -333,7 +333,7 @@ class RendererPropertyTests(unittest.TestCase):
         reads where a line starts."""
         value, form = case
         text = " ".join(_text(value, form)[1].split())
-        shown = (render.prose if prose else render.code)(text)
+        shown = render.prose(text)
         self.assertEqual(leaked(value, shown, FORMATS[form][1]), [], f"{text!r} → {shown!r}")
 
     @settings(max_examples=300 * SCALE, deadline=None)
@@ -342,7 +342,7 @@ class RendererPropertyTests(unittest.TestCase):
         values = [_value(alphabet, seed + index) for index in range(len(forms))]
         text = "\n".join(_text(value, form)[1] for value, form in zip(values, forms))
         templates = "\n".join(FORMATS[form][1] for form in forms)
-        for render_ in (render.code, render.prose):
+        for render_ in (render.prose,):
             shown = render_(text)
             for value in values:
                 self.assertEqual(leaked(value, shown, templates), [], text)
@@ -357,18 +357,18 @@ class RendererPropertyTests(unittest.TestCase):
         if re.search(rf"(?<!\w){re.escape(word)}(?!\w)", template.replace("{v}", " ")):
             return   # the template has it already
         text = template.format(v=f" {word} ")
-        shown = render.code(text)
+        shown = render.prose(text)
         present = re.search(rf"(?<!\w){re.escape(word)}(?!\w)", shown) is not None
         self.assertEqual(present, render.kept(word), f"{text!r} → {shown!r}")
 
     def test_a_value_survives_only_made_of_common_words_and_short_numbers(self):
         for word in ("admin123", "deploy", "db_password", "getConnection", "HTTPServer", "v2", "i", "42", "10.0.0.1", "doesn't"):
             self.assertTrue(render.kept(word) or "." in word, word)
-            self.assertIn(word, render.code(f"password: {word}"))
+            self.assertIn(word, render.prose(f"password: {word}"))
         for word in ("Winter2024Corp", "xK9", "Vb9Rt4KwQz", "1234", "correcthorsebatterystaple", "3be470cd08", "IsAtOnIf",
                      "ghp_" + "16C7e42F292c6912E7710c838347Ae178B4a", "contraseñaSegura9x", "q", "Winter2024Corp's"):
             self.assertFalse(render.kept(word), word)
-            self.assertNotIn(word, render.code(f"# {word}"))
+            self.assertNotIn(word, render.prose(f"# {word}"))
 
     def test_code_stays_readable(self):
         # A lone letter that isn't a word goes too (`q`): position never keeps it.
@@ -388,14 +388,14 @@ class RendererPropertyTests(unittest.TestCase):
                              "webhook: https://api.***.org/***:***/sendMessage"),
                             ("REMOTE = https://deploy:Hx7Lp2Qz@git.local/org/repo.git?ref=main#L10",
                              "REMOTE = https://***@git.local/org/repo.git?ref=***#***")):
-            self.assertEqual(render.code(text), shown)
+            self.assertEqual(render.prose(text), shown)
 
     def test_rendering_is_fast_on_adversarial_text(self):
         import time
         for text in ("password: " * 5000, "[" * 50000, "a(" * 25000, "<a>" * 10000, '<a b="c">x</a>' * 3000, "a=" * 25000,
                      '"' * 50000, "'a" * 25000, "x\n  " * 12000, "key: |\n" + "  v\n" * 20000, "-p " * 15000, "https://a/" + "b;c=d/" * 7000):
             started = time.monotonic()
-            render.code(text)
+            render.prose(text)
             render.prose(text)
             self.assertLess(time.monotonic() - started, 5, text[:20])
 
@@ -591,7 +591,7 @@ class IdentityBeforeRenderingTests(unittest.TestCase):
             self.assertNotEqual(canonical.identity_of(stored_one), canonical.identity_of(stored_other))
         self.assertEqual(sanitize_finding(stored_one), stored_one)
 
-    def test_zizmor_stores_the_route_and_keeps_its_identity(self):
+    def test_zizmor_keeps_no_yaml_and_keeps_its_identity(self):
         value = "HarborLights-2024!"
         workflow = WORKFLOW.format(line=f"echo {value} | docker login -u x --password-stdin && sqlcmd -P {value}")
         where = ".github/workflows/ci.yml"
@@ -600,8 +600,7 @@ class IdentityBeforeRenderingTests(unittest.TestCase):
             (root / ".github" / "workflows").mkdir(parents=True)
             (root / where).write_text(workflow, encoding="utf-8")
             finding = parse_zizmor(_job_report(workflow, where), root)[0]
-        self.assertEqual(finding["snippet"], "jobs:\n  build:\n# this job uses write-all permissions")
-        self.assertTrue(sanitize_finding(finding)["snippet"].startswith("jobs:\n  build:\n# this job uses "))
+        self.assertNotIn("snippet", finding)   # the YAML is read for its identity, never kept
         self.assertNotIn(value, json.dumps(finding))
         # The identity, the fingerprint and the identity anywhere were read from the job's YAML, as before.
         feature = " ".join(workflow[workflow.index("  build:"):].split())[:300]
@@ -660,7 +659,7 @@ class RenderStoredTextsMigrationTests(unittest.TestCase):
         for item in [*run["findings"], *(entry["finding"] for entry in entries.values())]:
             self.assertEqual((canonical.identity_of(item), canonical.anywhere(item)), before[item["fingerprint"]], item["fingerprint"])
         ziz = next(item for item in run["findings"] if item["tool"] == "zizmor")
-        self.assertEqual(ziz["snippet"], render.code("# this job uses write-all permissions"))
+        self.assertNotIn("snippet", ziz)
         self.assertEqual(self.migrations._render_stored_texts(self.data_dir), 0)  # idempotent
 
     def test_what_the_positional_renderer_kept_is_rendered_again(self):
@@ -692,7 +691,7 @@ class RenderStoredTextsMigrationTests(unittest.TestCase):
         registry._save(self.data_dir, {"asset": "github#2", "name": "org/api", "applied": [], "findings": {
             item["fingerprint"]: {"status": "open", "finding": item} for item in stored}})
 
-        self.assertEqual(self.migrations.upgrade(self.data_dir), ["render_stored_texts_lexicon", "web_location_keys"])
+        self.assertEqual(self.migrations.upgrade(self.data_dir), ["render_stored_texts_lexicon", "web_location_keys", "drop_stored_code"])
         run = load_run(self.data_dir, "e" * 32)
         entries = registry.load(self.data_dir, "github#2")["findings"]
         texts = [json.dumps(run), json.dumps(entries), artifact(self.data_dir, "e" * 32, "report.md").decode(),
@@ -702,7 +701,7 @@ class RenderStoredTextsMigrationTests(unittest.TestCase):
                 self.assertEqual(leaked(value, text), [], value)
         for item in [*run["findings"], *(entry["finding"] for entry in entries.values())]:
             self.assertEqual((canonical.identity_of(item), canonical.anywhere(item)), before[item["fingerprint"]], item["fingerprint"])
-        self.assertIn("def connect():\n    # ***: admin / ***", next(item for item in run["findings"] if item["tool"] == "opengrep")["snippet"])
+        self.assertNotIn("snippet", next(item for item in run["findings"] if item["tool"] == "opengrep"))   # no code since 0.14.1
         self.assertEqual(self.migrations._render_stored_texts(self.data_dir), 0)  # idempotent
 
 

@@ -673,7 +673,35 @@
   "ai_prompt": {
     "copy": "Copiar prompt para tu IA",
     "copied": "Copiado",
-    "help": "Pégalo en Claude, Cursor o Copilot: lleva la regla, dónde está, el código encontrado si lo hay y la corrección, nunca el valor de un secreto. Pitangus no lo envía a ninguna parte.",
+    "help": "Pégalo en Claude, Cursor o Copilot: lleva la regla, dónde está, el código que ves arriba si lo hay (sin sus secretos) y la corrección. Pitangus no lo envía a ninguna parte.",
     "failed": "No se pudo copiar: selecciona el texto de abajo y cópialo a mano."
+  },
+  "code": {
+    "title": "Código",
+    "lines": "líneas {{first}}–{{last}}",
+    "loading": "Leyendo el código del repositorio…",
+    "error": "No se pudo leer el código ahora.",
+    "retry": "Reintentar",
+    "read_now": "Leído ahora del repositorio, en el commit analizado. Pitangus no guarda tu código.",
+    "read_now_masked": "Leído ahora del repositorio, en el commit analizado, sin los secretos encontrados en este archivo. Pitangus no guarda tu código.",
+    "masked_line": "Línea oculta: tiene un secreto",
+    "open_github": "Abrir en GitHub",
+    "reason": {
+      "secret": "Pitangus nunca muestra el código de un secreto, solo dónde está. Rótalo primero y después quítalo.",
+      "imported": "El código de un hallazgo importado no se muestra: su archivo, su línea y su commit vienen de la importación, no de un análisis de Pitangus.",
+      "symlink": "El código no se muestra: esta ruta es un enlace simbólico y Pitangus nunca lee un archivo con otro nombre.",
+      "secret_other_commit": "El código no se muestra: en este archivo se encontró un secreto en otro commit y sus líneas pueden haberse movido desde entonces.",
+      "local": "El código no está disponible aquí: este análisis se hizo sobre una carpeta local. Abre el archivo en tu editor.",
+      "no_commit": "El código no está disponible: este análisis no guardó qué commit leyó.",
+      "no_location": "El código no está disponible: el motor no indicó en qué línea está.",
+      "file_gone": "El código no está disponible: el repositorio ya no tiene este archivo en el commit analizado.",
+      "file_changed": "El código no está disponible: el archivo tiene menos líneas de las que señala el hallazgo.",
+      "binary": "El código no está disponible: es un archivo binario.",
+      "repository_gone": "El código no está disponible: el repositorio ya no es accesible con la conexión de Pitangus.",
+      "repository_unreachable": "El código no está disponible ahora: no se pudo leer el repositorio.",
+      "unknown": "El código no está disponible."
+    },
+    "line": "línea {{line}}",
+    "finding_line": "Línea del hallazgo: "
   }
 }

@@ -37,14 +37,14 @@ se queda en esa versión a propósito. Primero cambia a la nueva y luego actuali
 
 ```bash
 git fetch --tags
-git checkout v0.14.0      # la versión que quieras
+git checkout v0.14.1      # la versión que quieras
 make update
 ```
 
 En una versión fija, `make update` lo dice y no trae código:
 
 ```text
-On v0.14.0 (a fixed version): not pulling. Check out the version you want first.
+On v0.14.1 (a fixed version): not pulling. Check out the version you want first.
 ```
 
 Es lo esperado justo después de `git checkout`: el código ya está en la versión nueva.

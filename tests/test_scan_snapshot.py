@@ -199,22 +199,57 @@ class HookSnapshotTests(unittest.TestCase):
 
 
 FAKE_DOCKER = '#!/bin/sh\nfor arg in "$@"; do printf "%s\\n" "$arg"; done > "$DOCKER_LOG"\n'
+FAKE_COSIGN = '#!/bin/sh\nprintf "%s\\n" "$@" > "$COSIGN_LOG"\nexit "${FAKE_COSIGN:-0}"\n'
 
 
 @unittest.skipUnless(shutil.which("sh"), "needs sh")
 class HookScriptTests(unittest.TestCase):
     """hooks/pitangus-docker with a fake docker: what it asks the scan for under each pre-commit environment."""
 
-    def call(self, env: dict, *args: str) -> list[str]:
+    def hook(self, env: dict, *args: str, cosign: bool = True) -> tuple[subprocess.CompletedProcess, list[str], list[str]]:
+        """(the hook's run, what it asked docker to run, what it asked cosign to verify)."""
         with tempfile.TemporaryDirectory() as folder:
-            (Path(folder) / "docker").write_text(FAKE_DOCKER)
-            (Path(folder) / "docker").chmod(0o755)
-            log = Path(folder) / "log"
+            for name, script in (("docker", FAKE_DOCKER), *((("cosign", FAKE_COSIGN),) if cosign else ())):
+                (Path(folder) / name).write_text(script)
+                (Path(folder) / name).chmod(0o755)
+            os.symlink(shutil.which("sh"), Path(folder) / "sh")
+            log, signed = Path(folder) / "log", Path(folder) / "cosign"
             clean = {key: value for key, value in os.environ.items() if not key.startswith(("PRE_COMMIT", "PITANGUS_"))}
-            subprocess.run(["sh", str(ROOT / "hooks" / "pitangus-docker"), *args], check=True, cwd=folder,
-                           env={**clean, "PATH": f"{folder}:{os.environ['PATH']}", "DOCKER_LOG": str(log), **env})
-            words = log.read_text().splitlines()
+            # Only the fakes and the shell's own tools: never a cosign or docker installed on this machine.
+            tools = ":".join(sorted({str(Path(shutil.which(tool)).parent) for tool in ("printf", "sed") if shutil.which(tool)}))
+            done = subprocess.run([str(Path(folder) / "sh"), str(ROOT / "hooks" / "pitangus-docker"), *args], cwd=folder,
+                                  capture_output=True, text=True,
+                                  env={**clean, "PATH": f"{folder}:/bin:/usr/bin:{tools}", "DOCKER_LOG": str(log),
+                                       "COSIGN_LOG": str(signed.with_suffix(".log")), **env})
+            words = log.read_text().splitlines() if log.exists() else []
+            checked = signed.with_suffix(".log").read_text().splitlines() if signed.with_suffix(".log").exists() else []
+        return done, words, checked
+
+    def call(self, env: dict, *args: str) -> list[str]:
+        done, words, _ = self.hook(env, *args)
+        self.assertEqual(done.returncode, 0, done.stderr)
         return words[words.index("scan") + 1:]
+
+    def test_the_published_image_runs_by_digest_after_its_signature_is_checked(self):
+        done, words, checked = self.hook({})
+        image = next(word for word in words if word.startswith("ghcr.io/pitangus-dev/pitangus-worker:"))
+        self.assertRegex(image, r"@sha256:[0-9a-f]{64}$")
+        self.assertEqual(checked[-1], image)
+        self.assertIn("--certificate-identity-regexp", checked)
+        refused, words, _ = self.hook({"FAKE_COSIGN": "1"})
+        self.assertEqual((refused.returncode, words), (2, []))
+        self.assertIn("not signed", refused.stderr)
+
+    def test_without_cosign_it_still_runs_the_digest_and_says_it_was_not_checked(self):
+        done, words, _ = self.hook({}, cosign=False)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertTrue(any(word.startswith("ghcr.io/pitangus-dev/pitangus-worker:") and "@sha256:" in word for word in words))
+        self.assertIn("cosign", done.stderr)
+
+    def test_an_image_of_your_own_is_yours_to_check(self):
+        done, words, checked = self.hook({"PITANGUS_IMAGE": "registry.example.com/team/pitangus-worker:0.14"})
+        self.assertEqual((done.returncode, checked), (0, []))
+        self.assertIn("registry.example.com/team/pitangus-worker:0.14", words)
 
     def options(self, words: list[str]) -> dict:
         return {word: words[index + 1] for index, word in enumerate(words) if word in ("--commit", "--base")}

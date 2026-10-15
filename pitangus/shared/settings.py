@@ -80,9 +80,12 @@ SETTINGS: dict[str, Setting] = {
     # Betterleaks asks each secret's provider whether it is still active (network requests carrying the secret): off
     # unless enabled; it reorders priorities, never hides a finding
     "PITANGUS_SECRET_VALIDATION": Setting(kind="flag"),
-    # A `gitleaks:allow` / `betterleaks:allow` comment in the code, or an entry of the repository's `.gitleaksignore` /
-    # `.betterleaksignore`, is honoured (and every match it allows is declared, excluded with its file and line); with
-    # this on, both are ignored and the matches reported
+    # What the scanned repository says to suppress an engine's results (scanning/repo_controls.py): comments in the code
+    # (`gitleaks:allow`, `# zizmor: ignore[…]`, `trivy:ignore`, `checkov:skip=`, `nosemgrep`) and files an engine would
+    # load (`.gitleaksignore`, `.github/zizmor.yml`, `.trivyignore`, `.checkov.yaml`, `osv-scanner.toml`). Off, they are
+    # honoured and every result they suppress is declared, excluded with its file and line; on, they suppress nothing
+    "PITANGUS_IGNORE_REPO_SUPPRESSIONS": Setting(kind="flag"),
+    # Its name before 0.14.1, when it covered the secret engines only: still read, with the same meaning
     "PITANGUS_SECRETS_IGNORE_INLINE_ALLOW": Setting(kind="flag"),
     # A scan that would fix at least this share (%) of an asset's open findings, and at least this many, holds the fixes
     # until the next complete scan confirms them

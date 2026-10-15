@@ -179,7 +179,11 @@ class ActionDefinitionTests(unittest.TestCase):
         hook = (ROOT / ".pre-commit-hooks.yaml").read_text(encoding="utf-8")
         script = ROOT / re.search(r"entry: (\S+)", hook).group(1)
         default = re.search(r"default: (ghcr\.io/pitangus-dev/pitangus-worker:\S+)", ACTION).group(1)
-        self.assertIn(f'image="${{PITANGUS_IMAGE:-{default}}}"', script.read_text(encoding="utf-8"))
+        # The same image, by the digest `make pin-hook` wrote, and its signature checked with the Action's identity.
+        self.assertRegex(script.read_text(encoding="utf-8"), rf'image="\$\{{PITANGUS_IMAGE:-{re.escape(default)}@sha256:[0-9a-f]{{64}}\}}"')
+        signers = re.search(r"^signers='(.+)'$", script.read_text(encoding="utf-8"), re.M).group(1)
+        self.assertEqual(signers, steps(ACTION)[MAIN]["literal"]["SIGNERS"])
+        self.assertIn("pin-hook:", (ROOT / "Makefile").read_text(encoding="utf-8"))
         self.assertTrue(os.access(script, os.X_OK), script)
         for path in (ROOT / "docs" / "quickstart-developer.md", ROOT / "docs" / "es" / "inicio-rapido-desarrollador.md"):
             self.assertIn(default, path.read_text(encoding="utf-8"), path)

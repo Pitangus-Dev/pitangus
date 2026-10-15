@@ -1,30 +1,30 @@
-"""The one way code, configuration and engine text leave a finding: its structure and its common words, never its values.
+"""The one way free text an engine wrote, and every URL, are stored or shown: their structure and their common words,
+never their values.
 
-Every text that holds code, configuration or what an engine said about them (a snippet, an imported SARIF's snippet
-and context region, the fragment of a prompt, a message, an engine's error, a step's detail) is rendered here before
-anything stores or shows it. Rendering never decides whether something is a credential, and never keeps a word for
-where it stands (a key, an operand, an argument, a name after `def`): position saves no value.
+Pitangus stores no code or configuration (docs/findings.md, "What is stored"): a finding keeps where it is, its rule,
+structural metadata and hashes, and its code is read from the repository when someone opens it (runs/code_view.py).
+What is still stored as text is what tools and engines said: a message, an error, a step's detail, a web scanner's
+evidence and attack, an imported SARIF's rule texts. Those may quote what they read, so each goes through `prose`
+before anything stores or shows it. Rendering never decides whether something is a credential, and never keeps a word
+for where it stands (a key, an operand, an argument): position saves no value.
 
 * A **word** (a maximal run of letters, digits and `_`, in any script) stays only if it is in the `lexicon` (the words
   of programming languages, the product's own vocabulary in English and Spanish, and the common terms of code in
   render_terms.txt), or if it splits entirely (at `_`, at changes of case and at digits) into lexicon words and numbers
   of up to three digits, with at least as much of it in words of three or more letters as in two-letter ones. Any
-  other word is replaced with PLACEHOLDER, wherever it is: an identifier, a key, an operand, an argument, a comment, a
-  string, a URL's host or path segment; a lone letter too, unless it is a word (`a`, `i`, `y`…).
-* **Punctuation and operators** stay, so the shape of the code reads (`cur.execute("***" + q)`); runs of replaced
-  words separated only by spaces become one PLACEHOLDER.
+  other word is replaced with PLACEHOLDER, wherever it is; a lone letter too, unless it is a word (`a`, `i`, `y`…).
+* **Punctuation and operators** stay; runs of replaced words separated only by spaces become one PLACEHOLDER.
 * A **URL** (`url`) is read the same way after percent-decoding, and loses its user information and every query and
   fragment value as well.
 
 So a value survives only if it is made entirely of common words and numbers of up to three digits (`admin123` does;
-`Winter2024Corp`, `xK9#mP2` and any random token don't). Prose (`prose`) is rendered like code.
+`Winter2024Corp`, `xK9#mP2` and any random token don't).
 
 Every URL stored or shown is rendered by `url`, a web finding's location and a run's target too. `location` (the form
 0.13 stored them in: host and path names kept, token-shaped path segments replaced) is never stored or shown: a web
 finding's identity reads it, through the keys of shared/web_keys.py, which keep only digests of its path.
 
-Rendering is deterministic, idempotent and independent of the file: the same code renders the same anywhere, and a
-finding's identity is computed from the original before it is rendered (shared/code_identity.py).
+Rendering is deterministic and idempotent.
 """
 
 from __future__ import annotations
@@ -227,18 +227,13 @@ def _rendered(text: str) -> str:
     return _REPLACED_RUN.sub(PLACEHOLDER, "".join(pieces_))
 
 
-def code(text: str) -> str:
-    """Code or configuration, any language or format, as its structure and its common words (see the module's
-    docstring)."""
+def prose(text: str) -> str:
+    """Free text an engine or a tool wrote (a message, an error, a web scanner's evidence) as its structure and its
+    common words (see the module's docstring)."""
     if not isinstance(text, str) or not text:
         return text
     head, tail = text[:TEXT_MAX], text[TEXT_MAX:]
     return _rendered(head) + (PLACEHOLDER if tail else "")
-
-
-def prose(text: str) -> str:
-    """Free text an engine wrote (a message, an error), rendered as code is: no word kept for its position."""
-    return code(text)
 
 
 # --- Location form ---------------------------------------------------------------------------------------------

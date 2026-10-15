@@ -250,7 +250,7 @@ class WebLocationKeysMigrationTests(Isolated):
         self.assertIn(secret, legacy)                     # what the location form kept
         self.assertNotIn("web_key", legacy)
 
-        self.assertEqual(self.migrations.upgrade(self.data_dir), ["web_location_keys"])
+        self.assertEqual(self.migrations.upgrade(self.data_dir), ["web_location_keys", "drop_stored_code"])
         entries = self.entries()
         self.assertEqual({name: (entry["finding"]["identity"], entry["finding"]["count"]) for name, entry in entries.items()}, before)
         self.assertEqual({item["key"] for entry in entries.values() for item in entry["finding"]["instances"]}, {web_keys.key(url) for url in pages})

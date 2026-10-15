@@ -5,6 +5,7 @@ import { Badge } from '@/shared/ui/badge'
 import { formatCalendarDay, formatDate, formatNumber } from '@/shared/i18n/format'
 import { slaText } from '@/features/findings/sla'
 import { AiPrompt } from '@/features/findings/ai-prompt'
+import { FindingCode } from '@/features/findings/finding-code'
 import { FixSection, Reverify } from '@/features/findings/fix-guide'
 import { WebFinding } from '@/features/findings/web-finding'
 import { OwaspGuidance } from '@/features/findings/guidance'
@@ -20,6 +21,8 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
   const advisory = finding.advisory
   const pkg = finding.package
   const web = finding.scanner === 'dast'
+  // Code, configuration and secrets have a place in a file to read when the detail opens; a dependency or a site doesn't.
+  const code = !demo && !pkg?.name && ['sast', 'iac', 'cicd', 'secrets'].includes(finding.scanner)
   return <div id={`finding-${idOf(finding)}`} tabIndex={-1} className="rounded-xl border border-app-line bg-panel p-4">
     <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0">{heading ? <p className="font-mono text-sm font-medium break-all">{heading}</p> : <p className="text-sm font-medium">{advisory?.summary || finding.title}</p>}<p className="mt-1 flex flex-wrap gap-x-2 font-mono text-xs text-app-subtle"><span className="text-app-secondary">{finding.rule_id}</span>{finding.cve.filter(id => id !== finding.rule_id).map(id => <a key={id} href={`https://www.cve.org/CVERecord?id=${id}`} target="_blank" rel="noreferrer" className="text-brand underline underline-offset-2">{id}</a>)}{finding.ghsa.filter(id => id !== finding.rule_id).map(id => <a key={id} href={`https://github.com/advisories/${id}`} target="_blank" rel="noreferrer" className="text-brand underline underline-offset-2">{id}</a>)}{finding.cwe.map(id => <a key={id} href={`https://cwe.mitre.org/data/definitions/${id}.html`} target="_blank" rel="noreferrer" className="hover:underline">CWE-{id}</a>)}</p></div><Badge variant="outline" className={severityClass(finding.severity)}>{labelOf(t, SEVERITY_LABEL, finding.severity)}{advisory?.cvss_score !== null && advisory?.cvss_score !== undefined ? ` · ${advisory.cvss_score}` : ''}</Badge></div>
     <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
@@ -31,8 +34,9 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
       {finding.kev && <Fact label="CISA KEV">{t('detail.kev_since', { date: finding.kev.date_added ? formatCalendarDay(finding.kev.date_added) : '' })}{finding.kev.ransomware ? ` · ${t('detail.kev_ransomware')}` : ''}</Fact>}
       {advisory?.cvss_vector && <Fact label={t('detail.cvss_vector')}><span className="font-mono text-xs break-all">{advisory.cvss_vector}</span></Fact>}
     </div>
+    {code && <FindingCode runId={runId} fingerprint={finding.fingerprint} />}
     {web ? <WebFinding finding={finding} /> : <FixSection fix={finding.fix} remediation={finding.remediation} />}
-    {!demo && !web && finding.lifecycle?.status !== 'fixed' && <AiPrompt runId={runId} fingerprint={finding.fingerprint} />}
+    {!demo && !web && finding.lifecycle?.status !== 'fixed' && <AiPrompt runId={runId} fingerprint={finding.fingerprint} withCode={code} />}
     {finding.lifecycle?.status !== 'excluded' && (finding.lifecycle?.status !== 'fixed' || finding.verification) && <Reverify runId={runId} fingerprint={finding.fingerprint} verification={finding.verification}
       onChanged={onChanged} canVerify={finding.lifecycle?.status !== 'fixed'} web={web}
       blocked={demo ? t('verify.demo')

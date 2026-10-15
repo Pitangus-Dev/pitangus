@@ -77,6 +77,7 @@ There's no telemetry.
 - Container images you scan **are neither run nor built**: the engines read the manifest and the layers.
 - The Trivy, OSV-Scanner, Betterleaks, Grype, Checkov and zizmor images are pinned by digest. The Opengrep image is built from the official binary, checked against its SHA-256.
 - Values of secrets found in your code are redacted: findings keep the location and the type, not the value.
+- **Pitangus doesn't store the text of your code**: it stores the location, the rule and hashes; the snippet is shown when you open the finding, read from the repository at that moment (with the GitHub App or token you connected, at the scanned commit) and without the secrets. It is never cached or logged ([Your code is never stored](findings.md#your-code-is-never-stored)).
 - Findings are stored as message codes with parameters, not as frozen sentences, so the panel, reports and PR comments render them in English or Spanish for whoever reads them. Advisory text from NVD, OSV or GHSA is shown as published, never machine-translated.
 
 ## Known trade-offs

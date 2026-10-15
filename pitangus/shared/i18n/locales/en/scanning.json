@@ -57,6 +57,7 @@
     "disabled": "{{engine}}: not run (disabled). Turn it on with {{setting}}=1; what it found before stays open, never fixed."
   },
   "opengrep": {
+    "no_fix": "Open the finding to see its code, and fix it as rule {{rule}} describes.",
     "no_docker": "Docker isn't available: multi-language SAST didn't run. {{problem}}",
     "image_missing": "The Opengrep image isn't built: run make build (or docker compose build).",
     "image_error": "Docker couldn't inspect the Opengrep image: {{cause}}",
@@ -141,7 +142,8 @@
       "detail": "{{count|# secret was|# secrets were}} allowed by gitleaks:allow comments in the code or by the repository's .gitleaksignore, excluded and listed: {{places}}.",
       "unknown": "Couldn't check which matches the gitleaks:allow comments in the code allow, so the analysis is incomplete and no secret is marked as fixed.",
       "limitation": "{{count|# secret is|# secrets are}} allowed by gitleaks:allow comments in the code or by the repository's .gitleaksignore ({{places}}). They're still there: you can see them in Findings → Excluded."
-    }
+    },
+    "over_budget": "{{count|# secret was|# secrets were}} not located in {{count|its line|their lines}}: the work Pitangus allows for locating secrets ran out (a very long line that matches almost everywhere). {{count|It's|They're}} reported without an identity of {{count|its|their}} own, so {{count|it|they}} can't be matched with earlier scans."
   },
   "trivy": {
     "no_docker": "Docker isn't available: dependencies, IaC and secrets with Trivy didn't run.",
@@ -545,7 +547,7 @@
     "unexamined_other": "{{engine}} didn't examine {{count}} files ({{reason}}): {{paths}}",
     "left_out_one": "1 file was left out of the copy (size or budget), so no engine examined it: {{paths}}",
     "left_out_other": "{{count}} files were left out of the copy (size or budget), so no engine examined them: {{paths}}",
-    "suppressed_inline": "Allowed by gitleaks:allow comments or the repository's .gitleaksignore: {{count}} ({{places}}). Excluded, not fixed."
+    "suppressed_inline": "Suppressed by the repository's own comments or ignore files: {{count}} ({{places}}). Excluded, not fixed."
   },
   "secret_filter": {
     "screened_one": "{{count}} match set aside as not a secret: {{reasons}}.",
@@ -969,5 +971,13 @@
       "tree_unlisted": "the provider didn't list what this commit holds here",
       "no_inventory": "no engine listed a package from this folder"
     }
+  },
+  "repo_controls": {
+    "excluded": "Suppressed by the repository's {{control}}: {{rule}} at {{path}}:{{line}}. It's still there: excluded, not fixed, and it reopens if the suppression goes away.",
+    "detail": "{{count|# result was|# results were}} suppressed by the repository's own ignore comments or files, excluded and listed: {{places}}.",
+    "unknown": "Couldn't check which results the repository's ignore comments or files suppress, so the analysis is incomplete and nothing is marked as fixed.",
+    "limitation": "{{count|# result is|# results are}} suppressed by the repository's own ignore comments or files ({{places}}). They're still there: you can see them in Findings → Excluded.",
+    "comment": "{{marker}} comment",
+    "file": "{{file}}"
   }
 }

@@ -32,7 +32,7 @@ from pitangus.modules.scanning.config_engines import parse_zizmor
 from pitangus.modules.scanning.engines import EngineStep, parse_opengrep, with_cause
 from pitangus.shared import db, web_keys
 from pitangus.shared.i18n import msg
-from pitangus.shared.masking import mask, mask_code, mask_url, sanitize_finding, sanitize_record
+from pitangus.shared.masking import mask, mask_url, sanitize_finding, sanitize_record
 from value_oracle import fragments, leaked
 
 from test_secret_masking import _captured_logs, _pdf_text, _replayed
@@ -406,14 +406,14 @@ class MaskingPropertiesTests(unittest.TestCase):
 
     @settings(max_examples=200 * SCALE, deadline=None)
     @given(cases(), st.sampled_from(["sast", "secrets", "cicd"]))
-    def test_a_finding_keeps_its_identity_and_a_credential_keeps_no_snippet(self, case, scanner):
+    def test_a_finding_keeps_its_identity_and_no_snippet(self, case, scanner):
         value, encoding, form, _, cwe = case
         path, line, _ = _line(value, encoding, form)
         finding = {"fingerprint": "a" * 64, "scanner": scanner, "tool": "semgrep", "rule_id": "r", "path": path or "a.txt", "line": 3,
                    "cwe": [cwe], "snippet": line, "title": "t"}
         stored = sanitize_finding(finding)
         self.assertEqual(canonical.identity_of(stored), canonical.identity_of(finding))
-        self.assertEqual("snippet" in stored, scanner != "secrets" and cwe != 798)
+        self.assertNotIn("snippet", stored)
         self.assertEqual(sanitize_finding(stored), stored)
 
     def test_context_masking_stays_fast_on_adversarial_text(self):
@@ -437,8 +437,8 @@ class MaskingPropertiesTests(unittest.TestCase):
                             ("https://app.local/search?q=%3Cscript%3E&page=2", "https://app.local/search?***=***&page=***"),
                             ('return render_template_string(request.args.get("name"))', None),
                             ('return render_template_string(request.args.get("Vb9Rt4Kw"))', 'return render_template_string(request.args.get("***"))')):
-            self.assertEqual(mask_code(text), shown or text)
-            self.assertEqual(mask_code(mask_code(text)), mask_code(text))
+            self.assertEqual(mask(text), shown or text)
+            self.assertEqual(mask(mask(text)), mask(text))
 
 
 class RecordTextTests(unittest.TestCase):
@@ -544,7 +544,7 @@ class StoredCredentialsMigrationTests(unittest.TestCase):
                 self.assertNotIn(value, text)
         for item in [*run["findings"], *(entry["finding"] for entry in entries.values())]:
             self.assertEqual(canonical.identity_of(item), before[item["fingerprint"]], item["fingerprint"])
-            self.assertEqual("snippet" in item, item["fingerprint"] == "a" * 64)
+            self.assertNotIn("snippet", item)
         self.assertEqual(self.migrations._mask_stored_credentials(self.data_dir), 0)  # idempotent
 
 

@@ -51,7 +51,7 @@ you'd rather keep private.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| Everything is very slow under WSL2 | The repository is on the Windows drive (`/mnt/c/...`), which WSL2 reads far more slowly. | Clone it inside Linux: `cd ~ && git clone --branch v0.14.0 https://github.com/Pitangus-Dev/pitangus.git`. |
+| Everything is very slow under WSL2 | The repository is on the Windows drive (`/mnt/c/...`), which WSL2 reads far more slowly. | Clone it inside Linux: `cd ~ && git clone --branch v0.14.1 https://github.com/Pitangus-Dev/pitangus.git`. |
 | `Permission denied` on `data/` under WSL2 | The folders were created from Windows or by Docker as root. | Clone inside Linux as above and run `make setup` there before `make up`. |
 
 ## VPN and proxy

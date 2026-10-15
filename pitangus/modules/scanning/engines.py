@@ -42,14 +42,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from pitangus.shared import db, log as logging_setup, paths, render, settings
+from pitangus.shared import db, log as logging_setup, paths, settings
 from pitangus.shared.i18n import catalog, is_msg, msg
 from pitangus.shared.masking import mask
 from pitangus.modules.intel import data_sources
 from pitangus.modules.intel.advisories import compare_versions, cvss3_base_score, is_malicious, mark_malicious, prioritize, severity_from_score
 from pitangus.modules.intel.advisories import fingerprint as sca_fingerprint
 from pitangus.modules.intel.packages import dependency_fingerprint
-from pitangus.modules.scanning import dependency_coverage, dependency_graph, engine_contract, sast_merge, secret_coverage, secret_filter, secret_identity, secret_location, secret_rules, vendored
+from pitangus.modules.scanning import dependency_coverage, dependency_graph, engine_contract, repo_controls, sast_merge, secret_coverage, secret_filter, secret_identity, secret_location, secret_rules, vendored
 from pitangus.modules.scanning.engine_contract import Contract
 from pitangus.modules.scanning.dependency_merge import unique_by_fingerprint
 from pitangus.modules.scanning.folding import absorbed
@@ -797,11 +797,10 @@ def parse_opengrep(payload: dict, *, silenced: bool = False) -> list[Finding]:
         raw_cwe = metadata.get("cwe", [])
         cwe = [int(found.group(1)) for item in (raw_cwe if isinstance(raw_cwe, list) else [raw_cwe])
                if (found := re.match(r"(?:CWE-)?(\d+)\b", str(item)))]
-        message = str(extra.get("message", "")).strip()
         title = _rule_texts(metadata.get("title"), 200) or str(metadata.get("shortDescription") or "")[:200] \
             or f"{metadata.get('category', 'sast').capitalize()}: {rule.rsplit('.', 1)[-1].replace('-', ' ')}"
-        # A rule without its own fix text: its message, which interpolates what the result matched, rendered as one.
-        remediation = _rule_texts(metadata.get("fix")) or _rule_texts({"en": render.prose(message)})
+        # A rule without its own fix text: never its message, which interpolates what the result matched (code).
+        remediation = _rule_texts(metadata.get("fix")) or msg("scanning.opengrep.no_fix", rule=rule)
         finding = _base(
             "sast", rule, title, path, line, severity, tool="opengrep",
             reason=msg("scanning.opengrep.reason", path=path, line=line), remediation=remediation,
@@ -943,11 +942,13 @@ def run_opengrep(snapshot: Path) -> EngineResult:
     # A rule that starts off (rule_set.dormant_rules) reports nothing, not even as excluded: the run records it as off.
     from pitangus.modules.scanning.rule_set import dormant_rules
     dormant = set(dormant_rules())
-    findings, in_vendored = vendored.withhold(sast_merge.merge([item for item in parse_opengrep(payload) if item["rule_id"] not in dormant]),
-                                              snapshot)
-    # Silenced in the code: listed as excluded with why, never as fixed, and they reopen if the comment goes away.
-    silenced = [{**item, "excluded_reason": msg("scanning.opengrep.silenced_reason")}
-                for item in sast_merge.merge(parse_opengrep(payload, silenced=True)) if item["rule_id"] not in dormant]
+    # Silenced in the code: listed as excluded with why, never as fixed, and they reopen if the comment goes away. With
+    # PITANGUS_IGNORE_REPO_SUPPRESSIONS a `nosemgrep` comment silences nothing (repo_controls).
+    loud = repo_controls.ignored()
+    reported = [*parse_opengrep(payload), *(parse_opengrep(payload, silenced=True) if loud else [])]
+    findings, in_vendored = vendored.withhold(sast_merge.merge([item for item in reported if item["rule_id"] not in dormant]), snapshot)
+    silenced = [] if loud else [{**item, "excluded_reason": msg("scanning.opengrep.silenced_reason")}
+                                for item in sast_merge.merge(parse_opengrep(payload, silenced=True)) if item["rule_id"] not in dormant]
     errors = [item for item in payload.get("errors", []) if isinstance(item, dict)]
     covered = ", ".join(f"{name} ({count})" for name, count in sorted(languages["covered"].items())) \
         or msg("scanning.opengrep.no_covered_language")
@@ -1073,7 +1074,8 @@ def _trivy_misconfiguration(entry: dict, target: str) -> dict:
     severity = SEVERITY_LABEL.get(str(entry.get("Severity", "")).upper(), "medium")
     resource = str(cause.get("Resource") or cause.get("Provider") or "")
     finding = _base("iac", rule, f"{entry.get('Title', rule)}", target, line, severity, tool="trivy",
-                    reason=str(entry.get("Message") or entry.get("Description") or "").strip(),
+                    # The check's description, never its message, which quotes the configuration it read.
+                    reason=str(entry.get("Description") or entry.get("Title") or rule).strip(),
                     remediation=str(entry.get("Resolution") or "").strip() or msg("scanning.iac.review_reference"),
                     cwe=[], owasp="A02:2025", confidence=8,
                     digest=_stable("iac", rule, target, resource or str(line)))
@@ -1167,6 +1169,8 @@ def named(finding: Finding, read: secret_location.Read, value: secret_identity.N
             finding["span"] = read.span
     elif read.unlinkable:
         secret_identity.assign_unlinkable(finding, read.unlinkable)
+        if read.spent:
+            finding["over_budget"] = True   # declared in the run's limitations (repository.scan_repository)
     else:
         secret_identity.assign_unlinkable(finding, secret_identity.unlinkable(finding["rule_id"], finding["path"], None))
 
@@ -1313,22 +1317,41 @@ def trivy_databases(cache_dir: Path, data_dir: Path | None) -> list[str]:
     return [skip for folder, _, skip in TRIVY_DATABASES if _trivy_database_fresh(cache_dir, folder) is not None]
 
 
+TRIVY_IGNORE_FILES = (".trivyignore.yaml", ".trivyignore")   # the repository's own, at its top: the first one there is read
+
+
+def trivy_ignore_file(root: Path | None) -> Path | None:
+    """The repository's Trivy ignore file, when it is honoured (repo_controls): never one Trivy finds on its own."""
+    if root is None or repo_controls.ignored():
+        return None
+    for name in TRIVY_IGNORE_FILES:
+        path = root / name
+        if path.is_file() and not path.is_symlink() and path.stat().st_size <= repo_controls.READ_MAX:
+            return path
+    return None
+
+
 def _trivy_fs(snapshot: Path, cache_dir: Path, scanners: str, config_dir: Path | None, *,
               network: bool = True, skips: tuple[str, ...] = (), offline: bool = False, target: str | None = None,
-              timeout: int = 900) -> subprocess.CompletedProcess:
+              timeout: int = 900, ignore: Path | None = None) -> subprocess.CompletedProcess:
     """`offline`: no remote dependency resolution (`--offline-scan`); `target`: one file of the snapshot instead of all.
     With the secret scanner, its log at debug level names each file that scanner read (secret_coverage.read_trivy):
-    only those lines and what `--quiet` would print are kept."""
+    only those lines and what `--quiet` would print are kept. `ignore`: the repository's ignore file (`trivy_ignore_file`),
+    read with every result it suppresses reported apart (`--show-suppressed`, `trivy_suppressed`); without one, Trivy
+    reads none, wherever it runs from."""
+    ignoring = (["--ignorefile", f"/ignore/{ignore.name}", "--show-suppressed"] if ignore is not None
+                else ["--ignorefile", ""])
     # Include dev dependencies (flagged as such) and the full package list, to tell which ones they are.
     secret_config = ["--secret-config", "/cfg/trivy-secret.yaml"] if config_dir else []
     listing = "secret" in scanners.split(",")
     # Its cache in memory, per scan, as for images: the shared one is a file one scan locks; the folder keeps the databases.
-    return _run("trivy", ["fs", "--scanners", scanners, *secret_config, *skips, *(["--offline-scan"] if offline else []),
+    return _run("trivy", ["fs", "--scanners", scanners, *secret_config, *skips, *ignoring, *(["--offline-scan"] if offline else []),
                           "--cache-backend", "memory", "--include-dev-deps", "--list-all-pkgs",
                           "--cache-dir", "/cache", "--format", "json", "--debug" if listing else "--quiet",
                           "--timeout", f"{max(1, timeout // 60 - 1)}m", f"/src/{target}" if target else "/src"], snapshot, network=network,
                 mounts=["-v", f"{host_path(cache_dir)}:/cache",
-                        *(["-v", f"{host_path(config_dir)}:/cfg:ro"] if config_dir else [])], timeout=timeout,
+                        *(["-v", f"{host_path(config_dir)}:/cfg:ro"] if config_dir else []),
+                        *(["-v", f"{host_path(ignore)}:/ignore/{ignore.name}:ro"] if ignore is not None else [])], timeout=timeout,
                 keep=secret_coverage.keep_trivy() if listing else None)
 
 
@@ -1356,12 +1379,12 @@ def remote_manifests(snapshot: Path) -> list[str]:
 
 
 def _resolve_apart(snapshot: Path, cache_dir: Path, scanners: str, config_dir: Path | None, skips: tuple[str, ...],
-                   manifests: list[str]) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+                   manifests: list[str], ignore: Path | None = None) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
     """After a resolution failure: the run again without remote resolution, which covers everything else (other
     manifests, infrastructure, secrets); then each manifest that resolves remotely on its own, replacing what the offline
     run read from it. Returns the merged run and the manifests whose resolution still failed: only their dependencies go
     unexamined, and what the offline run guessed for them is left out (a manifest not examined opens nothing)."""
-    offline = _trivy_fs(snapshot, cache_dir, scanners, config_dir, skips=skips, offline=True)
+    offline = _trivy_fs(snapshot, cache_dir, scanners, config_dir, skips=skips, offline=True, ignore=ignore)
     payload, failure = engine_contract.verdict(TRIVY, offline.returncode, offline.stdout)
     if failure:
         return offline, {}
@@ -1371,7 +1394,7 @@ def _resolve_apart(snapshot: Path, cache_dir: Path, scanners: str, config_dir: P
         alone = None
         if index < MAX_RESOLUTIONS:
             try:
-                probe = _trivy_fs(snapshot, cache_dir, "vuln", None, skips=skips, target=relative, timeout=RESOLUTION_TIMEOUT)
+                probe = _trivy_fs(snapshot, cache_dir, "vuln", None, skips=skips, target=relative, timeout=RESOLUTION_TIMEOUT, ignore=ignore)
                 alone, _ = engine_contract.verdict(TRIVY, probe.returncode, probe.stdout)
             except subprocess.TimeoutExpired:
                 alone = None
@@ -1397,21 +1420,22 @@ def run_trivy(snapshot: Path, cache_dir: Path, feeds: dict, secret_settings: dic
     cache_dir = writable_cache(cache_dir)
     rejected = None
     unresolved: dict[str, str] = {}
+    ignore = trivy_ignore_file(snapshot)
     try:
         skips = tuple(trivy_databases(cache_dir, data_dir))
         with tempfile.TemporaryDirectory(prefix="trivy-config-", dir=snapshot.parent) as folder:
             # Always a generated configuration: its built-in allow rules and skip patterns off (secret_rules).
             config_dir, scanners = Path(folder), "vuln,misconfig,secret"
             (config_dir / "trivy-secret.yaml").write_text(secret_rules.trivy_secret_config(secret_settings or secret_rules.empty()), encoding="utf-8")
-            completed = _trivy_fs(snapshot, cache_dir, scanners, config_dir, skips=skips)
+            completed = _trivy_fs(snapshot, cache_dir, scanners, config_dir, skips=skips, ignore=ignore)
             if config_dir and completed.returncode != 0 and not completed.stdout.strip() and "secret config" in completed.stderr.lower():
                 reason = config_cause(completed)
                 rejected = msg("scanning.trivy.secret_config_rejected_cause", cause=reason) if reason \
                     else msg("scanning.trivy.secret_config_rejected")
                 config_dir, scanners = None, "vuln,misconfig"
-                completed = _trivy_fs(snapshot, cache_dir, scanners, None, skips=skips)
+                completed = _trivy_fs(snapshot, cache_dir, scanners, None, skips=skips, ignore=ignore)
             if resolution_failed(completed) and (manifests := remote_manifests(snapshot)):
-                completed, unresolved = _resolve_apart(snapshot, cache_dir, scanners, config_dir, skips, manifests)
+                completed, unresolved = _resolve_apart(snapshot, cache_dir, scanners, config_dir, skips, manifests, ignore)
             read, completed = _trivy_listed(completed)
         payload, contract = engine_contract.verdict(TRIVY, completed.returncode, completed.stdout)
         if contract:
@@ -1428,6 +1452,15 @@ def run_trivy(snapshot: Path, cache_dir: Path, feeds: dict, secret_settings: dic
     findings = parse_trivy(payload, feeds, secret_rules.custom_rules(secret_settings), root=snapshot, screened=screened)
     kept, allowed = split_inline([finding for finding in findings if finding["scanner"] == "secrets"], snapshot)
     findings = [*(finding for finding in findings if finding["scanner"] != "secrets"), *kept]
+    listed = trivy_suppressed(payload, feeds, secret_rules.custom_rules(secret_settings), snapshot, ignore)
+    allowed += [finding for finding in listed if finding["scanner"] == "secrets"]
+    suppressed = [finding for finding in listed if finding["scanner"] != "secrets"]
+    inline = _trivy_inline(snapshot, cache_dir, feeds, skips, ignore, [finding for finding in findings if finding["scanner"] == "iac"]) \
+        if "misconfig" in scanners else None
+    if inline is not None and inline != "unknown":
+        found, hidden = inline
+        findings = [*(finding for finding in findings if finding["scanner"] != "iac"), *found]
+        suppressed += hidden
     kinds = {"sca": 0, "iac": 0, "secrets": 0}
     for finding in findings:
         kinds[finding["scanner"]] = kinds.get(finding["scanner"], 0) + 1
@@ -1458,6 +1491,9 @@ def run_trivy(snapshot: Path, cache_dir: Path, feeds: dict, secret_settings: dic
     if gaps := secret_gaps(snapshot, read if "secret" in scanners else set(), secret_settings):
         coverage = {**coverage, "by_scanner": {**(coverage.get("by_scanner") or {}), "secrets": gaps}}
     result = _declare_inline({**result, "coverage": coverage}, allowed)
+    result = declare_suppressed(result, suppressed)
+    if inline == "unknown":
+        result = controls_unknown(result)
     coverage = result["coverage"]
     # Who requires what, for the fix guide of every dependency finding (Trivy's or OSV-Scanner's). Used while the scan
     # runs and dropped before the run is stored.
@@ -1591,16 +1627,19 @@ def trivy_coverage(snapshot: Path, payload: dict, log: str, unresolved: dict[str
 
 
 def trivy_secrets(snapshot: Path, cache_dir: Path, settings: dict | None, screened: Counter | None = None,
-                  gaps: dict[str, str] | None = None, allowed: list[dict] | None = None) -> list[dict] | None:
+                  gaps: dict[str, str] | None = None, allowed: list[dict] | None = None,
+                  controls: Path | None = None) -> list[dict] | None:
     """Secret detection alone (the unfiltered reference run, the credential files); None when it failed. Without
     network: it needs no vulnerability database. What isn't a secret is counted in `screened` (secret_filter).
     `gaps`: filled with the files it didn't read (secret_gaps), when it finished; `allowed`: with the secrets an
-    inline comment allows (`split_inline`), which it never returns."""
+    inline comment or the repository's ignore file allows (`split_inline`, `trivy_suppressed`), which it never returns.
+    `controls`: the repository's top folder, where its ignore file is (by default `snapshot`)."""
+    ignore = trivy_ignore_file(controls or snapshot)
     try:
         with tempfile.TemporaryDirectory(prefix="trivy-config-", dir=snapshot.parent) as folder:
             config_dir = Path(folder)
             (config_dir / "trivy-secret.yaml").write_text(secret_rules.trivy_secret_config(settings or secret_rules.empty()), encoding="utf-8")
-            completed = _trivy_fs(snapshot, cache_dir, "secret", config_dir, network=False)
+            completed = _trivy_fs(snapshot, cache_dir, "secret", config_dir, network=False, ignore=ignore)
         read, completed = _trivy_listed(completed)
         payload, failure = engine_contract.verdict(TRIVY, completed.returncode, completed.stdout)
     except (subprocess.TimeoutExpired, OSError, ValueError):
@@ -1611,7 +1650,7 @@ def trivy_secrets(snapshot: Path, cache_dir: Path, settings: dict | None, screen
         gaps.update(secret_gaps(snapshot, read, settings))
     kept, inline = split_inline(parse_trivy(payload, {}, secret_rules.custom_rules(settings), root=snapshot, screened=screened), snapshot)
     if allowed is not None:
-        allowed.extend(inline)
+        allowed.extend([*inline, *trivy_suppressed(payload, {}, secret_rules.custom_rules(settings), snapshot, ignore)])
     return kept
 
 
@@ -1682,8 +1721,7 @@ def run_osv_scanner(snapshot: Path, cache_dir: Path, feeds: dict, *, resolve: bo
     arguments = ["scan", "source", "-r", "--format", "json", "--all-packages", "--offline-vulnerabilities", "--download-offline-databases",
                  "--allow-no-lockfiles", "--no-call-analysis=go", "--no-call-analysis=rust", *([] if resolve else ["--no-resolve"]), "/src"]
     try:
-        completed = _run("osv-scanner", arguments, snapshot, network=True, timeout=1800,
-                         env={"OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY": "/cache"}, mounts=["-v", f"{host_path(cache_dir)}:/cache"])
+        completed = _osv(arguments, snapshot, cache_dir, honoured=not repo_controls.ignored())
         log = completed.stderr or ""
         # 0: no advisories · 1: advisories. Any other code is an engine error.
         payload, contract = engine_contract.verdict(OSV, osv_exit(completed.returncode, log), completed.stdout)
@@ -1696,6 +1734,9 @@ def run_osv_scanner(snapshot: Path, cache_dir: Path, feeds: dict, *, resolve: bo
         unreadable = msg("scanning.engines.unreadable", engine="OSV-Scanner")
         return engine_contract.failed(_result("osv-scanner", "inconclusive", unreadable, started=started), unreadable)
     findings = parse_osv_scanner(payload, feeds)
+    suppressed: list[Finding] | None = []
+    if not repo_controls.ignored() and (configs := OSV_LOADED.findall(log)):
+        suppressed = _osv_suppressed(arguments, snapshot, cache_dir, feeds, findings, configs)
     packages = sum(1 for result in payload.get("results") or [] for entry in result.get("packages") or [] if entry.get("vulnerabilities"))
     coverage = osv_coverage(payload, log, snapshot, resolve=resolve)
     manifests = {_relative(str((result.get("source") or {}).get("path") or "")) for result in payload.get("results") or []} - set(coverage["unexamined"])
@@ -1707,7 +1748,47 @@ def run_osv_scanner(snapshot: Path, cache_dir: Path, feeds: dict, *, resolve: bo
     detail = joined([msg("scanning.osv.detail_resolved" if resolve else "scanning.osv.detail", manifests=len(manifests), packages=packages,
                          advisories=len(findings)) if manifests else None if said else msg("scanning.osv.no_manifests"),
                      unread, *gaps], "scanning.join.sentences")
-    return engine_contract.recorded({**_result("osv-scanner", "completed", detail, findings, started), "coverage": coverage}, None)
+    result = {**_result("osv-scanner", "completed", detail, findings, started), "coverage": coverage}
+    result = controls_unknown(result) if suppressed is None else declare_suppressed(result, suppressed)
+    return engine_contract.recorded(result, None)
+
+
+# OSV-Scanner loads an `osv-scanner.toml` from each scanned folder on its own (ignored advisories, packages left out) and
+# says so in its log, without saying what it filtered out.
+OSV_LOADED = re.compile(r"Loaded filter from: /src/(\S+)")
+
+
+def _osv(arguments: list[str], snapshot: Path, cache_dir: Path, *, honoured: bool) -> subprocess.CompletedProcess:
+    """OSV-Scanner over the snapshot; not `honoured`, with an empty configuration of Pitangus' own that replaces every
+    `osv-scanner.toml` of the repository."""
+    if honoured:
+        return _run("osv-scanner", arguments, snapshot, network=True, timeout=1800,
+                    env={"OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY": "/cache"}, mounts=["-v", f"{host_path(cache_dir)}:/cache"])
+    with tempfile.TemporaryDirectory(prefix="osv-config-", dir=snapshot.parent) as folder:
+        (Path(folder) / "osv-scanner.toml").write_text("", encoding="utf-8")
+        return _run("osv-scanner", [*arguments[:-1], "--config", "/cfg/osv-scanner.toml", arguments[-1]], snapshot, network=True,
+                    timeout=1800, env={"OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY": "/cache"},
+                    mounts=["-v", f"{host_path(cache_dir)}:/cache", "-v", f"{host_path(Path(folder))}:/cfg:ro"])
+
+
+def _osv_suppressed(arguments: list[str], snapshot: Path, cache_dir: Path, feeds: dict, honoured: list[Finding],
+                    configs: list[str]) -> list[Finding] | None:
+    """The advisories the repository's `osv-scanner.toml` files filtered out: what a run without them reports and the
+    run with them doesn't, each excluded and declared with the file of its folder (or the first one loaded). None when
+    that run failed: which ones they hid is unknown."""
+    try:
+        completed = _osv(arguments, snapshot, cache_dir, honoured=False)
+        payload, failure = engine_contract.verdict(OSV, osv_exit(completed.returncode, completed.stderr or ""), completed.stdout)
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return None
+    if failure:
+        return None
+    _, hidden, _ = repo_controls.split(parse_osv_scanner(payload, feeds), honoured, lambda finding: finding["fingerprint"])
+    by_folder = {config.rpartition("/")[0]: config for config in configs}
+
+    def control(finding: Finding) -> Message:
+        return file_control(by_folder.get(finding["path"].rpartition("/")[0], configs[0]))
+    return [repo_suppressed(finding, control(finding)) for finding in hidden]
 
 
 def osv_exit(code: int | None, log: str) -> int | None:
@@ -2262,9 +2343,9 @@ def run_betterleaks(snapshot: Path, settings: dict | None = None, *, nested: boo
 
 
 def inline_allow_ignored() -> bool:
-    """Whether `gitleaks:allow` comments in the code allow nothing (PITANGUS_SECRETS_IGNORE_INLINE_ALLOW): off, they
-    are honoured and every match they allow is declared (`_inline_allowed`)."""
-    return settings.flag("PITANGUS_SECRETS_IGNORE_INLINE_ALLOW")
+    """Whether `gitleaks:allow` comments in the code and the repository's ignore files allow nothing (repo_controls):
+    off, they are honoured and every match they allow is declared (`_inline_allowed`)."""
+    return repo_controls.ignored()
 
 
 def _inline_allowed(result: dict, snapshot: Path, settings: dict | None, started: float, *, nested: bool = False) -> dict:
@@ -2318,9 +2399,15 @@ def _ignore_file_allowed(result: dict, snapshot: Path) -> dict:
     """The secrets the repository's `.gitleaksignore` / `.betterleaksignore` allow: the owner's decision, honoured by
     Pitangus as Betterleaks would, and never silent (Betterleaks itself never sees those files: `_betterleaks_report`).
     Each one is excluded with its file and line, declared like an inline comment's (`_declare_inline`), never fixed and
-    never with its value. With PITANGUS_SECRETS_IGNORE_INLINE_ALLOW they allow nothing, as the comments."""
-    entries = ignore_file_entries(snapshot)
-    if not entries:
+    never with its value. With PITANGUS_IGNORE_REPO_SUPPRESSIONS they allow nothing, as the comments."""
+    return ignore_entries_allowed(result, ignore_file_entries(snapshot))
+
+
+def ignore_entries_allowed(result: dict, entries: dict[tuple[str, str, int], str]) -> dict:
+    """`_ignore_file_allowed` with the entries already read: the files sit at the repository's top, which the main
+    snapshot doesn't hold (they go with the secret-only files), so the code scan reads them first
+    (repository.scan_repository)."""
+    if not entries or inline_allow_ignored() or result.get("status") not in ("completed", "partial"):
         return result
     kept, allowed = [], []
     for finding in result.get("findings") or []:
@@ -2343,7 +2430,7 @@ def _allowed_inline(finding: Finding) -> Finding:
             "excluded_reason": msg("scanning.secrets.inline.excluded", path=finding["path"], line=finding["line"])}
 
 
-def _declare_inline(result: dict, allowed: list[Finding]) -> dict:
+def _declare_inline(result: dict, allowed: list[Finding], detail: str = "scanning.secrets.inline.detail") -> dict:
     """`result` with the matches an inline comment allowed excluded (`withheld`), listed by file and line in its coverage
     (`suppressed_inline`) and its detail."""
     if not allowed:
@@ -2352,9 +2439,95 @@ def _declare_inline(result: dict, allowed: list[Finding]) -> dict:
     coverage = result.get("coverage") or engine_contract.coverage("*")
     return {**result, "withheld": None if result.get("withheld", []) is None else [*(result.get("withheld") or []), *allowed],
             "coverage": {**coverage, "suppressed_inline": sorted({*(coverage.get("suppressed_inline") or []), *places})},
-            "detail": joined([result["detail"], msg("scanning.secrets.inline.detail", count=len(places),
+            "detail": joined([result["detail"], msg(detail, count=len(places),
                                                     places=", ".join(places[:INLINE_SHOWN]) + ("…" if len(places) > INLINE_SHOWN else ""))],
                              "scanning.join.sentences")}
+
+
+def repo_suppressed(finding: Finding, control: Message) -> Finding:
+    """A result the repository suppressed (repo_controls), by `control` (the comment or file that did): excluded,
+    declared with its rule, file and line, never fixed."""
+    return {**finding, "inline_allowed": True,
+            "excluded_reason": msg("scanning.repo_controls.excluded", rule=str(finding.get("rule_id") or ""), path=finding["path"],
+                                   line=int(finding.get("line") or 0), control=control)}
+
+
+def declare_suppressed(result: dict, suppressed: list[Finding]) -> dict:
+    """`result` with what the repository's own comments and files suppressed excluded and declared (`_declare_inline`)."""
+    return _declare_inline(result, suppressed, "scanning.repo_controls.detail")
+
+
+def controls_unknown(result: dict) -> dict:
+    """`result` when the run without the repository's suppressions failed: which results they hid is unknown, so the step
+    is partial and the scan fixes nothing (`withheld` None)."""
+    return {**result, "status": "partial", "withheld": None,
+            "detail": joined([result["detail"], msg("scanning.repo_controls.unknown")], "scanning.join.sentences")}
+
+
+def comment_control(marker: str) -> Message:
+    return msg("scanning.repo_controls.comment", marker=marker)
+
+
+def file_control(file: str) -> Message:
+    return msg("scanning.repo_controls.file", file=file)
+
+
+# Files an infrastructure engine reads (Trivy's misconfiguration scanner, Checkov): only those are looked at for comments.
+CONFIG_SUFFIXES = frozenset({".tf", ".tfvars", ".hcl", ".json", ".yaml", ".yml", ".template", ".bicep", ".tpl", ".dockerfile",
+                             ".containerfile"})
+
+
+def config_file(path: str) -> bool:
+    name = path.rsplit("/", 1)[-1].lower()
+    return name.startswith(("dockerfile", "containerfile")) or any(name.endswith(suffix) for suffix in CONFIG_SUFFIXES)
+
+
+TRIVY_INLINE = {b"trivy:ignore": b"trivy_ignore"}
+
+
+def trivy_suppressed(payload: dict, feeds: dict, custom: dict | None, root: Path, ignore: Path | None) -> list[Finding]:
+    """What the repository's ignore file suppressed, as Trivy reports it apart (`--show-suppressed`): each one excluded and
+    declared, never fixed."""
+    if ignore is None:
+        return []
+    fields = {"vulnerability": "Vulnerabilities", "misconfiguration": "Misconfigurations", "secret": "Secrets"}
+    results = []
+    for result in payload.get("Results") or []:
+        if not isinstance(result, dict):
+            continue
+        shaped: dict = {key: result.get(key) for key in ("Target", "Class", "Type", "Packages")}
+        for item in result.get("ExperimentalModifiedFindings") or []:
+            field = fields.get(str((item or {}).get("Type") or "").lower()) if isinstance(item, dict) else None
+            if field and str(item.get("Status") or "").lower() == "ignored" and isinstance(item.get("Finding"), dict):
+                shaped.setdefault(field, []).append(item["Finding"])
+        if any(field in shaped for field in fields.values()):
+            results.append(shaped)
+    control = file_control(ignore.name)
+    return [repo_suppressed(finding, control) for finding in parse_trivy({"Results": results}, feeds, custom, root=root)] if results else []
+
+
+def _trivy_inline(snapshot: Path, cache_dir: Path, feeds: dict, skips: tuple[str, ...], ignore: Path | None,
+                  honoured: list[Finding]) -> tuple[list[Finding], list[Finding]] | str | None:
+    """The misconfigurations a `trivy:ignore` comment hides: Trivy honours them without a word, so it runs once more on a
+    view of the snapshot where they are inert. (every misconfiguration, the ones a comment hid as excluded; with
+    PITANGUS_IGNORE_REPO_SUPPRESSIONS none is excluded), "unknown" when that run failed, None without such comments."""
+    marks = repo_controls.marked(snapshot, tuple(TRIVY_INLINE), repo_controls.files(snapshot, config_file))
+    if not marks:
+        return None
+    try:
+        with repo_controls.view(snapshot, rewrite={path: repo_controls.inert((snapshot / path).read_bytes(), TRIVY_INLINE)
+                                                   for path in marks}) as copy:
+            completed = _trivy_fs(copy, cache_dir, "misconfig", None, skips=skips, ignore=ignore)
+        payload, failure = engine_contract.verdict(TRIVY, completed.returncode, completed.stdout)
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return "unknown"
+    if failure:
+        return "unknown"
+    full = [finding for finding in parse_trivy(payload, feeds, root=snapshot) if finding["scanner"] == "iac"]
+    kept, hidden, extra = repo_controls.split(full, honoured, lambda finding: finding["fingerprint"])
+    if repo_controls.ignored():
+        return [*full, *extra], []
+    return [*kept, *extra], [repo_suppressed(finding, comment_control("trivy:ignore")) for finding in hidden]
 
 
 def split_inline(findings: list[Finding], root: Path | None) -> tuple[list[Finding], list[Finding]]:

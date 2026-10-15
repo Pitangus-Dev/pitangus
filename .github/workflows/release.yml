@@ -9,6 +9,8 @@
 #
 # The tag must match pitangus/version.py (v0.12 or v0.12.<patch>): the compose files of that checkout ask for that tag.
 # A patch tag also moves the <major.minor> tag, which is the one compose pulls.
+# Once published, `make pin-hook` (cosign) checks the worker's signature and pins the pre-commit hook
+# (hooks/pitangus-docker) to its digest: commit that in a PR, like any change to main.
 # Actions pinned by commit; no cache (a release is built from scratch); only this job can write packages, and only
 # from the `release` environment.
 # First release only: GHCR creates both packages as private; make them public (package settings → visibility) so

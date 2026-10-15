@@ -472,7 +472,8 @@ def _unexamined(result: dict, locale: str, shown: int = 3) -> list[str]:
 
 
 def _suppressed_inline(result: dict, locale: str, shown: int = 5) -> list[str]:
-    """Where a `gitleaks:allow` comment in the code allowed a secret (file:line, never the value): honoured, and said."""
+    """Where the repository's own comments or ignore files suppressed a result (file:line, never the code or a value):
+    honoured, and said (scanning/repo_controls.py)."""
     places = sorted({place for cover in ((result.get("scan") or {}).get("coverage") or {}).values()
                      for place in cover.get("suppressed_inline") or []})
     if not places:
@@ -548,17 +549,24 @@ def render_json(result: dict, *, locale: str | None = None) -> str:
 
 
 def render_prompt(result: dict, *, limit: int = 50, locale: str | None = None) -> str:
-    """One prompt per finding to paste into the developer's own AI assistant (findings/ai_prompt.py), worst first; no
-    secret value and no code beyond each matched fragment."""
-    from pitangus.modules.findings.ai_prompt import prompt
+    """One prompt per finding to paste into the developer's own AI assistant (findings/ai_prompt.py), worst first. Its
+    code is read from the scanned folder now, the lines around it, with every secret the scan found masked
+    (runs/code_view.py); none when what was scanned was a commit or the index (the folder may differ), and never a
+    secret's or a credential's."""
+    from pitangus.modules.findings.ai_prompt import code_text, prompt
     from pitangus.modules.findings.fix_guide import attach
+    from pitangus.modules.runs.code_view import local_lines
     locale = locale or default_locale()
     order = {level: index for index, level in enumerate(SEVERITY_ORDER)}
     findings = sorted(attach([dict(item) for item in result["findings"]]), key=lambda item: (order.get(item["severity"], 9), item["path"], item.get("line") or 0))
     allowed = "".join(line + "\n" for line in _suppressed_inline(result, locale))
     if not findings:
         return (t("scanning.cli.no_new_findings", locale) if result["comparison"] else t("scanning.cli.no_findings", locale)) + "\n" + allowed
-    blocks = [prompt(finding, locale) for finding in findings[:limit]]
+    scan = result.get("scan") or {}
+    every = [*(scan.get("findings") or []), *(scan.get("excluded_findings") or [])]
+    root = Path(result["target"]) if result.get("target") and result.get("snapshot") == "worktree" else None
+    blocks = [prompt(finding, locale, code_text(local_lines(root, finding, every, certain=True, scan=scan), locale) if root else None)
+              for finding in findings[:limit]]
     more = [t("scanning.cli.more", locale, count=len(findings) - limit) + "\n"] if len(findings) > limit else []
     return "\n---\n\n".join(blocks + more + ([allowed] if allowed else []))
 

@@ -673,7 +673,35 @@
   "ai_prompt": {
     "copy": "Copy prompt for your AI",
     "copied": "Copied",
-    "help": "Paste it into Claude, Cursor or Copilot: it has the rule, where it is, the matched code when there is some, and the fix, never a secret's value. Pitangus doesn't send it anywhere.",
+    "help": "Paste it into Claude, Cursor or Copilot: it has the rule, where it is, the code shown above when there is some (with its secrets hidden), and the fix. Pitangus doesn't send it anywhere.",
     "failed": "Couldn't copy it: select the text below and copy it by hand."
+  },
+  "code": {
+    "title": "Code",
+    "lines": "lines {{first}}–{{last}}",
+    "loading": "Reading the code from the repository…",
+    "error": "Couldn't read the code right now.",
+    "retry": "Try again",
+    "read_now": "Read from the repository at the scanned commit just now. Pitangus doesn't store your code.",
+    "read_now_masked": "Read from the repository at the scanned commit just now, with the secrets found in this file hidden. Pitangus doesn't store your code.",
+    "masked_line": "Line hidden: a secret was found on it",
+    "open_github": "Open on GitHub",
+    "reason": {
+      "secret": "Pitangus never shows a secret's code, only where it is. Rotate it first, then remove it.",
+      "imported": "The code isn't shown for an imported finding: its file, line and commit came with the import, not from a Pitangus scan.",
+      "symlink": "The code isn't shown: this path is a symbolic link, and Pitangus never reads a file under another name.",
+      "secret_other_commit": "The code isn't shown: a secret was found in this file at another commit, and its lines may have moved since.",
+      "local": "The code isn't available here: this scan ran on a local folder. Open the file in your editor.",
+      "no_commit": "The code isn't available: this scan didn't record which commit it read.",
+      "no_location": "The code isn't available: the engine didn't say which line it is on.",
+      "file_gone": "The code isn't available: the repository no longer has this file at the scanned commit.",
+      "file_changed": "The code isn't available: the file is shorter than the lines this finding points at.",
+      "binary": "The code isn't available: it's a binary file.",
+      "repository_gone": "The code isn't available: the repository is no longer reachable with Pitangus's connection.",
+      "repository_unreachable": "The code isn't available right now: the repository couldn't be read.",
+      "unknown": "The code isn't available."
+    },
+    "line": "line {{line}}",
+    "finding_line": "Finding's line: "
   }
 }

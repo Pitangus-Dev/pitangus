@@ -19,8 +19,8 @@ when the table doesn't know the pair.
 
 Checkov's `code_block` is never read. zizmor's `feature` (the YAML a finding points at, read from the snapshot) is what
 its identity and its fingerprint read; it may hold anything (`password: …` in a container's credentials, a `run:`
-block's commands), so it never leaves the scan: both are computed from it here, and the snippet stored and shown is
-only where the finding is in the workflow, its route of keys (`jobs:` / `build:` / `steps[2]:`), and zizmor's note.
+block's commands), so it never leaves the scan: both are computed from it here, and only where the finding is (its
+lines) is kept, like any finding's (shared/masking.py).
 """
 
 from __future__ import annotations
@@ -31,13 +31,14 @@ import tempfile
 import time
 from pathlib import Path
 
-from pitangus.modules.scanning import engine_contract
+from pitangus.modules.scanning import engine_contract, repo_controls
 from pitangus.modules.scanning.engine_contract import Contract
 from pitangus.modules.scanning.folding import absorbed as folded
-from pitangus.modules.scanning.engines import _base, _relative, _result, _run, _stable, joined as join_messages, switched_off, unavailable, with_cause
+from pitangus.modules.scanning.engines import (_base, _relative, _result, _run, _stable, comment_control, config_file, controls_unknown,
+                                               declare_suppressed, file_control, joined as join_messages, repo_suppressed, switched_off,
+                                               unavailable, with_cause)
 from pitangus.shared.code_identity import anywhere_identity, content_identity
 from pitangus.shared.i18n import msg, text
-from pitangus.shared.render import PLACEHOLDER
 
 CHECKOV_FRAMEWORKS = ("terraform", "terraform_json", "cloudformation", "kubernetes", "helm", "kustomize", "dockerfile",
                       "arm", "bicep", "serverless", "openapi", "ansible", "github_actions", "gitlab_ci",
@@ -328,16 +329,78 @@ def checkov_unnamed(payload) -> bool:
                for report in _checkov_reports(payload))
 
 
+# What a repository says to Checkov: a configuration at its top (loaded from the folder it scans whatever its flags say,
+# so it never reaches it: `_checkov_config` applies its suppressions) and comments or annotations on a resource, which it
+# honours without listing them in its JSON (only `--quiet` gives a usable report): made inert for a second run.
+CHECKOV_CONFIGS = (".checkov.yaml", ".checkov.yml")
+CHECKOV_INLINE = {b"checkov:skip=": b"checkov_skip=", b"bridgecrew:skip=": b"bridgecrew_skip=", b"cortex:skip=": b"cortex_skip=",
+                  b"checkov.io/skip": b"checkov_io/skip", b"bridgecrew.io/skip": b"bridgecrew_io/skip", b"cortex.io/skip": b"cortex_io/skip"}
+SEVERITIES = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+
+
+def _checkov_key(finding: dict) -> tuple:
+    return (finding["rule_id"], finding["path"], finding.get("resource"), finding["line"], finding.get("end_line"))
+
+
+def _checkov_run(snapshot: Path, drop: list[str], marks: dict[str, list[int]] | None) -> subprocess.CompletedProcess:
+    """Checkov over the snapshot, or over a view without its configuration (`drop`) and, with `marks`, with the comments
+    of those files made inert."""
+    arguments = ["--directory", "/src", "--framework", *CHECKOV_FRAMEWORKS]
+    if not drop and not marks:
+        return _checkov(arguments, snapshot, 900)
+    rewrite = {path: repo_controls.inert((snapshot / path).read_bytes(), CHECKOV_INLINE) for path in marks or {}}
+    with repo_controls.view(snapshot, drop=drop, rewrite=rewrite) as copy:
+        return _checkov(arguments, copy, 900)
+
+
+def _entries(value) -> list[str]:
+    items = value if isinstance(value, list) else str(value).split(",") if value else []
+    return [str(item).strip() for item in items if str(item).strip()]
+
+
+def _checkov_config(snapshot: Path, names: list[str], findings: list[dict]) -> tuple[list[dict], list[dict]]:
+    """(what the repository's `.checkov.yaml` lets through, what it suppresses): its `skip-check` and `check` by check id
+    (wildcards as Checkov reads them), and its `skip-path` entries that are plain paths (a regular expression from the
+    repository is never run here). Severities need Checkov's platform, so they suppress nothing, as without it."""
+    import fnmatch
+    import yaml
+    skip, only, paths = [], [], []
+    for name in names:
+        try:
+            data = yaml.safe_load((snapshot / name).read_bytes()[:repo_controls.READ_MAX]) or {}
+        except (OSError, yaml.YAMLError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        skip += [(name, item) for item in _entries(data.get("skip-check")) if item.upper() not in SEVERITIES]
+        only += [(name, item) for item in _entries(data.get("check")) if item.upper() not in SEVERITIES]
+        paths += [(name, item) for item in _entries(data.get("skip-path")) if re.fullmatch(r"[\w./-]+", item)]
+    kept, suppressed = [], []
+    for finding in findings:
+        why = next((f"{name} (skip-check)" for name, item in skip if fnmatch.fnmatchcase(finding["rule_id"], item)), None)
+        if why is None and only and not any(fnmatch.fnmatchcase(finding["rule_id"], item) for _, item in only):
+            why = f"{only[0][0]} (check)"
+        if why is None:
+            why = next((f"{name} (skip-path)" for name, item in paths if item.strip("/") and item.strip("/") in finding["path"]), None)
+        if why is None:
+            kept.append(finding)
+        else:
+            suppressed.append(repo_suppressed(finding, file_control(why)))
+    return kept, suppressed
+
+
 def run_checkov(snapshot: Path) -> dict:
     started = time.time()
     if off := switched_off("checkov"):
         return off
     if problem := unavailable("checkov", msg("scanning.checkov.no_docker")):
         return _result("checkov", "not_tested", problem)
+    configs = [name for name in CHECKOV_CONFIGS if (snapshot / name).is_file() and not (snapshot / name).is_symlink()]
+    marks = repo_controls.marked(snapshot, tuple(CHECKOV_INLINE), repo_controls.files(snapshot, config_file))
     try:
         # With --soft-fail it always exits 0 and prints JSON, even without anything to check: any other exit (an OOM's
         # 137, a Docker error) or output that isn't its JSON is a run that didn't finish.
-        completed = _checkov(["--directory", "/src", "--framework", *CHECKOV_FRAMEWORKS], snapshot, 900)
+        completed = _checkov_run(snapshot, configs, marks if repo_controls.ignored() else None)
         payload, contract = engine_contract.verdict(CHECKOV, completed.returncode, completed.stdout)
         if contract:
             return engine_contract.failed(_result("checkov", "inconclusive", with_cause(contract, completed), started=started), contract)
@@ -349,6 +412,13 @@ def run_checkov(snapshot: Path) -> dict:
         return engine_contract.failed(_result("checkov", "inconclusive", unreadable, started=started), unreadable)
     unparsed = _checkov_unparsed_count(payload)
     findings = parse_checkov(payload)
+    suppressed: list[dict] | None = []
+    if not repo_controls.ignored():
+        if marks:
+            suppressed = _checkov_inline(snapshot, configs, marks, findings)
+        if configs and suppressed is not None:
+            findings, by_config = _checkov_config(snapshot, configs, findings)
+            suppressed += by_config
     frameworks = sorted({item["framework"] for item in findings})
     detail = (msg("scanning.checkov.detail", failures=len(findings), frameworks=", ".join(frameworks))
               if findings else msg("scanning.checkov.clean"))
@@ -358,8 +428,26 @@ def run_checkov(snapshot: Path) -> dict:
         # With the contract, a file Checkov couldn't parse is unexamined, that file only; before it, the whole run. Files
         # it counts without naming them could be any: the whole run then, in every mode.
         status = "completed" if engine_contract.enforced() and not checkov_unnamed(payload) else "inconclusive"
-        return engine_contract.recorded({**_result("checkov", status, detail, findings, started), "coverage": coverage}, None)
-    return engine_contract.recorded({**_result("checkov", "completed", detail, findings, started), "coverage": coverage}, None)
+        return engine_contract.recorded(_declared({**_result("checkov", status, detail, findings, started), "coverage": coverage}, suppressed), None)
+    return engine_contract.recorded(_declared({**_result("checkov", "completed", detail, findings, started), "coverage": coverage}, suppressed), None)
+
+
+def _declared(result: dict, suppressed: list[dict] | None) -> dict:
+    return controls_unknown(result) if suppressed is None else declare_suppressed(result, suppressed)
+
+
+def _checkov_inline(snapshot: Path, configs: list[str], marks: dict[str, list[int]], honoured: list[dict]) -> list[dict] | None:
+    """What the repository's `checkov:skip` comments and `checkov.io/skip` annotations hid: what a second run, with them
+    inert, reports and the first doesn't. `honoured` keeps what both report; None when that run failed."""
+    try:
+        completed = _checkov_run(snapshot, configs, marks)
+        payload, contract = engine_contract.verdict(CHECKOV, completed.returncode, completed.stdout)
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return None
+    if contract:
+        return None
+    _, hidden, _ = repo_controls.split(parse_checkov(payload), honoured, _checkov_key)
+    return [repo_suppressed(finding, comment_control("checkov:skip")) for finding in hidden]
 
 
 RUN_PREFIX = re.compile(r"^(?:\|\d+(?:\s+\S+=\S*)*\s+)?/bin/(?:ba)?sh -c\s+")
@@ -490,23 +578,6 @@ def _zizmor_feature(snapshot: Path | None, path: str, primary: dict, texts: dict
     return ".".join(str(part.get("Key", f"[{part.get('Index')}]")) for part in route if isinstance(part, dict))
 
 
-def _zizmor_route(primary: dict) -> str:
-    """Where a zizmor finding is in its workflow, as the keys that lead there (`jobs:` / `  build:` / `    steps[2]:`):
-    names the workflow gives, never a value it holds."""
-    route = ((primary.get("symbolic") or {}).get("route") or {}).get("route") or []
-    lines: list[str] = []
-    for part in route:
-        if not isinstance(part, dict):
-            continue
-        if "Index" in part and isinstance(part["Index"], int) and lines:
-            lines[-1] = f"{lines[-1][:-1]}[{part['Index']}]:"
-        elif isinstance(part.get("Key"), str) and re.fullmatch(r"[\w.$/-]{1,100}", part["Key"]):
-            lines.append(f"{'  ' * len(lines)}{part['Key']}:")
-        else:
-            lines.append(f"{'  ' * len(lines)}{PLACEHOLDER}:")
-    return "\n".join(lines)
-
-
 def parse_zizmor(payload: list, snapshot: Path | None = None) -> list[dict]:
     """zizmor's findings. Keyed by what they point at in the workflow, not by line: a line added above a step mustn't
     make its finding look fixed and new (the line-based fingerprint stays as `previous_fingerprint`)."""
@@ -542,12 +613,10 @@ def parse_zizmor(payload: list, snapshot: Path | None = None) -> list[dict]:
                         digest=digest)
         finding["end_line"] = max(line, end)
         finding["framework"] = "GitHub Actions"
-        # Identity from the YAML it points at, pinned; what is stored and shown is only its route (`_zizmor_route`).
+        # Identity from the YAML it points at, pinned; the YAML itself is never kept.
         original = {**finding, "snippet": f"{feature}\n{annotation}" if annotation else feature}
         finding["identity"] = content_identity(original)
         finding["anywhere"] = anywhere_identity(original)
-        route = _zizmor_route(primary)
-        finding["snippet"] = f"{route}\n# {annotation}" if annotation else route
         finding["previous_fingerprint"] = _stable("cicd", ident, path, str(line))
         if digest != base:
             finding["family"] = base
@@ -571,8 +640,9 @@ def run_zizmor(snapshot: Path) -> dict:
     audited = github_actions_files(snapshot)
     if not audited:
         return _result("zizmor", "completed", msg("scanning.zizmor.nothing_to_audit"), started=started)
+    ignoring = repo_controls.ignored()
     try:
-        completed = _run("zizmor", ["--offline", "--no-exit-codes", "--no-progress", "--format", "json", "/src"], snapshot, timeout=300)
+        completed = _run("zizmor", [*ZIZMOR_ARGUMENTS, *(ZIZMOR_UNHONOURED if ignoring else []), "/src"], snapshot, timeout=300)
         payload, contract = engine_contract.verdict(ZIZMOR, completed.returncode, completed.stdout)
         if contract:
             return engine_contract.failed(_result("zizmor", "inconclusive", with_cause(contract, completed), started=started), contract)
@@ -583,14 +653,55 @@ def run_zizmor(snapshot: Path) -> dict:
         unreadable = msg("scanning.engines.unreadable", engine="zizmor")
         return engine_contract.failed(_result("zizmor", "inconclusive", unreadable, started=started), unreadable)
     findings = parse_zizmor(payload, snapshot)
+    suppressed: list[dict] | None = []
+    marks = repo_controls.marked(snapshot, ZIZMOR_INLINE, [path.relative_to(snapshot).as_posix() for path in audited])
+    configs = sorted(repo_controls.files(snapshot, lambda path: path.rsplit("/", 1)[-1] in ZIZMOR_CONFIGS))
+    if not ignoring and (marks or configs):
+        found = _zizmor_unhonoured(snapshot)
+        if found is None:
+            suppressed = None
+        else:
+            findings, hidden, extra = repo_controls.split(found, findings, _zizmor_key)
+            findings += extra
+            suppressed = [repo_suppressed(finding, _zizmor_control(finding, marks, configs)) for finding in hidden]
     affected = len({item["path"] for item in findings})
     detail = (msg("scanning.zizmor.detail", audited=len(audited), problems=len(findings), affected=affected)
               if findings else msg("scanning.zizmor.clean", audited=len(audited)))
     # Its log names each file it finished auditing; one it couldn't parse is only a warning without a path.
     finished = {_relative(path) for path in ZIZMOR_COMPLETED.findall(completed.stderr or "")}
     missing = {path.relative_to(snapshot).as_posix(): "not_read" for path in audited if path.relative_to(snapshot).as_posix() not in finished}
-    return engine_contract.recorded({**_result("zizmor", "completed", detail, findings, started),
-                                     "coverage": engine_contract.coverage("*", missing)}, None)
+    result = {**_result("zizmor", "completed", detail, findings, started), "coverage": engine_contract.coverage("*", missing)}
+    return engine_contract.recorded(_declared(result, suppressed), None)
+
+
+# What a repository says to zizmor: `# zizmor: ignore[…]` comments and a configuration it finds on its own
+# (`.github/zizmor.yml`, `zizmor.yml`) that ignores results or turns audits off. Neither shows in its JSON: a second run
+# that honours neither (`--no-config --no-ignores`) says what they hid.
+ZIZMOR_ARGUMENTS = ["--offline", "--no-exit-codes", "--no-progress", "--format", "json"]
+ZIZMOR_UNHONOURED = ["--no-config", "--no-ignores"]
+ZIZMOR_INLINE = (b"zizmor: ignore[",)
+ZIZMOR_CONFIGS = {"zizmor.yml", "zizmor.yaml"}
+
+
+def _zizmor_key(finding: dict) -> tuple:
+    return (finding["rule_id"], finding["path"], finding["line"], finding.get("end_line"))
+
+
+def _zizmor_unhonoured(snapshot: Path) -> list[dict] | None:
+    try:
+        completed = _run("zizmor", [*ZIZMOR_ARGUMENTS, *ZIZMOR_UNHONOURED, "/src"], snapshot, timeout=300)
+        payload, contract = engine_contract.verdict(ZIZMOR, completed.returncode, completed.stdout)
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return None
+    return None if contract else parse_zizmor(payload, snapshot)
+
+
+def _zizmor_control(finding: dict, marks: dict[str, list[int]], configs: list[str]):
+    """The comment on the result's lines that hid it, else the configuration."""
+    lines = range(int(finding.get("line") or 0), int(finding.get("end_line") or finding.get("line") or 0) + 1)
+    if any(line in lines for line in marks.get(finding["path"], [])) or not configs:
+        return comment_control("zizmor: ignore")
+    return file_control(", ".join(configs))
 
 
 # --- merge -------------------------------------------------------------------------------------

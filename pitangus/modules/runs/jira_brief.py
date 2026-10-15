@@ -13,11 +13,11 @@ a plain text version for text fields and templates.
 
 from __future__ import annotations
 
-import re
 from typing import Any, cast
 
 from pitangus.modules.findings import fix_guide, sla
 from pitangus.modules.intel.advisories import compare_versions
+from pitangus.modules.sources.permalinks import code_url
 from pitangus.shared.i18n import localize, t, text
 from pitangus.shared.model import Finding
 
@@ -26,7 +26,6 @@ REFERENCES_MAX = 8
 ADVISORIES_MAX = 20
 IDENTIFIERS_SHOWN = 10
 EPSS_RELEVANT = 0.1  # a 10% chance of exploitation in 30 days: worth saying (the dashboard uses the same bar)
-SHA = re.compile(r"[0-9a-f]{7,40}")
 OS_MANAGERS = frozenset(fix_guide.OS_DATABASES.values())  # apt, apk, dnf: a package of an image's system
 
 
@@ -37,16 +36,6 @@ def _t(key: str, locale: str, **params) -> str:
 def severity_label(level: str, locale: str) -> str:
     label = t(f"scanning.severity.{level}", locale) if level in SEVERITY_ORDER else level
     return label[:1].upper() + label[1:]
-
-
-def _code_url(source: dict, path: str, line: int | None) -> str | None:
-    """The file at the scanned commit on GitHub; nothing when the commit or the repository isn't known."""
-    repository = str(source.get("id") or "").removeprefix("github:")
-    commit = str(source.get("commit") or "")
-    if not str(source.get("id") or "").startswith("github:") or "/" not in repository or not SHA.fullmatch(commit) or not path:
-        return None
-    anchor = f"#L{line}" if isinstance(line, int) and line > 0 else ""
-    return f"https://github.com/{repository}/blob/{commit}/{path}{anchor}"
 
 
 def _reference_url(identifier: str) -> str | None:
@@ -201,7 +190,7 @@ def brief(group: list[dict], findings: dict, *, asset: str, source: dict | None,
                  + ([f" ({_t('branch', locale, branch=source['branch'])})"] if source.get("branch") and not image else [])]
     if path and kind != "web":
         label = path if package.get("name") or not line else f"{path}:{line}"
-        url = _code_url(source, path, None if package.get("name") else line)
+        url = code_url(source, path, None if package.get("name") else line)
         where.append([_t("in_image" if image else "manifest" if package.get("name") else "file", locale)]
                      + [{"link": label, "url": url} if url else {"code": label}])
     blocks.append({"bullets": where})

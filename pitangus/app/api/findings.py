@@ -233,15 +233,21 @@ def triage_findings(context: Context = Depends(guard(Policy(action="triage", bod
 
 
 class FixPrompt(BaseModel):
+    """The prompt without code (`prompt`) and its parts: the panel puts the code the reader opened between `before`
+    and `after`, under `heading`, as a `language` block."""
     prompt: str
+    before: str
+    heading: str
+    language: str
+    after: str
 
 
 @router.get("/api/findings/prompt", response_model=FixPrompt)
 def fix_prompt(run_id: str = Query(max_length=200), fingerprint: str = Query(pattern="^[0-9a-f]{16,64}$"),
                context: Context = Depends(guard())) -> dict:
-    """A finding as a prompt for the reader's own AI assistant, in their language: rule, place, fragment and fix, never
-    a secret's value (findings/ai_prompt.py). Pitangus calls no AI for it."""
-    from pitangus.modules.findings.ai_prompt import prompt
+    """A finding as a prompt for the reader's own AI assistant, in their language: rule, place and fix, never code nor
+    a secret's value (findings/ai_prompt.py): the panel adds the code the reader opened. Pitangus calls no AI for it."""
+    from pitangus.modules.findings.ai_prompt import parts, prompt
     from pitangus.modules.findings.fix_guide import attach
     if run_id.startswith(VIEW_PREFIX):
         key = run_id.removeprefix(VIEW_PREFIX)
@@ -256,7 +262,41 @@ def fix_prompt(run_id: str = Query(max_length=200), fingerprint: str = Query(pat
         raise ApiError(404, msg("api.finding_not_in_asset"))
     among = [item["finding"] for item in entries.values() if item.get("finding")]
     finding = attach([dict(entry["finding"])], among=among)[0]
-    return {"prompt": prompt(finding, context.locale)}
+    return {"prompt": prompt(finding, context.locale), **parts(finding, context.locale)}
+
+
+class CodeLine(BaseModel):
+    number: int
+    text: str
+    focus: bool  # one of the finding's own lines
+    masked: Literal["span", "line"] | None = None  # a secret's value replaced, or the whole line withheld
+
+
+class FindingCode(BaseModel):
+    """A finding's code, read from its repository at the scanned commit now; never stored. `withheld`: only its place
+    and the provider's link (a secret or a credential, an imported finding, a symbolic link, a file whose secrets are
+    known only at another commit); `unavailable`: why not (`reason`)."""
+    status: Literal["shown", "withheld", "unavailable"]
+    reason: Literal["secret", "imported", "symlink", "secret_other_commit", "not_code", "local", "no_commit", "no_location",
+                    "file_gone", "file_changed", "binary",
+                    "repository_gone", "repository_unreachable"] | None
+    path: str
+    commit: str | None
+    lines: list[CodeLine] = Field(max_length=40)  # runs/code_view.LINES_MAX
+    permalink: str | None
+
+
+@router.get("/api/findings/code", response_model=FindingCode)
+def finding_code(run_id: str = Query(max_length=200), fingerprint: str = Query(pattern="^[0-9a-f]{16,64}$"),
+                 context: Context = Depends(guard())) -> dict:
+    """A finding's code for whoever can read the finding: the lines around it, read from the provider at the commit
+    its run scanned, with every secret a secret engine reported in that file masked (runs/code_view.py). Never stored,
+    cached or logged."""
+    from pitangus.modules.runs import code_view
+    try:
+        return code_view.view(context.data_dir, run_id, fingerprint, code_view.provider_reader(context.data_dir))
+    except code_view.NotFound as exc:
+        raise ApiError(404, msg("api.run_not_found" if exc.args == ("run",) else "api.finding_not_in_asset")) from None
 
 
 class ReverifyIn(BaseModel):

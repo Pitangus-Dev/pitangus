@@ -181,7 +181,7 @@ class SecretPassTests(unittest.TestCase):
                     return scan_engines._result(key, "completed", "")
                 return run
 
-            def trivy_secret_pass(root, cache, settings, screened=None, gaps=None, allowed=None):
+            def trivy_secret_pass(root, cache, settings, screened=None, gaps=None, allowed=None, controls=None):
                 seen.setdefault("trivy-secrets", []).append(sorted(tree(root)))
                 return []
 

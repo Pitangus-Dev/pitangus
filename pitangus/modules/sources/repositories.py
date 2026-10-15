@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import io
 import json
 import os
@@ -116,7 +117,9 @@ SECRET_NAMES = {".npmrc", ".pypirc", ".netrc", ".dockercfg", ".git-credentials",
 # never enter the snapshot the engines share: they go to a sibling folder only the secret scanners read, removed as soon
 # as they're done (`secrets_root`).
 DOT_FOLDERS = {".github", ".gitlab", ".circleci", ".buildkite", ".tekton", ".devcontainer"}
-DOT_FILES = {".gitlab-ci.yml", ".gitlab-ci.yaml", ".pre-commit-config.yaml", ".pre-commit-hooks.yaml"}
+DOT_FILES = {".gitlab-ci.yml", ".gitlab-ci.yaml", ".pre-commit-config.yaml", ".pre-commit-hooks.yaml",
+             # What the repository says to Trivy and Checkov (scanning/repo_controls.py): honoured by Pitangus and declared.
+             ".trivyignore", ".trivyignore.yaml", ".checkov.yaml", ".checkov.yml"}
 
 
 class SourceError(ValueError):
@@ -125,6 +128,10 @@ class SourceError(ValueError):
     def __init__(self, message):
         super().__init__(text(message, "en"))
         self.message = message
+
+
+class LinkedPath(Exception):
+    """The path is a symbolic link: what it points at is never shown under another name (`read_file`)."""
 
 
 def _joined(problems: list) -> dict | str:
@@ -834,6 +841,90 @@ def snapshot_source(source_id: str, destination: Path, tokens: dict[str, str] | 
     selected["commit"] = commit
     selected["snapshot"] = stats
     return destination, selected
+
+
+FILE_MAX = 1_000_000   # bytes of one file read to show a finding's code (runs/code_view.py)
+
+
+def _file_path(path: str) -> str | None:
+    """A repository-relative path as a URL path, or None when it isn't one (absolute, `..`, empty segments): it comes
+    from a stored finding, maybe an imported SARIF's, and must never reach another API route."""
+    if not isinstance(path, str) or not path or len(path) > 1000 or "\\" in path or "\0" in path:
+        return None
+    parts = path.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        return None
+    return "/".join(quote(part, safe="") for part in parts)
+
+
+def read_file(source_id: str, commit: str, path: str, tokens: dict[str, str] | None = None,
+              installation_id: int | None = None) -> bytes:
+    """One file of a repository at a commit, read from its provider with the connection Pitangus already has, to show
+    a finding's code when someone opens it. Never stored. FileNotFoundError when the commit doesn't hold it; LinkedPath
+    when it is a symbolic link; SourceError when the repository can't be read (no credential, no access, the provider down, the file too large)."""
+    if not re.fullmatch(r"[0-9a-f]{40}", commit or "") or not re.fullmatch(r"(?:github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|gitlab:[0-9]+)", source_id or ""):
+        raise SourceError(msg("sources.errors.invalid_repository"))
+    encoded = _file_path(path)
+    if encoded is None:
+        raise FileNotFoundError(path)
+    provider = source_id.partition(":")[0]
+    if reason := unavailable(provider):
+        raise SourceError(reason)
+    if provider == "github" and installation_id is not None:
+        from pitangus.modules.integrations.github import GitHubAppError, installation_token
+        try:
+            token = installation_token(installation_id)
+        except GitHubAppError as exc:
+            raise SourceError(exc.message) from exc
+    else:
+        token = (tokens or {}).get(provider) or settings.text(TOKEN_SETTINGS[provider])
+    if not token:
+        raise SourceError(msg("sources.errors.connect_first"))
+    headers = {"User-Agent": USER_AGENT}
+    if provider == "github":
+        # The object, not the raw file: the API follows a link to a file of the repository and answers with that file
+        # (its own path), or describes the link (`type: symlink`). Either way it is a link, never read.
+        url = f"https://api.github.com/repos/{source_id.removeprefix('github:')}/contents/{encoded}?ref={commit}"
+        headers.update({"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}", "X-GitHub-Api-Version": "2022-11-28"})
+    else:
+        url = f"https://gitlab.com/api/v4/projects/{source_id.removeprefix('gitlab:')}/repository/files/{quote(path, safe='')}/raw?ref={commit}"
+        headers["PRIVATE-TOKEN"] = token
+    limit = FILE_MAX if provider != "github" else FILE_MAX * 3 // 2   # base64, its escaped line breaks, the fields
+    try:
+        with http.opener().open(Request(url, headers=headers), timeout=12) as response:
+            body = response.read(limit + 1)
+    except HTTPError as exc:
+        if exc.code == 404:
+            raise FileNotFoundError(path) from None
+        raise SourceError(msg("sources.errors.provider_unreachable")) from None
+    except (URLError, TimeoutError, OSError):
+        raise SourceError(msg("sources.errors.provider_unreachable")) from None
+    if len(body) > limit:
+        raise SourceError(msg("sources.errors.over_download_limit"))
+    return _github_file(body, path) if provider == "github" else body
+
+
+def _github_file(body: bytes, path: str) -> bytes:
+    """A file's bytes from GitHub's contents object; LinkedPath for a link, FileNotFoundError for what isn't a file."""
+    try:
+        item = json.loads(body)
+    except (ValueError, UnicodeDecodeError):
+        raise SourceError(msg("sources.errors.invalid_data")) from None
+    if not isinstance(item, dict):
+        raise FileNotFoundError(path)          # a folder
+    if item.get("type") == "symlink" or (item.get("type") == "file" and item.get("path") != path):
+        raise LinkedPath(path)
+    if item.get("type") != "file":
+        raise FileNotFoundError(path)          # a submodule
+    if item.get("encoding") != "base64" or not isinstance(item.get("content"), str):
+        raise SourceError(msg("sources.errors.over_download_limit"))   # over 1 MB the API sends no content
+    try:
+        data = base64.b64decode(item["content"])
+    except ValueError:
+        raise SourceError(msg("sources.errors.invalid_data")) from None
+    if len(data) > FILE_MAX:
+        raise SourceError(msg("sources.errors.over_download_limit"))
+    return data
 
 
 # --- What the commit holds -----------------------------------------------------------------------------------------

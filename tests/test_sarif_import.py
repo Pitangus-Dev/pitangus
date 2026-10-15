@@ -180,19 +180,20 @@ class ParserTests(unittest.TestCase):
         garbage = {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "X"}}, "results": [None, 3, {"locations": "x", "message": 5}]}]}
         self.assertEqual(only(garbage)[0]["path"], "")
 
-    def test_a_snippet_keeps_its_lines_and_its_identity_reads_it_as_before(self):
-        """A context region is stored with its lines (never joined into one before it is rendered); its identities
-        are read from the one-line form, as they were before."""
+    def test_a_snippet_is_never_stored_and_its_identity_reads_it_as_before(self):
+        """A context region's code is read for its identity (the one-line form, as before) and dropped when the finding
+        is stored: its code is read from the repository when it is opened."""
         from pitangus.shared.code_identity import anywhere_identity, content_identity
         context = "def connect():\n    # creds: admin / Winter2024Corp\n    return db.connect(q)"
         found = only(sarif("CodeQL", [{"ruleId": "py/x", "message": {"text": "m"}, "locations": [{"physicalLocation": {
             "artifactLocation": {"uri": "app.py"}, "region": {"startLine": 2},
             "contextRegion": {"startLine": 1, "endLine": 3, "snippet": {"text": context}}}}]}]))[0]
-        self.assertEqual(found["snippet"], context)
+        stored = sanitize_finding(found)
+        self.assertNotIn("snippet", stored)
+        self.assertNotIn("Winter2024Corp", json.dumps(stored))
         one_line = {key: value for key, value in found.items() if key not in ("identity", "anywhere")}
         one_line["snippet"] = " ".join(context.split())
-        self.assertEqual((found["identity"], found["anywhere"]), (content_identity(one_line), anywhere_identity(one_line)))
-        self.assertEqual(sanitize_finding(found)["snippet"], "def connect():\n    # ***: admin / ***\n    return db.connect(***)")
+        self.assertEqual((stored["identity"], stored["anywhere"]), (content_identity(one_line), anywhere_identity(one_line)))
 
     def test_a_rules_texts_are_rendered_like_its_messages(self):
         """Any tool can write a SARIF, and its rule texts may retell what a result matched."""

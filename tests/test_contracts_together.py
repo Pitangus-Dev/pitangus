@@ -323,10 +323,12 @@ class MigrationSequenceTests(unittest.TestCase):
         before = {fingerprint: canonical.identity_of(entry["finding"]) for fingerprint, entry in _stored(data_dir)[0].items()}
         done = migrations.upgrade(data_dir)
         self.assertEqual([name for name in done if name in NEW_STEPS], list(NEW_STEPS))
-        self.assertEqual(done[-2:], ["render_stored_texts_lexicon", "web_location_keys"])   # the lexicon, then URLs like any
+        # The lexicon, then URLs like any, then no code at all.
+        self.assertEqual(done[-3:], ["render_stored_texts_lexicon", "web_location_keys", "drop_stored_code"])
         entries, records = _stored(data_dir)
-        for name in NEW_STEPS:
+        for name in (*NEW_STEPS, "drop_stored_code"):
             self.assertEqual(getattr(migrations, f"_{name}")(data_dir), 0, name)
+        self.assertNotIn('"snippet"', json.dumps([entries, records]))
         self.assertEqual(_stored(data_dir), (entries, records))
         self.assertEqual(migrations.upgrade(data_dir), [])
         findings = {fingerprint: entry["finding"] for fingerprint, entry in entries.items()}

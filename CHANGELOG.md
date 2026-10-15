@@ -5,6 +5,79 @@ Notable changes to Pitangus (called Tamandua up to 0.11). The format follows
 and `major.minor.patch` in the release tags. While Pitangus is in beta (0.x), the API and stored formats may change
 between minor versions: anything that changes behaviour is called out below.
 
+## [Unreleased]
+
+## [0.14.1] - 2026-10-15
+
+### Upgrade notes
+
+- **Pitangus no longer stores your code.** It keeps a finding's location (path, lines, a secret value's columns, the
+  scanned commit), its rule, structural metadata and hashes; the code is read from the repository when someone opens
+  the finding, and never stored, cached or logged. The data migration `drop_stored_code` removes the snippets earlier
+  versions stored (runs, the registry, stored SARIF and reports, pending outbox entries), after pinning each finding's
+  identity from them: nothing looks new or fixed, and no status changes.
+- **A finding's code needs the repository to be reachable.** It is read with the connection Pitangus already has (the
+  GitHub App or the token) at the commit the scan read. A repository Pitangus can no longer read, a run that didn't
+  record its commit (older imports without `--commit`) or a local scan show the location and say why there is no code.
+- **The AI prompt is built where you are.** `GET /api/findings/prompt` no longer carries code: it returns the prompt's
+  parts (`before`, `heading`, `language`, `after`) and the panel adds the lines you opened. `pitangus scan --format
+  prompt` reads the scanned folder at that moment (not with `--commit` or `--staged`).
+- **One rule for what a repository says to the engines: honoured, never silent.** Comments and files in the scanned
+  repository that make an engine report less were honoured without a word by zizmor (`# zizmor: ignore[…]`,
+  `.github/zizmor.yml`), Trivy (`trivy:ignore`), Checkov (`checkov:skip=`, `checkov.io/skip` annotations) and
+  OSV-Scanner (`osv-scanner.toml`). Now every result one of them suppresses is listed under **Excluded** with its rule,
+  file and line and what suppressed it, and never taken as fixed. A committed `.trivyignore` / `.trivyignore.yaml` and
+  `.checkov.yaml` are now read (before, they never reached the engines) and declared the same way. A repository with such
+  suppressions may show new excluded results, and its earlier open findings they suppress move to excluded.
+- **Web scan evidence is still stored.** What a live site answered (a web finding's evidence and attack) isn't
+  repository code and can't be read again later, so it stays, rendered as structure and common words like engine text.
+- `PITANGUS_SECRETS_IGNORE_INLINE_ALLOW` is now `PITANGUS_IGNORE_REPO_SUPPRESSIONS` and covers every engine (with it on,
+  a `nosemgrep` comment silences nothing either). The old name still works.
+
+### Added
+
+- **Code on demand.** `GET /api/findings/code?run_id=…&fingerprint=…` returns the lines around a finding for anyone who
+  can read it, with every place a secret engine reported in that file masked (a value with known columns replaced, any
+  other secret's line withheld, a private key's whole block); a secret or a hard-coded credential shows only where it
+  is. The finding's detail in the panel loads it lazily, with **Open on GitHub** to the file at the scanned commit.
+- The Markdown report links each code finding's location to the file at the scanned commit.
+
+### Changed
+
+- An Opengrep rule without its own fix text no longer uses its message (which quotes the matched code): it gets a
+  sentence naming the rule. A Trivy configuration check is described by its description, never by its message.
+- zizmor findings no longer store their route of keys; the SARIF export and imported SARIF findings carry no snippet.
+- The text renderer (`shared/render.py`) now only renders what tools write (messages, errors, a web scanner's evidence)
+  and URLs; there is no code to render.
+
+### Security
+
+- **Code on demand masks what the engines located, where they located it.** Lines end at `\n` alone and a secret's
+  columns apply to the bytes as the engines read them (a form feed, a lone `\r`, U+2028 or invalid UTF-8 before a
+  secret no longer moves its mask); display text is made only after masking. A key block with no end within 200 lines
+  is withheld from its start on, and lines a `gitleaks:allow` comment allowed are masked too.
+- **Code is read only where Pitangus scanned.** An imported (SARIF) finding shows its location and the provider's link,
+  never code: its path, line and commit came with the import. A symbolic link is never read (on the server or by
+  `--format prompt`), and a file whose secrets are known only from another commit shows no code (their lines may have
+  moved).
+- **Engine control files from the repository can't hide results** (O9 of the 0.14 audit). zizmor runs once more with
+  `--no-config --no-ignores`, Checkov and Trivy once more on a copy with their comments made inert and OSV-Scanner once
+  more with an empty configuration of Pitangus' own, only when the repository has such suppressions; what only that run
+  reports is what they hid. Checkov never loads the repository's `.checkov.yaml` (Pitangus applies its `skip-check`,
+  `check` and plain-path `skip-path` entries, never a regular expression from the repository); Trivy reads the
+  repository's ignore file only through `--ignorefile`, with `--show-suppressed`. If that second run fails, the step is
+  partial and the scan fixes nothing. A `.gitleaksignore` entry now applies to the code's files too, not only to the
+  files only the secret scanners read.
+- **The pre-commit hook runs the worker image by digest and checks its signature.** `hooks/pitangus-docker` no longer
+  runs the `pitangus-worker:0.14` tag, which can move: it runs the digest of the published release and, when cosign is
+  installed, first checks it was signed by Pitangus's release workflow (the GitHub Action's identity), refusing to run
+  it otherwise. `make pin-hook` checks the signature and writes the digest after each release.
+- **Locating secrets has one CPU budget.** All the work of reading where a secret's value is (each line read, each
+  candidate checked, each value read out) counts against one budget per file and per engine report. A long line where
+  the text before a redacted value (or the text Trivy shows around a masked one) repeats everywhere used to make every
+  occurrence a candidate outside any budget. Past the budget, the secrets left there are reported unlinkable (no
+  identity of their own, never a guessed one) and the run's limitations say how many.
+
 ## [0.14.0] - 2026-10-15
 
 ### Upgrade notes

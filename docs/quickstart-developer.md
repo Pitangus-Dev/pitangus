@@ -23,7 +23,7 @@ uncommitted edit never blocks it.
 ```yaml
 repos:
   - repo: https://github.com/Pitangus-Dev/pitangus
-    rev: v0.14.0          # the first release with the hook
+    rev: v0.14.1          # the first release with the hook
     hooks:
       - id: pitangus
 ```
@@ -31,6 +31,9 @@ repos:
 The hook analyzes what you're about to push, not your working tree: the committed changes against `origin/main`
 (`PITANGUS_BASE` sets another base), so a file you haven't committed, tracked or not, can't block the push. A base
 that doesn't exist stops the hook with a message that says so.
+It runs the published worker image by its digest, never by a tag that can move; with
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/) installed it first checks the image was signed by
+Pitangus's release workflow, as the GitHub Action does, and refuses to run it otherwise.
 
 **On every pull request** (GitHub), in `.github/workflows/pitangus.yml`:
 
@@ -43,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: Pitangus-Dev/pitangus@v0.14.0   # pin it to the tag's commit SHA
+      - uses: Pitangus-Dev/pitangus@v0.14.1   # pin it to the tag's commit SHA
 ```
 
 Exit codes: `0` pass · `1` findings at or above `--fail-on` (high by default) · `3` an engine couldn't run, which is

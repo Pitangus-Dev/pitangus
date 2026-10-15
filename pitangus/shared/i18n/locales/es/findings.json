@@ -158,6 +158,7 @@
     "package_fixed": "Paquete: {{name}} {{version}}; la primera versión sin el problema es {{fixed}}",
     "why": "Por qué importa: {{reason}}",
     "code": "El código donde se encontró:",
+    "masked_line": "(línea oculta: tiene un secreto)",
     "fix": "Corrección recomendada: {{fix}}",
     "steps": "Pasos:",
     "commands": "Comandos que pueden ayudar:",

@@ -5,7 +5,6 @@ import re
 import unittest
 from pathlib import Path
 
-from pitangus.shared import render
 
 RULES_DIR = Path(__file__).resolve().parent.parent / "rules"
 RULE_START = re.compile(r"^  - id: (\S+)$", re.M)
@@ -66,9 +65,9 @@ class RuleTextsTests(unittest.TestCase):
         legacy = parse_opengrep({"results": [bare]})[0]
         self.assertEqual(legacy["fingerprint"], finding["fingerprint"])
         self.assertEqual(legacy["title"], "Injection: shell command non literal")
-        # A rule without its own fix text: its message, which interpolates what the result matched, rendered as one.
-        self.assertEqual(localize(legacy["remediation"], "es"), render.prose(fix["en"]))
-        self.assertIn("Pass a list of arguments without shell=True", localize(legacy["remediation"], "es"))
+        # A rule without its own fix text: never its message, which interpolates what the result matched (code).
+        self.assertNotIn("shell=True", localize(legacy["remediation"], "es"))
+        self.assertIn("appsec.py.shell-command-non-literal", localize(legacy["remediation"], "en"))
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ NO_SOCKET := $(shell sed -n 's/^COMPOSE_FILE=//p' .env 2>/dev/null | tail -n1 | 
 
 .DEFAULT_GOAL := help
 .PHONY: arch rules-test openapi attack-catalog standalone help doctor setup build up down restart status logs ps setup-code engines scan demo update backup restore \
-        verify-images shell cli clean purge dev-setup lock dev test lint lint-py test-web web check
+        verify-images pin-hook shell cli clean purge dev-setup lock dev test lint lint-py test-web web check
 
 ## —— Usage —————————————————————————————————————————————————————————————
 
@@ -159,6 +159,19 @@ verify-images: ## Check the cosign signatures of the published images and pin .e
 	check "$$image" PITANGUS_IMAGE_TAG; \
 	if [ "$(NO_SOCKET)" ]; then check "$$image-worker" PITANGUS_WORKER_IMAGE_TAG; \
 	else verify "$$image-opengrep:$(OPENGREP_VERSION)"; echo "Signature verified: $$image-opengrep:$(OPENGREP_VERSION)"; fi
+
+pin-hook: ## After a release: check the worker image's signature and pin hooks/pitangus-docker to its digest (needs cosign; TAG=0.14.1 for one release)
+	@command -v cosign >/dev/null || { echo 'Install cosign first: https://docs.sigstore.dev/cosign/system_config/installation/'; exit 2; }; \
+	ref="ghcr.io/pitangus-dev/pitangus-worker:$(or $(TAG),$(VERSION))"; \
+	out=$$(cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+	  --certificate-identity-regexp '^https://github\.com/$(SIGNER)/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+(\.[0-9]+)?$$' \
+	  "$$ref" 2>&1) || { echo "NOT verified: $$ref"; printf '%s\n' "$$out" | tail -n1; exit 1; }; \
+	digest=$$(printf '%s\n' "$$out" | sed -n 's/.*"docker-manifest-digest":"\(sha256:[0-9a-f]\{64\}\)".*/\1/p' | sort -u); \
+	[ "$$(printf '%s\n' "$$digest" | grep -c .)" -eq 1 ] || { echo "NOT verified: no single digest for $$ref"; exit 1; }; \
+	sed -i.bak 's|^image="$${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus-worker:[^}]*}"$$|image="$${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus-worker:$(VERSION)@'"$$digest"'}"|' \
+	  hooks/pitangus-docker && rm -f hooks/pitangus-docker.bak; \
+	grep -q "pitangus-worker:$(VERSION)@$$digest}" hooks/pitangus-docker || { echo 'hooks/pitangus-docker: the image line was not found'; exit 1; }; \
+	echo "Signature verified, hooks/pitangus-docker pinned: $$ref -> $$digest"
 
 shell: ## Open a shell inside the container
 	$(COMPOSE) exec api sh
