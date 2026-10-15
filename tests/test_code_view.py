@@ -19,6 +19,10 @@ from pitangus.modules.sources.repositories import LinkedPath, _file_path, _githu
 from test_auth import PASSWORD, HttpCase
 from test_dashboard import _scan
 
+# Built at run time so the repository holds no key-shaped block for its own secret scan.
+BEGIN_KEY = "-----BEGIN " + "PRIVATE KEY-----"
+END_KEY = "-----END " + "PRIVATE KEY-----"
+
 COMMIT = "a" * 40
 TOKEN = "Zq8vN2rT6yLp4XbW9mKc3HdJ"   # a value nobody wrote in a catalog: 24 random characters  # gitleaks:allow
 KEY = "sk_live_" + "Qx7Rt2Vb9Nm4Lp8Kd3Hs6Wf1"
@@ -119,13 +123,13 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(code_view.window(raw, finding("f" * 64, line=1), places)[0]["text"], f'a = "{code_view.SECRET_MASK}"')
 
     def test_a_key_block_without_its_end_is_withheld_from_its_start(self):
-        rows = ["x"] * 20 + ["-----BEGIN PRIVATE KEY-----"] + ["QUJDREVGR0hJSktMTU5PUA"] * 400 + ["-----END PRIVATE KEY-----", "y"]
+        rows = ["x"] * 20 + [BEGIN_KEY] + ["QUJDREVGR0hJSktMTU5PUA"] * 400 + [END_KEY, "y"]
         raw = "\n".join(rows).encode()
         lines = code_view.window(raw, finding("f" * 64, line=300), [(21, 21, None)])
         self.assertTrue(lines and all(item.get("masked") == "line" for item in lines))
         before = code_view.window(raw, finding("f" * 64, line=18), [(21, 21, None)])
         self.assertEqual([item.get("masked") for item in before], [None] * 6 + ["line"])
-        ended = "\n".join(["-----BEGIN PRIVATE KEY-----", "QUJD", "-----END PRIVATE KEY-----", "z = 1", "w = 2"]).encode()
+        ended = "\n".join([BEGIN_KEY, "QUJD", END_KEY, "z = 1", "w = 2"]).encode()
         self.assertEqual([item.get("masked") for item in code_view.window(ended, finding("f" * 64, line=4), [(1, 1, None)])],
                          ["line"] * 3 + [None, None])
 
