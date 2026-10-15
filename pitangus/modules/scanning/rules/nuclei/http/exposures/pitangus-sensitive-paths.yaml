@@ -17,7 +17,7 @@ info:
   classification:
     cwe-id: CWE-200,CWE-538
   metadata:
-    max-request: 26
+    max-request: 28
     pitangus-name-es: Archivo o endpoint sensible expuesto
     pitangus-description-es: |
       Una ruta que suele guardar datos internos (una carpeta de copias o de configuración, diagnósticos del framework,
@@ -225,3 +225,26 @@ http:
         part: body
         regex:
           - "define\\(\\s*['\"]DB_PASSWORD['\"]"
+
+  # A dotenv file: two or more KEY=value lines (an HTML page has none). Named matchers alone, so nuclei reports the name.
+  - method: GET
+    path:
+      - "{{BaseURL}}/.env"
+    matchers:
+      - type: regex
+        name: dotenv
+        part: body
+        regex:
+          - '(?m)^(?:export\s+)?[A-Z][A-Z0-9_]{1,63}=[^\r\n]*\r?\n(?:[ \t]*(?:#[^\r\n]*)?\r?\n)*(?:export\s+)?[A-Z][A-Z0-9_]{1,63}='
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/.git/config"
+    matchers:
+      - type: regex
+        name: git-config
+        part: body
+        regex:
+          - '(?m)^\[core\]\s*$'
+          - '(?m)^\s*repositoryformatversion\s*='
+        condition: and

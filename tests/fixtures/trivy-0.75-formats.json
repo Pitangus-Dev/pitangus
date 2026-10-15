@@ -1,0 +1,84 @@
+{
+ "Results": [
+  {
+   "Target": "a.env",
+   "Class": "secret",
+   "Secrets": [
+    {
+     "RuleID": "openai-project-api-key",
+     "Category": "OpenAI",
+     "Severity": "CRITICAL",
+     "Title": "OpenAI Project API Key",
+     "StartLine": 2,
+     "EndLine": 2,
+     "Match": "OPENAI_API_KEY=********************************************************************************************************************************************************************",
+     "Offset": 19
+    }
+   ]
+  },
+  {
+   "Target": "b.yaml",
+   "Class": "secret",
+   "Secrets": [
+    {
+     "RuleID": "openai-project-api-key",
+     "Category": "OpenAI",
+     "Severity": "CRITICAL",
+     "Title": "OpenAI Project API Key",
+     "StartLine": 3,
+     "EndLine": 3,
+     "Match": "  api_key: \"********************************************************************************************************************************************************************\"",
+     "Offset": 25
+    }
+   ]
+  },
+  {
+   "Target": "c.json",
+   "Class": "secret",
+   "Secrets": [
+    {
+     "RuleID": "openai-project-api-key",
+     "Category": "OpenAI",
+     "Severity": "CRITICAL",
+     "Title": "OpenAI Project API Key",
+     "StartLine": 2,
+     "EndLine": 2,
+     "Match": "  \"apiKey\": \"********************************************************************************************************************************************************************\",",
+     "Offset": 15
+    }
+   ]
+  },
+  {
+   "Target": "d.py",
+   "Class": "secret",
+   "Secrets": [
+    {
+     "RuleID": "openai-project-api-key",
+     "Category": "OpenAI",
+     "Severity": "CRITICAL",
+     "Title": "OpenAI Project API Key",
+     "StartLine": 2,
+     "EndLine": 2,
+     "Match": "l = 'ñandú' ; OPENAI_KEY = '********************************************************************************************************************************************************************'",
+     "Offset": 54
+    }
+   ]
+  },
+  {
+   "Target": "e.toml",
+   "Class": "secret",
+   "Secrets": [
+    {
+     "RuleID": "openai-project-api-key",
+     "Category": "OpenAI",
+     "Severity": "CRITICAL",
+     "Title": "OpenAI Project API Key",
+     "StartLine": 2,
+     "EndLine": 2,
+     "Match": "key = \"********************************************************************************************************************************************************************\"",
+     "Offset": 12
+    }
+   ]
+  }
+ ]
+}

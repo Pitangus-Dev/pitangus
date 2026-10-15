@@ -91,7 +91,8 @@
       "denied_name": "{{name}} la fija la propia conexión y no se puede guardar",
       "invalid_value": "El valor de una cabecera es ASCII imprimible en una sola línea, hasta {{max}} caracteres",
       "limit": "Un dominio guarda como máximo {{max}} cabeceras",
-      "not_found": "No hay ninguna cabecera guardada con el nombre {{name}}"
+      "not_found": "No hay ninguna cabecera guardada con el nombre {{name}}",
+      "invalid_check": "La comprobación de sesión es una página HTTPS, sin puerto ni credenciales"
     },
     "discovery": {
       "interrupted": "La búsqueda de hosts relacionados se detuvo sin terminar; vuelve a buscar.",

@@ -1,7 +1,10 @@
 """Where each finding's Jira issue goes: destinations and routing rules (document `jira-routing`).
 
 * A **destination** is a project + issue type + field mapping (`jira_mapping.py`), checked against Jira's live create
-  metadata when saved.
+  metadata when saved. It also says the language of its issues and comments (`locale`, PITANGUS_DEFAULT_LOCALE when
+  unset) and what Pitangus does when a scan verifies an issue as fixed (`on_fixed`): it always comments, adds a label
+  (`pitangus-fixed` unless changed or removed) and moves the issue to a status of its workflow only when an
+  administrator picked one. Every team closes issues its own way: by default Pitangus never transitions them.
 * **Rules** are an ordered list: name, assets (explicit asset keys and/or glob patterns on the asset name, such as
   ``org/payments-*``), destination, mode (``manual`` or ``auto``), minimum severity and backfill (auto). The last
   rule, ``default``, matches every asset; it can point to any destination or be disabled.
@@ -24,7 +27,7 @@ from pitangus.modules.integrations import jira
 from pitangus.modules.integrations.jira_mapping import MappingError, default_mapping, validate
 from pitangus.shared import documents
 from pitangus.shared import log as logging_setup
-from pitangus.shared.i18n import msg, text
+from pitangus.shared.i18n import LOCALES, msg, text
 
 DOCUMENT = "jira-routing"
 DEFAULT_RULE = "default"
@@ -38,6 +41,7 @@ NAME_MAX = 60
 ASSET_MAX = 200
 HISTORY_MAX = 100
 IDENTIFIER = re.compile(r"[0-9a-f]{12}|default|legacy")
+FIXED_LABEL = "pitangus-fixed"
 _log = logging_setup.get("jira")
 
 
@@ -74,12 +78,52 @@ def _normalized(stored: dict) -> dict:
 def view(data_dir: Path) -> dict:
     """What an administrator sees: destinations (with the mapped fields), rules in order, limits and recent changes."""
     state = load(data_dir)
-    return {"destinations": state["destinations"], "rules": state["rules"], "history": state["history"][-20:][::-1],
+    destinations = [{**item, "on_fixed": on_fixed(item), "locale": locale_of(item, "") or None} for item in state["destinations"]]
+    return {"destinations": destinations, "rules": state["rules"], "history": state["history"][-20:][::-1],
             "limits": {"destinations": MAX_DESTINATIONS, "rules": MAX_RULES, "assets": MAX_ASSETS, "patterns": MAX_PATTERNS}}
 
 
 def destination(state: dict, identifier) -> dict | None:
     return next((item for item in state["destinations"] if item["id"] == identifier), None)
+
+
+def on_fixed(destination_: dict | None) -> dict:
+    """What a verified fix does to this destination's issues besides the comment: {"label", "status"} (None = nothing).
+    Destinations saved before this setting existed get the label and no transition."""
+    found = (destination_ or {}).get("on_fixed")
+    if not isinstance(found, dict):
+        return {"label": FIXED_LABEL, "status": None}
+    label = found.get("label") if isinstance(found.get("label"), str) and jira.LABEL.fullmatch(found["label"]) else None
+    status = found.get("status") if isinstance(found.get("status"), dict) and found["status"].get("id") else None
+    return {"label": label, "status": status}
+
+
+def locale_of(destination_: dict | None, fallback: str) -> str:
+    found = (destination_ or {}).get("locale")
+    return found if found in LOCALES else fallback
+
+
+def _on_fixed(payload, project: dict, issue_type: dict, http) -> dict:
+    """Validates the destination's fix behaviour; the status must be one of the issue type's workflow, asked to Jira."""
+    if payload is None:
+        return {"label": FIXED_LABEL, "status": None}
+    if not isinstance(payload, dict):
+        raise RoutingError(msg("integrations.jira.routing.invalid"), [{"field": "on_fixed", "error": msg("integrations.jira.routing.invalid_value")}])
+    label = payload.get("label")
+    label = label.strip() if isinstance(label, str) else label
+    if label in (None, ""):
+        label = None
+    elif not isinstance(label, str) or not jira.LABEL.fullmatch(label):
+        raise RoutingError(msg("integrations.jira.routing.invalid"), [{"field": "on_fixed.label", "error": msg("integrations.jira.invalid_label")}])
+    wanted = payload.get("status")
+    if wanted in (None, ""):
+        return {"label": label, "status": None}
+    available = jira.statuses(project["id"], issue_type["id"], http=http)
+    status = next((item for item in available if item["id"] == str(wanted)), None)
+    if status is None:
+        raise RoutingError(msg("integrations.jira.routing.invalid"), [{"field": "on_fixed.status", "error": msg(
+            "integrations.jira.routing.unknown_status", available=", ".join(item["name"] for item in available[:8]) + (" …" if len(available) > 8 else "") or "—")}])
+    return {"label": label, "status": {"id": status["id"], "name": status["name"]}}
 
 
 def rule(state: dict, identifier) -> dict | None:
@@ -141,6 +185,11 @@ def save_destination(data_dir: Path, payload: dict, *, by: str, http=None) -> tu
         mapping, snapshot, warnings = validate(requested if requested else default_mapping(fields), fields)
     except MappingError as exc:
         raise RoutingError(msg("integrations.jira.mapping.invalid"), exc.errors) from exc
+    # Left out (an earlier panel): what the destination had stays.
+    fixed = _on_fixed(payload["on_fixed"], project, issue_type, http) if "on_fixed" in payload else None
+    locale = payload.get("locale") or None
+    if locale is not None and locale not in LOCALES:
+        raise RoutingError(msg("integrations.jira.routing.invalid"), [{"field": "locale", "error": msg("integrations.jira.routing.invalid_value")}])
     with documents.edit(data_dir, DOCUMENT, {}) as stored:
         state = _normalized(stored)
         current = destination(state, identifier) if identifier else None
@@ -150,8 +199,17 @@ def save_destination(data_dir: Path, payload: dict, *, by: str, http=None) -> tu
             raise RoutingError(msg("integrations.jira.routing.too_many_destinations", max=MAX_DESTINATIONS))
         if any(item["name"].lower() == name.lower() and item["id"] != identifier for item in state["destinations"]):
             raise RoutingError(msg("integrations.jira.routing.invalid"), [{"field": "name", "error": msg("integrations.jira.routing.duplicate_name")}])
+        if fixed is None:
+            fixed = on_fixed(current)
+            moved = current and ((current.get("project") or {}).get("id"), (current.get("issue_type") or {}).get("id")) != (project["id"], issue_type["id"])
+            fixed = {**fixed, "status": None} if moved else fixed  # a status of another workflow
+        if "locale" not in payload:
+            locale = (current or {}).get("locale")
+        if fixed["label"] and "labels" not in snapshot:
+            warnings.append({"field": "on_fixed.label", "error": msg("integrations.jira.mapping.fixed_label_without_field", label=fixed["label"])})
         saved = {"id": current["id"] if current else uuid.uuid4().hex[:12], "name": name, "project": project,
                  "issue_type": {"id": issue_type["id"], "name": issue_type["name"]}, "mapping": mapping, "fields": snapshot,
+                 "on_fixed": fixed, "locale": locale,
                  "created_by": (current or {}).get("created_by", by), "created_at": (current or {}).get("created_at", _stamp()),
                  "updated_by": by, "updated_at": _stamp()}
         state["destinations"] = [saved if item["id"] == saved["id"] else item for item in state["destinations"]] if current \

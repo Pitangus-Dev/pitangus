@@ -16,6 +16,7 @@ from pitangus.modules.runs.store import load_run, render_repository_report, rend
 from pitangus.modules.scanning.engines import _stable, parse_opengrep
 from pitangus.modules.scanning.sarif_import import MAX_RESULTS, MAX_RUNS, SarifError, parse
 from pitangus.shared.i18n import text
+from pitangus.shared.masking import sanitize_finding
 
 from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_dashboard import _finding, _scan
@@ -173,9 +174,36 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(refused(sarif("X", [result()]), tool="  "), "scanning.sarif.errors.no_tool")
         long = only(sarif("X" * 500, [result(path="/" + "d/" * 900 + "f.py", rule="r" * 500)],
                           [{"id": "r" * 200, "shortDescription": {"text": "t" * 900}}]))[0]
-        self.assertEqual((len(long["tool"]), len(long["path"]), len(long["rule_id"]), len(long["title"])), (100, 1000, 200, 300))
+        self.assertEqual((len(long["tool"]), len(long["path"]), len(long["rule_id"])), (100, 1000, 200))
+        # Without its rule's title, the result's message stands in, bounded and rendered as a message (shared/render.py).
+        self.assertEqual(long["title"], "***")
         garbage = {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "X"}}, "results": [None, 3, {"locations": "x", "message": 5}]}]}
         self.assertEqual(only(garbage)[0]["path"], "")
+
+    def test_a_snippet_keeps_its_lines_and_its_identity_reads_it_as_before(self):
+        """A context region is stored with its lines (never joined into one before it is rendered); its identities
+        are read from the one-line form, as they were before."""
+        from pitangus.shared.code_identity import anywhere_identity, content_identity
+        context = "def connect():\n    # creds: admin / Winter2024Corp\n    return db.connect(q)"
+        found = only(sarif("CodeQL", [{"ruleId": "py/x", "message": {"text": "m"}, "locations": [{"physicalLocation": {
+            "artifactLocation": {"uri": "app.py"}, "region": {"startLine": 2},
+            "contextRegion": {"startLine": 1, "endLine": 3, "snippet": {"text": context}}}}]}]))[0]
+        self.assertEqual(found["snippet"], context)
+        one_line = {key: value for key, value in found.items() if key not in ("identity", "anywhere")}
+        one_line["snippet"] = " ".join(context.split())
+        self.assertEqual((found["identity"], found["anywhere"]), (content_identity(one_line), anywhere_identity(one_line)))
+        self.assertEqual(sanitize_finding(found)["snippet"], "def connect():\n    # ***: admin / ***\n    return db.connect(***)")
+
+    def test_a_rules_texts_are_rendered_like_its_messages(self):
+        """Any tool can write a SARIF, and its rule texts may retell what a result matched."""
+        value = "Vb9Rt4KwQz7x"
+        rule = {"id": "rule.one", "shortDescription": {"text": f"Hard-coded key {value}"}, "fullDescription": {"text": f"Found {value}"},
+                "help": {"text": f"Rotate {value}"}, "helpUri": f"https://docs.local/rules/x?key={value}"}
+        found = only(sarif("Tool", [result()], [rule]))[0]
+        self.assertEqual(found["title"], "Hard-coded key ***")
+        self.assertNotIn(value, json.dumps(sanitize_finding(found)))
+        # Stored before the adapter rendered them: rendered when the finding is.
+        self.assertEqual(sanitize_finding({**found, "title": f"Hard-coded key {value}"})["title"], "Hard-coded key ***")
 
 
 class DastParserTests(unittest.TestCase):
@@ -184,27 +212,29 @@ class DastParserTests(unittest.TestCase):
     def test_zap_report_findings_are_dast_at_urls_without_query_strings(self):
         run = parse(zap())[0]
         self.assertEqual((run["tool"], run["version"], run["results"], run["skipped"]), ("ZAP", "2.16.1", 4, 0))
-        xss, csp_root, csp_hello, cookie = run["findings"]
+        xss, csp, cookie = run["findings"]
         self.assertEqual({item["scanner"] for item in run["findings"]}, {"dast"})
         self.assertEqual((xss["path"], xss["severity"], xss["cwe"], xss["confidence"], xss["title"], xss["line"]),
                          ("https://app.example.com/greeting", "high", [79], 6, "Cross Site Scripting (Reflected)", 10))
-        self.assertEqual((csp_root["path"], csp_root["severity"], csp_root["cwe"], csp_root["confidence"]), ("https://app.example.com/", "medium", [693], 8))
-        self.assertEqual(csp_hello["path"], "https://app.example.com/hello")  # ?lang=en#top dropped
+        # The CSP header missing on / and on /hello is the site's header: one finding, at the root.
+        self.assertEqual((csp["path"], csp["severity"], csp["cwe"], csp["confidence"]), ("https://app.example.com/", "medium", [693], 8))
         self.assertEqual((cookie["path"], cookie["severity"]), ("https://app.example.com/login", "low"))
         self.assertLessEqual({"method": "POST", "parameter": "session", "evidence": "Set-Cookie: session"}.items(), cookie["web"].items())
         # ZAP keeps the fix under `solution`; the request and response it attached (cookies, bearer, body) never land.
         self.assertIn("vetted library", text(xss["remediation"], "en"))
         self.assertLessEqual({"method": "GET", "parameter": "name", "evidence": "</p><script>alert(1);</script><p>"}.items(), xss["web"].items())
+        # As stored and shown, the evidence is its structure (shared/render.py): the tags, never what they hold.
+        self.assertEqual(sanitize_finding(xss)["web"]["evidence"], "</p><script>alert(1);</script><p>")
         self.assertNotIn("JSESSIONID", json.dumps(run["findings"]))
         self.assertNotIn("hunter2", json.dumps(run["findings"]))
-        self.assertEqual(len({item["fingerprint"] for item in run["findings"]}), 4)
+        self.assertEqual(len({item["fingerprint"] for item in run["findings"]}), 3)
 
     def test_the_same_alert_on_the_root_with_and_without_its_slash_is_one_finding(self):
         """ZAP reports `https://host` and `https://host/` apart (seen against pitangus.dev, 2026-10-10)."""
         def result(uri):
-            return {"ruleId": "10055", "level": "warning", "message": {"text": "CSP: style-src unsafe-inline"},
+            return {"ruleId": "10202", "level": "warning", "message": {"text": "Absence of Anti-CSRF Tokens"},
                     "locations": [{"physicalLocation": {"artifactLocation": {"uri": uri}}}]}
-        document = {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "ZAP", "rules": [{"id": "10055", "name": "CSP"}]}},
+        document = {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "ZAP", "rules": [{"id": "10202", "name": "Anti-CSRF"}]}},
                                                   "results": [result("https://pitangus.dev"), result("https://pitangus.dev/"),
                                                               result("https://pitangus.dev/es/")]}]}
         run = parse(document)[0]
@@ -329,6 +359,21 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(set(self.status("Semgrep OSS").values()), {"open"})
         self.assertEqual(load_run(self.data_dir, outcome["runs"][0]["id"])["steps"][0]["status"], "partial")
 
+    def test_a_full_import_only_fixes_its_own_category(self):
+        """CodeQL uploads one SARIF per language: the JavaScript one says nothing about Python."""
+        def codeql(language, results):
+            document = sarif("CodeQL", results)
+            document["runs"][0]["automationDetails"] = {"id": f"/language:{language}/2026-10-11"}
+            return document
+        python = codeql("python", [result("py/sql-injection", "app/db.py", 4)])
+        self.import_(python)
+        self.assertEqual({(entry["origin"].get("tool"), entry["origin"].get("category")) for entry in self.entries().values()
+                          if entry["origin"]["kind"] == "import"}, {("CodeQL", "language:python")})
+        outcome = self.import_(codeql("javascript", []))
+        self.assertEqual((outcome["runs"][0]["category"], outcome["runs"][0]["fixed"]), ("language:javascript", 0))
+        self.assertEqual(set(self.status("CodeQL").values()), {"open"})
+        self.assertEqual(self.import_(codeql("python", []))["runs"][0]["fixed"], 1)  # its own category's full import does
+
     def test_another_tools_full_import_fixes_nothing(self):
         self.import_(fixture())
         self.import_(sarif("Snyk Code", []))
@@ -401,10 +446,10 @@ class RegistryTests(unittest.TestCase):
         now = datetime.now(timezone.utc)
         domains._mark(self.data_dir, pending["id"], verified_at=now, verified_until=now + timedelta(days=domains.VERIFY_DAYS))
         outcome = self.import_(zap(), asset=DOMAIN_KEY)
-        self.assertEqual((outcome["asset"], outcome["name"], outcome["runs"][0]["tool"], outcome["runs"][0]["opened"]), (DOMAIN_KEY, HOST, "ZAP", 4))
+        self.assertEqual((outcome["asset"], outcome["name"], outcome["runs"][0]["tool"], outcome["runs"][0]["opened"]), (DOMAIN_KEY, HOST, "ZAP", 3))
         record = load_run(self.data_dir, outcome["runs"][0]["id"])
         self.assertEqual((record["source"]["id"], record["source"]["provider"], record["source"]["domain"]["host"], record["summary"]["dast"]),
-                         (DOMAIN_KEY, "domain", HOST, 4))
+                         (DOMAIN_KEY, "domain", HOST, 3))
         self.assertEqual(self.import_(nuclei(), asset=HOST)["asset"], DOMAIN_KEY)  # by host and by id too
         self.assertEqual(self.import_(nuclei(), asset=pending["id"])["asset"], DOMAIN_KEY)
         self.assertEqual({entry["finding"]["scanner"] for entry in registry.load(self.data_dir, DOMAIN_KEY)["findings"].values()}, {"dast"})
@@ -414,18 +459,32 @@ class RegistryTests(unittest.TestCase):
             self.import_(zap(), asset=DOMAIN_KEY)
         self.assertEqual(caught.exception.status, 409)
 
+    def test_a_run_the_tool_reported_as_failed_fixes_nothing(self):
+        self.import_(fixture())
+        opened = self.status("CodeQL")
+        self.assertTrue(opened and set(opened.values()) == {"open"})
+        failed = {"tool": {"driver": {"name": "CodeQL"}}, "invocations": [{"executionSuccessful": False}]}
+        for run in ({**failed, "results": []}, failed, {**failed, "results": None}, {"tool": {"driver": {"name": "CodeQL"}}}):
+            with self.subTest(run=run):
+                outcome = self.import_({"version": "2.1.0", "runs": [run]})
+                self.assertEqual((outcome["runs"][0]["status"], outcome["runs"][0]["fixed"]), ("incomplete", 0))
+                self.assertEqual(self.status("CodeQL"), opened)
+        # A clean run (an empty results list, an invocation that succeeded) does fix what it no longer reports.
+        clean = {"tool": {"driver": {"name": "CodeQL"}}, "invocations": [{"executionSuccessful": True}], "results": []}
+        self.assertEqual(self.import_({"version": "2.1.0", "runs": [clean]})["runs"][0]["fixed"], len(opened))
+
     def test_a_later_full_import_against_the_domain_fixes_what_the_scanner_no_longer_reports(self):
         verified_domain(self.data_dir)
         self.import_(zap(), asset=DOMAIN_KEY)
         states = lambda: {digest: entry["status"] for digest, entry in registry.load(self.data_dir, DOMAIN_KEY)["findings"].items()}  # noqa: E731
-        self.assertEqual(sorted(states().values()), ["open"] * 4)
+        self.assertEqual(sorted(states().values()), ["open"] * 3)
         later = zap()
         later["runs"][0]["results"] = [item for item in later["runs"][0]["results"] if item["ruleId"] != "40012"]
         # The same alerts at the same URLs with other query strings and other evidence: still the same findings.
         later["runs"][0]["results"][1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] = "https://app.example.com/hello?lang=es"
         outcome = self.import_(later, asset=DOMAIN_KEY)
         self.assertEqual((outcome["runs"][0]["opened"], outcome["runs"][0]["fixed"]), (0, 1))
-        self.assertEqual(sorted(states().values()), ["fixed", "open", "open", "open"])
+        self.assertEqual(sorted(states().values()), ["fixed", "open", "open"])
         self.assertEqual(self.import_(nuclei(), asset=DOMAIN_KEY)["runs"][0]["fixed"], 0)  # another tool vouches for nothing of ZAP's
         self.assertEqual(self.import_(zap(), asset=DOMAIN_KEY)["runs"][0]["opened"], 1)   # it came back: it reopens
 
@@ -440,6 +499,34 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual((asset["open"], asset["critical"]), (3, 1))  # Pitangus's one + Semgrep's one + CodeQL's one
         self.assertEqual(data["kpis"]["fixed_in_window"], 1)
 
+
+    def test_an_imported_secret_moves_to_its_value_identity_on_the_first_import_after_upgrading(self):
+        """F3: an imported secret was keyed by its snippet (which holds the value), now by the value's keyed identity.
+        The fingerprint before stays a former name: whatever the identity mode it was stored under, the next full import
+        opens nothing and fixes nothing, and the acceptance and the Jira issue follow it."""
+        from pitangus.modules.findings import tickets
+        from pitangus.modules.scanning import sarif_import, secret_identity
+        for stored in ("v1", "v2"):
+            with self.subTest(stored=stored):
+                token = "ghp_" + "Zq8vR2mK9pLx4wT6" * 2 + stored * 2
+                document = sarif("Gitleaks", [result(rule="github-pat", path=f"config/{stored}.py", snippet=token)])
+                with patch.object(sarif_import, "_secret_identity", return_value=None), patch.dict(os.environ, {"PITANGUS_IDENTITY_MODE": stored}):
+                    before = self.import_(document, scope="full")["runs"][0]
+                record = load_run(self.data_dir, before["id"])
+                old = record["findings"][0]["fingerprint"]
+                expiry = (datetime.now(timezone.utc) + timedelta(days=30)).date().isoformat()
+                triage.decide(self.data_dir, record, [old], "accepted", reason="Rotation planned with the provider", expires_at=expiry,
+                              user={"username": "ana", "role": "admin"})
+                tickets.remember(self.data_dir, KEY, old, {"key": "SEC-9", "url": "https://jira.example/browse/SEC-9"})
+                with patch.dict(os.environ, {"PITANGUS_IDENTITY_MODE": "v2"}):
+                    after = self.import_(document, scope="full")["runs"][0]
+                self.assertEqual((after["opened"], after["fixed"]), (0, 0))
+                new = load_run(self.data_dir, after["id"])["findings"][0]
+                self.assertEqual(new["fingerprint"], secret_identity.identity(token))
+                self.assertEqual(self.status("Gitleaks").get(new["fingerprint"]), "open")
+                self.assertNotIn(old, self.entries())
+                self.assertEqual(triage.load(self.data_dir)[KEY][new["fingerprint"]]["status"], "accepted")
+                self.assertEqual(tickets.load_links(self.data_dir)[KEY][new["fingerprint"]]["key"], "SEC-9")
 
 class ApiTests(HttpCase):
     def setUp(self):
@@ -504,7 +591,7 @@ class ApiTests(HttpCase):
             now = datetime.now(timezone.utc)
             domains._mark(self.data_dir, domains.find_domain(self.data_dir, HOST)["id"], verified_at=now, verified_until=now + timedelta(days=1))
             status, body, _ = self.ci(zap(), query=f"?asset={DOMAIN_KEY}")
-            self.assertEqual((status, body["asset"], body["runs"][0]["findings"]), (200, DOMAIN_KEY, 4))
+            self.assertEqual((status, body["asset"], body["runs"][0]["findings"]), (200, DOMAIN_KEY, 3))
             self.assertEqual(self.ci(None, raw="[" * 100_000 + "]" * 100_000)[0], 400)  # nested too deep
             self.assertEqual(self.ci(None, raw="{not json")[0], 400)
 

@@ -36,8 +36,9 @@ The SAST rules in `rules/` are MIT, so you can reuse them in other tools. You pa
 ## Can it attack my website?
 
 No. Web scans are passive: ordinary `GET` and `HEAD` requests, a browser that follows links, TLS handshakes. No injections, no fuzzing, no form submissions other than a test user's sign-in, no
-POST, PUT or DELETE. They are off unless the server sets `PITANGUS_DAST_ENABLED=1`, only an administrator can launch
-or schedule one, and only against a domain whose control was proved. A passive scan still makes real requests, so
+POST, PUT or DELETE. The exposure check only requests each host's root and known paths; the full scan, which crawls,
+is experimental and off unless the server sets `PITANGUS_DAST_ENABLED=1`. Only an administrator can launch or
+schedule one, and only against a domain whose control was proved. A passive scan still makes real requests, so
 launch it only against sites you're allowed to test. See [Scan a website or API](scanning-web.md).
 
 ## Few findings: does that mean I'm secure?
@@ -85,7 +86,7 @@ and `git`. `make doctor` checks all of it. See [Installation](installation.md).
 
 ## Is it ready for production?
 
-It's in beta (v0.13). It works and is tested, but the API and the data formats may still change between releases.
+It's in beta (v0.14). It works and is tested, but the API and the data formats may still change between releases.
 Each release lists anything to do before upgrading. Take backups (`make backup`) and read the
 [upgrade guide](upgrading.md) before each upgrade.
 

@@ -10,8 +10,12 @@ from __future__ import annotations
 
 import re
 
+from typing import cast
+
+from pitangus.modules.findings.fix_guide import guide
 from pitangus.modules.intel.advisories import compare_versions
 from pitangus.shared.i18n import t, text
+from pitangus.shared.model import Finding
 
 ORDER = {level: index for index, level in enumerate(("critical", "high", "medium", "low", "info"))}
 
@@ -105,6 +109,10 @@ def action(entry: dict, *, short: bool = False, locale: str | None = None) -> st
                     else t("findings.remediation.remove_malicious_unnamed", locale, version=version))
         return sentence.replace("  ", " ")
     if entry["kind"] == "package":
+        # A parent whose range rejects the fixed version moves first: the guide says which (same text as the panel).
+        first = guide(cast(Finding, entry["items"][0]), target=entry["target"]) if entry["target"] else None
+        if first and first.get("action"):
+            return text(first["action"], locale)
         name, count = entry["name"], len(entry["items"])
         fixed = sum(1 for item in entry["items"] if item["package"].get("fixed_version"))
         if entry["target"] and entry["complete"]:

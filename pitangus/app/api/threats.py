@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
@@ -50,6 +50,7 @@ class ThreatCatalog(Open):
     protocols: list[str] = Field(max_length=len(tm.PROTOCOLS))
     classifications: dict[str, str]
     methods: dict[str, Any]
+    workspace: dict[str, Annotated[list[str], Field(max_length=100)]] = Field(default_factory=dict)
 
 
 class ThreatSummary(Open):
@@ -67,19 +68,32 @@ class ThreatModelView(Open):
     assets: list[dict[str, Any]] = Field(max_length=MANY)
 
 
+class ImportProblem(BaseModel):
+    """One problem in an imported document: an error stops the import, a warning means something that matters was
+    changed or couldn't be used, an info is a harmless normalization (a synonym read, a field kept as written)."""
+    severity: Literal["error", "warning", "info"]
+    path: str = Field(max_length=2000, description="JSON Pointer (RFC 6901) into the document as sent")
+    id: str | None = Field(default=None, max_length=200, description="The id of the object it belongs to, when known")
+    code: str = Field(default="", max_length=40, description="Equal for identical problems (same message and parameters), to group them")
+    message: str = Field(max_length=2000)
+
+
 class ImportCheck(BaseModel):
-    """What an import would create, counted, without creating it."""
+    """What an import would create, counted, without creating it, and the warnings it would carry. With errors the
+    route answers 400 with `error` (the first one) and `problems` (all of them, same shape)."""
     name: str
     methodology: str
     components: int
     flows: int
     boundaries: int
     repository_refs: int
+    assumptions: int
     manual_threats: int
     attack_trees: int
     attack_mappings: int
     pasta_stages: int
     relayout: bool
+    problems: list[ImportProblem] = Field(default_factory=list, max_length=200)
 
 
 class Proposal(Open):
@@ -164,7 +178,7 @@ def _read_repositories(context: Context, assets: dict, chosen) -> list[dict] | d
 def models(context: Context = Depends(guard())) -> Any:
     return context.render({"models": tm.list_models(context.data_dir), "assets": list(_assets(context).values()),
                            "kinds": tm.KINDS, "protocols": tm.PROTOCOLS, "classifications": tm.CLASSIFICATION_LABELS,
-                           "methods": tm.threat_methods.catalog()})
+                           "methods": tm.threat_methods.catalog(), "workspace": tm.workspace_values(context.data_dir)})
 
 
 def _stored_view(context: Context, model_id: str) -> dict:
@@ -271,21 +285,30 @@ def save_model(context: Context = Depends(guard(Policy(action="save-threat-model
         stored = tm.save(context.data_dir, model, by=by, model_id=data.id if isinstance(data.id, str) else None)
         return context.render(_view(context, stored))
     except tm.ModelError as exc:
-        raise ApiError(400, exc.message) from exc
+        raise ApiError(400, exc.message, problems=exc.problems) from exc
     except (OSError, ValueError) as exc:
         raise ApiError(400, msg("threats.errors.save_failed")) from exc
+
+
+def _portable(data: Any) -> tuple[dict, list[dict]]:
+    model, problems = tm.inspect_portable(data)
+    if model is None:
+        first = next(item for item in problems if item["severity"] == "error")
+        raise ApiError(400, first["message"], problems=problems)
+    return model, problems
 
 
 @router.post("/api/threat-models/import", openapi_extra=ANY_JSON, response_model=ThreatModelView, **AS_RETURNED)
 def import_model(context: Context = Depends(guard(Policy(action="import-threat-model", body=600_000))),
                  data: Any = Depends(json_body)) -> Any:
-    """Creates a model from the portable format (model.json)."""
+    """Creates a model from the portable format (model.json). Warnings don't stop it; errors answer 400 with every
+    problem (see /api/threat-models/validate)."""
+    model, _ = _portable(data)
+    model.pop("relayout", None)
     try:
-        model = tm.from_portable(data)
-        model.pop("relayout", None)
         return context.render(_view(context, tm.save(context.data_dir, model, by=context.user["username"])))
     except tm.ModelError as exc:
-        raise ApiError(400, exc.message) from exc
+        raise ApiError(400, exc.message, problems=exc.problems) from exc
     except (OSError, ValueError) as exc:
         raise ApiError(400, msg("threats.errors.import_failed")) from exc
 
@@ -293,22 +316,21 @@ def import_model(context: Context = Depends(guard(Policy(action="import-threat-m
 @router.post("/api/threat-models/validate", openapi_extra=ANY_JSON, response_model=ImportCheck, **AS_RETURNED)
 def validate_import(context: Context = Depends(guard(Policy(action="validate-threat-model", body=600_000))),
                     data: Any = Depends(json_body)) -> Any:
-    """Checks the portable format without creating or changing a model."""
-    try:
-        model = tm.from_portable(data)
-    except tm.ModelError as exc:
-        raise ApiError(400, exc.message) from exc
-    return {
+    """Checks the portable format without creating or changing a model, and lists every problem at once."""
+    model, problems = _portable(data)
+    return context.render({
         "name": model["name"], "methodology": model["methodology"],
         "components": len(model["components"]), "flows": len(model["flows"]),
         "boundaries": len(model["boundaries"]),
         "repository_refs": len(model["repository_refs"]),
+        "assumptions": len(model["assumptions"]),
         "manual_threats": len(model["manual_threats"]),
         "attack_trees": len(model["attack_trees"]),
         "attack_mappings": len(model["attack_mappings"]),
         "pasta_stages": len(model["pasta"]),
         "relayout": bool(model.get("relayout")),
-    }
+        "problems": problems,
+    })
 
 
 @router.post("/api/threat-models/propose", openapi_extra=documented(ProposeIn), response_model=Proposal, **AS_RETURNED)

@@ -51,7 +51,7 @@ you'd rather keep private.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| Everything is very slow under WSL2 | The repository is on the Windows drive (`/mnt/c/...`), which WSL2 reads far more slowly. | Clone it inside Linux: `cd ~ && git clone --branch v0.13.1 https://github.com/Pitangus-Dev/pitangus.git`. |
+| Everything is very slow under WSL2 | The repository is on the Windows drive (`/mnt/c/...`), which WSL2 reads far more slowly. | Clone it inside Linux: `cd ~ && git clone --branch v0.14.0 https://github.com/Pitangus-Dev/pitangus.git`. |
 | `Permission denied` on `data/` under WSL2 | The folders were created from Windows or by Docker as root. | Clone inside Linux as above and run `make setup` there before `make up`. |
 
 ## VPN and proxy
@@ -74,12 +74,13 @@ you'd rather keep private.
 
 See [Scan a website or API](scanning-web.md) for how web scans work.
 
-### Web app or API is greyed out in New scan
+### Full web scan is greyed out in New scan
 
-**Symptom.** In **New scan**, **Web app or API** says *Not enabled on this server*, or a run fails with "Web scans
+**Symptom.** In **New scan**, **Full web scan** says *Not enabled on this server*, or a run fails with "Web scans
 are turned off on this server".
 
-**Cause.** Web scans are off unless the server sets `PITANGUS_DAST_ENABLED=1`. The API and the worker both read it.
+**Cause.** The full web scan is experimental and off unless the server sets `PITANGUS_DAST_ENABLED=1`. The API and
+the worker both read it. The **Exposure check** needs nothing and stays available.
 
 **Fix.**
 
@@ -98,8 +99,8 @@ mounted). See [Where to deploy](deploy.md).
 
 ### A tool's step is Skipped: "The … image isn't on this server"
 
-**Cause.** The image of katana, nuclei, testssl.sh, httpx, subfinder or ZAP wasn't pulled, usually because
-`PITANGUS_DAST_ENABLED` was turned on after the last `make up`.
+**Cause.** The image of katana, nuclei, testssl.sh, httpx, subfinder or ZAP wasn't pulled: its pull failed, or (for
+ZAP, katana and subfinder) `PITANGUS_DAST_ENABLED` was turned on after the last `make up`.
 
 **Fix.**
 
@@ -225,7 +226,7 @@ address it's seen from.
 | `make update` says "a fixed version: not pulling" | You installed a release and didn't check out the new one. | `git fetch --tags && git checkout v<new> && make update`. |
 | Web scans skip tools after upgrading to 0.13 | The new web engine images weren't pulled. | `make engines` with `PITANGUS_DAST_ENABLED=1` in `.env`. |
 
-The full list for 0.13 is in [Upgrade Pitangus](upgrading.md#upgrade-issues).
+The full list for each release is in [Upgrade Pitangus](upgrading.md#upgrade-issues).
 
 ## Language
 

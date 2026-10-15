@@ -14,13 +14,17 @@ import { FindingDetail } from '@/features/findings/finding-detail'
 import { KpiTiles } from '@/features/findings/kpi-tiles'
 import { TriageActions, TriageBadge, TriageDialog, type TriageSelection } from '@/features/findings/triage'
 import { SUPPRESSED, TRIAGE_LABEL, type TriageStatus } from '@/features/findings/triage-status'
-import { ACTION_LABEL, SCANNER_LABEL, SEVERITY_LABEL, actionClass, groupFindings, idOf, inView, isPending, labelOf, severityClass, stateId, statusOf, toolsOf,
-  type FindingKpis, type RepositoryFinding } from '@/features/findings/finding-model'
+import { ACTION_LABEL, SCANNER_LABEL, SEVERITY_LABEL, actionClass, groupFindings, idOf, inView, isPending, labelOf, severityClass, stateId, statusOf, statusViews, toolsOf,
+  type FindingKpis, type FindingTab, type RepositoryFinding } from '@/features/findings/finding-model'
 import { JIRA_QUEUE_MAX, JiraExportDialog, JiraFindingAction, type JiraSelection } from '@/features/integrations/jira-export'
 import { useJiraAvailability } from '@/features/integrations/jira-availability'
 import { useJiraSettled } from '@/features/integrations/jira-batches'
 
 const PAGE = 50
+const STATUS_VIEW_LABEL = {
+  active: 'filters.status_options.active', open: 'filters.status_options.open', in_progress: 'filters.status_options.in_progress', fixed: 'filters.status_options.fixed',
+  false_positive: 'filters.status_options.false_positive', accepted: 'filters.status_options.accepted', excluded: 'filters.status_options.excluded',
+} as const
 const DEMO_SOURCE = 'local:demo-ejemplos'
 
 // An extra column, after the finding (with several assets: the asset). `text` names it in the row's accessible name.
@@ -31,12 +35,16 @@ export type FindingsColumn = { label: string; text: (finding: RepositoryFinding)
 // tiles and the table (`aside`), an extra `column` and the `exports`, which get how to open the audit report.
 // `runId`: the run or state the findings come from (a finding that names its asset uses that asset's state instead);
 // `assetKey`: the one asset, if any; `focus`: a finding to open and scroll to (links from Jira issues carry it).
-export function FindingsTable({ findings, kpis, header, aside, column, exports, audit, jira, runId, assetKey = '', canAccept, canManage = canAccept, initialView = 'active', focus = null, onChanged }: {
+// `tab`: the asset state's (or scope's) tab the findings come from; none for a run, which holds every status it saw.
+export function FindingsTable({ findings, kpis, header, aside, column, exports, audit, jira, runId, assetKey = '', canAccept, canManage = canAccept, tab, focus = null, onChanged }: {
   findings: RepositoryFinding[]; kpis?: FindingKpis; header: ReactNode; aside?: ReactNode; column?: FindingsColumn; exports: (openAudit: () => void) => ReactNode
   audit: { name: string; target: AuditTarget; fromSelection: boolean }; jira: { selection: JiraSelection; asset: { key: string; name?: string } | null }
-  runId: string; assetKey?: string; canAccept: boolean; canManage?: boolean; initialView?: string; focus?: string | null; onChanged: () => void
+  runId: string; assetKey?: string; canAccept: boolean; canManage?: boolean; tab?: FindingTab; focus?: string | null; onChanged: () => void
 }) {
   const { t } = useTranslation('findings')
+  const views = statusViews(tab)
+  // The open tab (or a run) starts on what is pending; the other tabs show all they hold.
+  const initialView = !tab || tab === 'open' ? 'active' : 'all'
   const [query, setQuery] = useState('')
   const [severity, setSeverity] = useState('all')
   const [action, setAction] = useState('all')
@@ -114,7 +122,7 @@ export function FindingsTable({ findings, kpis, header, aside, column, exports, 
         <Button type="button" size="sm" variant="outline" aria-expanded={moreFilters} aria-controls="more-filters" onClick={() => setMoreFilters(!moreFilters)} className="w-fit border-input bg-card"><SlidersHorizontalIcon />{t('filters.more')}{hiddenActive ? ` · ${hiddenActive}` : ''}</Button>
       </div>
       {moreFilters && <div id="more-filters" className="flex flex-wrap gap-3">
-        <Filter label={t('filters.status')} value={triageView} onChange={value => { setTriageView(value === 'all' ? 'all' : value); setOffset(0) }} all={t('filters.any_status')} options={[['active', t('filters.status_options.active')], ['open', t('filters.status_options.open')], ['in_progress', t('filters.status_options.in_progress')], ['fixed', t('filters.status_options.fixed')], ['false_positive', t('filters.status_options.false_positive')], ['accepted', t('filters.status_options.accepted')]]} />
+        {views.length > 0 && <Filter label={t('filters.status')} value={triageView} onChange={value => { setTriageView(value); setOffset(0) }} all={t('filters.any_status')} options={views.map(view => [view, t(STATUS_VIEW_LABEL[view])])} />}
         <Filter label={t('filters.priority')} value={action} onChange={setAction} all={t('filters.any_priority')} options={[['act', t('common:priority.act')], ['attend', t('common:priority.attend')], ['track', t('common:priority.track')]]} />
         <Filter label={t('filters.source')} value={scanner} onChange={setScanner} all={t('filters.any_source')} options={[['sca', t('filters.source_options.sca')], ['sast', t('filters.source_options.sast')], ['iac', t('filters.source_options.iac')], ['cicd', t('filters.source_options.cicd')], ['secrets', t('filters.source_options.secrets')], ['dast', t('filters.source_options.dast')]]} />
         {hasSla && <Filter label={t('filters.deadline')} value={deadline} onChange={value => { setDeadline(value); setOffset(0) }} all={t('filters.any_deadline')} options={[['overdue', t('filters.deadline_options.overdue')], ['soon', t('filters.deadline_options.soon')]]} />}

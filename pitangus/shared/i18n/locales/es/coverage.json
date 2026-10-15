@@ -28,10 +28,9 @@
     "opengrep_other": "{{count}} reglas de Pitangus en Opengrep"
   },
   "secrets": {
-    "engines": "secretos con Gitleaks y Trivy",
+    "engines": "secretos con Betterleaks y Trivy",
     "internal": "secretos por patrones internos"
   },
-  "internal_ast": "reglas AST internas de Python (SQL dinámico, shell, eval)",
   "no_engine": "ningún motor ejecutado cubre esta categoría en este repositorio",
   "with_findings_one": "{{reason}}. {{count}} hallazgo.",
   "with_findings_other": "{{reason}}. {{count}} hallazgos.",

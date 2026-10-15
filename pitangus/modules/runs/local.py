@@ -2,8 +2,10 @@
 
 Without `--base` everything is scanned. With `--base main` the starting point (the merge-base
 with that branch) is scanned too and only what the change introduces is reported: what was
-already there doesn't block. It counts what hasn't been pushed yet (uncommitted changes and new
-non-ignored files), so it works before the push and in the pipeline.
+already there doesn't block. A folder is scanned as it is on disk, uncommitted changes and new
+non-ignored files included. `--commit REF` and `--staged` scan what git holds instead (a commit,
+or the index: what the next commit will hold): an untracked file or an unstaged edit can't
+change the result. That is what the pre-commit hook scans.
 
 An incomplete scan never passes as clean: if an engine couldn't run, the command
 says so and exits with its own code.
@@ -11,18 +13,20 @@ says so and exits with its own code.
 
 from __future__ import annotations
 
-import io
 import json
 import re
 import subprocess
-import tarfile
+import tempfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from pitangus.modules.pullrequests.review import SEVERITY_ORDER, changed_lines, classify, markdown_rows, verdict
+from pitangus.modules.findings.canonical import growth
+from pitangus.modules.findings.identity import formers
+from pitangus.modules.pullrequests.review import SEVERITY_ORDER, changed_lines, classify, markdown_rows, renames, verdict
 from pitangus.modules.scanning.repository import scan_repository
 from pitangus.modules.sources.repositories import snapshot_directory
 from pitangus.shared.i18n import default_locale, localize, msg, t, text
+from pitangus.shared.masking import mask
 
 # Exit codes (documented in docs/cli.md).
 EXIT_OK, EXIT_BLOCKED, EXIT_ERROR, EXIT_INCOMPLETE = 0, 1, 2, 3
@@ -30,7 +34,9 @@ FAIL_ON = ("critical", "high", "medium", "low", "never")
 # Branch, tag, SHA or git expression (HEAD~1, origin/main…). Never starts with "-": it can't
 # sneak in as a git option.
 REF = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._/@^~{}+-]{0,199}")
-CORE_ENGINES = ("opengrep", "gitleaks", "trivy", "osv-scanner")
+CORE_ENGINES = ("opengrep", "betterleaks", "trivy", "osv-scanner")
+# Optional: one that fails doesn't make the analysis incomplete, but the output says what it didn't check.
+OPTIONAL_ENGINES = ("checkov", "zizmor")
 
 
 class LocalScanError(ValueError):
@@ -44,35 +50,51 @@ class LocalScanError(ValueError):
         return text(self.message, default_locale())
 
 
-def _git(path: Path, *args: str, binary: bool = False, timeout: int = 120):
+def _git_command(path: Path, *args: str) -> list[str]:
+    # safe.directory: inside the container the mounted folder belongs to another user. core.fsmonitor=false:
+    # a repository's local config can't launch programs while the diff is computed.
+    return ["git", "-c", f"safe.directory={path}", "-c", "core.fsmonitor=false", "-C", str(path), *args]
+
+
+def _git(path: Path, *args: str, binary: bool = False, timeout: int = 120, may_fail: bool = False):
+    """`may_fail`: a non-zero exit returns None instead of raising (the caller explains it better than git)."""
     try:
-        # safe.directory: inside the container the mounted folder belongs to another user. core.fsmonitor=false:
-        # a repository's local config can't launch programs while the diff is computed.
-        completed = subprocess.run(["git", "-c", f"safe.directory={path}", "-c", "core.fsmonitor=false", "-C", str(path), *args],
-                                   capture_output=True, text=not binary, timeout=timeout)
+        completed = subprocess.run(_git_command(path, *args), capture_output=True, text=not binary, timeout=timeout)
     except FileNotFoundError as exc:
         raise LocalScanError(msg("scanning.local.errors.no_git")) from exc
     except subprocess.TimeoutExpired as exc:
         raise LocalScanError(msg("scanning.local.errors.git_timeout", command=args[0])) from exc
+    if completed.returncode != 0 and may_fail:
+        return None
     if completed.returncode != 0:
-        detail = " ".join((completed.stderr.decode(errors="replace") if binary else completed.stderr).split())[:200]
+        detail = mask(" ".join((completed.stderr.decode(errors="replace") if binary else completed.stderr).split())[:200])
         raise LocalScanError(msg("scanning.local.errors.git_failed", command=args[0], detail=detail) if detail
                              else msg("scanning.local.errors.git_failed_silently", command=args[0]))
     return completed.stdout
 
 
-def merge_base(path: Path, base: str) -> str:
-    """The commit the change starts from: the merge-base between the base and HEAD."""
-    if not REF.fullmatch(base or ""):
-        raise LocalScanError(msg("scanning.local.errors.invalid_ref", ref=repr(base)))
-    commit = _git(path, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{base}^{{commit}}").strip()
+def resolve(path: Path, ref: str) -> str:
+    """The commit a reference names, or a message saying it doesn't exist (`--verify --quiet` exits 1 silently)."""
+    if not REF.fullmatch(ref or ""):
+        raise LocalScanError(msg("scanning.local.errors.invalid_ref", ref=repr(ref)))
+    commit = (_git(path, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}", may_fail=True) or "").strip()
     if not re.fullmatch(r"[0-9a-f]{40,64}", commit):
-        raise LocalScanError(msg("scanning.local.errors.unknown_ref", ref=repr(base)))
-    return _git(path, "merge-base", commit, "HEAD").strip()
+        raise LocalScanError(msg("scanning.local.errors.unknown_ref", ref=repr(ref)))
+    return commit
+
+
+def merge_base(path: Path, base: str, head: str = "HEAD") -> str:
+    """The commit the change starts from: the merge-base between the base and `head` (what is scanned)."""
+    start, end = resolve(path, base), resolve(path, head)
+    found = (_git(path, "merge-base", start, end, may_fail=True) or "").strip()
+    if not found:
+        raise LocalScanError(msg("scanning.local.errors.no_merge_base", base=repr(base), head=repr(head)))
+    return found
 
 
 def parse_diff(text: str) -> list[dict]:
-    """`git diff --unified=0` → the same shape as a GitHub PR's files (filename, status, patch)."""
+    """`git diff --unified=0` → the same shape as a GitHub PR's files (filename, status, patch, and previous_filename
+    for a renamed file)."""
     files, current, patch = [], None, []
     def close():
         if current is not None:
@@ -96,6 +118,8 @@ def parse_diff(text: str) -> list[dict]:
                 current["status"] = "added"
             elif not current["filename"]:
                 current["filename"] = source[2:] if source.startswith("a/") else source
+        elif line.startswith("rename from "):
+            current["status"], current["previous_filename"] = "renamed", line[len("rename from "):]
         elif line.startswith("rename to "):
             current["filename"] = line[len("rename to "):]
         elif line.startswith("Binary files "):
@@ -109,80 +133,138 @@ def parse_diff(text: str) -> list[dict]:
     return [item for item in files if item["filename"]]
 
 
-def diff_files(path: Path, commit: str) -> list[dict]:
-    """What changed from `commit` to the working tree, plus new non-ignored files."""
-    text = _git(path, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--relative", "-M", commit, "--")
+def diff_files(path: Path, commit: str, revision: str | None = None, *, staged: bool = False) -> list[dict]:
+    """What changed from `commit` to what is scanned: the working tree plus new non-ignored files, the commit
+    `revision`, or the index (`staged`)."""
+    target = (commit, revision) if revision else ("--cached", commit) if staged else (commit,)
+    text = _git(path, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--relative", "-M", *target, "--")
     files = parse_diff(text)
+    if revision or staged:
+        return files
     untracked = _git(path, "ls-files", "--others", "--exclude-standard", "--", ".").splitlines()
     return files + [{"filename": name, "status": "added", "patch": None} for name in untracked if name]
 
 
-def snapshot_commit(path: Path, commit: str, destination: Path) -> dict:
-    """The folder as it was at `commit`, with the same filters as the current scan."""
-    prefix = _git(path, "rev-parse", "--show-prefix").strip()
-    # From the top level: older git (2.39, in the image) applies the subfolder's prefix twice to `commit:prefix`.
-    top = Path(_git(path, "rev-parse", "--show-toplevel").strip()) if prefix else path
+def _tree_entries(path: Path, commit: str | None) -> tuple[list[tuple[str, str]], dict[str, str]]:
+    """((object, relative path) of each regular file of the folder in `commit`, or in the index when None; {path: kind}
+    of every entry git holds there). Links and submodules aren't written, nor anything git shouldn't hold (`..`,
+    `.git`): the snapshot declares each of them unexamined (sources.repositories.declare_committed)."""
+    if commit:
+        listing = _git(path, "ls-tree", "-r", "-z", commit, "--", binary=True)
+    else:
+        listing = _git(path, "ls-files", "--stage", "-z", binary=True)
+    entries = []
+    tree: dict[str, str] = {}
+    for record in listing.split(b"\0"):
+        meta, _, name = record.partition(b"\t")
+        fields = meta.split()
+        if len(fields) != 3 or not name:
+            continue
+        mode = fields[0]
+        if not commit and fields[2] != b"0":   # an unmerged entry's other stages
+            continue
+        relative = name.decode("utf-8", errors="surrogateescape")
+        tree[relative] = "submodule" if mode == b"160000" else "symlink" if mode == b"120000" else "file"
+        if not mode.startswith(b"100"):
+            continue
+        sha = fields[2] if commit else fields[1]
+        parts = relative.split("/")
+        if relative.startswith("/") or any(part in ("", ".", "..") or part.lower() == ".git" for part in parts):
+            continue
+        entries.append((sha.decode(), relative))
+    return entries, tree
+
+
+def _write_blobs(path: Path, entries: list[tuple[str, str]], raw: Path) -> None:
+    """Each object's content into `raw`, read from git's database in one `cat-file --batch` (no checkout, no filters)."""
+    with tempfile.TemporaryFile() as requests:
+        requests.write("".join(f"{sha}\n" for sha, _ in entries).encode())
+        requests.seek(0)
+        try:
+            process = subprocess.Popen(_git_command(path, "cat-file", "--batch"), stdin=requests, stdout=subprocess.PIPE,
+                                       stderr=subprocess.DEVNULL)
+        except FileNotFoundError as exc:
+            raise LocalScanError(msg("scanning.local.errors.no_git")) from exc
+        with process:
+            for sha, relative in entries:
+                header = process.stdout.readline().split()
+                if len(header) != 3 or header[0].decode() != sha:
+                    process.kill()
+                    raise LocalScanError(msg("scanning.local.errors.git_failed_silently", command="cat-file"))
+                content = process.stdout.read(int(header[2]))
+                process.stdout.read(1)
+                target = raw / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(content)
+
+
+def snapshot_git(path: Path, destination: Path, commit: str | None = None) -> dict:
+    """The folder as git holds it, at `commit` (a resolved commit) or in the index when None, with the same filters
+    as a folder scan. Read from git's objects, never from the working tree: an untracked file or an unstaged edit
+    can't get in. The raw copy stays next to it (`<destination>-raw`), whole, to tell a deleted file from a filtered one."""
     raw = destination.parent / f"{destination.name}-raw"
     raw.mkdir(parents=True, exist_ok=True)
-    if prefix and _git(top, "ls-tree", "-d", "--name-only", commit, "--", prefix.rstrip("/")).strip() == "":
-        destination.mkdir(parents=True, exist_ok=True)  # the change creates the folder: the baseline is empty
-        return snapshot_directory(raw, destination)
-    archive = _git(top, "archive", "--format=tar", f"{commit}:{prefix}" if prefix else commit, binary=True, timeout=600)
-    with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
-        # "data" filter (PEP 706): no absolute paths, no escaping the folder, no devices or links pointing outside.
-        bundle.extractall(raw, filter="data")
-    return snapshot_directory(raw, destination)
+    entries, tree = _tree_entries(path, commit)
+    _write_blobs(path, entries, raw)
+    destination.mkdir(parents=True, exist_ok=True)
+    return snapshot_directory(raw, destination, committed=True, tree=tree)
+
+
+def snapshot_commit(path: Path, commit: str, destination: Path) -> dict:
+    """The folder as it was at `commit`, with the same filters as the current scan."""
+    return snapshot_git(path, destination, resolve(path, commit))
 
 
 def _engines(scan: dict) -> tuple[list[str], list[str]]:
-    ran, failed = [], []
+    """Every core engine, as ran or didn't: one with no step at all (no Docker) didn't run either."""
+    from pitangus.modules.scanning.engines import IMAGES
+    ran, failed, seen = [], [], set()
     for step in scan.get("steps") or []:
         tool = (step.get("tool") or {}).get("name")
         if tool in CORE_ENGINES:
+            seen.add(tool)
             (ran if step["status"] in ("completed", "partial") else failed).append(step["name"])
-    return ran, failed
+    return ran, failed + [IMAGES[key]["name"] for key in CORE_ENGINES if key not in seen]
 
 
-def _same_place(finding: dict) -> tuple:
-    return (finding.get("scanner"), finding.get("rule_id"), finding.get("path"))
-
-
-def resolved_findings(before: list[dict], after: list[dict], changed: dict, root: Path) -> list[dict]:
+def resolved_findings(before: list[dict], after: list[dict], changed: dict, root: Path, renamed: dict[str, str] | None = None) -> list[dict]:
     """What the starting point had and the change no longer has, each with how it went away.
 
+    The gate's comparison the other way round (`canonical.growth`, as `classify` does for what the change introduces):
+    families and copies counted across the whole repository, a renamed file (`renamed`: {new path: old path}) counted
+    as its new name. So a copy moved within its file or to another one, a renamed file, a reformat or a fingerprint
+    that changed is neither introduced nor fixed, and a family's instances never count as both.
+
     `fixed`: its file is one the change modified. `deleted`: its file is gone. `unattributed`: it went away although
-    its file wasn't touched, so the change gets no credit. A finding whose fingerprint changed but that still has the
-    same rule in the same file (some fingerprints still carry the line: it just moved) isn't counted at all."""
-    present = {item["fingerprint"] for item in after} | {item["previous_fingerprint"] for item in after if item.get("previous_fingerprint")}
-    unmatched: dict[tuple, int] = {}
-    for item in after:
-        unmatched[_same_place(item)] = unmatched.get(_same_place(item), 0) + 1
-    for item in before:
-        if item["fingerprint"] in present:
-            unmatched[_same_place(item)] = unmatched.get(_same_place(item), 0) - 1
+    its file wasn't touched, so the change gets no credit."""
+    back = {old: new for new, old in (renamed or {}).items()}
+    identities, lost = growth(after, before, back)
+    present = {item["fingerprint"] for item in after} | {former for item in after for former in formers(item)}
+    groups: dict[str, list[dict]] = {}
+    for item, identity in zip(before, identities):
+        groups.setdefault(identity, []).append(item)
     gone = []
-    for item in before:
-        if item["fingerprint"] in present:
-            continue
-        if unmatched.get(_same_place(item), 0) > 0:
-            unmatched[_same_place(item)] -= 1  # still there under a new fingerprint
-            continue
-        where = item.get("path") or ""
-        how = "fixed" if where in changed and (root / where).exists() else "deleted" if not (root / where).exists() else "unattributed"
-        gone.append({**item, "resolution": how})
+    for identity, group in groups.items():
+        # The copies whose own fingerprint is gone first: they are the ones that went away.
+        for item in sorted(group, key=lambda item: (item["fingerprint"] in present, item.get("path") or "", item.get("line") or 0))[:lost[identity]]:
+            where = back.get(item.get("path") or "", item.get("path") or "")
+            how = "fixed" if where in changed and (root / where).exists() else "deleted" if not (root / where).exists() else "unattributed"
+            gone.append({**item, "resolution": how})
     order = {level: index for index, level in enumerate(SEVERITY_ORDER)}
     return sorted(gone, key=lambda item: (order.get(item["severity"], 9), item.get("path") or "", item.get("line") or 0))
 
 
 def run(path: Path, *, data_dir: Path, base: str | None = None, baseline: bool = True, fail_on: str = "high",
-        allow_osv_upload: bool = False, progress=None, name: str | None = None, exclude: list[str] | None = None) -> dict:
+        allow_osv_upload: bool = False, progress=None, name: str | None = None, exclude: list[str] | None = None,
+        revision: str | None = None, staged: bool = False) -> dict:
     """Scans `path` and applies the threshold. Returns the result ready to display and the exit code.
 
     `exclude`: glob patterns relative to the root (`fixtures/**`, `**/testdata/**`) whose findings don't count.
-    The output mentions them ("N in excluded paths"): nothing is hidden without saying so."""
+    The output mentions them ("N in excluded paths"): nothing is hidden without saying so.
+    `revision` (a commit) or `staged` (the index): scan what git holds there instead of the folder on disk."""
     from pitangus.modules.findings.exclusions import ExclusionError, excluded, normalize
     from pitangus.modules.findings.registry import blind_engines, unseen
-    from pitangus.modules.scanning.engines import engines_available, engines_problem
+    from pitangus.modules.scanning.engines import IMAGES, engines_available, engines_problem, names_engine
     try:
         patterns = normalize(list(exclude or []))
     except ExclusionError as exc:
@@ -192,7 +274,11 @@ def run(path: Path, *, data_dir: Path, base: str | None = None, baseline: bool =
         raise LocalScanError(msg("scanning.local.errors.not_a_folder", path=str(path)))
     if fail_on not in FAIL_ON:
         raise LocalScanError(msg("scanning.local.errors.fail_on", options=", ".join(FAIL_ON)))
+    if revision and staged:
+        raise LocalScanError(msg("scanning.local.errors.commit_and_staged"))
     report = progress or (lambda level, message: None)
+    target = resolve(path, revision) if revision else None
+    commit = merge_base(path, base, target or "HEAD") if base else None  # before scanning: a wrong ref fails at once
     work = data_dir / "work"
     work.mkdir(parents=True, exist_ok=True)
     name = (name or path.name).strip()[:100] or path.name
@@ -201,37 +287,45 @@ def run(path: Path, *, data_dir: Path, base: str | None = None, baseline: bool =
     resolved: list[dict] = []
     with TemporaryDirectory(prefix="scan-", dir=work) as temporary:
         head = Path(temporary) / "head"
-        stats = snapshot_directory(path, head)
-        report("info", msg("scanning.local.progress.copied", files=stats["files"]))
+        if target or staged:
+            stats = snapshot_git(path, head, target)
+            report("info", msg("scanning.local.progress.copied_commit", commit=target[:8], files=stats["files"]) if target
+                   else msg("scanning.local.progress.copied_staged", files=stats["files"]))
+        else:
+            stats = snapshot_directory(path, head)
+            report("info", msg("scanning.local.progress.copied", files=stats["files"]))
         scan = scan_repository(head, {**source, "files": stats["files"], "snapshot": stats},
                                allow_osv_upload=allow_osv_upload, data_dir=data_dir, progress=report)
         findings = [item for item in scan["findings"] if not excluded(item.get("path", ""), patterns)]
         skipped = len(scan["findings"]) - len(findings)
         if base:
-            commit = merge_base(path, base)
-            changed = changed_lines(diff_files(path, commit))
+            files = diff_files(path, commit, target, staged=staged)
+            changed = changed_lines(files)
             report("info", msg("scanning.local.progress.comparing", base=base, commit=commit[:8], files=len(changed)))
-            prints, base_status = None, None
+            base_findings, base_status = None, None
             if baseline and changed:
                 base_dir = Path(temporary) / "base"
                 base_stats = snapshot_commit(path, commit, base_dir)
                 report("info", msg("scanning.local.progress.baseline", files=base_stats["files"]))
                 base_scan = scan_repository(base_dir, {**source, "files": base_stats["files"], "snapshot": base_stats},
                                             allow_osv_upload=allow_osv_upload, data_dir=data_dir)
-                prints, base_status = {item["fingerprint"] for item in base_scan["findings"]}, base_scan["status"]
+                # Both sides alike: the same excluded paths, grouped and counted by the registry's identity (classify).
+                base_findings = [item for item in base_scan["findings"] if not excluded(item.get("path", ""), patterns)]
+                base_status = base_scan["status"]
                 # Only two complete scans prove something went away: a failed engine also "loses" findings.
                 # Nor does one an engine that failed in either scan (an optional one can fail in a complete scan).
                 if base_status == "completed" and scan["status"] == "completed":
                     blind = blind_engines(base_scan) | blind_engines(scan)
                     before = [item for item in base_scan["findings"]
                               if not excluded(item.get("path", ""), patterns) and not unseen(item, blind)]
-                    resolved = resolved_findings(before, scan["findings"], changed, path)
-            outcome = classify(findings, changed, prints)
+                    resolved = resolved_findings(before, scan["findings"], changed,
+                                                 Path(temporary) / "head-raw" if target or staged else path, renames(files))
+            outcome = classify(findings, changed, base_findings, renames(files))
             findings = outcome["introduced"]
             comparison = {"base": base, "merge_base": commit, "changed_files": len(changed),
-                          "baseline": prints is not None, "baseline_status": base_status,
+                          "baseline": base_findings is not None, "baseline_status": base_status,
                           "preexisting_in_changed_code": len(outcome["preexisting"]),
-                          "resolved_verifiable": prints is not None and base_status == "completed" and scan["status"] == "completed",
+                          "resolved_verifiable": base_findings is not None and base_status == "completed" and scan["status"] == "completed",
                           "resolved": {how: sum(1 for item in resolved if item["resolution"] == how)
                                        for how in ("fixed", "deleted", "unattributed")}}
     ran, failed = _engines(scan)
@@ -243,12 +337,16 @@ def run(path: Path, *, data_dir: Path, base: str | None = None, baseline: bool =
     code = EXIT_BLOCKED if gate["blocking"] else EXIT_OK
     if incomplete and code == EXIT_OK:
         code = EXIT_INCOMPLETE
-    return {"target": str(path), "name": name, "comparison": comparison, "fail_on": fail_on,
+    return {"target": str(path), "name": name, "snapshot": target or ("index" if staged else "worktree"),
+            "comparison": comparison, "fail_on": fail_on,
             "excluded": {"patterns": patterns, "findings": skipped},
             "status": "incomplete" if incomplete else "completed", "engines": {"ran": ran, "failed": failed},
-            "not_analyzed": missing + [msg("scanning.local.not_analyzed_step", step=step["name"], detail=step["detail"])
+            # The detail alone when it already names its engine, so the name isn't said twice.
+            "not_analyzed": missing + [step["detail"] if names_engine(step["detail"], (IMAGES.get(step["tool"]["name"]) or {}).get("name"))
+                                       else msg("scanning.local.not_analyzed_step", step=step["name"], detail=step["detail"])
                                        for step in scan.get("steps") or []
-                                       if (step.get("tool") or {}).get("name") in CORE_ENGINES and step["status"] not in ("completed", "partial")],
+                                       if (step.get("tool") or {}).get("name") in (*CORE_ENGINES, *OPTIONAL_ENGINES)
+                                       and step["status"] not in ("completed", "partial")],
             "findings": findings, "resolved": resolved, "gate": gate, "exit_code": code, "scan": scan}
 
 
@@ -301,17 +399,24 @@ def _safe(value) -> str:
     return _CONTROL.sub("?", str(value))
 
 
+def _scanned(result: dict, locale: str) -> list[str]:
+    """What was scanned when it isn't the folder on disk: a commit or the index."""
+    snapshot = result.get("snapshot") or "worktree"
+    return [] if snapshot == "worktree" else [t("scanning.cli.at_staged", locale)] if snapshot == "index" \
+        else [t("scanning.cli.at_commit", locale, commit=snapshot[:8])]
+
+
 def render_text(result: dict, *, limit: int = 50, locale: str | None = None) -> str:
     locale = locale or default_locale()
     comparison = result["comparison"]
     scope = (t("scanning.cli.scope_changes", locale, base=comparison["base"], commit=comparison["merge_base"][:8],
                count=comparison["changed_files"]) if comparison else t("scanning.cli.scope_all", locale))
-    lines = [f"Pitangus · {_safe(result['name'])} · {scope}", ""]
+    lines = [" · ".join(["Pitangus", _safe(result["name"]), *_scanned(result, locale), _safe(scope)]), ""]
     if comparison and not comparison["baseline"] and comparison["changed_files"]:
         lines += [t("scanning.cli.no_baseline", locale), ""]
     findings = result["findings"]
+    rows = _grouped(findings, locale)
     if findings:
-        rows = _grouped(findings, locale)
         for severity, where, title in rows[:limit]:
             lines.append(f"{_severity(severity, locale).upper().ljust(8)} {_safe(where)}  {_safe(title)}")
         if len(rows) > limit:
@@ -330,13 +435,57 @@ def render_text(result: dict, *, limit: int = 50, locale: str | None = None) -> 
     lines += ["", t("scanning.cli.engines_failed", locale, ran=ran, failed=failed) if failed else t("scanning.cli.engines", locale, ran=ran)]
     for item in result["not_analyzed"]:
         lines.append(t("scanning.cli.not_analyzed", locale, item=_safe(text(item, locale))))
-    gate = result["gate"]
+    lines += _unexamined(result, locale)
+    lines += _suppressed_inline(result, locale)
     verdict_line = t({EXIT_OK: "scanning.cli.verdict.pass", EXIT_BLOCKED: "scanning.cli.verdict.blocked",
                       EXIT_INCOMPLETE: "scanning.cli.verdict.incomplete"}[result["exit_code"]], locale)
-    detail = text(gate["description"], locale) if result["exit_code"] != EXIT_INCOMPLETE else t("scanning.cli.incomplete", locale)
+    detail = _counted(result, [row[0] for row in rows], locale)
     lines += ["", t("scanning.cli.verdict_line", locale, verdict=verdict_line, threshold=t(FAIL_ON_TEXT[result["fail_on"]], locale),
                     detail=detail)]
     return "\n".join(lines) + "\n"
+
+
+def _unexamined(result: dict, locale: str, shown: int = 3) -> list[str]:
+    """The files an engine that ran didn't examine, by engine and reason (what the copy left out is said once, not
+    per engine): nothing it could have found there counts as gone."""
+    from pitangus.modules.scanning.engine_contract import reason_message
+    scan = result.get("scan") or {}
+    names = {(step.get("tool") or {}).get("name"): step["name"] for step in scan.get("steps") or []}
+    groups: dict[tuple[str, str], list[str]] = {}
+    for engine, cover in (scan.get("coverage") or {}).items():
+        # Units only one of the engine's scanners skipped (engine_contract.coverage's `by_scanner`) are listed too.
+        scoped = [item for units in (cover.get("by_scanner") or {}).values() for item in units.items()]
+        for unit, why in dict([*scoped, *(cover.get("unexamined") or {}).items()]).items():
+            if why not in ("left_out", "workspace"):   # a workspace member was read in its workspace's lockfile
+                groups.setdefault((names.get(engine) or engine, why), []).append(unit)
+    # The same files left out of several engines for the same reason (the folders only the secret scanners read): one line.
+    engines: dict[tuple[str, tuple[str, ...]], list[str]] = {}
+    for (engine, why), units in sorted(groups.items()):
+        engines.setdefault((why, tuple(sorted(units))), []).append(engine)
+    def listed(units) -> str:
+        return ", ".join(_safe(unit) for unit in sorted(units)[:shown]) + ("…" if len(units) > shown else "")
+    left_out = (scan.get("unexamined") or {}).get("*") or []
+    return ([t("scanning.cli.left_out", locale, count=len(left_out), paths=listed(left_out))] if left_out else []) + \
+        [t("scanning.cli.unexamined", locale, engine=", ".join(_safe(engine) for engine in engines_), count=len(units),
+           reason=text(reason_message(why), locale), paths=listed(units))
+         for (why, units), engines_ in sorted(engines.items(), key=lambda item: (item[1], item[0]))]
+
+
+def _suppressed_inline(result: dict, locale: str, shown: int = 5) -> list[str]:
+    """Where a `gitleaks:allow` comment in the code allowed a secret (file:line, never the value): honoured, and said."""
+    places = sorted({place for cover in ((result.get("scan") or {}).get("coverage") or {}).values()
+                     for place in cover.get("suppressed_inline") or []})
+    if not places:
+        return []
+    listed = ", ".join(_safe(place) for place in places[:shown]) + ("…" if len(places) > shown else "")
+    return [t("scanning.cli.suppressed_inline", locale, count=len(places), places=listed)]
+
+
+def _counted(result: dict, severities: list[str], locale: str) -> str:
+    """The verdict's count, of the rows shown (a package's advisories are one row), not of the findings behind them."""
+    if result["exit_code"] == EXIT_INCOMPLETE:
+        return t("scanning.cli.incomplete", locale)
+    return text(verdict([{"severity": level} for level in severities], result["fail_on"])["description"], locale)
 
 
 def _one_per_package(findings: list[dict], locale: str) -> list[dict]:
@@ -398,6 +547,22 @@ def render_json(result: dict, *, locale: str | None = None) -> str:
     return json.dumps(localize(payload, locale or default_locale()), ensure_ascii=False, indent=2) + "\n"
 
 
+def render_prompt(result: dict, *, limit: int = 50, locale: str | None = None) -> str:
+    """One prompt per finding to paste into the developer's own AI assistant (findings/ai_prompt.py), worst first; no
+    secret value and no code beyond each matched fragment."""
+    from pitangus.modules.findings.ai_prompt import prompt
+    from pitangus.modules.findings.fix_guide import attach
+    locale = locale or default_locale()
+    order = {level: index for index, level in enumerate(SEVERITY_ORDER)}
+    findings = sorted(attach([dict(item) for item in result["findings"]]), key=lambda item: (order.get(item["severity"], 9), item["path"], item.get("line") or 0))
+    allowed = "".join(line + "\n" for line in _suppressed_inline(result, locale))
+    if not findings:
+        return (t("scanning.cli.no_new_findings", locale) if result["comparison"] else t("scanning.cli.no_findings", locale)) + "\n" + allowed
+    blocks = [prompt(finding, locale) for finding in findings[:limit]]
+    more = [t("scanning.cli.more", locale, count=len(findings) - limit) + "\n"] if len(findings) > limit else []
+    return "\n---\n\n".join(blocks + more + ([allowed] if allowed else []))
+
+
 def render_sarif(result: dict, *, locale: str | None = None) -> str:
     from pitangus.modules.runs.store import render_repository_sarif
     locale = locale or default_locale()
@@ -413,16 +578,17 @@ def render_markdown(result: dict, *, locale: str | None = None) -> str:
                count=comparison["changed_files"]) if comparison else t("scanning.cli.scope_all", locale))
     verdict_line = t({EXIT_OK: "scanning.cli.verdict.pass", EXIT_BLOCKED: "scanning.cli.verdict.blocked",
                       EXIT_INCOMPLETE: "scanning.cli.verdict.incomplete"}[result["exit_code"]], locale)
-    detail = text(result["gate"]["description"], locale) if result["exit_code"] != EXIT_INCOMPLETE else t("scanning.cli.incomplete", locale)
+    introduced = _one_per_package(result["findings"], locale)
+    detail = _counted(result, [item["severity"] for item in introduced], locale)
     if comparison:  # the branch comes from the repository: in code, not Markdown
         scope = t("scanning.cli.scope_changes", locale, base=f"`{_safe(comparison['base']).replace('`', '')}`",
                   commit=comparison["merge_base"][:8], count=comparison["changed_files"])
-    lines = [t("scanning.cli.summary.heading", locale, name=_safe(result["name"]).replace("`", "'")), "", scope, "",
+    lines = [t("scanning.cli.summary.heading", locale, name=_safe(result["name"]).replace("`", "'")), "",
+             " · ".join([*_scanned(result, locale), scope]), "",
              "**" + t("scanning.cli.verdict_line", locale, verdict=verdict_line, threshold=t(FAIL_ON_TEXT[result["fail_on"]], locale),
                       detail=detail) + "**"]
     more = "scanning.cli.summary.more"
     if result["findings"]:
-        introduced = _one_per_package(result["findings"], locale)
         lines += ["", t("scanning.cli.summary.introduced", locale, count=len(introduced)), "",
                   *markdown_rows(introduced, locale, more=more)]
     if comparison and comparison["baseline"]:
@@ -443,4 +609,5 @@ def render_markdown(result: dict, *, locale: str | None = None) -> str:
     lines += ["", t("scanning.cli.engines_failed", locale, ran=ran, failed=failed) if failed else t("scanning.cli.engines", locale, ran=ran)]
     for item in result["not_analyzed"]:
         lines += ["", t("scanning.cli.not_analyzed", locale, item=_safe(text(item, locale)))]
+    lines += [line for item in _unexamined(result, locale) for line in ("", item.replace("`", "'"))]
     return "\n".join(lines) + "\n"

@@ -458,7 +458,14 @@
       "replace": "Replace value",
       "remove": "Remove",
       "remove_title": "Remove {{name}}?",
-      "confirm_remove": "Scans stop sending it, and its value can't be recovered."
+      "confirm_remove": "Scans stop sending it, and its value can't be recovered.",
+      "check_label": "Session check page",
+      "check_help": "An HTTPS page on this domain that only loads when signed in. Scans request it with these headers before and after crawling; if it doesn't answer 2xx, the scan is incomplete and marks nothing fixed.",
+      "check_placeholder": "https://{{host}}/account",
+      "check_save": "Save page",
+      "check_remove": "Remove page",
+      "check_saved": "Session check page saved.",
+      "check_removed": "Session check page removed."
     },
     "scope": {
       "loading": "Loading related hosts…",
@@ -621,16 +628,31 @@
       "built_from": "Built from",
       "optional": "(optional)",
       "built_from_label": "Repository the image is built from",
-      "built_from_placeholder": "Choose an analyzed repository…",
-      "no_repository": "No analyzed repository matches",
+      "built_from_placeholder": "Choose a repository…",
+      "no_repository": "No repository matches “{{query}}”.",
       "clear_repository": "Clear",
       "built_from_hint": "A link set here wins over the image's OCI labels.",
       "scan_now": "Scan it now",
       "scan_now_hint": "Queues the scan right away. Leave it unchecked to scan later.",
       "submit": "Add image",
-      "clear_repository_for": "Clear the repository {{name}}"
+      "clear_repository_for": "Clear the repository {{name}}",
+      "no_repositories": "No repositories yet: connect GitHub in Integrations to link one."
     },
     "remove_title": "Remove {{name}} from the list?",
-    "confirm_remove": "It was never scanned, so no findings are lost; you can add it again."
+    "confirm_remove": "It was never scanned, so no findings are lost; you can add it again.",
+    "link_another": "Link another",
+    "link_dialog": {
+      "title": "Link images to {{name}}",
+      "description": "Choose the images built from this repository. A link set here wins over the image's OCI labels.",
+      "legend": "Images to link to {{name}}",
+      "already": "Already linked",
+      "empty": "No images yet. Add one by its reference to link it.",
+      "more": "Showing {{shown}} of {{total}}: search to narrow it down.",
+      "failed": "{{image}} wasn't linked: {{error}}",
+      "submit_one": "Link {{count, number}} image",
+      "submit_other": "Link {{count, number}} images",
+      "done_one": "{{count, number}} image linked to {{name}}.",
+      "done_other": "{{count, number}} images linked to {{name}}."
+    }
   }
 }

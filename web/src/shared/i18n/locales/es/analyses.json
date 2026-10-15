@@ -19,9 +19,10 @@
     "import": "¿Ya tienes resultados de otra herramienta? <go>Importa un SARIF</go>",
     "import_tools": "ZAP, Nuclei, CodeQL, Semgrep, Strix y más",
     "off": "No está activado en este servidor",
-    "off_how": "Cómo activar los análisis web",
+    "off_how": "Cómo activar el análisis web completo (experimental)",
     "off_admin": "Define <mono>PITANGUS_DAST_ENABLED=1</mono> y reinicia el servidor.",
-    "admin_only": "Solo un admin puede lanzarlo."
+    "admin_only": "Solo un admin puede lanzarlo.",
+    "experimental": "Experimental"
   },
   "wizard": {
     "continue": "Continuar",
@@ -57,12 +58,21 @@
         ]
       },
       "web": {
-        "title": "Aplicación web o API",
+        "title": "Análisis web completo",
         "line": "Recorre tu sitio o API como un visitante. Nunca ataca.",
         "points": [
           "Cabeceras de seguridad y cookies",
           "Información expuesta y librerías desactualizadas",
           "Cada endpoint documentado en tu especificación OpenAPI"
+        ]
+      },
+      "exposure": {
+        "title": "Comprobación de exposición",
+        "line": "Lo que un dominio verificado muestra a cualquiera: archivos expuestos, consolas de depuración, TLS y cabeceras.",
+        "points": [
+          "Archivos expuestos y consolas de depuración o de estado en rutas conocidas",
+          "TLS y cabeceras de respuesta",
+          "Sin rastreo: la raíz de cada host y rutas conocidas, por HTTPS y HTTP"
         ]
       }
     },
@@ -130,7 +140,8 @@
     "empty": "Añade un dominio que controles y verifícalo para analizarlo.",
     "add": "Añadir dominio",
     "verify": "Verificar",
-    "verify_for": "Verificar {{host}}"
+    "verify_for": "Verificar {{host}}",
+    "exposure_only": "La comprobación llega solo a {{host}}: su raíz y rutas conocidas, sin rastrear."
   },
   "scope": {
     "toggle": "Incluir subdominios",
@@ -230,7 +241,8 @@
       "detect": "Detectar",
       "detect_hint": "Pregunta una vez a api.ipify.org desde qué IP pública se ve este servidor. Si los análisis corren en otra máquina, configura PITANGUS_EGRESS_IPS.",
       "ask_admin": "Si tu sitio filtra por IP, pide a quien administra que configure la IP de salida."
-    }
+    },
+    "exposure_looks_for": "Archivos expuestos y consolas de depuración o de estado en rutas conocidas, TLS y cabeceras de respuesta. Sin rastreo ni ataques."
   },
   "details": {
     "title": "Detalles técnicos",
@@ -264,7 +276,8 @@
     "image": "Analizar imagen",
     "images": "Analizar {{total, number}} imágenes",
     "web": "Iniciar análisis",
-    "schedule": "Programar análisis"
+    "schedule": "Programar análisis",
+    "exposure": "Iniciar comprobación"
   },
   "org": {
     "counting": "Contando repositorios…",

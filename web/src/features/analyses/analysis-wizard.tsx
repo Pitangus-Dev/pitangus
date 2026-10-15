@@ -23,7 +23,7 @@ import { TypeChooser } from '@/features/analyses/wizard/type-chooser'
 import { STEPS, USERS_PER_SCAN, duration, inScope, listing, referencesOf, registryOf, signInHost, type Kind, type ScanPlan, type Spec } from '@/features/analyses/wizard/model'
 
 type Start = Kind | 'import' | null
-const KIND_TITLE = { code: 'wizard.kinds.code.title', image: 'wizard.kinds.image.title', web: 'wizard.kinds.web.title' } as const
+const KIND_TITLE = { code: 'wizard.kinds.code.title', image: 'wizard.kinds.image.title', exposure: 'wizard.kinds.exposure.title', web: 'wizard.kinds.web.title' } as const
 const CHOOSER = -1
 
 // New scan: choose what to check, answer one question per step, review and launch. Several repositories (or an
@@ -96,6 +96,11 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
 
   const launch = useMutation({
     mutationFn: async (): Promise<string | null> => {
+      if (kind === 'exposure' && domain) {
+        const queued = await api.post<QueuedDomainScan>('/api/domains/scans', 'scan-domain', { domain_id: domain.id, mode: 'exposure' })
+        void queryClient.invalidateQueries({ queryKey: keys.domains })
+        return queued.run_id
+      }
       if (kind === 'web' && domain) {
         const access = usableAccess(domain, schedule.access, scheduledHosts)
         const changed = schedule.on ? !domain.schedule || !sameRule(ruleOf(domain.schedule), schedule.rule) || !sameAccess(accessOf(domain.schedule), access) : !!domain.schedule
@@ -171,6 +176,8 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
           {batch && <p>{t('details.batch')}</p>}</> }
     }
     const host = domain?.host ?? ''
+    if (kind === 'exposure') return { rows: [typeRow, { label: t('review.target'), value: host, step: 0 }, { label: t('review.looks_for'), value: t('review.exposure_looks_for') }],
+      label: t('launch.exposure'), notes: <EgressNote egress={domains.data?.egress} admin={isAdmin} />, details: undefined }
     const access = [...(signingIn.length ? [t('review.access_users', { names: formatList(signingIn.map(user => user.name)) })] : []),
       ...(sending ? [t('review.access_value', { count: headerNames.length, names: formatList(headerNames) })] : [])]
     const specValue = spec ? spec.mode === 'file' ? `${spec.filename} · ${t('spec.summary', { version: spec.version, count: spec.endpoints })}` : spec.url : t('review.spec_none')
@@ -190,7 +197,7 @@ export function AnalysisWizard({ onComplete, onBatchStarted, onScheduled, onMana
     if (current === 'repositories') return <RepositoriesStep value={code} onChange={setCode} orgTotal={orgTotal} isAdmin={isAdmin} loading={!!initialSourceId && linked.isPending} batchBusy={!!activeBatch} onManageConnections={onManageConnections} {...frame} />
     if (current === 'images') return <ImagesStep text={imageText} onText={setImageText} registries={registries} batchBusy={!!activeBatch} onManageConnections={onManageConnections} {...frame} />
     if (current === 'context') return <ContextStep value={context} onChange={setContext} {...frame} />
-    if (current === 'target') return <TargetStep value={target} spec={spec} onSpec={setSpec} specInvalid={specInvalid} {...frame}
+    if (current === 'target') return <TargetStep value={target} spec={spec} onSpec={setSpec} specInvalid={kind === 'web' && specInvalid} light={kind === 'exposure'} {...frame}
       onChange={value => { if (value.domain?.id !== target.domain?.id) { setSpec(null); setUseHeaders(true); setTestUsers([]); setSchedulePlan(null) } setTarget(value) }} />
     if (current === 'access' && domain) return <AccessStep domain={domain} hosts={hosts} useHeaders={useHeaders} onUseHeaders={setUseHeaders}
       testUsers={testUsers} onTestUsers={setTestUsers} {...frame} />

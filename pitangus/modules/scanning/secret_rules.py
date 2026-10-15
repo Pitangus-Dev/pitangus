@@ -1,11 +1,11 @@
-"""Secret detection settings for Gitleaks and Trivy: allowlist, custom rules and disabled built-ins.
+"""Secret detection settings for Betterleaks and Trivy: allowlist, custom rules and disabled built-ins.
 
 Organization defaults apply to every repository; a repository may add its own entries on top (`asset`). A scan applies
 the union of both (`merged`); a repository rule can't reuse the id of a default rule. Custom detectors have no
 severity: a secret finding is always critical.
 
 They live on the server, never in the repository: a pull request must not be able to weaken detection (that is also
-why a repository's own `.gitleaks.toml` is stripped from the snapshot). Every change records who, when and why.
+why a repository's own `.betterleaks.toml` is stripped from the snapshot). Every change records who, when and why.
 
 User regexes are compiled here only to validate them; they never run in Python against repository data. The engines
 (Go, RE2: linear time) run them inside their sandboxed containers, so only syntax that means the same in both is
@@ -22,7 +22,8 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
-from pitangus.modules.scanning.secret_builtin_rules import GITLEAKS_DEFAULT_RULES, TRIVY_EQUIVALENTS
+from pitangus.modules.scanning.secret_builtin_rules import (DEFAULT_SECRET_RULES, FORMER_OPT_IN_RULES, OPT_IN_RULES,
+                                                           TRIVY_BUILTIN_ALLOW_RULES, TRIVY_EQUIVALENTS)
 from pitangus.shared import db, documents
 from pitangus.shared import log as logging_setup
 from pitangus.shared.i18n import msg, text
@@ -38,7 +39,7 @@ MAX_KEYWORDS = 10
 MAX_REPEAT = 1000
 HISTORY = 20
 CHANGES_SHOWN = 20  # per list in a history entry
-MAX_DISABLED = len(GITLEAKS_DEFAULT_RULES)
+MAX_DISABLED = len(DEFAULT_SECRET_RULES)
 RULE_ID = re.compile(r"[a-z0-9-]{1,60}")
 KEYWORD = re.compile(r"[a-z0-9_.:=@/+-]{1,60}")
 STOPWORD = re.compile(r"[a-z0-9_.-]{3,60}")
@@ -58,7 +59,7 @@ class SecretRulesError(ValueError):
 
 
 def empty() -> dict:
-    return {"allowlist": {name: [] for name in LISTS}, "rules": [], "disabled_rules": []}
+    return {"allowlist": {name: [] for name in LISTS}, "rules": [], "disabled_rules": [], "enabled_rules": []}
 
 
 def _document(asset: str | None) -> str:
@@ -89,18 +90,21 @@ def get(data_dir: Path, asset: str | None = None) -> dict:
     allowlist = payload.get("allowlist") or {}
     return {"allowlist": {name: list(allowlist.get(name) or [])[:MAX_ENTRIES] for name in LISTS},
             "rules": [_stored_rule(rule) for rule in (payload.get("rules") or [])[:MAX_RULES]],
-            "disabled_rules": list(payload.get("disabled_rules") or [])[:MAX_DISABLED],
+            # A rule the pinned engine no longer has (an engine upgrade dropped it) is no longer disabled: there is nothing to turn off.
+            "disabled_rules": [rule for rule in payload.get("disabled_rules") or [] if rule in DEFAULT_SECRET_RULES][:MAX_DISABLED],
+            # A rule now on by default (FORMER_OPT_IN_RULES) needs no entry: it is read as none.
+            "enabled_rules": [rule for rule in payload.get("enabled_rules") or [] if rule in OPT_IN_RULES],
             "reason": payload.get("reason"), "by": payload.get("by"), "at": payload.get("at"),
             "history": [_history_entry(entry) for entry in list(payload.get("history") or [])[-HISTORY:]]}
 
 
 def configured(settings: dict | None) -> bool:
-    return bool(settings) and bool(settings["rules"] or settings["disabled_rules"]
+    return bool(settings) and bool(settings["rules"] or settings["disabled_rules"] or settings.get("enabled_rules")
                                    or any(settings["allowlist"][name] for name in LISTS))
 
 
 def counts(settings: dict) -> dict:
-    return {"rules": len(settings["rules"]), "disabled": len(settings["disabled_rules"]),
+    return {"rules": len(settings["rules"]), "disabled": len(settings["disabled_rules"]), "enabled": len(settings.get("enabled_rules") or []),
             "allowlist": sum(len(settings["allowlist"][name]) for name in LISTS)}
 
 
@@ -109,11 +113,12 @@ def merged(defaults: dict, own: dict | None) -> dict:
     race between two saves) the default rule wins."""
     if not own:
         return {"allowlist": {name: list(defaults["allowlist"][name]) for name in LISTS}, "rules": list(defaults["rules"]),
-                "disabled_rules": list(defaults["disabled_rules"])}
+                "disabled_rules": list(defaults["disabled_rules"]), "enabled_rules": list(defaults.get("enabled_rules") or [])}
     taken = {rule["id"] for rule in defaults["rules"]}
     return {"allowlist": {name: _unique(defaults["allowlist"][name] + own["allowlist"][name]) for name in LISTS},
             "rules": defaults["rules"] + [rule for rule in own["rules"] if rule["id"] not in taken],
-            "disabled_rules": sorted(set(defaults["disabled_rules"]) | set(own["disabled_rules"]))}
+            "disabled_rules": sorted(set(defaults["disabled_rules"]) | set(own["disabled_rules"])),
+            "enabled_rules": sorted(set(defaults.get("enabled_rules") or []) | set(own.get("enabled_rules") or []))}
 
 
 def for_scan(data_dir: Path | None, asset: str | None = None) -> dict | None:
@@ -328,12 +333,19 @@ def normalize(raw) -> dict:
     disabled_raw = raw.get("disabled_rules") or []
     if not isinstance(disabled_raw, list) or len(disabled_raw) > MAX_DISABLED:
         raise SecretRulesError(msg("scanning.secret_rules.errors.not_list"), "disabled_rules")
-    builtin = set(GITLEAKS_DEFAULT_RULES)
+    builtin = set(DEFAULT_SECRET_RULES)
     for rule in disabled_raw:
         if not isinstance(rule, str) or rule not in builtin:
             raise SecretRulesError(msg("scanning.secret_rules.errors.unknown_rule", rule=str(rule)[:60]), "disabled_rules")
+    enabled_raw = raw.get("enabled_rules") or []
+    if not isinstance(enabled_raw, list) or len(enabled_raw) > len(OPT_IN_RULES) + len(FORMER_OPT_IN_RULES):
+        raise SecretRulesError(msg("scanning.secret_rules.errors.not_list"), "enabled_rules")
+    for rule in enabled_raw:
+        if not isinstance(rule, str) or rule not in OPT_IN_RULES + FORMER_OPT_IN_RULES:
+            raise SecretRulesError(msg("scanning.secret_rules.errors.unknown_rule", rule=str(rule)[:60]), "enabled_rules")
+    enabled_raw = [rule for rule in enabled_raw if rule in OPT_IN_RULES]
     return {"allowlist": {"regexes": _unique(regexes), "paths": _unique(paths), "stopwords": _unique(stopwords)},
-            "rules": rules, "disabled_rules": sorted(set(disabled_raw))}
+            "rules": rules, "disabled_rules": sorted(set(disabled_raw)), "enabled_rules": sorted(set(enabled_raw))}
 
 
 def _changes(before: dict, after: dict) -> dict:
@@ -347,6 +359,7 @@ def _changes(before: dict, after: dict) -> dict:
     changes["rules"] = {**diff(list(old_rules), list(new_rules)),
                         "changed": [key for key in new_rules if key in old_rules and new_rules[key] != old_rules[key]][:CHANGES_SHOWN]}
     changes["disabled_rules"] = diff(before["disabled_rules"], after["disabled_rules"])
+    changes["enabled_rules"] = diff(before.get("enabled_rules") or [], after.get("enabled_rules") or [])
     return {key: {kind: items for kind, items in value.items() if items} for key, value in changes.items()
             if any(value.values())}
 
@@ -419,6 +432,9 @@ def _glob_body(pattern: str) -> str:
     return "".join(out) + "(?:/.*)?$"
 
 
+BETTERLEAKS_PREFILTER = "false"   # no file is skipped by path but those our allowlist names
+
+
 def _toml(value: str) -> str:
     """A TOML string. Literal ('…') when that is exact, which keeps regexes readable; otherwise an escaped basic string."""
     if any(unicodedata.category(char) == "Cs" for char in value):
@@ -440,13 +456,20 @@ def _toml_list(values: list[str]) -> str:
     return "[" + ", ".join(_toml(value) for value in values) + "]"
 
 
-def gitleaks_toml(settings: dict) -> str:
-    """Gitleaks 8.30 configuration: the default rules (minus the disabled ones), the custom rules and one global
-    allowlist. Keys are fixed here; only values come from the settings, always quoted by `_toml`."""
-    lines = ["# Generated by Pitangus from the organization's secret detection settings.", "title = 'Pitangus'", "",
-             "[extend]", "useDefault = true"]
-    if settings["disabled_rules"]:
-        lines.append(f"disabledRules = {_toml_list(settings['disabled_rules'])}")
+def betterleaks_toml(settings: dict, root: str = "/src/") -> str:
+    """Betterleaks 1.9 configuration (the Gitleaks format it keeps): the default rules (minus the disabled ones), the custom rules and one global
+    allowlist. Keys are fixed here; only values come from the settings, always quoted by `_toml`.
+
+    `prefilter = 'false'` replaces the global path prefilter the default configuration brings (node_modules, vendor,
+    lockfiles, images, `jquery*.js`…: files Betterleaks would skip without a word). Our allowlist's paths are OR-ed into
+    it by Betterleaks itself, so only they keep a file out. Which files it read comes from its log (secret_coverage).
+    `root`: where the repository's files are, as Betterleaks names them (the allowlist's paths are anchored there)."""
+    lines = ["# Generated by Pitangus from the organization's secret detection settings.", "title = 'Pitangus'",
+             f"prefilter = {_toml(BETTERLEAKS_PREFILTER)}", "", "[extend]", "useDefault = true"]
+    # The opt-in rules stay off unless turned on (OPT_IN_RULES).
+    disabled = sorted(set(settings["disabled_rules"]) | (set(OPT_IN_RULES) - set(settings.get("enabled_rules") or [])))
+    if disabled:
+        lines.append(f"disabledRules = {_toml_list(disabled)}")
     for rule in settings["rules"]:
         lines += ["", "[[rules]]", f"id = {_toml(engine_id(rule['id']))}", f"description = {_toml(rule['description'])}",
                   f"regex = {_toml(rule['regex'])}"]
@@ -456,7 +479,7 @@ def gitleaks_toml(settings: dict) -> str:
     if any(allowlist[name] for name in LISTS):
         lines += ["", "[[allowlists]]", "description = 'Pitangus'"]
         if allowlist["paths"]:
-            lines.append(f"paths = {_toml_list(['^/src/' + _glob_body(pattern) for pattern in allowlist['paths']])}")
+            lines.append(f"paths = {_toml_list(['^' + re.escape(root) + _glob_body(pattern) for pattern in allowlist['paths']])}")
         if allowlist["regexes"]:
             lines.append(f"regexes = {_toml_list(allowlist['regexes'])}")
         if allowlist["stopwords"]:
@@ -467,8 +490,9 @@ def gitleaks_toml(settings: dict) -> str:
 def trivy_secret_config(settings: dict) -> str:
     """Trivy's `--secret-config`. JSON is valid YAML, and json.dumps escapes every value.
 
-    Trivy has no stopwords: each one becomes a case-insensitive allow regex on the secret, as Gitleaks applies them.
-    Disabled rules carry over only where Trivy has the same detector (TRIVY_EQUIVALENTS)."""
+    Trivy has no stopwords: each one becomes a case-insensitive allow regex on the secret, as Betterleaks applies them.
+    Disabled rules carry over only where Trivy has the same detector (TRIVY_EQUIVALENTS). Its built-in allow rules and
+    skip patterns are always off (TRIVY_BUILTIN_ALLOW_RULES): only our allowlist keeps a file out."""
     allowlist = settings["allowlist"]
     allow = ([{"id": f"pitangus-path-{index}", "description": "Pitangus", "path": "^" + _glob_body(pattern)}
               for index, pattern in enumerate(allowlist["paths"], 1)]
@@ -476,7 +500,7 @@ def trivy_secret_config(settings: dict) -> str:
                 for index, pattern in enumerate(allowlist["regexes"], 1)]
              + [{"id": f"pitangus-stopword-{index}", "description": "Pitangus", "regex": "(?i)" + re.escape(word)}
                 for index, word in enumerate(allowlist["stopwords"], 1)])
-    config: dict = {}
+    config: dict = {"disable-allow-rules": list(TRIVY_BUILTIN_ALLOW_RULES), "skip-patterns": []}
     if settings["rules"]:
         config["rules"] = [{"id": engine_id(rule["id"]), "category": "Pitangus", "title": rule["description"],
                             "severity": "CRITICAL", "regex": rule["regex"],
@@ -500,13 +524,21 @@ def filters(settings: dict | None) -> bool:
 
 
 def unfiltered(settings: dict) -> dict | None:
-    """The same detectors without allowlist or disabled rules; None when that is just the engine defaults."""
-    return {**empty(), "rules": list(settings["rules"])} if settings["rules"] else None
+    """The same detectors without allowlist or disabled rules (the opt-in rules as the settings have them); None when
+    that is just the engine defaults."""
+    enabled = list(settings.get("enabled_rules") or [])
+    return {**empty(), "rules": list(settings["rules"]), "enabled_rules": enabled} if settings["rules"] or enabled else None
 
 
 @lru_cache(maxsize=256)
 def _allowed_path(pattern: str) -> re.Pattern:
     return re.compile(_glob_body(pattern))
+
+
+def allowed_path(settings: dict | None):
+    """Whether a path is under one of the allowlist's paths (a predicate), or None without any."""
+    patterns = [_allowed_path(pattern) for pattern in ((settings or {}).get("allowlist") or {}).get("paths") or []]
+    return (lambda path: any(pattern.match(path) for pattern in patterns)) if patterns else None
 
 
 def withheld(finding: dict, settings: dict) -> dict:

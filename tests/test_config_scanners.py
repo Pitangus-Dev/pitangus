@@ -1,14 +1,30 @@
 import json
+import os
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from hypothesis import given, settings, strategies as st
+
 import testenv
+from test_invariants import SCALE
 
 from pitangus.modules.scanning import config_engines as cs
 from pitangus.modules.scanning.image import config_findings, parse_reference
 from pitangus.modules.scanning.engines import IMAGES, parse_trivy
 from pitangus.shared.i18n import text
+
+
+# These tests exercise the optional engines: turned on for the whole module, as an operator would.
+_OPTIONAL_ON = patch.dict(os.environ, {"PITANGUS_CHECKOV_ENABLED": "1", "PITANGUS_GRYPE_ENABLED": "1"})
+
+
+def setUpModule():
+    _OPTIONAL_ON.start()
+
+
+def tearDownModule():
+    _OPTIONAL_ON.stop()
 
 DATA = Path(__file__).parent / "engine-outputs"
 
@@ -27,6 +43,50 @@ class EnginesTests(unittest.TestCase):
         for key in ("checkov", "zizmor"):
             with self.subTest(engine=key):
                 self.assertIn("@sha256:", IMAGES[key]["image"])
+
+
+class CheckovExitTests(unittest.TestCase):
+    """With --soft-fail Checkov always exits 0 with JSON: anything else is a failed run, never "0 findings"."""
+
+    def run_with(self, returncode, stdout):
+        import subprocess
+        from unittest.mock import patch
+        completed = subprocess.CompletedProcess(["checkov"], returncode, stdout, "killed")
+        with patch.object(cs, "unavailable", return_value=None), patch.object(cs, "_checkov", return_value=completed):
+            return cs.run_checkov(Path("/tmp"))
+
+    def test_an_oom_or_output_that_isnt_json_is_inconclusive(self):
+        self.assertEqual(self.run_with(137, "")["status"], "inconclusive")
+        self.assertEqual(self.run_with(1, "")["status"], "inconclusive")
+        self.assertEqual(self.run_with(0, "Traceback (most recent call last)")["status"], "inconclusive")
+        clean = self.run_with(0, '{"check_type": "terraform", "results": {"failed_checks": []}, "summary": {"parsing_errors": 0}}')
+        self.assertEqual((clean["status"], clean["findings"]), ("completed", []))
+
+    def test_files_it_couldnt_parse_make_it_incomplete(self):
+        """Before the engine contract (shadow), any file it couldn't parse leaves the whole run inconclusive; with it (on,
+        the default), the files it names are unexamined and the run proves the rest. Files it counts without naming them
+        could be any: inconclusive in every mode."""
+        from pitangus.modules.findings import registry
+
+        @given(st.lists(st.sets(st.sampled_from(["a.tf", "b/c.tf", "d.yaml", "e.tf"]), max_size=3), min_size=1, max_size=3),
+               st.lists(st.integers(0, 2), min_size=3, max_size=3), st.sampled_from(["shadow", "on"]))
+        @settings(max_examples=60 * SCALE, deadline=None)
+        def check(named, unnamed, mode):
+            reports = [{"check_type": "terraform", "results": {"failed_checks": [], "parsing_errors": [f"/src/{path}" for path in sorted(files)]},
+                        "summary": {"parsing_errors": len(files) + extra}} for files, extra in zip(named, unnamed)]
+            with patch.dict(os.environ, {"PITANGUS_COVERAGE_MODE": mode}):
+                result = self.run_with(0, json.dumps(reports))
+            counted = sum(report["summary"]["parsing_errors"] for report in reports)
+            hidden = any(extra for _, extra in zip(named, unnamed))
+            expected = "completed" if not counted or (mode == "on" and not hidden) else "inconclusive"
+            self.assertEqual(result["status"], expected, (reports, mode))
+            unread = set().union(*named)
+            record = {"type": "repository_scan", "status": "completed", "coverage": {"checkov": result["coverage"]},
+                      "summary": {"tools": [{"name": "checkov", "status": result["status"]}]}}
+            for path in ["a.tf", "b/c.tf", "d.yaml", "e.tf"]:
+                proven = registry.unproven_reason(record, {"tool": "checkov", "scanner": "iac", "path": path}) is None
+                self.assertEqual(proven, expected == "completed" and path not in unread, (path, reports, mode))
+        check()
 
 
 class CheckovTests(unittest.TestCase):
@@ -204,7 +264,7 @@ class EngineUserTests(unittest.TestCase):
         import os
         from pitangus.modules.scanning import engines as scanners
         with patch.object(scanners.subprocess, "run") as run, patch.object(scanners.shutil, "which", return_value="/usr/bin/docker"):
-            scanners._run("gitleaks", ["dir", "/src"], Path("/tmp"))
+            scanners._run("betterleaks", ["dir", "/src"], Path("/tmp"))
         command = run.call_args.args[0]
         self.assertIn("--cap-drop", command)
         self.assertEqual(command[command.index("--user") + 1], f"{os.getuid()}:{os.getgid()}")

@@ -71,7 +71,11 @@ the source of truth; read it first. This section is how the panel implements it.
     by a line, key figures in one ruled row (`KeyFigures`/`KeyFigure`). A card (surface + line + 8 px) only for a chart
     or a self-contained object; never a card wrapping the page, a card inside a card, or a grid of identical
     icon+title+bullets cards. Prefer a secondary line or columns to long "A · B · C" strings.
-  - Selection is an ink border on sunken (`border-app-fg bg-app-soft`), never a brand tint.
+  - Selection is an ink border all around on sunken (`border-app-fg bg-app-soft`; a table row, `bg-app-soft` alone),
+    never a brand tint and never a left accent bar: no `border-l-2`/`border-s-2`, no one-sided inset shadow, no
+    `before:` strip to mark the selected or important item (on a rounded box the rule bends with the radius).
+    `tests/test_ui_tokens.py` bans them. A 1 px straight rule is fine only as structure on a square element (a
+    timeline, an indented group of options, the key figures' column dividers).
   - No sparkle icons, no icon inside a tinted box, no gradients, no `backdrop-blur`, no `tracking-[…]`.
   - Floating surfaces: hairline border plus `shadow-md` (= `shadow-float`); dialogs and the palette `shadow-lg`
     (= `shadow-dialog`); flat surfaces have no shadow.

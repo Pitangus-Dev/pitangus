@@ -1,6 +1,6 @@
 {
   "title": "Primeros pasos",
-  "progress": "{{done}} de {{total, number}} hechos. Se tachan solos cuando los completas.",
+  "progress": "{{done}} de {{total, number}} hechos. Cada paso se tacha solo al completarlo, lo hagas donde lo hagas.",
   "hide": "Ocultar primeros pasos",
   "done": "(hecho)",
   "pending": "(pendiente)",
@@ -12,7 +12,7 @@
     },
     "github": {
       "title": "Conecta GitHub",
-      "hint_admin": "Crea la GitHub App de este servidor; el panel te guía paso a paso.",
+      "hint_admin": "Crea la GitHub App de este servidor (el panel te guía) o conecta un token.",
       "hint_member": "Lo configura un administrador en Integraciones.",
       "action": "Conectar"
     },
@@ -24,8 +24,8 @@
       "action": "Nuevo análisis"
     },
     "watching": {
-      "title": "Vigila tus pull requests y la rama principal",
-      "hint_admin": "Cada PR se revisa solo y la rama se reanaliza cuando cambia.",
+      "title": "Revisa tus pull requests de forma automática",
+      "hint_admin": "Desde Pull requests, que además reanaliza la rama principal cuando cambia, o con la GitHub Action.",
       "hint_member": "Lo activa un administrador en Pull requests.",
       "action": "Vigilar"
     },

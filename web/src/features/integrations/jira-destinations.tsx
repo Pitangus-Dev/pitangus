@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { CaretDownIcon, CheckIcon, CircleNotchIcon, DotsThreeIcon, MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -9,7 +10,7 @@ import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/shared/ui/menu'
 import { SkeletonList, SkeletonTable } from '@/shared/ui/loading'
 import { ApiError } from '@/shared/api/http'
 import { apiPost, type PostResponse } from '@/shared/api/client'
-import { jiraFieldValuesQuery, jiraFieldsQuery, jiraIssueTypesQuery, jiraProjectsQuery, jiraVariablesQuery, keys, type JiraRouting } from '@/shared/api/queries'
+import { jiraFieldValuesQuery, jiraFieldsQuery, jiraIssueTypesQuery, jiraProjectsQuery, jiraStatusesQuery, jiraVariablesQuery, keys, type JiraRouting } from '@/shared/api/queries'
 import { MappingTable } from '@/features/integrations/jira-mapping'
 import { buildMapping, initialDraft, type Draft, type FieldSnapshot } from '@/features/integrations/jira-mapping-model'
 import { destinationTarget, errorMap, type JiraDestination, type JiraRef } from '@/features/integrations/jira-routing'
@@ -18,6 +19,15 @@ import { Notice } from '@/shared/ui/notice'
 
 type Project = { id: string; key: string; name: string }
 type Warning = { field: string; error: string }
+// A new destination labels fixed issues and never moves them (the server's default too).
+const FIXED_LABEL = 'pitangus-fixed'
+
+// What a verified fix does to this destination's issues, in one line.
+function onFixedLine(destination: JiraDestination, t: TFunction): string {
+  const { label, status } = destination.on_fixed
+  if (status) return label ? t('jira.destinations.on_fixed_move', { label, status: status.name }) : t('jira.destinations.on_fixed_move_only', { status: status.name })
+  return label ? t('jira.destinations.on_fixed_label', { label }) : t('jira.destinations.on_fixed_comment')
+}
 
 export function DestinationsSection({ routing, onRemove }: { routing: JiraRouting; onRemove: (destination: JiraDestination) => void }) {
   const { t } = useTranslation('integrations')
@@ -40,6 +50,7 @@ export function DestinationsSection({ routing, onRemove }: { routing: JiraRoutin
         return <li key={destination.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
           <div className="min-w-0"><p className="truncate text-sm font-medium">{destination.name}</p>
             <p className="text-xs text-app-subtle"><span className="font-mono">{destinationTarget(destination)}</span> · {t('jira.destinations.fields', { count: Object.keys(destination.mapping).length })} · {count ? t('jira.destinations.used_by', { count }) : t('jira.destinations.unused')}</p>
+            <p className="text-xs text-app-subtle">{onFixedLine(destination, t)}</p>
             {destination.legacy && <p className="mt-0.5 text-xs text-attention">{t('jira.destinations.legacy')}</p>}</div>
           <Menu><MenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t('jira.destinations.actions', { name: destination.name })} />}><DotsThreeIcon /></MenuTrigger>
             <MenuContent><MenuItem onClick={() => { setSaved(null); setEditing(destination) }}>{t('common:actions.edit')}</MenuItem>
@@ -62,6 +73,9 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
   const [project, setProject] = useState<Project | null>(initialProject?.key ? { id: initialProject.id ?? initialProject.key, key: initialProject.key, name: initialProject.name ?? initialProject.key } : null)
   const [chosenType, setIssueType] = useState(((destination?.issue_type ?? {}) as JiraRef).id ?? '')
   const [edited, setDraft] = useState<Draft | null>(null)
+  const [label, setLabel] = useState(destination ? destination.on_fixed.label ?? '' : FIXED_LABEL)
+  const [status, setStatus] = useState(destination?.on_fixed.status?.id ?? '')
+  const [locale, setLocale] = useState<string>(destination?.locale ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -72,6 +86,7 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
   const issueType = chosenType || (project?.key === initialProject?.key && legacyType ? types.data?.items.find(item => item.name.toLowerCase() === legacyType)?.id ?? '' : '')
   const fields = useQuery({ ...jiraFieldsQuery(project?.key ?? '', issueType), enabled: !!project && !!issueType })
   const variables = useQuery(jiraVariablesQuery())
+  const statuses = useQuery({ ...jiraStatusesQuery(project?.key ?? '', issueType), enabled: !!project && !!issueType })
   const sameTarget = !!destination && project?.key === initialProject?.key && issueType === ((destination.issue_type as JiraRef).id ?? issueType)
   // Saved mapping when editing the same project and type (unless it is a legacy one); Pitangus's suggestion otherwise.
   const ready = fields.data && variables.data
@@ -80,7 +95,7 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
 
   const searchValues = useCallback((field: string, q: string) => queryClient.fetchQuery(jiraFieldValuesQuery(project?.key ?? '', issueType, field, q)), [queryClient, project?.key, issueType])
   const pickProject = (next: Project) => {
-    setProject(next); setIssueType(''); setDraft(null); setErrors({})
+    setProject(next); setIssueType(''); setDraft(null); setStatus(''); setErrors({})
     if (!name.trim()) setName(next.name.slice(0, 60))
   }
   const save = async (event: FormEvent) => {
@@ -96,7 +111,8 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
     setBusy(true); setMessage('')
     try {
       const result: PostResponse<'/api/integrations/jira/destinations'> = await apiPost('/api/integrations/jira/destinations', 'jira-routing',
-        { ...(destination ? { id: destination.id } : {}), name: name.trim(), project: project.key, issue_type: issueType, mapping: built.mapping })
+        { ...(destination ? { id: destination.id } : {}), name: name.trim(), project: project.key, issue_type: issueType, mapping: built.mapping,
+          on_fixed: { label: label.trim() || null, status: status || null }, locale: locale === 'en' || locale === 'es' ? locale : null })
       queryClient.setQueryData(keys.jiraRouting, result.routing)
       void queryClient.invalidateQueries({ queryKey: keys.jira, exact: true })
       onSaved({ name: result.destination.name, warnings: result.warnings, fields: Object.fromEntries((fields.data?.fields ?? []).map(field => [field.id, field.name])) })
@@ -116,18 +132,40 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
         <div className="space-y-1.5"><span id={`${id}-project-label`} className="text-xs text-app-muted">{t('jira.destinations.project')}</span>
           <ProjectPicker labelledBy={`${id}-project-label`} value={project} onChange={pickProject} invalid={invalid('project')} />{fieldError('project')}</div>
       </div>
-      {project && <div className="space-y-1.5 sm:w-1/2 sm:pr-1.5"><label htmlFor={`${id}-type`} className="text-xs text-app-muted">{t('jira.destinations.issue_type')}</label>
-        {types.isPending ? <SkeletonList rows={1} dense label={t('jira.destinations.loading_types')} />
-          : types.isError ? <p role="alert" className="text-xs text-danger">{types.error.message}</p>
-          : <SelectField id={`${id}-type`} value={issueType} onValueChange={value => { setIssueType(value); setDraft(null); setErrors({}) }} {...invalid('issue_type')}
-            className="aria-invalid:border-danger" placeholder={t('jira.destinations.pick_type')} options={available.map(item => ({ value: item.id, label: item.name }))} />}
-        {fieldError('issue_type')}</div>}
+      {project && <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5"><label htmlFor={`${id}-type`} className="text-xs text-app-muted">{t('jira.destinations.issue_type')}</label>
+          {types.isPending ? <SkeletonList rows={1} dense label={t('jira.destinations.loading_types')} />
+            : types.isError ? <p role="alert" className="text-xs text-danger">{types.error.message}</p>
+            : <SelectField id={`${id}-type`} value={issueType} onValueChange={value => { setIssueType(value); setDraft(null); setStatus(''); setErrors({}) }} {...invalid('issue_type')}
+              className="aria-invalid:border-danger" placeholder={t('jira.destinations.pick_type')} options={available.map(item => ({ value: item.id, label: item.name }))} />}
+          {fieldError('issue_type')}</div>
+        <div className="space-y-1.5"><label htmlFor={`${id}-locale`} className="text-xs text-app-muted">{t('jira.destinations.locale')}</label>
+          <SelectField id={`${id}-locale`} value={locale} onValueChange={setLocale} placeholder={t('jira.destinations.locale_default')} {...invalid('locale')}
+            options={[{ value: 'en', label: t('jira.destinations.locale_en'), lang: 'en' }, { value: 'es', label: t('jira.destinations.locale_es'), lang: 'es' }]} />
+          {fieldError('locale')}</div>
+      </div>}
       {project && issueType && <div className="space-y-2"><div><h5 className="text-sm font-medium">{t('jira.mapping.title')}</h5><p className="text-xs text-app-subtle">{t('jira.mapping.help')}</p></div>
         {fields.isError ? <p role="alert" className="text-xs text-danger">{fields.error.message}</p>
           : ready && draft ? <>
             {fields.data.truncated && <p className="text-xs text-attention">{t('jira.mapping.truncated')}</p>}
             <MappingTable key={`${project.key}:${issueType}`} fields={fields.data.fields} variables={variables.data} draft={draft} errors={errors} onChange={(field, entry) => setDraft({ ...draft, [field]: entry })} searchValues={searchValues} />
           </> : <SkeletonTable rows={4} columns={3} label={t('jira.mapping.loading')} />}</div>}
+      {project && issueType && <fieldset aria-describedby={`${id}-on-fixed-help`} className="space-y-3 border-t border-app-line pt-4">
+        <div><legend className="text-sm font-medium">{t('jira.on_fixed.title')}</legend><p id={`${id}-on-fixed-help`} className="text-xs text-app-subtle">{t('jira.on_fixed.help')}</p></div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5"><label htmlFor={`${id}-label`} className="text-xs text-app-muted">{t('jira.on_fixed.label')}</label>
+            <Input id={`${id}-label`} value={label} maxLength={60} spellCheck={false} autoComplete="off" onChange={event => setLabel(event.target.value)}
+              className="border-input bg-card font-mono" {...invalid('on_fixed.label')} aria-describedby={errors['on_fixed.label'] ? `${id}-on_fixed.label-error` : `${id}-label-hint`} />
+            {fieldError('on_fixed.label') ?? <p id={`${id}-label-hint`} className="text-xs text-app-subtle">{t('jira.on_fixed.label_hint')}</p>}</div>
+          <div className="space-y-1.5"><label htmlFor={`${id}-status`} className="text-xs text-app-muted">{t('jira.on_fixed.status')}</label>
+            {statuses.isPending ? <SkeletonList rows={1} dense label={t('jira.on_fixed.loading')} />
+              : statuses.isError ? <p role="alert" className="text-xs text-danger">{statuses.error.message}</p>
+              : <SelectField id={`${id}-status`} value={status} onValueChange={setStatus} placeholder={t('jira.on_fixed.keep')} {...invalid('on_fixed.status')}
+                aria-describedby={errors['on_fixed.status'] ? `${id}-on_fixed.status-error` : `${id}-status-hint`}
+                options={statuses.data.items.map(item => ({ value: item.id, label: item.name }))} />}
+            {fieldError('on_fixed.status') ?? <p id={`${id}-status-hint`} className="text-xs text-app-subtle">{t('jira.on_fixed.status_hint')}</p>}</div>
+        </div>
+      </fieldset>}
       {message && <div role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger">{message}</div>}
       <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
         <Button type="submit" disabled={busy || (!!project && !!issueType && !draft)}>{busy && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.destinations.save')}</Button></DialogFooter>

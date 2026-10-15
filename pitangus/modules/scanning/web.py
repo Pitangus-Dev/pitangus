@@ -35,16 +35,20 @@ share fingerprints, so neither duplicates the other.
 
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import subprocess
 import time
 from pathlib import Path
+from secrets import token_hex
 from tempfile import TemporaryDirectory
 from typing import Any
 from urllib.parse import urlsplit
 
-from pitangus.modules.scanning import openapi_spec, sarif_import, web_merge, web_seeds, web_tools, web_versions
+import yaml
+
+from pitangus.modules.scanning import engine_contract, openapi_spec, sarif_import, web_merge, web_seeds, web_tools, web_versions
 from pitangus.modules.scanning.engines import IMAGES, _run, host_path, with_cause
 from pitangus.modules.sources import domains
 from pitangus.shared import log as logging_setup
@@ -55,6 +59,7 @@ _log = logging_setup.get("web")
 SPIDER_MINUTES = 2
 EXTRA_SPIDER_MINUTES = 1   # each listed host besides the domain's own
 PASSIVE_MINUTES = 5
+SESSION_SECONDS = 15   # the saved headers' session check, before and after the scan
 TIMEOUT = 15 * 60
 # Under the container's 3 GB: zap.sh would otherwise take a quarter of the host's memory.
 HEAP = "-Xmx1536m"
@@ -72,6 +77,8 @@ REPORT = "zap.json"
 SPEC = "spec.json"
 SEEDS = "seeds.txt"         # the inventory's URLs (katana, robots.txt, sitemaps, the definition), for ZAP to request
 EXPORT = "urls.txt"         # the URLs ZAP's spider reached, one a line, for the inventory
+TREE = "tree.yaml"          # ZAP's sites tree: each URL it requested and the status it got (its own evidence)
+REACHED_MAX = 5000          # pages kept with the run as reached: past it, unlisted pages aren't marked fixed
 EXPORT_MAX = 5_000_000
 SEED_SECONDS = 2           # more time for ZAP per URL it is handed
 CONTEXT = "pitangus"
@@ -189,7 +196,7 @@ def ajax_spider(context: str, url: str, *, user: str | None = None) -> dict:
 
 
 def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=(), api: dict | None = None, users=(),
-         seeds: str | None = None, export: str | None = None) -> dict:
+         seeds: str | None = None, export: str | None = None, tree: str | None = None) -> dict:
     """The Automation Framework plan: the passive scanner's configuration, then inside a context of the scope's hosts
     only, a spider per listed host and the AJAX spider from `url` (plus the OpenAPI import in API mode) and the
     passive rules; with `headers`, a replacer that adds them to requests for
@@ -197,7 +204,8 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
     would match them. With `users` ({login_url, start, totp}), one more context per test user (the same hosts) that
     signs in through a browser, and a spider, an AJAX spider (and the import) that run as that user. `seeds`: a file (in the
     container) of in-scope URLs the crawler found, each requested with a GET before the spider starts. `export`: a file
-    (in the container) where ZAP writes every URL it requested (source `all`: its history alone lacks the spider's), once it's done, for the scan's inventory."""
+    (in the container) where ZAP writes every URL it requested (source `all`: its history alone lacks the spider's), once it's done, for the scan's inventory.
+    `tree`: a file (in the container) for ZAP's sites tree, each URL with the status ZAP got: no header, no body."""
     extra = [item for item in hosts if item != host]
     excluded = [item for item in excluded if item != host and item not in extra]
     patterns = [host_pattern(host), *(host_pattern(item) for item in extra), *(wildcard_pattern(item) for item in wildcards)]
@@ -225,9 +233,11 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
                                                       "maxDuration": LOGIN_SPIDER_MINUTES, "maxDepth": 5, "threadCount": 2,
                                                       "postForm": False, "acceptCookies": True}})
         jobs.append(ajax_spider(f"{CONTEXT}-login-{index}", user["start"], user=f"login-{index}"))
-    if excluded:
-        for context in contexts:
-            context["excludePaths"] = [host_pattern(item) for item in excluded]
+    for context in contexts:
+        # Saved headers or a test user carry a session: a sign-out link would end it halfway through the crawl.
+        paths = [host_pattern(item) for item in excluded] + ([web_tools.LOGOUT_ZAP] if headers or users else [])
+        if paths:
+            context["excludePaths"] = paths
     if api is not None:
         # With test users the definition is imported as each of them; anonymous callers are the spider's part.
         jobs += [{"type": "openapi", "parameters": {"apiFile": api["file"], "context": f"{CONTEXT}-login-{index}", "user": f"login-{index}",
@@ -236,6 +246,8 @@ def plan(host: str, url: str, *, hosts=(), wildcards=(), excluded=(), headers=()
     jobs.append({"type": "passiveScan-wait", "parameters": {"maxDuration": PASSIVE_MINUTES}})
     if export:
         jobs.append({"type": "export", "parameters": {"context": CONTEXT, "type": "url", "source": "all", "fileName": export}})
+    if tree:
+        jobs.append({"type": "export", "parameters": {"context": CONTEXT, "type": "yaml", "source": "sitestree", "fileName": tree}})
     jobs.append({"type": "report", "parameters": {"template": "sarif-json", "reportDir": WORK, "reportFile": "zap"}})
     return {"env": {"contexts": contexts, "parameters": {"failOnError": True, "failOnWarning": False, "progressToStdout": True}},
             "jobs": jobs}
@@ -415,6 +427,23 @@ def findings_from(document: dict, host: str, *, scope: dict | None = None) -> tu
     return findings, version, results
 
 
+def session_alive(url: str, pins: dict[str, str], headers) -> tuple[bool, Message]:
+    """Whether the domain's session check page (`domain_headers.set_check`) answers 2xx with the saved headers, and
+    what to say about it. A redirect (to the login), 401 or 403 means the headers no longer sign in."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower().rstrip(".")
+    if host not in pins:
+        return False, msg("scanning.web.session.outside", url=url)
+    path = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+    try:
+        status, _ = domains.https_get(host, pins[host], path, limit=0, seconds=SESSION_SECONDS, headers=headers)
+    except (OSError, http.client.HTTPException):
+        return False, msg("scanning.web.session.unreached", url=url)
+    if 200 <= status < 300:
+        return True, msg("scanning.web.session.answered", url=url, status=status)
+    return False, msg("scanning.web.session.status", url=url, status=status)
+
+
 def coverage_key(api: dict | None, headers, users=()) -> str:
     """What a scan looked at, for the registry: a scan only marks fixed what a scan like it had seen (an anonymous
     crawl can't vouch for pages behind a login, nor one definition for another's endpoints)."""
@@ -464,15 +493,54 @@ def _sign_in(users: list[dict], host: str, url: str, pins: dict[str, str], work:
             for login, report, segment in zip(logins, reports, _segments(output, len(users)))]
 
 
+def zap_statuses(text: str, hosts: list[str]) -> list[tuple[str, int]]:
+    """Every in-scope URL of ZAP's sites tree export (YAML: nested `node`s, each with its `url` and the `statusCode`
+    ZAP got) with that status."""
+    try:
+        document = yaml.safe_load(text) if text else None
+    except yaml.YAMLError:
+        return []
+    found: list[tuple[str, int]] = []
+    pending = list(document) if isinstance(document, list) else []
+    while pending and len(found) < REACHED_MAX * 10:
+        node = pending.pop()
+        if not isinstance(node, dict):
+            continue
+        if isinstance(node.get("children"), list):
+            pending.extend(node["children"])
+        status = node.get("statusCode")
+        if isinstance(status, int) and not isinstance(status, bool) and (url := web_tools.in_scope_url(node.get("url"), hosts)):
+            found.append((url, status))
+    return found
+
+
+def soft_404_references(hosts: list[str], *, http: bool = False) -> dict[str, str]:
+    """For each root, a random path of it, new every run: how the site answers a path that doesn't exist."""
+    roots = [f"https://{host}/" for host in hosts] + ([f"http://{host}/" for host in hosts] if http else [])
+    return {root: f"{root}pitangus-{token_hex(8)}" for root in roots}
+
+
+def page_references(references: dict[str, str]) -> dict[str, str]:
+    return {domains.page_of(root) or root: domains.page_of(url) or url for root, url in references.items()}
+
+
+def versions_coverage(httpx: web_tools.ToolRun, blocked) -> dict:
+    """What httpx + OSV vouches for: the roots httpx's technologies pass read, when it finished."""
+    return web_tools.ToolRun("httpx", httpx.status, "", examined=httpx.roots if httpx.status == "completed" else []).coverage(blocked)
+
+
 def _tool_progress(report, run: web_tools.ToolRun) -> None:
     level = "ok" if run.status == "completed" else "info" if run.status == "skipped" else "warn"
     report(level, msg("scanning.progress.engine", engine=IMAGES[run.key]["name"], detail=run.detail))
 
 
 def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: dict | None = None,
-                headers=(), api: dict | None = None, excluded=(), users=(), tools: dict | None = None) -> RunRecord:
+                headers=(), api: dict | None = None, excluded=(), users=(), tools: dict | None = None,
+                session_check: str = "") -> RunRecord:
     """One passive scan of a verified domain. `address`: the root's checked address, or {host: address} for every
-    host of `scope` (`domains.scan_scope`). `headers`: (name, value) pairs to add to the scope's requests. `api`: the
+    host of `scope` (`domains.scan_scope`). `headers`: (name, value) pairs to add to the scope's requests;
+    `session_check`: the page that proves they still sign in, asked for before and after (without a 2xx either time,
+    the scan is incomplete: what it didn't see behind the login proves nothing). `api`: the
     parsed definition (`openapi_spec.parse`) plus its `source`, for API mode. `excluded`: hosts saved out of scope.
     `users`: test users to sign in as, with their secrets (`test_users.credentials`). `tools`: the other tools of the
     scan (`web_tools.readiness()`: None for each one that can run, else why it can't); without it, ZAP alone.
@@ -504,7 +572,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     # Before anything reaches the site: the whole plan, as it would be with every test user, refers to no stray variable.
     _no_stray_variables(plan(host, url, **patterns_hosts, headers=headers, users=login_plan(users, host, url)[0],
                              api={"file": f"{WORK}/{SPEC}", "target": target} if api else None, seeds=f"{WORK}/{SEEDS}",
-                             export=f"{WORK}/{EXPORT}"))
+                             export=f"{WORK}/{EXPORT}", tree=f"{WORK}/{TREE}"))
     runs: dict[str, web_tools.ToolRun] = {}
     inventory: list[str] = []
     roots = list(dict.fromkeys([url, *(f"https://{item}/" for item in extra)]))
@@ -525,6 +593,16 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         inventory.extend(urls)
         return run
 
+    sessions: list[tuple[bool, Message]] = []
+    watched = bool(headers and session_check)
+
+    def check_session(moment: str) -> None:
+        alive, said = session_alive(session_check, pins, headers)
+        sessions.append((alive, said))
+        report("ok" if alive else "warn", msg(f"scanning.web.session.{moment}", detail=said))
+
+    if watched:
+        check_session("before")
     tool("katana", crawl)
     # The inventory is what nuclei reads: without it, ZAP's spider reads robots.txt and the sitemaps on its own.
     inventoried = ready is not None and ready.get("nuclei", False) is None
@@ -566,7 +644,7 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
         # ZAP's user must write in it, so it is open to everyone; its private parent keeps other local users out.
         shared = Path(temporary) / "wrk"
         shared.mkdir()
-        options: dict[str, Any] = {**patterns_hosts, "headers": headers, "users": logins}
+        options: dict[str, Any] = {**patterns_hosts, "headers": headers, "users": logins, "tree": f"{WORK}/{TREE}"}
         if api:
             (shared / SPEC).write_text(openapi_spec.for_zap(api, target), encoding="utf-8")
             (shared / SPEC).chmod(0o644)
@@ -588,25 +666,37 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
             raise WebScanError(msg("scanning.web.errors.failed")) from exc
         document = _read(shared / REPORT)
         exported = _text(shared / EXPORT)
+        tree = _text(shared / TREE)
     completed = subprocess.CompletedProcess(completed.args, completed.returncode, scrub(completed.stdout or "", secrets),
                                             scrub(completed.stderr or "", secrets))
     if document is None:
         _log.warning("zap_failed", extra={"reason": f"{host}: exit {completed.returncode}"})
         raise WebScanError(with_cause(msg("scanning.web.errors.failed"), _plan_failure(completed)))
     findings, version, results = findings_from(scrub(document, secrets), host, scope=scope)
+    complete = completed.returncode == 0
+    # ZAP's own evidence: the status it got for each URL (its sites tree). A ZAP that didn't finish opens nothing (its
+    # report may be of half a crawl) and proves nothing.
+    zap_answers, zap_pages = web_tools.evidence(zap_statuses(scrub(tree, secrets), scope["hosts"]))
+    if not complete:
+        findings, zap_pages = [], {}
     zap_only = list(findings)
     for finding in findings:
         # The import's generic advice names the next import; here, the next scan is what proves a fix.
         if is_msg(finding.get("remediation")) and finding["remediation"][MARK] == "scanning.sarif.remediation":
             finding["remediation"] = msg("scanning.web.remediation", tool=finding["tool"])
-    complete = completed.returncode == 0
     zap_duration = round(time.time() - zap_started, 1)
     report("ok" if complete else "warn", msg("scanning.progress.engine", engine=meta["name"],
                                              detail=msg("scanning.web.detail", count=len(findings), results=results)))
 
     counts: dict[str, int] = {}
+    spidered = web_seeds.zap_urls(scrub(exported, secrets), scope["hosts"])
+    # What the crawls visited (katana, ZAP's spider): httpx reads each one's status after the scan.
+    visited: dict[str, str] = {}
+    for url in [*sources["katana"], *spidered]:
+        if page := domains.page_of(url):
+            visited.setdefault(page, url)   # the URL as it was visited: without its slash a page can answer a redirect
     if inventoried:
-        sources["zap"] = web_seeds.zap_urls(scrub(exported, secrets), scope["hosts"])
+        sources["zap"] = spidered
         merged, counts = web_seeds.merge(sources)
         inventory[:] = merged
     technologies: list[dict] = []
@@ -614,14 +704,27 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
     tool("testssl", lambda: web_tools.run_testssl(scope["hosts"], pins, work))
 
     exposed: list[dict] = []
+    references = soft_404_references(scope["hosts"])
+    # The soft 404 references and nuclei's findings first: httpx reads at most STATUS_PAGES_MAX pages.
+    pages = [*references.values(), *(finding["path"] for finding in (runs["nuclei"].findings if "nuclei" in runs else [])),
+             *(visited[page] for page in sorted(visited))]
 
     def fingerprint():
-        run, detected = web_tools.run_httpx(scope["hosts"], pins, work)
+        run, detected = web_tools.run_httpx(scope["hosts"], pins, work, pages=list(dict.fromkeys(pages)))
         technologies.extend(detected)
         exposed.extend(detected)
         return run
 
     tool("httpx", fingerprint)
+    if watched:
+        check_session("after")
+    lost = [said for alive, said in sessions if not alive]
+    # Every answer of every tool over the whole run decides whether a host turned the scan away (engine_contract).
+    blocked = engine_contract.blocked_hosts({"zap": zap_answers, **{key: run.answers for key, run in runs.items()}})
+    for run in runs.values():
+        run.block(blocked)
+    if "nuclei" in runs and "httpx" in runs:
+        runs["nuclei"].findings, _ = web_tools.soft_404(runs["nuclei"].findings, runs["httpx"].signatures, page_references(references))
     others = [finding for key in ("nuclei", "testssl") if key in runs for finding in runs[key].findings]
     folded = 0
     if others:
@@ -665,6 +768,8 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                           openapi=counts.get("openapi", 0))}] if inventoried else []),
         *([{"id": "login", "name": msg("scanning.web.steps.login.name"), "status": "partial" if failed else "completed",
             "detail": msg("scanning.web.steps.login.detail", count=len(outcomes), signed_in=len(outcomes) - len(failed))}] if outcomes else []),
+        *([{"id": "session", "name": msg("scanning.web.steps.session.name"), "status": "partial" if lost else "completed",
+            "detail": msg("scanning.web.steps.session.detail", before=sessions[0][1], after=sessions[1][1])}] if watched else []),
         *(runs[key].step() for key in ("nuclei", "testssl", "httpx") if key in runs),
         *([versions[0]] if versions else []),
         *([{"id": "dast-merge", "name": msg("scanning.web.steps.merge.name"), "status": "completed",
@@ -673,10 +778,15 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
          "detail": msg("scanning.web.steps.active.detail")},
         {"id": "review", "name": msg("scanning.steps.review"), "status": "pending", "detail": msg("scanning.web.steps.review.detail")},
     ]
+    # How the scan got past the login, if it did: test users, saved headers whose session was checked, or not checked.
+    access = ([msg("scanning.web.limitations.login", count=len(users))] if users else [] if lost
+              else [msg("scanning.web.limitations.headers_checked")] if watched else [msg("scanning.web.limitations.headers")] if headers
+              else [msg("scanning.web.limitations.unauthenticated")])
     limitations: list[Message] = [msg("scanning.web.limitations.passive"),
                    *([msg("scanning.web.limitations.login_failed", count=len(failed), names=", ".join(failed))] if failed else []),
-                   msg("scanning.web.limitations.login", count=len(users)) if users
-                   else msg("scanning.web.limitations.headers") if headers else msg("scanning.web.limitations.unauthenticated"),
+                   *([msg("scanning.web.limitations.session_lost", reason=lost[0])] if lost else []),
+                   *([msg("scanning.web.limitations.blocked", hosts=", ".join(blocked))] if blocked else []),
+                   *access,
                    msg("scanning.web.limitations.api", count=api["endpoints"]) if api
                    else msg("scanning.web.limitations.spider", minutes=SPIDER_MINUTES),
                    msg("scanning.web.limitations.ajax", minutes=AJAX_MINUTES),
@@ -691,22 +801,40 @@ def scan_domain(record: dict, address, *, data_dir: Path, progress=None, scope: 
                      if "testssl" in runs and len(scope["hosts"]) > web_tools.TESTSSL_HOSTS_MAX else []),
                    msg("scanning.web.limitations.not_pentest")]
     rows = web_tools.technologies_of(technologies)
+    # Coverage (engine_contract): each tool vouches only for what it got itself in this run. ZAP for the pages it got a
+    # 2xx for (never a redirect, an error page or a refusal), nuclei for the roots its own requests got a 2xx, 404 or 410
+    # for and the other pages they got a 404 or 410 for (engine_contract), testssl.sh for the hosts it finished, httpx +
+    # OSV for the roots httpx read; nothing on a blocked host.
+    examined: dict[str, dict] = {"zap": engine_contract.http_coverage(zap_pages, accept=engine_contract.present, blocked=blocked)}
+    examined.update({key: runs[key].coverage(blocked) for key in ("nuclei", "testssl") if key in runs and runs[key].status != "skipped"})
+    if versions:
+        examined[web_versions.TOOL.lower()] = versions_coverage(runs["httpx"], blocked)
+    reached = examined["zap"]["examined"]
     scanned: dict[str, Any] = {"hosts": scope["hosts"], "wildcards": scope["wildcards"], "headers": [name for name, _ in headers],
-                               "test_users": [user["name"] for user in users], "coverage": coverage}
+                               "test_users": [user["name"] for user in users], "coverage": coverage,
+                               "reached": reached[:REACHED_MAX], **({"reached_truncated": True} if len(reached) > REACHED_MAX else {}),
+                               # Whether the saved headers were proven to sign in (a session check page answered 2xx before
+                               # and after): without it, a header scan fixes nothing behind the login.
+                               **({"session_checked": watched and not lost} if headers else {}),
+                               # The pages nuclei's page pass requested: its page-level findings elsewhere aren't fixed.
+                               **({"probed": sorted({page for url in runs["nuclei"].probed if (page := domains.page_of(url))})}
+                                  if "nuclei" in runs and runs["nuclei"].status != "skipped" else {})}
     summary_tools = [{"name": "ZAP", "version": tool_meta["version"], "status": "completed" if complete else "inconclusive"}]
     # A tool that didn't finish (or didn't run) is blind in this scan: what only it saw before isn't marked fixed.
-    summary_tools += [{"name": key, "version": IMAGES[key]["version"],
-                       "status": "completed" if run.status == "completed" else "inconclusive"} for key, run in runs.items()]
+    summary_tools += [{"name": key, "version": IMAGES[key]["version"], "status": "completed" if run.status == "completed" else "inconclusive",
+                       **({"contract": {"blind": True, "cause": run.contract}} if run.contract else {})} for key, run in runs.items()]
     if versions:
         blind = versions[2] != "completed" or runs["httpx"].status != "completed"
         summary_tools.append({"name": web_versions.TOOL, "version": IMAGES[web_versions.KEY]["version"],
                               "status": "inconclusive" if blind else "completed"})
     result: RunRecord = {
         # A test user that couldn't sign in leaves the run incomplete: "no findings" behind its login proves nothing.
-        "type": "dast_scan", "status": "completed" if complete and not failed else "incomplete",
+        # So does a session check that failed: what the saved headers should have opened may not have been seen.
+        # And so does a WAF that turned the crawl away: the pages behind it answered nothing but refusals.
+        "type": "dast_scan", "status": "completed" if complete and not failed and not lost and not blocked else "incomplete",
         "logins": outcomes,
         "source": domains.source_for(record), "target": target or url, "variant": "api" if api else "baseline", "context": "",
-        "scope": scanned, "steps": steps, "findings": findings, "owasp_coverage": [], "limitations": limitations,
+        "scope": scanned, "steps": steps, "findings": findings, "coverage": examined, "owasp_coverage": [], "limitations": limitations,
         "summary": {"files": len({item["path"] for item in findings}), "dependencies": 0, "candidates": len(findings),
                     "sast": 0, "secrets": 0, "sca": 0, "iac": 0, "cicd": 0, "dast": len(findings),
                     "severities": severities,
@@ -726,3 +854,152 @@ def _nuclei(roots, inventory, hosts, pins, work, data_dir, headers, secrets, tec
                                          scrub=lambda value: scrub(value, secrets))
     technologies.extend(detected)
     return run
+
+
+# --- Exposure check: roots and known paths, no crawl -------------------------------------------------------------
+
+KNOWN_PATH = re.compile(r"\{\{BaseURL\}\}(/[^\s\"'{}]*)")
+
+
+def known_paths() -> list[str]:
+    """The fixed paths Pitangus' own nuclei templates ask for (`/.env`, `/.git/config`, `/actuator/env`…), read from the
+    templates themselves: the exposure check sees their status, so a 404 there proves the file is no longer exposed."""
+    from pitangus.modules.scanning import nuclei_templates
+    found = {match.group(1) for _, content in nuclei_templates.own_templates() for match in KNOWN_PATH.finditer(content.decode("utf-8", "replace"))}
+    return sorted(path for path in found if path != "/")
+
+
+def scan_exposure(record: dict, address, *, data_dir: Path, progress=None, scope: dict | None = None, tools: dict | None = None,
+                  recheck=()) -> RunRecord:
+    """The light check of a verified domain: each host's root and known paths, over HTTPS and plain HTTP on port 80, no
+    crawl and no ZAP. httpx (what runs there, and the status of every path it checks), testssl.sh (TLS) and nuclei's
+    detection-only templates on the roots (headers, exposed files, consoles). The same rules as a full scan: pinned
+    addresses, each tool vouching only for what it got itself (engine_contract: only a 2xx, a 404 or a 410 proves
+    anything, and only a 404 or a 410 that a path is gone), a host that turned the run away leaves it incomplete, and a finding on a path the site
+    answers like any random one (a soft 404) isn't one. `recheck`: pages earlier findings were on, whose status is
+    checked again."""
+    host = record["host"]
+    scope = scope or {"hosts": [host], "wildcards": []}
+    pins = dict(address) if isinstance(address, dict) else {host: address}
+    if any(item not in pins for item in scope["hosts"]):
+        raise WebScanError(msg("scanning.web.exposure.errors.unpinned"))
+    ready = dict(tools) if tools is not None else {}
+
+    def report(level: str, message) -> None:
+        if progress:
+            progress(level, message)
+
+    work = data_dir / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    roots = [f"https://{item}/" for item in scope["hosts"]]
+    plain = [f"http://{item}/" for item in scope["hosts"]]
+    runs: dict[str, web_tools.ToolRun] = {}
+    technologies: list[dict] = []
+
+    def tool(key: str, call) -> None:
+        reason = ready.get(key, msg("scanning.web.tools.image_missing", tool=IMAGES[key]["name"]))
+        if reason is not None:
+            runs[key] = web_tools.skipped(key, reason)
+        else:
+            report("info", msg(f"scanning.web.exposure.progress.{key}", version=IMAGES[key]["version"]))
+            runs[key] = call()
+        _tool_progress(report, runs[key])
+
+    def detect():
+        run, detected = web_tools.run_nuclei([*roots, *plain], [], scope["hosts"], pins, work, data_dir / "nuclei-templates", http=True)
+        technologies.extend(detected)
+        return run
+
+    tool("nuclei", detect)
+    tool("testssl", lambda: web_tools.run_testssl(scope["hosts"], pins, work))
+    checked = exposure_pages(scope["hosts"], recheck)
+    references = soft_404_references(scope["hosts"], http=True)
+    exposed: list[dict] = []
+
+    def fingerprint():
+        found = [finding["path"] for finding in (runs["nuclei"].findings if "nuclei" in runs else [])]
+        run, detected = web_tools.run_httpx(scope["hosts"], pins, work, pages=list(dict.fromkeys([*references.values(), *found, *checked])),
+                                            http=True)
+        technologies.extend(detected)
+        exposed.extend(detected)
+        return run
+
+    tool("httpx", fingerprint)
+    blocked = engine_contract.blocked_hosts({key: run.answers for key, run in runs.items()})
+    for run in runs.values():
+        run.block(blocked)
+    if "nuclei" in runs and "httpx" in runs:
+        runs["nuclei"].findings, _ = web_tools.soft_404(runs["nuclei"].findings, runs["httpx"].signatures, page_references(references))
+    findings: list = [finding for key in ("nuclei", "testssl") if key in runs for finding in runs[key].findings]
+    folded = 0
+    if findings:
+        findings, folded = web_merge.merge(findings)
+    versions: tuple[dict, list, str] | None = None
+    if "httpx" in runs and runs["httpx"].status != "skipped":
+        missing = msg("scanning.web.tools.image_missing", tool=IMAGES[web_versions.KEY]["name"])
+        versions = web_versions.check(exposed, data_dir, [], ready=ready.get(web_versions.KEY, missing))
+        known = {finding["fingerprint"] for finding in findings}
+        findings += [finding for finding in versions[1] if finding["fingerprint"] not in known]
+    for finding in findings:
+        finding.setdefault("web", {})["coverage"] = "exposure"
+    examined: dict[str, dict] = {key: runs[key].coverage(blocked) for key in ("nuclei", "testssl") if key in runs and runs[key].status != "skipped"}
+    if versions:
+        examined[web_versions.TOOL.lower()] = versions_coverage(runs["httpx"], blocked)
+    probed = (examined.get("nuclei") or {}).get("examined") or []
+    statuses = (runs["httpx"].pages if "httpx" in runs else {})
+    answered = [page for page in checked_pages(checked) if page in statuses and not any(engine_contract.refused(code) for code in statuses[page])
+                and (urlsplit(page).hostname or "") not in blocked]
+    failed = [key for key, run in runs.items() if run.status != "completed"]
+    complete = not failed and not blocked
+    severities = {level: sum(1 for item in findings if item["severity"] == level) for level in ("critical", "high", "medium", "low", "info")}
+    summary_tools = [{"name": key, "version": IMAGES[key]["version"], "status": "completed" if run.status == "completed" else "inconclusive",
+                      **({"contract": {"blind": True, "cause": run.contract}} if run.contract else {})} for key, run in runs.items()]
+    if versions:
+        summary_tools.append({"name": web_versions.TOOL, "version": IMAGES[web_versions.KEY]["version"],
+                              "status": "inconclusive" if versions[2] != "completed" or runs["httpx"].status != "completed" else "completed"})
+    steps: list[dict[str, Any]] = [
+        {"id": "exposure", "name": msg("scanning.web.exposure.step.name"), "status": "completed" if complete else "partial",
+         "detail": msg("scanning.web.exposure.step.detail", hosts=len(scope["hosts"]), pages=len(checked_pages(checked)), answered=len(answered),
+                       count=len(findings))},
+        *(runs[key].step() for key in ("nuclei", "testssl", "httpx") if key in runs),
+        *([versions[0]] if versions else []),
+        {"id": "review", "name": msg("scanning.steps.review"), "status": "pending", "detail": msg("scanning.web.steps.review.detail")},
+    ]
+    limitations: list[Message] = [
+        msg("scanning.web.exposure.limitations.scope"),
+        *([msg("scanning.web.limitations.blocked", hosts=", ".join(blocked))] if blocked else []),
+        *(msg("scanning.web.limitations.tool_skipped", tool=IMAGES[key]["name"]) for key, run in runs.items() if run.status == "skipped"),
+        *(msg("scanning.web.limitations.tool_unreached", tool=IMAGES[key]["name"], hosts=", ".join(run.unreached)) if run.unreached
+          else msg("scanning.web.limitations.tool_partial", tool=IMAGES[key]["name"]) for key, run in runs.items() if run.status == "partial"),
+        msg("scanning.web.limitations.not_pentest")]
+    return {"type": "dast_scan", "status": "completed" if complete else "incomplete", "source": domains.source_for(record),
+            "target": roots[0], "variant": "exposure", "context": "",
+            # What it checked: the scope's hosts and every page nuclei got an answer for. A nuclei finding is fixed only
+            # on a page here, and only by another exposure check (`coverage`).
+            "scope": {"hosts": scope["hosts"], "wildcards": [], "headers": [], "test_users": [], "coverage": "exposure",
+                      "reached": probed[:REACHED_MAX], "probed": probed[:REACHED_MAX]},
+            "steps": steps, "findings": findings, "coverage": examined, "owasp_coverage": [],
+            "limitations": limitations,
+            "summary": {"files": len({item["path"] for item in findings}), "dependencies": 0, "candidates": len(findings), "sast": 0, "secrets": 0,
+                        "sca": 0, "iac": 0, "cicd": 0, "dast": len(findings), "severities": severities,
+                        "priorities": {action: sum(1 for item in findings if item["priority"]["action"] == action) for action in ("act", "attend", "track")},
+                        "kev": 0, "fixable": 0, "tools": summary_tools, "technologies": web_tools.technologies_of(technologies),
+                        **({"folded": folded} if folded else {})}}
+
+
+def exposure_pages(hosts: list[str], recheck=()) -> list[str]:
+    """The URLs whose status the exposure check reads: each root (HTTPS and plain HTTP), the known paths on each host,
+    and the in-scope pages of earlier findings (`recheck`), each page once."""
+    urls = [*(f"https://{item}/" for item in hosts), *(f"http://{item}/" for item in hosts),
+            *(f"https://{item}{path}" for item in hosts for path in known_paths()),
+            *(url for item in recheck if (url := web_tools.in_scope_url(item, hosts, http=True)))]
+    seen: dict[str, str] = {}
+    for url in urls:
+        if (page := domains.page_of(url)) and page not in seen:
+            seen[page] = url
+    return list(seen.values())
+
+
+def checked_pages(urls: list[str]) -> list[str]:
+    """The distinct pages among `urls`: what the exposure check's counter counts."""
+    return sorted({page for url in urls if (page := domains.page_of(url))})

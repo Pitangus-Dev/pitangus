@@ -18,6 +18,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from pitangus.shared import settings
+from pitangus.shared import render
 
 # Domains verified before the rename keep their `tamandua-verify=` token.
 SECRET_PATTERN = re.compile(r"(ghp_|ghs_|ghu_|gho_|ghr_|github_pat_|sk-[A-Za-z0-9-]|xox[abp]-|AKIA|ATATT|eyJ[A-Za-z0-9_-]{10,}"
@@ -40,12 +41,31 @@ def register_secret(value: str) -> None:
 def redact(text: str) -> str:
     text = PEM_PATTERN.sub("<clave privada redactada>", str(text))
     text = SECRET_PATTERN.sub(r"\1<redactado>", text)
+    text = render.URL_IN_TEXT.sub(lambda found: render.url(found.group(0)), text)  # user information, query values
     with _known_lock:
         known = sorted(_known, key=len, reverse=True)
     for value in known:
         if value in text:
             text = text.replace(value, "<redactado>")
     return text
+
+
+def exception_text(trace: str) -> str:
+    """A traceback with what its exceptions say rendered as free text (shared/render.py): a parser's error may quote
+    the line it failed on, a file's content. The frames (our own code) are kept as they are."""
+    lines = trace.split("\n")
+    shown, frame = [], False
+    for line in lines:
+        if line.startswith("  File ") or line.startswith("Traceback ") or not line.strip():
+            shown.append(line)
+            frame = line.startswith("  File ")
+        elif frame and line.startswith("    "):
+            shown.append(line)
+            frame = False
+        else:
+            shown.append(render.prose(line))
+            frame = False
+    return "\n".join(shown)
 
 
 class JsonFormatter(logging.Formatter):
@@ -57,7 +77,7 @@ class JsonFormatter(logging.Formatter):
                         "role", "reason", "mfa", "next", "retry_in", "remaining"):
                 event[key] = redact(value) if isinstance(value, str) else value
         if record.exc_info:
-            event["error"] = redact(self.formatException(record.exc_info))[-1500:]
+            event["error"] = redact(exception_text(self.formatException(record.exc_info)))[-1500:]
         return json.dumps(event, ensure_ascii=False)
 
 

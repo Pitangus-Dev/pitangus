@@ -423,6 +423,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/findings/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Findings Health
+         * @description How trustworthy the registry's fixes look across every asset.
+         */
+        get: operations["findings_health_api_findings_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/findings/scope": {
         parameters: {
             query?: never;
@@ -456,6 +476,27 @@ export interface paths {
         put?: never;
         /** Triage Findings */
         post: operations["triage_findings_api_findings_triage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/findings/prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fix Prompt
+         * @description A finding as a prompt for the reader's own AI assistant, in their language: rule, place, fragment and fix, never
+         *     a secret's value (findings/ai_prompt.py). Pitangus calls no AI for it.
+         */
+        get: operations["fix_prompt_api_findings_prompt_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -654,7 +695,8 @@ export interface paths {
         put?: never;
         /**
          * Set Image Link
-         * @description Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label.
+         * @description Sets by hand the repository an image is built from, or (`repository: null`) goes back to its label. The
+         *     repository may be one of the workspace not analyzed yet.
          */
         post: operations["set_image_link_api_evidence_image_link_post"];
         delete?: never;
@@ -979,7 +1021,7 @@ export interface paths {
         };
         /**
          * Builtin Rules
-         * @description Gitleaks' default rules (what can be turned off), with the Trivy rule that is turned off with each, if any.
+         * @description Betterleaks' default rules (what can be turned off), with the Trivy rule that is turned off with each, if any.
          */
         get: operations["builtin_rules_api_secrets_builtin_rules_get"];
         put?: never;
@@ -1179,6 +1221,27 @@ export interface paths {
          *     and when each was saved.
          */
         post: operations["domain_headers_route_api_domains_headers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/session-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Domain Session Check Route
+         * @description Saves the page that proves the saved headers still carry a session: a scan that sends them asks for it before
+         *     and after, and without a 2xx the scan is incomplete and marks nothing fixed.
+         */
+        post: operations["domain_session_check_route_api_domains_session_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1546,6 +1609,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/jira/projects/{project}/issue-types/{issue_type}/statuses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Jira Statuses */
+        get: operations["jira_statuses_api_integrations_jira_projects__project__issue_types__issue_type__statuses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/integrations/jira/variables": {
         parameters: {
             query?: never;
@@ -1878,7 +1958,8 @@ export interface paths {
         put?: never;
         /**
          * Import Model
-         * @description Creates a model from the portable format (model.json).
+         * @description Creates a model from the portable format (model.json). Warnings don't stop it; errors answer 400 with every
+         *     problem (see /api/threat-models/validate).
          */
         post: operations["import_model_api_threat_models_import_post"];
         delete?: never;
@@ -1898,7 +1979,7 @@ export interface paths {
         put?: never;
         /**
          * Validate Import
-         * @description Checks the portable format without creating or changing a model.
+         * @description Checks the portable format without creating or changing a model, and lists every problem at once.
          */
         post: operations["validate_import_api_threat_models_validate_post"];
         delete?: never;
@@ -2081,6 +2162,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/fix-hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release Fix Hold
+         * @description Fixes what a scan held back for fixing too much at once (findings/registry: the fix hold), without waiting for
+         *     the next complete scan to confirm it. For urgencies: the next scan would release it on its own.
+         */
+        post: operations["release_fix_hold_api_assets_fix_hold_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/export": {
         parameters: {
             query?: never;
@@ -2125,6 +2227,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/exclusions/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Asset Exclusions
+         * @description Checks the paths as saving would and says which findings would move, without saving anything.
+         */
+        post: operations["preview_asset_exclusions_api_assets_exclusions_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/images": {
         parameters: {
             query?: never;
@@ -2146,6 +2268,27 @@ export interface paths {
          *     scanned yet; `name` and `reference` are what the page shows for it.
          */
         post: operations["register_image_api_images_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Linkable Repositories
+         * @description The repositories an image can be linked to, by name: the analyzed ones and the ones the GitHub App or the
+         *     connected token reach (not analyzed yet is fine), analyzed first.
+         */
+        get: operations["linkable_repositories_api_images_repositories_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2305,7 +2448,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Onboarding */
+        /**
+         * Onboarding
+         * @description Each step from the state it stands for, wherever it was done (this card, Integrations, Pull requests, the
+         *     account page, the CLI): nothing is ticked by clicking.
+         */
         get: operations["onboarding_api_onboarding_get"];
         put?: never;
         post?: never;
@@ -2413,6 +2560,8 @@ export interface components {
             rules: components["schemas"]["SecretRuleView"][];
             /** Disabled Rules */
             disabled_rules: string[];
+            /** Enabled Rules */
+            enabled_rules?: string[];
             /** Reason */
             reason: string | null;
             /** By */
@@ -2433,6 +2582,8 @@ export interface components {
             rules: components["schemas"]["SecretRule"][];
             /** Disabled Rules */
             disabled_rules: string[];
+            /** Enabled Rules */
+            enabled_rules?: string[];
             /** Reason */
             reason: string;
             /** Key */
@@ -2483,7 +2634,8 @@ export interface components {
         /**
          * BuiltFrom
          * @description The repository an image is built from: from its OCI label or set by hand. `repository` is None when the label
-         *     names a repository Pitangus hasn't analyzed.
+         *     names a repository Pitangus hasn't analyzed; a manual link to one not analyzed yet keeps its key (`analyzed`
+         *     false).
          */
         BuiltFrom: {
             /** Repository */
@@ -2501,6 +2653,11 @@ export interface components {
             by?: string | null;
             /** At */
             at?: string | null;
+            /**
+             * Analyzed
+             * @default true
+             */
+            analyzed: boolean;
         };
         /** BuiltinRule */
         BuiltinRule: {
@@ -2508,6 +2665,11 @@ export interface components {
             id: string;
             /** Trivy */
             trivy: string | null;
+            /**
+             * Opt In
+             * @default false
+             */
+            opt_in: boolean;
         };
         /** BuiltinRules */
         BuiltinRules: {
@@ -3173,6 +3335,8 @@ export interface components {
              * @default 0
              */
             header_count: number;
+            /** Session Check */
+            session_check?: string | null;
             /** Test Users */
             test_users?: components["schemas"]["DomainTestUser"][] | null;
             /**
@@ -3256,6 +3420,15 @@ export interface components {
             /** Scope Limit */
             scope_limit: number;
             discovery: components["schemas"]["Discovery"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** DomainSessionCheck */
+        DomainSessionCheck: {
+            /** Domain Id */
+            domain_id: string;
+            /** Session Check */
+            session_check?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -3422,6 +3595,24 @@ export interface components {
             /** Reopened */
             reopened: number;
         };
+        /**
+         * ExclusionsPreview
+         * @description What saving these paths would move now, and a few of the paths (the same paths keep applying to later scans).
+         */
+        ExclusionsPreview: {
+            /** Excluded */
+            excluded: number;
+            /** Reopened */
+            reopened: number;
+            /** Excluded Paths */
+            excluded_paths: string[];
+            /** Reopened Paths */
+            reopened_paths: string[];
+            /** Excluded Path Count */
+            excluded_path_count: number;
+            /** Reopened Path Count */
+            reopened_path_count: number;
+        };
         /** ExclusionsSaved */
         ExclusionsSaved: {
             /** Patterns */
@@ -3541,6 +3732,89 @@ export interface components {
             guidance?: components["schemas"]["GuidanceLink"][] | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * FindingsHealth
+         * @description Signs that fixes may not be what they seem (findings/registry.health): findings back within `reopened_days` of
+         *     being fixed, scans that fixed far more than usual, open findings several engines report apart, unverified ones, and
+         *     the share of engines blind in each asset's last scan.
+         */
+        FindingsHealth: {
+            /** Assets */
+            assets: number;
+            /** Reopened Soon */
+            reopened_soon: number;
+            /** Reopened Days */
+            reopened_days: number;
+            /** Fix Spikes */
+            fix_spikes: number;
+            /** Duplicates */
+            duplicates: number;
+            /** Unverified */
+            unverified: number;
+            /** Blind Engines */
+            blind_engines: number;
+            /** Engines */
+            engines: number;
+            /** Blind Share */
+            blind_share: number;
+        };
+        /**
+         * FixControl
+         * @description `mode`: PITANGUS_COVERAGE_MODE. `hold`: fixes a scan held back for closing too much at once, until the next complete
+         *     scan confirms them. `unseen_warn_scans`: after how many scans an unverified finding is warned about.
+         */
+        FixControl: {
+            /** Mode */
+            mode: string;
+            hold?: components["schemas"]["FixHold"] | null;
+            /** Released */
+            released?: {
+                [key: string]: unknown;
+            } | null;
+            /** Unseen Warn Scans */
+            unseen_warn_scans: number;
+        };
+        /** FixHold */
+        FixHold: {
+            /** Count */
+            count: number;
+            /** At */
+            at: string;
+            /** Run */
+            run: string;
+            reason?: components["schemas"]["FixHoldReason"] | null;
+        };
+        /**
+         * FixHoldReason
+         * @description Why the fixes are held: the latest run that tripped the hold would have fixed `count` of the asset's `open`
+         *     findings at once, at or past both thresholds (`minimum` findings and `percent` of those open).
+         */
+        FixHoldReason: {
+            /** Kind */
+            kind: string;
+            /** Run */
+            run: string;
+            /** At */
+            at: string;
+            /** Count */
+            count: number;
+            /** Open */
+            open: number;
+            /** Minimum */
+            minimum: number;
+            /** Percent */
+            percent: number;
+        };
+        /** FixHoldReleased */
+        FixHoldReleased: {
+            /** Released */
+            released: number;
+        };
+        /** FixPrompt */
+        FixPrompt: {
+            /** Prompt */
+            prompt: string;
         };
         /**
          * GitHubManifest
@@ -3681,7 +3955,8 @@ export interface components {
         };
         /**
          * ImportCheck
-         * @description What an import would create, counted, without creating it.
+         * @description What an import would create, counted, without creating it, and the warnings it would carry. With errors the
+         *     route answers 400 with `error` (the first one) and `problems` (all of them, same shape).
          */
         ImportCheck: {
             /** Name */
@@ -3696,6 +3971,8 @@ export interface components {
             boundaries: number;
             /** Repository Refs */
             repository_refs: number;
+            /** Assumptions */
+            assumptions: number;
             /** Manual Threats */
             manual_threats: number;
             /** Attack Trees */
@@ -3706,6 +3983,38 @@ export interface components {
             pasta_stages: number;
             /** Relayout */
             relayout: boolean;
+            /** Problems */
+            problems?: components["schemas"]["ImportProblem"][];
+        };
+        /**
+         * ImportProblem
+         * @description One problem in an imported document: an error stops the import, a warning means something that matters was
+         *     changed or couldn't be used, an info is a harmless normalization (a synonym read, a field kept as written).
+         */
+        ImportProblem: {
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "warning" | "info";
+            /**
+             * Path
+             * @description JSON Pointer (RFC 6901) into the document as sent
+             */
+            path: string;
+            /**
+             * Id
+             * @description The id of the object it belongs to, when known
+             */
+            id?: string | null;
+            /**
+             * Code
+             * @description Equal for identical problems (same message and parameters), to group them
+             * @default
+             */
+            code: string;
+            /** Message */
+            message: string;
         };
         /**
          * ImportedRun
@@ -3716,6 +4025,8 @@ export interface components {
             id: string;
             /** Tool */
             tool: string;
+            /** Category */
+            category?: string | null;
             /** Version */
             version: string | null;
             /** Scope */
@@ -3747,7 +4058,8 @@ export interface components {
         };
         /**
          * JiraBackfill
-         * @description One rule's last backfill: issues queued and what became of them (`pending` still in the queue).
+         * @description One rule's last backfill: issues queued and what became of them (`pending` still in the queue), the first
+         *     issues created and why the failed ones failed.
          */
         JiraBackfill: {
             /** Rule */
@@ -3802,6 +4114,10 @@ export interface components {
             truncated: boolean;
             /** Last Error */
             last_error?: string | null;
+            /** Issues */
+            issues?: components["schemas"]["JiraIssueLink"][];
+            /** Errors */
+            errors?: components["schemas"]["JiraFailure"][];
         } & {
             [key: string]: unknown;
         };
@@ -3821,7 +4137,8 @@ export interface components {
         /**
          * JiraDestination
          * @description Project + issue type + mapping. `fields`: the snapshot of the mapped fields (null for one migrated from the
-         *     single project of earlier versions, `legacy`, until it is saved again).
+         *     single project of earlier versions, `legacy`, until it is saved again). `locale`: the language of its issues and
+         *     comments (null: PITANGUS_DEFAULT_LOCALE).
          */
         JiraDestination: {
             /** Id */
@@ -3850,6 +4167,9 @@ export interface components {
             } | null;
             /** Legacy */
             legacy?: boolean | null;
+            on_fixed: components["schemas"]["JiraOnFixed"];
+            /** Locale */
+            locale?: ("en" | "es") | null;
         } & {
             [key: string]: unknown;
         };
@@ -3893,6 +4213,16 @@ export interface components {
             error?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * JiraFailure
+         * @description One reason issues failed, and how many.
+         */
+        JiraFailure: {
+            /** Error */
+            error: string;
+            /** Count */
+            count: number;
         };
         /**
          * JiraField
@@ -3966,6 +4296,27 @@ export interface components {
                 };
             };
         };
+        /** JiraIssueLink */
+        JiraIssueLink: {
+            /** Key */
+            key: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * JiraIssueSample
+         * @description One issue of the preview as Jira would show it: its title and the first lines of its description.
+         */
+        JiraIssueSample: {
+            /** Asset */
+            asset: string;
+            /** Summary */
+            summary: string;
+            /** Lines */
+            lines: string[];
+            /** Findings */
+            findings: number;
+        };
         /** JiraIssueType */
         JiraIssueType: {
             /** Id */
@@ -3981,6 +4332,16 @@ export interface components {
             items: components["schemas"]["JiraIssueType"][];
             /** Truncated */
             truncated: boolean;
+        };
+        /**
+         * JiraOnFixed
+         * @description What a verified fix does besides the comment: a label (null: none) and a status to move the issue to (null:
+         *     Pitangus never transitions it, the default).
+         */
+        JiraOnFixed: {
+            /** Label */
+            label?: string | null;
+            status?: components["schemas"]["JiraWorkflowStatus"] | null;
         };
         /** JiraProject */
         JiraProject: {
@@ -4052,6 +4413,10 @@ export interface components {
              * @default false
              */
             force: boolean;
+            /** Issues */
+            issues?: components["schemas"]["JiraIssueLink"][];
+            /** Errors */
+            errors?: components["schemas"]["JiraFailure"][];
         };
         /** JiraRouting */
         JiraRouting: {
@@ -4104,7 +4469,9 @@ export interface components {
         };
         /**
          * JiraRulePreview
-         * @description What a backfill of this rule would queue now (up to the backfill limit).
+         * @description What this rule would create now (up to the backfill limit): an automatic rule, the open findings at or above
+         *     its minimum severity without an issue; a manual one, every open finding without an issue of its repositories.
+         *     `sample`: the most severe of those issues, as it would read.
          */
         JiraRulePreview: {
             /** Assets */
@@ -4117,6 +4484,7 @@ export interface components {
             linked: number;
             /** Truncated */
             truncated: boolean;
+            sample?: components["schemas"]["JiraIssueSample"] | null;
         };
         /** JiraRuleSaved */
         JiraRuleSaved: {
@@ -4156,6 +4524,14 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * JiraStatuses
+         * @description The statuses of an issue type's workflow: where a destination may move a fixed issue.
+         */
+        JiraStatuses: {
+            /** Items */
+            items: components["schemas"]["JiraWorkflowStatus"][];
+        };
         /** JiraVariable */
         JiraVariable: {
             /** Key */
@@ -4190,9 +4566,20 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** JiraWorkflowStatus */
+        JiraWorkflowStatus: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category?: string | null;
+        };
         /**
          * LifecycleCounts
-         * @description Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`) and excluded.
+         * @description Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`), excluded, and
+         *     open but unverified (`unverified`: no scan could check them lately; `unverified_stale`: for long enough to warn;
+         *     `unverified_configuration`: the scan's configuration left them unchecked, a rule or an engine off or a rule changed).
          */
         LifecycleCounts: {
             /** Open */
@@ -4209,6 +4596,21 @@ export interface components {
             by_severity: {
                 [key: string]: number;
             };
+            /**
+             * Unverified
+             * @default 0
+             */
+            unverified: number;
+            /**
+             * Unverified Stale
+             * @default 0
+             */
+            unverified_stale: number;
+            /**
+             * Unverified Configuration
+             * @default 0
+             */
+            unverified_configuration: number;
         };
         /** LinkInfo */
         LinkInfo: {
@@ -4218,6 +4620,22 @@ export interface components {
             display_name: string;
             /** Purpose */
             purpose: string;
+        };
+        /** LinkableRepositories */
+        LinkableRepositories: {
+            /** Items */
+            items: components["schemas"]["LinkableRepository"][];
+            /** Total */
+            total: number;
+        };
+        /** LinkableRepository */
+        LinkableRepository: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Analyzed */
+            analyzed: boolean;
         };
         /** MarkIn */
         MarkIn: {
@@ -4691,6 +5109,7 @@ export interface components {
             }[] | null;
             /** Context */
             context?: string | null;
+            control?: components["schemas"]["FixControl"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -4846,12 +5265,17 @@ export interface components {
              */
             kind: "repository" | "image" | "domain";
         };
-        /** ScopeSummary */
+        /**
+         * ScopeSummary
+         * @description Every asset of the scope by kind, and how many of them the portfolio SBOM and VEX include.
+         */
         ScopeSummary: {
             /** Repositories */
             repositories: number;
             /** Images */
             images: number;
+            /** Domains */
+            domains: number;
             /** Complete */
             complete: number;
         };
@@ -4991,6 +5415,7 @@ export interface components {
             }[] | null;
             /** Context */
             context?: string | null;
+            control?: components["schemas"]["FixControl"] | null;
             /** Total */
             total: number;
             /** Truncated */
@@ -5039,6 +5464,8 @@ export interface components {
             rules: components["schemas"]["SecretRuleView"][];
             /** Disabled Rules */
             disabled_rules: string[];
+            /** Enabled Rules */
+            enabled_rules?: string[];
             /** Reason */
             reason: string | null;
             /** By */
@@ -5056,6 +5483,8 @@ export interface components {
             rules: components["schemas"]["SecretRule"][];
             /** Disabled Rules */
             disabled_rules: string[];
+            /** Enabled Rules */
+            enabled_rules?: string[];
             /** Reason */
             reason: string;
         };
@@ -5065,6 +5494,11 @@ export interface components {
             rules: number;
             /** Disabled */
             disabled: number;
+            /**
+             * Enabled
+             * @default 0
+             */
+            enabled: number;
             /** Allowlist */
             allowlist: number;
         };
@@ -5259,6 +5693,10 @@ export interface components {
             /** Methods */
             methods: {
                 [key: string]: unknown;
+            };
+            /** Workspace */
+            workspace?: {
+                [key: string]: string[];
             };
         } & {
             [key: string]: unknown;
@@ -6225,6 +6663,26 @@ export interface operations {
             };
         };
     };
+    findings_health_api_findings_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingsHealth"];
+                };
+            };
+        };
+    };
     scoped_findings_api_findings_scope_get: {
         parameters: {
             query?: {
@@ -6305,6 +6763,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TriageResult"];
+                };
+            };
+        };
+    };
+    fix_prompt_api_findings_prompt_get: {
+        parameters: {
+            query: {
+                run_id: string;
+                fingerprint: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixPrompt"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -7624,6 +8114,42 @@ export interface operations {
             };
         };
     };
+    domain_session_check_route_api_domains_session_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Domain Id */
+                    domain_id: string;
+                    /** Url */
+                    url: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainSessionCheck"];
+                };
+            };
+            /** @description Unknown domain */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     domain_test_users_route_api_domains_test_users_post: {
         parameters: {
             query?: never;
@@ -7910,7 +8436,7 @@ export interface operations {
                      * @default web
                      * @enum {string}
                      */
-                    mode?: "web" | "api";
+                    mode?: "web" | "api" | "exposure";
                     /** Hosts */
                     hosts?: string[];
                     /**
@@ -8438,6 +8964,38 @@ export interface operations {
             };
         };
     };
+    jira_statuses_api_integrations_jira_projects__project__issue_types__issue_type__statuses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                issue_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JiraStatuses"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     jira_variables_api_integrations_jira_variables_get: {
         parameters: {
             query?: never;
@@ -8512,6 +9070,14 @@ export interface operations {
                             text?: string | null;
                         } | null;
                     } | null;
+                    on_fixed?: {
+                        /** Label */
+                        label?: string | null;
+                        /** Status */
+                        status?: string | null;
+                    } | null;
+                    /** Locale */
+                    locale?: ("en" | "es") | null;
                 };
             };
         };
@@ -9370,6 +9936,40 @@ export interface operations {
             };
         };
     };
+    release_fix_hold_api_assets_fix_hold_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Asset */
+                    asset: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixHoldReleased"];
+                };
+            };
+            /** @description Unknown asset */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     asset_export_api_assets_export_get: {
         parameters: {
             query?: {
@@ -9477,6 +10077,35 @@ export interface operations {
             };
         };
     };
+    preview_asset_exclusions_api_assets_exclusions_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Key */
+                    key: string;
+                    /** Patterns */
+                    patterns: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExclusionsPreview"];
+                };
+            };
+        };
+    };
     analyzed_images_api_images_get: {
         parameters: {
             query?: {
@@ -9542,6 +10171,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegisteredImage"];
+                };
+            };
+        };
+    };
+    linkable_repositories_api_images_repositories_get: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkableRepositories"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

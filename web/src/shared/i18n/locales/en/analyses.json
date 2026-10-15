@@ -19,9 +19,10 @@
     "import": "Already have results from another tool? <go>Import SARIF</go>",
     "import_tools": "ZAP, Nuclei, CodeQL, Semgrep, Strix and more",
     "off": "Not enabled on this server",
-    "off_how": "How to turn on web scans",
+    "off_how": "How to turn on the full web scan (experimental)",
     "off_admin": "Set <mono>PITANGUS_DAST_ENABLED=1</mono> and restart the server.",
-    "admin_only": "Only an admin can launch it."
+    "admin_only": "Only an admin can launch it.",
+    "experimental": "Experimental"
   },
   "wizard": {
     "continue": "Continue",
@@ -57,12 +58,21 @@
         ]
       },
       "web": {
-        "title": "Web app or API",
+        "title": "Full web scan",
         "line": "Browses your site or API like a visitor. It never attacks.",
         "points": [
           "Security headers and cookies",
           "Exposed information and outdated libraries",
           "Each endpoint documented in your OpenAPI spec"
+        ]
+      },
+      "exposure": {
+        "title": "Exposure check",
+        "line": "What a verified domain shows anyone: exposed files, debug consoles, TLS and headers.",
+        "points": [
+          "Exposed files and debug or status consoles on known paths",
+          "TLS and response headers",
+          "No crawl: each host's root and known paths, over HTTPS and HTTP"
         ]
       }
     },
@@ -130,7 +140,8 @@
     "empty": "Add a domain you control and verify it to scan it.",
     "add": "Add domain",
     "verify": "Verify",
-    "verify_for": "Verify {{host}}"
+    "verify_for": "Verify {{host}}",
+    "exposure_only": "The check reaches {{host}} only: its root and known paths, without crawling."
   },
   "scope": {
     "toggle": "Include subdomains",
@@ -230,7 +241,8 @@
       "detect": "Detect",
       "detect_hint": "Asks api.ipify.org once which public IP this server is seen from. If scans run on another machine, set PITANGUS_EGRESS_IPS instead.",
       "ask_admin": "If your site filters by IP, ask an admin to set the outgoing IP."
-    }
+    },
+    "exposure_looks_for": "Exposed files and debug or status consoles on known paths, TLS and response headers. No crawl, no attack."
   },
   "details": {
     "title": "Technical details",
@@ -264,7 +276,8 @@
     "image": "Scan image",
     "images": "Scan {{total, number}} images",
     "web": "Start scan",
-    "schedule": "Schedule scan"
+    "schedule": "Schedule scan",
+    "exposure": "Start check"
   },
   "org": {
     "counting": "Counting repositories…",

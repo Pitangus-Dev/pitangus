@@ -24,7 +24,8 @@ class FixGuideTests(unittest.TestCase):
     def test_the_command_matches_the_package_manager_and_closes_every_advisory(self):
         findings = fix_guide.attach([dependency("web/package-lock.json", "lodash", "4.17.20", "4.17.19"),
                                      dependency("web/package-lock.json", "lodash", "4.17.20", "4.17.21")])
-        self.assertEqual(localize(findings[0]["fix"]["commands"]), [{"label": "Actualiza", "action": "update", "code": "npm install lodash@4.17.21"}])  # fixes both advisories
+        self.assertEqual(localize(findings[0]["fix"]["commands"]), [{"label": "Actualiza", "action": "update", "code": "npm install lodash@4.17.21"},  # fixes both advisories
+                                                                   {"label": "Comprueba que muestre 4.17.21 o superior", "action": "check", "code": "npm ls lodash"}])
         cases = {("yarn.lock", "npm", True): "yarn add left-pad@1.3.0", ("poetry.lock", "pip", True): 'poetry add "left-pad>=1.3.0"',
                  ("poetry.lock", "pip", False): "poetry update left-pad", ("uv.lock", "pip", False): "uv lock --upgrade-package left-pad",
                  ("Cargo.lock", "cargo", True): "cargo update -p left-pad@1.0.0 --precise 1.3.0", ("composer.lock", "composer", True): 'composer require "left-pad:^1.3.0"',
@@ -53,9 +54,10 @@ class FixGuideTests(unittest.TestCase):
     def test_transitive_os_and_unfixable_dependencies_get_steps_not_wrong_commands(self):
         transitive = fix_guide.guide(dependency("package-lock.json", "minimist", "0.0.8", "1.2.6", direct=False))
         self.assertIn('"overrides"', transitive["example"]["after"])
-        self.assertEqual(localize(transitive["commands"], "en"), [{"label": "Reinstall", "action": "reinstall", "code": "npm install"}])
+        self.assertEqual(localize(transitive["commands"], "en"), [{"label": "Reinstall", "action": "reinstall", "code": "npm install"},
+                                                                  {"label": "Check that it shows 1.2.6 or later", "action": "check", "code": "npm ls minimist"}])
         image = fix_guide.guide(dependency("var/lib/dpkg/status", "libssl1.1", "1.1.1n", "1.1.1w", ecosystem="debian"))
-        self.assertEqual((image["example"]["language"], image["commands"]), ("dockerfile", []))
+        self.assertEqual((image["example"]["language"], image["commands"]), ("dockerfile", []))  # nothing to run outside the Dockerfile
         self.assertIn("apt-get install -y --only-upgrade libssl1.1", image["example"]["after"])
         none = fix_guide.guide(dependency("package-lock.json", "abandoned", "1.0.0", None))
         self.assertEqual(none["commands"], [])
@@ -68,6 +70,52 @@ class FixGuideTests(unittest.TestCase):
         self.assertIn("$1", code["example"]["after"])
         secret = fix_guide.guide({"scanner": "secrets", "path": "config.py"})
         self.assertTrue(text(secret["steps"][0]).startswith("Revoca o rota la credencial"))
+
+
+class TransitiveFixTests(unittest.TestCase):
+    """A transitive dependency: who brings it in comes from the lockfile's graph (any ecosystem), and the guide updates
+    it, checks it and, if it doesn't move, updates the direct dependency that holds it back."""
+
+    def guide(self, path, name, version, fixed, lead, ecosystem):
+        finding = dependency(path, name, version, fixed, ecosystem=ecosystem, direct=False)
+        finding["package"]["introduced_by"] = [lead]
+        return localize(fix_guide.guide(finding), "en")
+
+    def test_the_same_guide_for_every_ecosystem_with_its_own_commands(self):
+        cases = {
+            ("Cargo.lock", "cargo"): ("rustls-webpki", "0.103.10", "0.103.13", {"name": "rustls", "version": "0.23.20", "direct": "reqwest", "direct_version": "0.12.9"},
+                                      ["cargo update -p rustls-webpki@0.103.10 --precise 0.103.13", "cargo tree --invert rustls-webpki", "cargo update -p reqwest"]),
+            ("poetry.lock", "PyPI"): ("starlette", "0.37.2", "1.3.1", {"name": "fastapi", "version": "0.110.1", "direct": "fastapi", "direct_version": "0.110.1"},
+                                      ["poetry update starlette", "poetry show starlette", "poetry add fastapi@latest"]),
+            ("composer.lock", "composer"): ("guzzlehttp/psr7", "2.4.0", "2.4.5", {"name": "guzzlehttp/guzzle", "version": "7.5.0", "direct": "laravel/framework", "direct_version": "10.0.0"},
+                                            ["composer update guzzlehttp/psr7 --with-dependencies", "composer show guzzlehttp/psr7", "composer update laravel/framework --with-dependencies"]),
+        }
+        for (path, ecosystem), (name, version, fixed, lead, commands) in cases.items():
+            with self.subTest(path=path):
+                fix = self.guide(path, name, version, fixed, lead, ecosystem)
+                self.assertEqual([command["code"] for command in fix["commands"]], commands)
+                self.assertEqual(fix["action"], f"Update {name} to {fixed}; if it stays below, update {lead['direct']}, which brings it in.")
+                self.assertEqual(fix["commands"][-1]["label"], f"If it stays below {fixed}, update {lead['direct']}")
+        self.assertIn("comes from reqwest 0.12.9 through rustls 0.23.20", self.guide(*["Cargo.lock", "rustls-webpki", "0.103.10", "0.103.13",
+                      cases[("Cargo.lock", "cargo")][3], "cargo"])["steps"][0])
+
+    def test_go_sets_the_version_itself_and_npm_forces_it_naming_who_to_update_instead(self):
+        go = self.guide("go.mod", "golang.org/x/net", "v0.17.0", "0.23.0", {"name": "google.golang.org/grpc", "version": "v1.60.0", "direct": "google.golang.org/grpc"}, "gomod")
+        self.assertNotIn("action", go)
+        self.assertEqual([command["code"] for command in go["commands"]], ["go get golang.org/x/net@v0.23.0 && go mod tidy", "go list -m golang.org/x/net"])
+        npm = self.guide("package-lock.json", "qs", "6.11.0", "6.11.1", {"name": "body-parser", "version": "1.20.1", "direct": "express", "direct_version": "4.18.2"}, "npm")
+        self.assertIn('"overrides"', npm["example"]["after"])
+        self.assertEqual(npm["example"]["note"], "Better still: update express, which brings it in.")
+
+    def test_reports_say_the_same_first_action(self):
+        from pitangus.modules.findings.remediation import action, fix_groups
+        finding = dependency("poetry.lock", "starlette", "0.37.2", "1.3.1", ecosystem="PyPI", direct=False)
+        finding["package"]["introduced_by"] = [{"name": "fastapi", "version": "0.110.1", "direct": "fastapi"}]
+        self.assertEqual(action(fix_groups([finding])[0], locale="en"), "Update starlette to 1.3.1; if it stays below, update fastapi, which brings it in.")
+
+    def test_names_that_could_be_options_never_reach_a_command(self):
+        fix = self.guide("poetry.lock", "starlette", "0.37.2", "1.3.1", {"name": "fastapi", "version": "1", "direct": "--index-url=https://evil.example"}, "PyPI")
+        self.assertNotIn("--index-url", " ".join(command["code"] for command in fix["commands"]))
 
 
 class FixCommandSafetyTests(unittest.TestCase):

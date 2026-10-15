@@ -18,7 +18,7 @@ const CSP = 'CSP: style-src unsafe-inline'
 const URLS = ['https://pitangus.dev/', 'https://pitangus.dev/es/', 'https://pitangus.dev/_astro']
 const FINDINGS = [...URLS.map((url, index) => web('10055', CSP, url, `${'c'.repeat(63)}${index}`)), web('10096', 'Timestamp Disclosure - Unix', 'https://pitangus.dev/app.js', 'd'.repeat(64), 'low')]
 const SCOPE = { id: 'scope', type: 'asset_scope', status: 'completed', created_at: '2026-10-10T00:00:00Z', total: 4, truncated: false, steps: [], limitations: [], owasp_coverage: [],
-  summary: { lifecycle: { open: 4, fixed: 0, suppressed: 0, from_pr: 0, excluded: 0, by_severity: { critical: 0, high: 0, medium: 3, low: 1 } }, candidates: 4, sla: {},
+  summary: { lifecycle: { open: 4, fixed: 0, suppressed: 0, from_pr: 0, excluded: 0, unverified: 0, unverified_stale: 0, unverified_configuration: 0, by_severity: { critical: 0, high: 0, medium: 3, low: 1 } }, candidates: 4, sla: {},
     kpis: { active: 4, dismissed: 0, only_excluded: false, has_sla: false, overdue: 0, soon: 0, act: 0, attend: 0, critical: 0, high: 0, kev: 0, fixable: 0 } },
   by_asset: [{ ...SITE, kind: 'domain', open: 4, critical: 0, high: 0, fixed: 0, suppressed: 0, excluded: 0, shown: 4 }],
   findings: FINDINGS } as ScopedFindings

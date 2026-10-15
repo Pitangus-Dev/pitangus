@@ -1,0 +1,3 @@
+2026-10-12T17:55:52Z	FATAL	Error	remote Maven repository returned 429 Too Many Requests for http://mirror:8080/maven2/com/example/fake/fake-parent/1.0.0/fake-parent-1.0.0.pom.
+The repository blocks all subsequent requests from this IP until the block clears.
+To avoid this, populate the local Maven cache before scanning (e.g. run `mvn dependency:resolve`, or `mvn install` for a multi-module project, and cache ~/.m2 in CI).

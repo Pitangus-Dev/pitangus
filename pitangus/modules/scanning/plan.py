@@ -15,7 +15,7 @@ from collections import Counter
 from pathlib import PurePosixPath
 
 from pitangus.modules.sources.repositories import is_manifest
-from pitangus.modules.scanning.engines import IMAGES, RULES_DIR, WEB_ENGINES, engine_ready, joined
+from pitangus.modules.scanning.engines import IMAGES, RULES_DIR, WEB_ENGINES, enabled, engine_ready, joined
 from pitangus.shared.i18n import msg
 
 EXTENSIONS = {
@@ -96,7 +96,7 @@ def plan(source_id: str, *, installation_id: int | None) -> dict:
             pipelines.append(path)
     detected = [{"name": name, "files": count, "rules": rules.get(name, 0)} for name, count in languages.most_common()]
     runs, skips = [msg("scanning.plan.runs.snapshot")], [msg("scanning.plan.skips.no_execution")]
-    opengrep, gitleaks, trivy, osv = engines["opengrep"], engines["gitleaks"], engines["trivy"], engines["osv-scanner"]
+    opengrep, betterleaks, trivy, osv = engines["opengrep"], engines["betterleaks"], engines["trivy"], engines["osv-scanner"]
     covered = [item for item in detected if item["rules"]]
     uncovered = [item for item in detected if not item["rules"]]
     if opengrep["available"]:
@@ -106,12 +106,12 @@ def plan(source_id: str, *, installation_id: int | None) -> dict:
         elif paths is not None:
             skips.append(msg("scanning.plan.skips.sast_no_files"))
     else:
-        runs.append(msg("scanning.plan.runs.internal_sast"))
-        uncovered = [item for item in detected if item["name"] != "Python"]
+        skips.append(msg("scanning.plan.skips.no_sast"))
+        uncovered = []
     if uncovered:
         skips.append(msg("scanning.plan.skips.no_rules", languages=joined(_language(item, rules=False) for item in uncovered)))
-    runs.append(msg("scanning.plan.runs.secrets", engine=gitleaks["name"], version=gitleaks["version"])
-                if gitleaks["available"] else msg("scanning.plan.runs.internal_secrets"))
+    runs.append(msg("scanning.plan.runs.secrets", engine=betterleaks["name"], version=betterleaks["version"])
+                if betterleaks["available"] else msg("scanning.plan.runs.internal_secrets"))
     if trivy["available"]:
         if manifests:
             common = {"engine": trivy["name"], "version": trivy["version"], "sample": _sample(manifests),
@@ -128,7 +128,9 @@ def plan(source_id: str, *, installation_id: int | None) -> dict:
             skips.append(msg("scanning.plan.skips.iac_without_trivy", files=msg("scanning.plan.files", count=len(iac))))
     checkov, zizmor = engines["checkov"], engines["zizmor"]
     if iac or pipelines or paths is None:
-        if checkov["available"]:
+        if not enabled("checkov"):
+            skips.append(msg("scanning.plan.skips.checkov_disabled", engine=checkov["name"]))
+        elif checkov["available"]:
             runs.append(msg("scanning.plan.runs.checkov", engine=checkov["name"], version=checkov["version"]))
         else:
             skips.append(msg("scanning.plan.skips.no_checkov"))

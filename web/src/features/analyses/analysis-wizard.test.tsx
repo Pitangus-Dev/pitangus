@@ -61,14 +61,15 @@ const heading = (key: string) => screen.findByRole('heading', { level: 2, name: 
 const scan = (calls: Call[]) => calls.find(call => call.path === '/api/domains/scans')
 
 describe('choosing what to scan', () => {
-  it('offers three cards as one radio group, Code first, and moves with the arrow keys', async () => {
+  it('offers four cards as one radio group, Code first, and moves with the arrow keys', async () => {
     const { user } = setup()
     const group = await screen.findByRole('radiogroup', { name: tr('chooser.title') })
     const cards = within(group).getAllByRole('radio')
-    expect(cards.map(card => card.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
+    expect(cards.map(card => card.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'false'])
     // Sites and APIs are one type: no separate API card.
     expect(cards.map(card => card.getAttribute('aria-labelledby') && document.getElementById(card.getAttribute('aria-labelledby') as string)?.textContent))
-      .toEqual([tr('wizard.kinds.code.title'), tr('wizard.kinds.image.title'), tr('wizard.kinds.web.title')])
+      .toEqual([tr('wizard.kinds.code.title'), tr('wizard.kinds.image.title'), tr('wizard.kinds.exposure.title'), tr('wizard.kinds.web.title')])
+    expect(screen.getByText(tr('chooser.experimental'))).toBeTruthy()  // the full web scan says so
     expect(screen.queryByText('Opengrep')).toBeNull()
     expect(screen.getByText(tr('wizard.kinds.web.line'))).toBeTruthy()
     cards[0].focus()
@@ -89,6 +90,19 @@ describe('choosing what to scan', () => {
     await waitFor(() => expect(screen.getByRole('radio', { name: tr('wizard.kinds.web.title') }).getAttribute('aria-disabled')).toBe('true'))
     expect(screen.getAllByText(tr('chooser.off'))).toHaveLength(1)
     expect(screen.getByText('PITANGUS_DAST_ENABLED=1')).toBeTruthy()
+  })
+
+  it('runs the exposure check with the full web scan off: the domain, then launch, anonymous', async () => {
+    const { user, calls, done } = setup({ dast: false })
+    await user.click(await screen.findByRole('radio', { name: tr('wizard.kinds.exposure.title') }))
+    await proceed(user)
+    await user.click(await screen.findByRole('radio', { name: /app\.example\.com/ }))
+    expect(screen.getByText(tr('target.exposure_only', { host: DOMAIN.host }))).toBeTruthy()
+    expect(screen.queryByText(tr('scope.toggle'))).toBeNull()
+    await proceed(user)
+    await user.click(await screen.findByRole('button', { name: tr('launch.exposure') }))
+    await waitFor(() => expect(scan(calls)?.body).toEqual({ domain_id: DOMAIN.id, mode: 'exposure' }))
+    await waitFor(() => expect(done).toHaveBeenCalledWith('run-web'))
   })
 
   it('lets members read the web card but not continue', async () => {

@@ -79,9 +79,10 @@ Solo se incluyen los avisos de dependencias con identificador (CVE, GHSA…): el
 
 ## Paquetes maliciosos
 
-Los avisos `MAL-*` de OpenSSF (paquetes maliciosos conocidos, vía OSV) se marcan como **Malicioso**, críticos y
-Actuar ya, con la corrección real: quitar el paquete y rotar los secretos de cada máquina donde se instaló. Nunca
-«actualiza a…».
+Los paquetes maliciosos conocidos (un aviso `MAL-*` de OpenSSF, uno que su base tipifica como malware, o uno en el que
+coinciden dos de su CWE, su título y su descripción; ver [Analiza tu código](analisis-de-codigo.md)) se marcan como
+**Malicioso**, críticos y Actuar ya, como un hallazgo por versión del paquete con todos sus avisos, y con la corrección
+real: quitar el paquete y rotar los secretos de cada máquina donde se instaló. Nunca «actualiza a…».
 
 ## Marcos
 

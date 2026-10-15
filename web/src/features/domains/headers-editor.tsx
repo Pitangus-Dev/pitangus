@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { CircleNotchIcon, DotsThreeIcon, PlusIcon } from '@phosphor-icons/react'
@@ -57,6 +57,49 @@ export function HeadersEditor({ domain, admin, adding, onAddingChange }: { domai
           onSave={(name, value) => { setNotice(''); change.mutate({ op: 'save', name, value }) }} />
       : headers.length < 10 && <Button variant="outline" size="sm" onClick={() => { setNotice(''); onAddingChange(true) }}><PlusIcon aria-hidden />{t('domains.access.add')}</Button>}
   </div>
+}
+
+// The page that proves the saved headers still sign in: without it, an expired cookie would look like a site with
+// nothing behind its login, and the scan would mark those findings fixed. Admins only, once the domain has headers.
+export function SessionCheck({ domain }: { domain: Domain }) {
+  const { t } = useTranslation('sources')
+  const id = useId()
+  const field = useRef<HTMLInputElement>(null)
+  const queryClient = useQueryClient()
+  const saved = domain.session_check ?? ''
+  const [url, setUrl] = useState(saved)
+  const [notice, setNotice] = useState('')
+  const change = useMutation({
+    mutationFn: (value: string) => apiPost('/api/domains/session-check', 'domain-session-check', { domain_id: domain.id, url: value }),
+    onSuccess: result => {
+      queryClient.setQueryData<Page>(keys.domains, page => page && { ...page, items: page.items.map(item => item.id === domain.id ? { ...item, session_check: result.session_check } : item) })
+      void queryClient.invalidateQueries({ queryKey: keys.domains })
+      setUrl(result.session_check ?? '')
+      setNotice(t(result.session_check ? 'domains.access.check_saved' : 'domains.access.check_removed'))
+      // Removing takes its button away: the focus goes back to the field rather than to the page.
+      if (!result.session_check) field.current?.focus()
+    },
+  })
+  const send = (value: string) => { setNotice(''); change.mutate(value) }
+  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); send(url.trim()) }
+  const error = change.error?.message ?? ''
+  if (!domain.headers?.length) return null
+  // The server validates the address and says why in the panel's language: no browser bubble (noValidate).
+  return <form onSubmit={submit} noValidate className="space-y-2 border-t border-app-line pt-4">
+    <label htmlFor={`${id}-url`} className="block text-sm font-medium">{t('domains.access.check_label')}</label>
+    <p id={`${id}-help`} className="max-w-2xl text-xs text-app-muted">{t('domains.access.check_help')}</p>
+    <div className="flex flex-wrap items-center gap-2">
+      <Input id={`${id}-url`} ref={field} type="url" inputMode="url" value={url} maxLength={2000} autoComplete="off" spellCheck={false}
+        placeholder={t('domains.access.check_placeholder', { host: domain.host })} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`}
+        aria-invalid={error ? true : undefined} onChange={event => { setUrl(event.target.value); change.reset() }}
+        className="min-w-0 flex-1 basis-64 border-input bg-card font-mono" />
+      <Button type="submit" variant="outline" disabled={change.isPending || !url.trim() || url.trim() === saved}>
+        {change.isPending && <CircleNotchIcon className="motion-safe:animate-spin" aria-hidden />}{t('domains.access.check_save')}</Button>
+      {saved && <Button type="button" variant="ghost" disabled={change.isPending} onClick={() => send('')}>{t('domains.access.check_remove')}</Button>}
+    </div>
+    {error && <p id={`${id}-error`} role="alert" className="text-sm text-danger">{error}</p>}
+    <div role="status">{notice && <p className="text-sm text-success">{notice}</p>}</div>
+  </form>
 }
 
 function HeaderForm({ fixedName, busy, error, onCancel, onSave }: { fixedName: string | null; busy: boolean; error: string; onCancel: () => void; onSave: (name: string, value: string) => void }) {

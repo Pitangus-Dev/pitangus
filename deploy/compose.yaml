@@ -85,7 +85,7 @@ services:
 
   api:
     <<: *app
-    image: "${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus}:${PITANGUS_VERSION:-0.13}"
+    image: "${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus}:${PITANGUS_VERSION:-0.14}"
     environment:
       <<: *env
       PITANGUS_EMBEDDED_WORKER: "0"
@@ -109,7 +109,7 @@ services:
 
   worker:
     <<: *app
-    image: "${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus}-worker:${PITANGUS_VERSION:-0.13}"
+    image: "${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus}-worker:${PITANGUS_VERSION:-0.14}"
     environment:
       <<: *env
       # Engines write their temporary files (image layers, databases) to disk, not to the small in-memory /tmp.

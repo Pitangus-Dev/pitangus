@@ -10,6 +10,7 @@ in annexes. The diagram and the flow table share the numbering.
 from __future__ import annotations
 
 import html
+import json
 
 from reportlab.lib.units import mm
 from reportlab.platypus import KeepTogether, Paragraph, Spacer
@@ -23,6 +24,7 @@ from pitangus.modules.reporting.design import t as esc
 from pitangus.shared.i18n import default_locale, localize, t, text
 
 ORDER = ("critical", "high", "medium", "low")
+SECTION_ROWS, PROPERTY_ROWS = 30, 60  # appendices stay compact: the rest is in the JSON and the panel
 PENDING = ("evidenced", "open")
 
 
@@ -30,8 +32,102 @@ def _status(status: str, locale: str) -> str:
     return t(f"threats.report.status.{status}", locale)
 
 
+def _rank(value) -> int:
+    """Ours in order; a team's own severity (without an equivalent) after them."""
+    return ORDER.index(value) if value in ORDER else len(ORDER)
+
+
+def _chip(row: dict, locale: str):
+    """The severity as coloured text; a team's own level keeps its name (escaped: it is the team's text)."""
+    label = row.get("severity_label") or (None if row["severity"] in ORDER else row["severity"])
+    return chip(row["severity"], esc(label, 40) if label else None, locale=locale)
+
+
+def _severity_name(row: dict, locale: str) -> str:
+    return _line(row.get("severity_label") or severity_label(row["severity"], locale))
+
+
+def _level(field: str, value, locale: str) -> str:
+    """A likelihood, impact or difficulty: ours in words, the team's own as written."""
+    if value in threat_methods.LEVELS:
+        return t(f"threats.report.{field}.{value}", locale)
+    return t(f"threats.report.{field}_own", locale, value=value)
+
+
+def _mapping_status(status: str, locale: str) -> str:
+    return t(f"threats.report.mapping_status.{status}", locale) if status in threat_methods.MAPPING_STATUS else status
+
+
+def value_text(value) -> str:
+    """A custom property's value on one line: text as is, a list joined, anything nested as compact JSON."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (str, int, float)):
+        return str(value)
+    if isinstance(value, list) and all(isinstance(item, (str, int, float)) for item in value):
+        return ", ".join(str(item) for item in value)
+    return json.dumps(value, ensure_ascii=False, separators=(", ", ": "))
+
+
+def heading_of(key: str) -> str:
+    """A custom section's key as a title: «data_retention» reads «Data retention»."""
+    words = " ".join(str(key).replace("_", " ").replace("-", " ").split())
+    return words[:1].upper() + words[1:]
+
+
+def properties(model: dict, data: dict) -> list[tuple[str, str, str]]:
+    """Every custom property of the model's objects: (where, property, value), in the order they appear."""
+    locale = data["locale"]
+    r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
+    found: list[tuple[str, str, str]] = []
+
+    def add(where: str, entry: dict) -> None:
+        for key, value in (entry.get("custom_properties") or {}).items():
+            found.append((where, str(key), value_text(value)))
+    for component in model.get("components") or []:
+        add(component["name"], component)
+    for flow in model.get("flows") or []:
+        add(_element_name(model, data, flow["id"]), flow)
+    for boundary in model.get("boundaries") or []:
+        add(r("property_boundary", name=boundary["name"]), boundary)
+    for item in model.get("assumptions") or []:
+        add(r("property_assumption", id=item["id"]), item)
+    for item in model.get("manual_threats") or []:
+        add(item["title"], item)
+    for tree in model.get("attack_trees") or []:
+        add(r("property_tree", goal=tree["goal"]), tree)
+        for node in tree.get("nodes") or []:
+            add(r("property_step", text=node["text"]), node)
+    for item in model.get("attack_mappings") or []:
+        add(item["technique"], item)
+    return found
+
+
+def sections(model: dict) -> tuple[list[tuple[str, str]], list[tuple[str, object]]]:
+    """The model's own custom properties: single values (key, text) and sections (title, list or object) to show as
+    lists or tables."""
+    values, blocks = [], []
+    for key, value in (model.get("custom_properties") or {}).items():
+        if isinstance(value, (list, dict)) and value and not (isinstance(value, list) and all(isinstance(item, (str, int, float, bool)) for item in value) and len(value) <= 3):
+            blocks.append((heading_of(key), value))
+        else:
+            values.append((heading_of(key), value_text(value)))
+    return values, blocks
+
+
+def table_of(value) -> tuple[list[str], list[list[str]]] | None:
+    """A list of objects as a table (columns: their keys, at most 6); an object as key/value rows; None for a list of
+    plain values (a bulleted list)."""
+    if isinstance(value, dict):
+        return [], [[heading_of(key), value_text(item)] for key, item in value.items()]
+    if all(isinstance(item, dict) for item in value):
+        columns = list(dict.fromkeys(key for item in value for key in item))[:6]
+        return [heading_of(key) for key in columns], [[value_text(item.get(key, "")) for key in columns] for item in value]
+    return None
+
+
 def _worst(items: list[dict]) -> str:
-    return min((item["severity"] for item in items), key=ORDER.index)
+    return min((item["severity"] for item in items), key=_rank)
 
 
 def _families(model: dict) -> list[str]:
@@ -85,16 +181,16 @@ def digest(model: dict, rows: list[dict], *, locale: str | None = None) -> dict:
                         "evidenced": sum(1 for item in items if item["status"] == "evidenced"),
                         "unproven": len(unproven), "unproven_where": where(unproven, 3) if unproven else "",
                         "unproven_severity": _worst(unproven) if unproven else None})
-    grouped.sort(key=lambda entry: (ORDER.index(entry["severity"]), -entry["evidenced"], -entry["count"], entry["title"]))
-    team.sort(key=lambda row: (row["status"] not in PENDING, ORDER.index(row["severity"]), row["element_name"]))
-    evidenced.sort(key=lambda row: (ORDER.index(row["severity"]), -row["evidence_count"], row["element_name"]))
+    grouped.sort(key=lambda entry: (_rank(entry["severity"]), -entry["evidenced"], -entry["count"], entry["title"]))
+    team.sort(key=lambda row: (row["status"] not in PENDING, _rank(row["severity"]), row["element_name"]))
+    evidenced.sort(key=lambda row: (_rank(row["severity"]), -row["evidence_count"], row["element_name"]))
     # What to handle first: the concrete (evidence, what the team wrote) before the generic patterns.
     first = [("evidence", row) for row in evidenced if row["severity"] in ("critical", "high")]
     first += [("team", row) for row in team if row["status"] in PENDING and row["severity"] in ("critical", "high")]
     # The critical patterns; with none, the high ones. Only where they aren't already listed with evidence.
     worst = "critical" if any(entry["unproven_severity"] == "critical" for entry in grouped) else "high"
     first += [("pattern", {**entry, "severity": entry["unproven_severity"]}) for entry in grouped if entry["unproven_severity"] == worst]
-    first.sort(key=lambda pair: ORDER.index(pair[1]["severity"]))
+    first.sort(key=lambda pair: _rank(pair[1]["severity"]))
     by_component = []
     for component in model.get("components", []):
         own = [row for row in pending if row["element"] == component["id"]]
@@ -136,6 +232,9 @@ def coverage(model: dict, data: dict) -> list[str]:
         lines.append(t("threats.report.coverage_linked", locale, linked=linked, total=total))
     else:
         lines.append(t("threats.report.coverage_unlinked", locale))
+    unranked = sum(1 for row in data["team"] if row["severity"] not in ORDER)
+    if unranked:
+        lines.append(t("threats.report.coverage_unranked", locale, count=unranked))
     if model.get("repository_refs"):
         lines.append(t("threats.report.coverage_refs", locale, refs=listing(list(model["repository_refs"]), 6, locale=locale)))
     return lines
@@ -156,13 +255,13 @@ def _element_name(model: dict, data: dict, element: str) -> str:
 
 
 def _extras(row: dict, locale: str) -> list[str]:
-    return [t(f"threats.report.likelihood.{row['likelihood']}", locale) if row.get("likelihood") else "",
-            t(f"threats.report.impact.{row['impact']}", locale) if row.get("impact") else ""]
+    return [_level("likelihood", row["likelihood"], locale) if row.get("likelihood") else "",
+            _level("impact", row["impact"], locale) if row.get("impact") else ""]
 
 
 def _node_extras(model: dict, data: dict, node: dict) -> list[str]:
     locale = data["locale"]
-    return [t(f"threats.report.difficulty.{node['difficulty']}", locale) if node.get("difficulty") else "",
+    return [_level("difficulty", node["difficulty"], locale) if node.get("difficulty") else "",
             t("threats.report.on_element", locale, element=_element_name(model, data, node["element"])) if node.get("element") else "",
             t("threats.report.mitigated", locale) if node.get("mitigated") else ""]
 
@@ -253,17 +352,21 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
         body = []
         for source, item in data["first"]:
             if source == "pattern":
-                body.append([chip(item["severity"], locale=locale),
+                body.append([_chip(item, locale),
                              f"<b>{esc(item['title'], 140)}</b><br/>{esc(item['category'], 80)} · {esc(r('pattern_in', count=item['unproven']), 60)}",
                              esc(item["unproven_where"], 200), esc("; ".join(item["mitigations"][:2]), 260)])
             else:
                 label = _status("evidenced", locale) if source == "evidence" else r("from_team")
-                body.append([chip(item["severity"], locale=locale),
+                body.append([_chip(item, locale),
                              f"<b>{esc(item['title'], 140)}</b><br/><font color=\"#5c636b\">{esc(label, 40)}</font>",
                              esc(_element_name(model, data, item["element"]) if item["element"] else item["element_name"], 160),
                              esc("; ".join(item["mitigations"][:2]) or "—", 260)])
         story.append(table([r("col_severity"), r("col_threat"), r("col_where"), r("col_action")], body,
                            [19 * mm, 55 * mm, 45 * mm, WIDTH - 119 * mm]))
+    # What the analysis takes for granted: a reader judges every threat against it.
+    if model.get("assumptions"):
+        story += [h2(r("assumptions_heading", count=len(model["assumptions"]))),
+                  *(Paragraph(f"{number}.&nbsp;&nbsp;{esc(item['text'], 1000)}", STYLE["body"]) for number, item in enumerate(model["assumptions"], 1))]
     # ATT&CK and attack trees are the analysis itself for those approaches: in the body, not in an appendix.
     if data["method"] == "attack":
         story += _attack_pdf(model, data, r("attack_heading", count=len(data["mappings"])))
@@ -283,7 +386,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
         body = []
         for row in data["team"]:
             extra = " · ".join(value for value in _extras(row, locale) if value)
-            body.append([chip(row["severity"], locale=locale),
+            body.append([_chip(row, locale),
                          f"<b>{esc(row['title'], 160)}</b>" + (f'<br/><font color="#5c636b">{esc(row["why"], 320)}</font>' if row["why"] else ""),
                          esc(row["element_name"], 120) + (f'<br/><font color="#5c636b">{esc(extra, 80)}</font>' if extra else ""),
                          esc("; ".join(row["mitigations"]) or "—", 320),
@@ -297,7 +400,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
             evidence = "<br/>".join(f"{esc(item['title'], 80)} · {esc(item['location'], 80)}" for item in row["evidence"][:3])
             more = row["evidence_count"] - min(3, len(row["evidence"]))
             warning = _contradiction(row, locale)
-            body.append([chip(row["severity"], locale=locale),
+            body.append([_chip(row, locale),
                          f"<b>{esc(row['title'], 140)}</b>" + (f'<br/><font color="{DANGER.hexval().replace("0x", "#")}">{esc(warning, 200)}</font>' if warning else ""),
                          esc(row["element_name"], 120), evidence + (f"<br/>{esc(r('and_more', count=more), 40)}" if more > 0 else "")])
         story.append(table([r("col_severity"), r("col_threat"), r("col_where"), r("col_evidence")], body,
@@ -305,7 +408,7 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
         story.append(Paragraph(esc(r("evidence_note"), 400), STYLE["note"]))
     if data["patterns"]:
         story.append(h2(r("patterns_heading", patterns=len(data["patterns"]), threats=data["open_rules"])))
-        body = [[chip(entry["severity"], locale=locale),
+        body = [[_chip(entry, locale),
                  f"<b>{esc(entry['title'], 140)}</b><br/><font color=\"#5c636b\">{esc(entry['category'], 60)}"
                  + (f" · CWE-{', CWE-'.join(str(value) for value in entry['cwe'][:3])}" if entry["cwe"] else "") + "</font>",
                  f"<b>{entry['count']}</b> · {esc(entry['counts'], 80)}<br/>{esc(entry['where'], 320)}",
@@ -334,20 +437,28 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
     if data["flows"]:
         story.append(h2(appendix(r("appendix_flows"), locale), number=False))
         body = [[str(data["number"][flow["id"]]), esc(f"{data['components'][flow['source']]['name']} → {data['components'][flow['target']]['name']}", 140),
-                 flow["protocol"].upper(), esc(flow.get("name") or "—", 160) + (f'<br/><font color="#5c636b">{esc(", ".join(data["labels"][item] for item in flow["data"]), 80)}</font>' if flow.get("data") else ""),
+                 esc(flow["protocol"].upper(), 24), esc(flow.get("name") or ("" if flow.get("data") or flow.get("description") else "—"), 160) + (f'<br/><font color="#5c636b">{esc(", ".join(data["labels"].get(item, item) for item in flow["data"]), 80)}</font>' if flow.get("data") else "")
+                 + (f'<br/>{esc(flow["description"], 400)}' if flow.get("description") else ""),
                  esc(_yes(True, locale)) if flow.get("authenticated") else no.format(esc(_yes(False, locale))),
                  esc(_yes(True, locale)) if flow.get("encrypted") else no.format(esc(_yes(False, locale)))]
                 for flow in data["flows"]]
         story.append(table([r("col_number"), r("col_source_target"), r("col_protocol"), r("col_carries"), r("col_auth_short"), r("col_encrypted")], body,
                            [10 * mm, 62 * mm, 18 * mm, WIDTH - 124 * mm, 17 * mm, 17 * mm]))
+    if model.get("boundaries"):
+        story.append(h2(appendix(r("appendix_boundaries"), locale), number=False))
+        body = [[f"<b>{esc(boundary['name'], 80)}</b>", esc(listing([data["components"][member]["name"] for member in boundary["components"]
+                                                                     if member in data["components"]], 12, locale=locale) or "—", 300),
+                 esc(boundary.get("description") or "—", 1000)] for boundary in model["boundaries"]]
+        story.append(table([r("col_boundary"), r("col_components"), r("col_description")], body, [40 * mm, 55 * mm, WIDTH - 95 * mm]))
     story.append(h2(appendix(r("appendix_components"), locale), number=False))
     body = []
     for entry in data["by_component"]:
         component = entry["component"]
         exposure = ", ".join(value for value in ("Internet" if component.get("internet_facing") else "",
-                                                 ", ".join(data["labels"][item] for item in component.get("data") or [])) if value)
+                                                 ", ".join(data["labels"].get(item, item) for item in component.get("data") or [])) if value)
         body.append([f"<b>{esc(component['name'], 80)}</b><br/><font color=\"#5c636b\">{esc(_kind(component, data['kinds']), 50)}"
-                     + (f" · {esc(component['technology'], 40)}" if component.get("technology") else "") + "</font>",
+                     + (f" · {esc(component['technology'], 40)}" if component.get("technology") else "") + "</font>"
+                     + (f"<br/>{esc(component['description'], 400)}" if component.get("description") else ""),
                      esc(data["member_of"].get(component["id"], "—"), 60), esc(exposure or "—", 90),
                      *[(f'<font color="{SEVERITY[level][1 if level == "critical" else 0].hexval().replace("0x", "#")}"><b>{entry["counts"][level]}</b></font>'
                         if entry["counts"][level] else '<font color="#5c636b">0</font>') for level in ORDER]])
@@ -355,9 +466,41 @@ def render_pdf(model: dict, rows: list[dict], *, version: str, locale: str | Non
                         r("col_medium_short"), r("col_low_short")], body,
                        [54 * mm, 36 * mm, WIDTH - 146 * mm, 14 * mm, 14 * mm, 14 * mm, 14 * mm]))
     story += _methods_pdf(model, data, appendix)
+    story += _sections_pdf(model, appendix, locale)
+    found = properties(model, data)
+    if found:
+        story.append(h2(appendix(r("appendix_properties"), locale), number=False))
+        story.append(table([r("col_where"), r("col_property"), r("col_value")],
+                           [[esc(where, 120), esc(key, 60), esc(value, 600)] for where, key, value in found[:PROPERTY_ROWS]], [50 * mm, 35 * mm, WIDTH - 85 * mm]))
+        if len(found) > PROPERTY_ROWS:
+            story.append(Paragraph(esc(r("rest_in_json", count=len(found) - PROPERTY_ROWS)), STYLE["note"]))
     return build(story, title=r("document_title", name=model["name"]), footer=r("document_title", name=model["name"][:80]), version=version,
                  reference=str(model.get("id") or ""),
                  author=str(model.get("updated_by") or "Pitangus"), subject=r("title"), locale=locale)
+
+
+def _sections_pdf(model: dict, appendix, locale: str) -> list:
+    """The model's own fields and sections (custom properties), as written, in compact appendices: values in one table,
+    each section as a table or a list under its own title, capped (the rest is in the JSON and the panel)."""
+    r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
+    values, blocks = sections(model)
+    story: list = []
+    if values:
+        story += [h2(appendix(r("model_properties"), locale), number=False),
+                  table([r("col_property"), r("col_value")], [[esc(key, 80), esc(value, 800)] for key, value in values[:SECTION_ROWS]], [50 * mm, WIDTH - 50 * mm])]
+    for title, value in blocks:
+        story.append(h2(appendix(title, locale), number=False))
+        shaped = table_of(value)
+        if shaped is None:
+            story += bullets([esc(value_text(item), 800) for item in value[:SECTION_ROWS]])
+        else:
+            columns, rows = shaped
+            columns = columns or [r("col_property"), r("col_value")]
+            width = WIDTH / max(1, len(columns))
+            story.append(table([esc(column, 40) for column in columns], [[esc(cell, 400) for cell in row] for row in rows[:SECTION_ROWS]], [width] * len(columns)))
+        if len(value) > SECTION_ROWS:
+            story.append(Paragraph(esc(r("rest_in_json", count=len(value) - SECTION_ROWS)), STYLE["note"]))
+    return story
 
 
 def _attack_pdf(model: dict, data: dict, heading: str, numbered: bool = True) -> list:
@@ -365,11 +508,11 @@ def _attack_pdf(model: dict, data: dict, heading: str, numbered: bool = True) ->
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
     body = []
     for item in data["mappings"]:
-        _, _, tactics = threat_methods.TECHNIQUES[item["technique"]]
+        tactics = threat_methods.technique_tactics(item["technique"])
         body.append([f"<b>{esc(item['technique'], 12)}</b> {esc(text(threat_methods.technique_label(item['technique']), locale), 80)}",
                      esc(", ".join(text(threat_methods.TACTICS[tactic], locale) for tactic in tactics), 80),
                      esc(_element_name(model, data, item["element"]) if item.get("element") else r("whole_system"), 100),
-                     esc(r(f"mapping_status.{item['status']}")), esc(item.get("note") or "—", 200)])
+                     esc(_mapping_status(item["status"], locale), 40), esc(item.get("note") or "—", 200)])
     return [h2(heading, number=numbered), table([r("col_technique"), r("col_tactic"), r("col_element"), r("col_status"), r("col_note")], body,
                                [46 * mm, 30 * mm, 38 * mm, 18 * mm, WIDTH - 132 * mm]),
             Paragraph(html.escape(r("attack_trademark")), STYLE["note"])]
@@ -400,11 +543,13 @@ def _methods_pdf(model: dict, data: dict, appendix) -> list:
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
     story = []
     notes = model.get("pasta") or {}
-    if any(notes.values()):
+    if any(notes.get(key) for key, _ in threat_methods.PASTA_STAGES) or notes.get("custom_properties"):
         story.append(h2(appendix(r("appendix_pasta"), locale), number=False))
         for key, title in threat_methods.PASTA_STAGES:
             if notes.get(key):
                 story += [Paragraph(esc(text(title, locale), 80), STYLE["h3"]), Paragraph(esc(notes[key], 3000), STYLE["body"])]
+        for key, value in (notes.get("custom_properties") or {}).items():
+            story += [Paragraph(esc(heading_of(key), 80), STYLE["h3"]), Paragraph(esc(value_text(value), 3000), STYLE["body"])]
     if data["trees"] and data["method"] != "attack_trees":
         story += _trees_pdf(model, data, lambda goal: r("tree_heading", goal=goal), appendix(r("trees_heading", count=len(data["trees"])), locale),
                             numbered=False)
@@ -446,7 +591,6 @@ def to_markdown(model: dict, rows: list[dict], *, locale: str | None = None) -> 
     locale = data["locale"]
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
     appendix = _letters()
-    names = {level: severity_label(level, locale) for level in ORDER}
     sentence, _ = _summary(data)
     lines = ["# " + r("document_title", name=_line(model["name"])), "", _line(model.get("description")), "",
              r("md_intro", method=data["method_label"], date=str(model.get("updated_at") or "")[:16].replace("T", " "),
@@ -466,8 +610,11 @@ def to_markdown(model: dict, rows: list[dict], *, locale: str | None = None) -> 
         for source, item in data["first"]:
             where = item["unproven_where"] if source == "pattern" else (_element_name(model, data, item["element"]) if item["element"] else item["element_name"])
             title = f"{item['title']} ({r('pattern_in', count=item['unproven'])})" if source == "pattern" else item["title"]
-            lines.append(_row(names[item["severity"]], _cell(title), _cell(where), _cell("; ".join(item["mitigations"][:2]) or "—")))
+            lines.append(_row(_severity_name(item, locale), _cell(title), _cell(where), _cell("; ".join(item["mitigations"][:2]) or "—")))
         lines.append("")
+    if model.get("assumptions"):
+        lines += ["## " + r("assumptions_heading", count=len(model["assumptions"])), "",
+                  *(f"{number}. {_line(item['text'])}" for number, item in enumerate(model["assumptions"], 1)), ""]
     if data["method"] == "attack":
         lines += _attack_md(model, data, r("attack_heading", count=len(data["mappings"])))
     if data["method"] == "attack_trees":
@@ -478,7 +625,7 @@ def to_markdown(model: dict, rows: list[dict], *, locale: str | None = None) -> 
             details = [row["element_name"], row["category"], r("md_status", status=_status(row["status"], locale).lower())]
             details += [r("md_owner", owner=row["owner"])] if row.get("owner") else []
             details += [value for value in _extras(row, locale) if value]
-            lines += [f"### {names[row['severity']]} · {_line(row['title'])}", "", _line(" · ".join(details)), ""]
+            lines += [f"### {_severity_name(row, locale)} · {_line(row['title'])}", "", _line(" · ".join(details)), ""]
             if row["why"]:
                 lines += [_line(row["why"]), ""]
             if row["mitigations"]:
@@ -489,14 +636,14 @@ def to_markdown(model: dict, rows: list[dict], *, locale: str | None = None) -> 
         for row in data["evidenced"]:
             evidence = "; ".join(r("md_evidence_item", title=item["title"], location=item["location"]) for item in row["evidence"][:3])
             warning = _contradiction(row, locale)
-            lines.append(_row(names[row["severity"]], _cell(row["title"] + (f" ({warning})" if warning else "")), _cell(row["element_name"]), _cell(evidence)))
+            lines.append(_row(_severity_name(row, locale), _cell(row["title"] + (f" ({warning})" if warning else "")), _cell(row["element_name"]), _cell(evidence)))
         lines.append("")
     if data["patterns"]:
         lines += ["## " + r("md_patterns_heading", count=len(data["patterns"])), "", r("md_patterns_note"), "",
                   _row(r("col_severity"), r("col_pattern"), r("col_affects"), r("col_measure")), "|---|---|---|---|"]
         for entry in data["patterns"]:
             cwe = f" · CWE-{', CWE-'.join(str(value) for value in entry['cwe'][:3])}" if entry["cwe"] else ""
-            lines.append(_row(names[entry["severity"]], f"{_cell(entry['title'])} ({_cell(entry['category'])}{cwe})",
+            lines.append(_row(_severity_name(entry, locale), f"{_cell(entry['title'])} ({_cell(entry['category'])}{cwe})",
                               f"{entry['count']} ({entry['counts']}): {_cell(entry['where'])}", _cell("; ".join(entry["mitigations"][:3]))))
         lines.append("")
     if data["decided"]:
@@ -511,33 +658,70 @@ def to_markdown(model: dict, rows: list[dict], *, locale: str | None = None) -> 
         lines += ["## " + appendix(r("appendix_flows"), locale), "", _row(r("col_number"), r("col_source_target"), r("col_protocol"), r("col_carries"),
                                                                        r("col_authenticated"), r("col_encrypted")), "|---|---|---|---|---|---|"]
         for flow in data["flows"]:
-            carries = ", ".join(data["labels"][item] for item in flow.get("data") or [])
+            carries = ", ".join(data["labels"].get(item, item) for item in flow.get("data") or [])
             lines.append(_row(str(data["number"][flow["id"]]),
                               f"{_cell(data['components'][flow['source']]['name'])} → {_cell(data['components'][flow['target']]['name'])}",
-                              flow["protocol"].upper(), _cell(" · ".join(value for value in (flow.get("name"), carries) if value) or "—"),
+                              _cell(flow["protocol"].upper()), _cell(" · ".join(value for value in (flow.get("name"), carries, flow.get("description")) if value) or "—"),
                               _yes(flow.get("authenticated"), locale), _yes(flow.get("encrypted"), locale)))
+        lines.append("")
+    if model.get("boundaries"):
+        lines += ["## " + appendix(r("appendix_boundaries"), locale), "", _row(r("col_boundary"), r("col_components"), r("col_description")), "|---|---|---|"]
+        for boundary in model["boundaries"]:
+            members = [data["components"][member]["name"] for member in boundary["components"] if member in data["components"]]
+            lines.append(_row(_cell(boundary["name"]), _cell(", ".join(members) or "—"), _cell(boundary.get("description") or "—")))
         lines.append("")
     lines += ["## " + appendix(r("appendix_components"), locale), "", _row(r("col_component"), r("col_type"), r("col_boundary"), r("col_data"),
                                                                         r("col_exposed"), r("col_open_by_severity")), "|---|---|---|---|---|---|"]
     for entry in data["by_component"]:
         component = entry["component"]
         lines.append(_row(_cell(component["name"]), _cell(_kind(component, data["kinds"])), _cell(data["member_of"].get(component["id"], "—")),
-                          _cell(", ".join(data["labels"][item] for item in component.get("data") or []) or "—"),
+                          _cell(", ".join(data["labels"].get(item, item) for item in component.get("data") or []) or "—"),
                           _yes(component.get("internet_facing"), locale), "/".join(str(entry["counts"][level]) for level in ORDER)))
     lines.append("")
     notes = model.get("pasta") or {}
-    if any(notes.values()):
+    if any(notes.get(key) for key, _ in threat_methods.PASTA_STAGES) or notes.get("custom_properties"):
         lines += ["## " + appendix(r("appendix_pasta"), locale), ""]
         for key, title in threat_methods.PASTA_STAGES:
             if notes.get(key):
                 lines += [f"### {text(title, locale)}", "", notes[key], ""]
+        for key, value in (notes.get("custom_properties") or {}).items():
+            lines += [f"### {_line(heading_of(key))}", "", value_text(value), ""]
     if data["trees"] and data["method"] != "attack_trees":
         lines += _trees_md(model, data, appendix(r("trees_heading", count=len(data["trees"])), locale))
     if data["mappings"] and data["method"] != "attack":
         lines += _attack_md(model, data, appendix(r("appendix_attack"), locale))
+    lines += _sections_md(model, appendix, locale)
+    found = properties(model, data)
+    if found:
+        lines += ["## " + appendix(r("appendix_properties"), locale), "", _row(r("col_where"), r("col_property"), r("col_value")), "|---|---|---|",
+                  *(_row(_cell(where), _cell(key), _cell(value)) for where, key, value in found[:PROPERTY_ROWS]), ""]
+        if len(found) > PROPERTY_ROWS:
+            lines += [r("rest_in_json", count=len(found) - PROPERTY_ROWS), ""]
     lines += ["## " + r("method_heading"), "", *(f"- {line}" for line in coverage(model, data)), "",
               f"> {r('note')} {disclaimer(locale)}", ""]
     return "\n".join(lines)
+
+
+def _sections_md(model: dict, appendix, locale: str) -> list[str]:
+    r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
+    values, blocks = sections(model)
+    lines: list[str] = []
+    if values:
+        lines += ["## " + appendix(r("model_properties"), locale), "", _row(r("col_property"), r("col_value")), "|---|---|",
+                  *(_row(_cell(key), _cell(value)) for key, value in values[:SECTION_ROWS]), ""]
+    for title, value in blocks:
+        lines += ["## " + appendix(_line(title), locale), ""]
+        shaped = table_of(value)
+        if shaped is None:
+            lines += [f"- {_line(value_text(item))}" for item in value[:SECTION_ROWS]]
+        else:
+            columns, rows = shaped
+            columns = columns or [r("col_property"), r("col_value")]
+            lines += [_row(*(_cell(column) for column in columns)), "|" + "---|" * len(columns), *(_row(*(_cell(cell) for cell in row)) for row in rows[:SECTION_ROWS])]
+        if len(value) > SECTION_ROWS:
+            lines += ["", r("rest_in_json", count=len(value) - SECTION_ROWS)]
+        lines.append("")
+    return lines
 
 
 def _trees_md(model: dict, data: dict, heading: str) -> list[str]:
@@ -559,9 +743,9 @@ def _attack_md(model: dict, data: dict, heading: str) -> list[str]:
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
     lines = ["## " + heading, "", _row(r("col_technique"), r("col_tactic"), r("col_element"), r("col_status"), r("col_note")), "|---|---|---|---|---|"]
     for item in data["mappings"]:
-        _, _, tactics = threat_methods.TECHNIQUES[item["technique"]]
+        tactics = threat_methods.technique_tactics(item["technique"])
         element = _element_name(model, data, item["element"]) if item.get("element") else r("whole_system")
         lines.append(_row(f"{item['technique']} {_cell(text(threat_methods.technique_label(item['technique']), locale))}",
                           ", ".join(text(threat_methods.TACTICS[tactic], locale) for tactic in tactics),
-                          _cell(element), r(f"mapping_status.{item['status']}"), _cell(item.get("note") or "")))
+                          _cell(element), _cell(_mapping_status(item["status"], locale)), _cell(item.get("note") or "")))
     return lines + ["", r("attack_trademark"), ""]

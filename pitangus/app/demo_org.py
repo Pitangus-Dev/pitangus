@@ -46,7 +46,7 @@ class Repository:
     files: tuple[str, ...]                   # sample files (fixtures/) in its snapshot
     days: tuple[int, ...]                    # days ago of each full scan, oldest first
     opengrep: tuple[str, ...] = ()           # files of tests/fixtures/opengrep.json it keeps
-    gitleaks: bool = False
+    betterleaks: bool = False
     trivy: tuple[tuple[str, tuple[str, ...]], ...] = ()  # (recorded output, targets kept; empty keeps all)
     osv: bool = False
     checkov: bool = False
@@ -63,7 +63,7 @@ class Repository:
 
 
 REPOSITORIES = (
-    Repository("checkout-api", ("app.py", "config.py", "Dockerfile"), (29, 22, 15, 8, 2), opengrep=("app.py",), gitleaks=True,
+    Repository("checkout-api", ("app.py", "config.py", "Dockerfile"), (29, 22, 15, 8, 2), opengrep=("app.py",), betterleaks=True,
                trivy=(("fixtures/trivy.json", ("Dockerfile", "config.py")), ("engine-outputs/trivy-deps.json", ()))),
     Repository("storefront-web", ("index.php", "app.js", "package.json", "package-lock.json"), (27, 20, 13, 6, 1),
                opengrep=("index.php", "app.js"), trivy=(("fixtures/trivy.json", ("package-lock.json",)),),
@@ -153,7 +153,7 @@ def _replayed(key: str, findings: list, **extra) -> dict:
 def _code_outputs(recordings: Recordings, repository: Repository, root: Path, feeds: dict, opengrep_files: tuple[str, ...]) -> dict:
     """Every finding each engine recorded for this repository, by engine, plus Trivy's package list."""
     from pitangus.modules.scanning.config_engines import parse_checkov, parse_zizmor
-    from pitangus.modules.scanning.engines import parse_gitleaks, parse_opengrep, parse_osv_scanner, parse_trivy, trivy_packages
+    from pitangus.modules.scanning.engines import parse_betterleaks, parse_opengrep, parse_osv_scanner, parse_trivy, trivy_packages
     opengrep = recordings.json("fixtures/opengrep.json")
     kept = {"results": [item for item in opengrep["results"] if Path(item["path"]).name in opengrep_files]}
     trivy: dict[str, list] = {"Results": []}
@@ -161,8 +161,8 @@ def _code_outputs(recordings: Recordings, repository: Repository, root: Path, fe
         trivy["Results"] += [item for item in recordings.json(name).get("Results") or [] if not targets or item.get("Target") in targets]
     return {
         "opengrep": parse_opengrep(kept) if opengrep_files else [],
-        "gitleaks": parse_gitleaks(recordings.json("fixtures/gitleaks.json"), None, root) if repository.gitleaks else [],
-        "trivy": parse_trivy(trivy, feeds), "packages": trivy_packages(trivy),
+        "betterleaks": parse_betterleaks(recordings.json("fixtures/betterleaks.json"), None, root) if repository.betterleaks else [],
+        "trivy": parse_trivy(trivy, feeds, root=root), "packages": trivy_packages(trivy),
         "osv-scanner": parse_osv_scanner(recordings.json("engine-outputs/osv-scanner.json"), feeds) if repository.osv else [],
         "checkov": parse_checkov(recordings.json("engine-outputs/checkov-repo.json")) if repository.checkov else [],
         "zizmor": parse_zizmor(recordings.json("engine-outputs/zizmor.json")) if repository.zizmor else [],
@@ -237,7 +237,7 @@ def seed_pull_request(data_dir: Path, recordings: Recordings, fixtures: Path, re
     scan = _code_scan(data_dir, recordings, fixtures, repository, feeds, repository.files + pull["files"],
                       repository.opengrep + pull["files"], lambda item: present(item, scans - 1, scans))
     changed = dict.fromkeys(pull["files"])
-    outcome = pr_review.classify(scan["findings"], changed, {item["fingerprint"] for item in baseline["findings"]})
+    outcome = pr_review.classify(scan["findings"], changed, baseline["findings"])
     verdict = pr_review.verdict(outcome["introduced"], "high")
     introduced: list[Any] = outcome["introduced"]
     summary = {**scan["summary"], "candidates": len(introduced),

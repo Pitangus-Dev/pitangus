@@ -48,7 +48,7 @@ def _python(path: Path) -> set[str]:
             items += [name for name in poetry if name != "python"]
         else:
             items = path.read_text(encoding="utf-8").splitlines()
-    except (OSError, ValueError, UnicodeError, tomllib.TOMLDecodeError):
+    except (OSError, ValueError, UnicodeError, tomllib.TOMLDecodeError, AttributeError, TypeError):  # `project = "x"`
         return names
     for line in items:
         match = re.match(r"\s*([A-Za-z0-9][A-Za-z0-9_.\-]{0,99})", str(line))

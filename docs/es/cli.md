@@ -2,9 +2,9 @@
 
 # Analizar desde la terminal y en CI (`scan`)
 
-`scan` analiza una carpeta local con los mismos motores que el panel (Opengrep, Gitleaks,
-Trivy, OSV-Scanner, Checkov, zizmor), sin ejecutar su código y sin enviarlo a ningún servicio.
-Sirve para revisar tu cambio antes de subirlo y para bloquear un pull request en CI.
+`scan` analiza una carpeta local con los mismos motores que el panel (Opengrep, Betterleaks, Trivy, OSV-Scanner,
+zizmor, y Checkov con `PITANGUS_CHECKOV_ENABLED=1`), sin ejecutar su código y sin enviarlo a ningún servicio. Sirve
+para revisar tu cambio antes de subirlo y para bloquear un pull request en CI.
 
 ## Uso rápido
 
@@ -15,11 +15,15 @@ make scan DIR=../mi-repo
 make scan DIR=../mi-repo ARGS="--base main"
 ```
 
-Con `--base main` solo se informa de lo que **tu cambio introduce**. Pitangus analiza también el
-punto de partida (el merge-base con `main`) y descarta lo que ya estaba: si tocas un
-`package-lock.json` que ya tenía vulnerabilidades, no te las cobra; si añades una dependencia
-vulnerable, sí. Cuenta lo que aún no has subido (cambios sin commit y archivos nuevos que git no
-ignora), así que funciona antes del push.
+Con `--base main` solo se informa de lo que **tu cambio introduce**. Pitangus analiza también el punto de partida
+(el merge-base con `main`) y descarta lo que ya estaba: si tocas un `package-lock.json` que ya tenía
+vulnerabilidades, no te las cobra; si añades una dependencia vulnerable, sí. Mover una línea vulnerable a otro
+archivo o renombrar un archivo no es introducirla ni corregirla; copiarla en otro archivo sí (la misma comparación
+que la revisión de un PR: [Qué cuenta como introducido](analisis-de-codigo.md#qué-cuenta-como-introducido)). Una
+carpeta se analiza tal como está en disco: también cuentan los cambios sin commit y los archivos nuevos que git no
+ignora. Para analizar justo lo que vas a commitear o subir, agrega `--commit HEAD` (un commit, leído de git) o
+`--staged` (lo que tendrá el próximo commit): los archivos sin seguimiento y los cambios sin commit no pueden
+cambiar el resultado. Eso hace el hook de pre-push.
 
 ```text
 Pitangus · mi-repo · cambios respecto a main (merge-base 73223791, 3 archivos)
@@ -33,9 +37,9 @@ ALTA     settings.py:1  Token personal de GitHub expuesto
 Corregido en este cambio (1): estaba en el punto de partida, ya no está y su archivo cambió.
   ALTA     db.py:14  SQL construido concatenando cadenas
 
-Motores: Opengrep 1.30.0, Gitleaks 8.30.1, Trivy 0.75.0, OSV-Scanner 2.6.0
+Motores: Opengrep 1.30.0, Betterleaks 1.9.0, Trivy 0.75.0, OSV-Scanner 2.6.0
 
-BLOQUEA · umbral: alta o superior · 7 hallazgos nuevos de severidad alta o superior
+BLOQUEA · umbral: alta o superior · 3 hallazgos nuevos de severidad alta o superior
 ```
 
 **Lo que corrige el cambio.** Al comparar los dos análisis también sale lo que tenía el punto de partida y el
@@ -53,9 +57,11 @@ Los avisos de una misma dependencia salen en una línea con la versión que los 
 | Opción | Qué hace |
 | --- | --- |
 | `--base REF` | Rama o commit de partida (`main`, `origin/main`, un SHA). Solo cuenta lo que introduce el cambio. |
+| `--commit REF` | Analiza ese commit tal como lo guarda git, no la carpeta en disco: los archivos sin seguimiento y los cambios sin commit no cuentan. Con `--base`, el cambio es lo que va del merge-base a ese commit. |
+| `--staged` | Analiza lo preparado (el índice), tal como quedará en el próximo commit: los archivos sin seguimiento y los cambios sin preparar no cuentan. |
 | `--no-baseline` | Con `--base`, no analiza el punto de partida: tarda la mitad, pero cuenta todo lo que cae en líneas cambiadas (y cualquier aviso de un lockfile que toques). |
 | `--fail-on` | Severidad desde la que falla: `critical`, `high` (por defecto), `medium`, `low` o `never` (solo informa). |
-| `--format` | `text` (por defecto), `json` o `sarif` (SARIF 2.1.0, con `security-severity` para GitHub code scanning). |
+| `--format` | `text` (por defecto), `json`, `sarif` (SARIF 2.1.0, con `security-severity` para GitHub code scanning) o `prompt`: un prompt por hallazgo, del más grave al menos, para pegar en tu propio asistente de IA (la regla, dónde está, el código encontrado y la corrección; nunca el valor de un secreto ni código fuera del fragmento). Pitangus no llama a ninguna IA. |
 | `--output FILE` | Escribe el resultado en un archivo; el resumen en texto sale igualmente por la salida de errores. |
 | `--exclude PATRÓN` | Ruta cuyos hallazgos no cuentan: glob relativo a la raíz (`fixtures`, `**/testdata`, `docs/*.md`). Como en `.gitignore`, una carpeta excluye todo lo que tiene dentro; `*` no cruza `/` y `**` sí. Repetible. La salida dice cuántos se excluyeron. |
 | `--allow-incomplete` | No falla si un motor no pudo ejecutarse. Por defecto sí falla: un análisis que no terminó no equivale a «limpio». |
@@ -65,6 +71,11 @@ Los avisos de una misma dependencia salen en una línea con la versión que los 
 | `--quiet` | Sin mensajes de progreso. |
 
 El progreso va a la salida de errores; la salida estándar queda limpia para `json` y `sarif`.
+
+El veredicto cuenta las filas que muestra: los avisos de una dependencia son una fila. Debajo de los motores, *Sin
+analizar* nombra cada motor que no corrió (uno desactivado lo dice), y una línea como *Opengrep 1.30.0 no examinó 2
+archivos (error de lectura): a.py, b.py* nombra los archivos que un motor que sí corrió no pudo leer: nada de lo que
+pudiera encontrar ahí cuenta como corregido.
 
 ## Códigos de salida
 
@@ -81,11 +92,17 @@ conservan el código exacto.
 ## Antes de subir (pre-push)
 
 Un análisis completo tarda del orden de medio minuto, así que encaja mejor en `pre-push` que en
-`pre-commit`. En `.git/hooks/pre-push` de tu repositorio (y `chmod +x`):
+`pre-commit`. El hook de [pre-commit](https://pre-commit.com) (mira el
+[inicio rápido para desarrolladores](inicio-rapido-desarrollador.md)) analiza lo que vas a subir: el commit que
+subes tal como lo guarda git, frente a lo que el remoto ya tiene, así que un archivo sin seguimiento o un cambio que
+no commiteaste no puede bloquear el push. `PITANGUS_BASE` fija otro punto de partida; `args: [--staged]` analiza el
+índice, para una etapa `pre-commit`.
+
+Sin pre-commit, en `.git/hooks/pre-push` de tu repositorio (y `chmod +x`):
 
 ```sh
 #!/bin/sh
-make -s -C ~/pitangus scan DIR="$(git rev-parse --show-toplevel)" ARGS="--base origin/main --quiet"
+make -s -C ~/pitangus scan DIR="$(git rev-parse --show-toplevel)" ARGS="--commit HEAD --base origin/main --quiet"
 ```
 
 ## Importar resultados de otras herramientas (`import-sarif`)
@@ -112,7 +129,7 @@ En el panel, **Nuevo análisis → Importar SARIF** hace lo mismo desde el naveg
 
 ## En CI
 
-En CI, Pitangus corre desde la imagen publicada del worker, `ghcr.io/pitangus-dev/pitangus-worker:0.13`, que trae
+En CI, Pitangus corre desde la imagen publicada del worker, `ghcr.io/pitangus-dev/pitangus-worker:0.14`, que trae
 los motores dentro y los ejecuta como procesos propios: nada que construir y sin socket de Docker.
 
 ### GitHub Actions
@@ -141,7 +158,7 @@ jobs:
           fetch-depth: 0              # hace falta la historia para comparar con la base
           persist-credentials: false
       - id: pitangus
-        uses: Pitangus-Dev/pitangus@v0.13.1   # fíjala al SHA del commit de la etiqueta, como las demás
+        uses: Pitangus-Dev/pitangus@v0.14.0   # fíjala al SHA del commit de la etiqueta, como las demás
         with:
           exclude: |
             fixtures/
@@ -163,9 +180,10 @@ log, en inglés salvo que el paso ponga `env: PITANGUS_DEFAULT_LOCALE: es`.
 | `exclude` | vacío | Un patrón por línea; cada uno se convierte en un `--exclude`. |
 | `name` | el nombre del repositorio | Como `--name`. |
 | `sarif` | `$RUNNER_TEMP/pitangus.sarif` | Dónde escribir el SARIF (las rutas relativas parten del workspace). |
-| `image` | `ghcr.io/pitangus-dev/pitangus-worker:0.13` | Imagen del worker. Fíjala por digest (`…@sha256:…`) si no quieres que nada cambie sin avisar. |
+| `image` | `ghcr.io/pitangus-dev/pitangus-worker:0.14` | Imagen del worker. Fíjala por digest (`…@sha256:…`) si no quieres que nada cambie sin avisar. |
 | `verify` | `true` | `false`: no comprueba la firma de la imagen. Solo para una `image` tuya (un fork, un espejo privado): la imagen publicada se comprueba siempre. |
 | `allow-incomplete` | `false` | `true`: como `--allow-incomplete`. |
+| `cache` | `true` | `false`: descarga las bases de avisos de los motores en cada ejecución. Por defecto se guardan durante el día con `actions/cache`. |
 | `scan` | `true` | `false`: no analiza, solo importa (más abajo). |
 | `import-sarif` | vacío | SARIF de otras herramientas que se envían a un servidor Pitangus, uno por línea. |
 | `server` | vacío | El servidor Pitangus (`https://…`) para `import-sarif`. |
@@ -205,7 +223,7 @@ sin el análisis propio de Pitangus:
         run: |
           python -m pip install semgrep   # fija la versión
           semgrep scan --config p/ci --metrics off --sarif --output semgrep.sarif
-      - uses: Pitangus-Dev/pitangus@v0.13.1
+      - uses: Pitangus-Dev/pitangus@v0.14.0
         if: always()
         with:
           scan: false
@@ -224,7 +242,7 @@ Sin socket de Docker y sin Docker-in-Docker.
 ```yaml
 pitangus:
   stage: test
-  image: ghcr.io/pitangus-dev/pitangus-worker:0.13
+  image: ghcr.io/pitangus-dev/pitangus-worker:0.14
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
@@ -241,12 +259,13 @@ En un runner con ejecutor `shell`, usa `docker run` como hace la Action, sin el 
 ```sh
 mkdir -p /tmp/pitangus-data   # la creas tú, no Docker: tiene que ser de tu usuario
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/src:ro -v /tmp/pitangus-data:/data \
-  ghcr.io/pitangus-dev/pitangus-worker:0.13 python -m pitangus scan /src --name "$CI_PROJECT_NAME" --base "origin/$BASE"
+  ghcr.io/pitangus-dev/pitangus-worker:0.14 python -m pitangus scan /src --name "$CI_PROJECT_NAME" --base "origin/$BASE"
 ```
 
 > El propio repositorio de Pitangus usa la Action en [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), y
 > además se analiza con la imagen construida en cada commit (con `--exclude fixtures/` para sus ejemplos vulnerables
-> a propósito). La plantilla de GitLab está comprobada en local con la misma imagen y un checkout de otro usuario,
+> a propósito, y `--exclude` para un fichero de datos cuyos resúmenes de reglas `generic-password` toma por
+> contraseñas: un JSON no admite un comentario de permiso; los dos figuran como excluidos en la salida). La plantilla de GitLab está comprobada en local con la misma imagen y un checkout de otro usuario,
 > pero aún no en un runner real. Si algo falla, el motivo aparece en la línea «Sin analizar».
 
 **Exclusiones en CI.** `exclude` vive en el workflow, que un pull request puede modificar. Protege

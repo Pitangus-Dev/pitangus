@@ -139,5 +139,40 @@ class ExclusionApiTests(HttpCase):
         self.assertEqual((status, len(view["findings"]), view["summary"]["lifecycle"]["excluded"]), (200, 1, 1))
 
 
+    def test_the_preview_says_what_would_move_and_saves_nothing(self):
+        admin, member = self.cookie("operadora"), self.cookie("analista")
+        body = {"key": KEY, "patterns": ["fixtures"]}
+        self.assertEqual(self.post("/api/assets/exclusions/preview", "preview-exclusions", body, member)[0], 403)
+        status, preview, _ = self.post("/api/assets/exclusions/preview", "preview-exclusions", body, admin)
+        self.assertEqual((status, preview), (200, {"excluded": 1, "reopened": 0, "excluded_paths": ["fixtures/vuln.py"], "reopened_paths": [],
+                                                   "excluded_path_count": 1, "reopened_path_count": 0}))
+        self.assertEqual(self.call("GET", f"/api/assets/exclusions?key={QUERY_KEY}", headers={"Cookie": admin})[1]["patterns"], [])
+        # The same checks as saving, before saving.
+        status, refused, _ = self.post("/api/assets/exclusions/preview", "preview-exclusions", {**body, "patterns": ["**"]}, admin)
+        self.assertEqual(status, 400)
+        self.assertIn("**", refused["error"])
+        # Once saved, dropping the path previews the finding going back to open.
+        self.post("/api/assets/exclusions", "save-exclusions", {**body, "reason": "Ejemplos vulnerables a propósito"}, admin)
+        status, preview, _ = self.post("/api/assets/exclusions/preview", "preview-exclusions", {**body, "patterns": []}, admin)
+        self.assertEqual((preview["excluded"], preview["reopened"], preview["reopened_paths"]), (0, 1, ["fixtures/vuln.py"]))
+
+    def test_only_admins_release_a_fix_hold_and_the_asset_shows_it(self):
+        import os
+        from unittest.mock import patch
+        member, admin = self.cookie("analista"), self.cookie("operadora")
+        with patch.dict(os.environ, {"PITANGUS_COVERAGE_MODE": "on", "PITANGUS_FIX_HOLD_MINIMUM": "2"}):
+            held = scan([], (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())
+            held["summary"]["tools"] = [{"name": "opengrep", "version": "1", "status": "completed"}]
+            save_repository_scan(self.data_dir, held)
+            status, view, _ = self.call("GET", f"/api/assets/state?key={QUERY_KEY}", headers={"Cookie": member})
+            self.assertEqual((status, view["control"]["hold"]["count"], view["control"]["mode"]), (200, 2, "on"))
+            self.assertEqual(self.post("/api/assets/fix-hold", "release-fix-hold", {"asset": KEY}, member)[0], 403)
+            self.assertEqual(self.post("/api/assets/fix-hold", "release-fix-hold", {"asset": "github#999"}, admin)[0], 404)
+            status, released, _ = self.post("/api/assets/fix-hold", "release-fix-hold", {"asset": KEY}, admin)
+            self.assertEqual((status, released), (200, {"released": 2}))
+            status, health, _ = self.call("GET", "/api/findings/health", headers={"Cookie": member})
+            self.assertEqual((status, health["assets"], health["engines"], health["blind_engines"]), (200, 1, 1, 0))
+
+
 if __name__ == "__main__":
     unittest.main()

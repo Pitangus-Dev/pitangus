@@ -12,7 +12,7 @@ backups
 .pytest_cache
 .claude
 .cache
-# Not part of any image: the build only copies web/, pitangus/, rules/ and requirements.txt.
+# Not part of any image: the build only copies web/, pitangus/, rules/, third_party/ and requirements.txt.
 tests
 docs
 docs-site

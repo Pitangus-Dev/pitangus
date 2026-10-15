@@ -11,7 +11,8 @@ in the [glossary](glossary.md).
 ## Prerequisites
 
 - Pitangus running ([installation](installation.md)), with the engine images available (`make up` or
-  `make engines`): Trivy, Grype and Checkov.
+  `make engines`): Trivy, plus Grype and Checkov if you turned them on (`PITANGUS_GRYPE_ENABLED=1`,
+  `PITANGUS_CHECKOV_ENABLED=1`; both are off by default).
 - The image reference, exactly as you'd use it in `docker pull`: `ghcr.io/acme/api:1.4`, `nginx:1.27` (Docker Hub
   images can go without the registry) or `…@sha256:…`. Pin a version or a digest so you know exactly what you
   reviewed; without a tag, `latest` is assumed.
@@ -69,14 +70,14 @@ These are the same codes as `scan-repository` and [`scan`](cli.md).
 
 | What | How |
 | --- | --- |
-| System and application packages | **Trivy 0.75.0 and Grype 0.120.0.** On source code they agree almost completely; on images they disagree on packages whose fixes the distribution backported (on `nginx:1.21`: 781 advisories in common, 99 only from Trivy and 11 only from Grype, one of them critical). Advisories are merged by package, version and identifier (CVE or GHSA); those both engines see get a confidence boost. |
+| System and application packages | **Trivy 0.75.0, and Grype 0.120.0 when turned on** (`PITANGUS_GRYPE_ENABLED=1`; off by default, it shows as not run (disabled) and fixes nothing it found before). On source code they agree almost completely; on images they disagree on packages whose fixes the distribution backported (on `nginx:1.21`: 781 advisories in common, 99 only from Trivy and 11 only from Grype, one of them critical). Advisories are merged by package, version and identifier (CVE or GHSA), with names compared as both engines write them (a Java package is `group:artifact` to Trivy and `artifact` to Grype; a Go toolchain is `v1.22.1` to one and `go1.22.1` to the other); those both engines see get a confidence boost. Of a multi-platform image, both analyze the same platform: Grype the one Trivy read (`linux/amd64` usually; Grype's step names it), never the server's own (an ARM server would otherwise mix two images). |
 | Secrets in layers | Trivy looks for credentials in each layer's files. |
 | Credentials in `ENV` | Variables with a secret-like name (`*_TOKEN`, `*_PASSWORD`, `API_KEY`…) and a hard-coded value: anyone who pulls the image reads them with `docker inspect`. |
 | Credentials in the build history | `ARG`s used in a `RUN` (for example `NPM_TOKEN=… npm ci`), URLs with a username and password, and hard-coded `Authorization` headers: they stay in the image and `docker history` shows them. The recommended fix is BuildKit's `RUN --mount=type=secret`. |
 | Configuration | Pitangus rules: root user, missing `HEALTHCHECK`, `ADD` from a URL, exposed SSH, the `latest` tag without a digest, and images more than a year old. |
-| History instructions | **Checkov** on a Dockerfile rebuilt from the image's history: downloads with TLS checks disabled (`curl -k`, `wget --no-check-certificate`, `NODE_TLS_REJECT_UNAUTHORIZED=0`), `pip --trusted-host`, unsigned package managers, `sudo`, `chpasswd`… Each finding points to the history step. The Dockerfile is rebuilt because Checkov's own image mode requires a Prisma Cloud account. |
+| History instructions | **Checkov**, when turned on (`PITANGUS_CHECKOV_ENABLED=1`), on a Dockerfile rebuilt from the image's history: downloads with TLS checks disabled (`curl -k`, `wget --no-check-certificate`, `NODE_TLS_REJECT_UNAUTHORIZED=0`), `pip --trusted-host`, unsigned package managers, `sudo`, `chpasswd`… Each finding points to the history step. The Dockerfile is rebuilt because Checkov's own image mode requires a Prisma Cloud account. |
 
-Configuration findings that Trivy, Checkov and the Pitangus rules all see stay one finding (the Pitangus rule is the
+Configuration findings that Trivy, Checkov (when on) and the Pitangus rules all see stay one finding (the Pitangus rule is the
 primary one). Dependency advisories get the same treatment as in a code scan: fixed version, KEV, EPSS and priority
 ([Dependency findings](scanning-code.md#dependency-findings)).
 
@@ -110,7 +111,11 @@ reopened. The run's header shows the digest and how many advisories both engines
 
 - **The link to its repository.** Pitangus reads it from the image's OCI labels
   (`org.opencontainers.image.source` and `org.opencontainers.image.revision`). When they're missing or wrong, an
-  administrator links it by hand (**Link a repository**), and the manual link wins over the label.
+  administrator links it by hand (**Link a repository**), and the manual link wins over the label. Neither has to be
+  scanned first: the picker lists the analyzed repositories and the ones the GitHub App or a connected token reach,
+  and **Link an image** on each row of **Repositories** opens a list of the images to link the ones you
+  choose without leaving the page. A repository not analyzed yet shows as such; the
+  link holds, and it brings the image into that repository's scopes from its first scan.
 - **What the link gives you.** A repository's evidence brings the images built from it, reports say "built from
   org/repo @ commit", and the scope picker in Findings and Compliance can include them with the repository
   ([Several assets at once](findings.md#several-assets-at-once)).

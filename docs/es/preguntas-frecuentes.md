@@ -39,8 +39,9 @@ donde corre.
 
 No. Los análisis web son pasivos: peticiones `GET` y `HEAD` normales, un navegador que sigue enlaces, saludos TLS. Sin
 inyecciones, sin fuzzing, sin enviar formularios salvo el inicio de sesión de un usuario de prueba, sin POST, PUT ni
-DELETE. Están apagados salvo que el servidor defina `PITANGUS_DAST_ENABLED=1`, solo quien administra puede lanzarlos o
-programarlos, y solo contra un dominio cuyo control se demostró. Un análisis pasivo hace peticiones reales, así que
+DELETE. La comprobación de exposición solo pide la raíz de cada host y rutas conocidas; el análisis completo, que
+rastrea, es experimental y está apagado salvo que el servidor defina `PITANGUS_DAST_ENABLED=1`. Solo quien administra
+puede lanzarlos o programarlos, y solo contra un dominio cuyo control se demostró. Un análisis pasivo hace peticiones reales, así que
 lánzalo solo contra sitios que tengas permiso de probar. Ver [Analizar un sitio web o una API](analisis-web.md).
 
 ## Pocos hallazgos: ¿significa que estoy seguro?
@@ -91,7 +92,7 @@ Sí. Pitangus y sus motores corren como contenedores: Docker Engine 24 o posteri
 
 ## ¿Está listo para producción?
 
-Está en beta (v0.13). Funciona y tiene pruebas, pero la API y los formatos de datos todavía pueden cambiar entre
+Está en beta (v0.14). Funciona y tiene pruebas, pero la API y los formatos de datos todavía pueden cambiar entre
 versiones. Cada versión dice qué hacer antes de actualizar. Haz copias de seguridad (`make backup`) y lee la
 [guía para actualizar](actualizar.md) antes de cada actualización.
 

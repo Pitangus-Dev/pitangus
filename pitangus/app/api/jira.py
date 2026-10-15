@@ -29,6 +29,7 @@ FIELD_TYPES = Literal["text", "rich_text", "number", "date", "datetime", "option
                       "unsupported", "managed"]
 VARIABLE_TYPES = Literal["text", "rich_text", "number", "date", "datetime", "labels"]
 SEVERITY = Literal["critical", "high", "medium", "low", "info"]
+LOCALE = Literal["en", "es"]
 MODE = Literal["manual", "auto"]
 
 
@@ -128,9 +129,23 @@ class JiraFieldError(BaseModel):
     error: str
 
 
+class JiraWorkflowStatus(BaseModel):
+    id: str
+    name: str
+    category: str | None = None  # Jira's status category: new, indeterminate or done
+
+
+class JiraOnFixed(BaseModel):
+    """What a verified fix does besides the comment: a label (null: none) and a status to move the issue to (null:
+    Pitangus never transitions it, the default)."""
+    label: str | None = None
+    status: JiraWorkflowStatus | None = None
+
+
 class JiraDestination(Open):
     """Project + issue type + mapping. `fields`: the snapshot of the mapped fields (null for one migrated from the
-    single project of earlier versions, `legacy`, until it is saved again)."""
+    single project of earlier versions, `legacy`, until it is saved again). `locale`: the language of its issues and
+    comments (null: PITANGUS_DEFAULT_LOCALE)."""
     id: str
     name: str
     project: dict[str, Any]
@@ -138,6 +153,8 @@ class JiraDestination(Open):
     mapping: dict[str, dict[str, Any]]
     fields: dict[str, dict[str, Any]] | None = None
     legacy: bool | None = None
+    on_fixed: JiraOnFixed
+    locale: LOCALE | None = None
 
 
 class JiraRule(Open):
@@ -167,8 +184,20 @@ class JiraDestinationSaved(BaseModel):
     routing: JiraRouting
 
 
+class JiraIssueLink(BaseModel):
+    key: str
+    url: str
+
+
+class JiraFailure(BaseModel):
+    """One reason issues failed, and how many."""
+    error: str
+    count: int
+
+
 class JiraBackfill(Open):
-    """One rule's last backfill: issues queued and what became of them (`pending` still in the queue)."""
+    """One rule's last backfill: issues queued and what became of them (`pending` still in the queue), the first
+    issues created and why the failed ones failed."""
     rule: str
     batch: str | None = None
     by: str | None = None
@@ -183,6 +212,8 @@ class JiraBackfill(Open):
     pending: int = 0
     truncated: bool = False
     last_error: str | None = None
+    issues: list[JiraIssueLink] = Field(default_factory=list, max_length=jira_sync.RESULT_ISSUES)
+    errors: list[JiraFailure] = Field(default_factory=list, max_length=jira_sync.RESULT_REASONS)
 
 
 class JiraBackfills(BaseModel):
@@ -195,13 +226,24 @@ class JiraRuleSaved(BaseModel):
     routing: JiraRouting
 
 
+class JiraIssueSample(BaseModel):
+    """One issue of the preview as Jira would show it: its title and the first lines of its description."""
+    asset: str
+    summary: str
+    lines: list[str] = Field(max_length=jira_sync.SAMPLE_LINES)
+    findings: int
+
+
 class JiraRulePreview(BaseModel):
-    """What a backfill of this rule would queue now (up to the backfill limit)."""
+    """What this rule would create now (up to the backfill limit): an automatic rule, the open findings at or above
+    its minimum severity without an issue; a manual one, every open finding without an issue of its repositories.
+    `sample`: the most severe of those issues, as it would read."""
     assets: int
     findings: int
     issues: int
     linked: int
     truncated: bool
+    sample: JiraIssueSample | None = None
 
 
 class JiraExportItem(Open):
@@ -241,6 +283,8 @@ class JiraQueued(BaseModel):
     linked_items: list[JiraExportItem] = Field(default_factory=list, max_length=jira_sync.MANUAL_MAX)
     relinked: int = 0  # findings whose linked issue had been deleted in Jira: queued again
     force: bool = False
+    issues: list[JiraIssueLink] = Field(default_factory=list, max_length=jira_sync.RESULT_ISSUES)
+    errors: list[JiraFailure] = Field(default_factory=list, max_length=jira_sync.RESULT_REASONS)
 
 
 class JiraBatches(BaseModel):
@@ -276,14 +320,26 @@ class JiraMappingIn(BaseModel):
     text: str | None = Field(None, max_length=jira_mapping.TEMPLATE_MAX)
 
 
+class JiraOnFixedIn(BaseModel):
+    """`label`: added when a scan verifies the issue fixed (empty: none). `status`: a status id of the issue type's
+    workflow to move it to (empty: never move it)."""
+    model_config = ConfigDict(extra="forbid")
+    label: str | None = Field(None, max_length=60)
+    status: str | None = Field(None, max_length=18)
+
+
 class JiraDestinationIn(BaseModel):
-    """`project`: key or id; `issue_type`: id (or name). No `mapping`: Pitangus's suggested one."""
+    """`project`: key or id; `issue_type`: id (or name). No `mapping`: Pitangus's suggested one. Without `on_fixed`
+    or `locale`, what the destination had stays (a new one: the `pitangus-fixed` label, no transition, the default
+    language)."""
     model_config = ConfigDict(extra="forbid")
     id: str | None = Field(None, max_length=12)
     name: str = Field(max_length=routing.NAME_MAX)
     project: str = Field(max_length=20)
     issue_type: str = Field(max_length=60)
     mapping: dict[str, JiraMappingIn | None] | None = Field(None, max_length=jira_mapping.MAX_FIELDS)
+    on_fixed: JiraOnFixedIn | None = None
+    locale: LOCALE | None = None
 
 
 class JiraRuleIn(BaseModel):
@@ -454,6 +510,19 @@ def jira_field_values(project: str, issue_type: str, field: str, q: str = Query(
         raise ApiError(400, problem(exc)) from exc
 
 
+class JiraStatuses(BaseModel):
+    """The statuses of an issue type's workflow: where a destination may move a fixed issue."""
+    items: list[JiraWorkflowStatus] = Field(max_length=jira.MAX_STATUSES)
+
+
+@router.get("/api/integrations/jira/projects/{project}/issue-types/{issue_type}/statuses", response_model=JiraStatuses)
+def jira_statuses(project: str, issue_type: str, context: Context = Depends(guard(Policy(admin=True)))) -> Any:
+    try:
+        return context.render({"items": jira.statuses(project, issue_type)})
+    except jira.JiraError as exc:
+        raise ApiError(400, problem(exc)) from exc
+
+
 @router.get("/api/integrations/jira/variables", response_model=JiraVariables)
 def jira_variables(context: Context = Depends(guard(Policy(admin=True)))) -> Any:
     return context.render({"variables": jira_mapping.variables(), "sources": ["pitangus", "fixed", "template"],
@@ -476,9 +545,9 @@ def jira_destination_save(context: Context = Depends(guard(Policy(admin=True, ac
     """Creates (no `id`) or updates a destination, validated against Jira's live create metadata."""
     data = _parse(JiraDestinationIn, payload)
     mapping = {key: (value.model_dump(exclude_none=True) if value else None) for key, value in (data.mapping or {}).items()}
+    sent = data.model_dump(exclude={"mapping"}, exclude_unset=True)  # what is left out keeps its saved value
     try:
-        saved, warnings = routing.save_destination(context.data_dir, {**data.model_dump(exclude={"mapping"}), "mapping": mapping},
-                                                   by=_by(context))
+        saved, warnings = routing.save_destination(context.data_dir, {**sent, "mapping": mapping}, by=_by(context))
     except routing.RoutingError as exc:
         raise _routing_error(exc) from exc
     except jira.JiraError as exc:

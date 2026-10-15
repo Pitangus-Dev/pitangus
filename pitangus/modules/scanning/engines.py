@@ -6,7 +6,7 @@
 - OSV-Scanner: dependencies against the OSV database (which includes Dependabot's GitHub
   Advisory Database) and more manifest formats (.NET, Gradle, uv…). Downloads the advisory
   databases and compares locally; what matches Trivy is merged into a single finding.
-- Gitleaks: high-precision secrets. No network.
+- Betterleaks: high-precision secrets. No network.
 - Opengrep: multi-language SAST with our own rules (`rules/`). No network.
 - Checkov and zizmor: infrastructure as code and CI/CD pipelines (`config_scanners`). No network.
 
@@ -22,6 +22,10 @@ Secret values are never stored: only rule, file and line.
 from __future__ import annotations
 
 import hashlib
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from contextlib import contextmanager
+from functools import cmp_to_key, partial
 import json
 import os
 import re
@@ -29,23 +33,32 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import threading
 import time
+import tomllib
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from pitangus.shared import log as logging_setup, paths, settings
-from pitangus.shared.i18n import msg
+from pitangus.shared import db, log as logging_setup, paths, render, settings
+from pitangus.shared.i18n import catalog, is_msg, msg
+from pitangus.shared.masking import mask
 from pitangus.modules.intel import data_sources
-from pitangus.modules.intel.advisories import compare_versions, cvss3_base_score, prioritize, severity_from_score
+from pitangus.modules.intel.advisories import compare_versions, cvss3_base_score, is_malicious, mark_malicious, prioritize, severity_from_score
 from pitangus.modules.intel.advisories import fingerprint as sca_fingerprint
 from pitangus.modules.intel.packages import dependency_fingerprint
-from pitangus.modules.scanning import secret_rules
-from pitangus.shared.model import EngineResult, Finding
+from pitangus.modules.scanning import dependency_coverage, dependency_graph, engine_contract, sast_merge, secret_coverage, secret_filter, secret_identity, secret_location, secret_rules, vendored
+from pitangus.modules.scanning.engine_contract import Contract
+from pitangus.modules.scanning.dependency_merge import unique_by_fingerprint
+from pitangus.modules.scanning.folding import absorbed
+from pitangus.modules.sources.repositories import MAX_FILE
+from pitangus.shared.model import EngineResult, Finding, Message
 
 RULES_DIR = paths.RULES_DIR
+THIRD_PARTY_RULES_DIR = paths.THIRD_PARTY_RULES_DIR
+OPENGREP_JOBS = 2
 ENGINE_TMPFS = "1g"
 # Opengrep's release binary unpacks its bundled runtime into /tmp and runs it from there; so does katana's browser
 # driver (go-rod's leakless helper).
@@ -56,8 +69,8 @@ IMAGES = {
     # Dependencies against the OSV database (includes Dependabot's GitHub Advisory Database) and more manifest formats.
     "osv-scanner": {"name": "OSV-Scanner", "version": "2.6.0",
                     "image": "ghcr.io/google/osv-scanner@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa"},
-    "gitleaks": {"name": "Gitleaks", "version": "8.30.1",
-                 "image": "ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f"},
+    "betterleaks": {"name": "Betterleaks", "version": "1.9.0",
+                    "image": "ghcr.io/betterleaks/betterleaks@sha256:e3b95b0db6c2735db17165c009b0ad6d9cef34fb4578659232b98f69d7346cac"},
     "opengrep": {"name": "Opengrep", "version": "1.30.0", "image": "localhost/pitangus/opengrep:1.30.0"},
     # Second opinion on container images: it disagrees with Trivy mostly on system packages.
     "grype": {"name": "Grype", "version": "0.120.0",
@@ -86,16 +99,21 @@ IMAGES = {
     "httpx": {"name": "httpx", "version": "1.12.0",
               "image": "projectdiscovery/httpx:v1.12.0@sha256:f8275a7c6aaec187249df9eaf4ad9196f4677adfc6a51a47b4aaa1d4db4f8ffc"},
 }
-# Engines that reach the internet for a domain instead of reading a snapshot: pulled and listed only with
-# PITANGUS_DAST_ENABLED.
+# Engines that reach the internet for a domain instead of reading a snapshot. Those of the light exposure check (roots and
+# known paths, scanning/web.scan_exposure) are always pulled and listed; the rest, the full DAST, only with
+# PITANGUS_DAST_ENABLED (experimental).
 WEB_ENGINES = frozenset({"zap", "subfinder", "katana", "nuclei", "testssl", "httpx"})
+EXPOSURE_ENGINES = frozenset({"nuclei", "testssl", "httpx"})
 # Languages with our own rules and the extensions that identify them in the snapshot.
 RULE_LANGUAGES = {
     "JavaScript": {".js", ".jsx", ".mjs", ".cjs"}, "TypeScript": {".ts", ".tsx"}, "Python": {".py"},
     "Java": {".java"}, "Go": {".go"}, "PHP": {".php"}, "Ruby": {".rb"}, "C#": {".cs"},
 }
+# Server-side views (Razor, ERB, JSP) are templates Opengrep can't parse: the XSS rules for C#, Ruby and Java never see
+# them, so the step names them as not analyzed.
 OTHER_LANGUAGES = {"Kotlin": {".kt", ".kts"}, "Rust": {".rs"}, "Swift": {".swift"}, "Scala": {".scala"},
-                   "Dart": {".dart"}, "C/C++": {".c", ".h", ".cpp", ".cc", ".hpp"}, "Vue": {".vue"}, "Svelte": {".svelte"}}
+                   "Dart": {".dart"}, "C/C++": {".c", ".h", ".cpp", ".cc", ".hpp"}, "Vue": {".vue"}, "Svelte": {".svelte"},
+                   "Razor": {".cshtml", ".razor"}, "ERB": {".erb"}, "JSP": {".jsp"}}
 SEVERITY_LABEL = {"CRITICAL": "critical", "HIGH": "high", "MEDIUM": "medium", "LOW": "low", "UNKNOWN": "medium",
                   "ERROR": "high", "WARNING": "medium", "INFO": "low"}
 CONFIDENCE = {"HIGH": 8, "MEDIUM": 6, "LOW": 4}
@@ -173,14 +191,13 @@ def host_path(path: Path) -> str:
 
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-_TOKENS = re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,})")
 
 
 def cause(completed: subprocess.CompletedProcess | None) -> str:
     """The last useful line of the engine's or Docker's stderr, to say *why* it failed.
 
-    It is trimmed, stripped of colors and any token, and the host data folder is
-    shortened: what the panel shows helps diagnose without exposing credentials."""
+    It is trimmed, stripped of colors and rendered as free text (shared/render.py: no value an engine quoted stays), and
+    the host data folder is shortened: what the panel shows helps diagnose without exposing a value."""
     if completed is None:
         return ""
     lines = [line.strip() for line in _ANSI.sub("", completed.stderr or "").splitlines() if line.strip()]
@@ -188,11 +205,10 @@ def cause(completed: subprocess.CompletedProcess | None) -> str:
 
 
 def _clean_cause(line: str) -> str:
-    text = _TOKENS.sub("[token]", line)
     host = settings.text("PITANGUS_HOST_DATA_DIR")
     if len(host) > 1:
-        text = text.replace(host, "<datos>")
-    return " ".join(text.split())[:240]
+        line = line.replace(host, "<datos>")
+    return mask(" ".join(line.split())[:240])
 
 
 def config_cause(completed: subprocess.CompletedProcess) -> str:
@@ -295,7 +311,7 @@ def image_available(key: str) -> bool:
 
 # The local runner runs the same pinned engines installed in the worker image (the `worker-standalone` target), for
 # platforms without a Docker socket. Each engine's arguments are the ones its image's entrypoint takes.
-BINARIES = {"trivy": "trivy", "osv-scanner": "osv-scanner", "gitleaks": "gitleaks", "opengrep": "opengrep",
+BINARIES = {"trivy": "trivy", "osv-scanner": "osv-scanner", "betterleaks": "betterleaks", "opengrep": "opengrep",
             "grype": "grype", "checkov": "checkov", "zizmor": "zizmor"}
 _runner_state: dict[str, str] = {}
 
@@ -332,6 +348,23 @@ def engines_problem():
     return msg("scanning.engines.none_installed") if runner() == "local" else docker_problem()
 
 
+# Engines that run only when the operator turns them on, and the setting that does.
+OPTIONAL_ENGINES = {"checkov": "PITANGUS_CHECKOV_ENABLED", "grype": "PITANGUS_GRYPE_ENABLED"}
+
+
+def enabled(key: str) -> bool:
+    return key not in OPTIONAL_ENGINES or settings.flag(OPTIONAL_ENGINES[key])
+
+
+def switched_off(key: str) -> EngineResult | None:
+    """The result of an optional engine the operator didn't turn on: not run (disabled), never a clean run. Like any
+    engine that didn't look, it fixes nothing it found before (findings/registry.py)."""
+    if enabled(key):
+        return None
+    return {**_result(key, "not_tested", msg("scanning.engines.disabled", engine=IMAGES[key]["name"], setting=OPTIONAL_ENGINES[key])),
+            "disabled": True}
+
+
 def unavailable(key: str, without_docker):
     """None if engine `key` can run; else the reason, in the terms of the runner in use."""
     if runner() == "local":
@@ -343,9 +376,17 @@ def engine_status() -> list[dict]:
     """Which engines are ready (images in the host's Docker, or installed binaries). For `make doctor` and `engines`."""
     local = runner() == "local"
     listed = {key: meta for key, meta in IMAGES.items()
-              if key not in WEB_ENGINES or (not local and settings.flag("PITANGUS_DAST_ENABLED"))}
+              if key not in WEB_ENGINES or (not local and (key in EXPOSURE_ENGINES or settings.flag("PITANGUS_DAST_ENABLED")))}
     return [{"tool": key, "name": meta["name"], "version": meta["version"], "image": shutil.which(BINARIES[key]) or BINARIES[key] if local else meta["image"],
-             "ready": engine_ready(key), "built_locally": local or "@sha256:" not in meta["image"]} for key, meta in listed.items()]
+             "ready": engine_ready(key), "built_locally": local or "@sha256:" not in meta["image"], "enabled": enabled(key)} for key, meta in listed.items()]
+
+
+def pulled_images() -> list[str]:
+    """The published images this server runs, so the ones `make engines` pulls (scripts/engine-images.sh applies the
+    same rule to this file without Python): no engine the operator didn't turn on, no full-DAST tool without
+    PITANGUS_DAST_ENABLED, the exposure check's always."""
+    return [meta["image"] for key, meta in IMAGES.items() if "@sha256:" in meta["image"] and enabled(key)
+            and (key not in WEB_ENGINES or key in EXPOSURE_ENGINES or settings.flag("PITANGUS_DAST_ENABLED"))]
 
 
 def pull_engines(report=None) -> list[dict]:
@@ -358,6 +399,9 @@ def pull_engines(report=None) -> list[dict]:
     binary = shutil.which("docker")
     results = []
     for row in engine_status():
+        if not row["enabled"]:
+            results.append({**row, "action": msg("scanning.engines.action.disabled")})
+            continue
         if report and not (row["ready"] or row["built_locally"] or not binary):
             report(msg("scanning.engines.pulling", name=row["name"], version=row["version"]))
         if row["ready"] or row["built_locally"] or not binary:
@@ -412,19 +456,40 @@ class EngineStep:
 
 def run_engines(engines: Sequence[Engine], context: ScanContext, report: Callable[[str, object], None]) -> dict[str, EngineResult]:
     """Runs each engine in order and reports it; returns their results by key. An engine that fails to run says so in
-    its result (`inconclusive`), never by raising."""
+    its result (`inconclusive`), never by raising; one that didn't finish opens nothing (engine_contract.settled)."""
     results: dict[str, EngineResult] = {}
     for engine in engines:
-        report("info", msg(engine.progress, version=IMAGES[engine.key]["version"]))
-        result = results[engine.key] = engine.run(context)
+        if enabled(engine.key):  # one the operator didn't turn on isn't announced as running: its result says so
+            report("info", msg(engine.progress, version=IMAGES[engine.key]["version"]))
+        result = results[engine.key] = engine_contract.settled(engine.run(context))
         if not engine.merged:
             report_done(report, result)
     return results
 
 
+def names_engine(detail, name: str | None) -> bool:
+    """Whether a message opens with the engine `name` as its subject ("Trivy exceeded the time limit", "{{engine}}: not
+    run"), read from its catalog source, through a leading message parameter ("{{first}} {{second}}"): a line that
+    shows it needs no "Engine:" label, or the name would appear twice."""
+    if not name or not is_msg(detail):
+        return False
+    params = detail.get("params") or {}
+    entries = catalog("en")
+    source = (entries.get(detail["$t"]) or entries.get(f"{detail['$t']}_other") or "").lstrip()
+    lead = re.match(r"\{\{\s*(\w+)\s*\}\}", source)
+    if lead:
+        return params.get(lead[1]) == name if lead[1] == "engine" else names_engine(params.get(lead[1]), name)
+    return re.match(rf"{re.escape(name)}\b", source) is not None
+
+
+def labelled(name: str, detail):
+    """`detail` as one line about the engine `name`, which it names once."""
+    return detail if names_engine(detail, name) else msg("scanning.progress.engine", engine=name, detail=detail)
+
+
 def report_done(report: Callable[[str, object], None], result: EngineResult) -> None:
     report("ok" if result["status"] != "inconclusive" else "warn",
-           msg("scanning.progress.engine", engine=IMAGES[result["tool"]]["name"], detail=result.get("detail")))
+           labelled(result.get("name") or IMAGES[result["tool"]]["name"], result.get("detail")))
 
 
 def _result(key: str, status: str, detail, findings: list | None = None, started: float | None = None) -> EngineResult:
@@ -454,18 +519,53 @@ def writable_cache(preferred: Path) -> Path:
     return fallback
 
 
+def _filtered(command: list[str], *, timeout: int, keep: Callable[[str], str | None], env: dict[str, str] | None = None,
+              cwd: str | None = None, new_session: bool = False, on_timeout: Callable[[subprocess.Popen], None]) -> tuple[int, str, str]:
+    """(exit code, stdout, stderr) of `command`, its stderr filtered line by line as it arrives: only what `keep`
+    returns of each line is kept (None: nothing). An engine's debug log (the files it read) can run to hundreds of
+    megabytes and carries what it matched: what isn't kept is never held. `on_timeout` stops whatever it started."""
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+                               errors="replace", env=env, cwd=cwd, start_new_session=new_session)
+    out: list[str] = []
+    kept: list[str] = []
+
+    def drain_stdout() -> None:
+        out.append(process.stdout.read())
+
+    def drain_stderr() -> None:
+        for line in process.stderr:
+            if (text := keep(line)) is not None:
+                kept.append(text)
+    readers = [threading.Thread(target=drain_stdout, daemon=True), threading.Thread(target=drain_stderr, daemon=True)]
+    for reader in readers:
+        reader.start()
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        on_timeout(process)
+        process.wait()
+        raise
+    finally:
+        for reader in readers:
+            reader.join(timeout=60)
+        for stream in (process.stdout, process.stderr):
+            stream.close()
+    return process.returncode, "".join(out), "".join(kept)
+
+
 def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool = False,
          mounts: list[str] | None = None, timeout: int = 900, env: dict[str, str] | None = None,
          secret_env: dict[str, str] | None = None, hosts: dict[str, str] | None = None,
          image_user: bool = False, stdin: str | None = None, pinned_only: bool = False,
-         entrypoint: str | None = None) -> subprocess.CompletedProcess:
+         entrypoint: str | None = None, keep: Callable[[str], str | None] | None = None) -> subprocess.CompletedProcess:
     """The engine's ephemeral container. `secret_env` travels through the Docker client's environment
     (`-e NAME` with no value), never on the command line, so it doesn't show in `ps` or in the logs.
     `hosts`: names the container resolves to a fixed address ({name: address}), already checked by the caller;
     `pinned_only`: those are the only names it resolves (its DNS server is its own loopback, where nothing answers).
     `image_user`: run as the image's own user (ZAP's Java takes its home from passwd), never with a snapshot.
     `stdin`: text handed to the container on its standard input (secrets that must never land in a file).
-    `entrypoint`: the program to start instead of the image's own (a shell that reads that input first)."""
+    `entrypoint`: the program to start instead of the image's own (a shell that reads that input first).
+    `keep`: what of each stderr line is kept, as it arrives (`_filtered`)."""
     if image_user and snapshot is not None:
         raise ValueError("an engine running as its image's user never mounts a snapshot")
     if pinned_only and not hosts:
@@ -473,7 +573,8 @@ def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool
     if runner() == "local":
         if stdin is not None or pinned_only or entrypoint is not None:
             raise ValueError("standard input and pinned-only resolution need the Docker runner")
-        return _run_local(key, arguments, snapshot, mounts=mounts, timeout=timeout, env=env, secret_env=secret_env, network=network)
+        return _run_local(key, arguments, snapshot, mounts=mounts, timeout=timeout, env=env, secret_env=secret_env, network=network,
+                          keep=keep)
     environment = [part for name, value in (env or {}).items() for part in ("-e", f"{name}={value}")]
     environment += [part for name in (secret_env or {}) for part in ("-e", name)]
     source = ["-v", f"{host_path(snapshot)}:/src:ro"] if snapshot is not None else []
@@ -492,14 +593,22 @@ def _run(key: str, arguments: list[str], snapshot: Path | None, *, network: bool
                *source, *environment, *(mounts or []), *(["--entrypoint", entrypoint] if entrypoint else []),
                IMAGES[key]["image"], *arguments]
     process_env = {**os.environ, **(secret_env or {})} if secret_env else None
-    try:
-        return subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=process_env, input=stdin)
-    except subprocess.TimeoutExpired:
+
+    def remove(process: subprocess.Popen | None = None) -> None:
         # The timeout only kills the docker client: the engine container would keep its CPU and memory.
+        if process is not None:
+            process.kill()
         try:
             subprocess.run([docker, "rm", "--force", name], capture_output=True, text=True, timeout=60)
         except (OSError, subprocess.TimeoutExpired):
             pass
+    if keep is not None and stdin is None:
+        code, stdout, stderr = _filtered(command, timeout=timeout, keep=keep, env=process_env, on_timeout=remove)
+        return subprocess.CompletedProcess(command, code, stdout, stderr)
+    try:
+        return subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=process_env, input=stdin)
+    except subprocess.TimeoutExpired:
+        remove()
         raise
 
 
@@ -528,7 +637,8 @@ def network_isolation() -> list[str]:
 
 
 def _run_local(key: str, arguments: list[str], snapshot: Path | None, *, mounts: list[str] | None, timeout: int,
-               env: dict[str, str] | None, secret_env: dict[str, str] | None, network: bool = False) -> subprocess.CompletedProcess:
+               env: dict[str, str] | None, secret_env: dict[str, str] | None, network: bool = False,
+               keep: Callable[[str], str | None] | None = None) -> subprocess.CompletedProcess:
     """The engine installed next to the worker, with the same arguments as its container. Container paths (/src,
     /cache, /rules…) become the real folders, and back in its output, so parsers see what they always saw.
 
@@ -566,20 +676,27 @@ def _run_local(key: str, arguments: list[str], snapshot: Path | None, *, mounts:
         # which isn't safe in a process with threads (the worker has them); "$@" passes the arguments untouched.
         isolated = [] if network else network_isolation()
         command = [*isolated, "/bin/sh", "-c", 'ulimit -c 0 && exec "$0" "$@"', binary, *(local(argument) for argument in arguments)]
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=environment,
-                                   cwd=home, start_new_session=True)
-        try:
-            stdout, stderr = process.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)  # the engine and anything it started
-            process.communicate()
-            raise
-    # Report files an engine writes (Gitleaks' /out) also name the real folders.
+        if keep is not None:
+            # The real folders show in its log: the filter sees the lines as they will be read, with container paths.
+            returncode, stdout, stderr = _filtered(command, timeout=timeout, keep=lambda line: keep(back(line)), env=environment,
+                                                   cwd=home, new_session=True,
+                                                   on_timeout=lambda process: os.killpg(process.pid, signal.SIGKILL))
+        else:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=environment,
+                                       cwd=home, start_new_session=True)
+            try:
+                stdout, stderr = process.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)  # the engine and anything it started
+                process.communicate()
+                raise
+            returncode = process.returncode
+    # Report files an engine writes (Betterleaks' /out) also name the real folders.
     if "/out" in paths:
         for report in Path(paths["/out"]).glob("*.json"):
             if report.stat().st_size < 50_000_000:
                 report.write_text(back(report.read_text(encoding="utf-8", errors="replace")), encoding="utf-8")
-    return subprocess.CompletedProcess([BINARIES[key], *arguments], process.returncode, back(stdout), back(stderr))
+    return subprocess.CompletedProcess([BINARIES[key], *arguments], returncode, back(stdout), back(stderr))
 
 
 def _relative(path: str) -> str:
@@ -602,13 +719,17 @@ def _base(scanner: str, rule: str, title, path: str, line: int, severity: str, *
     if scanner == "secrets":
         severity = SECRET_SEVERITY
     action = "act" if severity == "critical" else "attend" if severity == "high" else "track"
+    factors = [msg("scanning.priority.static_severity", severity=SEVERITY_NAME.get(severity, severity)),
+               msg("scanning.priority.confirm_reachability")]
+    # A secret in tests, docs or examples is still a secret, but rarely the one in production: attended, not acted on now.
+    if scanner == "secrets" and secret_filter.outside_code(path):
+        action = "attend"
+        factors.append(msg("scanning.priority.secret_outside_code"))
     return {"finding_id": digest[:16], "fingerprint": digest, "scanner": scanner, "tool": tool, "rule_id": rule,
             "title": title[:200] if isinstance(title, str) else title, "path": path, "line": line, "severity": severity,
             "confidence": confidence, "verdict": "candidate", "cwe": cwe, "owasp": [owasp], "cve": [], "ghsa": [],
             "package": None, "advisory": None, "kev": None, "epss": None,
-            "priority": {"action": action, "factors": [
-                msg("scanning.priority.static_severity", severity=SEVERITY_NAME.get(severity, severity)),
-                msg("scanning.priority.confirm_reachability")]},
+            "priority": {"action": action, "factors": factors},
             "reason": reason, "remediation": remediation}
 
 
@@ -643,30 +764,62 @@ def _rule_id(check_id: str) -> str:
     return check_id[start:] if start >= 0 else check_id.removeprefix("rules.")
 
 
-def parse_opengrep(payload: dict) -> list[Finding]:
+# An inline suppression at the end of a line (`# nosemgrep`, `// nosemgrep: rule-id`): left out of the snippet, so adding
+# one doesn't change the finding it silences.
+NOSEM_COMMENT = re.compile(r"\s*(?:#|//|/\*|--|<!--|')\s*nosem(?:grep)?\b.*$", re.IGNORECASE)
+
+
+def _owasp(value) -> str:
+    """The OWASP Top 10 category of a rule: ours write one (`A05:2025`); others a list across editions
+    (`A1:2017-Injection`, `A03:2021-Injection`), of which the latest edition is kept."""
+    items = value if isinstance(value, list) else [value] if value else []
+    found = sorted(((int(match.group(2)), f"A{int(match.group(1)):02d}:{match.group(2)}")
+                    for item in items if (match := re.match(r"A(\d{1,2}):(\d{4})", str(item)))), reverse=True)
+    return found[0][1] if found else "A05:2025"
+
+
+def parse_opengrep(payload: dict, *, silenced: bool = False) -> list[Finding]:
+    """Opengrep's findings; with `silenced`, the matches a `nosemgrep` comment silences instead (it runs with
+    `--disable-nosem`, which reports them flagged `is_ignored`)."""
     findings, seen = [], set()
-    for result in payload.get("results", []):
+    lines_of: dict[tuple[str, str, str], list[int]] = {}  # identical snippets of one rule in one file, by line
+    results = sorted(payload.get("results", []), key=lambda item: (str(item.get("path", "")), int((item.get("start") or {}).get("line") or 1)))
+    for result in results:
         extra = result.get("extra") or {}
         metadata = extra.get("metadata") or {}
         rule = _rule_id(str(result.get("check_id", "")))
         path = _relative(result.get("path", ""))
         line = int((result.get("start") or {}).get("line") or 1)
-        snippet = " ".join(str(extra.get("lines", "")).split())[:200]
+        snippet = " ".join(NOSEM_COMMENT.sub("", str(extra.get("lines", ""))).split())[:200]
         severity = "critical" if str(metadata.get("severity", "")).upper() == "CRITICAL" \
             else SEVERITY_LABEL.get(str(extra.get("severity", "")).upper(), "medium")
-        cwe = [int(item) for item in metadata.get("cwe", []) if str(item).isdigit()]
+        # Ours list numbers; other rule sets write `CWE-79: …`, alone or in a list.
+        raw_cwe = metadata.get("cwe", [])
+        cwe = [int(found.group(1)) for item in (raw_cwe if isinstance(raw_cwe, list) else [raw_cwe])
+               if (found := re.match(r"(?:CWE-)?(\d+)\b", str(item)))]
         message = str(extra.get("message", "")).strip()
-        title = _rule_texts(metadata.get("title"), 200) \
+        title = _rule_texts(metadata.get("title"), 200) or str(metadata.get("shortDescription") or "")[:200] \
             or f"{metadata.get('category', 'sast').capitalize()}: {rule.rsplit('.', 1)[-1].replace('-', ' ')}"
-        remediation = _rule_texts(metadata.get("fix")) or _rule_texts({"en": message})
+        # A rule without its own fix text: its message, which interpolates what the result matched, rendered as one.
+        remediation = _rule_texts(metadata.get("fix")) or _rule_texts({"en": render.prose(message)})
         finding = _base(
             "sast", rule, title, path, line, severity, tool="opengrep",
-            reason=msg("scanning.opengrep.reason", snippet=snippet, path=path, line=line), remediation=remediation,
-            cwe=cwe, owasp=str(metadata.get("owasp", "A05:2025")),
+            reason=msg("scanning.opengrep.reason", path=path, line=line), remediation=remediation,
+            cwe=cwe, owasp=_owasp(metadata.get("owasp")),
             confidence=CONFIDENCE.get(str(metadata.get("confidence", "MEDIUM")).upper(), 6),
             # The fingerprint uses the snippet, not the line: moving code must not reopen tickets.
             digest=_stable("sast", rule, path, snippet))
-        # Two matches of the same rule on the same line are a single finding (same fingerprint).
+        # The same line copied elsewhere in the file is another finding: the first keeps the plain fingerprint, the next
+        # ones carry their order. Two matches of the same rule on the same line are still one.
+        lines = lines_of.setdefault((rule, path, snippet), [])
+        if line not in lines:
+            lines.append(line)
+        if (order := lines.index(line)) > 0:
+            digest = _stable("sast", rule, path, snippet, f"#{order + 1}")
+            finding = {**finding, "fingerprint": digest, "finding_id": digest[:16], "family": finding["fingerprint"]}
+        finding["snippet"] = str(extra.get("lines", ""))[:2000]  # what the canonical identity reads (findings/canonical.py)
+        if bool(extra.get("is_ignored")) != silenced:
+            continue
         if finding["fingerprint"] not in seen:
             seen.add(finding["fingerprint"])
             findings.append(finding)
@@ -679,7 +832,7 @@ MINIFIED_SUFFIXES = {".js", ".mjs", ".cjs", ".css"}
 def minified_files(snapshot: Path, limit: int = 200) -> list[str]:
     """Compiled or minified JavaScript and CSS: endless lines that SAST can't make sense of.
 
-    They stay in the snapshot (a bundle may carry an embedded key and Gitleaks must see it);
+    They stay in the snapshot (a bundle may carry an embedded key and Betterleaks must see it);
     they are only excluded from Opengrep.
     """
     found = []
@@ -702,13 +855,54 @@ def minified_files(snapshot: Path, limit: int = 200) -> list[str]:
 def _rules_for(snapshot: Path) -> Path:
     """The rules as the engine can mount them. With compose they come mounted from the host; with the app launched
     by `docker run` (CI) they exist only inside its image, and the engine (a sibling container) wouldn't see them.
-    In that case they are copied next to the snapshot, which is in the mounted data folder."""
+    In that case they are copied next to the snapshot, which is in the mounted data folder. With the third-party rules
+    on (PITANGUS_THIRD_PARTY_RULES), both sets go there, each in its own folder."""
+    if settings.flag("PITANGUS_THIRD_PARTY_RULES") and THIRD_PARTY_RULES_DIR.is_dir():
+        target = snapshot.parent / "opengrep-rules-all"
+        if not target.exists():
+            (target / "pitangus").mkdir(parents=True)
+            for rule in RULES_DIR.glob("*.yml"):
+                shutil.copy2(rule, target / "pitangus" / rule.name)
+            shutil.copytree(THIRD_PARTY_RULES_DIR, target / "gitlab")
+        return target
     if not in_container() or any(Path(inside).resolve() == RULES_DIR.resolve() for inside, _ in _host_pairs()):
         return RULES_DIR
     target = snapshot.parent / "opengrep-rules"
     if not target.exists():
         shutil.copytree(RULES_DIR, target)
     return target
+
+
+# What each engine always writes when it read its input (engine_contract): the exit codes of a run that worked, the
+# shape of its JSON and a field it never leaves out.
+OPENGREP = Contract("Opengrep", frozenset({0, 1}), (dict,), lambda payload: isinstance(payload.get("results"), list)
+                    and isinstance(payload.get("paths"), dict))
+BETTERLEAKS = Contract("Betterleaks", frozenset({0}), (list,))
+TRIVY = Contract("Trivy", frozenset({0}), (dict,), lambda payload: "SchemaVersion" in payload)
+OSV = Contract("OSV-Scanner", frozenset({0, 1}), (dict,), lambda payload: isinstance(payload.get("results"), list))
+OSV_SCANNED = re.compile(r"^Scanned (\S+) file", re.M)
+OSV_FAILED = re.compile(r"^Error during extraction: \([^)]*\) (\S+?):", re.M)
+
+
+# Opengrep's default ignore list leaves out `build/`, `dist/`, `vendor/`, `node_modules/`, `test/`, `tests/` and `*.min.js`
+# wherever they are, without listing them. Ours replaces it (a `.semgrepignore` at the root wins over the defaults): the
+# snapshot already holds only what SAST should read (sources/repositories.set_apart), minified files are left out by
+# their content (`minified_files`), and only test code stays out, on purpose, each folder listed unexamined (`tests`).
+TEST_FOLDERS = ("test", "tests")
+SEMGREPIGNORE = "# Written by Pitangus (scanning/engines.py): replaces Opengrep's default list.\n" + "".join(
+    f"{folder}/\n" for folder in TEST_FOLDERS) + "*_test.go\n"
+
+
+def test_code(snapshot: Path) -> dict[str, str]:
+    """What the `.semgrepignore` leaves out of SAST: the outermost test folders ("src/test/") and Go test files."""
+    found: dict[str, str] = {}
+    for directory, folders, files in os.walk(snapshot):
+        relative = Path(directory).relative_to(snapshot)
+        for folder in [folder for folder in folders if folder in TEST_FOLDERS]:
+            found[(relative / folder).as_posix() + "/"] = "tests"
+            folders.remove(folder)
+        found.update({(relative / name).as_posix(): "tests" for name in files if name.endswith("_test.go")})
+    return found
 
 
 def run_opengrep(snapshot: Path) -> EngineResult:
@@ -727,19 +921,33 @@ def run_opengrep(snapshot: Path) -> EngineResult:
     languages = snapshot_languages(snapshot)
     compiled = minified_files(snapshot)
     excludes = [part for path in compiled for part in ("--exclude", path)]
+    tests = test_code(snapshot)
     try:
-        completed = _run("opengrep", ["scan", "--config", "/rules", "--json", "--quiet", *excludes, "/src"], snapshot,
+        (snapshot / ".semgrepignore").write_text(SEMGREPIGNORE, encoding="utf-8")
+        # Taint across the functions of a file (the rules' README promises it); every file the snapshot keeps, not
+        # only the ones under Opengrep's default 1 MB; two jobs, so a batch on several workers doesn't starve the host.
+        completed = _run("opengrep", ["scan", "--config", "/rules", "--json", "--quiet", "--taint-intrafile", "--disable-nosem",
+                                      "--max-target-bytes", str(MAX_FILE), "--jobs", str(OPENGREP_JOBS), *excludes, "/src"], snapshot,
                          mounts=["-v", f"{host_path(_rules_for(snapshot))}:/rules:ro"])
-        # 0: no findings · 1: findings. Any other code (2 fatal, 7 invalid configuration…) means it didn't scan:
-        # counting it as "0 candidates" would be a false clean.
-        if completed.returncode not in (0, 1):
-            return _result("opengrep", "inconclusive", with_cause(msg("scanning.opengrep.exit_code", code=completed.returncode), completed), started=started)
-        payload = json.loads(completed.stdout or "{}")
+        # 0: no findings · 1: findings. Any other code (2 fatal, 7 invalid configuration…) means it didn't scan.
+        payload, failure = engine_contract.verdict(OPENGREP, completed.returncode, completed.stdout)
+        if failure:
+            return engine_contract.failed(_result("opengrep", "inconclusive", with_cause(failure, completed), started=started), failure)
     except subprocess.TimeoutExpired:
-        return _result("opengrep", "inconclusive", msg("scanning.opengrep.timeout"), started=started)
+        return engine_contract.failed(_result("opengrep", "inconclusive", msg("scanning.opengrep.timeout"), started=started), msg("scanning.opengrep.timeout"))
     except (OSError, ValueError):
-        return _result("opengrep", "inconclusive", msg("scanning.engines.unreadable", engine="Opengrep"), started=started)
-    findings = parse_opengrep(payload)
+        unreadable = msg("scanning.engines.unreadable", engine="Opengrep")
+        return engine_contract.failed(_result("opengrep", "inconclusive", unreadable, started=started), unreadable)
+    # A third-party rule that saw what one of ours saw on the same line is folded into ours (scanning/sast_merge.py);
+    # third-party code copied into the repository is listed apart as excluded, with why (scanning/vendored.py).
+    # A rule that starts off (rule_set.dormant_rules) reports nothing, not even as excluded: the run records it as off.
+    from pitangus.modules.scanning.rule_set import dormant_rules
+    dormant = set(dormant_rules())
+    findings, in_vendored = vendored.withhold(sast_merge.merge([item for item in parse_opengrep(payload) if item["rule_id"] not in dormant]),
+                                              snapshot)
+    # Silenced in the code: listed as excluded with why, never as fixed, and they reopen if the comment goes away.
+    silenced = [{**item, "excluded_reason": msg("scanning.opengrep.silenced_reason")}
+                for item in sast_merge.merge(parse_opengrep(payload, silenced=True)) if item["rule_id"] not in dormant]
     errors = [item for item in payload.get("errors", []) if isinstance(item, dict)]
     covered = ", ".join(f"{name} ({count})" for name, count in sorted(languages["covered"].items())) \
         or msg("scanning.opengrep.no_covered_language")
@@ -750,22 +958,57 @@ def run_opengrep(snapshot: Path) -> EngineResult:
         parts.append(msg("scanning.opengrep.uncovered", languages=uncovered))
     if compiled:
         parts.append(msg("scanning.opengrep.minified", count=len(compiled)))
+    if tests:
+        parts.append(msg("scanning.opengrep.tests", count=len(tests)))
     if errors:
         parts.append(msg("scanning.opengrep.errors", count=len(errors)))
+    if silenced:
+        parts.append(msg("scanning.opengrep.silenced", count=len(silenced)))
+    if in_vendored:
+        parts.append(msg("scanning.opengrep.vendored", count=len(in_vendored)))
+    if dormant:
+        parts.append(msg("scanning.opengrep.opt_in", count=len(dormant), rules=", ".join(sorted(dormant))))
+    # What it skipped on its own (too large, unreadable): said, never silently left out. Exclusions are deliberate.
+    skipped = [item for item in (payload.get("paths") or {}).get("skipped") or []
+               if isinstance(item, dict) and not any(word in str(item.get("reason") or "") for word in ("exclude", "ignore"))]
+    if skipped:
+        parts.append(msg("scanning.opengrep.skipped", count=len(skipped)))
     detail = joined(parts, "scanning.join.sentences")
-    status = "partial" if (errors or uncovered) else "completed"
-    return _result("opengrep", status, detail, findings, started)
+    status = "partial" if (errors or uncovered or skipped) else "completed"
+    # What it didn't read, or didn't finish reading (a rule that timed out on a file reports an error with its path), can't
+    # prove a finding there went away (findings/registry.covers). Opengrep lists skipped files only with --verbose.
+    unexamined = sorted({_relative(str(item.get("path") or "")) for item in [*skipped, *errors] if item.get("path")})
+    # Coverage: every file but those it didn't read (skipped, a rule that errored or timed out on it, a minified file
+    # left out of SAST). A file in a folder it excludes by default holds none of its findings.
+    reasons = {**tests, **dict.fromkeys(compiled, "minified"), **{_relative(str(item.get("path"))): "skipped" for item in skipped if item.get("path")},
+               **{_relative(str(item.get("path"))): engine_contract.reason(item.get("type")) for item in errors if item.get("path")}}
+    result = {**_result("opengrep", status, detail, findings, started), "unexamined": unexamined, "silenced": silenced, "vendored": in_vendored,
+              "coverage": engine_contract.coverage("*", reasons)}
+    # An error tied to no file is a rule that didn't load (or the run itself): every file went without that rule, so
+    # nothing this run doesn't report is proven gone.
+    unloaded = [item for item in errors if not item.get("path")]
+    if unloaded:
+        failure = msg("scanning.opengrep.rules_not_loaded", count=len(unloaded))
+        if engine_contract.enforced():
+            return engine_contract.recorded({**result, "status": "inconclusive", "detail": joined([detail, failure], "scanning.join.sentences")},
+                                            failure, finished=True)
+        return engine_contract.recorded(result, failure, finished=True)
+    return engine_contract.recorded(result, None)
 
 
 # --- Trivy ----------------------------------------------------------------------------
 
 def _pick_fixed(fixed: str | None, installed: str) -> str | None:
-    candidates = [item.strip() for item in str(fixed or "").split(",") if item.strip()]
-    later = [item for item in candidates if compare_versions(item, installed) > 0]
-    return min(later, key=lambda item: (len(item.split(".")), item)) if later else (candidates[0] if candidates else None)
+    """The nearest fixed version above the installed one, by version order (9.0.80 → 9.0.90, not 10.1.25). Each
+    candidate without its constraint operator (RubyGems writes `~> 6.1.7, >= 6.1.7.1`); None when none is above the
+    installed version: a fix is never offered below what is installed."""
+    candidates = [re.sub(r"^[~^<>=!\s]+", "", item).strip() for item in str(fixed or "").split(",")]
+    later = [item for item in candidates if item and compare_versions(item, installed) > 0]
+    return min(later, key=cmp_to_key(compare_versions)) if later else None
 
 
-def _trivy_vulnerability(entry: dict, target: str, ecosystem: str, feeds: dict, packages: dict | None = None) -> dict:
+def _trivy_vulnerability(entry: dict, target: str, ecosystem: str, feeds: dict, packages: dict | None = None,
+                         system: bool = False) -> dict:
     identifier = str(entry.get("VulnerabilityID", ""))
     name, installed = str(entry.get("PkgName", "")), str(entry.get("InstalledVersion", ""))
     fixed = _pick_fixed(entry.get("FixedVersion"), installed)
@@ -776,9 +1019,13 @@ def _trivy_vulnerability(entry: dict, target: str, ecosystem: str, feeds: dict, 
         if block.get("V3Vector"):
             vector, score = block["V3Vector"], cvss3_base_score(block["V3Vector"]) or block.get("V3Score")
             break
-    severity = severity_from_score(score, entry.get("Severity"))
+    # A package of the image's system: the distribution rates it for its own build (as Grype does), not NVD's generic
+    # score; the same CVE then has one severity whichever engine saw it.
+    label = str(entry.get("Severity") or "").upper()
+    severity = severity_from_score(None, label) if system and label in ("CRITICAL", "HIGH", "MEDIUM", "LOW") else severity_from_score(score, label)
     cves = [identifier] if identifier.startswith("CVE-") else [item for item in entry.get("VendorIDs", []) or [] if str(item).startswith("CVE-")]
-    ghsas = [identifier] if identifier.startswith("GHSA-") else []
+    # Its other names: the GHSA among VendorIDs too, so another engine's report of the advisory under that one joins it.
+    ghsas = sorted({str(item) for item in [identifier, *(entry.get("VendorIDs", []) or [])] if str(item).startswith("GHSA-")})
     kev = next((feeds.get("kev", {}).get(cve) for cve in cves if feeds.get("kev", {}).get(cve)), None)
     epss = next((feeds.get("epss", {}).get(cve) for cve in cves if feeds.get("epss", {}).get(cve)), None)
     priority = prioritize(severity, score, kev, epss, fixed)
@@ -800,7 +1047,7 @@ def _trivy_vulnerability(entry: dict, target: str, ecosystem: str, feeds: dict, 
     relationship = meta.get("Relationship")
     digest = dependency_fingerprint({identifier, *cves, *ghsas}, identifier, ecosystem, name, installed)
     previous = sca_fingerprint("sca", identifier, ecosystem, name, installed)
-    return {"finding_id": digest[:16], "fingerprint": digest, **({"previous_fingerprint": previous} if previous != digest else {}),
+    finding = {"finding_id": digest[:16], "fingerprint": digest, **({"previous_fingerprint": previous} if previous != digest else {}),
             "scanner": "sca", "tool": "trivy", "rule_id": identifier,
             "title": f"{name} {installed}: {summary}"[:200], "path": target, "line": 1, "severity": severity,
             "confidence": 8 if score is not None else 6, "verdict": "candidate", "cwe": cwe, "owasp": ["A03:2025"],
@@ -814,6 +1061,9 @@ def _trivy_vulnerability(entry: dict, target: str, ecosystem: str, feeds: dict, 
             "kev": kev, "epss": {"score": epss[0], "percentile": epss[1]} if epss else None,
             "source": data_sources.from_trivy(entry),
             "priority": priority, "reason": summary, "remediation": remediation}
+    if is_malicious({"id": identifier, "aliases": cves + ghsas, "cwe": cwe, "summary": entry.get("Title"), "details": entry.get("Description")}):
+        mark_malicious(finding)
+    return finding
 
 
 def _trivy_misconfiguration(entry: dict, target: str) -> dict:
@@ -829,6 +1079,7 @@ def _trivy_misconfiguration(entry: dict, target: str) -> dict:
                     digest=_stable("iac", rule, target, resource or str(line)))
     # Line range: lets the same issue be recognized when Checkov flags it on the resource block.
     finding["end_line"] = max(line, int(cause.get("EndLine") or line))
+    finding["resource"] = str(cause.get("Resource") or "")[:300]
     return finding
 
 
@@ -885,45 +1136,258 @@ def trivy_packages(payload: dict, *, system: bool = False) -> list[dict]:
     return packages
 
 
-def parse_trivy(payload: dict, feeds: dict, custom: dict | None = None) -> list[Finding]:
-    findings, secrets = [], []
+def _trivy_claim(entry: dict, target: str) -> secret_location.Claim:
+    """What Trivy said about a secret (secret_location): its byte offset in the file, its line with one `*` per byte of
+    every secret on it (`Match`, a window of it on a long line) and, over several lines, each line masked (`Code`)."""
+    match = entry.get("Match") if isinstance(entry.get("Match"), str) else ""
+    masked = match.encode("utf-8", "surrogateescape")
+    rule = str(entry.get("RuleID") or "secret")
+    try:
+        first = int(entry.get("StartLine") or 0)
+        last = max(first, int(entry.get("EndLine") or first))
+    except (TypeError, ValueError):
+        first = last = 0
+    code = {int(line["Number"]): line["Content"].encode("utf-8", "surrogateescape")
+            for line in ((entry.get("Code") or {}).get("Lines") or []) if isinstance(entry.get("Code"), dict) and isinstance(line, dict)
+            and line.get("IsCause") and not line.get("Truncated") and isinstance(line.get("Number"), int) and isinstance(line.get("Content"), str)}
+    layer = entry.get("Layer") if isinstance(entry.get("Layer"), dict) else {}
+    offset = entry.get("Offset") if isinstance(entry.get("Offset"), int) and not isinstance(entry.get("Offset"), bool) else None
+    return secret_location.Claim(rule, target, first, last, ("trivy", rule, match), partial(secret_location.trivy_spots, masked),
+                                 partial(secret_location.trivy_block, masked, code, first), offset=offset,
+                                 layer=str(layer.get("DiffID") or layer.get("Digest") or "") or None)
+
+
+def named(finding: Finding, read: secret_location.Read, value: secret_identity.Names | None = None, earlier: str | None = None) -> None:
+    """`finding` named by its value (`value`, by default the one read) when it was read for sure, with `earlier` (its
+    name by the formula before) among its value's former names; unlinkable otherwise (secret_location)."""
+    value = value if value is not None else read.names
+    if value is not None:
+        secret_identity.assign(finding, secret_identity.Names(value.identity, [*value.formers, *([earlier] if earlier else [])]))
+        if read.span:
+            finding["span"] = read.span
+    elif read.unlinkable:
+        secret_identity.assign_unlinkable(finding, read.unlinkable)
+    else:
+        secret_identity.assign_unlinkable(finding, secret_identity.unlinkable(finding["rule_id"], finding["path"], None))
+
+
+def parse_trivy(payload: dict, feeds: dict, custom: dict | None = None, root: Path | None = None,
+                screened: Counter | None = None) -> list[Finding]:
+    """`root`: the snapshot Trivy read, to give each secret its identity (scanning/secret_identity.py) and to judge whether
+    it can be a secret at all (secret_filter): what can't is left out and counted in `screened`."""
+    findings: list[Finding | None] = []
+    reported: list[tuple[int, str, dict]] = []
     for result in payload.get("Results", []) or []:
         target = _relative(str(result.get("Target", "")))
         ecosystem = str(result.get("Type") or "").lower() or "unknown"
         packages = {item.get("ID"): item for item in result.get("Packages") or [] if item.get("ID")}
         for entry in result.get("Vulnerabilities") or []:
-            findings.append(_trivy_vulnerability(entry, target, ecosystem, feeds, packages))
+            findings.append(_trivy_vulnerability(entry, target, ecosystem, feeds, packages, system=result.get("Class") == "os-pkgs"))
         for entry in result.get("Misconfigurations") or []:
             if str(entry.get("Status", "FAIL")).upper() == "FAIL":
                 findings.append(_trivy_misconfiguration(entry, target))
         for entry in result.get("Secrets") or []:
-            # Trivy masks every secret on the line in `Match`: what comes before the first `*` is this one's context.
-            match = entry.get("Match")
-            context = secret_context(match.split("*", 1)[0]) if isinstance(match, str) and "*" in match else None
-            secrets.append((len(findings), (_trivy_secret(entry, target, custom), context, (target, int(entry.get("StartLine") or 1)))))
-            findings.append(None)
+            if isinstance(entry, dict):
+                reported.append((len(findings), target, entry))
+                findings.append(None)
+    reads = secret_location.resolve(root, [_trivy_claim(entry, target) for _, target, entry in reported])
+    secrets = []
+    for (position, target, entry), read in zip(reported, reads):
+        if read.duplicate:
+            continue
+        # Trivy masks every secret on the line in `Match`: what comes before the first `*` is this one's context.
+        match = entry.get("Match")
+        context = secret_context(match.split("*", 1)[0]) if isinstance(match, str) and "*" in match else None
+        # A type marker (a service account's `type` field) is judged with its object: the text around it in the snapshot.
+        around = secret_filter.around(root, target, entry.get("Offset")) if secret_filter.marker(read.value) else None
+        if reason := secret_filter.verdict(str(entry.get("RuleID") or ""), target, "", read.value, around):
+            if screened is not None:
+                screened[reason] += 1
+            continue
+        finding = _trivy_secret(entry, target, custom)
+        named(finding, read)
+        secrets.append((position, (finding, context, (target, int(entry.get("StartLine") or 1)))))
     for (position, _), finding in zip(secrets, with_secret_identities([item for _, item in secrets])):
         findings[position] = finding
-    seen, unique = set(), []
-    for finding in findings:
-        if finding["fingerprint"] not in seen:
-            seen.add(finding["fingerprint"])
-            unique.append(finding)
-    return unique
+    return unique_by_fingerprint([finding for finding in findings if finding is not None])
+
+
+# What Trivy keeps in its cache and updates on its own: the folder, the command that downloads only it, the flag that
+# stops a scan updating it. The misconfiguration checks bundle has no download-only command: a config scan of an empty
+# folder fetches it and finds nothing.
+CHECKS_TARGET = "tmp/checks-refresh"
+TRIVY_DATABASES = (("db", ["image", "--download-db-only"], "--skip-db-update"),
+                   ("java-db", ["image", "--download-java-db-only"], "--skip-java-db-update"),
+                   ("policy", ["config", f"/cache/{CHECKS_TARGET}"], "--skip-check-update"))
+CHECKS_TTL = timedelta(hours=24)   # how long Trivy itself keeps a checks bundle before fetching it again
+REFRESH_DIR = "refresh"            # where a database is downloaded before it replaces the live one
+
+
+def _trivy_database_fresh(cache_dir: Path, folder: str) -> bool | None:
+    """Whether one of Trivy's databases is in the cache and not due yet (its own metadata says when: `NextUpdate` for
+    the advisory databases, a day after `DownloadedAt` for the checks bundle); None when it has never been downloaded."""
+    try:
+        metadata = json.loads((cache_dir / folder / "metadata.json").read_text(encoding="utf-8"))
+        # Trivy writes nanoseconds: Python reads up to microseconds.
+        def moment(value) -> datetime:
+            return datetime.fromisoformat(re.sub(r"(\.\d{6})\d+", r"\1", str(value or "")).replace("Z", "+00:00"))
+        due = moment(metadata["NextUpdate"]) if metadata.get("NextUpdate") else moment(metadata["DownloadedAt"]) + CHECKS_TTL
+    except (OSError, ValueError, AttributeError, KeyError, TypeError):
+        return None
+    return due > datetime.now(timezone.utc)
+
+
+@contextmanager
+def _trivy_refresh_lock(data_dir: Path | None):
+    """One refresh at a time across workers and replicas (a PostgreSQL advisory lock); a CLI scan has no database and
+    no other worker."""
+    if data_dir is None or not settings.text("PITANGUS_DATABASE_URL"):
+        yield
+        return
+    with db.transaction(data_dir) as connection:
+        db.lock(connection, "trivy-databases")
+        yield
+
+
+def _database_complete(cache_dir: Path, folder: str) -> bool:
+    """A downloaded database worth swapping in: current metadata and some content besides it."""
+    files = [path for path in (cache_dir / folder).rglob("*") if path.is_file() and path.name != "metadata.json"]
+    return bool(_trivy_database_fresh(cache_dir, folder)) and any(path.stat().st_size > 0 for path in files)
+
+
+def _swap_in(new: Path, live: Path) -> None:
+    """`new` takes the place of `live` with two renames on the same disk; if the second fails, `live` comes back. A scan
+    reading the old files keeps them open until it ends."""
+    former = live.with_name(f"{live.name}.old-{uuid.uuid4().hex[:8]}")
+    if live.exists():
+        live.rename(former)
+    try:
+        new.rename(live)
+    except OSError:
+        if former.exists():
+            former.rename(live)
+        raise
+    shutil.rmtree(former, ignore_errors=True)
+
+
+def _refresh_database(cache_dir: Path, folder: str, command: list[str]) -> bool:
+    """Downloads one database into a folder of its own and swaps it in only when it arrived whole. A download that
+    fails, is cut short or runs out of space (the Java database is larger than the engine's in-memory /tmp: its
+    temporary files go to the disk) never touches the database in use."""
+    staging = cache_dir / REFRESH_DIR / f"{folder}-{uuid.uuid4().hex[:12]}"
+    (staging / "tmp").mkdir(parents=True)
+    (staging / CHECKS_TARGET).mkdir(parents=True, exist_ok=True)
+    try:
+        completed = _run("trivy", [*command, "--cache-dir", "/cache", "--quiet"], None, network=True, env={"TMPDIR": "/cache/tmp"},
+                         mounts=["-v", f"{host_path(staging)}:/cache"], timeout=900)
+        if completed.returncode != 0 or not _database_complete(staging, folder):
+            _log.warning("trivy_db_refresh_failed", extra={"reason": f"{folder}: exit {completed.returncode}"})
+            return False
+        _swap_in(staging / folder, cache_dir / folder)
+        return True
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        _log.warning("trivy_db_refresh_failed", extra={"reason": f"{folder}: {type(exc).__name__}"})
+        return False
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def trivy_databases(cache_dir: Path, data_dir: Path | None) -> list[str]:
+    """Refreshes Trivy's databases and its checks bundle once, under a lock, and returns the flags that keep each scan
+    from updating them. Several scans updating the same cache at once replaced the file another was reading (one died
+    with SIGBUS, others with "mapfs file copy error"). The Java database is only refreshed once Trivy has downloaded it
+    (it does so the first time it meets a JAR)."""
+    due = [(folder, command) for folder, command, _ in TRIVY_DATABASES
+           if (fresh := _trivy_database_fresh(cache_dir, folder)) is False or (fresh is None and folder != "java-db")]
+    if due:
+        with _trivy_refresh_lock(data_dir):
+            # What a refresh that died left behind: nobody else refreshes while this one holds the lock.
+            shutil.rmtree(cache_dir / REFRESH_DIR, ignore_errors=True)
+            for folder, command in due:
+                if _trivy_database_fresh(cache_dir, folder):
+                    continue  # another worker refreshed it while this one waited
+                _refresh_database(cache_dir, folder, command)
+            shutil.rmtree(cache_dir / REFRESH_DIR, ignore_errors=True)
+    # A database that is there (even stale, if the refresh failed) is never replaced by the scan itself; one that never
+    # downloaded is left to Trivy, which can't skip a database it doesn't have.
+    return [skip for folder, _, skip in TRIVY_DATABASES if _trivy_database_fresh(cache_dir, folder) is not None]
 
 
 def _trivy_fs(snapshot: Path, cache_dir: Path, scanners: str, config_dir: Path | None, *,
-              network: bool = True) -> subprocess.CompletedProcess:
+              network: bool = True, skips: tuple[str, ...] = (), offline: bool = False, target: str | None = None,
+              timeout: int = 900) -> subprocess.CompletedProcess:
+    """`offline`: no remote dependency resolution (`--offline-scan`); `target`: one file of the snapshot instead of all.
+    With the secret scanner, its log at debug level names each file that scanner read (secret_coverage.read_trivy):
+    only those lines and what `--quiet` would print are kept."""
     # Include dev dependencies (flagged as such) and the full package list, to tell which ones they are.
     secret_config = ["--secret-config", "/cfg/trivy-secret.yaml"] if config_dir else []
-    return _run("trivy", ["fs", "--scanners", scanners, *secret_config, "--include-dev-deps", "--list-all-pkgs",
-                          "--cache-dir", "/cache", "--format", "json", "--quiet",
-                          "--timeout", "14m", "/src"], snapshot, network=network,
+    listing = "secret" in scanners.split(",")
+    # Its cache in memory, per scan, as for images: the shared one is a file one scan locks; the folder keeps the databases.
+    return _run("trivy", ["fs", "--scanners", scanners, *secret_config, *skips, *(["--offline-scan"] if offline else []),
+                          "--cache-backend", "memory", "--include-dev-deps", "--list-all-pkgs",
+                          "--cache-dir", "/cache", "--format", "json", "--debug" if listing else "--quiet",
+                          "--timeout", f"{max(1, timeout // 60 - 1)}m", f"/src/{target}" if target else "/src"], snapshot, network=network,
                 mounts=["-v", f"{host_path(cache_dir)}:/cache",
-                        *(["-v", f"{host_path(config_dir)}:/cfg:ro"] if config_dir else [])])
+                        *(["-v", f"{host_path(config_dir)}:/cfg:ro"] if config_dir else [])], timeout=timeout,
+                keep=secret_coverage.keep_trivy() if listing else None)
 
 
-def run_trivy(snapshot: Path, cache_dir: Path, feeds: dict, secret_settings: dict | None = None) -> EngineResult:
+def _trivy_listed(completed: subprocess.CompletedProcess) -> tuple[set[str], subprocess.CompletedProcess]:
+    """(the files Trivy's secret scanner read, the run with its stderr as `--quiet` leaves it)."""
+    read, rest = secret_coverage.read_trivy(completed.stderr or "")
+    return read, subprocess.CompletedProcess(completed.args, completed.returncode, completed.stdout, rest)
+
+
+# Trivy 0.75 ends the whole run, without output, when a remote repository refuses to resolve one manifest ("remote
+# Maven repository returned 429 Too Many Requests for …"); other statuses it skips. Only these manifests resolve remotely.
+TRIVY_RESOLUTION_FAILED = re.compile(r"\bremote \S+ repository returned\b")
+REMOTE_MANIFESTS = frozenset({"pom.xml"})
+MAX_RESOLUTIONS = 40   # manifests resolved one by one after such a failure; the rest stay unexamined
+RESOLUTION_TIMEOUT = 300
+
+
+def resolution_failed(completed: subprocess.CompletedProcess) -> bool:
+    return completed.returncode != 0 and not (completed.stdout or "").strip() and bool(TRIVY_RESOLUTION_FAILED.search(completed.stderr or ""))
+
+
+def remote_manifests(snapshot: Path) -> list[str]:
+    return sorted(path.relative_to(snapshot).as_posix() for path in snapshot.rglob("*")
+                  if path.name.lower() in REMOTE_MANIFESTS and path.is_file() and not path.is_symlink())
+
+
+def _resolve_apart(snapshot: Path, cache_dir: Path, scanners: str, config_dir: Path | None, skips: tuple[str, ...],
+                   manifests: list[str]) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+    """After a resolution failure: the run again without remote resolution, which covers everything else (other
+    manifests, infrastructure, secrets); then each manifest that resolves remotely on its own, replacing what the offline
+    run read from it. Returns the merged run and the manifests whose resolution still failed: only their dependencies go
+    unexamined, and what the offline run guessed for them is left out (a manifest not examined opens nothing)."""
+    offline = _trivy_fs(snapshot, cache_dir, scanners, config_dir, skips=skips, offline=True)
+    payload, failure = engine_contract.verdict(TRIVY, offline.returncode, offline.stdout)
+    if failure:
+        return offline, {}
+    failed: dict[str, str] = {}
+    resolved: list[dict] = []
+    for index, relative in enumerate(manifests):
+        alone = None
+        if index < MAX_RESOLUTIONS:
+            try:
+                probe = _trivy_fs(snapshot, cache_dir, "vuln", None, skips=skips, target=relative, timeout=RESOLUTION_TIMEOUT)
+                alone, _ = engine_contract.verdict(TRIVY, probe.returncode, probe.stdout)
+            except subprocess.TimeoutExpired:
+                alone = None
+        if alone is None:
+            failed[relative] = "resolution_failed"
+            continue
+        # A single file's results are named after the file alone.
+        resolved += [{**result, "Target": relative} for result in alone.get("Results") or [] if isinstance(result, dict)
+                     and result.get("Class") == "lang-pkgs"]
+    redone = set(manifests)
+    kept = [result for result in payload.get("Results") or [] if not (isinstance(result, dict) and result.get("Class") == "lang-pkgs"
+                                                                      and _relative(str(result.get("Target") or "")) in redone)]
+    return subprocess.CompletedProcess(offline.args, 0, json.dumps({**payload, "Results": kept + resolved}), offline.stderr), failed
+
+
+def run_trivy(snapshot: Path, cache_dir: Path, feeds: dict, secret_settings: dict | None = None, data_dir: Path | None = None) -> EngineResult:
     """`secret_settings`: the organization's secret detection settings (secret_rules), applied through
     `--secret-config`. If Trivy rejects them, it runs again without secret detection so dependencies and IaC are
     still analyzed, and the step says secrets were not covered by Trivy."""
@@ -932,33 +1396,46 @@ def run_trivy(snapshot: Path, cache_dir: Path, feeds: dict, secret_settings: dic
         return _result("trivy", "not_tested", problem)
     cache_dir = writable_cache(cache_dir)
     rejected = None
+    unresolved: dict[str, str] = {}
     try:
+        skips = tuple(trivy_databases(cache_dir, data_dir))
         with tempfile.TemporaryDirectory(prefix="trivy-config-", dir=snapshot.parent) as folder:
-            config_dir = None
-            if secret_settings:
-                config_dir = Path(folder)
-                (config_dir / "trivy-secret.yaml").write_text(secret_rules.trivy_secret_config(secret_settings), encoding="utf-8")
-            completed = _trivy_fs(snapshot, cache_dir, "vuln,misconfig,secret", config_dir)
-        if config_dir and completed.returncode != 0 and not completed.stdout.strip() and "secret config" in completed.stderr.lower():
-            reason = config_cause(completed)
-            rejected = msg("scanning.trivy.secret_config_rejected_cause", cause=reason) if reason \
-                else msg("scanning.trivy.secret_config_rejected")
-            completed = _trivy_fs(snapshot, cache_dir, "vuln,misconfig", None)
-        if completed.returncode != 0 and not completed.stdout.strip():
-            failure = msg("scanning.trivy.failed_download") if "download" in completed.stderr.lower() \
-                else msg("scanning.engines.failed_early", engine="Trivy")
-            return _result("trivy", "inconclusive", with_cause(failure, completed), started=started)
-        payload = json.loads(completed.stdout or "{}")
+            # Always a generated configuration: its built-in allow rules and skip patterns off (secret_rules).
+            config_dir, scanners = Path(folder), "vuln,misconfig,secret"
+            (config_dir / "trivy-secret.yaml").write_text(secret_rules.trivy_secret_config(secret_settings or secret_rules.empty()), encoding="utf-8")
+            completed = _trivy_fs(snapshot, cache_dir, scanners, config_dir, skips=skips)
+            if config_dir and completed.returncode != 0 and not completed.stdout.strip() and "secret config" in completed.stderr.lower():
+                reason = config_cause(completed)
+                rejected = msg("scanning.trivy.secret_config_rejected_cause", cause=reason) if reason \
+                    else msg("scanning.trivy.secret_config_rejected")
+                config_dir, scanners = None, "vuln,misconfig"
+                completed = _trivy_fs(snapshot, cache_dir, scanners, None, skips=skips)
+            if resolution_failed(completed) and (manifests := remote_manifests(snapshot)):
+                completed, unresolved = _resolve_apart(snapshot, cache_dir, scanners, config_dir, skips, manifests)
+            read, completed = _trivy_listed(completed)
+        payload, contract = engine_contract.verdict(TRIVY, completed.returncode, completed.stdout)
+        if contract:
+            failure = msg("scanning.trivy.failed_download") if completed.returncode != 0 and not completed.stdout.strip() \
+                and "download" in completed.stderr.lower() else contract
+            return engine_contract.failed(_result("trivy", "inconclusive", with_cause(failure, completed), started=started), contract)
     except subprocess.TimeoutExpired:
-        return _result("trivy", "inconclusive", msg("scanning.trivy.timeout"), started=started)
+        timeout = msg("scanning.trivy.timeout")
+        return engine_contract.failed(_result("trivy", "inconclusive", timeout, started=started), timeout)
     except (OSError, ValueError):
-        return _result("trivy", "inconclusive", msg("scanning.engines.unreadable", engine="Trivy"), started=started)
-    findings = parse_trivy(payload, feeds, secret_rules.custom_rules(secret_settings))
+        unreadable = msg("scanning.engines.unreadable", engine="Trivy")
+        return engine_contract.failed(_result("trivy", "inconclusive", unreadable, started=started), unreadable)
+    screened: Counter = Counter()
+    findings = parse_trivy(payload, feeds, secret_rules.custom_rules(secret_settings), root=snapshot, screened=screened)
+    kept, allowed = split_inline([finding for finding in findings if finding["scanner"] == "secrets"], snapshot)
+    findings = [*(finding for finding in findings if finding["scanner"] != "secrets"), *kept]
     kinds = {"sca": 0, "iac": 0, "secrets": 0}
     for finding in findings:
         kinds[finding["scanner"]] = kinds.get(finding["scanner"], 0) + 1
-    targets = [result.get("Target", "") for result in payload.get("Results", []) or []]
-    manifests = [target for result, target in zip(payload.get("Results", []) or [], targets) if result.get("Class") == "lang-pkgs"]
+    coverage = trivy_coverage(snapshot, payload, completed.stderr or "", unresolved)
+    gaps = {**coverage["unexamined"], **(coverage.get("by_scanner") or {}).get("sca", {})}
+    targets = [_relative(str(result.get("Target") or "")) for result in payload.get("Results", []) or []]
+    # What it examined: a manifest it couldn't (dependency_coverage) is said apart, never counted as examined.
+    manifests = [target for result, target in zip(payload.get("Results", []) or [], targets) if result.get("Class") == "lang-pkgs" and target not in gaps]
     configs = [target for result, target in zip(payload.get("Results", []) or [], targets) if result.get("Class") == "config"]
     dev = sum(1 for finding in findings if (finding.get("package") or {}).get("dev"))
     counts = {"manifests": len(manifests), "configs": len(configs), "sca": kinds["sca"], "iac": kinds["iac"], "secrets": kinds["secrets"]}
@@ -967,25 +1444,175 @@ def run_trivy(snapshot: Path, cache_dir: Path, feeds: dict, secret_settings: dic
         detail = joined([detail, msg("scanning.trivy.no_feeds")], "scanning.join.sentences")
     if rejected:
         detail = joined([detail, rejected], "scanning.join.sentences")
-    result = {**_result("trivy", "partial" if rejected else "completed", detail, findings, started), "packages": trivy_packages(payload)}
-    return _withhold(result, secret_settings, lambda reference: _trivy_secrets(snapshot, cache_dir, reference))
+    if unresolved:
+        detail = joined([detail, msg("scanning.trivy.unresolved", count=len(unresolved), manifests=", ".join(sorted(unresolved)))],
+                        "scanning.join.sentences")
+    said = {**dependency_coverage.without_lockfile(snapshot, trivy_inventoried(payload)), **gaps}   # why, for the step only
+    detail = joined([detail, *dependency_coverage.gaps_detail({unit: why for unit, why in said.items() if unit not in unresolved},
+                                                              trivy_unversioned(payload, snapshot)), screened_detail(screened)],
+                    "scanning.join.sentences")
+    result = {**_result("trivy", "partial" if rejected else "completed", detail, findings, started), "packages": trivy_packages(payload),
+              "screened": dict(screened)}
+    result = _withhold(result, secret_settings, lambda reference: trivy_secrets(snapshot, cache_dir, reference))
+    # Its secret scanner: every file of the snapshot its log doesn't name as read (all of them when it didn't run).
+    if gaps := secret_gaps(snapshot, read if "secret" in scanners else set(), secret_settings):
+        coverage = {**coverage, "by_scanner": {**(coverage.get("by_scanner") or {}), "secrets": gaps}}
+    result = _declare_inline({**result, "coverage": coverage}, allowed)
+    coverage = result["coverage"]
+    # Who requires what, for the fix guide of every dependency finding (Trivy's or OSV-Scanner's). Used while the scan
+    # runs and dropped before the run is stored.
+    result = {**result, "graph": dependency_graph.graphs(payload.get("Results") or [], _relative),
+              "coverage": coverage}
+    return engine_contract.recorded(result, None)
 
 
-def _trivy_secrets(snapshot: Path, cache_dir: Path, settings: dict | None) -> list[dict] | None:
-    """Secret detection alone, for the unfiltered run. Without network: it needs no vulnerability database."""
+# Lockfiles Trivy reads: one of them missing from its results wasn't read (a malformed one is dropped without a word).
+TRIVY_LOCKFILES = frozenset({
+    "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "poetry.lock", "pipfile.lock",
+    "uv.lock", "pdm.lock", "go.mod", "cargo.lock", "composer.lock", "gemfile.lock", "pom.xml", "gradle.lockfile",
+    "packages.lock.json", "mix.lock", "pubspec.lock", "conan.lock", "package.resolved", "podfile.lock", "requirements.txt"})
+INFRASTRUCTURE_MARKERS = ("apiVersion:", "AWSTemplateFormatVersion", "deploymentTemplate.json")
+TRIVY_LOGGED_FILE = re.compile(r'\b(?:ERROR|WARN)\b.*?\bfile_path="([^"]+)"')
+
+
+# How many packages each JSON lockfile lists, by its own format (npm's root package, "", isn't one).
+JSON_PACKAGES = {
+    "package-lock.json": lambda data: len([key for key in data.get("packages") or {} if key]) + len(data.get("dependencies") or {}),
+    "composer.lock": lambda data: len(data.get("packages") or []) + len(data.get("packages-dev") or []),
+    "pipfile.lock": lambda data: len(data.get("default") or {}) + len(data.get("develop") or {}),
+    "packages.lock.json": lambda data: sum(len(group or {}) for group in (data.get("dependencies") or {}).values()),
+    "package.resolved": lambda data: len(data.get("pins") or (data.get("object") or {}).get("pins") or []),
+}
+JSON_PACKAGES["npm-shrinkwrap.json"] = JSON_PACKAGES["package-lock.json"]
+TOML_PACKAGES = frozenset({"poetry.lock", "cargo.lock", "uv.lock", "pdm.lock"})
+
+
+def _without_packages(path: Path) -> bool:
+    """A lockfile that, by its own format, lists no package at all: Trivy gives it no result, yet it was read (0
+    packages), unlike a malformed one Trivy drops without a word. Unsure is "with packages": then it stays unexamined."""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return False
+    if not content.strip():
+        return True
+    name = path.name.lower()
+    try:
+        if name in JSON_PACKAGES:
+            data = json.loads(content)
+            return isinstance(data, dict) and JSON_PACKAGES[name](data) == 0
+        if name in TOML_PACKAGES:
+            return not tomllib.loads(content).get("package")
+    except (ValueError, TypeError, AttributeError):
+        return False
+    if name == "go.mod":
+        return not re.search(r"(?m)^\s*require\b", content)
+    if name == "yarn.lock":
+        return all(not line.strip() or line.lstrip().startswith("#") for line in content.splitlines())
+    if name == "requirements.txt":   # Trivy reads only exact pins: the rest are packages without a version (dependency_coverage)
+        return not any(dependency_coverage.PINNED.match(line.strip()) for line in content.splitlines())
+    return False
+
+
+def _infrastructure(path: Path) -> str | None:
+    """How Trivy reports an infrastructure file: "file" (its own result), "module" (Terraform: its folder's result) or
+    None when it isn't one."""
+    name, suffix = path.name.lower(), path.suffix.lower()
+    if suffix in (".tf", ".tfvars"):
+        return "module"
+    if name in ("dockerfile", "containerfile") or name.endswith(".dockerfile"):
+        return "file"
+    if suffix in (".yml", ".yaml", ".json"):
+        found = dependency_coverage.read(path)   # in any encoding: one Trivy can't decode is still one it should have read
+        return "file" if found and any(marker in found[0][:4000] for marker in INFRASTRUCTURE_MARKERS) else None
+    return None
+
+
+def trivy_unversioned(payload: dict, snapshot: Path | None = None) -> dict[str, list[str]]:
+    """The packages each manifest's result left without a resolved version, by name (dependency_coverage.unversioned):
+    Trivy keeps a dependency whose version comes from a parent POM or a property that didn't resolve with an empty one
+    (404, 5xx or no network, and still exit 0). With `snapshot`, also the requirements it left out for not being pinned."""
+    found: dict[str, set[str]] = {}
+    for result in payload.get("Results") or []:
+        if not isinstance(result, dict) or result.get("Class") != "lang-pkgs":
+            continue
+        entries = [(str(item.get("Name") or ""), str(item.get("Version") or ""),
+                    item.get("Relationship") in ("root", "workspace") or dependency_coverage.local_name(str(item.get("Name") or "")))
+                   for item in result.get("Packages") or [] if isinstance(item, dict)]
+        if names := dependency_coverage.unversioned(entries):
+            found.setdefault(_relative(str(result.get("Target") or "")), set()).update(names)
+    for path in (snapshot.rglob("requirements.txt") if snapshot else ()):
+        text = dependency_coverage.read(path) if path.is_file() and not path.is_symlink() else None
+        if text and (names := dependency_coverage.unpinned_requirements(text[0])):
+            found.setdefault(path.relative_to(snapshot).as_posix(), set()).update(names)
+    return {target: sorted(names) for target, names in sorted(found.items())}
+
+
+def trivy_inventoried(payload: dict) -> set[str]:
+    """The files Trivy's own output listed at least one package for in this run (its packages, and the ones its
+    advisories name): a lockfile that gave none resolved nothing, whatever it holds (dependency_coverage.without_lockfile)."""
+    listing: dict[str, list[tuple[str, bool]]] = {}
+    for result in payload.get("Results") or []:
+        if not isinstance(result, dict) or result.get("Class") != "lang-pkgs":
+            continue
+        entries = listing.setdefault(_relative(str(result.get("Target") or "")), [])
+        entries += [(str(item.get("Name") or ""), item.get("Relationship") in ("root", "workspace")
+                     or dependency_coverage.local_name(str(item.get("Name") or ""))) for item in result.get("Packages") or [] if isinstance(item, dict)]
+        entries += [(str(item.get("PkgName") or ""), False) for item in result.get("Vulnerabilities") or [] if isinstance(item, dict)]
+    return dependency_coverage.inventoried(listing)
+
+
+def trivy_coverage(snapshot: Path, payload: dict, log: str, unresolved: dict[str, str] | None = None) -> dict:
+    """Which of the files Trivy reads it did read. Its results and its log, checked against what the snapshot holds: a
+    lockfile or an infrastructure file without a result, or one its log says it couldn't parse, wasn't examined (only
+    that file: the rest of Trivy's run still counts), and one in an encoding it doesn't decode says so. For its
+    dependency scanner only (their secrets were still read): a manifest whose remote resolution failed (`unresolved`),
+    one whose packages were left without a resolved version, and every folder it inventoried no package from
+    (`dependencies`, dependency_coverage.folders): a manifest left without its lockfile is one of those, whatever its
+    package manager."""
+    targets = {_relative(str(result.get("Target") or "")) for result in payload.get("Results") or [] if isinstance(result, dict)}
+    logged = {_relative(match) for match in TRIVY_LOGGED_FILE.findall(log)}
+    reasons: dict[str, str] = dict.fromkeys(logged, "parse_error")
+    for path in snapshot.rglob("*"):
+        if not path.is_file() or path.is_symlink():
+            continue
+        relative = path.relative_to(snapshot).as_posix()
+        kind = "lockfile" if path.name.lower() in TRIVY_LOCKFILES else _infrastructure(path)
+        if kind is None or relative in reasons or relative in (unresolved or {}):
+            continue
+        folder = str(Path(relative).parent) if "/" in relative else "."
+        if relative not in targets and not (kind == "module" and folder in targets) \
+                and not (kind == "lockfile" and _without_packages(path)):
+            reasons[relative] = "not_read" if dependency_coverage.readable(path) else dependency_coverage.ENCODING
+    inventoried = trivy_inventoried(payload)
+    dependencies = {**dict.fromkeys(trivy_unversioned(payload, snapshot), dependency_coverage.UNVERSIONED), **(unresolved or {})}
+    return {**engine_contract.coverage("*", reasons, by_scanner={"sca": {unit: why for unit, why in dependencies.items() if unit not in reasons}}),
+            "dependencies": dependency_coverage.folders(snapshot, inventoried)}
+
+
+def trivy_secrets(snapshot: Path, cache_dir: Path, settings: dict | None, screened: Counter | None = None,
+                  gaps: dict[str, str] | None = None, allowed: list[dict] | None = None) -> list[dict] | None:
+    """Secret detection alone (the unfiltered reference run, the credential files); None when it failed. Without
+    network: it needs no vulnerability database. What isn't a secret is counted in `screened` (secret_filter).
+    `gaps`: filled with the files it didn't read (secret_gaps), when it finished; `allowed`: with the secrets an
+    inline comment allows (`split_inline`), which it never returns."""
     try:
         with tempfile.TemporaryDirectory(prefix="trivy-config-", dir=snapshot.parent) as folder:
-            config_dir = None
-            if settings:
-                config_dir = Path(folder)
-                (config_dir / "trivy-secret.yaml").write_text(secret_rules.trivy_secret_config(settings), encoding="utf-8")
+            config_dir = Path(folder)
+            (config_dir / "trivy-secret.yaml").write_text(secret_rules.trivy_secret_config(settings or secret_rules.empty()), encoding="utf-8")
             completed = _trivy_fs(snapshot, cache_dir, "secret", config_dir, network=False)
-        if completed.returncode != 0 and not completed.stdout.strip():
-            return None
-        payload = json.loads(completed.stdout or "{}")
+        read, completed = _trivy_listed(completed)
+        payload, failure = engine_contract.verdict(TRIVY, completed.returncode, completed.stdout)
     except (subprocess.TimeoutExpired, OSError, ValueError):
         return None
-    return parse_trivy(payload, {}, secret_rules.custom_rules(settings)) if isinstance(payload, dict) else None
+    if failure:
+        return None
+    if gaps is not None:
+        gaps.update(secret_gaps(snapshot, read, settings))
+    kept, inline = split_inline(parse_trivy(payload, {}, secret_rules.custom_rules(settings), root=snapshot, screened=screened), snapshot)
+    if allowed is not None:
+        allowed.extend(inline)
+    return kept
 
 
 def _withhold(result: dict, settings: dict | None, reference) -> dict:
@@ -1008,9 +1635,9 @@ def _withhold(result: dict, settings: dict | None, reference) -> dict:
 def parse_osv_scanner(payload: dict, feeds: dict) -> list[Finding]:
     """One finding per advisory and package. OSV groups the identifiers of the same advisory in `groups`
     (GHSA, PYSEC, CVE…); one from each group becomes the primary and the rest become aliases."""
-    from pitangus.modules.intel.advisories import dependency_finding
+    from pitangus.modules.intel.advisories import dependency_finding, is_malicious, mark_malicious, summarize_advisory
     from pitangus.modules.scanning.dependency_merge import stable_fingerprint
-    findings, seen = [], set()
+    findings = []
     for result in payload.get("results") or []:
         path = _relative(str((result.get("source") or {}).get("path") or ""))
         for entry in result.get("packages") or []:
@@ -1030,14 +1657,15 @@ def parse_osv_scanner(payload: dict, feeds: dict) -> list[Finding]:
                     aliases |= set(vulnerabilities[item].get("aliases") or [])
                 advisory = {**vulnerabilities[main], "aliases": sorted(aliases - {main})}
                 finding = dependency_finding({"ecosystem": ecosystem, "name": name, "version": version, "path": path}, advisory, feeds)
+                # The group is one advisory: malware when any of its records says so (a GHSA titled one way, its PYSEC
+                # described another).
+                if not finding.get("malicious") and any(is_malicious(summarize_advisory(vulnerabilities[item])) for item in ids if item != main):
+                    mark_malicious(finding)
                 digest = stable_fingerprint(main, aliases, ecosystem, name, version)
-                if digest in seen:
-                    continue
-                seen.add(digest)
                 finding.pop("previous_fingerprint", None)  # OSV-Scanner already used this fingerprint
                 finding.update(fingerprint=digest, finding_id=digest[:16], tool="osv-scanner")
                 findings.append(finding)
-    return findings
+    return unique_by_fingerprint(findings)
 
 
 def run_osv_scanner(snapshot: Path, cache_dir: Path, feeds: dict, *, resolve: bool = False) -> EngineResult:
@@ -1050,32 +1678,120 @@ def run_osv_scanner(snapshot: Path, cache_dir: Path, feeds: dict, *, resolve: bo
     if problem := unavailable("osv-scanner", msg("scanning.osv.no_docker")):
         return _result("osv-scanner", "not_tested", problem)
     cache_dir = writable_cache(cache_dir)
-    arguments = ["scan", "source", "-r", "--format", "json", "--offline-vulnerabilities", "--download-offline-databases",
+    # Every package, not only the vulnerable ones: one left without a version leaves its manifest unexamined.
+    arguments = ["scan", "source", "-r", "--format", "json", "--all-packages", "--offline-vulnerabilities", "--download-offline-databases",
                  "--allow-no-lockfiles", "--no-call-analysis=go", "--no-call-analysis=rust", *([] if resolve else ["--no-resolve"]), "/src"]
     try:
         completed = _run("osv-scanner", arguments, snapshot, network=True, timeout=1800,
                          env={"OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY": "/cache"}, mounts=["-v", f"{host_path(cache_dir)}:/cache"])
+        log = completed.stderr or ""
         # 0: no advisories · 1: advisories. Any other code is an engine error.
-        if completed.returncode not in (0, 1) or not completed.stdout.strip():
-            if completed.returncode == 0:
-                return _result("osv-scanner", "completed", msg("scanning.osv.no_manifests"), started=started)
-            return _result("osv-scanner", "inconclusive", with_cause(msg("scanning.engines.failed_early", engine="OSV-Scanner"), completed), started=started)
-        payload = json.loads(completed.stdout)
+        payload, contract = engine_contract.verdict(OSV, osv_exit(completed.returncode, log), completed.stdout)
+        if contract:
+            return engine_contract.failed(_result("osv-scanner", "inconclusive", with_cause(contract, completed), started=started), contract)
     except subprocess.TimeoutExpired:
-        return _result("osv-scanner", "inconclusive", msg("scanning.osv.timeout"), started=started)
+        timeout = msg("scanning.osv.timeout")
+        return engine_contract.failed(_result("osv-scanner", "inconclusive", timeout, started=started), timeout)
     except (OSError, ValueError):
-        return _result("osv-scanner", "inconclusive", msg("scanning.engines.unreadable", engine="OSV-Scanner"), started=started)
+        unreadable = msg("scanning.engines.unreadable", engine="OSV-Scanner")
+        return engine_contract.failed(_result("osv-scanner", "inconclusive", unreadable, started=started), unreadable)
     findings = parse_osv_scanner(payload, feeds)
-    manifests = {str((result.get("source") or {}).get("path") or "") for result in payload.get("results") or []}
-    packages = sum(len(result.get("packages") or []) for result in payload.get("results") or [])
-    detail = msg("scanning.osv.detail_resolved" if resolve else "scanning.osv.detail",
-                 manifests=len(manifests), packages=packages, advisories=len(findings))
-    return _result("osv-scanner", "completed", detail, findings, started)
+    packages = sum(1 for result in payload.get("results") or [] for entry in result.get("packages") or [] if entry.get("vulnerabilities"))
+    coverage = osv_coverage(payload, log, snapshot, resolve=resolve)
+    manifests = {_relative(str((result.get("source") or {}).get("path") or "")) for result in payload.get("results") or []} - set(coverage["unexamined"])
+    failed = [unit for unit, why in coverage["unexamined"].items() if why == "parse_error"]
+    unread = msg("scanning.osv.unread", count=len(failed), files=", ".join(failed)) if failed else None
+    said = {**dependency_coverage.without_lockfile(snapshot, osv_inventoried(payload)), **coverage["unexamined"]}   # why, for the step only
+    gaps = dependency_coverage.gaps_detail(said, osv_unversioned(payload, snapshot, osv_resolved(log) if resolve else set()))
+    manifests -= {""}
+    detail = joined([msg("scanning.osv.detail_resolved" if resolve else "scanning.osv.detail", manifests=len(manifests), packages=packages,
+                         advisories=len(findings)) if manifests else None if said else msg("scanning.osv.no_manifests"),
+                     unread, *gaps], "scanning.join.sentences")
+    return engine_contract.recorded({**_result("osv-scanner", "completed", detail, findings, started), "coverage": coverage}, None)
 
 
-# --- Gitleaks -------------------------------------------------------------------------
+def osv_exit(code: int | None, log: str) -> int | None:
+    """OSV-Scanner 2.6 exits 127 when the only lockfiles it found couldn't be extracted, and still writes its JSON:
+    a failure of those files, not of the run, when every error its log reports is one of them."""
+    errors = [line for line in log.splitlines() if re.search(r"\b(?:error|fatal|panic|failed)\b", line, re.IGNORECASE)]
+    return 0 if code == 127 and errors and all(OSV_FAILED.match(line) for line in errors) else code
 
-# Names of the most common Gitleaks rules; the rest use their identifier.
+
+OSV_FOUND = re.compile(r"^Scanned (\S+) file and found (\d+) packages?", re.M)
+OSV_UNRESOLVED = re.compile(r"\bfailed resolution for (\S+?):")
+
+
+def osv_resolved(log: str) -> set[str]:
+    """The requirements files OSV-Scanner resolved against deps.dev (when allowed to): every one it scanned that its log
+    doesn't name as failed (then it falls back to guessing from the ranges)."""
+    failed = {_relative("/" + path.lstrip("/")) for path in OSV_UNRESOLVED.findall(log)}
+    return {_relative(path) for path in OSV_SCANNED.findall(log) if dependency_coverage.requirements_file(path)} - failed
+
+
+def osv_unversioned(payload: dict, snapshot: Path | None = None, resolved: set[str] | frozenset[str] = frozenset()) -> dict[str, list[str]]:
+    """The packages each manifest's result left without a version (dependency_coverage.unversioned): OSV-Scanner lists
+    them with an empty one (a version from a parent POM or a property it didn't resolve, a requirement without a pin)
+    and, unless it resolved the file (`resolved`), guesses a requirement's range as its lower bound. A Git dependency is
+    pinned by its commit."""
+    found: dict[str, set[str]] = {}
+    for result in payload.get("results") or []:
+        if not isinstance(result, dict):
+            continue
+        path = _relative(str((result.get("source") or {}).get("path") or ""))
+        entries = [(str(package.get("name") or ""), str(package.get("version") or package.get("commit") or ""),
+                    dependency_coverage.local_name(str(package.get("name") or "")))
+                   for package in (entry.get("package") or {} for entry in result.get("packages") or [] if isinstance(entry, dict))]
+        names = set(dependency_coverage.unversioned(entries))
+        if snapshot is not None and dependency_coverage.requirements_file(path) and path not in resolved \
+                and (text := dependency_coverage.read(snapshot / path)):
+            names |= set(dependency_coverage.unpinned_requirements(text[0]))
+        if names and path:
+            found.setdefault(path, set()).update(names)
+    return {path: sorted(names) for path, names in sorted(found.items())}
+
+
+def osv_inventoried(payload: dict) -> set[str]:
+    """The files OSV-Scanner's own output listed at least one package for in this run (dependency_coverage)."""
+    listing: dict[str, list[tuple[str, bool]]] = {}
+    for result in payload.get("results") or []:
+        if not isinstance(result, dict):
+            continue
+        entries = listing.setdefault(_relative(str((result.get("source") or {}).get("path") or "")), [])
+        entries += [(name, dependency_coverage.local_name(name)) for name in
+                    (str((entry.get("package") or {}).get("name") or "") for entry in result.get("packages") or [] if isinstance(entry, dict))]
+    return dependency_coverage.inventoried(listing)
+
+
+def osv_coverage(payload: dict, log: str, snapshot: Path | None = None, *, resolve: bool = False) -> dict:
+    """What OSV-Scanner read, from its log (it names each lockfile it scanned and each it couldn't extract) and its
+    results. A file it couldn't extract is unexamined, that file only, as is one it read nothing from because it isn't
+    UTF-8, and one whose packages were left without a version. With `snapshot`, what it examined is said by folder
+    (`dependencies`): a folder of the repository it inventoried nothing from is unexamined, so nothing it found there
+    before is taken as fixed. Without it, with nothing scanned, nothing is examined (never "every manifest")."""
+    failed = {_relative("/" + path.lstrip("/")): "parse_error" for path in OSV_FAILED.findall(log)}
+    scanned = {_relative(path) for path in OSV_SCANNED.findall(log)} | {
+        _relative(str((result.get("source") or {}).get("path") or "")) for result in payload.get("results") or [] if isinstance(result, dict)}
+    if snapshot is not None:
+        empty = {_relative(path) for path, count in OSV_FOUND.findall(log) if count == "0"}
+        failed |= {path: dependency_coverage.ENCODING for path in sorted(empty - set(failed))
+                   if (snapshot / path).is_file() and not dependency_coverage.readable(snapshot / path)}
+    unversioned = osv_unversioned(payload, snapshot, osv_resolved(log) if resolve else set())
+    failed |= {path: dependency_coverage.UNVERSIONED for path in unversioned if path not in failed}
+    inventoried = osv_inventoried(payload)
+    scanned -= set(failed) | {""}
+    if snapshot is not None:
+        # By folder (dependency_coverage.folders): a folder it inventoried nothing from is unexamined, whatever it read
+        # or didn't (a manifest without its lockfile, of any package manager); one no longer in the repository holds
+        # nothing it could have seen.
+        return {**engine_contract.coverage("*", failed), "dependencies": dependency_coverage.folders(snapshot, inventoried)}
+    if scanned:
+        return engine_contract.coverage("*", failed)
+    return engine_contract.coverage([], failed, reason="none_readable" if failed else "no_manifests")
+
+
+# --- Betterleaks -------------------------------------------------------------------------
+
+# Names of the most common Betterleaks rules; the rest use their identifier.
 SECRET_TITLES = {
     "jwt": msg("scanning.secrets.titles.jwt"), "generic-api-key": msg("scanning.secrets.titles.generic_api_key"),
     "private-key": msg("scanning.secrets.titles.private_key"), "aws-access-token": msg("scanning.secrets.titles.aws_access_token"),
@@ -1114,6 +1830,7 @@ LEAD_WINDOW = 256  # characters read before a secret to find its context: bounde
 def masked_lead(text: str, start: int, spans: list[tuple[int, int]]) -> str:
     """The text before offset `start` on a line (at most LEAD_WINDOW characters), with every span in `spans`
     (the secrets found on that line) masked by `*`."""
+    start = min(start, len(text))
     begin = max(0, start - LEAD_WINDOW)
     lead = list(text[begin:start])
     for span_start, span_end in spans:
@@ -1135,31 +1852,159 @@ def with_secret_identities(items: list[tuple[Finding, str | None, tuple]]) -> li
         identity = (finding["rule_id"], finding["path"], context)
         order = seen[identity] = seen.get(identity, -1) + 1
         digest = _stable("secrets", finding["rule_id"], finding["path"], "context", context, str(order))
-        result[index] = {**finding, "fingerprint": digest, "finding_id": digest[:16], "previous_fingerprint": finding["fingerprint"]}
+        result[index] = {**finding, "fingerprint": digest, "finding_id": digest[:16], "previous_fingerprint": finding["fingerprint"],
+                         # Identical secrets in one file share it; each copy is still counted (identity.family_counts).
+                         "family": _stable("secrets", finding["rule_id"], finding["path"], "context", context)}
+    return unlinkable_fingerprints(result)
+
+
+def unlinkable_fingerprints(findings: list[Finding]) -> list[Finding]:
+    """An unlinkable secret (secret_location) is known by its own name only: its fingerprint is that name and its copy's
+    order (copies are counted), never what any value in its place would share (its rule, file and context)."""
+    copies: Counter = Counter()
+    for finding in findings:
+        if finding.get("unlinkable"):
+            order = copies[finding["identity"]]
+            copies[finding["identity"]] += 1
+            digest = _stable("secrets", "unlinkable", finding["identity"], str(order))
+            finding.update(fingerprint=digest, finding_id=digest[:16], family=finding["identity"])
+            finding.pop("previous_fingerprint", None)
+            finding.pop("previous_fingerprints", None)
+    return findings
+
+
+def _betterleaks_lines_of(entry: dict) -> tuple[int, int]:
+    """(first line, last line) of a Betterleaks entry; the last is the first when it isn't after it within MULTILINE."""
+    try:
+        first = int(entry.get("StartLine") or 0)
+        last = int(entry.get("EndLine") or first)
+    except (TypeError, ValueError):
+        return 0, 0
+    return first, last if first <= last <= first + MULTILINE else first
+
+
+def _betterleaks_lines(entries: list[dict], root: Path | None) -> dict[str, dict[int, bytes]]:
+    """The raw lines of the snapshot each entry spans, by file, never outside the snapshot; none for a file that can't
+    be read."""
+    wanted: dict[str, set[int]] = {}
+    for entry in entries:
+        first, last = _betterleaks_lines_of(entry)
+        if first >= 1:
+            wanted.setdefault(_relative(str(entry.get("File", ""))), set()).update(range(first, last + 1))
+    raw: dict[str, dict[int, bytes]] = {}
+    if root is None:
+        return raw
+    base = root.resolve()
+    for path, numbers in wanted.items():
+        found: dict[int, bytes] = {}
+        try:
+            target = (root / path).resolve()
+            target.relative_to(base)
+            with target.open("rb") as handle:
+                for number, text in enumerate(handle, 1):
+                    if number in numbers:
+                        found[number] = text
+                    if number >= max(numbers):
+                        break
+        except (OSError, ValueError):
+            pass
+        raw[path] = found
+    return raw
+
+
+def _line_text(line: bytes) -> str:
+    # surrogateescape, as secret_identity reads a value: an invalid byte is one character either way.
+    return line.decode("utf-8", "surrogateescape").rstrip("\r\n")
+
+
+def _betterleaks_occurrences(text: str, match: str, size: int) -> list[tuple[int, int]]:
+    """Every place on `text` a redacted match of `size` bytes can be (character offsets [start, end)): where its lead
+    (`password = "`) starts and the next `size` bytes read as the match (secret_filter.value_from_match). None without a
+    lead to look for."""
+    lead = match.split("REDACTED", 1)[0]
+    if not lead.strip() or len(lead) > 200 or "\n" in match or not 0 < size <= secret_filter.MATCH_MAX * 4:
+        return []
+    spots, at = [], text.find(lead)
+    while at >= 0:
+        end, count = at, 0
+        while end < len(text) and count < size:
+            count += len(text[end].encode("utf-8", "surrogateescape"))
+            end += 1
+        if count == size and secret_filter.value_from_match(match, text[at:end]):
+            spots.append((at, end))
+        at = text.find(lead, at + 1)
+    return spots
+
+
+def _betterleaks_char_columns(entries: list[dict], raw: dict[str, dict[int, bytes]]) -> list[dict]:
+    """Betterleaks' columns count bytes (its locateMatch: "1-based byte offset"), the snapshot's lines are read as
+    text: each entry's StartColumn/EndColumn become character columns of the lines they point at, exactly, so a secret
+    after a non-ASCII character (`ñ`, `·`, a minified bundle's strings) is read where it is. Unreadable lines keep them.
+
+    Past the first fragment of a long line (about 125 KB) Betterleaks counts from the fragment instead of the line, so
+    its columns land nowhere or on another match of the same shape. On each line, an entry whose columns land on a match
+    keeps it; the others take, nearest to where they point, the matches of their shape no entry holds: each match is read
+    once while there are as many entries as matches, whatever the columns say."""
+    def chars(line: bytes, offset: int) -> int:
+        return len(line[:max(0, offset)].decode("utf-8", "surrogateescape"))
+
+    result = list(entries)
+    held: dict[tuple, set[tuple[int, int]]] = {}
+    astray: dict[tuple, list[tuple[int, int, int]]] = {}
+    for index, entry in enumerate(entries):
+        try:
+            start, end = int(entry.get("StartColumn") or 0), int(entry.get("EndColumn") or 0)
+        except (TypeError, ValueError):
+            continue
+        path = _relative(str(entry.get("File", "")))
+        first, last = _betterleaks_lines_of(entry)
+        lines = raw.get(path, {})
+        if start < 1 or first not in lines or last not in lines:
+            continue
+        begin, finish = chars(lines[first], start - 1), chars(lines[last], end)
+        result[index] = {**entry, "StartColumn": begin + 1, "EndColumn": finish}
+        match = str(entry.get("Match") or "")
+        if last == first and "REDACTED" in match:
+            key = (path, first, str(entry.get("RuleID") or ""), match)
+            spot, taken = (begin, finish), held.setdefault(key, set())
+            if spot not in taken and secret_filter.value_from_match(match, _line_text(lines[first])[begin:finish]):
+                taken.add(spot)
+            else:
+                astray.setdefault(key, []).append((begin, index, end - start + 1))
+    for key, items in astray.items():
+        path, number, _, match = key
+        text, taken = _line_text(raw[path][number]), held[key]
+        for near, index, size in sorted(items):
+            spots = _betterleaks_occurrences(text, match, size)
+            free = [spot for spot in spots if spot not in taken] or spots
+            if free:
+                spot = min(free, key=lambda item: (abs(item[0] - near), item[0]))
+                taken.add(spot)
+                result[index] = {**result[index], "StartColumn": spot[0] + 1, "EndColumn": spot[1]}
     return result
 
 
-def _gitleaks_span(entry: dict) -> tuple[int, int] | None:
-    """Where a Gitleaks match sits on its line, as 0-based offsets [start, end). Gitleaks 8 counts columns from 1 on
-    the first line of a file and from 2 on the rest (checked with 8.30.1)."""
+def _betterleaks_span(entry: dict) -> tuple[int, int] | None:
+    """Where a Betterleaks match starts on its first line and ends on its last, as 0-based offsets [start, end):
+    Betterleaks counts columns from 1 and includes the last one, on every line (checked with 1.9.0; Gitleaks 8 counted
+    from 2 after the first line)."""
     try:
         line, start, end = int(entry.get("StartLine") or 0), int(entry.get("StartColumn") or 0), int(entry.get("EndColumn") or 0)
     except (TypeError, ValueError):
         return None
-    shift = 1 if line == 1 else 2
-    if line < 1 or start - shift < 0:
+    if line < 1 or start < 1:
         return None
-    return start - shift, max(start - shift, end - shift + 1)
+    return start - 1, max(start - 1, end)
 
 
-def _gitleaks_contexts(payload: list, root: Path | None) -> dict[int, str]:
-    """The context of each Gitleaks entry (by its position in `payload`) read from the snapshot: the line before
+def _betterleaks_contexts(payload: list, root: Path | None) -> dict[int, str]:
+    """The context of each Betterleaks entry (by its position in `payload`) read from the snapshot: the line before
     the match with every other match on it masked, plus the redacted match's own lead (`api_key = "`)."""
     if root is None:
         return {}
     wanted: dict[str, dict[int, list[tuple[int, tuple[int, int]]]]] = {}
     for index, entry in enumerate(payload):
-        span = _gitleaks_span(entry) if isinstance(entry, dict) else None
+        span = _betterleaks_span(entry) if isinstance(entry, dict) else None
         if span:
             wanted.setdefault(_relative(str(entry.get("File", ""))), {}).setdefault(int(entry["StartLine"]), []).append((index, span))
     contexts: dict[int, str] = {}
@@ -1190,10 +2035,89 @@ def _custom_secret(rule: dict, rule_id: str, path: str, line: int, *, tool: str,
                  digest=_stable("secrets", rule_id, path, str(line)))
 
 
-def parse_gitleaks(payload: list, custom: dict | None = None, root: Path | None = None) -> list[Finding]:
-    """`root`: the snapshot, to read what precedes each secret on its line (Gitleaks redacts the whole match)."""
+# Betterleaks reads a file in chunks of 100 000 bytes and then up to 25 000 more looking for a place to cut; when it finds
+# none it cuts in the middle of a line, short or long, and counts the rest's columns from the cut without saying so. In a
+# file no bigger than one chunk its columns count from the line's start (checked with 1.9.0:
+# test_secret_location.RealEnginesTests.test_columns_count_from_the_line).
+BETTERLEAKS_ONE_PIECE = 100_000
+
+
+def _betterleaks_claim(entry: dict) -> secret_location.Claim:
+    """What Betterleaks said about a secret (secret_location): its redacted `Match`, its length in bytes (its columns,
+    1-based and inclusive, differ by it even where they count from a fragment of a long line) and its `Entropy`."""
+    rule, match = str(entry.get("RuleID") or "secret"), str(entry.get("Match") or "")
+    try:
+        first, start, end = int(entry.get("StartLine") or 0), int(entry.get("StartColumn") or 0), int(entry.get("EndColumn") or 0)
+        last = max(first, int(entry.get("EndLine") or first))
+    except (TypeError, ValueError):
+        first = last = start = end = 0
+    value = entry.get("Entropy")
+    reported = float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+    column = start - 1 + len(match.split("REDACTED", 1)[0].encode("utf-8", "surrogateescape")) if start >= 1 else None
+    if first == last:
+        size = end - start + 1
+        return secret_location.Claim(rule, _relative(str(entry.get("File", ""))), first, last, ("betterleaks", rule, match, size, reported),
+                                     partial(secret_location.betterleaks_spots, match, size, reported, value_span=secret_filter.value_span),
+                                     None, column=column, column_reach=BETTERLEAKS_ONE_PIECE)
+    return secret_location.Claim(rule, _relative(str(entry.get("File", ""))), first, last, ("betterleaks", rule, match, reported), None,
+                                 partial(secret_location.betterleaks_block, match, reported, start - 1, end, secret_filter.value_span),
+                                 column=column, column_reach=BETTERLEAKS_ONE_PIECE)
+
+
+def _betterleaks_identities(read: secret_location.Read) -> tuple[secret_identity.Names | None, str | None]:
+    """A secret's names, those of its value where it was verified (secret_location), and its identity by the formula
+    before (the whole match, key and quotes included, read at that same place), a former name of that value only;
+    remove in 0.15 (see secret_identity's docstring)."""
+    if read.names is None:
+        return None, None
+    return read.names, secret_identity.identity(read.match) if read.match else None
+
+
+def _betterleaks_screen(entries: list[dict], texts: dict[str, dict[int, str]], reads: list[secret_location.Read]) -> dict[int, str]:
+    """Why each entry that isn't a secret isn't one (secret_filter.verdict), by its position in `entries`: its value,
+    read where it was verified (`reads`), judged with what precedes it on its line, and forgotten. Without its value
+    only its path and line are judged."""
+    reasons: dict[int, str] = {}
+    for index, entry in enumerate(entries):
+        path = _relative(str(entry.get("File", "")))
+        line, read, value = texts.get(path, {}).get(_betterleaks_lines_of(entry)[0]) or "", reads[index], None
+        if read.names is not None and len(read.match or "") <= secret_filter.MATCH_MAX:
+            value = read.value
+            if read.span and read.span[0] == read.span[2]:
+                line = line[:read.span[3]]  # this match's key, not another one's with the same value further on
+        if reason := secret_filter.verdict(str(entry.get("RuleID") or ""), path, line, value):
+            reasons[index] = reason
+    return reasons
+
+
+MULTILINE = 200  # lines a match may span and still be read for its value (a private key fits)
+
+
+def screened_detail(screened: Counter) -> Message | None:
+    """What the secret filter set aside, by reason (secret_filter.REASONS), or None when nothing."""
+    if not screened:
+        return None
+    reasons = [msg(f"scanning.secret_filter.reasons.{reason}", count=screened[reason]) for reason in secret_filter.REASONS if screened.get(reason)]
+    return msg("scanning.secret_filter.screened", count=sum(screened.values()), reasons=and_list(reasons))
+
+
+def parse_betterleaks(payload: list, custom: dict | None = None, root: Path | None = None,
+                      screened: Counter | None = None) -> list[Finding]:
+    """`root`: the snapshot, to read what precedes each secret on its line (Betterleaks redacts the whole match) and to
+    judge whether a match can be a secret at all (secret_filter): what can't is left out and counted in `screened`."""
     entries = [entry for entry in payload or [] if isinstance(entry, dict)]
-    contexts = _gitleaks_contexts(entries, root)
+    reads = secret_location.resolve(root, [_betterleaks_claim(entry) for entry in entries])
+    kept = [index for index in range(len(entries)) if not reads[index].duplicate]
+    entries, reads = [entries[index] for index in kept], [reads[index] for index in kept]
+    raw = _betterleaks_lines(entries, root)
+    texts = {path: {number: _line_text(line) for number, line in lines.items()} for path, lines in raw.items()}
+    set_aside = _betterleaks_screen(entries, texts, reads)
+    if screened is not None:
+        screened.update(set_aside.values())
+    kept = [index for index in range(len(entries)) if index not in set_aside]
+    entries, reads = [entries[index] for index in kept], [reads[index] for index in kept]
+    # The columns Betterleaks gave, as characters: only for the context of its fingerprint (what 0.13 stored it by).
+    contexts = _betterleaks_contexts(_betterleaks_char_columns(entries, raw), root)
     items = []
     for index, entry in enumerate(entries):
         rule = str(entry.get("RuleID") or "secret")
@@ -1201,80 +2125,318 @@ def parse_gitleaks(payload: list, custom: dict | None = None, root: Path | None 
         line = int(entry.get("StartLine") or 1)
         entropy = float(entry.get("Entropy") or 0)
         if rule in (custom or {}):
-            finding = _custom_secret(custom[rule], rule, path, line, tool="gitleaks", confidence=8 if entropy >= 3.5 else 6)
+            finding = _custom_secret(custom[rule], rule, path, line, tool="betterleaks", confidence=8 if entropy >= 3.5 else 6)
         else:
-            # The value never reaches the finding: gitleaks runs with --redact and the context stops where the secret starts.
-            finding = _base("secrets", rule, secret_title(rule), path, line, SECRET_SEVERITY, tool="gitleaks",
-                            reason=msg("scanning.secrets.gitleaks_reason", rule=rule, path=path, line=line, entropy=f"{entropy:.1f}"),
+            # The value never reaches the finding: betterleaks runs with --redact and the context stops where the secret starts.
+            finding = _base("secrets", rule, secret_title(rule), path, line, SECRET_SEVERITY, tool="betterleaks",
+                            reason=msg("scanning.secrets.betterleaks_reason", rule=rule, path=path, line=line, entropy=f"{entropy:.1f}"),
                             remediation=msg("scanning.secrets.rotate"),
                             cwe=[798], owasp="A04:2025", confidence=8 if entropy >= 3.5 else 6,
                             digest=_stable("secrets", rule, path, str(line)))
+        value, earlier = _betterleaks_identities(reads[index])
+        named(finding, reads[index], value, earlier)
+        finding = _validated(finding, entry.get("ValidationStatus"))
         items.append((finding, secret_context(contexts.get(index)), (path, line, int(entry.get("StartColumn") or 0))))
     return with_secret_identities(items)
 
 
-def _gitleaks_report(snapshot: Path, settings: dict | None, started: float, *, strict: bool = False) -> tuple[list | None, dict | None]:
-    """(report, None), or (None, the step's result) when Gitleaks couldn't produce it. `strict`: a missing report is
-    a failure even without settings."""
+def _betterleaks_report(snapshot: Path, settings: dict | None, started: float, *, validate: bool = False,
+                        read: set[str] | None = None, inline: list[int] | None = None,
+                        ignore_inline: bool = False, nested: bool = False) -> tuple[list | None, dict | None]:
+    """(report, None), or (None, the step's result) when Betterleaks didn't produce its report: the run
+    didn't finish (engine_contract). `validate`: Betterleaks asks each secret's provider whether it is active, the only
+    time its container gets a network. `read`: filled with the files its log says it read (secret_coverage); `inline`:
+    with how many matches an inline comment (`gitleaks:allow`) allowed. `ignore_inline`: those comments allow nothing.
+    `nested`: the folder above `snapshot` is scanned, which holds nothing else (sources/repositories.secrets_scan_root):
+    Betterleaks loads `.gitleaksignore` and `.betterleaksignore` from the top of what it scans, whatever its flags say,
+    so no committed file sits there. Its paths come back as if `snapshot` had been scanned."""
     # The report is written next to the snapshot: it's the only folder both containers see.
     # The settings go in a separate folder, mounted read-only.
-    with tempfile.TemporaryDirectory(prefix="gitleaks-", dir=snapshot.parent) as output, \
-            tempfile.TemporaryDirectory(prefix="gitleaks-config-", dir=snapshot.parent) as config:
+    # Never inside the folder it scans (`nested`: the one above `snapshot`).
+    scanned = snapshot.parent if nested else snapshot
+    with tempfile.TemporaryDirectory(prefix="betterleaks-", dir=scanned.parent) as output, \
+            tempfile.TemporaryDirectory(prefix="betterleaks-config-", dir=scanned.parent) as config:
         arguments = ["dir", "/src", "--report-format", "json", "--report-path", "/out/report.json",
-                     "--no-banner", "--exit-code", "0", "--redact"]
+                     "--no-banner", "--exit-code", "0", "--redact", "--no-color", "--log-level", "trace",
+                     *(["--ignore-gitleaks-allow"] if ignore_inline else [])]
         mounts = ["-v", f"{host_path(Path(output))}:/out"]
-        if settings:
-            (Path(config) / "gitleaks.toml").write_text(secret_rules.gitleaks_toml(settings), encoding="utf-8")
-            arguments[2:2] = ["--config", "/cfg/gitleaks.toml"]
-            mounts += ["-v", f"{host_path(Path(config))}:/cfg:ro"]
+        # Always a generated configuration, even without settings: the opt-in rules stay off (secret_rules.OPT_IN_RULES).
+        (Path(config) / "betterleaks.toml").write_text(secret_rules.betterleaks_toml(settings or secret_rules.empty(),
+                                                                                  f"/src/{snapshot.name}/" if nested else "/src/"),
+                                                         encoding="utf-8")
+        arguments[2:2] = ["--config", "/cfg/betterleaks.toml"]
+        mounts += ["-v", f"{host_path(Path(config))}:/cfg:ro"]
+        if validate:
+            arguments += ["--validation", "--validation-timeout", "10s", "--validation-workers", "4"]
         try:
-            completed = _run("gitleaks", arguments, snapshot, mounts=mounts, timeout=600)
+            completed = _run("betterleaks", arguments, scanned, network=validate, mounts=mounts,
+                             timeout=600, keep=secret_coverage.keep_betterleaks())
+            if inline is not None:
+                inline.append(secret_coverage.allowed_inline(completed.stderr or ""))
+            listed, rest = secret_coverage.read_betterleaks(completed.stderr or "", root=f"/src/{snapshot.name}" if nested else "/src")
+            completed = subprocess.CompletedProcess(completed.args, completed.returncode, completed.stdout, rest)
+            if read is not None:
+                read.update(listed)
             report = Path(output) / "report.json"
-            # Without settings, a missing report keeps its old meaning; with them it may be the settings' fault.
-            if (settings or strict) and (completed.returncode != 0 or not report.is_file()):
-                if "config" not in (completed.stderr or "").lower():
-                    return None, _result("gitleaks", "inconclusive", with_cause(msg("scanning.engines.failed", engine="Gitleaks"), completed),
-                                         started=started)
-                reason = config_cause(completed)
-                failure = msg("scanning.gitleaks.config_failed_cause", cause=reason) if reason else msg("scanning.gitleaks.config_failed")
-                return None, _result("gitleaks", "inconclusive", failure, started=started)
-            payload = json.loads(report.read_text(encoding="utf-8") or "[]") if report.is_file() else []
+            payload, contract = engine_contract.verdict(BETTERLEAKS, completed.returncode, report.read_text(encoding="utf-8") if report.is_file() else "")
         except subprocess.TimeoutExpired:
-            return None, _result("gitleaks", "inconclusive", msg("scanning.engines.timeout", engine="Gitleaks"), started=started)
+            timeout = msg("scanning.engines.timeout", engine="Betterleaks")
+            return None, engine_contract.failed(_result("betterleaks", "inconclusive", timeout, started=started), timeout)
         except (OSError, ValueError):
-            return None, _result("gitleaks", "inconclusive", msg("scanning.gitleaks.unreadable"), started=started)
-    if completed.returncode not in (0, 1):
-        return None, _result("gitleaks", "inconclusive", with_cause(msg("scanning.engines.failed", engine="Gitleaks"), completed), started=started)
-    return (payload if isinstance(payload, list) else []), None
+            unreadable = msg("scanning.betterleaks.unreadable")
+            return None, engine_contract.failed(_result("betterleaks", "inconclusive", unreadable, started=started), unreadable)
+    if contract is None:
+        return (_unnested(payload, snapshot.name) if nested else payload), None
+    # With settings, a run that wrote nothing may be the settings' fault: said so.
+    detail = with_cause(contract, completed)
+    if settings and "config" in (completed.stderr or "").lower():
+        reason = config_cause(completed)
+        detail = msg("scanning.betterleaks.config_failed_cause", cause=reason) if reason else msg("scanning.betterleaks.config_failed")
+    return None, engine_contract.failed(_result("betterleaks", "inconclusive", detail, started=started), contract)
 
 
-def run_gitleaks(snapshot: Path, settings: dict | None = None) -> EngineResult:
-    """`settings`: the organization's secret detection settings (secret_rules). With them, Gitleaks gets a generated
-    `--config` mounted read-only; if it rejects it, the step is inconclusive, never clean."""
+def _unnested(payload: list, folder: str) -> list:
+    """A report of the folder above `folder` with its paths as if `folder` had been scanned (`/src/<folder>/a` → `/src/a`)."""
+    inside = f"/src/{folder}/"
+    for entry in payload or []:
+        if isinstance(entry, dict):
+            for key in ("File", "Fingerprint"):
+                if isinstance(entry.get(key), str) and entry[key].startswith(inside):
+                    entry[key] = "/src/" + entry[key][len(inside):]
+    return payload
+
+
+def secret_validation() -> bool:
+    """Whether secrets are checked against their providers (PITANGUS_SECRET_VALIDATION): off unless enabled."""
+    return settings.flag("PITANGUS_SECRET_VALIDATION")
+
+
+# What Betterleaks' validation says about a secret, as Pitangus words it, and what it does to its priority: an active
+# one is acted on now; a revoked one is still in the code and its history, so it stays, tracked; the rest keep theirs.
+VALIDATION = {"valid": ("active", "act"), "invalid": ("revoked", "track"), "revoked": ("revoked", "track"),
+              "unknown": ("unknown", None), "error": ("unknown", None), "needs_validation": ("unknown", None)}
+
+
+def _validated(finding: Finding, status: object) -> Finding:
+    state, action = VALIDATION.get(str(status or ""), (None, None))
+    if state is None:
+        return finding
+    priority = finding.get("priority") or {"action": "attend", "factors": []}
+    finding["validation"] = state
+    finding["priority"] = {"action": action or priority["action"],
+                           "factors": [msg(f"scanning.secrets.validation.{state}"), *priority.get("factors", [])]}
+    return finding
+
+
+def run_betterleaks(snapshot: Path, settings: dict | None = None, *, nested: bool = False) -> EngineResult:
+    """`settings`: the organization's secret detection settings (secret_rules). With them, Betterleaks gets a generated
+    `--config` mounted read-only; if it rejects it, the step is inconclusive, never clean. `nested`: `snapshot` is the
+    only folder in the one Betterleaks scans (`_betterleaks_report`)."""
     started = time.time()
-    if problem := unavailable("gitleaks", msg("scanning.gitleaks.no_docker")):
-        return _result("gitleaks", "not_tested", problem)
-    payload, failure = _gitleaks_report(snapshot, settings, started)
+    if problem := unavailable("betterleaks", msg("scanning.betterleaks.no_docker")):
+        return _result("betterleaks", "not_tested", problem)
+    read: set[str] = set()
+    inline: list[int] = []
+    ignore_inline = inline_allow_ignored()
+    payload, failure = _betterleaks_report(snapshot, settings, started, validate=secret_validation(), read=read, inline=inline,
+                                           ignore_inline=ignore_inline, nested=nested)
     if failure:
         return failure
-    findings = parse_gitleaks(payload, secret_rules.custom_rules(settings), snapshot)
-    detail = msg("scanning.gitleaks.detail_configured", secrets=len(findings), **secret_rules.counts(settings)) if settings \
-        else msg("scanning.gitleaks.detail", secrets=len(findings))
+    screened: Counter = Counter()
+    findings = parse_betterleaks(payload, secret_rules.custom_rules(settings), snapshot, screened)
+    detail = msg("scanning.betterleaks.detail_configured", secrets=len(findings), **secret_rules.counts(settings)) if settings \
+        else msg("scanning.betterleaks.detail", secrets=len(findings))
+    detail = joined([detail, screened_detail(screened)], "scanning.join.sentences")
 
     def reference(unfiltered: dict | None) -> list[dict] | None:
-        report, failed = _gitleaks_report(snapshot, unfiltered, started, strict=True)
-        return None if failed else parse_gitleaks(report, secret_rules.custom_rules(unfiltered), snapshot)
-    return _withhold(_result("gitleaks", "completed", detail, findings, started), settings, reference)
+        report, failed = _betterleaks_report(snapshot, unfiltered, started, ignore_inline=ignore_inline, nested=nested)
+        return None if failed else parse_betterleaks(report, secret_rules.custom_rules(unfiltered), snapshot)
+    # Every file of the snapshot its log doesn't name as read is unexamined by it, whatever made it pass over it.
+    result = {**_withhold(_result("betterleaks", "completed", detail, findings, started), settings, reference),
+              "coverage": engine_contract.coverage("*", secret_gaps(snapshot, read, settings)), "screened": dict(screened)}
+    if not ignore_inline:
+        result = _ignore_file_allowed(result, snapshot)
+    if sum(inline) and not ignore_inline:
+        result = _inline_allowed(result, snapshot, settings, started, nested=nested)
+    return engine_contract.recorded(result, None)
+
+
+def inline_allow_ignored() -> bool:
+    """Whether `gitleaks:allow` comments in the code allow nothing (PITANGUS_SECRETS_IGNORE_INLINE_ALLOW): off, they
+    are honoured and every match they allow is declared (`_inline_allowed`)."""
+    return settings.flag("PITANGUS_SECRETS_IGNORE_INLINE_ALLOW")
+
+
+def _inline_allowed(result: dict, snapshot: Path, settings: dict | None, started: float, *, nested: bool = False) -> dict:
+    """The matches a `gitleaks:allow` / `betterleaks:allow` comment allowed: a decision written in the code, honoured,
+    and never silent. Betterleaks runs once more ignoring those comments; what only that run sees is excluded with its
+    file and line (`suppressed_inline` in the coverage, the step and the run's limitations), never fixed and never
+    with its value. If that run fails, which matches they were is unknown: the step is partial, nothing is fixed."""
+    report, failed = _betterleaks_report(snapshot, settings, started, ignore_inline=True, nested=nested)
+    if failed:
+        return {**result, "status": "partial", "withheld": None,
+                "detail": joined([result["detail"], msg("scanning.secrets.inline.unknown")], "scanning.join.sentences")}
+    kept = {finding["fingerprint"] for finding in [*result["findings"], *(result.get("withheld") or [])]}
+    return _declare_inline(result, [_allowed_inline(finding) for finding in parse_betterleaks(report, secret_rules.custom_rules(settings), snapshot)
+                                    if finding["fingerprint"] not in kept])
+
+
+IGNORE_FILES = (".gitleaksignore", ".betterleaksignore")   # where an owner lists the matches Betterleaks should allow
+IGNORE_FILE_MAX = 1_000_000
+
+
+def ignore_file_entries(snapshot: Path) -> dict[tuple[str, str, int], str]:
+    """The matches the repository's own ignore files allow, {(path, rule, line): file}, from the files at its root (the
+    only ones Betterleaks loads when it scans a repository). An entry is a Betterleaks fingerprint, `path:rule:line`
+    (a commit before it is ignored), its path as Betterleaks names it (`/src/a/.env`) or relative to the repository."""
+    entries: dict[tuple[str, str, int], str] = {}
+    for name in IGNORE_FILES:
+        path = snapshot / name
+        if path.is_symlink() or not path.is_file():
+            continue
+        try:
+            with path.open("rb") as handle:
+                text = handle.read(IGNORE_FILE_MAX).decode("utf-8", "replace")
+        except OSError:
+            continue
+        for raw in text.splitlines():
+            entry = raw.strip()
+            if not entry or entry.startswith("#"):
+                continue
+            head, _, rest = entry.partition(":")
+            if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head) and rest.count(":") >= 2:
+                entry = rest
+            parts = entry.rsplit(":", 2)
+            if len(parts) != 3 or not parts[2].isdigit():
+                continue
+            file = parts[0].removeprefix("/src/").removeprefix("./")
+            entries.setdefault((file, parts[1], int(parts[2])), name)
+    return entries
+
+
+def _ignore_file_allowed(result: dict, snapshot: Path) -> dict:
+    """The secrets the repository's `.gitleaksignore` / `.betterleaksignore` allow: the owner's decision, honoured by
+    Pitangus as Betterleaks would, and never silent (Betterleaks itself never sees those files: `_betterleaks_report`).
+    Each one is excluded with its file and line, declared like an inline comment's (`_declare_inline`), never fixed and
+    never with its value. With PITANGUS_SECRETS_IGNORE_INLINE_ALLOW they allow nothing, as the comments."""
+    entries = ignore_file_entries(snapshot)
+    if not entries:
+        return result
+    kept, allowed = [], []
+    for finding in result.get("findings") or []:
+        listed = entries.get((finding["path"], str(finding.get("rule_id") or ""), int(finding.get("line") or 0)))
+        if listed is None:
+            kept.append(finding)
+            continue
+        allowed.append({**finding, "inline_allowed": True,
+                        "excluded_reason": msg("scanning.secrets.ignore_file.excluded", file=listed, path=finding["path"],
+                                               line=finding["line"])})
+    return _declare_inline({**result, "findings": kept}, allowed)
+
+
+INLINE_SHOWN = 5   # places an inline comment allowed that a step names; the run keeps them all
+INLINE_ALLOW = re.compile(r"\b(?:gitleaks|betterleaks):allow\b")
+
+
+def _allowed_inline(finding: Finding) -> Finding:
+    return {**finding, "inline_allowed": True,
+            "excluded_reason": msg("scanning.secrets.inline.excluded", path=finding["path"], line=finding["line"])}
+
+
+def _declare_inline(result: dict, allowed: list[Finding]) -> dict:
+    """`result` with the matches an inline comment allowed excluded (`withheld`), listed by file and line in its coverage
+    (`suppressed_inline`) and its detail."""
+    if not allowed:
+        return result
+    places = sorted({f"{finding['path']}:{finding['line']}" for finding in allowed})
+    coverage = result.get("coverage") or engine_contract.coverage("*")
+    return {**result, "withheld": None if result.get("withheld", []) is None else [*(result.get("withheld") or []), *allowed],
+            "coverage": {**coverage, "suppressed_inline": sorted({*(coverage.get("suppressed_inline") or []), *places})},
+            "detail": joined([result["detail"], msg("scanning.secrets.inline.detail", count=len(places),
+                                                    places=", ".join(places[:INLINE_SHOWN]) + ("…" if len(places) > INLINE_SHOWN else ""))],
+                             "scanning.join.sentences")}
+
+
+def split_inline(findings: list[Finding], root: Path | None) -> tuple[list[Finding], list[Finding]]:
+    """(the secrets no inline comment allows, those one does): Trivy has no inline comments of its own, so a
+    `gitleaks:allow` / `betterleaks:allow` on a secret's lines, the owner's decision, is honoured for it as Betterleaks
+    honours it, unless PITANGUS_SECRETS_IGNORE_INLINE_ALLOW. Only the lines' comment is looked at: no value is kept."""
+    if root is None or inline_allow_ignored():
+        return findings, []
+    wanted: dict[str, set[int]] = {}
+    for finding in findings:
+        first = int(finding.get("line") or 0)
+        last = (finding.get("span") or [first, 0, first])[2] if finding.get("span") else first
+        wanted.setdefault(finding["path"], set()).update(range(first, max(first, min(last, first + MULTILINE)) + 1))
+    marked: set[tuple[str, int]] = set()
+    base = root.resolve()
+    for path, numbers in wanted.items():
+        try:
+            target = (root / path).resolve()
+            target.relative_to(base)
+            with target.open("rb") as handle:
+                for number, line in enumerate(handle, 1):
+                    if number in numbers and INLINE_ALLOW.search(line.decode("utf-8", "replace")):
+                        marked.add((path, number))
+                    if number >= max(numbers):
+                        break
+        except (OSError, ValueError):
+            continue
+    kept, allowed = [], []
+    for finding in findings:
+        first = int(finding.get("line") or 0)
+        last = (finding.get("span") or [first, 0, first])[2] if finding.get("span") else first
+        hit = any((finding["path"], number) in marked for number in range(first, max(first, last) + 1))
+        (allowed if hit else kept).append(_allowed_inline(finding) if hit else finding)
+    return kept, allowed
+
+
+def secret_gaps(snapshot: Path, read: set[str], settings: dict | None) -> dict[str, str]:
+    """The files of `snapshot` a secret engine didn't read (secret_coverage), as units to declare unexamined, and those it
+    read whose bytes it can't read as text (`encoding`: UTF-16 left as it was, a code page that isn't ASCII's, bytes that
+    decode as nothing). An empty file holds nothing to read, whatever the engine did with it."""
+    files = secret_coverage.committed(snapshot)
+    empty = {path for path in files if path not in read and (snapshot / path).stat().st_size == 0}
+    gaps = secret_coverage.unread(files, read | empty, allowed=secret_rules.allowed_path(settings))
+    gaps.update(secret_coverage.unreadable(snapshot, [path for path in files if path not in gaps]))
+    return secret_coverage.declared(files, gaps)
 
 
 def merge_secrets(*groups: list[Finding]) -> list[Finding]:
-    """The same secret seen by two engines: one is kept and the other is noted."""
-    by_location: dict[tuple[str, int], dict] = {}
+    """The same secret seen by two engines: the first engine's finding is kept and the other is noted on it, its
+    fingerprint among the kept one's former names (the registry never takes it for a fix).
+
+    Never within one engine: several secrets can share a line (a minified file, a bundle). Across engines, on the same
+    line: when both carry an identity (the value's HMAC, secret_identity.py) only if it is the same; otherwise, in the identity modes
+    before v2, on the same line when the rules find the same secret (`TRIVY_SAME_SECRET`) or each engine saw a single
+    secret on that line. With PITANGUS_IDENTITY_MODE=v2 nothing is joined without an identity."""
+    from pitangus.modules.scanning.secret_builtin_rules import TRIVY_SAME_SECRET
+    guess = settings.text("PITANGUS_IDENTITY_MODE") != "v2"
+
+    def valued(finding: Finding) -> bool:
+        return bool(finding.get("identity")) and not finding.get("unlinkable")
+    kept: list[Finding] = []
     for group in groups:
+        lines = Counter((finding["path"], finding["line"]) for finding in group)
+        taken: set[int] = set()
         for finding in group:
-            key = (finding["path"], finding["line"])
-            if key in by_location:
-                by_location[key].setdefault("also_detected_by", []).append(finding["tool"])
+            where = (finding["path"], finding["line"])
+            others = [index for index, item in enumerate(kept)
+                      if (item["path"], item["line"]) == where and item["tool"] != finding["tool"] and index not in taken]
+            # An unlinkable secret is named by its lines, not its value: never joined by its identity.
+            match = next((index for index in others if valued(finding) and kept[index].get("identity") == finding["identity"]
+                          and valued(kept[index])), None)
+            if match is None and guess:
+                alike = [index for index in others if not (valued(finding) and valued(kept[index]))]
+                rule = str(finding.get("rule_id") or "")
+                match = next((index for index in alike if rule in (kept[index].get("rule_id"), TRIVY_SAME_SECRET.get(str(kept[index].get("rule_id") or "")))
+                              or TRIVY_SAME_SECRET.get(rule) == kept[index].get("rule_id")), None)
+                if match is None and len(alike) == 1 and lines[where] == 1:
+                    match = alike[0]
+            if match is None:
+                kept.append(finding)
             else:
-                by_location[key] = finding
-    return list(by_location.values())
+                taken.add(match)
+                absorbed(kept[match], finding)
+    return kept
+

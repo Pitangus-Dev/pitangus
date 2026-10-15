@@ -2,13 +2,14 @@
 // share the cache and a mutation knows what to invalidate.
 import { infiniteQueryOptions, keepPreviousData, queryOptions, type QueryClient } from '@tanstack/react-query'
 import { api, query } from '@/shared/api/http'
-import { apiGet, type Response } from '@/shared/api/client'
+import { apiGet, apiPost, type Response } from '@/shared/api/client'
 import type { Dashboard, Page, RunRow } from '@/shared/lib/types'
 import type { components } from '@/shared/api/schema'
 
 export const keys = {
   runs: ['runs'] as const,
   run: (id: string) => ['runs', id] as const,
+  fixPrompt: (runId: string, fingerprint: string) => ['fix-prompt', runId, fingerprint] as const,
   dashboard: (days: number, tz?: string) => ['dashboard', days, tz] as const,
   sla: ['sla'] as const,
   cra: ['cra'] as const,
@@ -43,8 +44,10 @@ export const keys = {
   jiraProjects: (q: string) => ['jira', 'projects', q] as const,
   jiraIssueTypes: (project: string) => ['jira', 'issue-types', project] as const,
   jiraFields: (project: string, issueType: string) => ['jira', 'fields', project, issueType] as const,
+  jiraStatuses: (project: string, issueType: string) => ['jira', 'statuses', project, issueType] as const,
   jiraFieldValues: (project: string, issueType: string, field: string, q: string) => ['jira', 'fields', project, issueType, field, q] as const,
   health: ['health'] as const,
+  onboarding: ['onboarding'] as const,
 }
 
 const active = (status?: string) => status === 'queued' || status === 'running'
@@ -63,7 +66,16 @@ export const runQuery = <T extends { status: string }>(id: string) => queryOptio
 })
 
 // The exact version the server runs (0.12.1 in a release image), for the header badge.
+// A finding as a prompt for the reader's own AI assistant (findings/ai_prompt.py): fetched when its detail opens, so the
+// copy button writes it at once (Safari only lets a click write to the clipboard right away).
+export const fixPromptQuery = (runId: string, fingerprint: string) => queryOptions({
+  queryKey: keys.fixPrompt(runId, fingerprint), staleTime: 5 * 60_000, retry: false,
+  queryFn: ({ signal }) => apiGet('/api/findings/prompt', { run_id: runId, fingerprint }, { signal }),
+})
 export const healthQuery = () => queryOptions({ queryKey: keys.health, queryFn: ({ signal }) => apiGet('/api/health', undefined, { signal }), staleTime: 5 * 60_000 })
+// The first steps, worked out by the server from the real state: asked again whenever the card shows up (a step can
+// be done anywhere, also in another tab or from the CLI).
+export const onboardingQuery = () => queryOptions({ queryKey: keys.onboarding, queryFn: ({ signal }) => apiGet('/api/onboarding', undefined, { signal }), staleTime: 0 })
 export const slaQuery = () => queryOptions({ queryKey: keys.sla, queryFn: ({ signal }) => apiGet('/api/sla', undefined, { signal }) })
 export const craQuery = () => queryOptions({ queryKey: keys.craOverview, queryFn: ({ signal }) => apiGet('/api/cra', undefined, { signal }) })
 // Assets that can still be marked as CRA products, searched by name (the picker shows the first matches).
@@ -85,6 +97,11 @@ export type ImageLink = 'all' | 'unlinked' | 'label' | 'manual'
 export const imagesQuery = ({ q = '', link = 'all', repository = '', offset = 0, limit = 25 }: { q?: string; link?: ImageLink; repository?: string; offset?: number; limit?: number }) => queryOptions({
   queryKey: [...keys.images, q, link, repository, offset, limit], staleTime: 30_000, placeholderData: keepPreviousData,
   queryFn: ({ signal }) => apiGet('/api/images', { q: q || undefined, link: link === 'all' ? undefined : link, repository: repository || undefined, offset, limit }, { signal }),
+})
+// The repositories an image can be linked to: analyzed ones first, then the ones the GitHub App or a token reach.
+export const imageRepositoriesQuery = (q: string) => queryOptions({
+  queryKey: [...keys.images, 'repositories', q], staleTime: 30_000,
+  queryFn: ({ signal }) => apiGet('/api/images/repositories', { q: q || undefined }, { signal }),
 })
 // The registered domains (at most `limit`) with their proof, schedule and last scan; administrators also get how to
 // prove them and the saved header names. `dast` says whether this server runs web scans at all.
@@ -143,6 +160,11 @@ export type Exclusions = { patterns: string[]; reason: string | null; by: string
 export const exclusionsQuery = (key: string) => queryOptions({
   queryKey: keys.exclusions(key), queryFn: ({ signal }) => api.get<Exclusions>(`/api/assets/exclusions?${query({ key })}`, { signal }),
 })
+// What saving these excluded paths would move now (nothing is saved): the dialog asks while the paths are typed.
+export const exclusionsPreviewQuery = (key: string, patterns: string[]) => queryOptions({
+  queryKey: [...keys.exclusions(key), 'preview', patterns.join('\n')], staleTime: 30_000, placeholderData: keepPreviousData, retry: false,
+  queryFn: () => apiPost('/api/assets/exclusions/preview', 'preview-exclusions', { key, patterns }),
+})
 // A repository's own secret detection entries, added to the defaults in its scans.
 export const assetSecretsQuery = (key: string) => queryOptions({
   queryKey: keys.assetSecrets(key), queryFn: ({ signal }) => apiGet('/api/assets/secrets', { key }, { signal }),
@@ -183,6 +205,7 @@ export type JiraStatus = Response<'/api/integrations/jira'>
 export type JiraRouting = Response<'/api/integrations/jira/routing'>
 export type JiraFields = Response<'/api/integrations/jira/projects/{project}/issue-types/{issue_type}/fields'>
 export type JiraIssueTypes = Response<'/api/integrations/jira/projects/{project}/issue-types'>
+export type JiraStatuses = Response<'/api/integrations/jira/projects/{project}/issue-types/{issue_type}/statuses'>
 export type JiraFieldValues = Response<'/api/integrations/jira/projects/{project}/issue-types/{issue_type}/fields/{field}/values'>
 export const jiraStatusQuery = () => queryOptions({ queryKey: keys.jira, queryFn: ({ signal }) => apiGet('/api/integrations/jira', undefined, { signal }) })
 export const jiraRoutingQuery = () => queryOptions({ queryKey: keys.jiraRouting, queryFn: ({ signal }) => apiGet('/api/integrations/jira/routing', undefined, { signal }) })
@@ -207,6 +230,11 @@ export const jiraIssueTypesQuery = (project: string) => queryOptions({
 export const jiraFieldsQuery = (project: string, issueType: string) => queryOptions({
   queryKey: keys.jiraFields(project, issueType), staleTime: 60_000,
   queryFn: ({ signal }) => api.get<JiraFields>(`/api/integrations/jira/projects/${encodeURIComponent(project)}/issue-types/${encodeURIComponent(issueType)}/fields`, { signal }),
+})
+// The statuses of an issue type's workflow: where a destination may move an issue once its fix is verified.
+export const jiraStatusesQuery = (project: string, issueType: string) => queryOptions({
+  queryKey: keys.jiraStatuses(project, issueType), staleTime: 60_000,
+  queryFn: ({ signal }) => api.get<JiraStatuses>(`/api/integrations/jira/projects/${encodeURIComponent(project)}/issue-types/${encodeURIComponent(issueType)}/statuses`, { signal }),
 })
 // One field's allowed values by name, for fields with more of them than /fields carries.
 export const jiraFieldValuesQuery = (project: string, issueType: string, field: string, q: string) => queryOptions({

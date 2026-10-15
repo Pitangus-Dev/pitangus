@@ -458,7 +458,14 @@
       "replace": "Reemplazar valor",
       "remove": "Eliminar",
       "remove_title": "¿Eliminar {{name}}?",
-      "confirm_remove": "Los análisis dejan de enviarla y su valor no se puede recuperar."
+      "confirm_remove": "Los análisis dejan de enviarla y su valor no se puede recuperar.",
+      "check_label": "Página de comprobación de sesión",
+      "check_help": "Una página HTTPS de este dominio que solo se abre con la sesión iniciada. Los análisis la piden con estas cabeceras antes y después de recorrer el sitio; si no responde 2xx, el análisis queda incompleto y no marca nada como remediado.",
+      "check_placeholder": "https://{{host}}/cuenta",
+      "check_save": "Guardar página",
+      "check_remove": "Quitar página",
+      "check_saved": "Página de comprobación guardada.",
+      "check_removed": "Página de comprobación quitada."
     },
     "scope": {
       "loading": "Cargando hosts relacionados…",
@@ -621,16 +628,31 @@
       "built_from": "Se construye desde",
       "optional": "(opcional)",
       "built_from_label": "Repositorio desde el que se construye la imagen",
-      "built_from_placeholder": "Elige un repositorio analizado…",
-      "no_repository": "Ningún repositorio analizado coincide",
+      "built_from_placeholder": "Elige un repositorio…",
+      "no_repository": "Ningún repositorio coincide con «{{query}}».",
       "clear_repository": "Quitar",
       "built_from_hint": "El vínculo que pongas aquí tiene prioridad sobre las etiquetas OCI de la imagen.",
       "scan_now": "Analizarla ya",
       "scan_now_hint": "Pone el análisis en cola de inmediato. Déjalo sin marcar para analizarla después.",
       "submit": "Agregar imagen",
-      "clear_repository_for": "Quitar el repositorio {{name}}"
+      "clear_repository_for": "Quitar el repositorio {{name}}",
+      "no_repositories": "Aún no hay repositorios: conecta GitHub en Integraciones para vincular uno."
     },
     "remove_title": "¿Quitar {{name}} de la lista?",
-    "confirm_remove": "Nunca se analizó, así que no se pierde ningún hallazgo; puedes volver a agregarla."
+    "confirm_remove": "Nunca se analizó, así que no se pierde ningún hallazgo; puedes volver a agregarla.",
+    "link_another": "Vincular otra",
+    "link_dialog": {
+      "title": "Vincular imágenes a {{name}}",
+      "description": "Elige las imágenes que se construyen desde este repositorio. El vínculo que pongas aquí tiene prioridad sobre las etiquetas OCI de la imagen.",
+      "legend": "Imágenes para vincular a {{name}}",
+      "already": "Ya vinculada",
+      "empty": "Aún no hay imágenes. Agrega una por su referencia para vincularla.",
+      "more": "Se muestran {{shown}} de {{total}}: busca para acotar.",
+      "failed": "{{image}} no se vinculó: {{error}}",
+      "submit_one": "Vincular {{count, number}} imagen",
+      "submit_other": "Vincular {{count, number}} imágenes",
+      "done_one": "{{count, number}} imagen vinculada a {{name}}.",
+      "done_other": "{{count, number}} imágenes vinculadas a {{name}}."
+    }
   }
 }

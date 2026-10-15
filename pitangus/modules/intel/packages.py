@@ -61,3 +61,60 @@ def dependency_fingerprint(identifiers: set[str], fallback: str, ecosystem: str,
     """The fingerprint of an advisory on a package version, the same whichever engine names it and however."""
     return fingerprint("sca", canonical_id(set(identifiers) | {fallback}, fallback), family(ecosystem),
                        package_name(ecosystem, name), str(version or ""))
+
+
+def alias_fingerprints(identifiers: set[str], fallback: str, ecosystem: str, name: str, version: str) -> list[str]:
+    """The fingerprints the same advisory had under its other names: a GHSA (or an OSV id) is the canonical one until
+    the advisory gets a CVE, and then the CVE is. The registry moves a finding known by one of these to the current."""
+    canonical = canonical_id(set(identifiers) | {fallback}, fallback)
+    return [fingerprint("sca", item, family(ecosystem), package_name(ecosystem, name), str(version or ""))
+            for item in sorted(set(identifiers) | {fallback}) if item and item != canonical and not item.startswith("CVE-")]
+
+
+# Package family → purl type (https://github.com/package-url/purl-spec).
+PURL_TYPE = {"npm": "npm", "pypi": "pypi", "go": "golang", "cargo": "cargo", "composer": "composer", "rubygems": "gem",
+             "maven": "maven", "nuget": "nuget", "pub": "pub", "hex": "hex", "swift": "swift", "cocoapods": "cocoapods",
+             "conan": "conan"}
+# Ecosystems whose versions follow semantic versioning, where a leading `v` (Go always writes it) is no part of it.
+SEMVER_FAMILIES = frozenset({"go", "npm", "cargo", "composer", "hex", "pub", "swift", "nuget"})
+# Registries whose package names ignore case (Go modules, Maven and RubyGems don't).
+CASELESS_FAMILIES = frozenset({"npm", "pypi", "nuget", "composer", "cargo"})
+
+
+def normalized_version(ecosystem: str, version: str) -> str:
+    """A version as its ecosystem compares it: Go's and semver's `v1.2.3` is `1.2.3`, PyPI ignores case and a
+    leading `v` (PEP 440), and a Debian or RPM epoch of 0 is the same as none."""
+    value, kind = str(version or "").strip(), family(ecosystem)
+    if kind in SEMVER_FAMILIES or kind == "pypi":
+        value = re.sub(r"^[vV](?=\d)", "", value)
+    if kind == "pypi":
+        value = value.lower()
+    if kind == "os":
+        value = re.sub(r"^0:", "", value)
+    return value
+
+
+def canonical_purl(ecosystem: str, name: str) -> str:
+    """The package as a purl without its version, normalized per type by packageurl-python (PyPI's `Foo_Bar` is
+    `foo-bar`); an ecosystem without a purl type keeps its family and lowercased name."""
+    from packageurl import PackageURL
+    kind, value = PURL_TYPE.get(family(ecosystem)), str(name or "").strip()
+    if family(ecosystem) in CASELESS_FAMILIES:
+        value = value.lower()
+    if not kind or not value:
+        return f"{family(ecosystem)}/{package_name(ecosystem, value)}"
+    if kind == "maven" and ":" in value:
+        namespace, _, last = value.partition(":")
+    else:
+        namespace, _, last = value.rpartition("/")
+    try:
+        return PackageURL(type=kind, namespace=namespace or None, name=last).to_string()
+    except ValueError:
+        return f"{kind}/{package_name(ecosystem, value)}"
+
+
+def package_identity(identifiers: set[str], fallback: str, ecosystem: str, name: str, version: str) -> str:
+    """An advisory on a package version, whichever engine reports it and however it writes the package, the ecosystem
+    or the version (the canonical identity, findings/canonical.py)."""
+    advisory = canonical_id(set(identifiers) | {fallback}, fallback)
+    return hashlib.sha256(f"sca/2|{advisory}|{canonical_purl(ecosystem, name)}|{normalized_version(ecosystem, version)}".encode()).hexdigest()

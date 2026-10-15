@@ -2,6 +2,9 @@
 
 # Full scans of an asset: whatever a new one no longer reports counts as remediated.
 FULL_SCANS = ("repository_scan", "image_scan", "dast_scan")
+# The full scans that store a package inventory: what an SBOM (and the VEX next to it) is built from. A web scan has
+# none, so a domain has no SBOM.
+INVENTORY_SCANS = ("repository_scan", "image_scan")
 # Advisories published after the last scan, checked against its dependencies (advisory_watch). They only add:
 # they are not a full scan and remediate nothing.
 ADVISORY_RUNS = ("advisory_watch",)

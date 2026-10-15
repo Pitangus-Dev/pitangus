@@ -149,9 +149,9 @@ def cyclonedx(record: dict, *, version: str, now: datetime | None = None, locale
 
 def latest_scan(data_dir: Path, key: str) -> dict | None:
     """The latest complete scan of an asset: the SBOM of its current state comes from it."""
-    from pitangus.modules.findings.kinds import FULL_SCANS
+    from pitangus.modules.findings.kinds import INVENTORY_SCANS
     from pitangus.modules.runs.store import find_runs, load_run
-    for row in find_runs(data_dir, types=FULL_SCANS, statuses=("completed",), assets=[key], limit=1):
+    for row in find_runs(data_dir, types=INVENTORY_SCANS, statuses=("completed",), assets=[key], limit=1):
         try:
             return load_run(data_dir, row["id"])
         except (ValueError, OSError):

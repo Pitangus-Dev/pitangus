@@ -18,7 +18,8 @@ oficiales fijadas por digest. Pitangus no enlaza su código ni lo modifica: es a
 |---|---|---|---|---|
 | [Trivy](https://github.com/aquasecurity/trivy) | 0.75.0 | Apache-2.0 | Dependencias, imágenes, IaC | Conservar avisos de licencia y NOTICE |
 | [OSV-Scanner](https://github.com/google/osv-scanner) | 2.6.0 | Apache-2.0 | Dependencias con la base OSV | Conservar avisos |
-| [Gitleaks](https://github.com/gitleaks/gitleaks) | 8.30.1 | MIT | Secretos | Conservar aviso de copyright |
+| [Betterleaks](https://github.com/betterleaks/betterleaks) | 1.9.0 | MIT | Secretos | Conservar aviso de copyright |
+| [GitLab sast-rules](https://gitlab.com/gitlab-org/security-products/sast-rules) (259 reglas seleccionadas, opcionales) | v2.10.1 | MIT; Apache-2.0 (origen gosec, eslint-plugin-security) | Reglas SAST, en `third_party/gitlab-sast-rules` | Conservar LICENSE y NOTICE junto a las reglas |
 | [Opengrep](https://github.com/opengrep/opengrep) | 1.30.0 | LGPL-2.1 | SAST con reglas propias | Binario oficial sin modificar (`docker/engines/opengrep`, SHA-256 fijado). Si se modificara y distribuyera, publicar esos cambios |
 | [Grype](https://github.com/anchore/grype) | 0.120.0 | Apache-2.0 | Segunda opinión en imágenes | Conservar avisos |
 | [Checkov](https://github.com/bridgecrewio/checkov) | 3.3.19 | Apache-2.0 | IaC y pipelines | Conservar avisos |
@@ -108,6 +109,19 @@ gratuita con límites compartidos, y Aqua recomienda a los usos empresariales al
 En la edición community autoalojada, cada organización ejecuta Trivy y Grype con sus bases como cualquier otro
 usuario de esas herramientas, y los términos de cada fuente le aplican directamente. Esto es un análisis
 técnico, no asesoría legal.
+
+## Datos incluidos: MITRE ATT&CK
+
+Los modelos de amenazas reconocen todas las técnicas de MITRE ATT&CK Enterprise a partir de una copia incluida en
+Pitangus, `pitangus/modules/threats/attack-enterprise.json` (IDs, nombres, tácticas, IDs revocados y obsoletos),
+generada por `scripts/attack-catalog.py` desde los datos STIX oficiales de MITRE
+([attack-stix-data](https://github.com/mitre-attack/attack-stix-data), versión v19.2, archivo
+`enterprise-attack/enterprise-attack-19.2.json`, con su SHA-256 fijado en el script). Nunca se descarga en ejecución;
+`make attack-catalog` la actualiza a propósito.
+
+| Datos | Versión | Licencia | Obligaciones |
+|---|---|---|---|
+| MITRE ATT&CK® Enterprise | 19.2 | Licencia de ATT&CK de MITRE: uso libre de regalías para investigación, desarrollo y fines comerciales | Reproducir la mención de copyright de MITRE y la licencia en cualquier copia: ambas viajan dentro del JSON (`copyright`, `license`). «© 2026 The MITRE Corporation. This work is reproduced and distributed with the permission of The MITRE Corporation.» ATT&CK® es una marca de The MITRE Corporation; el panel y los informes lo indican junto a las técnicas. |
 
 ## Dependencias de la aplicación
 

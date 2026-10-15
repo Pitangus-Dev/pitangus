@@ -14,9 +14,12 @@
 * **Backfill.** Saving or enabling an automatic rule with backfill queues the open findings of its assets that have no
   issue yet, spaced out (Jira's rate limits) and counted per rule (`jira-backfill`).
 * **Fix and reopen.** When a full scan or a full import verifies as fixed the findings of a linked issue, Pitangus
-  comments on it (never closes it). An issue covering several findings gets the comment when all of them are fixed:
-  it is one remediation job (one upgrade), and a comment per finding would be noise. If any of them reappears later,
-  it comments that too. Comments speak PITANGUS_DEFAULT_LOCALE, like everything the team reads.
+  comments on it and adds its destination's label (`pitangus-fixed` by default). It moves the issue to a status only
+  when an administrator chose one for that destination: every team closes issues its own way, so by default Pitangus
+  never transitions them. An issue covering several findings gets all this when all of them are fixed: it is one
+  remediation job (one upgrade), and a comment per finding would be noise. If any of them reappears later, it says so
+  and takes the label off (it never moves the issue back). Issues and comments speak their destination's language, or
+  PITANGUS_DEFAULT_LOCALE, like everything the team reads.
 * **Delivery** is the worker's (`drain`): at least once, with the outbox's retries; Jira being down or throttling
   (429, 5xx) is retried, a request Jira rejects (4xx) fails and says why.
 """
@@ -59,6 +62,8 @@ MANUAL_KEPT = 20           # batches whose progress is kept
 BACKFILL_SPACING = 2       # seconds between two queued issues of a backfill
 PER_DRAIN = 10             # outbox rows delivered per round (the worker runs one every few seconds)
 OUTBOX_LEASE = timedelta(minutes=5)
+RESULT_ISSUES = 5          # issues of a backfill or a queued selection the panel links to
+RESULT_REASONS = 3         # distinct failure reasons kept per backfill or selection
 FINGERPRINT = re.compile(r"[0-9a-f]{64}")
 
 
@@ -110,6 +115,46 @@ def _first_seen(data_dir: Path, key: str, findings: dict, fallback: str) -> dict
     return seen
 
 
+TITLE_MAX = 255  # Jira's summary
+PATH_SHOWN = 60
+
+
+def _short_path(path: str, limit: int = PATH_SHOWN) -> str:
+    """The end of a long path, which says the most: `…/backend/poetry.lock`."""
+    if len(path) <= limit:
+        return path
+    tail = "/".join(path.split("/")[-2:])
+    return "…/" + (tail if len(tail) <= limit - 2 else tail[-(limit - 2):])
+
+
+def issue_title(*, severity: str, asset: str, where: str, title: str, package: str | None, version: str | None,
+                target: str | None, locale: str) -> str:
+    """The issue's summary: what (the upgrade, or the finding) and where (repository or image, and file), e.g.
+    ``High · starlette 0.37.2 → 1.3.1 · api (poetry.lock)``. Always within Jira's 255 characters and the same for the
+    same finding; what gives way when it doesn't fit is the finding's title, then the path, then the asset's name."""
+    def render(title_: str, where_: str, asset_: str) -> str:
+        names = {"severity": severity, "asset": asset_, "where": where_}
+        if package:
+            key = ("title_fix" if target else "title_no_fix") + ("" if where_ else "_nowhere")
+            names |= {"package": package, "version": version or "?", "target": target or ""}
+        else:
+            key = "title" if where_ else "title_nowhere"
+            names["title"] = title_
+        return jira.plain(t(f"integrations.jira.issue.{key}", locale, **names), 10_000)
+
+    title, where, asset = jira.plain(title, 500) or "?", jira.plain(where, 500), jira.plain(asset, 300) or "?"
+    line = render(title, _short_path(where), asset)
+    if len(line) > TITLE_MAX and not package:
+        room = max(20, len(title) - (len(line) - TITLE_MAX) - 1)
+        title = title[:room].rstrip() + "…"
+        line = render(title, _short_path(where), asset)
+    if len(line) > TITLE_MAX:
+        line = render(title, _short_path(where.rsplit("/", 1)[-1], 40), asset)
+    if len(line) > TITLE_MAX:
+        line = render(title, _short_path(where.rsplit("/", 1)[-1], 40), _short_path(asset, 60))
+    return line[:TITLE_MAX]
+
+
 def values(group: list[dict], findings: dict, *, key: str, asset: str, first_seen: dict, days: dict, locale: str,
            source: dict | None = None) -> dict:
     """Every Pitangus variable (see `jira_mapping`) for one issue: a ticket group and its localized findings."""
@@ -128,22 +173,15 @@ def values(group: list[dict], findings: dict, *, key: str, asset: str, first_see
         names = {"package": package["name"], "version": package.get("version"), "count": len(group)}
         title = (t("integrations.jira.issue.group_title", locale, target=target, **names) if target
                  else t("integrations.jira.issue.group_title_unfixed", locale, **names))
-        summary = (t("integrations.jira.issue.group_summary", locale, target=target, severity=severity_label(severity, locale), **names)
-                   if target else t("integrations.jira.issue.group_summary_unfixed", locale, severity=severity_label(severity, locale), **names))
-    elif package.get("name"):
-        # One advisory of a package: the action (update to…), not the advisory's title, like a group.
-        identifier = next(iter(finding.get("cve") or finding.get("ghsa") or [finding.get("rule_id") or ""]), "")
-        names = {"package": package["name"], "version": package.get("version") or "?", "id": identifier,
-                 "severity": severity_label(severity, locale)}
-        title = text(finding.get("title"), locale)
-        summary = (t("integrations.jira.issue.package_summary", locale, target=target, **names) if target
-                   else t("integrations.jira.issue.package_summary_unfixed", locale, **names))
     else:
         title = text(finding.get("title"), locale)
+    if package.get("name"):
+        where = finding.get("path")
+    else:
         where = f"{finding.get('path')}:{finding['line']}" if isinstance(finding.get("line"), int) and finding.get("line") \
             and finding.get("scanner") != "dast" else finding.get("path")
-        summary = t("integrations.jira.issue.summary", locale, severity=severity_label(severity, locale), title=title, where=where or "?") \
-            if where else t("integrations.jira.issue.summary_nowhere", locale, severity=severity_label(severity, locale), title=title)
+    summary = issue_title(severity=severity_label(severity, locale), asset=asset, where=str(where or ""), title=title,
+                          package=package.get("name"), version=package.get("version"), target=target, locale=locale)
     written = brief(group, findings, asset=asset, source=source, first_seen=first_seen, days=days,
                     panel_url=_finding_link(key, first["fingerprint"]), locale=locale)
     description = written["text"]
@@ -253,23 +291,25 @@ def export(data_dir: Path, selections: list[tuple[dict, list]], *, by: str, http
     state = routing.load(data_dir)
     prepared = []
     for record, prints in selections:
-        by_fingerprint, findings, seen, days = _prepared(data_dir, record, locale)
-        if any(item not in by_fingerprint for item in prints):
-            raise jira.JiraError(msg("integrations.jira.not_pending"))
-        prepared.append((record, list(dict.fromkeys(prints)), by_fingerprint, findings, seen, days))
-    created: list[dict] = []
-    existing: list[dict] = []
-    failed: list[dict] = []
-    for record, prints, by_fingerprint, findings, seen, days in prepared:
         key, name = asset_key(record), (record.get("source") or {}).get("name")
         rule = routing.resolve(state, key, name)
         target = routing.destination(state, rule["destination"]) if rule else None
+        language = routing.locale_of(target, locale)  # the destination's, else the team's
+        by_fingerprint, findings, seen, days = _prepared(data_dir, record, language)
+        if any(item not in by_fingerprint for item in prints):
+            raise jira.JiraError(msg("integrations.jira.not_pending"))
+        prepared.append((record, list(dict.fromkeys(prints)), target, language, by_fingerprint, findings, seen, days))
+    created: list[dict] = []
+    existing: list[dict] = []
+    failed: list[dict] = []
+    for record, prints, target, language, by_fingerprint, findings, seen, days in prepared:
+        key, name = asset_key(record), (record.get("source") or {}).get("name")
         if target is None:
             failed.extend({"fingerprint": item, "asset": key, "error": msg("integrations.jira.no_destination")} for item in prints)
             continue
         for group in _groups([by_fingerprint[item] for item in prints]):
             try:
-                issue = values(group, findings, key=key, asset=text(name, locale) or key, first_seen=seen, days=days, locale=locale,
+                issue = values(group, findings, key=key, asset=text(name, language) or key, first_seen=seen, days=days, locale=language,
                                source=record.get("source"))
                 outcome, link = _deliver(data_dir, key, group, issue, target, by=by, http=http, force=force)
             except (jira.JiraError, KeyError, TypeError) as exc:
@@ -422,7 +462,7 @@ def _comments(data_dir: Path, record: dict, key: str, fixed: set[str], reopened:
             continue
         tickets.mark(data_dir, key, issue, "fixed" if event == "fixed" else "open", record["id"])
         rows.append({"payload": {"type": "comment", "event": event, "asset": key, "key": issue, "run_id": record["id"],
-                                 "date": stamp[:10], "count": len(prints)}})
+                                 "date": stamp[:10], "count": len(prints), "destination": links[prints[0]].get("destination")}})
     return rows
 
 
@@ -463,6 +503,7 @@ def on_triage(data_dir: Path, key: str, fingerprints: list[str], status: str, *,
                 continue
             tickets.mark(data_dir, key, issue, sync, f"triage:{stamp}")
             rows.append({"payload": {"type": "comment", "event": event, "asset": key, "key": issue, "run_id": f"triage:{stamp}",
+                                     "destination": links[prints[0]].get("destination"),
                                      "date": stamp[:10], "by": str(by)[:80], "reason": str(reason or "")[:500],
                                      "expires_at": expires_at, "count": len(touched), "total": len(prints)}})
         _queue(data_dir, rows)
@@ -482,7 +523,7 @@ def _plan(data_dir: Path, state: dict, rule: dict, gone: set[str] | frozenset[st
         assets = connection.execute(select(registry_assets.c.asset_key, registry_assets.c.name)
                                     .where(registry_assets.c.tenant_id == db.TENANT).order_by(registry_assets.c.asset_key)).all()
     links = tickets.load_links(data_dir)
-    plan: dict = {"assets": 0, "findings": 0, "issues": 0, "linked": 0, "truncated": False, "work": [], "keys": set()}
+    plan: dict = {"assets": 0, "findings": 0, "issues": 0, "linked": 0, "truncated": False, "work": [], "keys": set(), "sample": None}
     for key, name in assets:
         winner = routing.resolve(state, key, name)
         if winner is None or winner["id"] != rule["id"]:
@@ -515,23 +556,55 @@ def _plan(data_dir: Path, state: dict, rule: dict, gone: set[str] | frozenset[st
         plan["findings"] += len(candidates)
         plan["issues"] += len(groups)
         plan["work"] += [(key, [item["fingerprint"] for item in group]) for group in groups]
+        for group in groups:  # the most severe issue is the one to show as an example
+            rank = min(_rank(item.get("severity")) for item in group)
+            if plan["sample"] is None or rank < plan["sample"][0]:
+                plan["sample"] = (rank, key, [item["fingerprint"] for item in group])
     return plan
 
 
 def preview(data_dir: Path, payload: dict) -> dict:
-    """How many open findings a rule (saved or not) would backfill now. Nothing is queued or forgotten, but Jira is asked
-    which linked issues still exist, so findings whose issues were deleted count as to be created (as the backfill
-    will do). Without Jira at hand, the count trusts the links."""
+    """What a rule (saved or not) would create now: how many issues for how many open findings, and the most severe
+    of them as it would read in Jira (title and first lines). Nothing is queued or forgotten, but Jira is asked which
+    linked issues still exist, so findings whose issues were deleted count as to be created (as the backfill will do).
+    Without Jira at hand, the count trusts the links. A manual rule creates nothing on its own: its count is what its
+    repositories have open, for whoever creates the issues from Findings."""
     state, candidate = routing.preview_state(data_dir, payload)
-    plan = _plan(data_dir, state, candidate)
+    counted = candidate if candidate.get("mode") == "auto" else {**candidate, "min_severity": "info"}
+    plan = _plan(data_dir, state, counted)
     if plan["keys"]:
         try:
             gone = jira.missing_issues(sorted(plan["keys"]))
         except jira.JiraError:
             gone = set()
         if gone:
-            plan = _plan(data_dir, state, candidate, gone)
-    return {key: plan[key] for key in ("assets", "findings", "issues", "linked", "truncated")}
+            plan = _plan(data_dir, state, counted, gone)
+    found = {key: plan[key] for key in ("assets", "findings", "issues", "linked", "truncated")}
+    target = routing.destination(state, candidate.get("destination"))
+    found["sample"] = _sample(data_dir, plan["sample"], target) if plan["sample"] and target else None
+    return found
+
+
+SAMPLE_LINES = 6
+
+
+def _sample(data_dir: Path, chosen: tuple, target: dict) -> dict | None:
+    """One issue of a preview as Jira would show it: its title and the first lines of its description."""
+    _, key, prints = chosen
+    view = registry.view(data_dir, key, status="open")
+    name = (view.get("source") or {}).get("name")
+    locale = routing.locale_of(target, default_locale())
+    try:
+        by_fingerprint, findings, seen, days = _prepared(data_dir, view, locale)
+        group = [by_fingerprint[item] for item in prints if item in by_fingerprint]
+        if not group:
+            return None
+        issue = values(group, findings, key=key, asset=text(name, locale) or key, first_seen=seen, days=days, locale=locale,
+                       source=view.get("source"))
+    except (KeyError, TypeError, ValueError):
+        return None
+    lines = [line.rstrip() for line in str(issue["description"]).splitlines() if line.strip()][:SAMPLE_LINES]
+    return {"asset": text(name, locale) or key, "summary": issue["summary"], "lines": lines, "findings": len(group)}
 
 
 def backfill(data_dir: Path, rule_id: str, *, by: str) -> dict:
@@ -584,7 +657,9 @@ def backfill_status(data_dir: Path) -> list[dict]:
             for rule_id, entry in (status.items() if isinstance(status, dict) else []) if isinstance(entry, dict)]
 
 
-def _count(data_dir: Path, payload: dict, outcome: str, error=None) -> None:
+def _count(data_dir: Path, payload: dict, outcome: str, error=None, link: dict | None = None) -> None:
+    """A queued issue's outcome, on its backfill's or selection's progress: counts, the first issues created (to open
+    them from the panel) and the reasons of the failures, grouped."""
     if payload.get("trigger") not in ("backfill", "manual"):
         return
     manual = payload["trigger"] == "manual"
@@ -593,8 +668,17 @@ def _count(data_dir: Path, payload: dict, outcome: str, error=None) -> None:
         if not isinstance(entry, dict) or entry.get("batch") != payload.get("batch"):
             return
         entry[outcome] = entry.get(outcome, 0) + 1
+        if outcome == "created" and link and len(entry.get("issues") or []) < RESULT_ISSUES:
+            entry["issues"] = [*(entry.get("issues") or []), {"key": link.get("key"), "url": link.get("url")}]
         if error is not None:
             entry["last_error"] = error
+            reasons = list(entry.get("errors") or [])
+            same = next((item for item in reasons if text(item.get("error"), "en") == text(error, "en")), None)
+            if same is not None:
+                same["count"] = same.get("count", 0) + 1
+            elif len(reasons) < RESULT_REASONS:
+                reasons.append({"error": error, "count": 1})
+            entry["errors"] = reasons
         if sum(entry.get(name, 0) for name in ("created", "existing", "skipped", "failed")) >= entry.get("queued", 0):
             entry["finished_at"] = _stamp()
 
@@ -608,7 +692,7 @@ def save_rule(data_dir: Path, payload: dict, *, by: str) -> tuple[dict, dict | N
     return saved, started
 
 
-def _deliver_create(data_dir: Path, payload: dict, http) -> str:
+def _deliver_create(data_dir: Path, payload: dict, http) -> tuple[str, dict | None]:
     key = payload["asset"]
     state = routing.load(data_dir)
     view = registry.view(data_dir, key, status="open")
@@ -619,48 +703,96 @@ def _deliver_create(data_dir: Path, payload: dict, http) -> str:
     else:
         rule = routing.resolve(state, key, name)
         if rule is None or rule["id"] != payload.get("rule") or rule.get("mode") != "auto":
-            return "skipped"  # the routing changed while it waited: the current rules no longer create it
+            return "skipped", None  # the routing changed while it waited: the current rules no longer create it
         target = routing.destination(state, rule["destination"])
     if target is None:
-        return "skipped"
-    locale = default_locale()
+        return "skipped", None
+    locale = routing.locale_of(target, default_locale())
     by_fingerprint, findings, seen, days = _prepared(data_dir, view, locale)
     group = [by_fingerprint[item] for item in payload.get("fingerprints") or [] if item in by_fingerprint]
     if not group:
-        return "skipped"  # fixed, dismissed or excluded meanwhile
+        return "skipped", None  # fixed, dismissed or excluded meanwhile
     issue = values(group, findings, key=key, asset=text(name, locale) or key, first_seen=seen, days=days, locale=locale,
                    source=view.get("source"))
-    outcome, _ = _deliver(data_dir, key, group, issue, target, by=payload.get("by") or "pitangus", http=http,
-                          force=bool(payload.get("force")) and payload.get("trigger") == "manual")
-    return outcome
+    return _deliver(data_dir, key, group, issue, target, by=payload.get("by") or "pitangus", http=http,
+                    force=bool(payload.get("force")) and payload.get("trigger") == "manual")
+
+
+def _comment_destination(data_dir: Path, payload: dict) -> dict | None:
+    """The destination the issue was created through (it says the language and what a fix does), if it still exists."""
+    identifier = payload.get("destination")
+    if not identifier:
+        link = next((item for item in tickets.load_links(data_dir).get(payload["asset"], {}).values()
+                     if isinstance(item, dict) and item.get("key") == payload["key"]), None)
+        identifier = (link or {}).get("destination")
+    return routing.destination(routing.load(data_dir), identifier) if identifier else None
+
+
+def _tolerated(exc: jira.JiraError) -> jira.JiraError:
+    """Jira down or throttling: the whole delivery is retried (label, move and comment are idempotent). A refusal
+    (no permission, labels not editable, no transition) doesn't stop the comment: it says what couldn't be done."""
+    if exc.retryable:
+        raise exc
+    return exc
 
 
 def _deliver_comment(data_dir: Path, payload: dict, http) -> str:
-    locale = default_locale()
-    event = payload["event"]
+    """The comment on fix, reopen or a triage decision. On a verified fix, first what the destination asks for (its
+    label; a transition only if an administrator chose a status), so the comment says what was done."""
+    destination = _comment_destination(data_dir, payload)
+    locale = routing.locale_of(destination, default_locale())
+    event, key = payload["event"], payload["key"]
     if event in ("manual_fixed", "false_positive", "accepted", "triage_reopened"):
         part = (t("integrations.jira.comment.part", locale, count=payload["count"], total=payload["total"])
                 if payload.get("total", 1) > 1 and payload.get("count") != payload.get("total") else "")
-        body = t(f"integrations.jira.comment.{event}", locale, by=payload.get("by") or "?", date=payload["date"],
-                 expires=payload.get("expires_at") or "", part=part)
+        lines = [t(f"integrations.jira.comment.{event}", locale, by=payload.get("by") or "?", date=payload["date"],
+                   expires=payload.get("expires_at") or "", part=part)]
         if payload.get("reason"):
-            body += "\n" + t("integrations.jira.comment.reason", locale, reason=payload["reason"])
+            lines.append(t("integrations.jira.comment.reason", locale, reason=payload["reason"]))
     elif event == "fixed":
-        body = (t("integrations.jira.comment.fixed_group", locale, count=payload.get("count", 1), run_id=payload["run_id"][:12], date=payload["date"])
-                if payload.get("count", 1) > 1 else t("integrations.jira.comment.fixed", locale, run_id=payload["run_id"][:12], date=payload["date"]))
+        lines = [t("integrations.jira.comment.fixed_group", locale, count=payload.get("count", 1), run_id=payload["run_id"][:12], date=payload["date"])
+                 if payload.get("count", 1) > 1 else t("integrations.jira.comment.fixed", locale, run_id=payload["run_id"][:12], date=payload["date"])]
     else:
-        body = t("integrations.jira.comment.reopened", locale, run_id=payload["run_id"][:12], date=payload["date"])
+        lines = [t("integrations.jira.comment.reopened", locale, run_id=payload["run_id"][:12], date=payload["date"])]
+    actions = routing.on_fixed(destination)
+    if event == "fixed":
+        if actions["label"]:
+            try:
+                jira.set_label(key, actions["label"], http=http)
+                lines.append(t("integrations.jira.comment.labelled", locale, label=actions["label"]))
+            except jira.JiraError as exc:
+                _log.warning("jira_label_failed", extra={"reason": f"{key}: {text(_tolerated(exc).message, 'en')}"})
+        if actions["status"]:
+            try:
+                if jira.move(key, actions["status"], http=http):
+                    lines.append(t("integrations.jira.comment.moved", locale, status=actions["status"]["name"]))
+            except jira.NoTransition:
+                lines.append(t("integrations.jira.comment.no_transition", locale, status=actions["status"]["name"]))
+            except jira.JiraError as exc:
+                lines.append(t("integrations.jira.comment.move_failed", locale, status=actions["status"]["name"],
+                               error=text(_tolerated(exc).message, locale)))
+    elif event in ("reopened", "triage_reopened") and actions["label"]:
+        try:
+            jira.set_label(key, actions["label"], add=False, http=http)
+            lines.append(t("integrations.jira.comment.label_removed", locale, label=actions["label"]))
+        except jira.JiraError as exc:
+            _log.warning("jira_label_failed", extra={"reason": f"{key}: {text(_tolerated(exc).message, 'en')}"})
+    blocks: list[dict] = [{"paragraph": [line]} for line in lines]
     link = _asset_link(payload["asset"])
     if link:
-        body += "\n" + t("integrations.jira.comment.panel", locale, url=link)
-    written = jira.comment(payload["key"], body, {"event": payload["event"], "run": payload["run_id"]}, http=http)
+        blocks.append({"paragraph": [{"link": t("integrations.jira.brief.open_in_pitangus", locale), "url": link}]})
+    written = jira.comment(key, jira.adf_document(blocks), {"event": payload["event"], "run": payload["run_id"]}, http=http)
     return "created" if written else "existing"
 
 
-def deliver(data_dir: Path, payload: dict, *, http=None) -> str:
+def _deliver_row(data_dir: Path, payload: dict, http) -> tuple[str, dict | None]:
     if payload.get("type") == "comment":
-        return _deliver_comment(data_dir, payload, http)
+        return _deliver_comment(data_dir, payload, http), None
     return _deliver_create(data_dir, payload, http)
+
+
+def deliver(data_dir: Path, payload: dict, *, http=None) -> str:
+    return _deliver_row(data_dir, payload, http)[0]
 
 
 def drain(data_dir: Path, *, http=None, limit: int = PER_DRAIN) -> int:
@@ -682,9 +814,9 @@ def drain(data_dir: Path, *, http=None, limit: int = PER_DRAIN) -> int:
         attempts = row.attempts + 1
         values_: dict = {"attempts": attempts}
         try:
-            outcome = deliver(data_dir, row.payload, http=http)
+            outcome, link = _deliver_row(data_dir, row.payload, http)
             values_.update(status="sent", last_error=None)
-            _count(data_dir, row.payload, outcome)
+            _count(data_dir, row.payload, outcome, link=link)
         except jira.JiraError as exc:
             error = text(exc.message, "en")
             if exc.status == 404 and row.payload.get("type") == "comment":

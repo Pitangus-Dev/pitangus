@@ -12,6 +12,7 @@
     "no_match": "Ningún repositorio o imagen analizado con ese nombre",
     "repository": "Repositorio",
     "image": "Imagen",
+    "domain": "Dominio",
     "none": "Aún no hay nada analizado: analiza primero un repositorio o una imagen.",
     "new_scan": "Nuevo análisis",
     "download": "Descargar",
@@ -33,10 +34,10 @@
       "portfolio": "Evidencia de auditoría consolidada",
       "portfolio_hint": "PDF · {{framework}}: cada activo, su cobertura y el riesgo abierto",
       "portfolio_sbom": "SBOM consolidado",
-      "portfolio_sbom_hint": "CycloneDX · cada activo con un análisis completo terminado, con sus propios paquetes",
+      "portfolio_sbom_hint": "CycloneDX · cada repositorio e imagen con un análisis completo terminado, con sus propios paquetes",
       "portfolio_vex": "VEX consolidado",
       "portfolio_vex_hint": "OpenVEX · tus decisiones de triage sobre esos mismos activos",
-      "portfolio_missing": "Necesita al menos un activo con un análisis completo terminado"
+      "portfolio_missing": "Necesita al menos un repositorio o una imagen con un análisis completo terminado"
     },
     "origin": {
       "built_from": "Construida desde",
@@ -48,7 +49,11 @@
       "link": "Vincular un repositorio",
       "use_label": "Quitar el vínculo manual",
       "pick": "Repositorio desde el que se construye…",
-      "pick_label": "Repositorio"
+      "pick_label": "Repositorio",
+      "not_analyzed": "Aún sin analizar",
+      "awaiting_scan": "Aún sin analizar: el vínculo cuenta desde su primer análisis.",
+      "no_match": "Ningún repositorio coincide con «{{query}}».",
+      "no_repositories": "Aún no hay repositorios: conecta GitHub en Integraciones para vincular uno."
     },
     "downloads": "Descargas",
     "downloads_one": "Descargas de {{name}}",
@@ -64,10 +69,17 @@
       "repositories_other": "{{count, number}} repositorios",
       "images_one": "{{count, number}} imagen",
       "images_other": "{{count, number}} imágenes",
-      "complete_one": "{{count, number}} con un análisis completo terminado",
-      "complete_other": "{{count, number}} con un análisis completo terminado",
       "failed": "No se pudieron contar los activos de este alcance. Vuelve a intentarlo en un momento.",
-      "no_complete": "aún sin análisis completo terminado"
+      "no_complete": "aún sin análisis completo terminado",
+      "domains_one": "{{count, number}} dominio",
+      "domains_other": "{{count, number}} dominios",
+      "in_files_one": "El SBOM y el VEX incluyen {{count, number}} de ellos: el repositorio o la imagen con un análisis completo terminado.",
+      "in_files_other": "El SBOM y el VEX incluyen {{count, number}} de ellos: los repositorios e imágenes con un análisis completo terminado.",
+      "in_files_none": "Ningún repositorio ni imagen de este alcance tiene aún un análisis completo terminado: todavía no hay SBOM ni VEX.",
+      "unscanned_one": "Queda fuera {{count, number}} repositorio o imagen: aún no tiene un análisis completo terminado.",
+      "unscanned_other": "Quedan fuera {{count, number}} repositorios o imágenes: aún no tienen un análisis completo terminado.",
+      "domains_left_one": "Queda fuera {{count, number}} dominio: un análisis web no lista paquetes, así que solo aparece en la evidencia de auditoría.",
+      "domains_left_other": "Quedan fuera {{count, number}} dominios: un análisis web no lista paquetes, así que solo aparecen en la evidencia de auditoría."
     }
   },
   "cra": {

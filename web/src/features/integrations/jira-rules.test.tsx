@@ -14,7 +14,7 @@ const rule = (id: string, name: string, extra: Partial<JiraRule> = {}): JiraRule
   id, name, assets: [], patterns: [], destination: 'd1', mode: 'manual', min_severity: 'high', backfill: false, enabled: true, ...extra,
 })
 const ROUTING: JiraRouting = {
-  destinations: [{ id: 'd1', name: 'Payments', project: { key: 'PAY', name: 'Payments' }, issue_type: { name: 'Bug' }, mapping: {} }],
+  destinations: [{ id: 'd1', name: 'Payments', project: { key: 'PAY', name: 'Payments' }, issue_type: { name: 'Bug' }, mapping: {}, on_fixed: { label: 'pitangus-fixed', status: null } }],
   rules: [rule('a1', 'Payments', { patterns: ['org/payments-*'] }), rule('b2', 'Identity', { assets: ['github#7'] }), rule('default', 'Every other repository', { default: true, enabled: false, destination: null })],
   history: [], limits: { destinations: 20, rules: 50, assets: 200, patterns: 20 },
 }
@@ -54,8 +54,22 @@ describe('routing rules', () => {
     expect(status.textContent).toContain(tr('jira.backfill.last_error', { error: 'Jira responded 400' }))
   })
 
+  it('once done, links the issues it created and groups why the others failed', () => {
+    mockApi(() => ({ body: { items: [], total: 0, limit: 1, offset: 0 } }))
+    const issues = [{ key: 'PD-1', url: 'https://acme.atlassian.net/browse/PD-1' }, { key: 'PD-2', url: 'https://acme.atlassian.net/browse/PD-2' }]
+    renderWithQueries(<RulesSection routing={ROUTING} onRemove={() => {}} backfills={[{ rule: 'a1', queued: 9, findings: 9, created: 6, existing: 0, skipped: 0, failed: 3, pending: 0,
+      truncated: false, finished_at: '2026-10-11T22:22:00Z', last_error: 'Jira responded 400', issues, errors: [{ error: 'Jira responded 400', count: 3 }] }]} />)
+    expect(screen.getByText(new RegExp(tr('jira.backfill.created', { count: 6 })))).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'PD-1' }).getAttribute('href')).toBe('https://acme.atlassian.net/browse/PD-1')
+    expect(screen.getByText(new RegExp(tr('jira.backfill.more', { count: 4 })))).toBeTruthy()
+    // The reasons, counted, instead of only the last error.
+    expect(screen.getByText(tr('jira.backfill.error', { error: 'Jira responded 400', count: 3 }))).toBeTruthy()
+    expect(screen.queryByText(tr('jira.backfill.last_error', { error: 'Jira responded 400' }))).toBeNull()
+  })
+
   it('preview what a backfill would create before saving an automatic rule', async () => {
-    const preview = { assets: 2, findings: 9, issues: 5, linked: 3, truncated: false }
+    const sample = { asset: 'org/web', summary: 'Alta · starlette 0.37.2 → 1.3.1 · org/web (poetry.lock)', lines: ['Actualiza fastapi primero.', '- Repositorio: org/web'], findings: 3 }
+    const preview = { assets: 2, findings: 9, issues: 5, linked: 3, truncated: false, sample }
     const calls = mockApi(call => {
       if (call.path === '/api/integrations/jira/rules/preview') return { body: preview }
       if (call.path === '/api/integrations/jira/rules') return { body: { rule: rule('c3', 'Web', { mode: 'auto', backfill: true }), backfill: { rule: 'c3', queued: 5 }, routing: ROUTING } }
@@ -74,6 +88,10 @@ describe('routing rules', () => {
     await user.click(screen.getByRole('button', { name: tr('jira.preview.run') }))
     const body = { name: 'Web', assets: [], patterns: ['org/web-*'], destination: 'd1', mode: 'auto', min_severity: 'critical', backfill: true, enabled: true }
     expect(await screen.findByText(tr('jira.preview.result', { count: 5, issues: '5', findings: '9', assets: '2', linked: '3' }))).toBeTruthy()
+    // And how the most severe of those issues will read in Jira.
+    expect(screen.getByText(sample.summary)).toBeTruthy()
+    expect(screen.getByText('Actualiza fastapi primero.')).toBeTruthy()
+    expect(screen.getByText(tr('jira.preview.sample_findings', { count: 3 }))).toBeTruthy()
     expect(calls.map(call => call.path)).toEqual(['/api/integrations/jira/rules/preview'])
     expect(calls[0]).toMatchObject({ action: 'jira-preview', body })
 

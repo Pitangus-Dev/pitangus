@@ -5,6 +5,8 @@ import re
 import unittest
 from pathlib import Path
 
+from pitangus.shared import render
+
 RULES_DIR = Path(__file__).resolve().parent.parent / "rules"
 RULE_START = re.compile(r"^  - id: (\S+)$", re.M)
 QUOTED = r'("(?:[^"\\]|\\.)*")'
@@ -64,8 +66,24 @@ class RuleTextsTests(unittest.TestCase):
         legacy = parse_opengrep({"results": [bare]})[0]
         self.assertEqual(legacy["fingerprint"], finding["fingerprint"])
         self.assertEqual(legacy["title"], "Injection: shell command non literal")
-        self.assertEqual(localize(legacy["remediation"], "es"), fix["en"])
+        # A rule without its own fix text: its message, which interpolates what the result matched, rendered as one.
+        self.assertEqual(localize(legacy["remediation"], "es"), render.prose(fix["en"]))
+        self.assertIn("Pass a list of arguments without shell=True", localize(legacy["remediation"], "es"))
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RuleCasesTests(unittest.TestCase):
+    """`make rules-test` runs the cases with Opengrep; this checks, without it, that every rule has both kinds."""
+
+    def test_every_rule_has_a_line_it_must_match_and_one_it_must_leave_alone(self):
+        cases = {"ruleid": set(), "ok": set()}
+        for path in (RULES_DIR / "tests").iterdir():
+            for kind, listed in re.findall(r"(?:#|//)\s*(ruleid|ok):\s*([\w.\-, ]+)", path.read_text(encoding="utf-8")):
+                cases[kind] |= {item.strip() for item in listed.split(",") if item.strip()}
+        for kind, covered in cases.items():
+            with self.subTest(kind=kind):
+                self.assertEqual(sorted(set(rules()) - covered), [])
+                self.assertEqual(sorted(covered - set(rules())), [])  # no case for a rule that doesn't exist

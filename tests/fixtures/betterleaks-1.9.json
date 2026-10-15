@@ -1,0 +1,58 @@
+[
+ {
+  "RuleID": "github-pat",
+  "Description": "Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.",
+  "StartLine": 2,
+  "EndLine": 2,
+  "StartColumn": 17,
+  "EndColumn": 56,
+  "Match": "REDACTED",
+  "Secret": "REDACTED",
+  "File": "/src/config/app.py",
+  "Entropy": 4.821928,
+  "Fingerprint": "/src/config/app.py:github-pat:2",
+  "Tags": []
+ },
+ {
+  "RuleID": "slack-bot-token",
+  "Description": "Identified a Slack Bot token, which may compromise bot integrations and communication channel security.",
+  "StartLine": 4,
+  "EndLine": 4,
+  "StartColumn": 10,
+  "EndColumn": 63,
+  "Match": "REDACTED",
+  "Secret": "REDACTED",
+  "File": "/src/config/app.py",
+  "Entropy": 4.801003,
+  "Fingerprint": "/src/config/app.py:slack-bot-token:4",
+  "Tags": []
+ },
+ {
+  "RuleID": "github-pat",
+  "Description": "Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.",
+  "StartLine": 1,
+  "EndLine": 1,
+  "StartColumn": 10,
+  "EndColumn": 49,
+  "Match": "REDACTED",
+  "Secret": "REDACTED",
+  "File": "/src/fixtures/test.py",
+  "Entropy": 4.821928,
+  "Fingerprint": "/src/fixtures/test.py:github-pat:1",
+  "Tags": []
+ },
+ {
+  "RuleID": "private-key",
+  "Description": "Identified a Private Key, which may compromise cryptographic security and sensitive data encryption.",
+  "StartLine": 1,
+  "EndLine": 4,
+  "StartColumn": 1,
+  "EndColumn": 29,
+  "Match": "REDACTED",
+  "Secret": "REDACTED",
+  "File": "/src/key.pem",
+  "Entropy": 5.53462,
+  "Fingerprint": "/src/key.pem:private-key:1",
+  "Tags": []
+ }
+]

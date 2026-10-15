@@ -1,8 +1,10 @@
 """How to fix each finding, concretely: the package manager command, the code example, the steps.
 
 - Dependencies: the manager comes from the file that declared it (package-lock.json → npm, poetry.lock → Poetry…)
-  and the fix depends on whether the dependency is direct or transitive (a transitive one is forced with an
-  override). The version is the one that closes every advisory for that package, not just this finding's.
+  and the fix depends on whether the dependency is direct or transitive. For a transitive one, the graph Trivy resolves
+  from the lockfile says who brings it in (`package.introduced_by`, scanning/dependency_graph.py), in any ecosystem: the
+  guide updates the package, shows which version ended up installed and, if it didn't move, updates the direct
+  dependency that holds it back. The version is the one that closes every advisory for that package.
 - Code: a before/after example for the rule (fix_examples), in its language.
 - Secrets: rotate first; removing them from the code isn't enough, they're already in the history.
 - An image's system packages: in the Dockerfile.
@@ -21,7 +23,7 @@ from pitangus.modules.intel.advisories import compare_versions
 from pitangus.modules.findings import web_fix
 from pitangus.modules.findings.fix_examples import EXAMPLES
 from pitangus.shared.i18n import msg
-from pitangus.shared.model import Finding
+from pitangus.shared.model import DependencyPath, Finding, Package
 
 # What goes into a command: no shell metacharacters and no leading "-" (the manager would read it as an option).
 SAFE_NAME = re.compile(r"[A-Za-z0-9@._][A-Za-z0-9@/._:+-]{0,199}")
@@ -30,9 +32,18 @@ SAFE_VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+~:-]{0,99}")
 VERIFY = msg("findings.fix.verify")
 VERIFY_DEPENDENCY = msg("findings.fix.verify_dependency")
 VERIFY_IMAGE = msg("findings.fix.verify_image")
+# Steps that send the reader to the panel's "Reverify" button: they mean nothing outside it (a prompt for an AI
+# assistant, the terminal, a ticket).
+PANEL_STEPS = frozenset({"findings.fix.verify", "findings.fix.verify_dependency", "findings.fix.verify_image",
+                         "findings.fix.verify_web", "findings.fix.secret.verify"})
+
+
+def panel_step(step) -> bool:
+    return isinstance(step, dict) and step.get("$t") in PANEL_STEPS
 # `action` is the language-neutral code for consumers that filter commands; `label` is what people read.
 COMMAND_LABELS = {"update": msg("findings.fix.commands.update"), "reinstall": msg("findings.fix.commands.reinstall"),
                   "install": msg("findings.fix.commands.install")}
+JS = ("npm", "yarn", "pnpm", "bun")
 
 # Dependency file → package manager.
 MANAGERS = {"package-lock.json": "npm", "npm-shrinkwrap.json": "npm", "package.json": "npm", "yarn.lock": "yarn",
@@ -60,6 +71,34 @@ def manager(path: str, ecosystem: str) -> str | None:
             "amazon": "dnf", "oracle": "dnf", "centos": "dnf", "fedora": "dnf"}.get((ecosystem or "").lower())
 
 
+def _check(tool: str | None, name: str, target: str) -> dict | None:
+    """The command that shows which version ended up installed, so "updated" is checked, not assumed."""
+    if tool == "go" and name in ("stdlib", "toolchain"):
+        return None
+    group, _, artifact = name.partition(":")
+    code = {"npm": f"npm ls {name}", "yarn": f"yarn why {name}", "pnpm": f"pnpm why {name}", "poetry": f"poetry show {name}",
+            "uv": f"uv tree --invert --package {name}", "pip": f"pip show {name}", "go": f"go list -m {name}", "cargo": f"cargo tree --invert {name}", "composer": f"composer show {name}", "bundler": f"bundle info {name}",
+            "maven": f"mvn dependency:tree -Dincludes={group}:{artifact}" if artifact else None,
+            "gradle": f"./gradlew dependencyInsight --dependency {artifact}" if artifact else None}.get(tool or "")
+    return {"label": msg("findings.fix.commands.check_version", version=target), "action": "check", "code": code} if code else None
+
+
+def _update_direct(tool: str | None, name: str, dev: bool) -> str | None:
+    """Updates the direct dependency that brings a transitive one in, for when the transitive one doesn't move: its
+    range is what holds it back. Go, Maven and Gradle don't need it: they set a transitive version on their own."""
+    if not SAFE_NAME.fullmatch(name):
+        return None
+    return {"poetry": f"poetry add{' --group dev' if dev else ''} {name}@latest", "uv": f"uv lock --upgrade-package {name}",
+            "pipenv": f"pipenv update {name}", "pdm": f"pdm update {name}", "cargo": f"cargo update -p {name}",
+            "composer": f"composer update {name} --with-dependencies", "bundler": f"bundle update {name}",
+            "dotnet": f"dotnet add package {name}", "pub": f"dart pub upgrade {name}", "mix": f"mix deps.update {name}"}.get(tool or "")
+
+
+def _introduced(package: Package) -> DependencyPath | None:
+    """The shortest chain that brings a transitive dependency in (from the lockfile's graph), if it is known."""
+    return next((entry for entry in package.get("introduced_by") or [] if isinstance(entry, dict) and entry.get("name") and entry.get("direct")), None)
+
+
 def _dependency(finding: Finding, target: str | None) -> dict:
     package = finding.get("package") or {}
     name, version, path = str(package.get("name") or ""), str(package.get("version") or ""), str(finding.get("path") or "")
@@ -77,15 +116,21 @@ def _dependency(finding: Finding, target: str | None) -> dict:
     transitive = direct is False
     dev = bool(package.get("dev"))  # a dev dependency: the command must not move it to production
     fixed = package.get("fixed_version")
+    lead = _introduced(package) if transitive else None
+    names: dict = {}
+    if lead:
+        names = {"package": name, "version": version, "target": target, "parent": lead["name"], "parent_version": lead.get("version") or "?",
+                 "direct": lead["direct"], "direct_version": lead.get("direct_version") or "?"}
     if fixed and fixed != target:
         steps.append(msg("findings.fix.closes_all", version=target, package=name, fixed=fixed))
-    if tool in ("npm", "yarn", "pnpm", "bun"):
+    if tool in JS:
+        key = {"npm": "overrides", "yarn": "resolutions", "pnpm": "pnpm.overrides", "bun": "overrides"}[tool]
         if transitive:
-            key = {"npm": "overrides", "yarn": "resolutions", "pnpm": "pnpm.overrides", "bun": "overrides"}[tool]
             steps.append(msg("findings.fix.npm_transitive", package=name, field=key))
-            example = {"language": "json", "before": "", "after": ("{\n  \"pnpm\": {\n    \"overrides\": {\n      \"" + name + "\": \">=" + target + "\"\n    }\n  }\n}"
+            note = msg("findings.fix.path.override_note", direct=lead["direct"]) if lead else msg("findings.fix.override_note")
+            example = {"language": "json", "file": "package.json", "before": "", "after": ("{\n  \"pnpm\": {\n    \"overrides\": {\n      \"" + name + "\": \">=" + target + "\"\n    }\n  }\n}"
                                                                    if tool == "pnpm" else
-                                                                   "{\n  \"" + key + "\": {\n    \"" + name + "\": \">=" + target + "\"\n  }\n}"), "note": msg("findings.fix.override_note")}
+                                                                   "{\n  \"" + key + "\": {\n    \"" + name + "\": \">=" + target + "\"\n  }\n}"), "note": note}
             add("reinstall", {"npm": "npm install", "yarn": "yarn install", "pnpm": "pnpm install", "bun": "bun install"}[tool])
         else:
             flag = " -D" if dev else ""
@@ -119,16 +164,16 @@ def _dependency(finding: Finding, target: str | None) -> dict:
         group, artifact = name.split(":", 1)
         if tool == "maven" and direct:
             steps.append(msg("findings.fix.maven_direct", artifact=artifact))
-            example = {"language": "xml", "before": "", "note": "", "after":
+            example = {"language": "xml", "file": "pom.xml", "before": "", "note": "", "after":
                        f"<dependency>\n  <groupId>{group}</groupId>\n  <artifactId>{artifact}</artifactId>\n  <version>{target}</version>\n</dependency>"}
         elif tool == "maven":
             steps.append(msg("findings.fix.maven_managed"))
-            example = {"language": "xml", "before": "", "note": "", "after":
+            example = {"language": "xml", "file": "pom.xml", "before": "", "note": "", "after":
                        f"<dependencyManagement>\n  <dependencies>\n    <dependency>\n      <groupId>{group}</groupId>\n"
                        f"      <artifactId>{artifact}</artifactId>\n      <version>{target}</version>\n    </dependency>\n  </dependencies>\n</dependencyManagement>"}
         else:
             steps.append(msg("findings.fix.gradle_constraint"))
-            example = {"language": "kotlin", "before": "", "note": "",
+            example = {"language": "kotlin", "file": "build.gradle", "before": "", "note": "",
                        "after": f"dependencies {{\n    constraints {{\n        implementation(\"{group}:{artifact}:{target}\")\n    }}\n}}"}
     elif tool == "dotnet":
         add("update", f"dotnet add package {name} --version {target}")
@@ -139,15 +184,32 @@ def _dependency(finding: Finding, target: str | None) -> dict:
     elif tool in ("apt", "apk", "dnf"):
         steps.append(msg("findings.fix.os_rebuild"))
         steps.append(msg("findings.fix.os_dockerfile"))
-        example = {"language": "dockerfile", "before": "", "note": "", "after": {
+        example = {"language": "dockerfile", "file": "Dockerfile", "before": "", "note": "", "after": {
             "apt": f"RUN apt-get update && apt-get install -y --only-upgrade {name} && rm -rf /var/lib/apt/lists/*",
             "apk": f"RUN apk upgrade --no-cache {name}", "dnf": f"RUN dnf upgrade -y {name} && dnf clean all"}[tool]}
     else:
         steps.append(msg("findings.fix.generic_update", package=name, installed=version, version=target, path=path))
-    if transitive and tool not in ("npm", "yarn", "pnpm", "bun", "maven", "gradle"):
+    check = _check(tool, name, target)
+    if check:
+        commands.append(check)
+    extra: dict = {}
+    if lead:
+        # Who brings it in, from the lockfile's graph: update the package, check it, and if it didn't move, the
+        # direct dependency whose range holds it back.
+        steps.insert(0, msg("findings.fix.path.from_via" if lead["direct"] != lead["name"] else "findings.fix.path.from", **names))
+        upgrade = None if tool in JS else _update_direct(tool, lead["direct"], bool(lead.get("direct_dev")))
+        if upgrade:
+            extra = {"action": msg("findings.fix.path.action", **names)}
+            commands.append({"label": msg("findings.fix.commands.if_stuck", package=lead["direct"], version=target), "action": "update", "code": upgrade})
+        elif tool not in JS + ("go", "maven", "gradle"):
+            steps.insert(1, msg("findings.fix.path.if_stuck", **names))
+    elif transitive and tool not in JS + ("maven", "gradle"):
         steps.insert(0, msg("findings.fix.transitive_other", package=name))
+    also = [str(item) for item in package.get("also_in") or [] if item][:5]
+    if also:  # a monorepo: the same version in other lockfiles, each updated on its own
+        steps.append(msg("findings.fix.also_in", package=name, version=version, paths=", ".join(also)))
     steps.append(VERIFY_IMAGE if tool in ("apt", "apk", "dnf") else VERIFY_DEPENDENCY)
-    return {"kind": "dependency", "steps": steps, "commands": commands, "example": example}
+    return {"kind": "dependency", "steps": steps, "commands": commands, "example": example, **extra}
 
 
 def _secret(finding: Finding) -> dict:

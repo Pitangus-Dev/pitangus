@@ -19,5 +19,11 @@
     "error": "No se pudo buscar: inténtalo de nuevo",
     "min_chars_one": "Escribe al menos {{count, number}} carácter",
     "min_chars_other": "Escribe al menos {{count, number}} caracteres"
+  },
+  "value_combobox": {
+    "use": "Usar «{{value}}»",
+    "type_own": "Sin sugerencias: escribe tu propio valor",
+    "too_long_one": "Como máximo {{count}} carácter",
+    "too_long_other": "Como máximo {{count}} caracteres"
   }
 }

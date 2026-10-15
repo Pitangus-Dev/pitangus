@@ -19,10 +19,13 @@ import { api } from '@/shared/api/http'
 import { readRoute, setRouteParam } from '@/shared/lib/route'
 import { formatDate } from '@/shared/lib/types'
 import { ThreatCanvas } from '@/features/threats/threat-canvas'
+import { DataField, KindField, ProtocolField } from '@/features/threats/threat-fields'
 import { ThreatJsonImporter } from '@/features/threats/threat-json-importer'
 import { categoryHelp, methodName, METHOD_ORDER, type Methodology } from '@/features/threats/threat-guides'
 import { AttackMappings, AttackTrees, GuidePanel, ManualThreatDialog, MethodDialog, MethodPicker, PastaStages } from '@/features/threats/threat-methods'
-import { assetGroups, newId, type Catalog, type Component, type CustomModule, type Flow, type Kind, type Model, type Threat, type View, type Asset, type ManualThreat } from '@/features/threats/threat-model-types'
+import { ModelContext } from '@/features/threats/threat-context'
+import { PropertyList } from '@/features/threats/threat-properties'
+import { assetGroups, newId, type Catalog, type Component, type CustomModule, type Flow, type Kind, type Model, type Threat, type View, type Asset, type ManualThreat, type LevelEquivalents } from '@/features/threats/threat-model-types'
 
 // Catalog keys (`threats` namespace; severities from `common`).
 const statusLabel = { evidenced: 'status.evidenced', open: 'status.open', mitigated: 'status.mitigated', accepted: 'status.accepted', not_applicable: 'status.not_applicable' }
@@ -168,11 +171,12 @@ function Editor({ id, catalog: base, user, onBack, onOpenRun }: { id: string; ca
     <div className="flex flex-wrap items-center gap-2">{tabs.map(([key, label]) => <Button key={key} size="sm" variant="outline" aria-pressed={current === key} className={current === key ? 'border-app-fg bg-app-soft' : ''} onClick={() => setTab(key)}>{t(label)}</Button>)}
       {dirty && <span className="ml-auto flex items-center gap-2 text-xs text-attention">{t('editor.unsaved')}<Button size="sm" onClick={() => void save()} disabled={busy}>{busy ? <CircleNotchIcon className="animate-spin" /> : <FloppyDiskIcon />}{t('editor.save')}</Button></span>}</div>
     <div className={guide ? 'grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]' : ''}><div className="min-w-0 space-y-5">
-      {current === 'threats' && <Threats view={view} draft={draft} methodology={methodology} busy={busy} onChanged={setView} onOpenRun={onOpenRun} onSaveModel={saveModel} />}
+      {current === 'threats' && <Threats workspace={catalog.workspace} view={view} draft={draft} methodology={methodology} busy={busy} onChanged={setView} onOpenRun={onOpenRun} onSaveModel={saveModel} />}
       {current === 'diagram' && <ThreatCanvas model={draft} setModel={setDraft} threats={view.threats} catalog={catalog} compact={guide} />}
       {current === 'elements' && <Elements draft={draft} setDraft={setDraft} catalog={catalog} />}
       {current === 'stages' && <PastaStages model={draft} setModel={setDraft} threats={view.threats} catalog={catalog} onGo={setTab} />}
-      {current === 'trees' && <AttackTrees model={draft} setModel={setDraft} />}
+      {current === 'trees' && <AttackTrees model={draft} setModel={setDraft} levels={catalog.workspace?.levels} />}
+      {current === 'context' && <ModelContext model={draft} setModel={setDraft} />}
       {current === 'attack' && <AttackMappings model={draft} setModel={setDraft} catalog={catalog} />}
     </div>{guide && <GuidePanel methodology={methodology} onClose={() => toggleGuide(false)} />}</div>
     {picking && <MethodDialog current={methodology} onClose={() => setPicking(false)} onPick={next => { setPicking(false); setDraft({ ...draft, methodology: next }); setTab('') }} />}
@@ -220,11 +224,11 @@ const EXPORTS: { label: string; items: [string, string][] }[] = [
 ]
 
 const TABS: Record<Methodology, [string, string][]> = {
-  stride: [['threats', 'tabs.threats'], ['diagram', 'tabs.diagram'], ['elements', 'tabs.elements']],
-  linddun: [['threats', 'tabs.privacy_threats'], ['diagram', 'tabs.diagram'], ['elements', 'tabs.elements']],
-  pasta: [['stages', 'tabs.stages'], ['diagram', 'tabs.diagram'], ['threats', 'tabs.threats'], ['trees', 'tabs.trees'], ['elements', 'tabs.elements']],
-  attack_trees: [['trees', 'tabs.trees'], ['diagram', 'tabs.diagram'], ['threats', 'tabs.threats']],
-  attack: [['attack', 'tabs.attack'], ['diagram', 'tabs.diagram'], ['threats', 'tabs.threats']],
+  stride: [['threats', 'tabs.threats'], ['diagram', 'tabs.diagram'], ['elements', 'tabs.elements'], ['context', 'tabs.context']],
+  linddun: [['threats', 'tabs.privacy_threats'], ['diagram', 'tabs.diagram'], ['elements', 'tabs.elements'], ['context', 'tabs.context']],
+  pasta: [['stages', 'tabs.stages'], ['diagram', 'tabs.diagram'], ['threats', 'tabs.threats'], ['trees', 'tabs.trees'], ['elements', 'tabs.elements'], ['context', 'tabs.context']],
+  attack_trees: [['trees', 'tabs.trees'], ['diagram', 'tabs.diagram'], ['threats', 'tabs.threats'], ['context', 'tabs.context']],
+  attack: [['attack', 'tabs.attack'], ['diagram', 'tabs.diagram'], ['threats', 'tabs.threats'], ['context', 'tabs.context']],
   custom: [['diagram', 'tabs.diagram']],
 }
 
@@ -245,6 +249,7 @@ function customTabs(modules: CustomModule[]): [string, string][] {
   if (modules.includes('trees')) tabs.push(['trees', 'tabs.trees'])
   if (modules.includes('attack')) tabs.push(['attack', 'tabs.attack'])
   if (modules.includes('elements')) tabs.push(['elements', 'tabs.elements'])
+  tabs.push(['context', 'tabs.context'])
   return tabs
 }
 
@@ -256,23 +261,24 @@ function CustomModulesPicker({ value, onChange }: { value: CustomModule[]; onCha
 }
 
 function payloadOf(model: Model) {
+  const pasta = Object.fromEntries(Object.entries(model.pasta ?? {}).filter(([key, value]) => key === 'custom_properties' || (typeof value === 'string' && value.trim())))
   return { name: model.name, description: model.description, methodology: model.methodology ?? 'stride', custom_modules: model.custom_modules ?? ['manual', 'elements'], repositories: model.repositories ?? [], repository_refs: model.repository_refs ?? [], components: model.components, flows: model.flows,
-           boundaries: model.boundaries, manual_threats: model.manual_threats ?? [], attack_trees: model.attack_trees ?? [],
-           attack_mappings: model.attack_mappings ?? [], pasta: Object.fromEntries(Object.entries(model.pasta ?? {}).filter(([, text]) => text.trim())),
-           legend: model.legend ?? {} }
+           boundaries: model.boundaries, assumptions: (model.assumptions ?? []).filter(item => item.text.trim()), manual_threats: model.manual_threats ?? [], attack_trees: model.attack_trees ?? [],
+           attack_mappings: model.attack_mappings ?? [], pasta, legend: model.legend ?? {}, level_equivalents: model.level_equivalents ?? {},
+           custom_properties: model.custom_properties ?? {} }
 }
 
-function Threats({ view, draft, methodology, busy, onChanged, onOpenRun, onSaveModel }: { view: View; draft: Model; methodology: Methodology; busy: boolean; onChanged: (view: View) => void; onOpenRun: (id: string) => void; onSaveModel: (model: Model) => Promise<boolean> }) {
+function Threats({ view, draft, methodology, busy, onChanged, onOpenRun, onSaveModel, workspace }: { view: View; draft: Model; methodology: Methodology; busy: boolean; workspace?: Catalog['workspace']; onChanged: (view: View) => void; onOpenRun: (id: string) => void; onSaveModel: (model: Model) => Promise<boolean> }) {
   const { t } = useTranslation('threats')
   const confirm = useConfirm()
   const [editing, setEditing] = useState<ManualThreat | 'new' | null>(null)
   const categoryKey = (row: Threat) => methodology === 'custom' ? `${row.framework ?? 'manual'}:${row.stride}` : row.stride
   const codes = [...new Set(view.threats.map(categoryKey).filter(Boolean))]
   const categoryRow = (code: string) => view.threats.find(row => categoryKey(row) === code)
-  const saveManual = async (threat: ManualThreat) => {
+  const saveManual = async (threat: ManualThreat, level_equivalents: LevelEquivalents) => {
     const list = draft.manual_threats ?? []
     const next = list.some(item => item.id === threat.id) ? list.map(item => item.id === threat.id ? threat : item) : [...list, threat]
-    if (await onSaveModel({ ...draft, manual_threats: next })) setEditing(null)
+    if (await onSaveModel({ ...draft, manual_threats: next, level_equivalents })) setEditing(null)
   }
   const removeManual = async (manualId: string) => {
     if (!await confirm({ title: t('threat.confirm_remove'), confirmLabel: t('common:actions.remove'), destructive: true })) return
@@ -296,7 +302,7 @@ function Threats({ view, draft, methodology, busy, onChanged, onOpenRun, onSaveM
         return <div key={row.id}>
           <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : row.id)} className="grid w-full gap-2 px-4 py-3 text-left transition hover:bg-app-soft md:grid-cols-[110px_90px_minmax(0,1fr)_120px] md:items-center">
             <Badge variant="outline" className={`w-fit ${statusClass[row.status]}`}>{t(statusLabel[row.status])}{row.evidence_count ? ` · ${row.evidence_count}` : ''}</Badge>
-            <Badge variant="outline" className={`w-fit ${severityClass[row.severity]}`}>{severityLabel[row.severity] ? t(severityLabel[row.severity]) : row.severity}</Badge>
+            <Badge variant="outline" className={`w-fit ${severityClass[row.severity] ?? 'border-app-line text-app-secondary'}`}>{row.severity_label ?? (severityLabel[row.severity] ? t(severityLabel[row.severity]) : row.severity)}</Badge>
             <span className="flex min-w-0 items-start gap-2"><CaretRightIcon className={`mt-1 size-3.5 shrink-0 text-app-subtle transition ${expanded ? 'rotate-90' : ''}`} /><span className="min-w-0"><span className="block truncate text-sm font-medium">{row.title}</span><span className="block truncate text-xs text-app-subtle">{row.element_name}</span></span></span>
             <span className="text-xs text-app-muted">{row.stride} · {row.category}</span>
           </button>
@@ -306,14 +312,15 @@ function Threats({ view, draft, methodology, busy, onChanged, onOpenRun, onSaveM
             {row.framework !== 'manual' && <p className="font-mono text-xs text-app-subtle">{[row.rule, ...row.cwe.map(item => `CWE-${item}`)].join(' · ')}</p>}
             {row.contradicted && row.decision && <p className="flex items-start gap-2 rounded-lg border border-app-line bg-panel p-3 text-xs text-app-fg"><XCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-danger" />{t('threat.contradicted', { status: t(statusLabel[row.decision.status as Threat['status']] ?? statusLabel.open).toLowerCase(), by: row.decision.by, date: formatDate(row.decision.at) })}</p>}
             {row.evidence.length > 0 && <div className="rounded-lg border border-app-line bg-panel p-3"><span className="flex items-center gap-1.5 text-xs font-medium"><ShieldWarningIcon className="size-4 text-attention" />{t('threat.evidence', { count: row.evidence_count })}</span><span className="mt-0.5 block text-[11px] text-app-subtle">{row.evidence_scope?.some(scope => !scope.path) ? t('threat.evidence_repo') : t('threat.evidence_paths', { paths: row.evidence_scope?.map(scope => scope.path).join(', ') })}</span><ul className="mt-2 space-y-1 text-xs">{row.evidence.slice(0, 8).map(item => <li key={item.fingerprint} className="flex flex-wrap items-center gap-2"><Badge variant="outline" className={`text-[11px] ${severityClass[item.severity] ?? ''}`}>{severityLabel[item.severity] ? t(severityLabel[item.severity]) : item.severity}</Badge><span className="text-app-secondary">{item.title}</span><span className="font-mono text-app-subtle">{item.location}</span><button onClick={() => onOpenRun(item.run_id)} className="text-brand underline underline-offset-2">{t('threat.view_findings')}</button></li>)}</ul></div>}
-            {row.framework === 'manual' && (row.likelihood || row.impact || row.owner) && <p className="text-xs text-app-muted">{t('threat.rating', { likelihood: row.likelihood ? t(LIKELIHOOD[row.likelihood]) : '—', impact: row.impact ? t(IMPACT[row.impact]) : '—', owner: row.owner || '—' })}</p>}
+            {row.framework === 'manual' && (row.likelihood || row.impact || row.owner) && <p className="text-xs text-app-muted">{t('threat.rating', { likelihood: row.likelihood ? (row.likelihood in LIKELIHOOD ? t(LIKELIHOOD[row.likelihood as keyof typeof LIKELIHOOD]) : row.likelihood) : '—', impact: row.impact ? (row.impact in IMPACT ? t(IMPACT[row.impact as keyof typeof IMPACT]) : row.impact) : '—', owner: row.owner || '—' })}</p>}
+            {row.framework === 'manual' && <PropertyList value={row.custom_properties} />}
             {row.framework === 'manual' && <div className="flex gap-1.5"><Button size="xs" variant="outline" onClick={() => setEditing((draft.manual_threats ?? []).find(item => item.id === row.manual_id) ?? null)}><PencilSimpleIcon />{t('common:actions.edit')}</Button><Button size="xs" variant="ghost" onClick={() => void removeManual(row.manual_id ?? '')}><TrashIcon />{t('common:actions.remove')}</Button></div>}
             {row.decision && <p className="text-xs text-app-muted"><strong>{t(statusLabel[row.decision.status as Threat['status']] ?? statusLabel.open)}</strong> {t('threat.decided', { by: row.decision.by, date: formatDate(row.decision.at), reason: row.decision.reason })}</p>}
             <div className="flex flex-wrap gap-1.5">{row.decision ? <Button size="xs" variant="outline" onClick={() => void reopen(row)}>{t('threat.reopen')}</Button>
               : (['mitigated', 'accepted', 'not_applicable'] as const).map(next => <Button key={next} size="xs" variant="outline" onClick={() => setDeciding({ threat: row, status: next })}>{t(statusLabel[next])}</Button>)}</div>
           </div>}
         </div> })}</div>}
-    {editing && <ManualThreatDialog model={draft} initial={editing === 'new' ? undefined : editing} methodology={methodology} busy={busy} onClose={() => setEditing(null)} onSave={threat => void saveManual(threat)} />}
+    {editing && <ManualThreatDialog model={draft} initial={editing === 'new' ? undefined : editing} methodology={methodology} busy={busy} workspace={workspace} onClose={() => setEditing(null)} onSave={(threat, equivalents) => void saveManual(threat, equivalents)} />}
     {deciding && <DecisionDialog modelId={view.model.id} threat={deciding.threat} status={deciding.status} onClose={() => setDeciding(null)} onDone={next => { setDeciding(null); onChanged(next) }} />}
   </CardContent></Card>
 }
@@ -337,10 +344,6 @@ function DecisionDialog({ modelId, threat, status, onClose, onDone }: { modelId:
   </DialogContent></Dialog>
 }
 
-function Chips({ value, options, onChange }: { value: string[]; options: Record<string, string>; onChange: (next: string[]) => void }) {
-  return <div className="flex flex-wrap gap-1">{Object.entries(options).map(([key, label]) => <button key={key} type="button" aria-pressed={value.includes(key)} onClick={() => onChange(value.includes(key) ? value.filter(item => item !== key) : [...value, key])} className={`min-h-6 rounded border px-2 py-0.5 text-[11px] ${value.includes(key) ? 'border-app-fg bg-app-soft text-app-fg' : 'border-app-line text-app-subtle'}`}>{label}</button>)}</div>
-}
-
 function Elements({ draft, setDraft, catalog }: { draft: Model; setDraft: (model: Model) => void; catalog: Catalog }) {
   const { t } = useTranslation('threats')
   const ids = draft.components.map(item => item.id)
@@ -359,13 +362,12 @@ function Elements({ draft, setDraft, catalog }: { draft: Model; setDraft: (model
       <CardContent className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead><tr className="text-left text-xs text-app-subtle"><th scope="col" className={cell}>{t('elements.name_technology')}</th><th scope="col" className={cell}>{t('inspector.kind')}</th><th scope="col" className={cell}>{t('canvas.boundary')}</th><th scope="col" className={cell}>{t('elements.asset')}</th><th scope="col" className={cell}>{t('inspector.data')}</th><th scope="col" className={cell}>{t('elements.properties')}</th><th scope="col"><span className="sr-only">{t('elements.actions')}</span></th></tr></thead>
         <tbody className="divide-y divide-app-line">{draft.components.map(item => <tr key={item.id}>
           <td className={cell}><Input aria-label={t('inspector.name')} value={item.name} maxLength={80} onChange={event => updateComponent(item.id, { name: event.target.value })} className="h-8 border-input bg-card" /><Input aria-label={t('inspector.technology')} value={item.technology ?? ''} maxLength={80} placeholder={t('inspector.technology')} onChange={event => updateComponent(item.id, { technology: event.target.value })} className="mt-1 h-7 border-input bg-card text-xs" />{item.origin === 'suggested' && <span className="mt-1 block max-w-64 text-[11px] leading-4 text-brand" title={item.description}>{item.description || t('elements.suggested')}</span>}</td>
-          <td className={cell}><SelectField aria-label={t('inspector.kind')} value={item.kind} onValueChange={kind => updateComponent(item.id, { kind: kind as Kind, custom_kind: kind === 'custom' ? item.custom_kind || t('canvas.custom_kind_default') : '', custom_base: kind === 'custom' ? item.custom_base || 'service' : undefined })} className={select}
-            options={Object.entries(catalog.kinds).map(([key, label]) => ({ value: key, label }))} />{item.kind === 'custom' && <><Input aria-label={t('inspector.custom_kind')} value={item.custom_kind ?? ''} maxLength={80} onChange={event => updateComponent(item.id, { custom_kind: event.target.value })} className="mt-1 h-7 border-input bg-card text-xs" /><SelectField aria-label={t('inspector.custom_base')} value={item.custom_base || 'service'} onValueChange={base => updateComponent(item.id, { custom_base: base as Exclude<Kind, 'custom'> })} className={`${select} mt-1`}
+          <td className={`${cell} max-w-56`}><KindField component={item} catalog={catalog} onChange={change => updateComponent(item.id, change)} />{item.kind === 'custom' && <><SelectField aria-label={t('inspector.custom_base')} value={item.custom_base || 'service'} onValueChange={base => updateComponent(item.id, { custom_base: base as Exclude<Kind, 'custom'> })} className={`${select} mt-1`}
             options={Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, label]) => ({ value: key, label }))} /></>}</td>
           <td className={cell}><SelectField aria-label={t('canvas.boundary')} value={boundaryOf(item.id)} onValueChange={boundary => moveTo(item.id, boundary)} className={select} placeholder={t('elements.no_boundary')} options={draft.boundaries.map(entry => ({ value: entry.id, label: entry.name }))} /></td>
           <td className={cell}><SelectField aria-label={t('elements.linked_asset')} value={item.asset ?? ''} onValueChange={asset => updateComponent(item.id, { asset: asset || null, asset_ref: asset ? '' : item.asset_ref })} className={`${select} max-w-48`} placeholder={t('inspector.not_linked')}
             groups={assetGroups(catalog, draft).map(group => ({ label: group.label, options: group.items.map(asset => ({ value: asset.id, label: asset.name })) }))} />{item.asset_ref && !item.asset && <span className="mt-1 block text-[11px] text-attention">{t('elements.pending_ref', { ref: item.asset_ref })}</span>}</td>
-          <td className={cell}><Chips value={item.data} options={catalog.classifications} onChange={data => updateComponent(item.id, { data })} /></td>
+          <td className={`${cell} max-w-64`}><DataField label={t('inspector.data')} value={item.data} catalog={catalog} onChange={data => updateComponent(item.id, { data })} /></td>
           <td className={`${cell} space-y-1 text-xs`}>{([['internet_facing', 'canvas.internet_facing'], ['authenticates', 'inspector.authenticates'], ['encrypted_at_rest', 'canvas.encrypted_at_rest']] as const).map(([key, label]) => <label key={key} className="flex items-center gap-1.5 whitespace-nowrap"><input type="checkbox" className="size-3.5 accent-brand" checked={item[key]} onChange={event => updateComponent(item.id, { [key]: event.target.checked })} />{t(label)}</label>)}</td>
           <td className={cell}><Button size="xs" variant="ghost" aria-label={t('repos.remove', { name: item.name })} onClick={() => removeComponent(item.id)}><TrashIcon /></Button></td>
         </tr>)}</tbody></table></CardContent></Card>
@@ -373,8 +375,9 @@ function Elements({ draft, setDraft, catalog }: { draft: Model; setDraft: (model
       <CardContent className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead><tr className="text-left text-xs text-app-subtle"><th scope="col" className={cell}>{t('elements.source_target')}</th><th scope="col" className={cell}>{t('elements.name_protocol')}</th><th scope="col" className={cell}>{t('inspector.data')}</th><th scope="col" className={cell}>{t('elements.properties')}</th><th scope="col"><span className="sr-only">{t('elements.actions')}</span></th></tr></thead>
         <tbody className="divide-y divide-app-line">{draft.flows.map(flow => <tr key={flow.id}>
           <td className={cell}><div className="flex items-center gap-1"><SelectField aria-label={t('elements.source')} value={flow.source} onValueChange={source => updateFlow(flow.id, { source })} className={select} options={draft.components.map(item => ({ value: item.id, label: item.name }))} />→<SelectField aria-label={t('elements.target')} value={flow.target} onValueChange={target => updateFlow(flow.id, { target })} className={select} options={draft.components.map(item => ({ value: item.id, label: item.name }))} /></div></td>
-          <td className={cell}><Input aria-label={t('elements.flow_name')} value={flow.name ?? ''} maxLength={80} placeholder={t('inspector.flow_name')} onChange={event => updateFlow(flow.id, { name: event.target.value })} className="h-8 border-input bg-card" /><SelectField aria-label={t('inspector.protocol')} value={flow.protocol} onValueChange={protocol => updateFlow(flow.id, { protocol })} className={`${select} mt-1`} options={catalog.protocols.map(item => ({ value: item, label: item.toUpperCase() }))} /></td>
-          <td className={cell}><Chips value={flow.data} options={catalog.classifications} onChange={data => updateFlow(flow.id, { data })} /></td>
+          <td className={cell}><Input aria-label={t('elements.flow_name')} value={flow.name ?? ''} maxLength={80} placeholder={t('inspector.flow_name')} onChange={event => updateFlow(flow.id, { name: event.target.value })} className="h-8 border-input bg-card" /><div className="mt-1"><ProtocolField flow={flow} catalog={catalog} onChange={change => updateFlow(flow.id, change)} /></div>
+            <textarea aria-label={t('elements.flow_description')} rows={1} maxLength={1000} value={flow.description ?? ''} placeholder={t('inspector.description')} onChange={event => updateFlow(flow.id, { description: event.target.value })} className="field-sizing-content mt-1 w-full rounded-lg border border-input bg-card px-2 py-1 text-xs text-app-fg" /></td>
+          <td className={`${cell} max-w-64`}><DataField label={t('inspector.data')} value={flow.data} catalog={catalog} onChange={data => updateFlow(flow.id, { data })} /></td>
           <td className={`${cell} space-y-1 text-xs`}><label className="flex items-center gap-1.5"><input type="checkbox" className="size-3.5 accent-brand" checked={flow.authenticated} onChange={event => updateFlow(flow.id, { authenticated: event.target.checked })} />{t('inspector.authenticated')}</label><label className="flex items-center gap-1.5"><input type="checkbox" className="size-3.5 accent-brand" checked={flow.encrypted} onChange={event => updateFlow(flow.id, { encrypted: event.target.checked })} />{t('elements.encrypted')}</label></td>
           <td className={cell}><Button size="xs" variant="ghost" aria-label={t('elements.remove_flow')} onClick={() => setDraft({ ...draft, flows: draft.flows.filter(item => item.id !== flow.id) })}><TrashIcon /></Button></td>
         </tr>)}</tbody></table>{!draft.flows.length && <p className="py-4 text-sm text-app-subtle">{t('elements.no_flows')}</p>}</CardContent></Card>

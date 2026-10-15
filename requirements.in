@@ -15,3 +15,5 @@ alembic==1.20.0
 psycopg[binary]==3.3.6
 # OpenAPI specs in YAML for the passive API scans (safe loader only, no aliases).
 pyyaml==6.0.3
+# Package URLs (purl): one canonical name per package and ecosystem for the findings' identity.
+packageurl-python==0.17.6

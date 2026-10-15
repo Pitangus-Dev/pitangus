@@ -1,6 +1,6 @@
 {
   "title": "Getting started",
-  "progress": "{{done}} of {{total, number}} done. Steps check themselves off as you complete them.",
+  "progress": "{{done}} of {{total, number}} done. Each step checks itself off once done, wherever you do it.",
   "hide": "Hide getting started",
   "done": "(done)",
   "pending": "(pending)",
@@ -12,7 +12,7 @@
     },
     "github": {
       "title": "Connect GitHub",
-      "hint_admin": "Create this server's GitHub App; the panel walks you through it.",
+      "hint_admin": "Create this server's GitHub App (the panel walks you through it) or connect a token.",
       "hint_member": "An administrator sets it up in Integrations.",
       "action": "Connect"
     },
@@ -24,8 +24,8 @@
       "action": "New scan"
     },
     "watching": {
-      "title": "Watch your pull requests and main branch",
-      "hint_admin": "Every PR gets reviewed automatically, and the branch is rescanned when it changes.",
+      "title": "Review your pull requests automatically",
+      "hint_admin": "From Pull requests, which also rescans the main branch when it changes, or with the GitHub Action.",
       "hint_member": "An administrator turns it on in Pull requests.",
       "action": "Watch"
     },

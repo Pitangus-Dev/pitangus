@@ -13,7 +13,7 @@ services:
     name: pitangus-api
     runtime: image
     image:
-      url: ghcr.io/pitangus-dev/pitangus:0.13
+      url: ghcr.io/pitangus-dev/pitangus:0.14
     healthCheckPath: /api/health
     envVars:
       - key: PORT
@@ -42,7 +42,7 @@ services:
     name: pitangus-worker
     runtime: image
     image:
-      url: ghcr.io/pitangus-dev/pitangus-worker:0.13
+      url: ghcr.io/pitangus-dev/pitangus-worker:0.14
     envVars:
       - key: PITANGUS_DATABASE_URL
         fromDatabase:

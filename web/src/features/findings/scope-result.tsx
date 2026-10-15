@@ -34,7 +34,7 @@ export function ScopeResult({ scope, name, tab, canAccept, canManage = canAccept
       exports={openAudit => <ScopeExports assets={keys.length} onAudit={openAudit} />}
       audit={{ name, target: { assets: keys, status: tab === 'open' ? 'open' : 'all' }, fromSelection: false }}
       jira={{ selection: { byAsset: true }, asset: null }}
-      runId={scope.id} canAccept={canAccept} canManage={canManage} initialView={tab !== 'open' ? 'all' : 'active'} onChanged={onChanged} />
+      runId={scope.id} canAccept={canAccept} canManage={canManage} tab={tab} onChanged={onChanged} />
   </div>
 }
 

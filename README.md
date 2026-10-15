@@ -8,9 +8,9 @@ English · [Español](README.es.md)
 
 <p align="center"><strong>Spot it. Fix it. Prove it.</strong> Self-hosted, open-source application security that never sends your code anywhere.</p>
 
-Pitangus scans your repositories and container images, tells you **what to fix first and how** (the exact command or a code example), confirms the fix landed and **keeps watching** whatever changes next. Everything runs on your machine with your credentials: your code never reaches any service of ours.
+Pitangus scans your repositories and container images, tells you **what to fix first and how** (your package manager's command, or a code example when the rule has one), confirms the fix landed and **keeps watching** whatever changes next. Everything runs on your machine with your credentials: your code never reaches any service of ours.
 
-> Status: **beta (v0.13)**. It works and is tested, but the API and the `data/` formats may still change between releases.
+> Status: **beta (v0.14)**. It works and is tested, but the API and the `data/` formats may still change between releases.
 
 ## Why Pitangus
 
@@ -23,14 +23,14 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 
 | | |
 | --- | --- |
-| **Find** | Opengrep with 58 Pitangus rules (JS/TS, Python, Java, Go, PHP, Ruby, C#), Gitleaks, Trivy and OSV-Scanner for dependencies, Checkov and zizmor for IaC and GitHub Actions, Trivy + Grype for images. Your code is never executed. One repository or many, a whole organization, or several images at once. |
+| **Find** | Opengrep with 66 Pitangus rules (JS/TS, Python, Java, Go, PHP, Ruby, C#), including what AI-written code often gets wrong, plus Supabase and Firebase access rules; Betterleaks for secrets; Trivy and OSV-Scanner for dependencies and malicious packages; Trivy and zizmor for IaC and GitHub Actions; Trivy for images. Checkov and Grype are optional; the exposure check looks at a verified domain's roots and known paths, and the full web scan is experimental. Your code is never executed. One repository or many, a whole organization, or several images at once. |
 | **Prioritize** | Every advisory is checked against CISA KEV (active exploitation) and EPSS (exploit probability); dependencies are grouped by package, with the version that closes all of their advisories. |
-| **Fix** | Each finding tells you how to fix it: the command for your package manager (npm, pip, Poetry, Go, Cargo, Maven…), the override when it's transitive, a before/after example for code, or the steps to rotate a secret. Export to Jira without duplicates. |
+| **Fix** | How to fix each finding with what the tool knows: the command for your package manager (npm, pip, Poetry, Go, Cargo, Maven…) and, for a transitive dependency, what brings it in and, when its range blocks the fix, what to update first; a before/after example for the code rules that have one; the steps to rotate a secret; and, for imported results, the scanner's own advice. Pitangus doesn't write a patch for your code. Export to Jira without duplicates. |
 | **Verify** | **Reverify** rescans and tells you "Fixed ✓" or "Still present". On pull requests only what the PR introduces counts, with a comment and a status check that can block the merge. |
 | **Watch** | Automatic rescans when the main branch changes, a daily offline check of new advisories against your dependencies, and messages to **Slack, Teams or a webhook** when something important shows up. |
 | **Prove** | Technical and evidence PDF reports (SOC 2 Type II, ISO/IEC 27001:2022, organization roll-up), SARIF, JSON and Markdown; threat modeling (STRIDE, LINDDUN, PASTA, attack trees, ATT&CK) with a diagram; a local CVE tracker built from NVD. |
 
-**Websites and APIs:** a passive scan of a domain you verify (ZAP, katana, nuclei detection templates, testssl.sh and httpx; it never attacks), with its scope, test users and a schedule; see [docs/scanning-web.md](docs/scanning-web.md). It needs `PITANGUS_DAST_ENABLED=1`.
+**Websites and APIs:** for a domain you verify, the **exposure check** is always available and light: each host's root and known paths (exposed files, debug and status consoles, TLS, response headers) with httpx, testssl.sh and nuclei's detection-only templates, without crawling. The **full web scan** (ZAP, katana and subfinder crawling the site, with its scope, test users and a schedule) is experimental and off unless `PITANGUS_DAST_ENABLED=1`. Neither attacks; see [docs/scanning-web.md](docs/scanning-web.md).
 
 **In development** (grayed out in the panel): active web scans, GitLab/Bitbucket/Azure DevOps (covered today by [`scan` in CI](docs/cli.md)) and optional AI assistance.
 
@@ -39,7 +39,7 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 You need **Docker** (Engine 24+ with Compose v2.24+), **make** and **git**, 4 GB of memory and 8 GB of disk. `make doctor` checks all of it.
 
 ```bash
-git clone --branch v0.13.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up
@@ -61,6 +61,7 @@ The panel follows your browser's language and has a language switch in the sideb
 | | |
 | --- | --- |
 | [What is Pitangus](docs/overview.md) | What it does, what it covers and what it doesn't, and a tour of the panel |
+| [Quickstart for a developer](docs/quickstart-developer.md) | One command with Docker, before every push and on every pull request: one screen |
 | [Quickstart](docs/quickstart.md) | From zero to your first verified fix, and what to set up next |
 | [Key concepts](docs/concepts.md) | Runs, findings, fingerprints, lifecycle, triage and roles |
 | [Installation](docs/installation.md) | Requirements, first run, upgrades, backups, uninstalling |
@@ -76,7 +77,7 @@ The panel follows your browser's language and has a language switch in the sideb
 | [Findings](docs/findings.md) | Triage, deadlines, verification and exports |
 | [Compliance](docs/compliance.md) | SBOM, VEX, audit evidence and the CRA |
 | [Threat modeling](docs/threat-modeling.md) | System models checked against your scans |
-| [Upgrade](docs/upgrading.md) | Moving to a new version, and what changes in 0.13 |
+| [Upgrade](docs/upgrading.md) | Moving to a new version, and what changes in 0.14 |
 | [Configuration](docs/configuration.md) | `.env` variables |
 | [Security](docs/security.md) | Secrets, transport, what leaves your machine, and trade-offs |
 | [Containers and Makefile](docs/containers.md) | `make` commands, images and hardening |

@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 841" width="720" height="841" role="img" aria-labelledby="title desc" lang="es">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 859" width="720" height="859" role="img" aria-labelledby="title desc" lang="es">
   <title id="title">Arquitectura de Pitangus</title>
-  <desc id="desc">El navegador llega al API por HTTPS, a través de Caddy en un servidor, o por loopback. En tu servidor, el API y uno o varios workers comparten PostgreSQL, que guarda ejecuciones, hallazgos, la cola, la configuración y los secretos cifrados; la clave maestra solo es un archivo, config/master.key, si PITANGUS_MASTER_KEY no está definida. El worker lanza los motores por el socket de Docker o los ejecuta dentro de la imagen worker-standalone, con una copia en solo lectura, sin capacidades y con límites de memoria, CPU y procesos: Trivy, OSV-Scanner, Gitleaks, Checkov, zizmor y Opengrep con 58 reglas para el código y las dependencias; Trivy y Grype para las imágenes de contenedor; ZAP, katana, nuclei, testssl.sh, httpx y subfinder para sitios y APIs. El API y el worker abren conexiones HTTPS salientes al API de GitHub, a los datos de avisos (NVD, CISA KEV, EPSS, OSV, EUVD y las bases de los motores), a los registros de imágenes y los sitios verificados, y a Jira, Slack, Teams y webhooks.</desc>
+  <desc id="desc">El navegador llega al API por HTTPS, a través de Caddy en un servidor, o por loopback. En tu servidor, el API y uno o varios workers comparten PostgreSQL, que guarda ejecuciones, hallazgos, la cola, la configuración y los secretos cifrados; la clave maestra solo es un archivo, config/master.key, si PITANGUS_MASTER_KEY no está definida. El worker lanza los motores por el socket de Docker o los ejecuta dentro de la imagen worker-standalone, con una copia en solo lectura, sin capacidades y con límites de memoria, CPU y procesos: Trivy, OSV-Scanner, Betterleaks, zizmor y Opengrep con 66 reglas para el código y las dependencias, y Checkov si se activa; Trivy para las imágenes de contenedor, y Grype si se activa; para sitios y APIs, httpx, testssl.sh y nuclei en la comprobación de exposición, y ZAP, katana y subfinder en el análisis completo, que es experimental. El API y el worker abren conexiones HTTPS salientes al API de GitHub, a los datos de avisos (NVD, CISA KEV, EPSS, OSV, EUVD y las bases de los motores), a los registros de imágenes y los sitios verificados, y a Jira, Slack, Teams y webhooks.</desc>
   <style>
     text { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #C3C8CE; }
     .title { font-size: 14px; font-weight: 500; fill: #ECEEF0; }
@@ -20,7 +20,7 @@
       <path d="M0 0 L8 4 L0 8 Z" fill="#9AA1A9"/>
     </marker>
   </defs>
-  <rect x="0.5" y="104.5" width="719" height="443" rx="8" class="group filled"/>
+  <rect x="0.5" y="104.5" width="719" height="461" rx="8" class="group filled"/>
   <text x="128" y="130" class="title group-title">Tu servidor (Docker Compose)</text>
   <rect x="16.5" y="0.5" width="191" height="55" rx="6" class="node"/>
   <text x="28" y="24" class="title">Navegador</text>
@@ -47,41 +47,44 @@
   <text x="252" y="288" class="detail">Archivo de la clave maestra,</text>
   <text x="252" y="306" class="detail">solo sin <tspan class="mono">PITANGUS_MASTER_KEY</tspan></text>
   <path d="M608 222 L608 342" class="edge" marker-end="url(#head)"/>
-  <rect x="16.5" y="344.5" width="687" height="187" rx="8" class="group"/>
+  <rect x="16.5" y="344.5" width="687" height="205" rx="8" class="group"/>
   <text x="32" y="370" class="title group-title">Motores</text>
   <text x="32" y="388" class="note">Lanzados por el socket de Docker o dentro de la imagen worker-standalone</text>
   <text x="32" y="406" class="note">Copia en solo lectura, sin capacidades, con límites de memoria, CPU y procesos</text>
-  <rect x="32.5" y="424.5" width="207" height="91" rx="6" class="node"/>
+  <rect x="32.5" y="424.5" width="207" height="109" rx="6" class="node"/>
   <text x="44" y="448" class="title">Código y dependencias</text>
   <text x="44" y="466" class="detail">Trivy, OSV-Scanner</text>
-  <text x="44" y="484" class="detail">Gitleaks, Checkov, zizmor</text>
-  <text x="44" y="502" class="detail">Opengrep con 58 reglas</text>
-  <rect x="256.5" y="424.5" width="207" height="91" rx="6" class="node"/>
+  <text x="44" y="484" class="detail">Betterleaks, zizmor</text>
+  <text x="44" y="502" class="detail">Opengrep con 66 reglas</text>
+  <text x="44" y="520" class="detail">Checkov (opcional)</text>
+  <rect x="256.5" y="424.5" width="207" height="109" rx="6" class="node"/>
   <text x="268" y="448" class="title">Imágenes de contenedor</text>
-  <text x="268" y="466" class="detail">Trivy, Grype</text>
-  <rect x="480.5" y="424.5" width="207" height="91" rx="6" class="node"/>
+  <text x="268" y="466" class="detail">Trivy</text>
+  <text x="268" y="484" class="detail">Grype (opcional)</text>
+  <rect x="480.5" y="424.5" width="207" height="109" rx="6" class="node"/>
   <text x="492" y="448" class="title">Sitios y APIs</text>
-  <text x="492" y="466" class="detail">ZAP, katana, nuclei</text>
-  <text x="492" y="484" class="detail">testssl.sh, httpx</text>
-  <text x="492" y="502" class="detail">subfinder</text>
-  <path d="M360 548 L360 594" class="edge" marker-end="url(#head)"/>
-  <text x="372" y="577" class="note">HTTPS saliente desde el API y el worker</text>
-  <rect x="0.5" y="596.5" width="719" height="244" rx="8" class="group"/>
-  <text x="16" y="622" class="title group-title">Conexiones salientes</text>
-  <text x="16" y="640" class="note">Pitangus consulta GitHub: ningún webhook tiene que llegar a tu servidor</text>
-  <rect x="16.5" y="660.5" width="335" height="73" rx="6" class="node"/>
-  <text x="28" y="684" class="title">API de GitHub</text>
-  <text x="28" y="702" class="detail">App o token: copias de los repositorios,</text>
-  <text x="28" y="720" class="detail">comentarios y estados en pull requests</text>
-  <rect x="368.5" y="660.5" width="335" height="73" rx="6" class="node"/>
-  <text x="380" y="684" class="title">Datos de avisos</text>
-  <text x="380" y="702" class="detail">NVD, CISA KEV, EPSS, OSV, EUVD</text>
-  <text x="380" y="720" class="detail">y las bases de vulnerabilidades de los motores</text>
-  <rect x="16.5" y="750.5" width="335" height="73" rx="6" class="node"/>
-  <text x="28" y="774" class="title">Objetivos de análisis</text>
-  <text x="28" y="792" class="detail">Registros de imágenes, y los sitios y APIs</text>
-  <text x="28" y="810" class="detail">de los dominios que verificaste</text>
-  <rect x="368.5" y="750.5" width="335" height="73" rx="6" class="node"/>
-  <text x="380" y="774" class="title">Avisos e incidencias</text>
-  <text x="380" y="792" class="detail">Jira, Slack, Teams y webhooks</text>
+  <text x="492" y="466" class="detail">Comprobación de exposición:</text>
+  <text x="492" y="484" class="detail">httpx, testssl.sh, nuclei</text>
+  <text x="492" y="502" class="detail">Completo (experimental):</text>
+  <text x="492" y="520" class="detail">ZAP, katana, subfinder</text>
+  <path d="M360 566 L360 612" class="edge" marker-end="url(#head)"/>
+  <text x="372" y="595" class="note">HTTPS saliente desde el API y el worker</text>
+  <rect x="0.5" y="614.5" width="719" height="244" rx="8" class="group"/>
+  <text x="16" y="640" class="title group-title">Conexiones salientes</text>
+  <text x="16" y="658" class="note">Pitangus consulta GitHub: ningún webhook tiene que llegar a tu servidor</text>
+  <rect x="16.5" y="678.5" width="335" height="73" rx="6" class="node"/>
+  <text x="28" y="702" class="title">API de GitHub</text>
+  <text x="28" y="720" class="detail">App o token: copias de los repositorios,</text>
+  <text x="28" y="738" class="detail">comentarios y estados en pull requests</text>
+  <rect x="368.5" y="678.5" width="335" height="73" rx="6" class="node"/>
+  <text x="380" y="702" class="title">Datos de avisos</text>
+  <text x="380" y="720" class="detail">NVD, CISA KEV, EPSS, OSV, EUVD</text>
+  <text x="380" y="738" class="detail">y las bases de vulnerabilidades de los motores</text>
+  <rect x="16.5" y="768.5" width="335" height="73" rx="6" class="node"/>
+  <text x="28" y="792" class="title">Objetivos de análisis</text>
+  <text x="28" y="810" class="detail">Registros de imágenes, y los sitios y APIs</text>
+  <text x="28" y="828" class="detail">de los dominios que verificaste</text>
+  <rect x="368.5" y="768.5" width="335" height="73" rx="6" class="node"/>
+  <text x="380" y="792" class="title">Avisos e incidencias</text>
+  <text x="380" y="810" class="detail">Jira, Slack, Teams y webhooks</text>
 </svg>

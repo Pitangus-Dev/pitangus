@@ -5,13 +5,19 @@ that asked for them: the worker reads them right before ZAP starts and hands the
 travels on the container's standard input into a memory-only folder (never a file on the host). Nobody reads them
 back: listings carry the name, the last four characters of long values and when they were saved. Every value read
 is registered with the log filter, and the scan scrubs them from what ZAP returns.
+
+Headers can stop authenticating while nobody looks (a cookie expires, a token is revoked) and the scan would then see
+only the public pages. The domain's session check (`set_check`) is a page that only opens signed in: a scan that sends
+the headers asks for it before and after, and without a 2xx the scan is incomplete and marks nothing fixed.
 """
 
 from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 
+from pitangus.modules.sources import domains, test_users
 from pitangus.shared import log as logging_setup
 from pitangus.shared import vault
 from pitangus.shared.i18n import msg, text
@@ -106,6 +112,16 @@ def values(domain_id: str) -> list[tuple[str, str]]:
     """(name, value) pairs for the scan that is about to start; the only reader of the values."""
     return [(item["name"], item["value"]) for _, item in sorted(_load(domain_id).items())
             if isinstance(item, dict) and isinstance(item.get("name"), str) and isinstance(item.get("value"), str)]
+
+
+def set_check(data_dir: Path, record: dict, value) -> str | None:
+    """Saves the domain's session check: an HTTPS page on it or one of its subdomains, as for a test user's check
+    page; empty removes it. Answers what is saved."""
+    try:
+        url = test_users.check_login_url(value, record["host"], "sources.domains.headers.invalid_check")
+    except test_users.TestUserError as exc:
+        raise HeaderError(exc.message) from exc
+    return domains.set_session_check(data_dir, record["id"], url)["session_check"]
 
 
 def count(domain_id: str) -> int:

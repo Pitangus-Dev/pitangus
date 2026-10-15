@@ -41,7 +41,7 @@ updates:
       # The engines: their digests must move together with IMAGES (see above).
       - dependency-name: "*trivy"
       - dependency-name: "*osv-scanner"
-      - dependency-name: "*gitleaks"
+      - dependency-name: "*betterleaks"
       - dependency-name: "*grype"
       - dependency-name: "*zizmor"
       - dependency-name: python

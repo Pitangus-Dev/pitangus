@@ -11,6 +11,7 @@ from pitangus.modules.integrations.notifications import _where
 from pitangus.modules.reporting.design import location
 from pitangus.modules.runs.jira_brief import brief
 from pitangus.modules.scanning.sarif_import import parse
+from pitangus.shared import render
 from pitangus.shared.i18n import localize, msg, text
 
 OUTPUTS = Path(__file__).resolve().parent / "engine-outputs"
@@ -39,7 +40,7 @@ class KeptFromTheScannerTests(unittest.TestCase):
         csp = next(item for item in findings if item["rule_id"] == "10055")
         self.assertTrue(csp["web"]["description"].startswith("Content Security Policy (CSP) is an added layer"))
         self.assertIn("Content-Security-Policy header", csp["web"]["solution"])
-        self.assertIn("https://www.w3.org/TR/CSP/", csp["web"]["references"])
+        self.assertIn(render.url("https://www.w3.org/TR/CSP/"), csp["web"]["references"])   # a link, rendered like any URL
         self.assertEqual((csp["path"], csp["web"]["method"]), ("https://pitangus.dev/", "GET"))
         self.assertNotIn("CF-RAY", json.dumps(findings))  # the response it attached never lands
         # Reachability is a code question: a web finding is never asked to confirm it.
@@ -151,7 +152,8 @@ class RenderedTests(unittest.TestCase):
                         asset="pitangus.dev", source={"name": "pitangus.dev", "provider": "domain"}, first_seen={},
                         days={"medium": 90}, panel_url=None, locale="en")["text"]
         for expected in ("Site: pitangus.dev", "URL: GET https://pitangus.dev/", "According to ZAP: CSP is an added layer of security.",
-                         "Guidance from ZAP: Set the header.", "curl -sI https://pitangus.dev/", "scan the domain again", "https://www.w3.org/TR/CSP/"):
+                         "Guidance from ZAP: Set the header.", "Check the response headers:\n    curl -sI https://pitangus.dev/", "a new scan of the domain",
+                         render.url("https://www.w3.org/TR/CSP/")):
             self.assertIn(expected, written)
         for code_talk in ("Repository", "pull request", ":1"):
             self.assertNotIn(code_talk, written)

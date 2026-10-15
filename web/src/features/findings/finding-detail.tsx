@@ -4,12 +4,13 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { Badge } from '@/shared/ui/badge'
 import { formatCalendarDay, formatDate, formatNumber } from '@/shared/i18n/format'
 import { slaText } from '@/features/findings/sla'
+import { AiPrompt } from '@/features/findings/ai-prompt'
 import { FixSection, Reverify } from '@/features/findings/fix-guide'
 import { WebFinding } from '@/features/findings/web-finding'
 import { OwaspGuidance } from '@/features/findings/guidance'
 import { TriageActions, TriageHistory } from '@/features/findings/triage'
 import { TRIAGE_LABEL, type TriageStatus } from '@/features/findings/triage-status'
-import { SEVERITY_LABEL, idOf, labelOf, locationOf, severityClass, statusOf, toolName, type RepositoryFinding } from '@/features/findings/finding-model'
+import { SEVERITY_LABEL, idOf, labelOf, locationOf, severityClass, statusOf, toolName, type Lifecycle, type RepositoryFinding } from '@/features/findings/finding-model'
 
 // One finding, expanded: what it is, how to fix and verify it, its triage and how it got here. `runId`: the run or asset
 // state to re-verify it against; `jira`: its Jira action; `heading`: what names it inside its group (a web problem's URL)
@@ -31,6 +32,7 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
       {advisory?.cvss_vector && <Fact label={t('detail.cvss_vector')}><span className="font-mono text-xs break-all">{advisory.cvss_vector}</span></Fact>}
     </div>
     {web ? <WebFinding finding={finding} /> : <FixSection fix={finding.fix} remediation={finding.remediation} />}
+    {!demo && !web && finding.lifecycle?.status !== 'fixed' && <AiPrompt runId={runId} fingerprint={finding.fingerprint} />}
     {finding.lifecycle?.status !== 'excluded' && (finding.lifecycle?.status !== 'fixed' || finding.verification) && <Reverify runId={runId} fingerprint={finding.fingerprint} verification={finding.verification}
       onChanged={onChanged} canVerify={finding.lifecycle?.status !== 'fixed'} web={web}
       blocked={demo ? t('verify.demo')
@@ -43,6 +45,9 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
     {finding.source?.name && <p className="mt-1 text-xs text-app-subtle">{t('detail.advisory_source')} {finding.source.url
       ? <a href={finding.source.url} target="_blank" rel="noreferrer" className="underline decoration-app-faint underline-offset-2 hover:text-app-fg">{finding.source.name}</a>
       : finding.source.name} · {finding.source.license}{finding.source.terms === 'non-commercial' && <span className="text-attention"> · {t('detail.non_commercial')}</span>}</p>}
+    {(finding.count ?? 1) > 1 && <details className="mt-2 text-xs text-app-subtle"><summary className="cursor-pointer text-app-muted">{t('detail.copies', { count: finding.count })}</summary>
+      <ul className="mt-1 space-y-0.5">{(finding.instances ?? []).map(item => <li key={`${item.path}:${item.line ?? ''}`}><span className="font-mono break-all">{item.line ? `${item.path}:${item.line}` : item.path}</span>{item.unseen ? <span className="text-attention"> · {t('detail.copy_unverified')}</span> : null}</li>)}</ul>
+      {(finding.instances?.length ?? 0) < (finding.count ?? 0) && <p className="mt-1">{t('detail.copies_more', { count: (finding.count ?? 0) - (finding.instances?.length ?? 0) })}</p>}</details>}
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-app-line bg-inset p-3">
       <div className="min-w-0 text-xs text-app-muted"><span className="font-medium text-app-secondary">{t('detail.triage', { status: finding.triage?.expired ? t('detail.triage_expired') : t(TRIAGE_LABEL[statusOf(finding)]) })}</span>{finding.triage?.by ? ` · ${finding.triage.by}` : ''}{finding.triage?.expires_at ? ` · ${t('triage.expires_on', { date: formatCalendarDay(finding.triage.expires_at) })}` : ''}{finding.triage?.reason ? <span className="mt-0.5 block">{finding.triage.reason}</span> : null}</div>
       <div className="flex flex-wrap items-center gap-2">{jira}<TriageActions current={statusOf(finding)} canAccept={canAccept} onPick={onPick} size="xs" /></div>
@@ -52,7 +57,7 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
         ? t(finding.lifecycle.origin.merged ? 'lifecycle.from_pr_branch_merged' : 'lifecycle.from_pr_branch', { number: finding.lifecycle.origin.pr, branch: finding.lifecycle.origin.branch })
         : t(finding.lifecycle.origin.merged ? 'lifecycle.from_pr_merged' : 'lifecycle.from_pr', { number: finding.lifecycle.origin.pr }))
       : finding.lifecycle.origin?.kind === 'import' ? t('lifecycle.from_import', { tool: finding.lifecycle.origin.tool || finding.tool || 'SARIF' })
-      : t('lifecycle.main')}{finding.lifecycle.first_seen ? ` · ${t('lifecycle.first_seen', { date: formatDate(finding.lifecycle.first_seen) })}` : ''}{finding.lifecycle.last_seen ? ` · ${t('lifecycle.last_seen', { date: formatDate(finding.lifecycle.last_seen) })}` : ''}{finding.lifecycle.reopened_at ? ` · ${t('lifecycle.reopened')}` : ''}{finding.sla ? <span className={`block ${finding.sla.state === 'overdue' ? 'text-danger' : finding.sla.state === 'soon' ? 'text-attention' : ''}`}>{t('lifecycle.sla', { count: finding.sla.days, due: finding.sla.due, status: slaText(finding.sla).toLowerCase() })}</span> : null}{finding.lifecycle.fixed ? <span className="block text-success">{t('lifecycle.auto_fixed', { how: finding.lifecycle.fixed.how })}</span> : null}{finding.lifecycle.status === 'excluded' ? <span className="block">{finding.lifecycle.excluded?.reason ?? (finding.lifecycle.excluded?.pattern
+      : t('lifecycle.main')}{finding.lifecycle.first_seen ? ` · ${t('lifecycle.first_seen', { date: formatDate(finding.lifecycle.first_seen) })}` : ''}{finding.lifecycle.last_seen ? ` · ${t('lifecycle.last_seen', { date: formatDate(finding.lifecycle.last_seen) })}` : ''}{finding.lifecycle.reopened_at ? ` · ${t('lifecycle.reopened')}` : ''}{finding.lifecycle.unseen ? <span className="block text-attention"><Unseen unseen={finding.lifecycle.unseen} /></span> : null}{finding.sla ? <span className={`block ${finding.sla.state === 'overdue' ? 'text-danger' : finding.sla.state === 'soon' ? 'text-attention' : ''}`}>{t('lifecycle.sla', { count: finding.sla.days, due: finding.sla.due, status: slaText(finding.sla).toLowerCase() })}</span> : null}{finding.lifecycle.fixed ? <span className="block text-success">{t('lifecycle.auto_fixed', { how: finding.lifecycle.fixed.how })}</span> : null}{finding.lifecycle.status === 'excluded' ? <span className="block">{finding.lifecycle.excluded?.reason ?? (finding.lifecycle.excluded?.pattern
       ? <Trans t={t} i18nKey="lifecycle.excluded_pattern" values={{ pattern: finding.lifecycle.excluded.pattern }} components={{ code: <code className="font-mono" /> }} />
       : t('lifecycle.excluded'))}</span> : null}</p>}
     <TriageHistory state={finding.triage} />
@@ -64,4 +69,20 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return <div><span className="block text-xs text-app-subtle">{label}</span><span className="text-app-secondary">{children}</span></div>
+}
+
+const UNSEEN_CAUSE = { rule_off: 'lifecycle.unseen_rule_off', engine_off: 'lifecycle.unseen_engine_off', rule_changed: 'lifecycle.unseen_rule_changed' } as const
+
+// Why a finding is unverified: a change of configuration names what changed and which rule or engine; a secret whose
+// value couldn't be read, that its file still has one like it; anything else is a scan that couldn't look.
+function Unseen({ unseen }: { unseen: NonNullable<Lifecycle['unseen']> }) {
+  const { t } = useTranslation('findings')
+  const date = formatDate(unseen.since)
+  const named = unseen.cause === 'engine_off' ? Boolean(unseen.engine) : Boolean(unseen.rule)
+  if (unseen.reason === 'configuration' && unseen.cause && unseen.cause in UNSEEN_CAUSE && named)
+    return <Trans t={t} i18nKey={UNSEEN_CAUSE[unseen.cause]} values={{ date, rule: unseen.rule ?? '', engine: toolName(t, unseen.engine ?? '') }}
+      components={{ code: <code className="font-mono" translate="no" /> }} />
+  if (unseen.reason === 'configuration') return <>{t('lifecycle.unseen_configuration', { date })}</>
+  if (unseen.reason === 'unidentified') return <>{t('lifecycle.unseen_unidentified', { date })}</>
+  return <>{t('lifecycle.unseen', { date, count: unseen.scans })}</>
 }

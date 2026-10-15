@@ -22,7 +22,7 @@
 | [Hallazgos](hallazgos.md) | El registro, el triage, los plazos, la verificación, el CVE tracker y las exportaciones. |
 | [Cumplimiento](cumplimiento.md) | SBOM, VEX, paquetes maliciosos, evidencia para auditorías y el kit CRA. |
 | [Modelado de amenazas](modelado-de-amenazas.md) | Modelos, enfoques (STRIDE, LINDDUN, PASTA, árboles de ataque, ATT&CK) y evidencia de los análisis. |
-| [Actualizar](actualizar.md) | El procedimiento para actualizar, y qué cambia al pasar a 0.13. |
+| [Actualizar](actualizar.md) | El procedimiento para actualizar, y qué cambia al pasar a 0.14. |
 | [Arquitectura](arquitectura.md) | Componentes, flujo de un análisis y datos en disco. |
 | [Solución de problemas](solucion-problemas.md) | Errores frecuentes y cómo resolverlos. |
 | [Preguntas frecuentes](preguntas-frecuentes.md) | Respuestas cortas y honestas a dudas comunes. |

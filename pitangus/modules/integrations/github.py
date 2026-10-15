@@ -730,7 +730,9 @@ def pull_files(installation_id: int, repository: str, number: int) -> list[dict]
         rows = _get(f"{API}/repos/{_repo(repository)}/pulls/{number}/files?per_page=100&page={page}", token, forbidden=PULLS_FORBIDDEN)
         if not isinstance(rows, list):
             raise GitHubAppError(msg("integrations.github.invalid_files"))
-        files.extend({"filename": item.get("filename"), "status": item.get("status"), "patch": item.get("patch")}
+        # A renamed file says what it was called on the base (`previous_filename`) and how many lines changed in it.
+        files.extend({"filename": item.get("filename"), "status": item.get("status"), "patch": item.get("patch"),
+                      **{key: item[key] for key in ("previous_filename", "changes") if key in item}}
                      for item in rows if isinstance(item, dict) and isinstance(item.get("filename"), str))
         if len(rows) < 100:
             break

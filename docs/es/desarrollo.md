@@ -6,7 +6,7 @@ Para contribuir o ejecutar Pitangus sin contenedores. Lee también [CONTRIBUTING
 
 ## Sin contenedores
 
-Requiere Python 3.12+ y Node 22. Sin Docker no corren los motores (Trivy, Gitleaks, Opengrep): el panel lo indica en cada análisis.
+Requiere Python 3.12+ y Node 22. Sin Docker no corren los motores (Trivy, Betterleaks, Opengrep): el panel lo indica en cada análisis.
 
 ```bash
 make dev-setup   # .venv con las dependencias de Python y node_modules del panel

@@ -44,6 +44,7 @@ const sidebar = [
     items: [
       page('overview', 'Overview', 'Vista general'),
       page('quickstart', 'Quickstart', 'Inicio rápido'),
+      page('quickstart-developer', 'Quickstart for a developer', 'Inicio rápido para desarrolladores'),
       page('concepts', 'Concepts', 'Conceptos'),
       page('installation', 'Installation', 'Instalación'),
     ],

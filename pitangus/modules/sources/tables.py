@@ -47,6 +47,9 @@ domain_registry = Table(
     Column("checked_at", DateTime(timezone=True)),
     # Which proof made it verified (dns · file · meta); only a DNS proof covers the host's subdomains.
     Column("proof_method", Text, nullable=False, server_default="dns"),
+    # A page that only opens with a live session: asked for with the saved headers before and after a scan that sends
+    # them (sources/domain_headers.py); empty when nobody set one.
+    Column("session_check", Text, nullable=False, server_default=""),
     # The scheduled passive web scan, queued by the periodic task: null (off) or the rule's frequency (daily · weekly ·
     # monthly), the rule itself (sources/domain_schedule.py) and its next run in UTC.
     Column("schedule", Text),

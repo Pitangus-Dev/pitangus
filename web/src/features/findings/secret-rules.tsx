@@ -1,6 +1,6 @@
 import { useCallback, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { CircleNotchIcon, PlusIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -15,10 +15,10 @@ import { formatDate } from '@/shared/lib/types'
 export type SecretConfig = Response<'/api/secrets/config'>
 export type SecretBody = PostBody<'/api/secrets/config'>
 type RuleDraft = { key: number; id: string; description: string; regex: string; keywords: string }
-type Form = { regexes: string; paths: string; stopwords: string; rules: RuleDraft[]; disabled: string[]; reason: string }
+type Form = { regexes: string; paths: string; stopwords: string; rules: RuleDraft[]; disabled: string[]; enabled: string[]; reason: string }
 type Problem = { field?: string; message: string }
 
-const LISTS = ['regexes', 'paths', 'stopwords'] as const
+const LISTS = ['paths', 'stopwords', 'regexes'] as const
 const LIST_LABEL = { regexes: 'secret_rules.allow_regexes', paths: 'secret_rules.allow_paths', stopwords: 'secret_rules.allow_stopwords' } as const
 const LIST_HELP = { regexes: 'secret_rules.allow_regexes_help', paths: 'secret_rules.allow_paths_help', stopwords: 'secret_rules.allow_stopwords_help' } as const
 const CHANGE_LABEL: Record<string, string> = {
@@ -27,24 +27,25 @@ const CHANGE_LABEL: Record<string, string> = {
   'stopwords.added': 'secret_rules.changes.stopwords_added', 'stopwords.removed': 'secret_rules.changes.stopwords_removed',
   'rules.added': 'secret_rules.changes.rules_added', 'rules.removed': 'secret_rules.changes.rules_removed', 'rules.changed': 'secret_rules.changes.rules_changed',
   'disabled_rules.added': 'secret_rules.changes.disabled_added', 'disabled_rules.removed': 'secret_rules.changes.disabled_removed',
+  'enabled_rules.added': 'secret_rules.changes.enabled_added', 'enabled_rules.removed': 'secret_rules.changes.enabled_removed',
 }
 // Fields the form can point at; any other server error is shown above the buttons.
-const KNOWN_FIELD = /^(allowlist\.(regexes|paths|stopwords)|rules\.\d+\.(id|description|regex|keywords)|disabled_rules|reason)(\.|$)/
-const area = 'w-full rounded-lg border border-input bg-card px-3 py-2 font-mono text-xs leading-5 text-app-fg aria-invalid:border-danger-line'
+const KNOWN_FIELD = /^(allowlist\.(regexes|paths|stopwords)|rules\.\d+\.(id|description|regex|keywords)|disabled_rules|enabled_rules|reason)(\.|$)/
+const area = 'w-full rounded-lg border border-input bg-card px-3 py-2 font-mono text-xs leading-5 text-app-fg aria-invalid:border-danger'
 
 let nextKey = 0
 const lines = (value: string) => value.split('\n').map(line => line.trim()).filter(Boolean)
 
 function toForm(config: SecretConfig): Form {
   return { regexes: config.allowlist.regexes.join('\n'), paths: config.allowlist.paths.join('\n'), stopwords: config.allowlist.stopwords.join('\n'),
-    rules: config.rules.map(rule => ({ id: rule.id, description: rule.description, regex: rule.regex, keywords: rule.keywords.join(', '), key: nextKey++ })), disabled: [...config.disabled_rules], reason: '' }
+    rules: config.rules.map(rule => ({ id: rule.id, description: rule.description, regex: rule.regex, keywords: rule.keywords.join(', '), key: nextKey++ })), disabled: [...config.disabled_rules], enabled: [...(config.enabled_rules ?? [])], reason: '' }
 }
 
 function toBody(form: Form): SecretBody {
   return { allowlist: { regexes: lines(form.regexes), paths: lines(form.paths), stopwords: lines(form.stopwords) },
     rules: form.rules.map(rule => ({ id: rule.id.trim(), description: rule.description.trim(), regex: rule.regex.trim(),
       keywords: rule.keywords.split(',').map(word => word.trim()).filter(Boolean) })),
-    disabled_rules: form.disabled, reason: form.reason.trim() }
+    disabled_rules: form.disabled, enabled_rules: form.enabled, reason: form.reason.trim() }
 }
 
 // Secret detection settings (the defaults or one repository's own entries) in a dialog: the form for an admin, a
@@ -77,14 +78,21 @@ function Section({ title, help, children }: { title: string; help?: string; chil
 
 function Chips({ items, empty }: { items: string[]; empty: string }) {
   if (!items.length) return <p className="text-xs text-app-subtle">{empty}</p>
-  return <p className="flex flex-wrap gap-1.5">{items.map(item => <code key={item} className="rounded border border-app-line bg-app px-1.5 py-0.5 font-mono text-xs break-all">{item}</code>)}</p>
+  // Without permission the patterns come masked (all alike): the position keeps the keys apart.
+  return <p className="flex flex-wrap gap-1.5">{items.map((item, index) => <code key={`${index}:${item}`} className="rounded border border-app-line bg-app px-1.5 py-0.5 font-mono text-xs break-all">{item}</code>)}</p>
 }
 
 function SecretRulesView({ config }: { config: SecretConfig }) {
   const { t } = useTranslation('findings')
   const none = t('secret_rules.none')
   return <div className="space-y-5">
-    <Section title={t('secret_rules.custom_rules')} help={t('secret_rules.custom_rules_help')}>
+    <Section title={t('secret_rules.allowlist_view')}>
+      <dl className="space-y-2">{LISTS.map(name => <div key={name} className="space-y-1">
+        <dt className="text-xs font-medium text-app-muted">{t(LIST_LABEL[name])}</dt><dd><Chips items={config.allowlist[name]} empty={none} /></dd></div>)}</dl>
+    </Section>
+    <Section title={t('secret_rules.disabled_view')}><Chips items={config.disabled_rules} empty={none} /></Section>
+    <Section title={t('secret_rules.opt_in')}><Chips items={config.enabled_rules ?? []} empty={t('secret_rules.opt_in_none')} /></Section>
+    <Section title={t('secret_rules.custom_rules_view')}>
       {config.rules.length ? <ul className="space-y-2">{config.rules.map(rule => <li key={rule.id} className="rounded-lg border border-app-line bg-app px-3 py-2">
         <p className="flex flex-wrap items-baseline gap-x-2 text-sm"><span className="font-medium text-app-secondary">{rule.description}</span>
           <span className="text-xs text-app-muted">{rule.id}</span></p>
@@ -92,8 +100,6 @@ function SecretRulesView({ config }: { config: SecretConfig }) {
         {rule.keywords.length ? <p className="mt-1 text-xs text-app-subtle">{t('secret_rules.keywords_list', { keywords: rule.keywords.join(', ') })}</p> : null}
       </li>)}</ul> : <p className="text-xs text-app-subtle">{none}</p>}
     </Section>
-    <Section title={t('secret_rules.disabled')} help={t('secret_rules.disabled_help')}><Chips items={config.disabled_rules} empty={none} /></Section>
-    {LISTS.map(name => <Section key={name} title={t(LIST_LABEL[name])} help={t(LIST_HELP[name])}><Chips items={config.allowlist[name]} empty={none} /></Section>)}
   </div>
 }
 
@@ -116,9 +122,10 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
   const disabled = form.disabled
   const search = useCallback(async (query: string) => {
     const needle = query.toLowerCase()
-    const matches = builtin.filter(rule => !disabled.includes(rule.id) && rule.id.includes(needle))
+    // The opt-in rules are already off: they are turned on below, never turned off here.
+    const matches = builtin.filter(rule => !rule.opt_in && !disabled.includes(rule.id) && rule.id.includes(needle))
     return { total: matches.length, options: matches.slice(0, 30).map(rule => ({ id: rule.id, label: rule.id,
-      hint: rule.trivy ? t('secret_rules.trivy_too') : t('secret_rules.gitleaks_only') })) }
+      hint: rule.trivy ? t('secret_rules.trivy_too') : t('secret_rules.betterleaks_only') })) }
   }, [builtin, disabled, t])
 
   // The control an error points at: it gets the focus (and the scroll) so the reason is in view, not above the fold.
@@ -127,7 +134,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
     if (rule) return form.rules[Number(rule[1])] ? `${id}-rule-${form.rules[Number(rule[1])].key}-${rule[2]}` : null
     const list = field ? /^allowlist\.(regexes|paths|stopwords)/.exec(field) : null
     if (list) return `${id}-${list[1]}`
-    return field === 'reason' ? `${id}-reason` : field?.startsWith('disabled_rules') ? `${id}-disabled-error` : null
+    return field === 'reason' ? `${id}-reason` : field?.startsWith('disabled_rules') ? `${id}-disabled-error` : field?.startsWith('enabled_rules') ? `${id}-enabled-error` : null
   }
   const report = (next: Problem) => {
     setProblem(next)
@@ -147,6 +154,44 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
 
   const general = problem && !(problem.field && KNOWN_FIELD.test(problem.field)) ? problem.message : null
   return <form onSubmit={save} className="space-y-5" noValidate>
+    <Section title={t('secret_rules.allowlist')} help={t('secret_rules.allowlist_help')}>
+      {LISTS.map(name => {
+        const error = errorFor(`allowlist.${name}`)
+        return <div key={name} className="space-y-1">
+          <label htmlFor={`${id}-${name}`} className="text-xs font-medium text-app-muted">{t(LIST_LABEL[name])}</label>
+          <p id={`${id}-${name}-help`} className="text-xs leading-5 text-app-subtle"><Trans t={t} i18nKey={LIST_HELP[name]} values={{ max: limits.entries }} components={{ code: <code className="font-mono" /> }} /></p>
+          <textarea id={`${id}-${name}`} value={form[name]} onChange={event => set({ [name]: event.target.value })} rows={3} spellCheck={false}
+            aria-invalid={!!error || undefined} aria-describedby={`${id}-${name}-help${error ? ` ${id}-${name}-error` : ''}`} className={area} />
+          {error && <p id={`${id}-${name}-error`} className="text-xs text-danger">{error}</p>}
+        </div>
+      })}
+    </Section>
+
+    <Section title={t('secret_rules.disabled')} help={t('secret_rules.disabled_help')}>
+      <span className="block text-xs font-medium text-app-muted">{t('secret_rules.disable_label')}</span>
+      <Combobox label={t('secret_rules.disable_label')} placeholder={t('secret_rules.disable_placeholder')} value={null} search={search}
+        emptyText={catalogQuery.isError ? t('secret_rules.builtin_failed') : catalog ? t('secret_rules.no_builtin_match') : t('common:state.loading')} onSelect={(option: ComboOption) => set({ disabled: [...form.disabled, option.id].sort() })} />
+      {form.disabled.length > 0 && <ul className="flex flex-wrap gap-1.5">{form.disabled.map(rule => <li key={rule} className="flex items-center gap-1 rounded border border-app-line bg-app py-0.5 pr-0.5 pl-1.5 font-mono text-xs">
+        {rule}<Button type="button" size="icon-xs" variant="ghost" aria-label={t('secret_rules.enable_rule', { rule })} title={t('secret_rules.enable_rule', { rule })}
+          onClick={() => set({ disabled: form.disabled.filter(item => item !== rule) })}><XIcon /></Button></li>)}</ul>}
+      {errorFor('disabled_rules') && <p id={`${id}-disabled-error`} tabIndex={-1} className="text-xs text-danger">{errorFor('disabled_rules')}</p>}
+    </Section>
+
+    <section className="space-y-2">
+      <div><h3 className="text-sm font-semibold text-app-secondary">{t('secret_rules.opt_in')}</h3>
+        <p id={`${id}-optin-help`} className="text-xs leading-5 text-app-subtle">{t('secret_rules.opt_in_help')}</p></div>
+      {catalogQuery.isError ? <p className="text-xs text-danger">{t('secret_rules.builtin_failed')}</p>
+        : !catalog ? <p className="text-xs text-app-subtle">{t('common:state.loading')}</p>
+        : <fieldset aria-describedby={`${id}-optin-help${errorFor('enabled_rules') ? ` ${id}-enabled-error` : ''}`}>
+            <legend className="sr-only">{t('secret_rules.opt_in')}</legend>
+            <ul className="space-y-1">{builtin.filter(rule => rule.opt_in).map(rule => <li key={rule.id}>
+              <label className="flex min-h-6 items-center gap-2"><input type="checkbox" checked={form.enabled.includes(rule.id)} className="size-4 accent-brand"
+                onChange={event => { const on = event.target.checked; setForm(current => ({ ...current, enabled: on ? [...current.enabled, rule.id].sort() : current.enabled.filter(item => item !== rule.id) })) }} />
+                <span className="font-mono text-xs text-app-secondary">{rule.id}</span></label></li>)}</ul>
+          </fieldset>}
+      {errorFor('enabled_rules') && <p id={`${id}-enabled-error`} tabIndex={-1} className="text-xs text-danger">{errorFor('enabled_rules')}</p>}
+    </section>
+
     <Section title={t('secret_rules.custom_rules')} help={t('secret_rules.custom_rules_help')}>
       {form.rules.map((rule, index) => {
         const base = `${id}-rule-${rule.key}`
@@ -154,7 +199,7 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
         const input = (name: 'id' | 'description' | 'regex' | 'keywords', label: string, props: { placeholder?: string; mono?: boolean; maxLength?: number }) => {
           const error = fieldError(name)
           return <div className="space-y-1">
-            <label htmlFor={`${base}-${name}`} className="text-[11px] font-medium text-app-muted">{label}</label>
+            <label htmlFor={`${base}-${name}`} className="text-xs font-medium text-app-muted">{label}</label>
             <Input id={`${base}-${name}`} value={rule[name]} onChange={event => setRule(rule.key, { [name]: event.target.value })} maxLength={props.maxLength}
               placeholder={props.placeholder} spellCheck={false} aria-invalid={!!error || undefined} aria-describedby={error ? `${base}-${name}-error` : undefined}
               className={`h-8 border-input bg-card ${props.mono ? 'font-mono text-xs' : ''}`} />
@@ -180,31 +225,8 @@ function SecretRulesForm<C extends SecretConfig>({ config, save: submit, onSaved
       </div>
     </Section>
 
-    <Section title={t('secret_rules.disabled')} help={t('secret_rules.disabled_help')}>
-      <Combobox label={t('secret_rules.disable_label')} placeholder={t('secret_rules.disable_placeholder')} value={null} search={search}
-        emptyText={catalogQuery.isError ? t('secret_rules.builtin_failed') : catalog ? t('secret_rules.no_builtin_match') : t('common:state.loading')} onSelect={(option: ComboOption) => set({ disabled: [...form.disabled, option.id].sort() })} />
-      {form.disabled.length > 0 && <ul className="flex flex-wrap gap-1.5">{form.disabled.map(rule => <li key={rule} className="flex items-center gap-1 rounded border border-app-line bg-app py-0.5 pr-0.5 pl-1.5 font-mono text-xs">
-        {rule}<Button type="button" size="icon-xs" variant="ghost" aria-label={t('secret_rules.enable_rule', { rule })} title={t('secret_rules.enable_rule', { rule })}
-          onClick={() => set({ disabled: form.disabled.filter(item => item !== rule) })}><XIcon /></Button></li>)}</ul>}
-      {errorFor('disabled_rules') && <p id={`${id}-disabled-error`} tabIndex={-1} className="text-xs text-danger">{errorFor('disabled_rules')}</p>}
-    </Section>
-
-    <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-app-secondary">{t('secret_rules.allowlist')}</h3>
-      {LISTS.map(name => {
-        const error = errorFor(`allowlist.${name}`)
-        return <div key={name} className="space-y-1">
-          <label htmlFor={`${id}-${name}`} className="text-[11px] font-medium text-app-muted">{t(LIST_LABEL[name])}</label>
-          <p id={`${id}-${name}-help`} className="text-xs leading-5 text-app-subtle">{t(LIST_HELP[name], { max: limits.entries })}</p>
-          <textarea id={`${id}-${name}`} value={form[name]} onChange={event => set({ [name]: event.target.value })} rows={3} spellCheck={false}
-            aria-invalid={!!error || undefined} aria-describedby={`${id}-${name}-help${error ? ` ${id}-${name}-error` : ''}`} className={area} />
-          {error && <p id={`${id}-${name}-error`} className="text-xs text-danger">{error}</p>}
-        </div>
-      })}
-    </div>
-
     <div className="space-y-1">
-      <label htmlFor={`${id}-reason`} className="text-[11px] font-medium text-app-muted">{t('secret_rules.reason')}</label>
+      <label htmlFor={`${id}-reason`} className="text-xs font-medium text-app-muted">{t('secret_rules.reason')}</label>
       <Input id={`${id}-reason`} value={form.reason} onChange={event => set({ reason: event.target.value })} maxLength={300} placeholder={t('secret_rules.reason_placeholder')}
         aria-invalid={!!errorFor('reason') || undefined} aria-describedby={errorFor('reason') ? `${id}-reason-error` : undefined} className="h-9 border-input bg-card" />
       {errorFor('reason') && <p id={`${id}-reason-error`} className="text-xs text-danger">{errorFor('reason')}</p>}

@@ -9,12 +9,16 @@ rules:
             es: "SQL construido con concatenación o fmt.Sprintf. Usa placeholders ($1 / ?) con los argumentos separados."}}
     pattern-either:
       - pattern: $DB.Query("..." + $X, ...)
+      - pattern: $DB.Query("..." + $X + "...", ...)
       - pattern: $DB.QueryRow("..." + $X, ...)
+      - pattern: $DB.QueryRow("..." + $X + "...", ...)
       - pattern: $DB.Exec("..." + $X, ...)
+      - pattern: $DB.Exec("..." + $X + "...", ...)
       - pattern: $DB.Query(fmt.Sprintf("...", ...), ...)
       - pattern: $DB.QueryRow(fmt.Sprintf("...", ...), ...)
       - pattern: $DB.Exec(fmt.Sprintf("...", ...), ...)
       - pattern: $DB.Raw("..." + $X, ...)
+      - pattern: $DB.Raw("..." + $X + "...", ...)
       - pattern: $DB.Raw(fmt.Sprintf("...", ...), ...)
   - id: appsec.go.shell-command-non-literal
     languages: [go]
@@ -68,8 +72,21 @@ rules:
           - pattern: $R.FormValue(...)
           - pattern: $R.PostFormValue(...)
           - pattern: mux.Vars($R)
-          - pattern: $C.Param(...)
-          - pattern: $C.Query(...)
+          # Gin's and Echo's request context only: `db.Query` returns database rows, not user input.
+          - patterns:
+              - pattern-either:
+                  - pattern: $C.Param(...)
+                  - pattern: $C.Query(...)
+                  - pattern: $C.QueryParam(...)
+              - pattern-either:
+                  - pattern-inside: |
+                      func $F(..., $C *gin.Context, ...) { ... }
+                  - pattern-inside: |
+                      func(..., $C *gin.Context, ...) { ... }
+                  - pattern-inside: |
+                      func $F(..., $C echo.Context, ...) $R { ... }
+                  - pattern-inside: |
+                      func(..., $C echo.Context, ...) $R { ... }
     pattern-sanitizers:
       - pattern: filepath.Base(...)
     pattern-sinks:

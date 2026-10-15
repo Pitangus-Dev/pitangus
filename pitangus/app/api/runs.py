@@ -16,7 +16,7 @@ from pitangus.modules.findings import kpis, triage
 from pitangus.modules.findings import tickets
 from pitangus.modules.reporting.pdf import render_pdf
 from pitangus.modules.reporting.technical import render_technical_pdf
-from pitangus.modules.findings.kinds import FINDING_RUNS, FULL_SCANS
+from pitangus.modules.findings.kinds import FINDING_RUNS, INVENTORY_SCANS
 from pitangus.modules.runs.store import artifact as store_artifact, find_runs, load_run, page_runs, profile_pdf_titles
 from pitangus.modules.runs.store import render_asset_report, render_profile_report, render_repository_report, render_repository_sarif
 from pitangus.modules.runs.store import render_tickets, with_web_coverage
@@ -68,7 +68,7 @@ def download(context: Context, record: dict, artifact: str, title: str) -> Respo
                      "application/sarif+json")
     if artifact == SBOM_FILE and repository:
         scan = sbom.latest_scan(data_dir, record["source"]["id"]) if record["type"] == "asset_state" else record
-        if scan is None or scan.get("type") not in FULL_SCANS or scan.get("status") != "completed":
+        if scan is None or scan.get("type") not in INVENTORY_SCANS or scan.get("status") != "completed":
             raise ApiError(404, msg("compliance.sbom.needs_full_scan"))
         return _json_file(sbom.cyclonedx(scan, version=RELEASE, locale=locale), "application/vnd.cyclonedx+json")
     if artifact == VEX_FILE and repository:

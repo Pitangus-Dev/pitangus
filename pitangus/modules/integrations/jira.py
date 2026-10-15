@@ -42,7 +42,9 @@ MAX_ALLOWED_VALUES = 200          # sent to the panel per field; longer lists ar
 MAX_ALLOWED_CHECKED = 20_000      # read in full to validate a chosen value and to search
 MAX_VALUE_RESULTS = 50
 NAME_MAX = 255
+MAX_STATUSES = 100
 COMMENT_PROPERTY = "pitangus"
+LABEL = re.compile(r"[A-Za-z0-9_.\-]{1,60}")
 _log = logging_setup.get("jira")
 
 
@@ -57,6 +59,10 @@ class JiraError(ValueError):
     @property
     def retryable(self) -> bool:
         return self.status is None or self.status == 429 or self.status >= 500
+
+
+class NoTransition(JiraError):
+    """No transition of the issue's workflow leads to the chosen status from where the issue is."""
 
 
 # ------------------------------------------------------------ credential
@@ -180,6 +186,8 @@ def _http(credentials: dict, method: str, path: str, body: dict | None = None) -
         payload = json.loads(raw or b"{}")
     except ValueError:
         raise JiraError(msg("integrations.jira.unreadable"), status=200) from None
+    if isinstance(payload, list):  # a few endpoints answer with a bare array (project statuses)
+        return {"values": payload}
     return payload if isinstance(payload, dict) else {}
 
 
@@ -256,6 +264,19 @@ def issue_types(ref, *, http=None) -> dict:
                               "issueTypes", MAX_ISSUE_TYPES)
     return {"items": [{"id": str(item["id"]), "name": _name(item.get("name")), "subtask": bool(item.get("subtask"))}
                       for item in items if NUMERIC_ID.fullmatch(str(item.get("id", "")))], "truncated": truncated}
+
+
+def statuses(ref, issue_type, *, http=None) -> list[dict]:
+    """The statuses of an issue type's workflow in a project: what a destination may move a fixed issue to."""
+    wanted = _issue_type_ref(issue_type)
+    found = _client(http)(credentials(), "GET", f"/rest/api/3/project/{quote(project_ref(ref), safe='')}/statuses")
+    for item in found.get("values") or []:
+        if isinstance(item, dict) and str(item.get("id")) == wanted:
+            return [{"id": str(status["id"]), "name": _name(status.get("name")),
+                     "category": str((status.get("statusCategory") or {}).get("key") or "")[:20] or None}
+                    for status in (item.get("statuses") or [])[:MAX_STATUSES]
+                    if isinstance(status, dict) and NUMERIC_ID.fullmatch(str(status.get("id", "")))]
+    return []
 
 
 def create_fields(ref, issue_type, *, http=None, allowed_limit: int = MAX_ALLOWED_VALUES) -> dict:
@@ -467,9 +488,10 @@ def browse_url(key: str) -> str:
     return f"https://{credentials()['site']}/browse/{key}"
 
 
-def comment(key: str, body: str, marker: dict, *, http=None) -> bool:
-    """Adds a comment unless one with the same marker (a comment property) is already there. Returns whether it wrote.
-    The outbox delivers at least once: the marker is what keeps a retried delivery from commenting twice."""
+def comment(key: str, body: str | dict, marker: dict, *, http=None) -> bool:
+    """Adds a comment (plain text, or a document from `adf_document`) unless one with the same marker (a comment
+    property) is already there. Returns whether it wrote. The outbox delivers at least once: the marker is what keeps
+    a retried delivery from commenting twice."""
     if not ISSUE_KEY.fullmatch(key):
         raise JiraError(msg("integrations.jira.not_found"), status=404)
     client, found = _client(http), credentials()
@@ -480,7 +502,38 @@ def comment(key: str, body: str, marker: dict, *, http=None) -> bool:
             if isinstance(prop, dict) and prop.get("key") == COMMENT_PROPERTY and prop.get("value") == marker:
                 return False
     client(found, "POST", f"/rest/api/3/issue/{quote(key, safe='')}/comment",
-           {"body": adf(body), "properties": [{"key": COMMENT_PROPERTY, "value": marker}]})
+           {"body": body if isinstance(body, dict) else adf(body), "properties": [{"key": COMMENT_PROPERTY, "value": marker}]})
+    return True
+
+
+def _issue_path(key: str) -> str:
+    if not ISSUE_KEY.fullmatch(key):
+        raise JiraError(msg("integrations.jira.not_found"), status=404)
+    return f"/rest/api/3/issue/{quote(key, safe='')}"
+
+
+def set_label(key: str, name: str, *, add: bool = True, http=None) -> None:
+    """Adds (or removes) one label on an issue. Both are idempotent in Jira."""
+    if not LABEL.fullmatch(name):
+        raise JiraError(msg("integrations.jira.invalid_label"), status=400)
+    _client(http)(credentials(), "PUT", _issue_path(key), {"update": {"labels": [{"add" if add else "remove": name}]}})
+
+
+def move(key: str, status: dict, *, http=None) -> bool:
+    """Moves an issue to a status of its workflow through the transition that leads there. Returns whether it moved:
+    an issue already in that status is left alone. No transition from where it is (another workflow, a status
+    reached only through others): says so, nothing is forced."""
+    client, found, path = _client(http), credentials(), _issue_path(key)
+    wanted = str(status.get("id") or "")
+    current = ((client(found, "GET", _query(path, fields="status")).get("fields") or {}).get("status") or {})
+    if wanted and str(current.get("id")) == wanted:
+        return False
+    options = [item for item in client(found, "GET", f"{path}/transitions").get("transitions") or [] if isinstance(item, dict)]
+    chosen = next((item for item in options if str((item.get("to") or {}).get("id")) == wanted), None) \
+        or next((item for item in options if _name((item.get("to") or {}).get("name")).lower() == _name(status.get("name")).lower()), None)
+    if chosen is None or not NUMERIC_ID.fullmatch(str(chosen.get("id", ""))):
+        raise NoTransition(msg("integrations.jira.no_transition", issue=key, status=_name(status.get("name")) or wanted), status=409)
+    client(found, "POST", f"{path}/transitions", {"transition": {"id": str(chosen["id"])}})
     return True
 
 

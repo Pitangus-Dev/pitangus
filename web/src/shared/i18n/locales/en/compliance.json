@@ -12,6 +12,7 @@
     "no_match": "No analyzed repository or image with that name",
     "repository": "Repository",
     "image": "Image",
+    "domain": "Domain",
     "none": "Nothing analyzed yet: scan a repository or an image first.",
     "new_scan": "New scan",
     "download": "Download",
@@ -33,10 +34,10 @@
       "portfolio": "Consolidated audit evidence",
       "portfolio_hint": "PDF · {{framework}}: each asset, its coverage and open risk",
       "portfolio_sbom": "Consolidated SBOM",
-      "portfolio_sbom_hint": "CycloneDX · each asset with a completed full scan, with its own packages",
+      "portfolio_sbom_hint": "CycloneDX · each repository and image with a completed full scan, with its own packages",
       "portfolio_vex": "Consolidated VEX",
       "portfolio_vex_hint": "OpenVEX · your triage decisions on those same assets",
-      "portfolio_missing": "Needs at least one asset with a completed full scan"
+      "portfolio_missing": "Needs at least one repository or image with a completed full scan"
     },
     "origin": {
       "built_from": "Built from",
@@ -48,7 +49,11 @@
       "link": "Link a repository",
       "use_label": "Remove the manual link",
       "pick": "Repository it is built from…",
-      "pick_label": "Repository"
+      "pick_label": "Repository",
+      "not_analyzed": "Not analyzed yet",
+      "awaiting_scan": "Not analyzed yet: the link applies from its first scan.",
+      "no_match": "No repository matches “{{query}}”.",
+      "no_repositories": "No repositories yet: connect GitHub in Integrations to link one."
     },
     "downloads": "Downloads",
     "downloads_one": "Downloads for {{name}}",
@@ -64,10 +69,17 @@
       "repositories_other": "{{count, number}} repositories",
       "images_one": "{{count, number}} image",
       "images_other": "{{count, number}} images",
-      "complete_one": "{{count, number}} with a completed full scan",
-      "complete_other": "{{count, number}} with a completed full scan",
       "failed": "Couldn't count the assets in this scope. Try again in a moment.",
-      "no_complete": "no completed full scan yet"
+      "no_complete": "no completed full scan yet",
+      "domains_one": "{{count, number}} domain",
+      "domains_other": "{{count, number}} domains",
+      "in_files_one": "The SBOM and VEX include {{count, number}} of them: the one repository or image with a completed full scan.",
+      "in_files_other": "The SBOM and VEX include {{count, number}} of them: the repositories and images with a completed full scan.",
+      "in_files_none": "No repository or image here has a completed full scan yet, so there is no SBOM or VEX for this scope.",
+      "unscanned_one": "{{count, number}} repository or image is left out of them: it has no completed full scan yet.",
+      "unscanned_other": "{{count, number}} repositories or images are left out of them: they have no completed full scan yet.",
+      "domains_left_one": "{{count, number}} domain is left out of them: a web scan lists no packages, so it is only in the audit evidence.",
+      "domains_left_other": "{{count, number}} domains are left out of them: a web scan lists no packages, so they are only in the audit evidence."
     }
   },
   "cra": {

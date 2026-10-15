@@ -35,7 +35,7 @@ inputs:
     default: ""
   image:
     description: Pitangus worker image.
-    default: ghcr.io/pitangus-dev/pitangus-worker:0.13
+    default: ghcr.io/pitangus-dev/pitangus-worker:0.14
   verify:
     description: >-
       `false`: don't check the image's signature. Only for an `image` of your own (a fork or a private mirror); the
@@ -44,6 +44,11 @@ inputs:
   allow-incomplete:
     description: "`true`: don't fail if an engine couldn't run."
     default: "false"
+  cache:
+    description: >-
+      `false`: don't keep the engines' advisory databases between runs. By default they're cached for the day
+      (actions/cache), so a run doesn't download them again.
+    default: "true"
   scan:
     description: "`false`: skip the scan (only `import-sarif`)."
     default: "true"
@@ -104,12 +109,31 @@ runs:
       if: inputs.verify != 'false'
       uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 
+    # Advisory data, not code: Trivy's and OSV-Scanner's databases and the EPSS/KEV feeds kept for the day, so a run doesn't download them again.
+    # A pull request's cache stays in its own ref (GitHub scopes caches by branch).
+    - name: Day
+      id: day
+      if: inputs.cache != 'false' && inputs.scan != 'false'
+      shell: bash
+      run: echo "value=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+    - name: Engine databases
+      if: inputs.cache != 'false' && inputs.scan != 'false'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # zizmor: ignore[cache-poisoning] v6.1.0
+      with:
+        path: |
+          ${{ runner.temp }}/pitangus/trivy-cache
+          ${{ runner.temp }}/pitangus/osv-cache
+          ${{ runner.temp }}/pitangus/feeds
+        key: pitangus-engine-databases-${{ steps.day.outputs.value }}
+        restore-keys: pitangus-engine-databases-
+
     - name: Pitangus
       id: pitangus
       shell: bash
       env:
         IMAGE: ${{ inputs.image }}
         VERIFY: ${{ inputs.verify }}
+        CACHE: ${{ inputs.cache }}
         PUBLISHED: ghcr.io/pitangus-dev/pitangus-worker
         SIGNERS: '^https://github\.com/Pitangus-Dev/pitangus/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+(\.[0-9]+)?$'
         SCAN: ${{ inputs.scan }}
@@ -138,7 +162,7 @@ runs:
             if [ -n "$line" ]; then printf '%s\n' "$line"; fi
           done <<< "$1"
         }
-        for flag in SCAN ALLOW_INCOMPLETE IMPORT_PARTIAL VERIFY; do
+        for flag in SCAN ALLOW_INCOMPLETE IMPORT_PARTIAL VERIFY CACHE; do
           case "${!flag}" in true|false) ;; *) usage "$flag must be true or false" ;; esac
         done
         repository="${IMAGE%%@*}"
@@ -147,7 +171,7 @@ runs:
           usage "verify: false is only for an image of your own; $PUBLISHED is always checked"
         fi
         [ "$SCAN" = true ] || [ -n "$IMPORT_SARIF" ] || usage "nothing to do: scan is false and import-sarif is empty"
-        data="$RUNNER_TEMP/pitangus"  # engine caches, reused by later runs in the same job
+        data="$RUNNER_TEMP/pitangus"  # engine caches: restored from actions/cache, reused by later runs in the job
         mkdir -p "$data"
 
         # Everything is checked (and the files to import staged) before any container starts.

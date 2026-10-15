@@ -16,7 +16,7 @@
   },
   "secrets": {
     "title": "Secret detection · defaults",
-    "engine_defaults": "Gitleaks and Trivy built-in rules",
+    "engine_defaults": "Betterleaks and Trivy built-in rules",
     "view": "View"
   },
   "cra": {
@@ -42,7 +42,7 @@
   "help": {
     "title": "How policies apply",
     "sla": "Deadlines apply to every repository, the Overview and reports. The clock runs on open findings; fixed ones and approved exceptions never come due.",
-    "secrets": "Secret detection defaults apply to every repository scan and PR review. A repository's own .gitleaks.toml is ignored, so a PR can't weaken detection.",
+    "secrets": "Secret detection defaults apply to every repository scan and PR review. A repository's own .betterleaks.toml is ignored, so a PR can't weaken detection.",
     "repository": "A repository can add its own entries from Findings, never remove a default.",
     "critical": "An exposed secret is always critical.",
     "admin_only": "Only an admin can change them.",

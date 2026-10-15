@@ -145,7 +145,8 @@
       "in_progress": "In progress",
       "fixed": "Fixed",
       "false_positive": "False positives",
-      "accepted": "Accepted risk"
+      "accepted": "Accepted risk",
+      "excluded": "In excluded paths"
     },
     "priority": "Priority",
     "any_priority": "Any priority",
@@ -276,7 +277,12 @@
     "non_commercial": "non-commercial license",
     "triage": "Triage: {{status}}",
     "triage_expired": "Open (the acceptance expired)",
-    "advisory_details": "Advisory details"
+    "advisory_details": "Advisory details",
+    "copies_one": "In {{count, number}} place",
+    "copies_other": "The same problem in {{count, number}} places",
+    "copy_unverified": "the last scan couldn't check it",
+    "copies_more_one": "and {{count, number}} more",
+    "copies_more_other": "and {{count, number}} more"
   },
   "lifecycle": {
     "label": "Lifecycle:",
@@ -293,7 +299,14 @@
     "sla_other": "Due date: {{count, number}} days · due {{due}} ({{status}}).",
     "auto_fixed": "Fixed automatically: {{how}}.",
     "excluded": "Excluded: it's in a path an admin excluded. It doesn't count as open or block PRs.",
-    "excluded_pattern": "Excluded: it's in a path an admin excluded (<code>{{pattern}}</code>). It doesn't count as open or block PRs."
+    "excluded_pattern": "Excluded: it's in a path an admin excluded (<code>{{pattern}}</code>). It doesn't count as open or block PRs.",
+    "unseen_one": "Unverified since {{date}}: the last scan couldn't check it (its engine failed or didn't reach where it was). It stays open but doesn't count toward any indicator.",
+    "unseen_other": "Unverified since {{date}}: {{count, number}} scans in a row couldn't check it (its engine failed or didn't reach where it was). It stays open but doesn't count toward any indicator.",
+    "unseen_rule_off": "Unverified since {{date}}: the rule that found it (<code>{{rule}}</code>) is off in the scan settings, so its absence proves nothing. It stays open but doesn't count toward any indicator, until a scan with that rule on stops finding it.",
+    "unseen_engine_off": "Unverified since {{date}}: {{engine}} is turned off in the scan settings, so its absence proves nothing. It stays open but doesn't count toward any indicator, until a scan with {{engine}} on stops finding it.",
+    "unseen_rule_changed": "Unverified since {{date}}: the rule that found it (<code>{{rule}}</code>) has changed since, so its absence proves nothing. It stays open but doesn't count toward any indicator; if you know it's gone, mark it fixed.",
+    "unseen_configuration": "Unverified since {{date}}: the scan's configuration changed, so its absence proves nothing. It stays open but doesn't count toward any indicator; if you know it's gone, mark it fixed.",
+    "unseen_unidentified": "Unverified since {{date}}: the scan still finds a secret in the same file that can't be told apart from this one, because the value of one of them couldn't be read for certain. It stays open but doesn't count toward any indicator; if you know it's gone, mark it fixed."
   },
   "sla": {
     "overdue_one": "Overdue by {{count, number}} day",
@@ -306,7 +319,7 @@
   },
   "exclusions": {
     "title": "Excluded paths",
-    "patterns_help": "One path per line, relative to the root: <code>fixtures</code>, <code>docs/*.md</code>, <code>**/testdata</code>. A folder excludes everything in it; “*” doesn't cross folders and “**” does.",
+    "patterns_help": "One per line, from the repository root, up to {{max}}. <code>fixtures</code> excludes that folder and everything in it; <code>**/testdata</code>, any testdata folder; <code>docs/*.md</code>, the .md files right in docs.",
     "reason": "Reason",
     "reason_placeholder": "Why (kept in the history), e.g. “Intentionally vulnerable samples for testing the rules”",
     "moved_excluded_one": "{{count, number}} finding moved to Excluded",
@@ -316,7 +329,18 @@
     "moved_both": "{{excluded}} and {{reopened}}",
     "saved": "Saved. It also applies to upcoming scans and PR reviews.",
     "dialog_help": "Findings under these paths don't count as open or block PRs; you'll find them under Excluded.",
-    "last_change": "Last change: {{reason}} · {{by}}, {{date}}"
+    "last_change": "Last change: {{reason}} · {{by}}, {{date}}",
+    "label": "Paths to exclude",
+    "reason_required": "Why they are excluded (required, kept in the history)",
+    "reason_needed": "Say why these paths are excluded, in at least {{min}} characters: it stays in the history.",
+    "preview": {
+      "checking": "Checking what would move…",
+      "nothing": "Saving doesn't move any finding now: nothing enters or leaves Excluded. These paths also apply to upcoming scans and PR reviews.",
+      "excluded_one": "Saving moves {{count, number}} open finding to Excluded:",
+      "excluded_other": "Saving moves {{count, number}} open findings to Excluded:",
+      "reopened_one": "{{count, number}} excluded finding goes back to Open:",
+      "reopened_other": "{{count, number}} excluded findings go back to Open:"
+    }
   },
   "repo_settings": {
     "title": "Repository settings",
@@ -330,12 +354,13 @@
     "secrets_custom_other": "{{count, number}} custom entries",
     "customize": "Customize",
     "secrets_title": "Secret detection · {{name}}",
-    "secrets_help": "Applies only to this repository, on top of the defaults: add rules, allowed secrets or built-in rules to turn off. You can't remove a default.",
+    "secrets_help": "Applies only to this repository, on top of the defaults: silence secrets, turn off built-in rules or add your own detectors. You can't remove a default.",
     "defaults_line": "Defaults: {{summary}}.",
-    "defaults_none": "Defaults: Gitleaks and Trivy built-in rules.",
+    "defaults_none": "Defaults: Betterleaks and Trivy built-in rules.",
     "deadlines": "Deadlines are set in Policies",
     "load_failed": "Couldn't load it.",
-    "title_image": "Image settings"
+    "title_image": "Image settings",
+    "defaults_where": "The defaults are set in Policies"
   },
   "triage": {
     "verb": {
@@ -377,7 +402,8 @@
     "vulnerable_example": "vulnerable example",
     "fixed_example": "fixed example",
     "adapt": "The example shows the pattern and its fix; adapt it to your code.",
-    "copy_label": "Copy: {{label}}"
+    "copy_label": "Copy: {{label}}",
+    "example_in": "In {{file}}"
   },
   "verify": {
     "running": "Verifying: the scan is queued or running…",
@@ -522,25 +548,27 @@
     "count_rules_other": "{{count, number}} custom rules",
     "count_disabled_one": "{{count, number}} built-in rule off",
     "count_disabled_other": "{{count, number}} built-in rules off",
+    "count_enabled_one": "{{count, number}} optional rule on",
+    "count_enabled_other": "{{count, number}} optional rules on",
     "count_allowlist_one": "{{count, number}} allowlist entry",
     "count_allowlist_other": "{{count, number}} allowlist entries",
     "saved": "Saved. It applies from the next scan.",
-    "dialog_help": "Your own detectors, the built-in rules you turn off and the secrets you allow. They apply to every repository scan and PR review.",
+    "dialog_help": "The secrets you silence, the built-in rules you turn off and your own detectors. They apply to every repository scan and PR review.",
     "none": "None.",
-    "custom_rules": "Custom rules",
-    "custom_rules_help": "Detectors for your own tokens, run in Gitleaks and Trivy. The finding takes your description as its title and, like every secret, is critical. Regular expressions use RE2 syntax: no lookarounds or backreferences.",
+    "custom_rules": "Detect your own tokens",
+    "custom_rules_help": "Detectors for your own tokens, run in Betterleaks and Trivy. The finding takes your description as its title and, like every secret, is critical. Regular expressions use RE2 syntax: no lookarounds or backreferences.",
     "keywords_list": "Keywords: {{keywords}}",
-    "disabled": "Built-in rules turned off",
-    "disabled_help": "Turned off in Gitleaks and, when Trivy has the same detector, in Trivy too. Turn off only rules that produce noise you've already reviewed.",
-    "allowlist": "Allowlist",
-    "allow_regexes": "Allowed secrets (regular expressions)",
-    "allow_regexes_help": "One per line. Matched against the detected secret: if it matches, the secret isn't reported. RE2 syntax.",
-    "allow_paths": "Allowed paths",
-    "allow_paths_help": "One per line, relative to the root, with the same syntax as excluded paths: fixtures, **/testdata. Secrets in these paths aren't reported.",
-    "allow_stopwords": "Stopwords",
-    "allow_stopwords_help": "One per line, 3 characters or more. A secret that contains one of these words isn't reported, e.g. example or dummy.",
-    "trivy_too": "Gitleaks and Trivy",
-    "gitleaks_only": "Gitleaks only",
+    "disabled": "Turn off a built-in rule that only makes noise",
+    "disabled_help": "Turned off in Betterleaks and, when Trivy has the same detector, in Trivy too. Turn off only rules that produce noise you've already reviewed.",
+    "allowlist": "Silence test or fake secrets",
+    "allow_regexes": "When the value matches one of these expressions",
+    "allow_regexes_help": "One per line, checked against the detected value (RE2: no lookarounds or backreferences). Up to {{max}}.",
+    "allow_paths": "In these paths",
+    "allow_paths_help": "One per line, from the repository root, like excluded paths: <code>fixtures</code>, <code>**/testdata</code>. Up to {{max}}.",
+    "allow_stopwords": "When the value contains one of these words",
+    "allow_stopwords_help": "One per line, 3 characters or more: <code>example</code>, <code>dummy</code>, <code>changeme</code>. Up to {{max}}.",
+    "trivy_too": "Betterleaks and Trivy",
+    "betterleaks_only": "Betterleaks only",
     "reason_required": "Explain why you're changing the settings (at least 5 characters).",
     "rule_number": "Custom rule {{number}}",
     "rule_id": "ID",
@@ -551,8 +579,8 @@
     "keywords": "Keywords (optional, comma-separated)",
     "add_rule": "Add rule",
     "rules_limit": "{{count, number}} of {{max}}",
-    "disable_label": "Turn off a built-in rule",
-    "disable_placeholder": "Search Gitleaks rules…",
+    "disable_label": "Built-in rule",
+    "disable_placeholder": "Search Betterleaks rules…",
     "no_builtin_match": "No built-in rule matches.",
     "enable_rule": "Turn {{rule}} back on",
     "reason": "Reason",
@@ -571,8 +599,17 @@
       "rules_removed": "Rules removed: {{items}}",
       "rules_changed": "Rules changed: {{items}}",
       "disabled_added": "Built-in rules turned off: {{items}}",
-      "disabled_removed": "Built-in rules turned back on: {{items}}"
-    }
+      "disabled_removed": "Built-in rules turned back on: {{items}}",
+      "enabled_added": "Optional rules turned on: {{items}}",
+      "enabled_removed": "Optional rules turned back off: {{items}}"
+    },
+    "allowlist_help": "For values that aren't real credentials: test fixtures, examples, placeholders.",
+    "allowlist_view": "Silenced secrets",
+    "disabled_view": "Built-in rules turned off",
+    "custom_rules_view": "Own detectors",
+    "opt_in": "Rules off by default",
+    "opt_in_help": "This rule flags any URL with a user and password in it, so it mostly catches documentation examples and local connection strings. Turn it on if your code may hold real connection strings with credentials. Hard-coded passwords are already checked by default.",
+    "opt_in_none": "None turned on."
   },
   "scope": {
     "eyebrow_one": "Several assets · {{value}}",
@@ -618,5 +655,25 @@
       "all_other": "Show all {{value}}",
       "fewer": "Show fewer"
     }
+  },
+  "control": {
+    "held_one": "{{number}} finding kept open since {{date}}: the scan that day would have marked too many fixed at once. The next complete scan that confirms it closes it.",
+    "held_other": "{{number}} findings kept open since {{date}}: the scan that day would have marked too many fixed at once. The next complete scan that confirms them closes them.",
+    "release": "Mark as fixed",
+    "release_title_one": "Mark {{count, number}} finding as fixed?",
+    "release_title_other": "Mark {{count, number}} findings as fixed?",
+    "release_confirm": "They're marked fixed without waiting for the next complete scan to confirm it. Do it only if you know they're gone.",
+    "unverified_one": "{{number}} finding hasn't been checked in {{scans}} scans or more: its engine failed or didn't read where it was. Look at the steps of the last scans.",
+    "unverified_other": "{{number}} findings haven't been checked in {{scans}} scans or more: their engines failed or didn't read where they were. Look at the steps of the last scans.",
+    "held_reason_one": "{{number}} finding kept open since {{date}}: the scan on {{tripped}} would have marked {{fixed}} of {{open}} open findings fixed at once, past the safety limit (at least {{minimum}} findings and {{percent}} of those open). The next complete scan that confirms it closes it.",
+    "held_reason_other": "{{number}} findings kept open since {{date}}: the scan on {{tripped}} would have marked {{fixed}} of {{open}} open findings fixed at once, past the safety limit (at least {{minimum}} findings and {{percent}} of those open). The next complete scan that confirms them closes them.",
+    "configuration_one": "{{number}} finding wasn't checked: the scan's configuration changed, so its absence proves nothing. It stays open and doesn't count toward any indicator; its detail says what changed. Turn the rule or engine back on in the scan settings, or mark it fixed if you know it's gone.",
+    "configuration_other": "{{number}} findings weren't checked: the scan's configuration changed, so their absence proves nothing. They stay open and don't count toward any indicator; each one's detail says what changed. Turn the rule or engine back on in the scan settings, or mark them fixed if you know they're gone."
+  },
+  "ai_prompt": {
+    "copy": "Copy prompt for your AI",
+    "copied": "Copied",
+    "help": "Paste it into Claude, Cursor or Copilot: it has the rule, where it is, the matched code when there is some, and the fix, never a secret's value. Pitangus doesn't send it anywhere.",
+    "failed": "Couldn't copy it: select the text below and copy it by hand."
   }
 }

@@ -5,7 +5,472 @@ Notable changes to Pitangus (called Tamandua up to 0.11). The format follows
 and `major.minor.patch` in the release tags. While Pitangus is in beta (0.x), the API and stored formats may change
 between minor versions: anything that changes behaviour is called out below.
 
-## [Unreleased]
+## [0.14.0] - 2026-10-15
+
+### Upgrade notes
+
+- **Proof before fixing and one identity per problem are on by default.** `PITANGUS_COVERAGE_MODE` defaults to `on`
+  and `PITANGUS_IDENTITY_MODE` to `v2`. On the first scan after upgrading the identity change opens and fixes nothing:
+  findings move to their families with their triage (copies that disagree go back to review, with a note), and a scan
+  that would fix 30% of an asset's open findings and at least 10 holds those fixes until a second covered scan
+  confirms each one. To keep 0.13's behaviour while you check, set both to `shadow` and run `pitangus identity-gate`.
+  GitHub code scanning sees SARIF alerts once as new: their `partialFingerprints` now carry the identity.
+- **Changing the configuration never fixes.** Every scan records the engines and rules it ran with; a finding whose rule
+  was turned off, changed or whose engine is off stays open as **Unverified (configuration)**, in every coverage mode.
+  The data migration `registry_rule_baseline` stamps stored findings with the rules of 0.13.1, so a finding whose rule
+  changed in 0.14 and that disappears on the first 0.14 scan shows that way instead of fixed: mark it fixed by hand if
+  it's really gone. The same holds for a secret the new secret filter sets aside.
+- **Engines change, and nothing is fixed by the change.** Secrets go from Gitleaks to Betterleaks (same configuration
+  format; findings keep their identity, and what Gitleaks found is Betterleaks' to prove gone). Checkov and Grype are now
+  optional and off: re-enable them with `PITANGUS_CHECKOV_ENABLED=1` and `PITANGUS_GRYPE_ENABLED=1` if you rely on them.
+  The full web scan stays behind `PITANGUS_DAST_ENABLED` and is experimental; the exposure check needs nothing.
+- **An engine that is off, or didn't run, never counts as a fix.** Its step says "not run (disabled)", the scan isn't
+  shown as clean, and every finding it reported stays open (unverified once a scan can't check it) until an engine
+  that looks again proves it gone.
+- **Expect some new secret findings the first time.** Betterleaks has 463 built-in rules against Gitleaks' 222, and
+  `generic-password` is on by default behind a filter (an `enabled_rules` entry for it is accepted and does nothing);
+  `generic-credential-uri` stays opt-in. The secret scanners also read what their own skip lists used to leave out
+  without a word: committed `node_modules/` and `vendor/` folders, lockfiles, minified files, hidden folders, tests,
+  examples and Markdown, so secrets there show up now (a file an engine still passes over is listed as not analyzed by
+  that engine). Matches allowed by a `gitleaks:allow` comment are listed under **Excluded** with their file and line.
+  The secret pass takes longer on a repository with committed dependency folders (about 35 seconds more for a 600 MB
+  `node_modules/`). Some secrets reported before are now set aside as not secrets (Supabase anon keys, placeholders,
+  unsigned JWTs) and secrets in tests, docs or examples drop from **Act now** to **Attend**.
+- **0.13's secrets are adopted once.** 0.13 stored secrets without their value's identity: each moves to it, with its
+  triage and Jira issue, on the first scan that reads the value, once; from then on two values are never one finding.
+  A value changed between the last 0.13 scan and the first 0.14 one takes the old entry's triage: review the secrets
+  you had accepted or marked as false positives. If you rotate the master key later, set
+  `PITANGUS_PREVIOUS_MASTER_KEY` to the old one for the next scans.
+- **Stored code shows as its structure and common words, never its values.** The data migrations
+  `mask_stored_secrets`, `mask_stored_credentials`, `render_stored_texts`, `render_stored_texts_lexicon` and
+  `web_location_keys` render what is already stored (runs, with their steps, progress and limitations; the registry;
+  pending notifications) and render again each affected run's report and SARIF. Stored snippets keep punctuation and common words only
+  (`cur.execute("SELECT k FROM t WHERE v = '***'" + q)`; an identifier that isn't made of common words becomes `***`
+  too), zizmor findings keep only their route in the workflow, SAST reasons no longer quote the code, an imported
+  SARIF's rule titles and descriptions are rendered like its messages, and hard-coded credential findings (CWE-798,
+  259, 321, 522) and secrets no longer show a code fragment. A value survives only if it is made entirely of common
+  words and numbers of up to three digits (`admin123`); no other does. File paths and the pages a web scan visited are
+  structure and are kept. Identities are unchanged.
+- **More dependency findings stay "not checked".** A dependency finding now lives in the project folder of each file it
+  was seen in, whatever the package manager (no list of lockfile names decides it): an engine examined a folder only if
+  it listed a package from a file in it, and proves a finding gone only if it listed packages from the very file the
+  finding came from. So deleting, emptying or replacing any lockfile (Conan's, sbt's, `renv.lock`, a `requirements.txt`
+  compiled from `requirements.in`, a `pnpm-lock.yaml` at a workspace root…) never fixes its advisories while its folder
+  is still in the repository; deleting the whole folder, or upgrading the package, does. A manifest whose packages didn't
+  all resolve to a version (a parent POM that didn't resolve, an unpinned `requirements.txt` line) is unexamined too.
+  Taking a lockfile out of a folder that stays (switching package manager there, moving the project out of the root)
+  leaves what was found in it open until you mark it fixed by hand once checked.
+- **Every engine that saw a finding must look again.** A finding two engines reported (Betterleaks and Trivy, Trivy and
+  OSV-Scanner, Trivy and Checkov), or that an engine saw in an earlier scan, is fixed only when each of them examined
+  its file in this scan. Before, the engine that owned it was enough.
+- **What the commit holds and the archive doesn't is listed as not analyzed.** GitHub and GitLab archives leave out what
+  `.gitattributes` marks `export-ignore`, submodules and LFS objects. Each scan now checks the snapshot against the
+  commit's tree (one more API request for the commit and one or a few for its tree) and lists every entry it doesn't
+  hold as committed, with the reason; so does a name with a `\` and a symbolic link. Repositories that export-ignore
+  their tests or docs see those folders as not analyzed. A list longer than 5,000 entries is declared by folder.
+- **Files in UTF-16 or UTF-32 are read as UTF-8**, so secrets (and code, and lockfiles) in them are found; any other
+  file whose bytes aren't UTF-8 text (an EBCDIC code page, a Latin-1 file with accents, a binary) is listed as not
+  analyzed by the secret scanners (`encoding`) even when their log names it, so a secret seen there is never fixed by a
+  re-encoding.
+- **Folders that were skipped are now scanned.** Everything committed goes through the secret scanners whatever folder
+  it's in (`data/`, `out/`, nested `build/`, `vendor/`…), so new secrets and SAST findings may appear there. Dependency
+  folders and build output are left out of SAST and the other engines and listed as not analyzed with the reason.
+- **`appsec.js.dom-xss-sink` is off by default** (3 of 18 matches were XSS on the measured corpus): its open findings
+  show as not checked (rule off); turn it on with `PITANGUS_SAST_OPT_IN_RULES`.
+- **Web findings on paths that still answer 200** (a single-page app's shell, a catch-all page) stay open and unverified
+  until the path answers 404 or 410: only those prove a path gone.
+- **More findings and a few new exclusions on the first scan.** The policy reader catches Firebase rules it missed
+  (no `;`, any signed-in user on a recursive wildcard, Realtime Database files with comments) and Supabase tables
+  another project's RLS used to cover; a rules file it can't parse is now not analyzed. Packages flagged as malware
+  without CWE-506 or a `MAL-` id become **Malicious · Act now**, and several advisories on one malicious version are one
+  finding. SAST findings in third-party code copied into the repository move to **Excluded (third-party code)**.
+- **Web scans on rate-limited sites end incomplete** when a host refuses enough of the scan (any 429 on 5% of its
+  answers): allow the scanner's addresses in the WAF or CDN.
+- **The pre-commit hook compares with what the remote already has** (`PRE_COMMIT_FROM_REF`) and scans the pushed commit,
+  not the folder; set `PITANGUS_BASE=origin/main` to keep the old comparison. `make engines` no longer pulls Grype or
+  Checkov unless they're on, and always pulls the exposure check's tools.
+- **Pull request reviews and `scan --base` may report fewer findings:** code that only moved, was reformatted or
+  commented is no longer new.
+- Migrations: Alembic `0015_domain_session_check` and `0016_registry_control` (applied at start-up); data migrations
+  `registry_identities`, `registry_rule_baseline`, `mask_stored_secrets`, `mask_stored_credentials`,
+  `secret_value_identities`, `registry_coverage_units`, `dependency_project_units`, `render_stored_texts`,
+  `render_stored_texts_lexicon` and `web_location_keys`. Take a backup first, as for any upgrade (`make update` does).
+- **The data migrations rewrite stored data and can't be undone.** `mask_stored_secrets`, `mask_stored_credentials`,
+  `render_stored_texts`, `render_stored_texts_lexicon` and `web_location_keys` replace what runs, the registry and
+  reports hold, with no copy of the original. Run `make backup` before upgrading if you don't upgrade with
+  `make update`: it's the only way back to 0.13.
+- **The exposure check runs with `PITANGUS_DAST_ENABLED` off.** Only an admin can launch it, only on a domain whose
+  ownership was verified, anonymously and only against the address it resolved to when checked (pinned), but it does
+  probe ports 80 and 443 actively (httpx, testssl, nuclei). The full web scan stays behind the flag.
+- **A committed `.gitleaksignore` or `.betterleaksignore` is honoured, and never silent.** Betterleaks no longer loads
+  it on its own (it did so from the top of the folder it scans, whatever its flags said, which let a commit hide a secret
+  with a predictable fingerprint and have it taken as fixed). Pitangus reads the one at the repository root and honours
+  its entries (`path:rule:line`, as Betterleaks names them, `/src/` or not) for the files only the secret scanners read:
+  each match it allows is listed under **Excluded** with its file and line, like a `gitleaks:allow` comment, and never
+  counts as a fix. `PITANGUS_SECRETS_IGNORE_INLINE_ALLOW=1` makes them allow nothing, as it does for the comments.
+
+### Added
+
+- **Exposure check** for verified domains, always available: each host's root and known paths (exposed files, panels,
+  TLS, headers) with httpx, testssl.sh and nuclei, no crawl. Coverage by HTTP status: a 404 or 410 on a path an earlier finding
+  was on proves it gone; a WAF that refuses almost everything leaves it incomplete.
+- **One screen to start as a developer** ([docs/quickstart-developer.md](docs/quickstart-developer.md)): one `docker run`,
+  a pre-commit hook (`id: pitangus`, at pre-push) and the Action. `scan` no longer prints internal log lines unless
+  `PITANGUS_LOG_LEVEL` asks for them. The engines' advisory databases outlive a run: in the `pitangus-cache` Docker
+  volume for the one-liner and the hook, and in `actions/cache` for the day in the Action (input `cache`). A second scan
+  doesn't download them again (on a small repository, about half the time).
+- **Fix it with your own AI.** Each finding as a prompt for Claude, Cursor or Copilot (the rule, where, the matched code,
+  the fix): **Copy prompt for your AI** in the panel, `pitangus scan --format prompt` in the terminal. Never a secret's
+  value nor code beyond the fragment; Pitangus calls no AI.
+- **Rules for what AI-written code gets wrong.** A Supabase `service_role` key in the code or in browser code, secrets,
+  API keys and tokens in public-prefixed variables (`NEXT_PUBLIC_`, `VITE_OPENAI_API_KEY`…; keys meant for the browser
+  such as Supabase anon or Firebase web config stay out), CORS open to any origin with credentials, routes without the
+  authentication their siblings have (a global `express.json()`, `helmet()` or `cors()` no longer counts as
+  authentication), JWTs decoded without verification; and a policy reader of our own, with its own coverage: Firebase
+  rules read the way Firebase reads them (no `;`, helpers such as `isSignedIn()`, any signed-in user on a recursive
+  wildcard, Realtime Database files with comments and test mode) and Supabase row level security per project folder,
+  schema and table, with the exposed schemas of `config.toml`; a rules file it can't parse is not analyzed.
+- **GitLab sast-rules, optional and off** (`PITANGUS_THIRD_PARTY_RULES`): 259 MIT and Apache-2.0 rules, provenance
+  checked file by file, pinned by checksum, kept apart from Pitangus' rules with their LICENSE and NOTICE. Measured on an
+  18-repository corpus, none reached 85% precision with at least 3 hits, so they stay off; turned on, a GitLab match on
+  the same line and weakness as a Pitangus rule folds into the Pitangus finding (`related_rules`).
+- **One identity per problem, on by default.** `PITANGUS_IDENTITY_MODE` (default `v2`; `shadow` and `v1` remain): every
+  finding gets a canonical identity from its content (code without comments or formatting, a resource's address, a
+  dependency's advisory, purl and normalized version, a secret's HMAC with a key derived from the master key, a web
+  rule's path template, evidence and kind of scan), never from its line or the order an engine lists it. In `v2`, identical problems
+  are one family with a count: a new copy reopens a triaged finding, one fewer is a partial fix, and a copy where the scan
+  didn't look stays counted. `pitangus identity-gate` compares the last two full scans of each repository both ways;
+  `identity-gate --scan PATH` scans a folder twice with this version and fails on anything opened or fixed (in CI).
+- **Proof before fixing, on by default.** `PITANGUS_COVERAGE_MODE` (default `on`; `shadow` and `off` remain): every
+  engine's run goes through one contract (exit code, the JSON it always writes, the mark it writes when it ran) and
+  declares which files or pages it examined and which not, and why; a finding is fixed only when the engine that owns
+  it proved it looked where it was. An open finding a scan couldn't check is **Unverified since** that scan (outside
+  deadlines and indicators, warned about after `PITANGUS_UNSEEN_WARN_SCANS` scans), and a scan that would fix too much
+  at once holds its fixes until the next complete scan confirms them (`PITANGUS_FIX_HOLD_PERCENT`/`_MINIMUM`; **Mark
+  as fixed** for administrators, `POST /api/assets/fix-hold`). In shadow mode each asset records what the contract would have
+  changed. `GET /api/findings/health` counts findings reopened soon, fix spikes, duplicates across engines, unverified
+  findings and blind engines. Migration `0016_registry_control`.
+- **A secret is its value.** A secret's identity is the keyed HMAC of its value, whatever key holds it, in whichever
+  format (ENV, YAML, JSON, TOML, code), quoted or not, and whichever engine or rule found it: Betterleaks'
+  `generic-api-key` and Trivy's provider rule on the same value are one finding, and so is a secret imported from SARIF
+  (Gitleaks, Betterleaks, Trivy, or a CWE-798/259/321/522 result), which is no longer keyed by an unkeyed hash of its
+  snippet. Entries stored under an earlier formula move with their triage and Jira issues on the first scan or import
+  that reads the value: nothing opens and nothing is fixed. Two values are never one secret: only names computed from
+  the value link it to an earlier entry, never the engine's fingerprint (rule, file, text before it), so changing a
+  value in place fixes the old one and opens the new one, and a PR that does it introduces it. After changing the
+  master key, set `PITANGUS_PREVIOUS_MASTER_KEY` to the one before so secrets keep their entries; without it the old
+  entries stay open as unverified, never fixed. The value is read only where everything its engine said about it holds,
+  for one value only (Betterleaks' redacted match, length and entropy; Trivy's offset and masked text, line by line
+  over a private key) and, beyond a file Betterleaks reads in one piece (100 KB), where it may count columns from the
+  middle of any line, only if it is the one value that fits anywhere on its line; one secret reported twice is one
+  finding. A secret whose value can't be read for sure is unlinkable: named by its rule, its file and its lines'
+  content, it never inherits triage and is never fixed while its engine still reports a secret of that rule in its
+  file or another engine that saw it reports one there; nor is a secret named by its value while an engine that saw it
+  reports there one it couldn't read. A scan that has no master key and can't keep one (the CLI in a read-only
+  container, as in CI) names secrets with a key of its own process: the same commit scanned twice is the same.
+- **Structure and common words, never values.** One renderer (`shared/render.py`) takes every text that holds code,
+  configuration or an engine's words before anything stores, prints or sends it: snippets (an imported SARIF's snippet
+  and context region too, with their lines), the prompt's fragment, engine messages, an imported SARIF's rule texts,
+  step details, progress, limitations, engine errors and what a failed scan logs, whichever engine or import produced
+  them. It doesn't look for credentials and never keeps a word for its position: a word (a run of letters, digits and
+  `_`, in any script) stays only if it is a common word (of a programming language, of Pitangus's own vocabulary in
+  English and Spanish, of code and security writing) or splits entirely, at `_`, case changes and digits, into such
+  words and numbers of up to three digits; every other word becomes `***`, be it a key, an identifier, an operand, an
+  argument, a comment, a string, or a host or path segment of a URL. Punctuation and operators stay, so code still
+  reads (`cur.execute("SELECT k FROM t WHERE v = '***'" + q)`). A URL in a text also loses its user information and
+  every query and fragment value. So does every URL stored or shown, with no exception: a web finding's location, a
+  run's target, the pages a scan reached and an imported SARIF's references. What a web finding's identity and its
+  coverage read is pinned first: each page's key (scheme, host, port and digests of its path pieces and query, never
+  their text), so a page keeps its identity across scans, path templates span scans as before, and two pages shown
+  alike stay two. zizmor's findings keep only their route in the workflow, never its YAML. A
+  finding's identity (and its identity anywhere in the repository, for the pull request gate) is computed from the
+  original first, so nothing looks new, fixed or moved. The values the secret engines detected are also replaced
+  wherever they appear, in their encodings; secret findings and hard-coded credentials (CWE-798, 259, 321, 522) keep
+  no snippet. What Pitangus's own rule catalog or a public advisory says is shown as published. The panel, database,
+  reports, SARIF, `--format prompt` and `/api/findings/prompt`, Jira, notifications and logs all get the rendered
+  text: a value survives only if it is made entirely of common words and numbers of up to three digits; no run of four
+  or more letters and digits of any other value appears in any of them, in any format, through any engine (a property
+  test with a fragment oracle, also run nightly with new examples).
+- **Changing the configuration never fixes a finding.** Every scan records which engines were on and which rules each
+  applied, with a digest of what each rule matches. A finding is fixed only by a scan in which its engine was on and the
+  rule that found it ran, unchanged since the finding was last seen. Turning a rule off (opt-in, custom, third-party),
+  turning an optional engine off or updating a rule leaves its findings **Unverified (configuration)**, in every
+  coverage mode, and the finding names the rule or engine; a secret a new allowlist entry or disabled rule filters is
+  excluded with that reason. The fix hold records and shows why it held, and neither Jira nor the notification channels
+  hear about a held or unverified finding.
+- **A second look at every secret.** A match that can't be a secret is set aside and counted by reason in the scan,
+  never dropped silently: a reference or template, an environment variable's name, a placeholder (`YOUR-ACCESS-TOKEN`,
+  `XXXXXXXX`, `12345678`), a key that is public by design (a Supabase anon or `sb_publishable_` key; `service_role`
+  keys always stay) and an unsigned JWT. With it, `generic-password` is on by default: on 18 public repositories it went
+  from 1,525 matches to 23 and kept all 12 that an independent review labeled real (of the 23 kept, 12 are real and 18
+  real or seed data). Long passwords of one kind of character (16 or more), accented letters (`Contraseña2024!`) and
+  passphrases (`correct-horse-battery-staple`) are never set aside, and on minified lines over ~125 KB each match is
+  read at its own place. On the same corpus the default secret rules went from 246
+  matches to 134 with no real secret lost. Secrets in tests, docs or examples are still findings, at **Attend**.
+- **The pre-commit hook scans what you're about to push**: the pushed commit as git holds it, compared with what the
+  remote already has. An untracked file or an uncommitted edit can no longer block a push. `pitangus scan` gains
+  `--commit REF` and `--staged`, and a `--base` that doesn't exist says so before anything is scanned.
+- **Third-party code copied into a repository is set apart, by its folders and content.** SAST matches in dependency
+  and static library folders, minified files and files opening with the licence banner of a known library (name,
+  release, licence, at least 8 KB) are listed under **Excluded** with the reason, never dropped or fixed; a file's name
+  never decides, so your own `lodash-helpers.js` or `chart-core.js` is analyzed.
+- **Nothing committed is skipped silently.** Every committed file goes through the secret scanners whatever folder it's
+  in; SAST and the other engines leave out only dependency folders (`node_modules`, `vendor`… anywhere) and build output
+  (`dist`, `build`, `target`… at the root, next to a build manifest or holding source maps), and each such folder is
+  listed as not analyzed with its reason. Opengrep's own hidden ignore list is replaced: only test code (`test/`,
+  `tests/`, `*_test.go`) stays out of SAST, declared. Betterleaks' and Trivy's own skip lists are off too (dependency
+  folders, lockfiles, tests, examples, Markdown, images, `jquery*.js`…): only your secret detection settings leave paths
+  out, reported as excluded. Neither engine is trusted to have read everything: each one's log names every file it read,
+  and a committed file it didn't name is listed as not analyzed by that engine, so a secret it saw there before is
+  never taken as fixed. A `gitleaks:allow` / `betterleaks:allow` comment is honoured for both engines and never silent:
+  every match it allows is excluded with its file and line (never its value), counted in the step, the limitations, the
+  CLI and `--format prompt`; `PITANGUS_SECRETS_IGNORE_INLINE_ALLOW=1` ignores those comments.
+- **Measured SAST rules.** `appsec.js.dom-xss-sink` is off by default (3 of 18 matches were XSS on the measured corpus;
+  `PITANGUS_SAST_OPT_IN_RULES` turns it on, and it no longer flags copying another element's `innerHTML` or sanitized
+  values). `appsec.java.hardcoded-password` no longer flags paths, parameters, headers, patterns, salts or property
+  keys (9 of 9 on the corpus).
+- **Invariant tests.** `tests/test_invariants.py`: the registry against the truth, failure injection identical for every
+  engine adapter, identity and merging properties (Hypothesis, deterministic on pull requests, random every night in
+  `.github/workflows/nightly.yml`), with what still fails recorded until the next phases close it.
+
+- **A session check for scans with saved headers.** An administrator can give a domain a **Session check page**: an
+  HTTPS page on it that only opens signed in. A scan that sends the saved headers requests it with them before it
+  starts and when it ends; a redirect, 401, 403 or no answer leaves the run incomplete, so an expired cookie no longer
+  marks what was behind the login fixed. `POST /api/domains/session-check`; the domain listing adds `session_check`
+  for administrators (Alembic `0015_domain_session_check`, applied at start-up).
+
+### Changed
+
+- **The full web scan (ZAP, katana, subfinder) is experimental** and stays off by default (`PITANGUS_DAST_ENABLED`). The
+  panel marks it so; a domain's scan button opens the exposure check. Turning it off fixes nothing it found before.
+- **Malicious packages by the kind of advisory.** The advisory's type decides (an OpenSSF `MAL-` advisory, which is how
+  GitHub's own malware advisories reach OSV, or a database's malware type); otherwise two of three signals must agree (a
+  malicious-code CWE, the title, the description), and one alone never decides. This catches compromised releases no
+  database types as malware (ultralytics 8.3.41, strong_password 0.0.7, bootstrap-sass 3.2.0.3, `ctx` 0.2.6), in Trivy,
+  OSV-Scanner and Grype: critical, Act now, removed rather than upgraded. Advisories on the same package version merge as
+  an alias graph (PYSEC↔GHSA↔CVE chains are one finding), a malicious version is a single finding listing every
+  advisory, and a duplicate fingerprint no longer loses the verdict. On the OSV databases: 625 malware advisories
+  against 606 with the previous rule, 23 more and 4 fewer (a credentials leak tagged CWE-509 among them). Image scans
+  keep the removal guide for malicious packages.
+- **Checkov and Grype are optional, off by default** (`PITANGUS_CHECKOV_ENABLED`, `PITANGUS_GRYPE_ENABLED`). Off, an
+  engine shows as not run (disabled) in the plan, the scan and the report, never as clean, and what it found before
+  stays open: turning an engine off never fixes anything.
+- **Betterleaks replaces Gitleaks for secrets** (1.9.0, MIT, from Gitleaks' own maintainers; image pinned by digest).
+  It takes the same generated configuration (custom rules, disabled built-ins, allowlists), keeps `--redact` and the
+  report format, and brings 463 built-in rules instead of 222. A disabled rule it no longer has is dropped from the
+  settings. A secret's identity (the HMAC of its value) doesn't change with the engine, and what was found under
+  Gitleaks' name is Betterleaks' to prove gone: it's never fixed by the switch. Opt-in validation of active secrets
+  (`PITANGUS_SECRET_VALIDATION`, off by default): an active secret is acted on first, a revoked one tracked, none hidden.
+- **Linking an image and a repository no longer needs a scan first.** The picker lists the repositories the GitHub
+  App or a connected token reach, not only the analyzed ones, and **Link an image** on every repository's row opens a
+  dialog that lists the images and links the chosen ones in place; the link holds once the repository is analyzed. The picker's list floats over the page, so a list that
+  clips its content (the Images rows) no longer hides it.
+- **Getting started checks off what you did anywhere.** Each step comes from the state it stands for: a GitHub token
+  counts as connecting GitHub, an incomplete scan or an import counts as an analysis, and pull requests reviewed by the
+  GitHub Action count as watched.
+- **The status filter of a repository's findings offers what each tab holds.** In **Open**, choosing **Fixed** showed
+  nothing (fixed findings have their own tab); now it isn't offered there, and **All** adds **In excluded paths**.
+- **A finding is only fixed where the scan looked, and keeps its identity when its name changes.** A complete code
+  scan no longer fixes a finding in a file it didn't analyze: left out of the snapshot for its size, or skipped by the
+  engine that reports it (the run stores them as `unexamined`). Each finding declares the units it lives in (`units`:
+  its file; a dependency's, its project, the manifest together with its lockfile, and every other place it was seen),
+  and the registry compares those units, not paths, with what each engine examined (data migration
+  `registry_coverage_units` derives them for stored findings). A zizmor finding is keyed by the workflow YAML it
+  points at instead of its line, an image history finding by the step's command instead of its position, and an
+  advisory that gets a CVE after its GHSA stays the same finding; Trivy and Grype compare image package names as each
+  writes them (Java's `group:artifact`, Go's `go1.22.1`), and a report that becomes part of another folds into it
+  instead of being marked fixed. State, triage, Jira issue and pending verification follow in every case.
+- **`nosemgrep` comments are recorded.** Opengrep runs with `--disable-nosem`: a match silenced in the code is listed
+  under **Excluded** with that reason (and counted in the run's limitations) instead of disappearing, reopens if the
+  comment goes away, and adding the comment doesn't change the finding's identity.
+- **A web finding is fixed only with its own tool's evidence, on that page, in that run.** nuclei's per-URL statuses
+  come from its stored responses, extracted inside the container, and ZAP's from its sites tree. Evidence is a
+  whitelist: a 2xx means present, a 404 or 410 means absent, a redirect proves nothing (and isn't held against the
+  site), and every other status (406, 418, 400, 999, 5xx, no answer…) is a refusal. A finding about one path is fixed
+  only when its tool got 404 or 410 there, so WAF codes, challenges served with 200 and catch-all pages never fix it,
+  and blocking is judged from every tool's answers over the whole run: a WAF or rate limit that starts mid-run, or only throttles sensitive paths, leaves the run
+  incomplete instead of fixing findings. A web tool that didn't finish opens nothing and proves nothing; testssl.sh no
+  longer reports from an unfinished scan.
+- **The exposure check is sharper.** It also probes plain HTTP on port 80, requesting every URL over its own scheme
+  (`-nfs`) and attributing each answer only to the URL it fetched, drops matches on paths the site answers like any
+  random path (soft 404 and catch-all pages, also when the page echoes the requested path), treats `//path` as `/path`, counts each page once, checks `/.env` and
+  `/.git/config` with its own templates, and no longer marks full-scan findings unverified. A path finding's identity no
+  longer depends on other rules' URLs; progress messages no longer mention ZAP or crawling, and the docs and panel name
+  debug and status consoles instead of admin panels.
+- **No SAST without Docker.** The internal Python checks that ran when Opengrep couldn't are gone: without Docker the
+  SAST step is **Not tested** (and the run incomplete) instead of a few checks passing for coverage.
+- **Rule tests.** Each Opengrep rule has cases in `rules/tests/` (`ruleid:` lines it must match, `ok:` lines it must
+  leave alone), including the false positives fixed in this release; `make rules-test` runs them and so does CI.
+- **Fewer false "fixed" and less noise from the engines.** A finding is only marked fixed when the scan could have seen
+  it: Checkov ending with an error or files it couldn't parse, a SARIF import of another category (CodeQL uploads one
+  per language) and an engine that didn't run (`not_tested`) no longer close anything; a web scan closes a ZAP finding
+  only if its page was reached this time, and sign-out links are left out of the crawl when the scan carries a session.
+  A response header the whole site shares (CSP, HSTS, X-Frame-Options…) is one finding per host instead of one per page,
+  redirects aren't part of the URL inventory, and a file name with a build hash (`index.CSY8UEx1.js`) keeps its
+  finding across deploys. nuclei's technology detections are kept only at the root or as information, and a host pass
+  that times out keeps what it found.
+- **Engines that see more and say what they skipped.** Opengrep follows tainted data between functions of a file
+  (`--taint-intrafile`), reads files up to the snapshot's 2 MB limit and lists the ones it skipped, with two jobs;
+  Razor, ERB and JSP views count as languages without rules. Two secrets on the same line are two findings, and one
+  package in several lockfiles of a monorepo lists every location. Operating system packages take their severity from
+  the distribution, as Grype does, the fixed version offered is the lowest one that fixes, identical lines in a file
+  are separate SAST findings, and OWASP coverage counts only the rules of the repository's languages. Three rules lost
+  false positives (command injection only from `child_process`, `verify=False` only on HTTP calls, Go path traversal
+  only from handler input).
+- **One engine's trouble stays where it is.** A dependency resolution a remote repository refuses (a 429 from Maven
+  Central on a parent `pom.xml`) no longer blinds Trivy: it runs again without remote resolution and resolves each
+  Maven manifest on its own, and only the manifests that still fail are unexamined, for dependencies only. OSV-Scanner
+  no longer claims to have examined everything when it read no lockfile. A manifest an engine couldn't resolve isn't
+  counted as examined: packages left without a version (a parent POM that didn't resolve: 7 advisories instead of 81
+  for a Spring Boot project without network), a manifest without the lockfile its engine needs and a UTF-16 lockfile
+  leave it unexamined for dependencies, and the Trivy and OSV-Scanner steps name it. An engine run that didn't finish (killed,
+  timed out, wrong exit code, empty, truncated or invalid output, no completion mark) opens and fixes nothing in every
+  coverage mode; the rule lives in the engine contract and is fault-tested on every adapter. Coverage is per file even
+  when an engine ends partial: a partial Opengrep run proves gone what was in the files it read.
+- **Folding findings never relaxes triage.** When several fingerprints fold into one finding, copies that agree keep
+  their decision with the earliest expiry, and copies that disagree or were never reviewed send it back to open with a
+  note; every copy's history and every Jira issue are kept.
+- **The pull request gate counts like the findings register.** On the server and in `pitangus scan --base`, both sides
+  are grouped with the same identity and copy count: moving, reformatting or commenting a vulnerable line is not
+  introduced, pasting one more copy is exactly one, and a review never changes the main branch's findings or counts.
+  The gate counts across the whole repository and follows renamed files (GitHub's `previous_filename`, `git diff -M`):
+  moving a vulnerable line to another file or renaming a file is neither introduced nor, in `scan --base`, fixed;
+  copying a line into another file introduces one. Findings in the register are still stored per file.
+- **Kinds of web scan keep their own findings.** A full scan followed by an exposure check no longer moves the full
+  scan's findings to the exposure check (keeping when they were first seen), and alternating no longer moves them back
+  and forth: web fingerprints name their kind of scan in every identity mode, the registry follows former fingerprints
+  only within the same kind, and the dashboard's trend counts each kind on its own.
+- **Honest terminal output.** The verdict counts the rows it shows; counts agree in English and Spanish, stored runs
+  included; each engine that didn't run is named once and a disabled one is never announced; prompts for AI assistants
+  never point to the panel's Reverify; files an engine couldn't read are listed with a localized reason; a lockfile
+  from which the engine listed no package is listed as not examined (lockfile without packages). `make engines` pulls only the engines this server runs plus the exposure check's tools, and
+  `make engines LIST=1` lists them.
+- **Trivy's databases are refreshed once, under a lock.** Several workers updating the same cache at once crashed a
+  scan (SIGBUS); now one refreshes them and the scans run with `--skip-db-update`.
+
+- **A transitive dependency's fix says who brings it in and what to update if it stays below, in any ecosystem.**
+  The scan reads the dependency graph Trivy resolves from the lockfile (npm, yarn, pnpm, Poetry, uv, Cargo, Go,
+  Composer, NuGet, Bundler…) and stores on each dependency finding which package requires it and which direct
+  dependency is at the top, whichever engine reported it. The guide, the Jira issue and the reports start with the
+  whole move ("Update rustls-webpki to 0.103.13; if it stays below, update reqwest, which brings it in"), with the
+  manager's commands in order. Dependency guides for most managers also get a command that shows which version ended
+  up installed (`poetry show`, `npm ls`, `cargo tree --invert`…). Findings get this from their next scan.
+- **Jira issues a developer can act on, labelled when a scan verifies the fix.** The title says what to do and where
+  (`High · starlette 0.37.2 → 1.3.1 · org/api (poetry.lock)`, or the finding with its repository and file) instead of a
+  severity and a vague summary, and the description starts with the change, the file, the command and how to check it;
+  why it matters (severity, deadline, KEV, EPSS when it is high) and the details come after. When a scan verifies a fix,
+  Pitangus comments and adds the destination's label (`pitangus-fixed` by default, filterable in Jira); it moves the issue
+  to a status only if an administrator picked one of that workflow for the destination, since every team closes issues
+  its own way. A destination also sets the language of its issues. The rule form shows how the most severe issue will
+  read before saving, and a finished backfill links the issues it created and groups why others failed.
+- **Excluded paths and secret detection settings say what they do before you save.** The excluded paths dialog has a
+  visible label with what each pattern covers, says the reason is required, and previews which findings would move to
+  Excluded (or back to open) while you type, checking the patterns as saving does (`POST /api/assets/exclusions/preview`).
+  The secret detection dialog starts with what people reach for: silencing test or fake secrets (by path, word or
+  expression), then turning off a noisy built-in rule, then their own detectors; each list states its limit and the
+  dialog points to Policies for the defaults.
+- **No promise of a fix the tool doesn't have.** The README and the docs say a finding's fix is what the tool knows (a
+  command, an example to adapt, the scanner's own advice), not an exact fix for every finding.
+- **Threat model import keeps everything and shows it.** A model an AI assistant wrote imported with 55 warnings and
+  lost most of its data. Now saved means shown: descriptions of flows and boundaries are stored, editable and in the
+  reports; **assumptions** are a section of every model (the new **Context** tab, at the start of the report); any field
+  Pitangus doesn't know becomes a **custom property** of its object (editable in the inspector and dialogs, a tooltip
+  on the diagram, an appendix of the report, exported back in place), and the model's own unknown sections show as
+  tables or lists. Synonyms are read as our fields (`component_id` → `element`, a threat's `description` →
+  `scenario`, a tree's `name` → `goal`, `status: potential` → `relevant`, `severity: crit`…), documented in the JSON
+  Schema (`x-pitangus-aliases`, `x-pitangus-synonyms`) and the AI prompt. Your own severity, likelihood, impact,
+  difficulty, mapping status and category are kept as new options (a custom severity sorts after ours unless it has an
+  equivalent, `level_equivalents`); only a template's own vocabulary stays strict (STRIDE's and LINDDUN's categories,
+  PASTA's stages, AND/OR gates), keeping the value as a property with a warning. An unknown approach imports as Custom,
+  and a Custom model turns on the module of any section it brings. Problems have three levels (error, warning, info)
+  and a `code`: the importer counts errors and warnings, groups identical problems ("… in 15 flows") and folds the
+  minor adjustments. A custom property over 8,000 characters per object is an error instead of a silent drop.
+- **The full MITRE ATT&CK Enterprise catalog, offline.** Every technique and sub-technique of ATT&CK v19.2 is
+  recognized with its official name and tactics (bundled from MITRE's STIX data, pinned by SHA-256; `make
+  attack-catalog` refreshes it). An ID not in ATT&CK warns "not found in ATT&CK v19.2", a revoked one names its
+  replacement. Tactics follow v19.2 (TA0005 is now Stealth, TA0112 Defense Impairment), and T1562, revoked, is
+  replaced by T1685 in our suggestions.
+
+### Fixed
+
+- Two engines' reports of one problem folded into one finding no longer lose the folded one's fingerprint: if its engine
+  failed in an earlier scan, its entry moves to the finding instead of being marked fixed.
+- Two resources a configuration engine reports without an address (two Kubernetes Deployments in one file) are no
+  longer deduplicated into one: the second is kept among the finding's places.
+- Go advisories reported as `v0.3.7` by Trivy and `0.3.7` by OSV-Scanner are one finding.
+- A RubyGems fixed version written as constraints (`~> 6.1.7, >= 6.1.7.1`) no longer offers a version below the installed
+  one.
+
+- **Credential files are scanned for secrets.** `.env*`, `.npmrc`, `.pypirc`, `.netrc`, `id_rsa`, `credentials`,
+  `.git-credentials`, `.dockercfg`, `.s3cfg`, `.boto`, `.htpasswd` (dot folders such as `.aws` included) were left out of
+  every scan. Now Betterleaks and Trivy's secret scanner read them, from a folder of their own no other engine sees,
+  deleted as soon as they finish.
+- **Trivy's databases are refreshed in a folder of their own** and replace the live ones only when they arrived whole:
+  a refresh that ran out of space (the Java database) deleted the one in use.
+- **A pull request that pastes a problem above an identical one introduces it.** The gate counts instances per finding
+  family (Opengrep, secrets, zizmor, SARIF) instead of checking whether the fingerprint exists.
+- **A SARIF from a failed run fixes nothing** (`executionSuccessful: false`, or no results list).
+- **Concurrent image scans** no longer fail on Trivy's shared layer cache ("cache may be in use"), and an engine failure
+  is no longer reported as "couldn't read the image from the registry".
+
+- **Web findings stored per page no longer turn "fixed" after the change to one finding per host.** The first web scan
+  of this version marked fixed the header, CSP and hashed-asset findings it now groups (105 on pitangus.dev), although
+  nothing had changed. Each grouped finding carries the fingerprints it had per page, and the next scan folds those
+  entries into it, fixed ones included, with their triage.
+- **Fewer false "fixed" where a tool didn't look.** A file on which an Opengrep rule ran out of time counts as not
+  analyzed; a nuclei finding on a page is only fixed if its page pass requested that page; a scan with saved headers
+  and no session check page fixes nothing it found with them.
+- **Trivy's misconfiguration checks are refreshed once too.** Concurrent scans updating the checks bundle failed with
+  "mapfs file copy error"; it's now refreshed under the same lock as the databases, and scans run with
+  `--skip-check-update`.
+- **Grype analyzes the platform Trivy did.** On an ARM host the two engines analyzed different platforms of a
+  multi-platform image and their results were merged; Grype now gets `--platform` from what Trivy read, and its step
+  names it.
+- **A Slack token both engines see is one finding** (Gitleaks' `slack-bot-token` and Trivy's `slack-access-token`), without
+  making Gitleaks' rule switch off Trivy's broader one.
+- **The same comment or `Cache-Control` value on every page is one finding** per host and value, instead of one per page
+  (404 pages included).
+- **Rules.** A string concatenated between quotes (`"... = '" + name + "'"`) in Python and Go SQL is caught; a literal
+  after a space in `dangerouslySetInnerHTML={{ __html: "…" }}` no longer is. Every rule now has a case it must match and
+  one it must leave alone (`rules/tests`), checked by the test suite and by `make rules-test`.
+- **`pitangus scan` names an optional engine that didn't finish** (Checkov, zizmor) under "Not analyzed".
+- **Evidence: domains no longer go into the consolidated SBOM and VEX.** A web scan lists no packages, so a domain
+  showed up in the portfolio SBOM as an empty application and was counted as "with a completed full scan". The SBOM
+  and VEX (consolidated and per asset) now come only from repository and image scans; a domain stays in the audit
+  evidence. The scope summary counts every asset in scope (repositories, images and domains, the same number the
+  picker shows), says how many the SBOM and VEX include and which ones are left out and why. `GET /api/evidence/scope`
+  adds `domains`, and its `complete` (and the one in `GET /api/evidence`) counts only repositories and images.
+- **Secrets after non-ASCII text are read where they are.** Betterleaks counts columns in bytes and Pitangus read them
+  as characters, so after an `ñ` or in a minified bundle the secret filter, the identity, the context and the masking
+  read other text (23 false critical findings in Pitangus' own panel bundle). Columns are now converted, and when they
+  still don't land on the match (big files are scanned in fragments) the nearest occurrence is used, as Betterleaks does.
+- **A web finding seen by one kind of scan is never fixed or absorbed by another.** The kind of scan (anonymous crawl,
+  saved headers, API definition, exposure check) is part of a web finding's identity, so an anonymous crawl no longer
+  fixes what only a signed-in scan can see on a sibling page.
+- **The dashboard doesn't count a renamed finding as fixed and new.** A fingerprint that changed (an engine's new one,
+  or the identity that replaces it in v2) keeps its history: no false fix, no false new finding, no MTTR from it.
+- **Checkov files it couldn't parse and doesn't name** leave its run inconclusive instead of proving every file.
+- **The nightly property run works.** Its workflow file wasn't valid YAML, so it never ran; it now runs the invariants
+  and every property suite with thirty times the examples.
+
+### Known limitations
+
+Measured during the release validation and documented, not fixed in 0.14
+([scanning-code.md](docs/scanning-code.md#known-limitations-in-014), [scanning-web.md](docs/scanning-web.md#limits-and-timings)):
+
+- `appsec.js.route-without-auth`: false positives with routers mounted with authentication in another file, Fastify's
+  `addHook('onRequest')` and FastAPI's `APIRouter(dependencies=[…])`; a false negative with `app.use('/admin', auth)`;
+  no coverage for Next.js or NestJS.
+- The policy reader misses writes protected only by data validation, `if true || …`, `using (true)` / `with check
+  (true)` and views over `auth.users`, and reports a table whose RLS is enabled inside `DO $$ … $$`.
+- `appsec.js.public-env-secret` misses `*_KEY` names without `API_`, `process.env["…"]` and destructuring.
+- A `pyproject.toml` that only configures tools (no dependencies) and has no lockfile beside it is listed as not
+  examined for dependencies (no lockfile): Pitangus doesn't read declarations to tell, so it errs on the side of not
+  examined. Nothing is fixed or opened by it.
+- Web: an intermittent exposure is dropped; a single connection error from testssl.sh or nuclei leaves the host
+  incomplete (conservative); `nginx-eol` is one finding per page in the full web scan; a 200 challenge served on every
+  path, the root included, can stand in for the root's headers; the blocking thresholds were calibrated on local sites
+  only.
 
 ## [0.13.1] - 2026-10-11
 
@@ -73,33 +538,6 @@ between minor versions: anything that changes behaviour is called out below.
 - **Command palette and keyboard shortcuts.** `⌘K`/`Ctrl+K` searches pages, analyses, repositories, images and domains
   and runs actions (New analysis, Import SARIF, Add domain…); `G` + a letter jumps to each page, `N` starts a new
   analysis and `?` lists the shortcuts.
-
-### Changed
-
-- **Pitangus' own identity, everywhere.** An identity manual (`.claude/skills/pitangus-brand`, also published as a
-  design system) now drives the panel, the PDF/Markdown reports and the threat diagram: cool neutrals instead of cream,
-  sulphur yellow only for the brand and the main action, one meaning per color (red critical, orange attention —
-  never yellow — green ok, slate info), the sidebar in ink like the kiskadee's crown, IBM Plex type, small radii,
-  tables and ruled rows instead of card-wrapped pages, notices without pastel boxes, Phosphor icons (Lucide removed),
-  and the same rules in light and dark, checked for WCAG AA contrast. Guard tests block the old patterns.
-- **New analysis is a guided flow** with a vertical step rail: type, target (domains and APIs together, with the saved
-  scope), access (test users and headers), review (schedule and outgoing IPs).
-- **Integrations are sections of rows** (code providers, registries, notifications, issue tracking, AI), each with its
-  status and its configuration folded below.
-- **Removing a domain keeps its history.** Its configuration (headers, test users, scope, schedule) is deleted; its
-  analyses, findings, triage and tickets stay as evidence and link back if the same host is added again.
-- **Pages use the full width** and align with the header; the mobile layout of findings, repositories, the CVE tracker,
-  analyses and the scope picker was redone.
-
-### Fixed
-
-- **"Affects you" in the latest CVEs** marked nearly every CVE: a package name matched anywhere in the description. It
-  now needs the CVE to name your package as a product (followed by a version or "before/through/prior to").
-- **Numbers and percentages follow the language** (Spanish "1.622", "0,2 %").
-- **The view follows the address** when only its hash changes.
-
-### Added
-
 - **OWASP guidance on every finding.** A curated, versioned mapping (`pitangus/modules/findings/references.yaml`,
   reviewed against the published indexes) links each finding to OWASP Cheat Sheet Series pages, its OWASP Top 10:2025
   category and, for code and web findings, the API Security Top 10 2023 risk and the WSTG v4.2 test that fit: by rule
@@ -270,8 +708,29 @@ between minor versions: anything that changes behaviour is called out below.
   technical reports give such a problem one action, one sheet or one row with its URLs; the audit evidence keeps one row
   per URL.
 
+### Changed
+
+- **Pitangus' own identity, everywhere.** An identity manual (`.claude/skills/pitangus-brand`, also published as a
+  design system) now drives the panel, the PDF/Markdown reports and the threat diagram: cool neutrals instead of cream,
+  sulphur yellow only for the brand and the main action, one meaning per color (red critical, orange attention —
+  never yellow — green ok, slate info), the sidebar in ink like the kiskadee's crown, IBM Plex type, small radii,
+  tables and ruled rows instead of card-wrapped pages, notices without pastel boxes, Phosphor icons (Lucide removed),
+  and the same rules in light and dark, checked for WCAG AA contrast. Guard tests block the old patterns.
+- **New analysis is a guided flow** with a vertical step rail: type, target (domains and APIs together, with the saved
+  scope), access (test users and headers), review (schedule and outgoing IPs).
+- **Integrations are sections of rows** (code providers, registries, notifications, issue tracking, AI), each with its
+  status and its configuration folded below.
+- **Removing a domain keeps its history.** Its configuration (headers, test users, scope, schedule) is deleted; its
+  analyses, findings, triage and tickets stay as evidence and link back if the same host is added again.
+- **Pages use the full width** and align with the header; the mobile layout of findings, repositories, the CVE tracker,
+  analyses and the scope picker was redone.
+
 ### Fixed
 
+- **"Affects you" in the latest CVEs** marked nearly every CVE: a package name matched anywhere in the description. It
+  now needs the CVE to name your package as a product (followed by a version or "before/through/prior to").
+- **Numbers and percentages follow the language** (Spanish "1.622", "0,2 %").
+- **The view follows the address** when only its hash changes.
 - **A web tool that exits 0 without reaching a host is no longer a clean result.** nuclei (now without `-silent`,
   with `-stats -sj`) skipping a host as unresponsive or refused ("denied address found for host"), templates that
   couldn't execute or statistics showing no request sent; katana whose seed only errored; httpx without an answer; and

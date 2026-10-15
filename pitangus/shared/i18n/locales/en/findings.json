@@ -4,7 +4,9 @@
       "update": "Update",
       "reinstall": "Reinstall",
       "install": "Install",
-      "check": "Check the response headers"
+      "check": "Check the response headers",
+      "check_version": "Check that it shows {{version}} or later",
+      "if_stuck": "If it stays below {{version}}, update {{package}}"
     },
     "verify": "Then push the change to the main branch and click “Reverify” (or wait for the branch's automatic analysis).",
     "verify_dependency": "Then regenerate the lockfile, push the change to the main branch and click “Reverify” (or wait for the branch's automatic analysis).",
@@ -38,7 +40,15 @@
       "remove": "Remove it from {{path}} and commit.",
       "history": "If the repository is or was public, consider rewriting the history (git filter-repo); rotating is what protects you.",
       "verify": "Then click “Reverify”."
-    }
+    },
+    "path": {
+      "action": "Update {{package}} to {{target}}; if it stays below, update {{direct}}, which brings it in.",
+      "from": "{{package}} {{version}} comes in through {{parent}} {{parent_version}}.",
+      "from_via": "{{package}} {{version}} comes from {{direct}} {{direct_version}} through {{parent}} {{parent_version}}.",
+      "if_stuck": "If the update leaves it below {{target}}, {{parent}} {{parent_version}} is holding it back: update {{direct}}, then {{package}} again.",
+      "override_note": "Better still: update {{direct}}, which brings it in."
+    },
+    "also_in": "{{package}} {{version}} is also in {{paths}}: update it there too, in each of those folders."
   },
   "fix_examples": {
     "py_eval_exec_non_literal": "If you need operations, use a table of allowed functions instead of evaluating text.",
@@ -72,12 +82,16 @@
   },
   "registry": {
     "reappeared": "Reappeared in run {{run}}",
+    "new_copy": "New copy in run {{run}}: {{count}} now, {{before}} when it was decided",
     "gone_from_scan": "No longer found in the full scan of {{date}}",
+    "released": "Fixed by {{user}} on {{date}}, releasing the fixes a scan had held back",
     "fixed_in_pr": "Fixed in commit {{commit}} of PR #{{number}}",
     "pr_closed": "PR #{{number}} was closed without merging",
     "gone_from_import": "No longer in the {{tool}} import of {{date}}"
   },
   "triage": {
+    "folded": "{{count}} copies with the same decision were grouped into this finding; it keeps the decision with the earliest expiry",
+    "folded_review": "{{count}} copies were grouped into this finding with different decisions, or without one: review it",
     "status": {
       "open": "Open",
       "in_progress": "In progress",
@@ -134,6 +148,27 @@
       "info": "Informational: it describes the site, it isn't a weakness on its own",
       "attack": "The scanner reproduced it with a request it crafted",
       "observed": "Seen in a live response of the site: confirm its impact against the application"
+    }
+  },
+  "prompt": {
+    "intro": "Fix this security finding in my code. Change only what the fix needs, keep the behavior, and tell me briefly what you changed and why.",
+    "finding": "Finding: {{title}} (rule {{rule}}, {{severity}})",
+    "where": "Where: {{where}}",
+    "package": "Package: {{name}} {{version}}",
+    "package_fixed": "Package: {{name}} {{version}}; the first version without the problem is {{fixed}}",
+    "why": "Why it matters: {{reason}}",
+    "code": "The code it was found in:",
+    "fix": "Recommended fix: {{fix}}",
+    "steps": "Steps:",
+    "commands": "Commands that may help:",
+    "secret": "This is a secret. Don't write its value anywhere: it has to be rotated first, then removed from the code and from the repository's history.",
+    "rules": "Don't add dependencies the fix doesn't need, keep the existing tests passing, and add a test for this case if the project has tests.",
+    "severity": {
+      "critical": "critical severity",
+      "high": "high severity",
+      "medium": "medium severity",
+      "low": "low severity",
+      "info": "informational"
     }
   }
 }

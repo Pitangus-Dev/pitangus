@@ -115,7 +115,7 @@ def _row(row, now: datetime | None = None) -> dict:
             "registered_at": _iso(row.registered_at), "verified": verified, "verified_at": _iso(row.verified_at),
             "verified_until": _iso(row.verified_until), "checked_at": _iso(row.checked_at),
             "expired": bool(row.verified_at and not verified), "key": asset_key(row.host),
-            "proof_method": row.proof_method if row.verified_at else None,
+            "proof_method": row.proof_method if row.verified_at else None, "session_check": row.session_check or None,
             "verify_token": secret, "verify_file_url": f"https://{row.host}{WELL_KNOWN}",
             "verify_meta": f'<meta name="{META_NAME}" content="{secret}">',
             "schedule": _schedule(row, now)}
@@ -268,6 +268,11 @@ def lookup_txt(name: str) -> list[str] | None:
     return [line.strip().strip('"').replace('" "', '') for line in lines]
 
 
+def set_session_check(data_dir: Path, domain_id: str, url: str) -> dict:
+    """Saves the page that proves the saved headers still carry a session (already checked; empty clears it)."""
+    return _mark(data_dir, domain_id, session_check=url)
+
+
 def _mark(data_dir: Path, domain_id: str, **values) -> dict:
     with db.transaction(data_dir) as connection:
         connection.execute(update(domain_registry).where(domain_registry.c.tenant_id == TENANT, domain_registry.c.id == domain_id).values(**values))
@@ -301,17 +306,19 @@ def meta_tokens(page: bytes) -> list[str]:
     return parser.found
 
 
-def https_get(host: str, address: str, path: str, *, limit: int = BODY_LIMIT, seconds: int = FETCH_SECONDS) -> tuple[int, bytes]:
+def https_get(host: str, address: str, path: str, *, limit: int = BODY_LIMIT, seconds: int = FETCH_SECONDS,
+              headers=()) -> tuple[int, bytes]:
     """One GET of `https://<host><path>` sent to `address` (already checked as public) with SNI and certificate
     validation for `host`. No redirects, no proxy, at most `limit` + 1 bytes (so a caller sees it was larger) and
-    `seconds` in all. Raises OSError, ssl.SSLError or http.client.HTTPException when it can't."""
+    `seconds` in all; `headers`: (name, value) pairs to add (the domain's saved ones, already validated). Raises
+    OSError, ssl.SSLError or http.client.HTTPException when it can't."""
     deadline = time.monotonic() + seconds
     ssl_context = ssl.create_default_context()
     with socket.create_connection((address, 443), timeout=6) as raw:
         with ssl_context.wrap_socket(raw, server_hostname=host) as secure:
             connection = http.client.HTTPSConnection(host, 443, timeout=6)
             connection.sock = secure
-            connection.request("GET", path, headers={"Host": host, "User-Agent": USER_AGENT, "Accept": "*/*",
+            connection.request("GET", path, headers={**dict(headers), "Host": host, "User-Agent": USER_AGENT, "Accept": "*/*",
                                                      "Accept-Encoding": "identity", "Connection": "close"})
             response = connection.getresponse()
             body = b""
@@ -465,6 +472,21 @@ def scan_scope(record: dict, hosts=None) -> dict:
         elif not wildcard and bare not in concrete:
             concrete.append(bare)
     return {"hosts": concrete, "wildcards": wildcards}
+
+
+def page_of(url: str) -> str | None:
+    """A URL as a page a crawl reached: scheme, host and path, without query or fragment or a trailing slash, its
+    repeated slashes as one. Two visits to one page with different parameters are the same page. None for what isn't an
+    http(s) URL."""
+    try:
+        parts = urlsplit(str(url or ""))
+    except ValueError:
+        return None
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return None
+    port = f":{parts.port}" if parts.port and parts.port != (443 if parts.scheme == "https" else 80) else ""
+    # Repeated slashes are one: `//.env` and `/.env` are the same request for every tool a scan runs.
+    return f"{parts.scheme}://{parts.hostname.lower()}{port}{re.sub('/{2,}', '/', parts.path).rstrip('/') or '/'}"
 
 
 def in_scope(host: str, scope: dict) -> bool:

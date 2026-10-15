@@ -22,7 +22,7 @@ def finding(fingerprint, path, line, severity="high", scanner="sast", package=No
 
 def scan_result(findings, status="completed", failed=()):
     steps = [{"id": tool, "name": tool, "status": "inconclusive" if tool in failed else "completed", "detail": "",
-              "tool": {"name": tool}} for tool in ("opengrep", "gitleaks", "trivy", "osv-scanner")]
+              "tool": {"name": tool}} for tool in ("opengrep", "betterleaks", "trivy", "osv-scanner", "checkov", "zizmor")]
     return {"status": status, "findings": findings, "steps": steps}
 
 
@@ -189,6 +189,11 @@ class GateTests(unittest.TestCase):
         # What was found still blocks, even if an engine is missing.
         self.assertEqual(self.run_with([finding("a", "x.py", 1, "critical")], failed=("trivy",))["exit_code"], EXIT_BLOCKED)
 
+    def test_an_optional_engine_that_failed_is_named_without_failing_the_analysis(self):
+        result = self.run_with([], failed=("checkov",))
+        self.assertEqual((result["exit_code"], result["status"]), (EXIT_OK, "completed"))  # optional: not incomplete
+        self.assertIn("Not analyzed: checkov", local_scan.render_text(result, locale="en"))
+
     def test_text_groups_advisories_of_a_package_into_one_fix(self):
         package = lambda fixed: {"name": "urllib3", "version": "1.26.4", "fixed_version": fixed, "ecosystem": "PyPI"}
         result = self.run_with([finding("u1", "requirements.txt", 1, "high", "sca", package("1.26.5")),
@@ -232,7 +237,8 @@ class GateTests(unittest.TestCase):
             "diff --git a/gone.py b/gone.py", "deleted file mode 100644", "--- a/gone.py", "+++ /dev/null", "@@ -1 +0,0 @@", "-x",
             "diff --git a/logo.png b/logo.png", "Binary files a/logo.png and b/logo.png differ"])
         files = {item["filename"]: item for item in parse_diff(text)}
-        self.assertEqual((files["new.py"]["status"], files["gone.py"]["status"], files["logo.png"]["patch"]), ("modified", "removed", None))
+        self.assertEqual((files["new.py"]["status"], files["gone.py"]["status"], files["logo.png"]["patch"]), ("renamed", "removed", None))
+        self.assertEqual(files["new.py"]["previous_filename"], "old.py")  # as GitHub's PR files say it
 
 
 if __name__ == "__main__":

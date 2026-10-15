@@ -57,11 +57,11 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertNotEqual(seen["home"], os.environ.get("HOME"))
 
     def test_readiness_follows_what_is_installed(self):
-        self.assertFalse(engines.engine_ready("gitleaks"))
-        self.assertIn("Gitleaks", str(engines.unavailable("gitleaks", "docker message")))
-        self.install("gitleaks", FAKE)
-        self.assertTrue(engines.engine_ready("gitleaks"))
-        self.assertIsNone(engines.unavailable("gitleaks", "docker message"))
+        self.assertFalse(engines.engine_ready("betterleaks"))
+        self.assertIn("Betterleaks", str(engines.unavailable("betterleaks", "docker message")))
+        self.install("betterleaks", FAKE)
+        self.assertTrue(engines.engine_ready("betterleaks"))
+        self.assertIsNone(engines.unavailable("betterleaks", "docker message"))
         self.assertTrue(engines.engines_available())
 
     def test_a_timeout_kills_the_engine_and_what_it_started(self):
@@ -79,9 +79,9 @@ class LocalRunnerTests(unittest.TestCase):
                          "appsec.py.eval-exec-non-literal")
 
     def test_arguments_reach_the_engine_untouched_and_no_core_dumps(self):
-        self.install("gitleaks", '#!/bin/sh\nprintf "%s|" "$@"; ulimit -c\n')
+        self.install("betterleaks", '#!/bin/sh\nprintf "%s|" "$@"; ulimit -c\n')
         tricky = ["dir", "/src", "--report-path", "a b; echo pwned", "$(id)", "`id`", "*"]
-        completed = engines._run("gitleaks", tricky, self.snapshot)
+        completed = engines._run("betterleaks", tricky, self.snapshot)
         self.assertEqual(completed.stdout.strip(), "dir|/src|--report-path|a b; echo pwned|$(id)|`id`|*|0")
 
 
@@ -108,10 +108,10 @@ class NetworkIsolationTests(unittest.TestCase):
             def communicate(self, timeout=None):
                 return "", ""
         with patch.dict(os.environ, {"PITANGUS_ENGINE_RUNNER": "local"}), \
-                patch.object(engines.shutil, "which", return_value="/usr/local/bin/gitleaks"), \
+                patch.object(engines.shutil, "which", return_value="/usr/local/bin/betterleaks"), \
                 patch.object(engines, "network_isolation", return_value=PREFIX), \
                 patch.object(engines.subprocess, "Popen", Process):
-            engines._run("gitleaks", ["dir", "/src"], Path("/tmp"), network=network)
+            engines._run("betterleaks", ["dir", "/src"], Path("/tmp"), network=network)
         return seen["command"]
 
     def test_only_engines_without_network_are_isolated(self):

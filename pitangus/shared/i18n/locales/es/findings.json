@@ -4,7 +4,9 @@
       "update": "Actualiza",
       "reinstall": "Reinstala",
       "install": "Instala",
-      "check": "Revisa las cabeceras de la respuesta"
+      "check": "Revisa las cabeceras de la respuesta",
+      "check_version": "Comprueba que muestre {{version}} o superior",
+      "if_stuck": "Si sigue por debajo de {{version}}, actualiza {{package}}"
     },
     "verify": "Después: sube el cambio a la rama principal y haz clic en «Reverificar» (o espera al análisis automático de la rama).",
     "verify_dependency": "Después: regenera el lockfile, sube el cambio a la rama principal y haz clic en «Reverificar» (o espera al análisis automático de la rama).",
@@ -38,7 +40,15 @@
       "remove": "Quítala de {{path}} y haz commit.",
       "history": "Si el repositorio es o fue público, considera reescribir el historial (git filter-repo); rotar es lo que te protege.",
       "verify": "Después haz clic en «Reverificar»."
-    }
+    },
+    "path": {
+      "action": "Actualiza {{package}} a {{target}}; si no sube, actualiza {{direct}}, que es quien la trae.",
+      "from": "{{package}} {{version}} llega a través de {{parent}} {{parent_version}}.",
+      "from_via": "{{package}} {{version}} viene de {{direct}} {{direct_version}} a través de {{parent}} {{parent_version}}.",
+      "if_stuck": "Si la actualización la deja por debajo de {{target}}, la está limitando {{parent}} {{parent_version}}: actualiza {{direct}} y luego otra vez {{package}}.",
+      "override_note": "Mejor aún: actualiza {{direct}}, que es quien la trae."
+    },
+    "also_in": "{{package}} {{version}} también está en {{paths}}: actualízala ahí también, en cada una de esas carpetas."
   },
   "fix_examples": {
     "py_eval_exec_non_literal": "Si necesitas operaciones, usa una tabla de funciones permitidas en vez de evaluar texto.",
@@ -72,12 +82,16 @@
   },
   "registry": {
     "reappeared": "Reapareció en la ejecución {{run}}",
+    "new_copy": "Nueva copia en la ejecución {{run}}: ahora hay {{count}}, había {{before}} al decidir",
     "gone_from_scan": "Ya no aparece en el escaneo completo del {{date}}",
+    "released": "Remediado por {{user}} el {{date}}, al liberar los remediados que un análisis había retenido",
     "fixed_in_pr": "Corregido en el commit {{commit}} del PR #{{number}}",
     "pr_closed": "El PR #{{number}} se cerró sin merge",
     "gone_from_import": "Ya no aparece en la importación de {{tool}} del {{date}}"
   },
   "triage": {
+    "folded": "Se agruparon en este hallazgo {{count}} copias con la misma decisión; conserva la que caduca antes",
+    "folded_review": "Se agruparon en este hallazgo {{count}} copias con decisiones distintas o sin decisión: hay que revisarlo",
     "status": {
       "open": "Abierto",
       "in_progress": "En curso",
@@ -134,6 +148,27 @@
       "info": "Informativo: describe el sitio, no es una debilidad por sí solo",
       "attack": "El escáner lo reprodujo con una petición que armó para eso",
       "observed": "Se vio en una respuesta real del sitio: confirma su impacto en la aplicación"
+    }
+  },
+  "prompt": {
+    "intro": "Corrige este hallazgo de seguridad en mi código. Cambia solo lo que la corrección necesita, conserva el comportamiento y dime en pocas palabras qué cambiaste y por qué.",
+    "finding": "Hallazgo: {{title}} (regla {{rule}}, {{severity}})",
+    "where": "Dónde: {{where}}",
+    "package": "Paquete: {{name}} {{version}}",
+    "package_fixed": "Paquete: {{name}} {{version}}; la primera versión sin el problema es {{fixed}}",
+    "why": "Por qué importa: {{reason}}",
+    "code": "El código donde se encontró:",
+    "fix": "Corrección recomendada: {{fix}}",
+    "steps": "Pasos:",
+    "commands": "Comandos que pueden ayudar:",
+    "secret": "Es un secreto. No escribas su valor en ninguna parte: primero hay que rotarlo y después quitarlo del código y del historial del repositorio.",
+    "rules": "No añadas dependencias que la corrección no necesite, mantén pasando los tests que ya hay y añade un test para este caso si el proyecto tiene tests.",
+    "severity": {
+      "critical": "severidad crítica",
+      "high": "severidad alta",
+      "medium": "severidad media",
+      "low": "severidad baja",
+      "info": "informativo"
     }
   }
 }

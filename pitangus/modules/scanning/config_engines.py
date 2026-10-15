@@ -17,21 +17,27 @@ images) with `also_detected_by` and `related_rules`. Rule equivalence comes from
 measured on TerraGoat, CfnGoat, KubernetesGoat and CI/CD-Goat, plus a title comparison
 when the table doesn't know the pair.
 
-No code snippet from the reports (Checkov's `code_block`, zizmor's `feature`) is read
-or stored: it may contain secrets. Only rule, file and lines.
+Checkov's `code_block` is never read. zizmor's `feature` (the YAML a finding points at, read from the snapshot) is what
+its identity and its fingerprint read; it may hold anything (`password: …` in a container's credentials, a `run:`
+block's commands), so it never leaves the scan: both are computed from it here, and the snippet stored and shown is
+only where the finding is in the workflow, its route of keys (`jobs:` / `build:` / `steps[2]:`), and zizmor's note.
 """
 
 from __future__ import annotations
 
-import json
 import re
 import subprocess
 import tempfile
 import time
 from pathlib import Path
 
-from pitangus.modules.scanning.engines import _base, _relative, _result, _run, _stable, unavailable, with_cause
+from pitangus.modules.scanning import engine_contract
+from pitangus.modules.scanning.engine_contract import Contract
+from pitangus.modules.scanning.folding import absorbed as folded
+from pitangus.modules.scanning.engines import _base, _relative, _result, _run, _stable, joined as join_messages, switched_off, unavailable, with_cause
+from pitangus.shared.code_identity import anywhere_identity, content_identity
 from pitangus.shared.i18n import msg, text
+from pitangus.shared.render import PLACEHOLDER
 
 CHECKOV_FRAMEWORKS = ("terraform", "terraform_json", "cloudformation", "kubernetes", "helm", "kustomize", "dockerfile",
                       "arm", "bicep", "serverless", "openapi", "ansible", "github_actions", "gitlab_ci",
@@ -209,9 +215,9 @@ def merge_equivalent(primary: list[dict], secondary: list[dict], table: dict[str
             continue
         absorbed += 1
         for twin in twins:
-            if finding["tool"] != twin["tool"] and finding["tool"] not in twin.setdefault("also_detected_by", []):
-                twin["also_detected_by"].append(finding["tool"])
+            if finding["tool"] != twin["tool"] and finding["tool"] not in twin.get("also_detected_by", []):
                 twin["confidence"] = min(10, twin["confidence"] + 1)
+            folded(twin, finding)
             if finding["rule_id"] not in twin.setdefault("related_rules", []):
                 twin["related_rules"].append(finding["rule_id"])
     return primary + extra, absorbed
@@ -280,6 +286,7 @@ def parse_checkov(payload, *, image: dict | None = None, step_of: dict[int, int]
                                 cwe=[829 if pipeline else 1188], owasp="A03:2025" if pipeline else "A02:2025",
                                 confidence=7, digest=digest)
                 finding["end_line"] = end
+                finding["resource"] = resource[:300]
             finding["framework"] = label
             if finding["fingerprint"] not in seen:
                 seen.add(finding["fingerprint"])
@@ -292,25 +299,67 @@ def _checkov(arguments: list[str], mount: Path, timeout: int) -> subprocess.Comp
                             "--download-external-modules", "false"], mount, timeout=timeout)
 
 
+def _checkov_reports(payload) -> list[dict]:
+    return [report for report in (payload if isinstance(payload, list) else [payload]) if isinstance(report, dict)]
+
+
+# Checkov with --soft-fail exits 0 and prints its reports, one per framework (a list), or a summary when there was
+# nothing to check: each with its summary or resource count.
+CHECKOV = Contract("Checkov", frozenset({0}), (dict, list), lambda payload: bool(_checkov_reports(payload)) and all(
+    "summary" in report or "resource_count" in report for report in _checkov_reports(payload)))
+ZIZMOR = Contract("zizmor", frozenset({0}), (list,))
+ZIZMOR_COMPLETED = re.compile(r"\bcompleted (/src/\S+)")
+
+
+def checkov_unparsed(payload) -> dict[str, str]:
+    """The files Checkov couldn't parse (`results.parsing_errors`): only those go unexamined."""
+    return {_relative(str(path)).lstrip("/"): "parse_error" for report in _checkov_reports(payload)
+            for path in (report.get("results") or {}).get("parsing_errors") or [] if isinstance(path, str)}
+
+
+def _checkov_unparsed_count(payload) -> int:
+    return sum(int((report.get("summary") or {}).get("parsing_errors") or 0) for report in _checkov_reports(payload))
+
+
+def checkov_unnamed(payload) -> bool:
+    """Whether a report counts files it couldn't parse without naming each of them: those could be any file."""
+    return any(int((report.get("summary") or {}).get("parsing_errors") or 0)
+               > len([path for path in (report.get("results") or {}).get("parsing_errors") or [] if isinstance(path, str)])
+               for report in _checkov_reports(payload))
+
+
 def run_checkov(snapshot: Path) -> dict:
     started = time.time()
+    if off := switched_off("checkov"):
+        return off
     if problem := unavailable("checkov", msg("scanning.checkov.no_docker")):
         return _result("checkov", "not_tested", problem)
     try:
+        # With --soft-fail it always exits 0 and prints JSON, even without anything to check: any other exit (an OOM's
+        # 137, a Docker error) or output that isn't its JSON is a run that didn't finish.
         completed = _checkov(["--directory", "/src", "--framework", *CHECKOV_FRAMEWORKS], snapshot, 900)
-        text = completed.stdout.strip()
-        payload = json.loads(text) if text.startswith(("[", "{")) else []
+        payload, contract = engine_contract.verdict(CHECKOV, completed.returncode, completed.stdout)
+        if contract:
+            return engine_contract.failed(_result("checkov", "inconclusive", with_cause(contract, completed), started=started), contract)
     except subprocess.TimeoutExpired:
-        return _result("checkov", "inconclusive", msg("scanning.checkov.timeout"), started=started)
+        timeout = msg("scanning.checkov.timeout")
+        return engine_contract.failed(_result("checkov", "inconclusive", timeout, started=started), timeout)
     except (OSError, ValueError):
-        return _result("checkov", "inconclusive", msg("scanning.engines.unreadable", engine="Checkov"), started=started)
-    if completed.returncode not in (0, 1) and not payload:
-        return _result("checkov", "inconclusive", with_cause(msg("scanning.engines.failed_early", engine="Checkov"), completed), started=started)
+        unreadable = msg("scanning.engines.unreadable", engine="Checkov")
+        return engine_contract.failed(_result("checkov", "inconclusive", unreadable, started=started), unreadable)
+    unparsed = _checkov_unparsed_count(payload)
     findings = parse_checkov(payload)
     frameworks = sorted({item["framework"] for item in findings})
     detail = (msg("scanning.checkov.detail", failures=len(findings), frameworks=", ".join(frameworks))
               if findings else msg("scanning.checkov.clean"))
-    return _result("checkov", "completed", detail, findings, started)
+    coverage = engine_contract.coverage("*", checkov_unparsed(payload))
+    if unparsed:
+        detail = join_messages([detail, msg("scanning.checkov.unparsed", count=unparsed)], "scanning.join.sentences")
+        # With the contract, a file Checkov couldn't parse is unexamined, that file only; before it, the whole run. Files
+        # it counts without naming them could be any: the whole run then, in every mode.
+        status = "completed" if engine_contract.enforced() and not checkov_unnamed(payload) else "inconclusive"
+        return engine_contract.recorded({**_result("checkov", status, detail, findings, started), "coverage": coverage}, None)
+    return engine_contract.recorded({**_result("checkov", "completed", detail, findings, started), "coverage": coverage}, None)
 
 
 RUN_PREFIX = re.compile(r"^(?:\|\d+(?:\s+\S+=\S*)*\s+)?/bin/(?:ba)?sh -c\s+")
@@ -358,6 +407,8 @@ def run_checkov_image(metadata: dict, image: dict, work_dir: Path) -> dict:
     """Checkov on the rebuilt Dockerfile. The history may carry secrets: the file lives in a temporary
     folder deleted when done, and the container has no network."""
     started = time.time()
+    if off := switched_off("checkov"):
+        return off
     if problem := unavailable("checkov", msg("scanning.checkov.image_no_docker")):
         return _result("checkov", "not_tested", problem)
     config_block = metadata.get("ImageConfig") or {}
@@ -370,12 +421,15 @@ def run_checkov_image(metadata: dict, image: dict, work_dir: Path) -> dict:
         (Path(folder) / "Dockerfile").write_text(dockerfile, encoding="utf-8")
         try:
             completed = _checkov(["--file", "/src/Dockerfile", "--framework", "dockerfile"], Path(folder), 300)
-            text = completed.stdout.strip()
-            payload = json.loads(text) if text.startswith(("[", "{")) else []
+            payload, contract = engine_contract.verdict(CHECKOV, completed.returncode, completed.stdout)
         except subprocess.TimeoutExpired:
-            return _result("checkov", "inconclusive", msg("scanning.checkov.image_timeout"), started=started)
+            timeout = msg("scanning.checkov.image_timeout")
+            return engine_contract.failed(_result("checkov", "inconclusive", timeout, started=started), timeout)
         except (OSError, ValueError):
-            return _result("checkov", "inconclusive", msg("scanning.engines.unreadable", engine="Checkov"), started=started)
+            unreadable = msg("scanning.engines.unreadable", engine="Checkov")
+            return engine_contract.failed(_result("checkov", "inconclusive", unreadable, started=started), unreadable)
+    if contract:
+        return engine_contract.failed(_result("checkov", "inconclusive", with_cause(contract, completed), started=started), contract)
     findings = parse_checkov(payload, image=image, step_of=step_of)
     return _result("checkov", "completed", msg("scanning.checkov.image_detail", failures=len(findings), steps=len(step_of)),
                    findings, started)
@@ -419,8 +473,46 @@ ZIZMOR_CONFIDENCE = {"high": 8, "medium": 6, "low": 4, "unknown": 4}
 ZIZMOR_DOWNGRADE = {"unpinned-uses": "medium", "unpinned-images": "low", "anonymous-definition": "info"}
 
 
-def parse_zizmor(payload: list) -> list[dict]:
+def _zizmor_feature(snapshot: Path | None, path: str, primary: dict, texts: dict[str, bytes]) -> str:
+    """The YAML the finding points at (the step, the trigger…), from the file in the snapshot, without whitespace; its
+    route in the workflow (`jobs.build.steps[0]`) when the file can't be read."""
+    route = ((primary.get("symbolic") or {}).get("route") or {}).get("route") or []
+    span = ((primary.get("concrete") or {}).get("location") or {}).get("offset_span") or {}
+    if snapshot is not None and isinstance(span.get("start"), int) and isinstance(span.get("end"), int):
+        if path not in texts:
+            try:
+                texts[path] = (snapshot / path).read_bytes()
+            except OSError:
+                texts[path] = b""
+        feature = " ".join(texts[path][span["start"]:span["end"]].decode("utf-8", errors="replace").split())[:300]
+        if feature:
+            return feature
+    return ".".join(str(part.get("Key", f"[{part.get('Index')}]")) for part in route if isinstance(part, dict))
+
+
+def _zizmor_route(primary: dict) -> str:
+    """Where a zizmor finding is in its workflow, as the keys that lead there (`jobs:` / `  build:` / `    steps[2]:`):
+    names the workflow gives, never a value it holds."""
+    route = ((primary.get("symbolic") or {}).get("route") or {}).get("route") or []
+    lines: list[str] = []
+    for part in route:
+        if not isinstance(part, dict):
+            continue
+        if "Index" in part and isinstance(part["Index"], int) and lines:
+            lines[-1] = f"{lines[-1][:-1]}[{part['Index']}]:"
+        elif isinstance(part.get("Key"), str) and re.fullmatch(r"[\w.$/-]{1,100}", part["Key"]):
+            lines.append(f"{'  ' * len(lines)}{part['Key']}:")
+        else:
+            lines.append(f"{'  ' * len(lines)}{PLACEHOLDER}:")
+    return "\n".join(lines)
+
+
+def parse_zizmor(payload: list, snapshot: Path | None = None) -> list[dict]:
+    """zizmor's findings. Keyed by what they point at in the workflow, not by line: a line added above a step mustn't
+    make its finding look fixed and new (the line-based fingerprint stays as `previous_fingerprint`)."""
     findings, seen = [], set()
+    texts: dict[str, bytes] = {}
+    repeats: dict[str, int] = {}
     for entry in payload or []:
         if not isinstance(entry, dict):
             continue
@@ -437,7 +529,11 @@ def parse_zizmor(payload: list) -> list[dict]:
         title, cwe = ZIZMOR_AUDITS.get(ident, (str(entry.get("desc") or ident), 1104))
         severity = ZIZMOR_DOWNGRADE.get(ident) or ZIZMOR_SEVERITY.get(str(determinations.get("severity") or "").lower(), "medium")
         annotation = str((primary.get("symbolic") or {}).get("annotation") or "").strip()
-        digest = _stable("cicd", ident, path, str(line))
+        feature = _zizmor_feature(snapshot, path, primary, texts)
+        digest = base = _stable("cicd", ident, path, feature, annotation)
+        if base in seen:  # the same YAML twice in a file (two identical steps): the next ones carry their order
+            repeats[base] = repeats.get(base, 1) + 1
+            digest = _stable("cicd", ident, path, feature, annotation, f"#{repeats[base]}")
         finding = _base("cicd", ident, title, path, line, severity, tool="zizmor",
                         reason=msg("scanning.zizmor.reason_annotated" if annotation else "scanning.zizmor.reason",
                                    description=str(entry.get("desc") or "").rstrip(".") or title, annotation=annotation, path=path, line=line),
@@ -446,6 +542,15 @@ def parse_zizmor(payload: list) -> list[dict]:
                         digest=digest)
         finding["end_line"] = max(line, end)
         finding["framework"] = "GitHub Actions"
+        # Identity from the YAML it points at, pinned; what is stored and shown is only its route (`_zizmor_route`).
+        original = {**finding, "snippet": f"{feature}\n{annotation}" if annotation else feature}
+        finding["identity"] = content_identity(original)
+        finding["anywhere"] = anywhere_identity(original)
+        route = _zizmor_route(primary)
+        finding["snippet"] = f"{route}\n# {annotation}" if annotation else route
+        finding["previous_fingerprint"] = _stable("cicd", ident, path, str(line))
+        if digest != base:
+            finding["family"] = base
         if digest not in seen:
             seen.add(digest)
             findings.append(finding)
@@ -468,18 +573,24 @@ def run_zizmor(snapshot: Path) -> dict:
         return _result("zizmor", "completed", msg("scanning.zizmor.nothing_to_audit"), started=started)
     try:
         completed = _run("zizmor", ["--offline", "--no-exit-codes", "--no-progress", "--format", "json", "/src"], snapshot, timeout=300)
-        payload = json.loads(completed.stdout or "[]")
+        payload, contract = engine_contract.verdict(ZIZMOR, completed.returncode, completed.stdout)
+        if contract:
+            return engine_contract.failed(_result("zizmor", "inconclusive", with_cause(contract, completed), started=started), contract)
     except subprocess.TimeoutExpired:
-        return _result("zizmor", "inconclusive", msg("scanning.engines.timeout", engine="zizmor"), started=started)
+        timeout = msg("scanning.engines.timeout", engine="zizmor")
+        return engine_contract.failed(_result("zizmor", "inconclusive", timeout, started=started), timeout)
     except (OSError, ValueError):
-        return _result("zizmor", "inconclusive", msg("scanning.engines.unreadable", engine="zizmor"), started=started)
-    if completed.returncode != 0 and not payload:
-        return _result("zizmor", "inconclusive", with_cause(msg("scanning.engines.failed_early", engine="zizmor"), completed), started=started)
-    findings = parse_zizmor(payload)
+        unreadable = msg("scanning.engines.unreadable", engine="zizmor")
+        return engine_contract.failed(_result("zizmor", "inconclusive", unreadable, started=started), unreadable)
+    findings = parse_zizmor(payload, snapshot)
     affected = len({item["path"] for item in findings})
     detail = (msg("scanning.zizmor.detail", audited=len(audited), problems=len(findings), affected=affected)
               if findings else msg("scanning.zizmor.clean", audited=len(audited)))
-    return _result("zizmor", "completed", detail, findings, started)
+    # Its log names each file it finished auditing; one it couldn't parse is only a warning without a path.
+    finished = {_relative(path) for path in ZIZMOR_COMPLETED.findall(completed.stderr or "")}
+    missing = {path.relative_to(snapshot).as_posix(): "not_read" for path in audited if path.relative_to(snapshot).as_posix() not in finished}
+    return engine_contract.recorded({**_result("zizmor", "completed", detail, findings, started),
+                                     "coverage": engine_contract.coverage("*", missing)}, None)
 
 
 # --- merge -------------------------------------------------------------------------------------

@@ -26,3 +26,16 @@ Every rule carries its finding title and its fix in both languages; the engine s
 User-authored custom rules are a separate, future feature managed from the panel; they don't live in this folder.
 
 Validate: `docker run --rm --network none -v "$PWD/rules:/rules:ro" localhost/pitangus/opengrep:1.30.0 scan --validate --config /rules /rules`
+
+## Tests
+
+Each rule file has its cases in `tests/`, with the same name (`python.yml` → `tests/python.py`; `javascript.yml` →
+`tests/javascript.js` and `tests/javascript.jsx`). A comment on the line above a case says what the rule must do there:
+`# ruleid: appsec.py.eval-exec-non-literal` (it must match the next line) or `# ok: appsec.py.requests-verify-false`
+(it must not). `make rules-test` runs them (`opengrep scan --test`, with the same `--taint-intrafile` as a scan), and
+so does CI before anything else uses the rules.
+
+Every rule has at least one of each (`tests/test_rules_i18n.py` checks it without Opengrep). When you change a rule,
+add the case that motivated it: the vulnerable line it now catches as `ruleid:`, the false positive it stops
+reporting as `ok:`.
+Opengrep leaves `tests/` folders out of a scan, so these files never show up as findings of a repository that keeps them.

@@ -15,6 +15,7 @@ import { formatDay, formatNumber } from '@/shared/i18n/format'
 import { ImageOrigin } from '@/features/compliance/image-origin'
 import { Pager } from '@/features/sources/source-search'
 import { AddImageDialog, type RegisteredImage } from '@/features/sources/add-image'
+import { addedNotice } from '@/features/sources/image-notices'
 import { Notice } from '@/shared/ui/notice'
 
 const PAGE_SIZE = 25
@@ -45,7 +46,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
   const tabs: ImageLink[] = repository ? ['all', 'label', 'manual'] : ['all', 'unlinked', 'label', 'manual']
 
   // Images not linked yet come first; the ones built from another repository say so, so nothing is moved unseen.
-  const searchImages = useCallback((query: string) => queryClient.fetchQuery(imagesQuery({ q: query, limit: 20 })).then(found => {
+  const searchImages = useCallback((query: string) => queryClient.fetchQuery({ ...imagesQuery({ q: query, limit: 20 }), staleTime: 0 }).then(found => {
     const options = found.items.filter(item => item.built_from?.repository !== repository?.key)
       .sort((a, b) => Number(Boolean(a.built_from?.repository)) - Number(Boolean(b.built_from?.repository)))
       .map(item => ({ id: item.key, label: item.name, hint: item.built_from?.repository ? t('images.currently', { name: item.built_from.name }) : t('images.tabs.unlinked') }))
@@ -78,14 +79,7 @@ export function ImageList({ admin, repository, onClearRepository, onOpenFindings
       void queryClient.invalidateQueries({ queryKey: keys.images })
     } catch (caught) { setRescans(current => ({ ...current, [key]: { error: caught instanceof Error ? caught.message : String(caught) } })) }
   }
-  const added = (image: RegisteredImage) => {
-    const name = image.name
-    const base = image.created ? t(image.run ? 'images.added_queued' : 'images.added', { name })
-      : t(image.analyzed ? 'images.already_analyzed' : 'images.already_added', { name })
-    const extra = [...(!image.created && image.run ? [t('images.scan_queued')] : []),
-      ...(image.built_from?.how === 'manual' ? [t('images.added_built_from', { name: image.built_from.name })] : [])]
-    setNotice([base, ...extra].join(' '))
-  }
+  const added = (image: RegisteredImage) => setNotice(addedNotice(t, image))
   const removal = useMutation({
     mutationFn: (image: { key: string; name: string }) => apiPost('/api/images/remove', 'remove-image', { key: image.key }),
     onSuccess: (_, image) => {

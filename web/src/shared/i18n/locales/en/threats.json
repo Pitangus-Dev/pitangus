@@ -41,7 +41,11 @@
     "pasta_stages_one": "{{count, number}} PASTA stage",
     "pasta_stages_other": "{{count, number}} PASTA stages",
     "pending_refs_one": "{{count, number}} reference to link",
-    "pending_refs_other": "{{count, number}} references to link"
+    "pending_refs_other": "{{count, number}} references to link",
+    "assumptions_one": "{{count, number}} assumption",
+    "assumptions_other": "{{count, number}} assumptions",
+    "steps_one": "{{count, number}} tree step",
+    "steps_other": "{{count, number}} tree steps"
   },
   "level": {
     "low": "Low",
@@ -241,7 +245,11 @@
     "likelihood": "Likelihood",
     "impact": "Impact",
     "owner": "Owner",
-    "mitigation": "Mitigation"
+    "mitigation": "Mitigation",
+    "no_category": "No category",
+    "equivalent": "«{{value}}» sorts like",
+    "equivalent_none": "After the known levels",
+    "equivalent_hint": "Your own severity keeps its name; choose a known level so it sorts and counts with it."
   },
   "pasta": {
     "hints": {
@@ -279,7 +287,8 @@
       "low_other": "{{count, number}} low"
     },
     "has_notes": "has notes",
-    "notes_placeholder": "Notes for this stage"
+    "notes_placeholder": "Notes for this stage",
+    "own_section": "your own section, not a PASTA stage"
   },
   "trees": {
     "goals": [
@@ -327,7 +336,16 @@
     "status_label": "Status",
     "note": "Control or note",
     "note_placeholder": "What prevents or detects it",
-    "trademark": "MITRE ATT&CK® is a trademark of The MITRE Corporation. This is a selection of techniques; the full catalog is at attack.mitre.org."
+    "trademark": "MITRE ATT&CK® is a trademark of The MITRE Corporation. Pitangus includes the full Enterprise catalog, offline; we suggest a selection for web apps, APIs, containers and cloud.",
+    "technique_format": "Use an ATT&CK technique ID: T plus four digits, with an optional sub-technique (T1552 or T1552.001).",
+    "technique_label": "ATT&CK technique",
+    "type_technique": "Search or type an ID, e.g. T1552.001",
+    "all_techniques": "All of ATT&CK v{{version}}",
+    "revoked": "Revoked in ATT&CK · now {{replacement}}",
+    "revoked_alone": "Revoked in ATT&CK",
+    "deprecated": "{{name}} (deprecated in ATT&CK)",
+    "not_found": "Not found in ATT&CK v{{version}}",
+    "all_techniques_unversioned": "All of ATT&CK"
   },
   "canvas": {
     "internet_facing": "Internet-facing",
@@ -406,7 +424,9 @@
     "path_hint": "Only findings in that folder count as evidence for its threats. In a monorepo, this keeps backend findings from flagging frontend threats.",
     "component_data": "Data it stores or handles",
     "authenticates": "Authenticates",
-    "remove_component": "Remove component"
+    "remove_component": "Remove component",
+    "flow_description_placeholder": "What travels and why",
+    "boundary_description_placeholder": "What this boundary separates"
   },
   "help": {
     "title": "How it works",
@@ -426,25 +446,15 @@
       "custom": "All modules combined"
     },
     "file_too_large": "The file is over the 600 KB limit.",
-    "file_loaded": "Loaded {{name}}. Validate it before importing.",
-    "empty": "Paste a JSON document or pick an example to start.",
+    "file_loaded": "Loaded {{name}}.",
     "json_too_large": "The JSON is over the 600 KB limit.",
-    "invalid_json": "This isn't valid JSON. Check commas, quotes and braces.",
     "file_name": "threat-model-{{method}}.json",
     "file_edited": "edited",
     "copy_failed": "Couldn't copy to the clipboard. Select the text in the editor and copy it by hand.",
-    "ai_prompt": "Generate only a valid JSON object to import a threat model into Pitangus. Use this example as the contract and adapt the names, components, flows, boundaries and content to the system I describe. Keep format=\"pitangus-threat-model\", version=1 and the given methodology. IDs must be unique and use lowercase letters, digits and hyphens; source and target must refer to existing components; each boundary may only contain existing components. Don't include installation IDs or scan evidence. If you mention repositories or domains, use repository_refs or asset_ref: they will stay pending until someone links them. Don't add sections from another methodology; to combine them, use methodology=\"custom\" and enable them in custom_modules. Don't include position, size or box: Pitangus lays out the diagram from the boundaries and flows. Available kinds: actor, web_app, api, service, function, database, cache, queue, storage, external, identity; for anything else, use kind=\"custom\" with custom_kind (its name) and custom_base (one of the kinds above, the role it is analyzed as). Return only JSON, without Markdown.\n\nExample:\n{{example}}",
+    "ai_prompt": "Generate only a JSON object to import a threat model into Pitangus, for the system I describe. Return only JSON: no Markdown, no comments, no text before or after it.\n\nContract (the JSON Schema can be downloaded from the import dialog):\n- Root: {\"format\": \"pitangus-threat-model\", \"version\": 1, \"model\": {…}}. model.name is required.\n- methodology: one of {{methodologies}}. Include only that approach's sections; to combine them, use \"custom\" and list them in custom_modules ({{modules}}).\n- ids: unique, lowercase letters, digits and hyphens, up to 40 characters. Components and flows share the same ids, so a flow can't reuse a component's id.\n- References must point to ids that exist: a flow's source and target (two different components); a boundary's components (each component in one boundary at most); element in team threats, tree steps and techniques (a component or flow id); a tree step's parent (another step of the same tree, or null).\n- Ids, references and types (text, true/false, lists) are strict: any mistake there stops the import.\n- protocol: Pitangus knows {{protocols}}. Any other short text (up to 24 characters, such as \"wifi\" or \"mqtt\") is kept as written; Pitangus can't tell whether it's encrypted, so set encrypted.\n- kind: Pitangus knows {{kinds}}. Any other value is kept as your own type; set custom_base ({{bases}}) to the role it should be analyzed as.\n- data: Pitangus knows {{classifications}}. Any other short text is kept as your own class and counts as internal data.\n- severity: {{severities}}. likelihood, impact and difficulty: {{levels}}. gate: and, or. ATT&CK status: {{statuses}}. PASTA stages: {{stages}}.\n- ATT&CK: Enterprise technique or sub-technique IDs matching {{technique_pattern}}, such as T1552 or T1552.001. Pitangus includes ATT&CK v{{attack_version}}; a revoked or unknown ID is kept, with a warning.\n- Don't include position, size, box, installation IDs or scan evidence. Repositories and domains go in repository_refs or asset_ref: they stay pending until someone links them.\n- Add a description to flows and boundaries when it helps, and the model's assumptions as assumptions: [{\"id\": \"a1\", \"text\": \"…\"}].\n- Your own values for severity, likelihood, impact, difficulty, ATT&CK status, category, kind, protocol or data class are kept as new options. Exceptions: a STRIDE or LINDDUN model uses only that method's categories, and a gate is and or or.\n- Any other field you need is kept as a custom property, shown in the editor and the report. Pitangus also reads these synonyms as its own fields: {{aliases}}.\n- Text is plain: no HTML. Names up to 80 characters.\n\nMinimal valid example:\n{{minimal}}\n\nCurrent JSON in the editor (adapt it, or start from the minimal example):\n{{example}}",
     "title": "Create a model from JSON",
-    "description": "Pick an example, edit it here or load a file. Validate the content before creating the model.",
-    "examples_label": "Methodology examples",
-    "step_example": "1 · Pick an example",
-    "step_example_hint": "Every example can be imported as is and shows the fields its approach uses.",
+    "description": "Start from an example or paste the JSON an AI gave you. Pitangus checks it as you type.",
     "how_title": "How to use it",
-    "how_ids": "Components use unique <code>id</code> values; flows link <code>source</code> and <code>target</code> to those IDs. In Custom, <code>custom_modules</code> decides which sections you can include.",
-    "how_refs": "Repository and domain references are imported without being linked automatically.",
-    "editor_label": "JSON editor and import",
-    "step_edit": "2 · Edit or paste your JSON",
-    "step_edit_hint": "You can also ask an AI assistant to adapt the example to your system.",
     "file_label": "Model JSON file",
     "load_file": "Load file",
     "editor": "Model JSON editor",
@@ -454,10 +464,36 @@
     "copy_prompt": "Copy AI prompt",
     "prompt_copied": "AI prompt copied.",
     "size": "{{size}} / {{max}} bytes",
-    "valid": "Valid JSON · {{name}}",
     "relayout": "The positions in the JSON didn't fit its boundaries (boxes too small or overlapping), so the diagram will be laid out automatically on import. You can rearrange it afterwards.",
-    "validate": "3 · Validate JSON",
-    "import": "4 · Import model"
+    "import": "Import model",
+    "format": "Format JSON",
+    "formatted": "JSON formatted.",
+    "download_schema": "Download JSON Schema",
+    "schema_file_name": "pitangus-threat-model.schema.json",
+    "parse_error": "This isn't valid JSON: line {{line}}, column {{column}}. Check commas, quotes and braces near there.",
+    "problems_title": "Problems found",
+    "errors_heading": "Errors: fix these to import",
+    "warnings_heading": "Warnings: accepted and adjusted",
+    "go_to": "Go to {{location}}: {{message}}",
+    "location": "line {{line}}",
+    "location_id": "line {{line}} · {{id}}",
+    "examples_heading": "Choose an example",
+    "edit_heading": "Paste or edit the JSON",
+    "empty_state": "Choose an example or paste the JSON an AI gave you.",
+    "how": "Each component has a unique <code>id</code>; a flow joins two of them with <code>source</code> and <code>target</code>. <docs>Format guide<external /></docs>",
+    "docs_url": "https://docs.pitangus.dev/threat-modeling/#import-and-export-a-model-as-json",
+    "more": "More",
+    "status_checking": "Checking the JSON…",
+    "status_ready": "Ready to import",
+    "status_ready_warnings_one": "Ready to import with {{count}} warning",
+    "status_ready_warnings_other": "Ready to import with {{count}} warnings",
+    "status_errors_one": "{{count}} error stops the import",
+    "status_errors_other": "{{count}} errors stop the import",
+    "summary": "{{name}} ({{method}}): {{counts}}.",
+    "group_in": "in {{place}}",
+    "group_times": "{{count, number}} times",
+    "minor_one": "{{count, number}} minor adjustment",
+    "minor_other": "{{count, number}} minor adjustments"
   },
   "list": {
     "title": "Threat models",
@@ -536,7 +572,8 @@
     "stages": "Stages",
     "pasta_stages": "PASTA stages",
     "trees": "Attack trees",
-    "attack": "ATT&CK techniques"
+    "attack": "ATT&CK techniques",
+    "context": "Context"
   },
   "modules": {
     "title": "Model tools",
@@ -632,6 +669,40 @@
     "flow_name": "Flow name",
     "encrypted": "Encrypted",
     "remove_flow": "Remove flow",
-    "no_flows": "No flows yet. Data moving between components is where most threats show up."
+    "no_flows": "No flows yet. Data moving between components is where most threats show up.",
+    "flow_description": "Flow description"
+  },
+  "values": {
+    "ours": "Pitangus",
+    "workspace": "Used in your models",
+    "custom_protocol_hint": "Pitangus doesn't know this protocol, so it can't tell whether it's encrypted: check «Encrypted in transit» yourself.",
+    "custom_data_hint": "Pitangus doesn't know {{values}}: they count as internal data and no privacy or credential rules apply to them.",
+    "custom_kind_hint": "Pitangus doesn't know this type: it gets the threats of the role you choose below.",
+    "add_data": "Add your own data class",
+    "remove_data": "Remove {{value}}",
+    "add_data_placeholder": "Your own class…"
+  },
+  "properties": {
+    "title": "Custom properties",
+    "add": "Add property",
+    "new_name": "property",
+    "name": "Property name",
+    "value": "Value of {{name}}",
+    "remove": "Remove property {{name}}",
+    "empty": "Fields of your own (an owner, a ticket, a review date…). An imported model's unknown fields show up here.",
+    "structured": "Structured value: shown as imported and exported as is.",
+    "name_taken": "There is already a property with that name: choose another.",
+    "name_required": "A property needs a name."
+  },
+  "context": {
+    "assumptions": "Assumptions",
+    "assumptions_hint": "What this model takes for granted: the provider's share of security, controls outside the system, what is out of scope. Every threat is judged against them; the report lists them right after what to address first.",
+    "add_assumption": "Add assumption",
+    "no_assumptions": "No assumptions yet.",
+    "assumption": "Assumption {{number}}",
+    "assumption_placeholder": "e.g. The cloud provider patches the managed database",
+    "remove_assumption": "Remove assumption {{number}}",
+    "properties": "Model properties and sections",
+    "properties_hint": "The model's own fields and the sections an imported model brought (a risk register, a review…). They appear in the report and go back into the JSON."
   }
 }

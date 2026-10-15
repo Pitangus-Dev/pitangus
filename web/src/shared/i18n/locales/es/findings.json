@@ -145,7 +145,8 @@
       "in_progress": "En curso",
       "fixed": "Remediados",
       "false_positive": "Falsos positivos",
-      "accepted": "Riesgo aceptado"
+      "accepted": "Riesgo aceptado",
+      "excluded": "En rutas excluidas"
     },
     "priority": "Prioridad",
     "any_priority": "Cualquier prioridad",
@@ -276,7 +277,12 @@
     "non_commercial": "licencia no comercial",
     "triage": "Triage: {{status}}",
     "triage_expired": "Abierto (la aceptación caducó)",
-    "advisory_details": "Detalle del aviso"
+    "advisory_details": "Detalle del aviso",
+    "copies_one": "En {{count, number}} lugar",
+    "copies_other": "El mismo problema en {{count, number}} lugares",
+    "copy_unverified": "el último análisis no pudo comprobarla",
+    "copies_more_one": "y {{count, number}} más",
+    "copies_more_other": "y {{count, number}} más"
   },
   "lifecycle": {
     "label": "Ciclo de vida:",
@@ -293,7 +299,14 @@
     "sla_other": "Plazo de corrección: {{count, number}} días · vence el {{due}} ({{status}}).",
     "auto_fixed": "Remediado automáticamente: {{how}}.",
     "excluded": "Excluido: está en una ruta que un administrador excluyó. No cuenta como abierto ni bloquea PRs.",
-    "excluded_pattern": "Excluido: está en una ruta que un administrador excluyó (<code>{{pattern}}</code>). No cuenta como abierto ni bloquea PRs."
+    "excluded_pattern": "Excluido: está en una ruta que un administrador excluyó (<code>{{pattern}}</code>). No cuenta como abierto ni bloquea PRs.",
+    "unseen_one": "Sin verificar desde el {{date}}: el último análisis no pudo comprobarlo porque su motor falló o no llegó a donde estaba. Sigue abierto, pero no cuenta en ningún indicador.",
+    "unseen_other": "Sin verificar desde el {{date}}: lleva {{count, number}} análisis sin poder comprobarse porque su motor falló o no llegó a donde estaba. Sigue abierto, pero no cuenta en ningún indicador.",
+    "unseen_rule_off": "Sin verificar desde el {{date}}: la regla que lo encontró (<code>{{rule}}</code>) está desactivada en la configuración del análisis, así que su ausencia no prueba nada. Sigue abierto, pero no cuenta en ningún indicador, hasta que un análisis con esa regla activa deje de encontrarlo.",
+    "unseen_engine_off": "Sin verificar desde el {{date}}: {{engine}} está desactivado en la configuración del análisis, así que su ausencia no prueba nada. Sigue abierto, pero no cuenta en ningún indicador, hasta que un análisis con {{engine}} activo deje de encontrarlo.",
+    "unseen_rule_changed": "Sin verificar desde el {{date}}: la regla que lo encontró (<code>{{rule}}</code>) cambió desde entonces, así que su ausencia no prueba nada. Sigue abierto, pero no cuenta en ningún indicador; si sabes que ya no está, márcalo como remediado.",
+    "unseen_configuration": "Sin verificar desde el {{date}}: cambió la configuración del análisis, así que su ausencia no prueba nada. Sigue abierto, pero no cuenta en ningún indicador; si sabes que ya no está, márcalo como remediado.",
+    "unseen_unidentified": "Sin verificar desde el {{date}}: el análisis sigue encontrando en el mismo fichero un secreto que no se distingue de este, porque el valor de uno de los dos no se pudo leer con certeza. Sigue abierto, pero no cuenta en ningún indicador; si sabes que ya no está, márcalo como remediado."
   },
   "sla": {
     "overdue_one": "Vencido hace {{count, number}} día",
@@ -306,7 +319,7 @@
   },
   "exclusions": {
     "title": "Rutas excluidas",
-    "patterns_help": "Una ruta por línea, relativa a la raíz: <code>fixtures</code>, <code>docs/*.md</code>, <code>**/testdata</code>. Una carpeta excluye todo su contenido; «*» no cruza carpetas y «**» sí.",
+    "patterns_help": "Una por línea, desde la raíz del repositorio, hasta {{max}}. <code>fixtures</code> excluye esa carpeta y todo lo que contiene; <code>**/testdata</code>, cualquier carpeta testdata; <code>docs/*.md</code>, los .md que están directamente en docs.",
     "reason": "Motivo",
     "reason_placeholder": "Por qué (queda en el historial), p. ej. «Ejemplos vulnerables para probar las reglas»",
     "moved_excluded_one": "{{count, number}} hallazgo pasó a Excluidos",
@@ -316,7 +329,18 @@
     "moved_both": "{{excluded}} y {{reopened}}",
     "saved": "Guardado. Se aplicará también en los próximos escaneos y revisiones de PR.",
     "dialog_help": "Los hallazgos en estas rutas no cuentan como abiertos ni bloquean PRs; quedan en Excluidos.",
-    "last_change": "Último cambio: {{reason}} · {{by}}, {{date}}"
+    "last_change": "Último cambio: {{reason}} · {{by}}, {{date}}",
+    "label": "Rutas a excluir",
+    "reason_required": "Por qué se excluyen (obligatorio, queda en el historial)",
+    "reason_needed": "Explica por qué se excluyen estas rutas, con al menos {{min}} caracteres: queda en el historial.",
+    "preview": {
+      "checking": "Comprobando qué se movería…",
+      "nothing": "Guardar no mueve ningún hallazgo por ahora: nada entra ni sale de Excluidos. Estas rutas también se aplican a los próximos análisis y revisiones de PR.",
+      "excluded_one": "Al guardar, {{count, number}} hallazgo abierto pasa a Excluidos:",
+      "excluded_other": "Al guardar, {{count, number}} hallazgos abiertos pasan a Excluidos:",
+      "reopened_one": "{{count, number}} hallazgo excluido vuelve a Abiertos:",
+      "reopened_other": "{{count, number}} hallazgos excluidos vuelven a Abiertos:"
+    }
   },
   "repo_settings": {
     "title": "Ajustes del repositorio",
@@ -330,12 +354,13 @@
     "secrets_custom_other": "{{count, number}} entradas propias",
     "customize": "Personalizar",
     "secrets_title": "Detección de secretos · {{name}}",
-    "secrets_help": "Solo para este repositorio, además de lo predeterminado: puedes añadir reglas, secretos permitidos y reglas integradas desactivadas. Lo predeterminado no se quita.",
+    "secrets_help": "Solo para este repositorio, además de lo predeterminado: silencia secretos, desactiva reglas integradas o añade tus propios detectores. Lo predeterminado no se quita.",
     "defaults_line": "Predeterminado: {{summary}}.",
-    "defaults_none": "Predeterminado: reglas integradas de Gitleaks y Trivy.",
+    "defaults_none": "Predeterminado: reglas integradas de Betterleaks y Trivy.",
     "deadlines": "Los plazos se definen en Políticas",
     "load_failed": "No se pudo cargar.",
-    "title_image": "Ajustes de la imagen"
+    "title_image": "Ajustes de la imagen",
+    "defaults_where": "Lo predeterminado se define en Políticas"
   },
   "triage": {
     "verb": {
@@ -377,7 +402,8 @@
     "vulnerable_example": "ejemplo vulnerable",
     "fixed_example": "ejemplo corregido",
     "adapt": "El ejemplo muestra el patrón y su corrección; adáptalo a tu código.",
-    "copy_label": "Copiar: {{label}}"
+    "copy_label": "Copiar: {{label}}",
+    "example_in": "En {{file}}"
   },
   "verify": {
     "running": "Verificando: el análisis está en cola o en curso…",
@@ -522,25 +548,27 @@
     "count_rules_other": "{{count, number}} reglas personalizadas",
     "count_disabled_one": "{{count, number}} regla integrada desactivada",
     "count_disabled_other": "{{count, number}} reglas integradas desactivadas",
+    "count_enabled_one": "{{count, number}} regla opcional activada",
+    "count_enabled_other": "{{count, number}} reglas opcionales activadas",
     "count_allowlist_one": "{{count, number}} entrada permitida",
     "count_allowlist_other": "{{count, number}} entradas permitidas",
     "saved": "Guardado. Se aplica desde el próximo análisis.",
-    "dialog_help": "Tus detectores, las reglas integradas que desactivas y los secretos que permites. Se aplican en cada análisis de repositorio y revisión de PR.",
+    "dialog_help": "Los secretos que silencias, las reglas integradas que desactivas y tus propios detectores. Se aplican en cada análisis de repositorio y revisión de PR.",
     "none": "Sin entradas.",
-    "custom_rules": "Reglas personalizadas",
-    "custom_rules_help": "Detectores para tus propios tokens, en Gitleaks y Trivy. El hallazgo lleva tu descripción como título y, como todo secreto, es crítico. Las expresiones regulares usan sintaxis RE2: sin lookarounds ni referencias hacia atrás.",
+    "custom_rules": "Detectar tus propios tokens",
+    "custom_rules_help": "Detectores para tus propios tokens, en Betterleaks y Trivy. El hallazgo lleva tu descripción como título y, como todo secreto, es crítico. Las expresiones regulares usan sintaxis RE2: sin lookarounds ni referencias hacia atrás.",
     "keywords_list": "Palabras clave: {{keywords}}",
-    "disabled": "Reglas integradas desactivadas",
-    "disabled_help": "Se desactivan en Gitleaks y, cuando Trivy tiene el mismo detector, también en Trivy. Desactiva solo reglas cuyo ruido ya revisaste.",
-    "allowlist": "Lista de permitidos",
-    "allow_regexes": "Secretos permitidos (expresiones regulares)",
-    "allow_regexes_help": "Una por línea. Se comparan con el secreto detectado: si coincide, no se reporta. Sintaxis RE2.",
-    "allow_paths": "Rutas permitidas",
-    "allow_paths_help": "Una por línea, relativa a la raíz, con la misma sintaxis que las rutas excluidas: fixtures, **/testdata. Los secretos en estas rutas no se reportan.",
-    "allow_stopwords": "Palabras de exclusión",
-    "allow_stopwords_help": "Una por línea, de 3 caracteres o más. Un secreto que contenga alguna de estas palabras no se reporta; por ejemplo, example o dummy.",
-    "trivy_too": "Gitleaks y Trivy",
-    "gitleaks_only": "Solo Gitleaks",
+    "disabled": "Desactivar una regla integrada que solo hace ruido",
+    "disabled_help": "Se desactivan en Betterleaks y, cuando Trivy tiene el mismo detector, también en Trivy. Desactiva solo reglas cuyo ruido ya revisaste.",
+    "allowlist": "Silenciar secretos de prueba o falsos",
+    "allow_regexes": "Cuando el valor coincide con una de estas expresiones",
+    "allow_regexes_help": "Una por línea, que se compara con el valor detectado (RE2: sin lookarounds ni referencias hacia atrás). Hasta {{max}}.",
+    "allow_paths": "En estas rutas",
+    "allow_paths_help": "Una por línea, desde la raíz del repositorio, como las rutas excluidas: <code>fixtures</code>, <code>**/testdata</code>. Hasta {{max}}.",
+    "allow_stopwords": "Cuando el valor contiene una de estas palabras",
+    "allow_stopwords_help": "Una por línea, de 3 caracteres o más: <code>example</code>, <code>dummy</code>, <code>changeme</code>. Hasta {{max}}.",
+    "trivy_too": "Betterleaks y Trivy",
+    "betterleaks_only": "Solo Betterleaks",
     "reason_required": "Explica por qué cambias la configuración (al menos 5 caracteres).",
     "rule_number": "Regla personalizada {{number}}",
     "rule_id": "ID",
@@ -551,8 +579,8 @@
     "keywords": "Palabras clave (opcional, separadas por comas)",
     "add_rule": "Añadir regla",
     "rules_limit": "{{count, number}} de {{max}}",
-    "disable_label": "Desactivar una regla integrada",
-    "disable_placeholder": "Buscar reglas de Gitleaks…",
+    "disable_label": "Regla integrada",
+    "disable_placeholder": "Buscar reglas de Betterleaks…",
     "no_builtin_match": "Ninguna regla integrada coincide.",
     "enable_rule": "Volver a activar {{rule}}",
     "reason": "Motivo",
@@ -571,8 +599,17 @@
       "rules_removed": "Reglas quitadas: {{items}}",
       "rules_changed": "Reglas modificadas: {{items}}",
       "disabled_added": "Reglas integradas desactivadas: {{items}}",
-      "disabled_removed": "Reglas integradas reactivadas: {{items}}"
-    }
+      "disabled_removed": "Reglas integradas reactivadas: {{items}}",
+      "enabled_added": "Reglas opcionales activadas: {{items}}",
+      "enabled_removed": "Reglas opcionales desactivadas de nuevo: {{items}}"
+    },
+    "allowlist_help": "Para valores que no son credenciales reales: fixtures de prueba, ejemplos, valores de relleno.",
+    "allowlist_view": "Secretos silenciados",
+    "disabled_view": "Reglas integradas desactivadas",
+    "custom_rules_view": "Detectores propios",
+    "opt_in": "Reglas desactivadas por defecto",
+    "opt_in_help": "Esta regla marca cualquier URL que lleve usuario y contraseña, así que sobre todo detecta ejemplos de la documentación y cadenas de conexión locales. Actívala si en tu código puede haber cadenas de conexión reales con credenciales. Las contraseñas escritas en el código ya se revisan por defecto.",
+    "opt_in_none": "Ninguna activada."
   },
   "scope": {
     "eyebrow_one": "Varios activos · {{value}}",
@@ -618,5 +655,25 @@
       "all_other": "Ver los {{value}}",
       "fewer": "Ver menos"
     }
+  },
+  "control": {
+    "held_one": "{{number}} hallazgo sigue abierto desde el {{date}}: ese día un análisis habría marcado demasiados como remediados de golpe. El próximo análisis completo que lo confirme lo cierra.",
+    "held_other": "{{number}} hallazgos siguen abiertos desde el {{date}}: ese día un análisis habría marcado demasiados como remediados de golpe. El próximo análisis completo que lo confirme los cierra.",
+    "release": "Marcar como remediados",
+    "release_title_one": "¿Marcar {{count, number}} hallazgo como remediado?",
+    "release_title_other": "¿Marcar {{count, number}} hallazgos como remediados?",
+    "release_confirm": "Se marcan como remediados sin esperar a que el próximo análisis completo lo confirme. Hazlo solo si sabes que ya no están.",
+    "unverified_one": "{{number}} hallazgo lleva {{scans}} análisis o más sin comprobarse: su motor falló o no leyó dónde estaba. Revisa los pasos de los últimos análisis.",
+    "unverified_other": "{{number}} hallazgos llevan {{scans}} análisis o más sin comprobarse: sus motores fallaron o no leyeron dónde estaban. Revisa los pasos de los últimos análisis.",
+    "held_reason_one": "{{number}} hallazgo sigue abierto desde el {{date}}: el análisis del {{tripped}} habría marcado de golpe como remediados {{fixed}} de los {{open}} hallazgos abiertos, por encima del límite de seguridad (al menos {{minimum}} hallazgos y el {{percent}} de los abiertos). El próximo análisis completo que lo confirme lo cierra.",
+    "held_reason_other": "{{number}} hallazgos siguen abiertos desde el {{date}}: el análisis del {{tripped}} habría marcado de golpe como remediados {{fixed}} de los {{open}} hallazgos abiertos, por encima del límite de seguridad (al menos {{minimum}} hallazgos y el {{percent}} de los abiertos). El próximo análisis completo que los confirme los cierra.",
+    "configuration_one": "{{number}} hallazgo no se comprobó: cambió la configuración del análisis, así que su ausencia no prueba nada. Sigue abierto y no cuenta en ningún indicador; su detalle indica qué cambió. Vuelve a activar la regla o el motor en la configuración del análisis, o márcalo como remediado si sabes que ya no está.",
+    "configuration_other": "{{number}} hallazgos no se comprobaron: cambió la configuración del análisis, así que su ausencia no prueba nada. Siguen abiertos y no cuentan en ningún indicador; el detalle de cada uno indica qué cambió. Vuelve a activar la regla o el motor en la configuración del análisis, o márcalos como remediados si sabes que ya no están."
+  },
+  "ai_prompt": {
+    "copy": "Copiar prompt para tu IA",
+    "copied": "Copiado",
+    "help": "Pégalo en Claude, Cursor o Copilot: lleva la regla, dónde está, el código encontrado si lo hay y la corrección, nunca el valor de un secreto. Pitangus no lo envía a ninguna parte.",
+    "failed": "No se pudo copiar: selecciona el texto de abajo y cópialo a mano."
   }
 }

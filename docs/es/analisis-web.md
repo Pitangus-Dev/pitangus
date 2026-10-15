@@ -1,6 +1,6 @@
 [English](../scanning-web.md) · Español
 
-# Analizar un sitio web o una API (DAST pasivo)
+# Analizar un sitio web o una API: comprobación de exposición y DAST pasivo (experimental)
 
 Pitangus puede revisar un sitio web o una API en funcionamiento que controles y reportar lo que le muestra a cualquier
 visitante: cabeceras de seguridad que faltan, cookies débiles, archivos expuestos, fugas de información, una
@@ -10,6 +10,28 @@ navegan y leen respuestas, nunca atacan. Cada resultado es un [hallazgo](glosari
 
 Esta página cubre el camino completo: activar los análisis web, añadir y verificar un dominio, elegir qué analizar,
 iniciar sesión con usuarios de prueba, lanzar o programar un análisis y leer lo que devuelve.
+
+## Dos comprobaciones: la de exposición y el análisis completo (experimental)
+
+- **Comprobación de exposición** (siempre disponible para administradores, sobre un dominio verificado): solo la raíz de
+  cada host y rutas conocidas, por HTTPS y por HTTP sin cifrar en el puerto 80, sin rastreo y sin ZAP. httpx (qué
+  ejecuta el servidor y el estado de cada ruta que comprueba), testssl.sh (TLS) y las plantillas de solo detección de
+  nuclei (cabeceras de respuesta, archivos expuestos como `.git`, `.env` o copias de seguridad, consolas de depuración y
+  de estado como el actuator de Spring Boot, server-status o una consola de Werkzeug). Las rutas conocidas salen de las
+  plantillas propias de Pitangus (entre ellas `/.env` y `/.git/config`), y las rutas donde hubo hallazgos se comprueban
+  de nuevo. Un hallazgo en una ruta que el sitio responde igual que una ruta al azar (el mismo estado y la misma página,
+  aunque repita la ruta: una página comodín o un «soft 404») no se reporta: la coincidencia no dice nada de esa ruta.
+  `//.env` y `/.env` son la misma ruta (las herramientas envían las barras repetidas como una). Cada URL se pide con su
+  propio esquema: lo que respondió una URL HTTP nunca es la respuesta de su gemela HTTPS, y el paso solo cuenta como
+  respondidas las páginas que pidió. Mismas reglas que el análisis completo: dominio verificado, direcciones fijadas,
+  cada herramienta responde solo por sus propias respuestas, y un host que rechazó la comprobación la deja incompleta.
+  Un hallazgo de exposición solo lo remedia otra comprobación de exposición, y una comprobación de exposición no remedia
+  ni marca como sin verificar los hallazgos de un análisis completo, ni se los queda cuando ambos reportan la misma
+  página: cada tipo de análisis conserva sus hallazgos y la fecha en que los vio por primera vez. **Nuevo análisis →
+  Comprobación de exposición**, o el botón de análisis del propio dominio.
+- **Análisis web completo** (experimental, apagado salvo con `PITANGUS_DAST_ENABLED=1`): todo lo de abajo, con ZAP,
+  katana y subfinder rastreando el sitio. No forma parte del núcleo: apagarlo no remedia nada de lo que encontró, esos
+  hallazgos siguen abiertos hasta que un análisis del mismo tipo pruebe que ya no están.
 
 ## Pasivo, no activo: qué hace un análisis y qué no
 
@@ -42,15 +64,18 @@ Necesitas:
   cabeceras guardadas.
 - **El runner de Docker.** Las herramientas corren en contenedores. La imagen del worker sin socket de Docker
   (`pitangus-worker`, ver [contenedores.md](contenedores.md)) no las incluye, y el análisis lo indica.
-- **Los análisis web activados** con `PITANGUS_DAST_ENABLED=1`. La leen la API y el worker, así que defínela en los
-  dos (en `.env` con la instalación por defecto). Ver [configuracion.md](configuracion.md).
-- **Las imágenes de los motores.** `make engines` (que también ejecuta `make up`) descarga las que faltan. Con los
-  análisis web activados añade ZAP, katana, nuclei, testssl.sh, httpx y subfinder, cada una fijada por versión y
-  digest. Solo ZAP ocupa unos 1,2 GB; las demás herramientas web, cerca de 1 GB en total.
+- **Solo para el análisis completo:** `PITANGUS_DAST_ENABLED=1`. Es experimental y viene apagado; la comprobación de
+  exposición no necesita nada. La leen la API y el worker, así que defínela en los dos (en `.env` con la instalación
+  por defecto). Ver [configuracion.md](configuracion.md).
+- **Las imágenes de los motores.** `make engines` (que también ejecuta `make up`) descarga las que faltan, cada una
+  fijada por versión y digest: nuclei, testssl.sh y httpx para la comprobación de exposición siempre, y además ZAP,
+  katana y subfinder si el análisis completo está activado. Solo ZAP ocupa unos 1,2 GB; las demás herramientas web,
+  cerca de 1 GB en total. `make engines LIST=1`
+  lista lo que descargaría, sin descargarlo.
 - **Un sitio HTTPS público** en el puerto 443, con un certificado válido y un nombre DNS público. Las direcciones
   privadas o internas nunca se analizan.
 
-Activa los análisis web y descarga las imágenes:
+Para el análisis completo, actívalo y descarga sus imágenes:
 
 ```bash
 echo 'PITANGUS_DAST_ENABLED=1' >> .env
@@ -61,13 +86,10 @@ make engines
 La primera vez, `make engines` muestra cada imagen que descarga, por ejemplo:
 
 ```text
-Engines: 6 images missing; the first time can take a while depending on your connection.
+Engines: 3 images missing; the first time can take a while depending on your connection.
 → ghcr.io/zaproxy/zaproxy:2.17.0
 → projectdiscovery/subfinder:v2.16.0
 → projectdiscovery/katana:v1.7.0
-→ projectdiscovery/nuclei:v3.11.1
-→ ghcr.io/testssl/testssl.sh:3.2
-→ projectdiscovery/httpx:v1.12.0
 Engines: ready.
 ```
 
@@ -219,7 +241,19 @@ nombres, los últimos cuatro caracteres de los valores largos y cuándo se guard
   valores son una línea de ASCII imprimible, de 4096 caracteres como máximo.
 - Los valores nunca llegan al análisis, a su progreso, a los logs, a los hallazgos ni a un archivo en disco.
 
-Pitangus no comprueba que una cabecera autentique de verdad; el análisis lo indica en sus limitaciones.
+Una cabecera puede dejar de iniciar sesión sin que nadie lo note (una cookie caduca, un token se revoca), y el análisis
+vería entonces solo las páginas públicas. Debajo de las cabeceras, **Página de comprobación de sesión** recibe una página
+HTTPS del dominio (o de uno de sus subdominios) que solo abre con la sesión iniciada, como
+`https://app.example.com/cuenta`. Un análisis que envía las cabeceras la pide con ellas antes de empezar y otra vez al
+terminar, desde la dirección fijada del host y sin seguir redirecciones:
+
+- Un 2xx las dos veces: el paso **Sesión de las cabeceras guardadas** queda completo.
+- Una redirección (al login), un 401 o 403, ninguna respuesta, o una página en un host fuera del alcance del análisis:
+  el paso queda **Parcial** y el análisis **Incompleto**, así que no marca nada como remediado.
+
+Sin página de comprobación de sesión, nadie prueba que las cabeceras sigan iniciando sesión: el análisis lo dice en
+sus limitaciones y no marca como remediado nada de lo que encontró con ellas (lo que había tras el login puede
+simplemente no haberse alcanzado).
 
 ### Usuarios de prueba
 
@@ -271,7 +305,8 @@ Los secretos nunca llegan a ZAP por su plan, por una línea de comandos, por un 
 
 ## Lanzar un análisis
 
-1. Pulsa **Nuevo análisis** (`#/new`) y elige **Aplicación web o API**. Si dice **No está activado en este servidor**,
+1. Pulsa **Nuevo análisis** (`#/new`) y elige **Análisis web completo** (o **Comprobación de exposición**, que solo pide la
+   raíz de cada host y rutas conocidas). Si el análisis completo dice **No está activado en este servidor**,
    mira [Errores frecuentes](#errores-frecuentes).
 2. **Objetivo**: elige un dominio verificado. Activa **Incluir subdominios** para usar el alcance guardado (los hosts
    que marques aquí como **Analizar** se guardan para sus próximos análisis). Para una API, añade su **Documentación de
@@ -360,10 +395,17 @@ fijas, así que detecta una versión o un archivo expuesto y nunca explota. Corr
 out-of-band.
 
 Pitangus añade sus propias plantillas (ids `pitangus-…`), que pasan el mismo filtro: un listado de directorio abierto y
-credenciales en una respuesta JSON en cada página del inventario, y en cada host una lista fija de 26 rutas sensibles
+credenciales en una respuesta JSON en cada página del inventario, y en cada host una lista fija de 28 rutas sensibles
 (carpetas de copias de seguridad y configuración, actuator de Spring Boot, métricas, server-status, phpinfo, archivos de
-credenciales…), descripciones de API expuestas y archivos de metadatos de desarrollo. Cada una prueba el contenido, no
+credenciales, `.env`, `.git/config`…), descripciones de API expuestas y archivos de metadatos de desarrollo. Cada una prueba el contenido, no
 solo un 200. Un `security.txt` publicado aparece junto a las tecnologías del dominio.
+
+Una coincidencia en una ruta que el sitio responde igual que una ruta suya al azar (el mismo estado y la misma página:
+una página comodín o un «soft 404») no se reporta, sea cual sea la plantilla: no dice nada de esa ruta. Las páginas se
+comparan con un simhash de las palabras del texto (no de las etiquetas) de los primeros 8 KB de cada cuerpo, después de
+quitar de los dos cuerpos las dos rutas pedidas (tal como se enviaron, decodificadas, escapadas en HTML o sin la barra
+inicial), así que una página comodín que repite la ruta que le pidieron (`/_debugbar/open no existe`) sigue siendo la
+misma página. El cuerpo se lee solo para esta comparación y nunca se guarda.
 
 El texto propio de nuclei (descripción, remediación, referencias, CWE y CVE) se muestra tal como se publicó.
 
@@ -400,13 +442,22 @@ El análisis muestra un paso por herramienta, además de la comprobación del in
 unión de duplicados.
 
 - **Completado**: la herramienta hizo su parte.
-- **Parcial**: falló, se pasó del tiempo o no llegó a un host. El análisis sigue, y lo que solo esa herramienta había
-  visto no se marca como remediado.
+- **Parcial**: falló, se pasó del tiempo o no llegó a un host. El análisis sigue; lo que solo esa herramienta había
+  visto no se marca como remediado, y una herramienta que no terminó (detenida, sin tiempo, con un código de error, con
+  la salida cortada) tampoco abre nada: las coincidencias de media ejecución no son hallazgos.
 - **Omitido**: no corrió (falta la imagen, no hay Docker), con el motivo.
 
 Nada se da por limpio si una herramienta no llegó a un host. Si nuclei descarta un host por no responder, katana o
 httpx no obtienen respuesta, o testssl.sh no logra conectar, el paso nombra el host y dice que no encontrar nada ahí no
 prueba nada.
+
+Tampoco si el sitio rechazó el análisis. Cuenta cada respuesta de cada herramienta durante toda la ejecución (ZAP,
+katana, nuclei y httpx): si al menos el 80 % de las respuestas de un host son rechazos (cualquier estado que no sea un
+2xx, un 404, un 410 o una redirección: 401, 403, 406, 418, 429, un 5xx, un 400, un código que nadie definió o ninguno),
+para la ejecución completa o para una sola herramienta (un WAF que despertó solo durante la fase de nuclei), o
+al menos 1 de cada 20 es un 429 (un límite de peticiones), los pasos nombran el host y el análisis queda **Incompleto**,
+así que no marca nada como remediado. Permite las direcciones desde las que salen los análisis (las lista el asistente
+de nuevo análisis) y vuelve a analizar.
 
 <!-- screenshot: scan-progress | Un análisis web con los pasos de sus herramientas marcados como completados, parciales u omitidos -->
 
@@ -419,7 +470,20 @@ del certificado, un `.git` o un `.env` expuestos. Nada se une solo por título o
 
 En **Hallazgos** y en el informe técnico, el mismo problema en varias URL es una fila que se abre en cada URL, por
 ejemplo «15 hallazgos en 8 problemas». Cada URL conserva su propio triage e historial, y las cifras las cuentan una a
-una. El detalle de cada hallazgo muestra primero la guía de la herramienta y luego la **Guía OWASP**. Ver
+una. Dos excepciones evitan que un solo cambio se convierta en decenas de hallazgos:
+
+- Una cabecera de respuesta que comparte todo el sitio (CSP ausente o mal configurada, HSTS, X-Frame-Options,
+  X-Content-Type-Options, Permissions-Policy, un `Server` o `X-Powered-By` que dice su versión, y las cabeceras de
+  seguridad ausentes de nuclei) es un hallazgo por host, en su raíz, en cuantas páginas lo reporten ZAP o nuclei. Lo
+  mismo pasa con la misma evidencia en muchas páginas cuando suele venir de la plantilla compartida o del servidor: un
+  comentario sospechoso, un valor de `Cache-Control`, un veredicto de cacheabilidad (otro comentario u otro valor es
+  otro hallazgo).
+- Los hallazgos guardados por página antes de esta agrupación se unen al del host en el siguiente análisis, en vez de
+  marcarse como remediados.
+- Un nombre de archivo con hash de compilación (`/_astro/index.CSY8UEx1.js`, `/assets/app-BkL9x2a1.css`) conserva su
+  hallazgo entre despliegues: el hash cambia, el hallazgo y su triage se quedan. El detalle sigue mostrando la URL real.
+
+Las redirecciones (3xx) no entran en el inventario de URL: entra la página a la que apuntan. El detalle de cada hallazgo muestra primero la guía de la herramienta y luego la **Guía OWASP**. Ver
 [hallazgos.md](hallazgos.md).
 
 <!-- screenshot: finding-web-detail | El detalle de un hallazgo web con su evidencia, la guía OWASP y las otras herramientas que lo reportaron -->
@@ -428,7 +492,28 @@ una. El detalle de cada hallazgo muestra primero la guía de la herramienta y lu
 
 El siguiente análisis web marca como remediado lo que ya no aparece, pero solo entre lo que había visto **un análisis
 como él**: mismo modo, misma definición de API, mismo uso de cabeceras y de usuarios de prueba, en un host que de verdad
-revisó. Un recorrido anónimo no responde por lo que se encontró con sesión iniciada; un recorrido no responde por los
+revisó, y solo con pruebas de **la herramienta que lo reportó, sobre esa página, en esta ejecución**: para un hallazgo
+de ZAP, un 2xx que el propio ZAP obtuvo para la página (su árbol de sitios); para uno de nuclei, las respuestas que
+nuclei obtuvo para la página (sus respuestas guardadas y su registro de peticiones), todas de la lista de abajo y
+ninguna una petición sin respuesta; para testssl.sh, un host que terminó.
+
+Solo cuenta un estado que prueba algo sobre la URL, y un hallazgo sobre una ruta (un `.env` expuesto, una consola, una
+copia de seguridad: todo lo que nuclei encontró fuera de la raíz) solo queda remediado con una respuesta que diga que la
+ruta ya no está:
+
+| Estado | Qué prueba | Hallazgo sobre una ruta | Hallazgo sobre la raíz | Detección de bloqueo |
+| --- | --- | --- | --- | --- |
+| 2xx | la URL sirve algo | no se remedia (la ruta sigue respondiendo) | se remedia si ya no aparece | no cuenta |
+| 404, 410 | la URL no sirve nada | se remedia | se remedia | no cuenta |
+| 3xx | nada sobre la URL | no se remedia | no se remedia | no cuenta |
+| cualquier otro (400, 401, 403, 405, 406, 418, 429, 5xx, 999, ninguno) | nada: es un rechazo | no se remedia | no se remedia | cuenta |
+
+Una redirección no prueba nada en ningún sentido: no es el archivo ni su ausencia. Tampoco cuenta para detectar un
+bloqueo, porque los sitios mandan HTTP a HTTPS y las rutas desconocidas a su login todo el tiempo. Un 200 no prueba que
+un archivo ya no esté aunque la plantilla haya dejado de coincidir: el reto JavaScript de un WAF, una página comodín y
+otro archivo responden 200, y solo un 404 o un 410 los distingue de un archivo que se fue. La respuesta de otra
+herramienta nunca cuenta: un 404 que vio httpx no prueba que ya no esté lo que nuclei encontró mientras lo
+limitaban. Un recorrido anónimo no responde por lo que se encontró con sesión iniciada; un recorrido no responde por los
 endpoints de una definición de API; ningún análisis responde por un host al que no llegó ni por una herramienta que
 terminó parcial.
 
@@ -500,6 +585,27 @@ como evidencia, y se vuelve a enlazar si añades el mismo host otra vez.
 | Inventario de URL | 500 URL |
 
 La mayoría de los análisis tardan entre 15 y 25 minutos.
+
+Lo que las reglas de evidencia no pueden distinguir:
+
+- Una página de reto servida con 200 (la comprobación JavaScript o el captcha de un WAF) parece una página más. Nunca
+  remedia un hallazgo sobre una ruta (solo lo hace un 404 o un 410), pero tampoco cuenta como rechazo: un sitio de una
+  sola página también responde lo mismo en cada ruta, y eso no es un bloqueo. Un reto servido en todas las rutas de un
+  host, la raíz incluida, todavía puede pasar por las cabeceras de la raíz en un hallazgo sobre la raíz.
+- Un sitio que responde 200 en una ruta que quitó (el armazón de una aplicación de una sola página, una página comodín)
+  deja el hallazgo abierto y **Sin verificar**: quita la ruta para que responda 404 o 410, o cierra el hallazgo
+  a mano.
+
+Limitaciones conocidas en la 0.14, medidas durante la validación de la versión:
+
+- Una exposición intermitente (un archivo que se sirve solo a ratos) se descarta cuando las propias peticiones de la
+  comprobación no coinciden.
+- Un único error de conexión de testssl.sh o de nuclei en un host deja ese host incompleto: es conservador, no remedia
+  nada ahí, pero basta una conexión inestable.
+- `nginx-eol` (y otros hallazgos sobre lo que ejecuta el servidor) sale como un hallazgo por página en el análisis web
+  completo, en vez de uno por host.
+- Los umbrales de bloqueo (80 % de rechazos, 429 en el 5 % de las respuestas de un host) se calibraron con sitios de
+  prueba locales, todavía no con CDN ni WAF reales.
 
 ## Referencia de la API
 

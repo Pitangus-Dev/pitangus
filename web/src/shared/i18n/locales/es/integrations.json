@@ -89,7 +89,15 @@
       "pick_type": "Elige un tipo de incidencia",
       "type_required": "Elige un tipo de incidencia",
       "loading_types": "Cargando los tipos de incidencia",
-      "save": "Guardar destino"
+      "save": "Guardar destino",
+      "locale": "Idioma de sus incidencias y comentarios",
+      "locale_default": "Predeterminado del servidor",
+      "locale_en": "English",
+      "locale_es": "Español",
+      "on_fixed_comment": "Corrección verificada: solo comenta",
+      "on_fixed_label": "Corrección verificada: comenta y añade {{label}}",
+      "on_fixed_move": "Corrección verificada: comenta, añade {{label}} y mueve la incidencia a {{status}}",
+      "on_fixed_move_only": "Corrección verificada: comenta y mueve la incidencia a {{status}}"
     },
     "mapping": {
       "title": "Campos",
@@ -210,13 +218,14 @@
       "result_other": "Crearía {{issues}} incidencias ahora · hallazgos abiertos: {{findings}} · repositorios: {{assets}} · ya enlazados: {{linked}}",
       "nothing": "Nada que crear ahora: ningún hallazgo abierto sin incidencia coincide (ya enlazados: {{linked}}).",
       "truncated": "Solo se ponen en cola los primeros {{max}} hallazgos; el resto va en la siguiente pasada.",
-      "checking": "Comprobando qué crearía…"
+      "checking": "Comprobando qué crearía…",
+      "sample": "Así se verá en Jira la incidencia más grave:",
+      "sample_findings_one": "Agrupa {{count, number}} hallazgo.",
+      "sample_findings_other": "Agrupa {{count, number}} hallazgos."
     },
     "backfill": {
       "running_one": "Creando incidencias para los hallazgos abiertos: {{count, number}} en cola",
       "running_other": "Creando incidencias para los hallazgos abiertos: {{count, number}} en cola",
-      "done_one": "Hallazgos abiertos, terminado el {{date}}: {{count, number}} en cola",
-      "done_other": "Hallazgos abiertos, terminado el {{date}}: {{count, number}} en cola",
       "created_one": "{{count, number}} creada",
       "created_other": "{{count, number}} creadas",
       "existing_one": "{{count, number}} ya existía",
@@ -228,7 +237,13 @@
       "pending_one": "{{count, number}} pendiente",
       "pending_other": "{{count, number}} pendientes",
       "truncated": "se alcanzó el límite: vuelve a lanzarlo para el resto",
-      "last_error": "Último error: {{error}}"
+      "last_error": "Último error: {{error}}",
+      "done": "Terminó de crear incidencias para los hallazgos abiertos el {{date}}",
+      "open": "Abrir en Jira:",
+      "more_one": "y {{count, number}} más",
+      "more_other": "y {{count, number}} más",
+      "error_one": "1 incidencia falló: {{error}}",
+      "error_other": "{{count, number}} incidencias fallaron: {{error}}"
     },
     "history": {
       "title_one": "Cambios recientes ({{count, number}})",
@@ -330,6 +345,16 @@
       "connect": "Conectar",
       "configure": "Configurar",
       "details": "Ver detalles"
+    },
+    "on_fixed": {
+      "title": "Cuando un análisis verifica la corrección",
+      "help": "Pitangus siempre comenta en la incidencia. Solo la mueve si eliges un estado aquí: cada equipo cierra sus incidencias a su manera.",
+      "label": "Etiqueta que se añade",
+      "label_hint": "Déjala vacía si no quieres ninguna. Con una etiqueta, encuentras las incidencias corregidas con una sola búsqueda en Jira.",
+      "status": "Moverla a",
+      "keep": "No moverla",
+      "loading": "Cargando los estados del flujo de trabajo…",
+      "status_hint": "Estados del flujo de trabajo de este tipo de incidencia. Si una incidencia no puede pasar a ese estado desde el actual, el comentario lo indica."
     }
   },
   "notifications": {

@@ -52,6 +52,9 @@ class TokenTests(unittest.TestCase):
             # sulphur-soft only highlights searched text (<mark>); never a button or a box.
             (re.compile(r"(?<![\w-])(?:[a-z0-9\[\]&=_.-]+:)*(?:bg|border)-sulphur-(?:soft|line)(?![\w-])(?![^<]*</mark>)"),
              "sulphur-soft/sulphur-line only on <mark>"),
+            # Selection and emphasis are an ink border all around on sunken, never a bar on one side.
+            (re.compile(r"(?<![\w-])(?:[a-z0-9\[\]&=_.-]+:)*(?:border-[ls]-(?:[2-9]|\[)|shadow-\[inset_-?\d+px_0_0)"),
+             "no left accent bar: selection is an ink border all around on sunken"),
             (re.compile(r"variant=[\"']brand[\"']|\bbrand:\s*\"border-sulphur"), "no pale-yellow 'brand' button: primary or outline"),
             # Monospace is for code, paths, hosts, ids, CVEs and versions: never for figures, step numbers or labels.
             (re.compile(r"[\"'`][^\"'`]*\bfont-mono\b[^\"'`]*\b(?:tabular-nums|uppercase|tracking-\w+|rounded-full)\b[^\"'`]*[\"'`]|"

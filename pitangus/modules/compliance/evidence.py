@@ -2,11 +2,21 @@
 
 The files themselves come from the existing renderers (SBOM, VEX, technical and audit reports); this module only
 says which assets exist, whether each has a complete scan (an SBOM needs one) and gathers a portfolio's findings.
+Only repositories and images have a package inventory: a domain (web scan) is audit evidence, never part of an SBOM
+or a VEX.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+
+# Asset kinds whose complete scans store a package inventory: the ones a SBOM or a VEX covers.
+INVENTORY_KINDS = ("repository", "image")
+
+
+def has_inventory(row: dict) -> bool:
+    """Whether a catalog row has what an SBOM needs: a repository or image with a completed full scan."""
+    return row["kind"] in INVENTORY_KINDS and row["last_complete"] is not None
 
 
 def catalog(data_dir: Path) -> list[dict]:
@@ -33,13 +43,13 @@ def assets(data_dir: Path, *, query: str = "") -> list[dict]:
     """The asset picker: analyzed assets filtered by name, with what each can export."""
     needle = query.strip().lower()
     return [{"key": row["key"], "name": row["name"], "kind": row["kind"], "last_complete": row["last_complete"],
-             "sbom": row["last_complete"] is not None}
+             "sbom": has_inventory(row)}
             for row in catalog(data_dir) if not needle or needle in row["name"].lower()]
 
 
 def overview(data_dir: Path) -> dict:
     rows = catalog(data_dir)
-    return {"assets": len(rows), "complete": sum(1 for row in rows if row["last_complete"])}
+    return {"assets": len(rows), "complete": sum(1 for row in rows if has_inventory(row))}
 
 
 def portfolio(data_dir: Path, chosen: list[dict], *, status: str = "all") -> list[dict]:
@@ -54,14 +64,15 @@ def portfolio(data_dir: Path, chosen: list[dict], *, status: str = "all") -> lis
 
 
 def complete_scans(data_dir: Path, keys: set[str] | None = None) -> tuple[list[dict], int]:
-    """The latest completed full scan of each asset (of `keys` when given), most recent first and at most
-    `sbom.PORTFOLIO_ASSETS`, as `{"key", "ref", "scan"}` with a ref unique in the portfolio; and how many have one."""
+    """The latest completed full scan with a package inventory (repository or image) of each asset (of `keys` when
+    given), most recent first and at most `sbom.PORTFOLIO_ASSETS`, as `{"key", "ref", "scan"}` with a ref unique in
+    the portfolio; and how many have one. Domains are left out: a web scan lists no packages."""
     from pitangus.modules.compliance import sbom
-    from pitangus.modules.findings.kinds import FULL_SCANS
+    from pitangus.modules.findings.kinds import INVENTORY_SCANS
     from pitangus.modules.runs.store import find_runs, load_run
     from pitangus.modules.sources.assets import asset_key
     latest: dict[str, dict] = {}
-    for row in find_runs(data_dir, types=FULL_SCANS, statuses=("completed",)):  # most recent first
+    for row in find_runs(data_dir, types=INVENTORY_SCANS, statuses=("completed",)):  # most recent first
         if keys is None or asset_key(row) in keys:
             latest.setdefault(asset_key(row), row)
     chosen, used = [], {"urn:pitangus:portfolio"}

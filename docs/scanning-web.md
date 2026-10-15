@@ -1,6 +1,6 @@
 English · [Español](es/analisis-web.md)
 
-# Scan a website or API (passive DAST)
+# Scan a website or API: exposure check and passive DAST (experimental)
 
 Pitangus can look at a running website or API that you control and report what it shows to any visitor: missing
 security headers, weak cookies, exposed files, information leaks, an outdated TLS setup, libraries with known
@@ -10,6 +10,26 @@ is a [finding](glossary.md) you confirm before acting on it.
 
 This page covers the whole path: turning web scans on, adding and verifying a domain, choosing what to scan, signing
 in as test users, launching or scheduling a scan, and reading what comes back.
+
+## Two checks: the exposure check, and the full scan (experimental)
+
+- **Exposure check** (always available to admins, for a verified domain): each host's root and known paths only, over
+  HTTPS and plain HTTP on port 80, no crawl and no ZAP. httpx (what the server runs, and the status of every path it
+  checks), testssl.sh (TLS) and nuclei's detection-only templates (response headers, exposed files such as `.git`,
+  `.env` or backups, debug and status consoles such as Spring Boot's actuator, server-status or a Werkzeug console). The
+  known paths come from Pitangus' own templates (`/.env` and `/.git/config` among them), and the paths earlier findings
+  were on are checked again. A finding on a path the site answers exactly like a random one (the same status and the
+  same page, even if it repeats the path: a catch-all or a "soft 404") isn't reported: the match says nothing about that
+  path. `//.env` and `/.env` are one path (the tools send repeated slashes as one). Each URL is requested over its own
+  scheme: what a plain HTTP URL answered is never its HTTPS twin's answer, and the step counts as answered only pages it
+  asked for. Same rules as the full scan: verified domain, pinned addresses, each tool vouching only for its own
+  answers, a host that turned the check away leaves it incomplete. An exposure finding is only fixed by another exposure
+  check, and an exposure check neither fixes a full scan's findings, nor marks them unverified, nor takes them over when
+  both report the same page: each kind of scan keeps its own findings and the date it first saw them. **New analysis →
+  Exposure check**, or a domain's own scan button.
+- **Full web scan** (experimental, off unless `PITANGUS_DAST_ENABLED=1`): everything below, with ZAP, katana and
+  subfinder crawling the site. It isn't part of the core: turning it off fixes nothing it found before, those findings
+  stay open until a scan of the same kind proves them gone.
 
 ## Passive, not active: what a scan does and doesn't do
 
@@ -41,15 +61,17 @@ You need:
   verify, change, remove or scan them, and only they see the verification token and the saved headers.
 - **The Docker runner.** The scan tools run in containers. The worker image without a Docker socket
   (`pitangus-worker`, see [containers.md](containers.md)) doesn't carry them, and the run says so.
-- **Web scans turned on** with `PITANGUS_DAST_ENABLED=1`. The API and the worker both read it, so set it for both
-  (in `.env` with the default setup). See [configuration.md](configuration.md).
-- **The engine images.** `make engines` (also run by `make up`) pulls the missing ones. With web scans on it adds
-  ZAP, katana, nuclei, testssl.sh, httpx and subfinder, each pinned by version and digest. ZAP alone is about 1.2 GB;
-  the other web tools about 1 GB together.
+- **For the full scan only:** `PITANGUS_DAST_ENABLED=1`. It's experimental and off by default; the exposure check
+  needs nothing. The API and the worker both read it, so set it for both (in `.env` with the default setup). See
+  [configuration.md](configuration.md).
+- **The engine images.** `make engines` (also run by `make up`) pulls the missing ones, each pinned by version and
+  digest: nuclei, testssl.sh and httpx for the exposure check always, and ZAP, katana and subfinder too when the full
+  scan is on. ZAP alone is about 1.2 GB; the other web tools about 1 GB together. `make engines LIST=1` lists
+  what it would pull, without pulling.
 - **A public HTTPS site** on port 443, with a valid certificate and a public DNS name. Private and internal addresses
   are never scanned.
 
-Turn web scans on and pull the images:
+For the full scan, turn it on and pull its images:
 
 ```bash
 echo 'PITANGUS_DAST_ENABLED=1' >> .env
@@ -60,13 +82,10 @@ make engines
 The first `make engines` shows each image it pulls, for example:
 
 ```text
-Engines: 6 images missing; the first time can take a while depending on your connection.
+Engines: 3 images missing; the first time can take a while depending on your connection.
 → ghcr.io/zaproxy/zaproxy:2.17.0
 → projectdiscovery/subfinder:v2.16.0
 → projectdiscovery/katana:v1.7.0
-→ projectdiscovery/nuclei:v3.11.1
-→ ghcr.io/testssl/testssl.sh:3.2
-→ projectdiscovery/httpx:v1.12.0
 Engines: ready.
 ```
 
@@ -212,7 +231,17 @@ the last four characters of long values and when they were saved.
   printable ASCII, 4096 characters at most.
 - Values never reach the run, its progress, the logs, the findings or a file on disk.
 
-Pitangus doesn't check that a header actually authenticates; the run says so in its limitations.
+A header can stop signing in while nobody looks (a cookie expires, a token is revoked), and the scan would then see only
+the public pages. Under the headers, **Session check page** takes an HTTPS page of the domain (or one of its subdomains)
+that only opens signed in, such as `https://app.example.com/account`. A scan that sends the headers asks for it with them
+before it starts and again when it ends, from the host's pinned address and without following redirects:
+
+- A 2xx both times: the step **Session of the saved headers** is complete.
+- A redirect (to the login), a 401 or 403, no answer, or a page on a host outside the scan's scope: the step is
+  **Partial** and the run **Incomplete**, so it marks nothing fixed.
+
+Without a session check page, nobody proves the headers still sign in: the run says so in its limitations, and it
+marks nothing it found with them fixed (what was behind the login may simply not have been reached).
 
 ### Test users
 
@@ -263,7 +292,8 @@ container's standard input and are scrubbed from what ZAP returns.
 
 ## Launch a scan
 
-1. Click **New scan** (`#/new`) and choose **Web app or API**. If it says **Not enabled on this server**, see
+1. Click **New scan** (`#/new`) and choose **Full web scan** (or **Exposure check**, which only requests each host's
+   root and known paths). If the full scan says **Not enabled on this server**, see
    [Common errors](#common-errors).
 2. **Target**: pick a verified domain. Turn on **Include subdomains** to use the saved scope (the hosts you mark
    **Analyze** here are saved for its next scans). For an API, add its **API documentation** (see [API mode](#api-mode)).
@@ -348,10 +378,18 @@ attack markers in their paths and no attack or login tags. A CVE template is kep
 detects a version or an exposed file and never exploits. It runs without updates and without an out-of-band server.
 
 Pitangus adds its own templates (ids `pitangus-…`), which pass the same filter: an open directory listing and
-credentials in a JSON response on every page of the inventory, and on each host a fixed list of 26 sensitive paths
-(backup and configuration folders, Spring Boot actuator, metrics, server-status, phpinfo, credential files…), exposed
+credentials in a JSON response on every page of the inventory, and on each host a fixed list of 28 sensitive paths
+(backup and configuration folders, Spring Boot actuator, metrics, server-status, phpinfo, credential files, `.env`,
+`.git/config`…), exposed
 API descriptions and development metadata files. Each one proves the content, not just a 200. A published
 `security.txt` shows with the domain's technologies.
+
+A match on a path the site answers exactly like a random path of its own (the same status and the same page: a catch-all
+or a "soft 404") isn't reported, whichever template matched: it says nothing about that path. The pages are compared by
+a simhash of the words in the text (not the tags) of the first 8 KB of each body, with both requested paths taken out of
+both bodies first (as sent, decoded, HTML-escaped or without the leading slash), so a catch-all page that repeats the
+path it was asked for (`/_debugbar/open could not be found`) is still the same page. The body is read for this
+comparison only and never kept.
 
 nuclei's own text (description, remediation, references, CWE and CVE) is shown as published.
 
@@ -385,12 +423,19 @@ httpd, nginx, OpenSSL, PHP, IIS…) aren't looked up, and the step lists them as
 The run shows one step per tool, plus the sign-in check, the URL inventory and the merge of duplicates.
 
 - **Completed**: the tool did its part.
-- **Partial**: it failed, timed out or didn't reach a host. The scan goes on, and what only that tool had seen
-  isn't marked fixed.
+- **Partial**: it failed, timed out or didn't reach a host. The scan goes on; what only that tool had seen isn't marked
+  fixed, and a tool that didn't finish (stopped, out of time, an error exit, output cut short) opens nothing either:
+  half a run's matches aren't findings.
 - **Skipped**: it didn't run (image missing, no Docker), with the reason.
 
 Nothing is claimed clean when a tool didn't reach a host. If nuclei skips a host as unresponsive, katana or httpx get
 no answer, or testssl.sh can't connect, the step names the host and says that finding nothing there proves nothing.
+
+Nor when the site turned the scan away. Every answer of every tool over the whole run counts (ZAP, katana, nuclei and
+httpx): if at least 80% of a host's answers are refusals (any status that isn't a 2xx, a 404, a 410 or a redirect: 401,
+403, 406, 418, 429, a 5xx, a 400, a code nobody defined, no status at all), to the run as a whole or to any one tool (a WAF that only woke up during nuclei's phase), or at least 1 in 20 is a 429 (a rate limit), the steps
+name the host and the run is **Incomplete**, so it marks nothing fixed. Allow the addresses scans leave from (listed in
+the new analysis wizard) and scan again.
 
 <!-- screenshot: scan-progress | A web scan run with its tool steps marked completed, partial or skipped -->
 
@@ -403,16 +448,46 @@ security headers, cookie flags, HSTS, deprecated TLS and weak ciphers, certifica
 
 In **Findings** and in the technical report, the same problem on several URLs is one row that opens to each URL, for
 example "15 findings in 8 problems". Every URL keeps its own triage and history, and the figures count them one by
-one. Each finding's detail shows the tool's guidance first, then **OWASP guidance**. See [findings.md](findings.md).
+one. Two exceptions keep one change from becoming dozens of findings:
+
+- A response header the whole site shares (CSP missing or misconfigured, HSTS, X-Frame-Options, X-Content-Type-Options,
+  Permissions-Policy, a `Server` or `X-Powered-By` that names its version, and nuclei's missing security headers) is one
+  finding per host, at its root, however many pages ZAP or nuclei reported it on. So is the same evidence on many pages
+  for what usually comes from the shared template or the server: one suspicious comment, one `Cache-Control` value,
+  one cacheability verdict (a different comment or value is another finding).
+- Findings stored per page before this grouping fold into the host's finding on the next scan instead of being
+  marked fixed.
+- A file name with a build hash (`/_astro/index.CSY8UEx1.js`, `/assets/app-BkL9x2a1.css`) keeps its finding across
+  deploys: the hash changes, the finding and its triage stay. The detail still shows the real URL.
+
+Redirects (3xx) aren't part of the URL inventory: the page they point to is. Each finding's detail shows the tool's guidance first, then **OWASP guidance**. See [findings.md](findings.md).
 
 <!-- screenshot: finding-web-detail | A web finding's detail with its evidence, OWASP guidance and the other tools that reported it -->
 
 ### When a web finding is marked fixed
 
 The next web scan marks fixed what no longer appears, but only among what **a scan like it** had seen: same mode, same
-API definition, same use of headers and of test users, on a host it actually looked at. An anonymous crawl doesn't
-vouch for what was found while signed in; a crawl doesn't vouch for an API definition's endpoints; no scan vouches for
-a host it didn't reach or for a tool that ended partial.
+API definition, same use of headers and of test users, on a host it actually looked at, and only with evidence from
+**the tool that reported it, on that page, in this run**: for a ZAP finding, a 2xx ZAP itself got for the page (its
+sites tree); for a nuclei finding, nuclei's own answers for the page (its stored responses and request log), every one
+of them on the whitelist below and none a request without an answer; for testssl.sh, a host it finished.
+
+Only a status that proves something about the URL counts, and a finding about one path (an exposed `.env`, a console,
+a backup: anything nuclei found off the root) is only proven gone by an answer that says the path is gone:
+
+| Status | What it proves | A finding about one path | A finding about the root | Blocking check |
+| --- | --- | --- | --- | --- |
+| 2xx | the URL serves something | not fixed (the path still answers) | fixed if no longer reported | doesn't count |
+| 404, 410 | the URL serves nothing | fixed | fixed | doesn't count |
+| 3xx | nothing about the URL | not fixed | not fixed | doesn't count |
+| anything else (400, 401, 403, 405, 406, 418, 429, 5xx, 999, none) | nothing: a refusal | not fixed | not fixed | counts |
+
+A redirect proves nothing either way: it isn't the file, and it isn't its absence. It doesn't count toward the blocking
+check, because sites send plain HTTP to HTTPS and unknown paths to their login all the time. A 200 doesn't prove a file
+gone even when the template stopped matching: a WAF's JavaScript challenge, a catch-all page and another file all answer
+200, and only a 404 or a 410 tells them apart from a file that left. Another tool's answer never vouches: a 404 httpx saw doesn't prove gone what nuclei found while it was being rate
+limited. An anonymous crawl doesn't vouch for what was found while signed in; a crawl doesn't vouch for an API
+definition's endpoints; no scan vouches for a host it didn't reach or for a tool that ended partial.
 
 Web findings use the same fingerprints as an import of ZAP's SARIF, so importing your own ZAP run of the same site
 doesn't duplicate anything. Only the method, the parameter and a short, redacted piece of evidence are kept, never the
@@ -480,6 +555,26 @@ evidence, and links back if you add the same host again.
 | URL inventory | 500 URLs |
 
 Most scans take 15 to 25 minutes.
+
+What the evidence rules can't tell apart:
+
+- A challenge page served with 200 (a WAF's JavaScript or captcha check) looks like any other page. It never fixes a
+  finding about one path (only a 404 or a 410 does), but it isn't counted as a refusal either: a single-page site
+  answers every path with one page too, and that isn't a block. A challenge served on every path of a host, the root
+  included, can still stand in for the root's headers in a finding about the root.
+- A site that answers 200 for a path it removed (a single-page app's shell, a catch-all page) leaves the finding open
+  and **Unverified**: remove the path so it answers 404 or 410, or close the finding by hand.
+
+Known limitations in 0.14, measured during the release validation:
+
+- An exposure that comes and goes (a file served only some of the time) is dropped when the check's own requests don't
+  agree.
+- A single connection error from testssl.sh or nuclei on a host leaves that host incomplete: conservative, it fixes
+  nothing there, but one flaky connection is enough.
+- `nginx-eol` (and other "what the server runs" findings) is one finding per page in the full web scan instead of one
+  per host.
+- The blocking thresholds (80% refusals, 429s on 5% of a host's answers) were calibrated on local test sites, not yet
+  on real CDNs and WAFs.
 
 ## API reference
 

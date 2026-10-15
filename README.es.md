@@ -8,9 +8,9 @@
 
 <p align="center"><strong>Detéctalo. Corrígelo. Demuéstralo.</strong> Seguridad de aplicaciones autoalojada, libre y sin enviar tu código a nadie.</p>
 
-Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corregir primero y cómo** (el comando exacto o un ejemplo de código), comprueba que quedó corregido y **vigila solo** lo que cambia después. Todo corre en tu máquina, con tus credenciales: tu código no va a ningún servicio nuestro.
+Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corregir primero y cómo** (el comando de tu gestor de paquetes, o un ejemplo de código cuando la regla lo tiene), comprueba que quedó corregido y **vigila solo** lo que cambia después. Todo corre en tu máquina, con tus credenciales: tu código no va a ningún servicio nuestro.
 
-> Estado: **beta (v0.13)**. Funcional y con pruebas, pero la API y los formatos de `data/` aún pueden cambiar entre versiones.
+> Estado: **beta (v0.14)**. Funcional y con pruebas, pero la API y los formatos de `data/` aún pueden cambiar entre versiones.
 
 ## Por qué Pitangus
 
@@ -23,14 +23,14 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 
 | | |
 | --- | --- |
-| **Encontrar** | Opengrep con 58 reglas propias (JS/TS, Python, Java, Go, PHP, Ruby, C#), Gitleaks, Trivy y OSV-Scanner para dependencias, Checkov y zizmor para IaC y GitHub Actions, Trivy + Grype para imágenes. El código nunca se ejecuta. Uno o varios repositorios, una organización entera o varias imágenes a la vez. |
+| **Encontrar** | Opengrep con 66 reglas propias (JS/TS, Python, Java, Go, PHP, Ruby, C#), incluidas las de lo que el código escrito con IA suele hacer mal, y reglas de acceso de Supabase y Firebase; Betterleaks para secretos; Trivy y OSV-Scanner para dependencias y paquetes maliciosos; Trivy y zizmor para IaC y GitHub Actions; Trivy para imágenes. Checkov y Grype son opcionales; la comprobación de exposición mira la raíz y las rutas conocidas de un dominio verificado, y el análisis web completo es experimental. El código nunca se ejecuta. Uno o varios repositorios, una organización entera o varias imágenes a la vez. |
 | **Priorizar** | Cada aviso cruzado con CISA KEV (explotación activa) y EPSS (probabilidad de explotación); las dependencias agrupadas por paquete con la versión que cierra todos sus avisos. |
-| **Corregir** | En cada hallazgo, cómo corregirlo: el comando de tu gestor (npm, pip, Poetry, Go, Cargo, Maven…), el override si es transitiva, un ejemplo antes/después para el código o los pasos para rotar un secreto. Exportación a Jira sin duplicados. |
+| **Corregir** | Cómo corregir cada hallazgo con lo que se sabe de él: el comando de tu gestor (npm, pip, Poetry, Go, Cargo, Maven…) y, si la dependencia es transitiva, qué la trae y, si su rango impide la corrección, qué actualizar primero; un ejemplo antes/después para las reglas de código que lo tienen; los pasos para rotar un secreto; y, en los resultados importados, el consejo de la propia herramienta. Pitangus no escribe un parche para tu código. Exportación a Jira sin duplicados. |
 | **Verificar** | «Reverificar» vuelve a analizar y te dice «Corregido ✓» o «Sigue presente». En los pull requests solo cuenta lo que el PR introduce, con comentario y estado que puede bloquear el merge. |
 | **Vigilar** | Reanálisis automático cuando cambia la rama principal, avisos nuevos a diario contra tus dependencias (sin conexión) y mensajes a **Slack, Teams o un webhook** cuando aparece algo que importa. |
 | **Demostrar** | Informes PDF técnicos y de evidencia (SOC 2 Tipo II, ISO/IEC 27001:2022, consolidado de organización), SARIF, JSON y Markdown; modelado de amenazas (STRIDE, LINDDUN, PASTA, árboles, ATT&CK) con diagrama; CVE tracker local de NVD. |
 
-**Sitios web y APIs:** un análisis pasivo de un dominio que verificas (ZAP, katana, plantillas de detección de nuclei, testssl.sh y httpx; nunca ataca), con su alcance, usuarios de prueba y programación; mira [docs/es/analisis-web.md](docs/es/analisis-web.md). Requiere `PITANGUS_DAST_ENABLED=1`.
+**Sitios web y APIs:** para un dominio que verificas, la **comprobación de exposición** está siempre disponible y es ligera: la raíz de cada host y rutas conocidas (archivos expuestos, consolas de depuración y de estado, TLS, cabeceras de respuesta) con httpx, testssl.sh y las plantillas de solo detección de nuclei, sin rastrear. El **análisis web completo** (ZAP, katana y subfinder rastreando el sitio, con su alcance, usuarios de prueba y programación) es experimental y está apagado salvo con `PITANGUS_DAST_ENABLED=1`. Ninguno de los dos ataca; mira [docs/es/analisis-web.md](docs/es/analisis-web.md).
 
 **En desarrollo** (en gris en el panel): análisis web activos, GitLab/Bitbucket/Azure DevOps (hoy se cubren con [`scan` en CI](docs/es/cli.md)) y asistencia con IA opcional.
 
@@ -39,7 +39,7 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 Necesitas **Docker** (Engine 24+ con Compose v2.24+), **make** y **git**, 4 GB de memoria y 8 GB de disco. `make doctor` lo comprueba.
 
 ```bash
-git clone --branch v0.13.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up
@@ -61,6 +61,7 @@ El panel sigue el idioma de tu navegador y tiene un selector de idioma en la bar
 | | |
 | --- | --- |
 | [Qué es Pitangus](docs/es/vista-general.md) | Qué hace, qué cubre y qué no, y un recorrido por el panel |
+| [Inicio rápido para un desarrollador](docs/es/inicio-rapido-desarrollador.md) | Un comando con Docker, antes de cada push y en cada pull request: una pantalla |
 | [Inicio rápido](docs/es/inicio-rapido.md) | De cero al primer hallazgo corregido, y qué configurar después |
 | [Conceptos clave](docs/es/conceptos.md) | Ejecuciones, hallazgos, huellas, ciclo de vida, triage y roles |
 | [Instalación](docs/es/instalacion.md) | Requisitos, primer arranque, actualizar, copias de seguridad, desinstalar |
@@ -76,7 +77,7 @@ El panel sigue el idioma de tu navegador y tiene un selector de idioma en la bar
 | [Hallazgos](docs/es/hallazgos.md) | Triage, plazos, verificación y exportaciones |
 | [Cumplimiento](docs/es/cumplimiento.md) | SBOM, VEX, evidencia para auditorías y CRA |
 | [Modelado de amenazas](docs/es/modelado-de-amenazas.md) | Modelos del sistema contrastados con tus análisis |
-| [Actualizar](docs/es/actualizar.md) | Pasar a una versión nueva, y qué cambia en 0.13 |
+| [Actualizar](docs/es/actualizar.md) | Pasar a una versión nueva, y qué cambia en 0.14 |
 | [Configuración](docs/es/configuracion.md) | Variables de `.env` |
 | [Seguridad](docs/es/seguridad.md) | Secretos, transporte, qué sale de tu máquina y concesiones |
 | [Contenedores y Makefile](docs/es/contenedores.md) | Comandos `make`, imágenes y endurecimiento |

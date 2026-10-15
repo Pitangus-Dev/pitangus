@@ -79,13 +79,18 @@ class ScopeAssetCounts(ScopeAssetRef):
 
 
 class LifecycleCounts(BaseModel):
-    """Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`) and excluded."""
+    """Pending (`open`, and of it `by_severity` and `from_pr`), fixed, dismissed in triage (`suppressed`), excluded, and
+    open but unverified (`unverified`: no scan could check them lately; `unverified_stale`: for long enough to warn;
+    `unverified_configuration`: the scan's configuration left them unchecked, a rule or an engine off or a rule changed)."""
     open: int
     fixed: int
     suppressed: int
     excluded: int
     from_pr: int
     by_severity: dict[str, int]
+    unverified: int = 0
+    unverified_stale: int = 0
+    unverified_configuration: int = 0
 
 
 class ScopedSummary(BaseModel):
@@ -107,6 +112,27 @@ class ScopedFindings(RunDetail):
 
 
 AssetKey = Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class FindingsHealth(BaseModel):
+    """Signs that fixes may not be what they seem (findings/registry.health): findings back within `reopened_days` of
+    being fixed, scans that fixed far more than usual, open findings several engines report apart, unverified ones, and
+    the share of engines blind in each asset's last scan."""
+    assets: int
+    reopened_soon: int
+    reopened_days: int
+    fix_spikes: int
+    duplicates: int
+    unverified: int
+    blind_engines: int
+    engines: int
+    blind_share: float
+
+
+@router.get("/api/findings/health", response_model=FindingsHealth)
+def findings_health(context: Context = Depends(guard())) -> dict:
+    """How trustworthy the registry's fixes look across every asset."""
+    return findings_registry.health(context.data_dir, findings_registry.asset_keys(context.data_dir))
 
 
 @router.get("/api/findings/scope", response_model=ScopedFindings, **AS_RETURNED)
@@ -204,6 +230,33 @@ def triage_findings(context: Context = Depends(guard(Policy(action="triage", bod
     if data.run_id is not None:
         return context.render({"summary": outcomes[0]["summary"]})
     return context.render({"results": [{"run_id": item["run_id"], **({"error": item["error"]} if "error" in item else {})} for item in outcomes]})
+
+
+class FixPrompt(BaseModel):
+    prompt: str
+
+
+@router.get("/api/findings/prompt", response_model=FixPrompt)
+def fix_prompt(run_id: str = Query(max_length=200), fingerprint: str = Query(pattern="^[0-9a-f]{16,64}$"),
+               context: Context = Depends(guard())) -> dict:
+    """A finding as a prompt for the reader's own AI assistant, in their language: rule, place, fragment and fix, never
+    a secret's value (findings/ai_prompt.py). Pitangus calls no AI for it."""
+    from pitangus.modules.findings.ai_prompt import prompt
+    from pitangus.modules.findings.fix_guide import attach
+    if run_id.startswith(VIEW_PREFIX):
+        key = run_id.removeprefix(VIEW_PREFIX)
+    else:
+        try:
+            key = asset_key(load_run(context.data_dir, run_id))
+        except (ValueError, OSError):
+            raise ApiError(404, msg("api.run_not_found")) from None
+    entries = findings_registry.load(context.data_dir, key).get("findings", {})
+    entry = entries.get(fingerprint)
+    if entry is None or not entry.get("finding"):
+        raise ApiError(404, msg("api.finding_not_in_asset"))
+    among = [item["finding"] for item in entries.values() if item.get("finding")]
+    finding = attach([dict(entry["finding"])], among=among)[0]
+    return {"prompt": prompt(finding, context.locale)}
 
 
 class ReverifyIn(BaseModel):

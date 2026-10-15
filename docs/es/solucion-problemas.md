@@ -51,7 +51,7 @@ o dominios que prefieras no publicar.
 
 | Síntoma | Causa probable | Solución |
 | --- | --- | --- |
-| Todo va muy lento en WSL2 | El repositorio está en el disco de Windows (`/mnt/c/...`), que WSL2 lee mucho más despacio. | Clónalo dentro de Linux: `cd ~ && git clone --branch v0.13.1 https://github.com/Pitangus-Dev/pitangus.git`. |
+| Todo va muy lento en WSL2 | El repositorio está en el disco de Windows (`/mnt/c/...`), que WSL2 lee mucho más despacio. | Clónalo dentro de Linux: `cd ~ && git clone --branch v0.14.0 https://github.com/Pitangus-Dev/pitangus.git`. |
 | `Permission denied` en `data/` con WSL2 | Las carpetas se crearon desde Windows o las creó Docker como root. | Clona dentro de Linux como arriba y ejecuta ahí `make setup` antes de `make up`. |
 
 ## VPN y proxy
@@ -74,13 +74,14 @@ o dominios que prefieras no publicar.
 
 Ver [Analizar un sitio web o una API](analisis-web.md) para saber cómo funcionan.
 
-### Aplicación web o API aparece en gris en Nuevo análisis
+### Análisis web completo aparece en gris en Nuevo análisis
 
-**Síntoma.** En **Nuevo análisis**, **Aplicación web o API** dice *No está activado en este servidor*, o una ejecución
+**Síntoma.** En **Nuevo análisis**, **Análisis web completo** dice *No está activado en este servidor*, o una ejecución
 falla con «Los análisis web están apagados en este servidor».
 
-**Causa.** Los análisis web están apagados salvo que el servidor defina `PITANGUS_DAST_ENABLED=1`. La leen la API y el
-worker.
+**Causa.** El análisis web completo es experimental y está apagado salvo que el servidor defina
+`PITANGUS_DAST_ENABLED=1`. La leen la API y el worker. La **Comprobación de exposición** no necesita nada y sigue
+disponible.
 
 **Solución.**
 
@@ -99,8 +100,8 @@ socket montado). Ver [Dónde desplegar](despliegue.md).
 
 ### El paso de una herramienta sale Omitido: «La imagen de … no está en este servidor»
 
-**Causa.** No se descargó la imagen de katana, nuclei, testssl.sh, httpx, subfinder o ZAP, casi siempre porque
-`PITANGUS_DAST_ENABLED` se activó después del último `make up`.
+**Causa.** No se descargó la imagen de katana, nuclei, testssl.sh, httpx, subfinder o ZAP: falló su descarga o (para
+ZAP, katana y subfinder) `PITANGUS_DAST_ENABLED` se activó después del último `make up`.
 
 **Solución.**
 
@@ -234,7 +235,7 @@ siguiente ronda.
 | `make update` dice «a fixed version: not pulling» | Instalaste una versión y no cambiaste a la nueva. | `git fetch --tags && git checkout v<nueva> && make update`. |
 | Tras actualizar a 0.13, los análisis web omiten herramientas | No se descargaron las imágenes nuevas de los motores web. | `make engines` con `PITANGUS_DAST_ENABLED=1` en `.env`. |
 
-La lista completa para 0.13 está en [Actualizar Pitangus](actualizar.md#problemas-al-actualizar).
+La lista completa de cada versión está en [Actualizar Pitangus](actualizar.md#problemas-al-actualizar).
 
 ## Idioma
 

@@ -135,7 +135,7 @@ class GuidanceTests(unittest.TestCase):
         sca = guidance({"scanner": "sca", "tool": "trivy", "rule_id": "CVE-2026-1", "cwe": [79], "owasp": ["A03:2025"], "path": "package-lock.json"})
         self.assertEqual([link["title"] for link in sca], ["Vulnerable Dependency Management Cheat Sheet", "Software Supply Chain Security Cheat Sheet",
                                                            "A03:2025 Software Supply Chain Failures"])
-        secret = guidance({"scanner": "secrets", "tool": "gitleaks", "rule_id": "aws-access-token", "cwe": [798], "owasp": ["A04:2025"], "path": "Dockerfile"})
+        secret = guidance({"scanner": "secrets", "tool": "betterleaks", "rule_id": "aws-access-token", "cwe": [798], "owasp": ["A04:2025"], "path": "Dockerfile"})
         self.assertEqual(secret[0]["title"], "Secrets Management Cheat Sheet")
 
     def test_owasp_is_filled_from_the_cwe_only_when_the_engine_set_none(self):

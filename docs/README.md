@@ -22,7 +22,7 @@ English · [Español](es/README.md)
 | [Findings](findings.md) | The registry, triage, deadlines, verification, the CVE tracker and exports. |
 | [Compliance](compliance.md) | SBOM, VEX, malicious packages, audit evidence and the CRA kit. |
 | [Threat modeling](threat-modeling.md) | Models, approaches (STRIDE, LINDDUN, PASTA, attack trees, ATT&CK) and evidence from scans. |
-| [Upgrade](upgrading.md) | The upgrade procedure, and what changes when you move to 0.13. |
+| [Upgrade](upgrading.md) | The upgrade procedure, and what changes when you move to 0.14. |
 | [Architecture](architecture.md) | Components, how a scan flows and what is stored on disk. |
 | [Troubleshooting](troubleshooting.md) | Common errors and how to fix them. |
 | [FAQ](faq.md) | Short, honest answers to common questions. |

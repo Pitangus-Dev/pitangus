@@ -1,0 +1,5 @@
+Scanning dir /src
+Starting filesystem walk for root: /
+End status: 1 dirs visited, 2 inodes visited, 1 Extract calls, 328.166µs elapsed, 328.292µs wall time
+Error during extraction: (extracting as javascript/packagelockjson) src/package-lock.json: could not extract: invalid character 'n' looking for beginning of object key string
+No package sources found

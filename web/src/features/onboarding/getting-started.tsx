@@ -1,21 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { CheckIcon, XIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
-import { api } from '@/shared/api/http'
+import { onboardingQuery } from '@/shared/api/queries'
 
-type State = { mfa: boolean; github: boolean; analyzed: boolean; demo: boolean; watching: boolean; alerts: boolean; admin: boolean }
 type Step = { id: string; done: boolean; title: string; hint: string; view?: string; action?: string }
 const HIDDEN = 'pitangus-getting-started-hidden'
 
-// Primeros pasos: deducidos del estado real (GET /api/onboarding), una acción por paso. Se ocultan solos al
-// completarlos o cuando la persona los descarta (solo en este navegador).
+// First steps: each one is what the server sees (GET /api/onboarding), wherever it was done; nothing is ticked by
+// clicking here. One action per step. They hide on their own once done, or when the person dismisses them (only in
+// this browser).
 export function GettingStarted({ onNavigate }: { onNavigate: (view: string) => void }) {
   const { t } = useTranslation('onboarding')
-  const [state, setState] = useState<State | null>(null)
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(HIDDEN) === '1' } catch { return false } })
-  useEffect(() => { if (!hidden) api.get<State>('/api/onboarding').then(setState).catch(() => setState(null)) }, [hidden])
+  const state = useQuery({ ...onboardingQuery(), enabled: !hidden }).data
   if (hidden || !state) return null
   const admin = state.admin
   const steps: Step[] = [
@@ -28,8 +28,8 @@ export function GettingStarted({ onNavigate }: { onNavigate: (view: string) => v
   ]
   const pending = steps.filter(step => !step.done)
   if (!pending.length) return null
-  const next = pending.find(step => step.view)  // una sola acción principal: el primer paso que puedes hacer
-  const dismiss = () => { try { localStorage.setItem(HIDDEN, '1') } catch { /* sin almacenamiento: se oculta hasta recargar */ } setHidden(true) }
+  const next = pending.find(step => step.view)  // one primary action: the first step this person can take
+  const dismiss = () => { try { localStorage.setItem(HIDDEN, '1') } catch { /* no storage: hidden until reload */ } setHidden(true) }
   return <Card className="border-brand/30 bg-panel"><CardContent className="space-y-3 p-5">
     <div className="flex items-start justify-between gap-3">
       <div><h2 className="text-base font-semibold">{t('title')}</h2><p className="text-sm text-app-muted">{t('progress', { done: steps.length - pending.length, total: steps.length })}</p></div>

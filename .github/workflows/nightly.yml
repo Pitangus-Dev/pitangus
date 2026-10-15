@@ -1,0 +1,54 @@
+# Every night, the invariant tests (tests/test_invariants.py) and the other property tests with new random examples,
+# thirty times as many as on a pull request. A pull request always replays the same examples; this is where new counterexamples turn up. When it
+# fails, the log prints the falsifying example and its reproduction blob: add it to the test as an `@example` and the
+# pull request profile checks that case from then on.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  invariants:
+    name: Invariants and properties with random examples
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_USER: pitangus
+          POSTGRES_PASSWORD: pitangus  # only for the ephemeral CI container
+          POSTGRES_DB: pitangus
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U pitangus" --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      PITANGUS_DATABASE_URL: postgresql+psycopg://pitangus:pitangus@127.0.0.1:5432/pitangus
+      PITANGUS_DB_ISOLATE: data-dir
+      PITANGUS_DEFAULT_LOCALE: es
+      HYPOTHESIS_PROFILE: nightly
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes --only-binary :all: -r requirements-dev.txt
+      - name: Invariants
+        working-directory: tests
+        run: >-
+          DOCKER_HOST=unix:///nonexistent/docker.sock PYTHONPATH=.. python -m unittest -v test_invariants
+          test_secret_masking test_web_evidence test_triage_fold test_pr_gate_identity test_rule_set test_secret_filter
+          test_policies test_malicious_packages test_vendored test_third_party_rules test_rule_properties test_scan_snapshot
+          test_cli_output test_exposure_check test_betterleaks test_config_scanners test_dashboard
+          test_credential_masking test_registry_kinds test_snapshot_scope test_sarif_import test_structure_render
+          test_secret_value_identity test_secret_location test_coverage_units test_secret_pass_coverage test_contracts_together test_web_fix_cycle
+          test_committed_tree test_dependency_folders test_encoded_secrets

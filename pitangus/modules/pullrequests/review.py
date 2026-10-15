@@ -4,7 +4,8 @@ A PR is judged not by everything in the repository but by what it adds.
 The head commit is scanned with the same engines and cross-checked against two things:
 
 * the **baseline**, the latest full scan of the repository (main branch):
-  a fingerprint that was already there is pre-existing, not the PR's fault;
+  an instance of a family it already had is pre-existing, not the PR's fault (families and copies counted as the
+  registry counts them, findings/canonical.py, across the whole repository and following renamed files);
 * the **diff**: a code or secret finding counts if it falls on an added or
   modified line; a dependency finding, if the PR touches the manifest that declares it.
 
@@ -15,6 +16,7 @@ from __future__ import annotations
 
 import re
 
+from pitangus.modules.findings.canonical import growth
 from pitangus.shared.i18n import default_locale, msg, t, text
 from pitangus.shared.model import Finding
 
@@ -32,7 +34,8 @@ def changed_lines(files: list[dict]) -> dict[str, set[int] | None]:
             continue
         patch = item.get("patch")
         if not isinstance(patch, str):
-            result[name] = None
+            # A file only renamed has nothing changed in it (GitHub sends no patch for it).
+            result[name] = set() if item.get("status") == "renamed" and item.get("changes") == 0 else None
             continue
         lines: set[int] = set()
         current = 0
@@ -52,6 +55,12 @@ def changed_lines(files: list[dict]) -> dict[str, set[int] | None]:
     return result
 
 
+def renames(files: list[dict]) -> dict[str, str]:
+    """{head path: base path} for each renamed file (GitHub's `previous_filename`, git's `rename from`)."""
+    return {item["filename"]: item["previous_filename"] for item in files
+            if item.get("status") == "renamed" and isinstance(item.get("filename"), str) and isinstance(item.get("previous_filename"), str)}
+
+
 def _touches(finding: Finding, changed: dict[str, set[int] | None]) -> bool:
     path = finding.get("path")
     if path not in changed:
@@ -62,17 +71,30 @@ def _touches(finding: Finding, changed: dict[str, set[int] | None]) -> bool:
     return lines is None or finding.get("line") in lines
 
 
-def classify(findings: list[Finding], changed: dict[str, set[int] | None], baseline: set[str] | None) -> dict[str, list[Finding]]:
-    """Separates what the PR introduces from what already existed in the code it touches."""
+def classify(findings: list[Finding], changed: dict[str, set[int] | None], baseline: list[Finding] | None,
+             renamed: dict[str, str] | None = None) -> dict[str, list[Finding]]:
+    """Separates what the PR introduces from what already existed in the code it touches. `baseline`: the base's
+    findings (an engine's reports or a stored run), or None without one. `renamed`: the PR's renamed files (`renames`).
+    The server's review and `pitangus scan --base` both decide here.
+
+    Both sides are grouped into families by the registry's own identity and copies are counted across the whole
+    repository (`canonical.growth`): the PR introduces as many instances as the head has more than the base, reported
+    among those on the lines it changed. Pasting a vulnerable line, a secret or a workflow step above an identical one,
+    or into another file, adds an instance; moving one (within its file or to another), renaming its file,
+    reformatting it or commenting it adds none."""
+    touching = [finding for finding in findings if _touches(finding, changed)]
+    if baseline is None:
+        return {"introduced": touching, "preexisting": []}
+    identities, added = growth(baseline, findings, renamed)
+    groups: dict[str, list[Finding]] = {}
+    for finding, identity in zip(findings, identities):
+        if _touches(finding, changed):
+            groups.setdefault(identity, []).append(finding)
     introduced, preexisting = [], []
-    for finding in findings:
-        if not _touches(finding, changed):
-            continue
-        # A baseline scanned before a fingerprint changed formula knows the finding by its former one.
-        if baseline is not None and (finding["fingerprint"] in baseline or finding.get("previous_fingerprint") in baseline):
-            preexisting.append(finding)
-        else:
-            introduced.append(finding)
+    for identity, group in groups.items():
+        ordered = sorted(group, key=lambda finding: (str(finding.get("path") or ""), int(finding.get("line") or 0)))
+        introduced += ordered[:added[identity]]
+        preexisting += ordered[added[identity]:]
     return {"introduced": introduced, "preexisting": preexisting}
 
 

@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,11 +8,24 @@ from unittest.mock import patch
 
 import testenv
 from pitangus.shared import paths
+from pitangus.shared.i18n import text
 from pitangus.modules.scanning import image as image_scan
 from pitangus.modules.identity.auth import Users
 from pitangus.modules.scanning.image import ImageError, config_findings, merge_packages, parse_reference
 
 from tests.test_auth import PASSWORD, HttpCase
+
+
+# These tests exercise the optional engines: turned on for the whole module, as an operator would.
+_OPTIONAL_ON = patch.dict(os.environ, {"PITANGUS_CHECKOV_ENABLED": "1", "PITANGUS_GRYPE_ENABLED": "1"})
+
+
+def setUpModule():
+    _OPTIONAL_ON.start()
+
+
+def tearDownModule():
+    _OPTIONAL_ON.stop()
 
 TOKEN = "ghp_" + "t" * 36
 
@@ -118,6 +132,45 @@ class CredentialTests(unittest.TestCase):
         self.assertIn("TRIVY_PASSWORD", captured["argv"])
         self.assertEqual(captured["env"]["TRIVY_PASSWORD"], TOKEN)
         self.assertIn("--cap-drop", captured["argv"])
+
+
+class PlatformTests(unittest.TestCase):
+    def test_grype_analyzes_the_platform_trivy_did(self):
+        """On an ARM host Grype picked arm64 while Trivy picked amd64: the two reports were about different images."""
+        self.assertEqual(image_scan.image_platform({"ImageConfig": {"os": "linux", "architecture": "arm64", "variant": "v8"}}), "linux/arm64/v8")
+        self.assertEqual(image_scan.image_platform({"ImageConfig": {"os": "linux", "architecture": "amd64"}}), "linux/amd64")
+        self.assertIsNone(image_scan.image_platform({}))
+        calls = []
+
+        def run(key, arguments, *rest, **options):
+            calls.append(arguments)
+            return subprocess.CompletedProcess(arguments, 0, json.dumps({"matches": []}), "")
+
+        with tempfile.TemporaryDirectory() as folder, patch.object(image_scan, "unavailable", return_value=None), \
+                patch.object(image_scan, "_run", side_effect=run):
+            image_scan.run_grype_image("tomcat:9.0.80", Path(folder), {}, None, "docker.io", platform="linux/amd64")
+            image_scan.run_grype_image("tomcat:9.0.80", Path(folder), {}, None, "docker.io")
+        self.assertEqual(calls[0][calls[0].index("--platform") + 1], "linux/amd64")
+        self.assertNotIn("--platform", calls[1])  # Trivy read no configuration: Grype keeps its own choice
+
+
+class ConcurrencyTests(unittest.TestCase):
+    def test_each_image_scan_keeps_its_layer_cache_in_memory_and_an_engine_error_isnt_blamed_on_the_registry(self):
+        """Concurrent scans shared Trivy's layer cache, a database file one of them locks: the others failed with "cache
+        may be in use by another process", shown as "couldn't read the image from the registry"."""
+        calls = []
+
+        def run(key, arguments, *rest, **options):
+            calls.append(arguments)
+            return subprocess.CompletedProcess(arguments, 1, "", "FATAL\tunable to initialize fs cache: cache may be in use by another process: timeout")
+
+        with tempfile.TemporaryDirectory() as folder, patch.object(image_scan, "unavailable", return_value=None), \
+                patch.object(image_scan, "_run", side_effect=run), patch.object(image_scan, "trivy_databases", return_value=[]):
+            result, _ = image_scan.run_trivy_image("tomcat:9.0.80", Path(folder), {}, None)
+        self.assertEqual(calls[0][calls[0].index("--cache-backend") + 1], "memory")
+        detail = text(result["detail"], "en")
+        self.assertIn("cache may be in use", detail)
+        self.assertNotIn("registry", detail.lower())
 
 
 class FindingTests(unittest.TestCase):

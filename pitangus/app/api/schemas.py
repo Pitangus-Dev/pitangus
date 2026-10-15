@@ -96,6 +96,34 @@ class RunRow(Open):
     trigger: dict[str, Any] | None = None
 
 
+class FixHoldReason(BaseModel):
+    """Why the fixes are held: the latest run that tripped the hold would have fixed `count` of the asset's `open`
+    findings at once, at or past both thresholds (`minimum` findings and `percent` of those open)."""
+    kind: str
+    run: str
+    at: str
+    count: int
+    open: int
+    minimum: int
+    percent: int
+
+
+class FixHold(BaseModel):
+    count: int
+    at: str
+    run: str
+    reason: FixHoldReason | None = None  # holds started before it was recorded don't say
+
+
+class FixControl(BaseModel):
+    """`mode`: PITANGUS_COVERAGE_MODE. `hold`: fixes a scan held back for closing too much at once, until the next complete
+    scan confirms them. `unseen_warn_scans`: after how many scans an unverified finding is warned about."""
+    mode: str
+    hold: FixHold | None = None
+    released: dict[str, Any] | None = None
+    unseen_warn_scans: int
+
+
 class RunDetail(RunRow):
     """A whole run record, or a repository's state served in the same shape (`type` asset_state)."""
     findings: list[FindingOut] = Field([], max_length=FINDINGS_MAX)
@@ -104,3 +132,4 @@ class RunDetail(RunRow):
     owasp_coverage: list[Any] = Field([], max_length=MANY)
     progress: list[dict[str, Any]] | None = Field(None, max_length=MANY)
     context: str | None = None
+    control: "FixControl | None" = None  # asset_state only: how its findings get fixed (findings/registry.control_of)

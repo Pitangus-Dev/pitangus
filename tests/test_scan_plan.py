@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from pitangus.modules.scanning import plan as scan_plan
+from pitangus.shared import paths
 from pitangus.shared.i18n import localize
 
 FILES = ["app/main.py", "app/models.py", "web/src/App.tsx", "crates/core/src/lib.rs", "node_modules/x/index.js",
@@ -25,15 +26,16 @@ class PlanTests(unittest.TestCase):
         self.assertNotIn("JavaScript", languages)  # node_modules doesn't count
         self.assertEqual(result["manifests"], ["pyproject.toml", "uv.lock", "web/package-lock.json"])
         self.assertEqual(result["iac"], ["Dockerfile", "infra/main.tf"])
-        self.assertTrue(any("Opengrep" in item and "Python (14 reglas, 2 archivos)" in item for item in result["runs"]))
+        rules = (paths.RULES_DIR / "python.yml").read_text().count("\n  - id: ")
+        self.assertTrue(any("Opengrep" in item and f"Python ({rules} reglas, 2 archivos)" in item for item in result["runs"]))
         self.assertTrue(any(item.startswith("Sin reglas SAST de Pitangus para Rust (1 archivo)") for item in result["skips"]))
         self.assertFalse(result["osv_needed"])
 
     def test_without_engines_it_says_so_and_offers_osv(self):
         result = self.plan(False)
         self.assertTrue(result["osv_needed"])
-        self.assertTrue(any("solo para Python" in item for item in result["runs"]))
-        self.assertTrue(any("TypeScript" in item for item in result["skips"]))
+        self.assertTrue(any(item.startswith("Sin SAST") for item in result["skips"]))
+        self.assertFalse(any("Opengrep" in item for item in result["runs"]))
 
 
 if __name__ == "__main__":

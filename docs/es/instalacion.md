@@ -13,7 +13,7 @@ primer arranque, las actualizaciones, las copias de seguridad, cómo exponerlo f
 | Docker | Engine 24+ y Compose v2.24+ | Docker Desktop, OrbStack o Docker Engine. |
 | make y git | cualquiera | `make` ya viene en macOS; en Debian/Ubuntu `sudo apt install make git`. En Windows, dentro de WSL2. |
 | Memoria | 4 GB libres | La app usa ~200 MB en reposo; cada análisis lanza un motor a la vez, limitado a 3 GB. |
-| Disco | 8 GB libres | Imágenes (~1 GB), bases de vulnerabilidades de Trivy (~1,3 GB) y de Grype (~2,1 GB, solo si analizas imágenes de contenedor), copia local de NVD (~0,7 GB) y tus ejecuciones. |
+| Disco | 8 GB libres | Imágenes (~1 GB), bases de vulnerabilidades de Trivy (~1,3 GB) y de Grype (~2,1 GB, solo si activas Grype y analizas imágenes de contenedor), copia local de NVD (~0,7 GB) y tus ejecuciones. |
 | Red de salida | HTTPS a GitHub, NVD, CISA y EPSS; para las imágenes, `ghcr.io` (sus capas salen de `pkg-containers.githubusercontent.com`) y Docker Hub | Detalle en [seguridad.md](seguridad.md#qué-sale-de-tu-máquina). No hace falta ninguna entrada desde internet. |
 | Cuenta | GitHub (personal u organización que administres) | Para crear tu GitHub App. |
 
@@ -62,13 +62,13 @@ cambia y lo que haya que hacer antes de actualizar (también en [CHANGELOG.md](.
 tienes: `git describe --tags` en la carpeta del repositorio, o la versión en la barra superior del panel (también la
 responde `/api/health`).
 
-**Si instalaste una versión** (`git clone --branch v0.13.x`, como en el [inicio rápido](inicio-rapido.md)), el
-repositorio se queda en esa versión a propósito y `make update` por sí solo no la cambia: dice *On v0.13.x (a fixed
+**Si instalaste una versión** (`git clone --branch v0.14.x`, como en el [inicio rápido](inicio-rapido.md)), el
+repositorio se queda en esa versión a propósito y `make update` por sí solo no la cambia: dice *On v0.14.x (a fixed
 version): not pulling*. Primero cambia a la nueva:
 
 ```bash
 git fetch --tags
-git checkout v0.13.1      # la versión que quieras
+git checkout v0.14.0      # la versión que quieras
 make update
 ```
 

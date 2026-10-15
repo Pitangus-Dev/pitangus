@@ -45,6 +45,7 @@ SETTINGS: dict[str, Setting] = {
     "PITANGUS_EMBEDDED_WORKER": Setting(default="1", kind="flag"),
     # Keys and tokens
     "PITANGUS_MASTER_KEY": Setting(kind="key"),
+    "PITANGUS_PREVIOUS_MASTER_KEY": Setting(kind="key"),  # the key before a rotation: secrets keep their identity
     "PITANGUS_SESSION_KEY": Setting(kind="key"),
     "PITANGUS_METRICS_TOKEN": Setting(kind="token"),
     "PITANGUS_CRON_TOKEN": Setting(kind="token"),
@@ -67,8 +68,40 @@ SETTINGS: dict[str, Setting] = {
     "PITANGUS_NVD_API_KEY": Setting(),
     "PITANGUS_ALLOW_PRIVATE_REGISTRIES": Setting(kind="flag"),
     "PITANGUS_ALLOW_PRIVATE_WEBHOOKS": Setting(kind="flag"),
+    # How a scan proves it looked (docs/findings.md): `on` (the default since 0.14) fixes only what the owner engine
+    # proved gone where it looked, with per-file coverage, unseen findings and the fix hold; `shadow` works them out
+    # without changing the registry, records how they would and fixes as before. An engine run that broke its contract
+    # opens and fixes nothing in every mode
+    "PITANGUS_COVERAGE_MODE": Setting(default="on", kind="choice", choices=("off", "shadow", "on")),
+    # Finding identity: `v2` (the default since 0.14) one finding per family of identical problems, by the canonical
+    # identity; `shadow` the engines' fingerprints, also working out the identity and recording the differences; `v1` the
+    # engines' fingerprints only
+    "PITANGUS_IDENTITY_MODE": Setting(default="v2", kind="choice", choices=("v1", "shadow", "v2")),
+    # Betterleaks asks each secret's provider whether it is still active (network requests carrying the secret): off
+    # unless enabled; it reorders priorities, never hides a finding
+    "PITANGUS_SECRET_VALIDATION": Setting(kind="flag"),
+    # A `gitleaks:allow` / `betterleaks:allow` comment in the code, or an entry of the repository's `.gitleaksignore` /
+    # `.betterleaksignore`, is honoured (and every match it allows is declared, excluded with its file and line); with
+    # this on, both are ignored and the matches reported
+    "PITANGUS_SECRETS_IGNORE_INLINE_ALLOW": Setting(kind="flag"),
+    # A scan that would fix at least this share (%) of an asset's open findings, and at least this many, holds the fixes
+    # until the next complete scan confirms them
+    "PITANGUS_FIX_HOLD_PERCENT": Setting(default="30", kind="integer", minimum=1),
+    "PITANGUS_FIX_HOLD_MINIMUM": Setting(default="10", kind="integer", minimum=1),
+    # After this many scans without being able to check an open finding, the panel warns about it
+    "PITANGUS_UNSEEN_WARN_SCANS": Setting(default="3", kind="integer", minimum=1),
     # Passive web scans (ZAP) of verified domains: off unless the operator turns them on
     "PITANGUS_DAST_ENABLED": Setting(kind="flag"),
+    # Optional engines, off unless turned on: Checkov (more IaC and Dockerfile checks next to Trivy's) and Grype (a second
+    # opinion on container images' packages). Off, an engine is "not run (disabled)": what it found before stays open
+    "PITANGUS_CHECKOV_ENABLED": Setting(kind="flag"),
+    "PITANGUS_GRYPE_ENABLED": Setting(kind="flag"),
+    # GitLab's sast-rules (MIT and Apache-2.0 ones, third_party/gitlab-sast-rules) next to Pitangus' own rules: off, since
+    # on the measured corpus none reached 85% precision with at least 3 hits
+    "PITANGUS_THIRD_PARTY_RULES": Setting(kind="flag"),
+    # Pitangus' Opengrep rules that start off (`opt_in` in rules/*.yml, measured too noisy to be on by default) to turn on,
+    # comma-separated ids (`appsec.js.dom-xss-sink`)
+    "PITANGUS_SAST_OPT_IN_RULES": Setting(),
     # The public addresses (or CIDR ranges) web scans leave from, comma-separated: the panel tells site owners to allow them
     "PITANGUS_EGRESS_IPS": Setting(kind="addresses"),
     # Engines started through the Docker socket mount folders by their path on the host

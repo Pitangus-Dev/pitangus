@@ -140,7 +140,8 @@ class ScanTests(unittest.TestCase):
 
     def test_the_versions_httpx_read_become_findings_after_its_step(self):
         result, calls = self.scan({**ABSENT, "httpx": None, web_versions.KEY: None})
-        self.assertEqual([key for key, _, _ in calls], ["zap", "httpx", "osv-scanner"])
+        # httpx twice: the technologies, then the statuses (each root's random path at least, for soft 404s).
+        self.assertEqual([key for key, _, _ in calls], ["zap", "httpx", "httpx", "osv-scanner"])
         steps = [step["id"] for step in result["steps"]]
         self.assertEqual(steps[steps.index("dast-httpx") + 1], "dast-versions")
         found = [item for item in result["findings"] if item["tool"] == web_versions.TOOL]

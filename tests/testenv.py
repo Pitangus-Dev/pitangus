@@ -27,3 +27,15 @@ def docker_runner(case) -> None:
     lookup = patch.object(web_versions, "readiness", return_value=msg("scanning.web.tools.image_missing", tool="OSV-Scanner"))
     lookup.start()
     case.addCleanup(lookup.stop)
+
+
+def read_log(engine: str, root, paths=None) -> str:
+    """What a secret engine logs for each file it reads (secret_coverage), for every file under `root` or for `paths`:
+    a fake engine that read the snapshot says so, as the real one does."""
+    from pathlib import Path
+    root = Path(root)
+    if paths is None:
+        paths = sorted(path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()) if root.is_dir() else []
+    if engine == "betterleaks":
+        return "".join(f'6:01PM TRC scanning path path="/src/{path}"\n' for path in paths)
+    return "".join(f'2026-10-14T18:04:16Z\tDEBUG\t[secret] Using streaming scanner\tfile_path="{path}"\n' for path in paths)

@@ -75,7 +75,7 @@ está, nunca del valor de un secreto. Permite reconocer el mismo hallazgo de una
 ## I
 
 **IaC (infraestructura como código).** Infraestructura descrita en archivos: Terraform, manifiestos de Kubernetes,
-Dockerfiles, CloudFormation, pipelines. Pitangus la revisa con Checkov y Trivy. Ver
+Dockerfiles, CloudFormation, pipelines. Pitangus la revisa con Trivy y zizmor, y también con Checkov si se activa. Ver
 [Analizar tu código](analisis-de-codigo.md).
 
 **IP de salida.** La dirección pública desde la que salen los análisis del servidor. Si un sitio filtra por IP (un

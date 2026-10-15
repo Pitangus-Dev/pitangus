@@ -19,7 +19,7 @@ Every change is kept in the finding's history with who, when and why.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -57,6 +57,7 @@ CONTROL = {"reason": "findings.triage.errors.reason_control_characters", "note":
 SUPPRESSED = ("false_positive", "accepted", "fixed")
 REASON_MIN, REASON_MAX, NOTE_MAX = 10, 500, 1000
 MAX_BATCH, HISTORY_MAX = 500, 50
+FOLDED_HISTORY_MAX, FOLDED_MAX = 500, 500   # events and copies one folded decision keeps
 ACCEPT_DEFAULT_DAYS, ACCEPT_MAX_DAYS = 90, 365
 
 
@@ -107,12 +108,69 @@ def rename_asset(data_dir: Path, old: str, new: str) -> None:
         _save_asset(data_dir, new, merged)
 
 
-def carry_over(data_dir: Path, key: str, moved: dict[str, str]) -> None:
-    """Findings with a new fingerprint (former → new) keep their decisions; one already under the new one wins."""
+def _expiry(entry: Mapping[str, Any]) -> date:
+    """When an acceptance stops hiding a finding: none is never, an unreadable one already did (as `effective` reads it)."""
+    if not entry.get("expires_at"):
+        return date.max
+    try:
+        return date.fromisoformat(str(entry["expires_at"]))
+    except ValueError:
+        return date.min
+
+
+def fold(copies: Mapping[str, dict | None], stamp: str) -> dict | None:
+    """One decision for copies of a finding folded into one (fingerprint → its decision, None without one), never
+    more lenient than the strictest copy: copies that agree keep their decision, with the earliest expiry; copies that
+    differ, or one nobody reviewed, leave it open for review. Every copy's history goes along, and `folded` names them
+    so folding them again changes nothing. None: no copy had a decision."""
+    decided = {digest: entry for digest, entry in copies.items() if entry}
+    if not decided:
+        return None
+    folded = sorted({*copies, *(digest for entry in decided.values() for digest in entry.get("folded") or [])})[:FOLDED_MAX]
+    if len(copies) == 1:
+        return {**next(iter(decided.values())), "folded": folded}
+    events = [event for entry in decided.values() for event in (entry.get("history") or [{key: value for key, value in entry.items() if key not in ("history", "folded")}])]
+    unique = {repr(sorted(event.items(), key=lambda item: item[0])): event for event in events}
+    history = sorted(unique.values(), key=lambda event: str(event.get("at") or ""))[-FOLDED_HISTORY_MAX:]
+    statuses = {entry.get("status", "open") for entry in decided.values()}
+    summary = [{"fingerprint": digest, "status": (entry or {}).get("status"), "expires_at": (entry or {}).get("expires_at")}
+               for digest, entry in sorted(copies.items())][:FOLDED_MAX]
+    if len(decided) == len(copies) and len(statuses) == 1 and statuses != {"open"}:
+        base = min(decided.values(), key=lambda entry: (_expiry(entry), str(entry.get("at") or "")))
+        event = {"status": base["status"], "reason": base.get("reason") or "", "by": "sistema", "at": stamp,
+                 "expires_at": base.get("expires_at"), "note": msg("findings.triage.folded", count=len(copies)), "folded": summary}
+        count = sum(int(entry.get("count") or 1) for entry in decided.values())
+        return {**{key: value for key, value in base.items() if key not in ("history", "folded")}, "count": count,
+                "history": [*history, event], "folded": folded}
+    event = {"status": "open", "reason": "", "by": "sistema", "at": stamp, "expires_at": None,
+             "note": msg("findings.triage.folded_review", count=len(copies)), "folded": summary}
+    return {**{key: value for key, value in event.items() if key != "folded"}, "history": [*history, event], "folded": folded}
+
+
+def carry_over(data_dir: Path, key: str, moved: dict[str, str], kept: Collection[str] = ()) -> None:
+    """Findings with a new fingerprint (former → new) keep their decisions. Several folded into one are combined by
+    `fold`, with the decision already under the new one, if any, as one more copy; `kept`: new fingerprints that had
+    their own entry (an unreviewed copy too)."""
+    groups: dict[str, list[str]] = {}
+    for former, new in moved.items():
+        groups.setdefault(new, []).append(former)
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with db.transaction(data_dir) as connection:
         db.lock(connection, "triage", key)
         asset = load_asset(data_dir, key)
-        _save_asset(data_dir, key, {new: asset[former] for former, new in moved.items() if former in asset and new not in asset})
+        changed = {}
+        for new, formers in groups.items():
+            current = asset.get(new)
+            pending = [former for former in formers if former not in set((current or {}).get("folded") or [])]
+            if not pending:
+                continue
+            copies = {former: asset.get(former) for former in pending}
+            if current is not None or new in kept:
+                copies[new] = current
+            decision = fold(copies, stamp)
+            if decision is not None and decision != current:
+                changed[new] = decision
+        _save_asset(data_dir, key, changed)
 
 
 def _clean_text(value, *, limit: int, field: str) -> str:
@@ -220,9 +278,12 @@ def decide(data_dir: Path, record: RunRecord, fingerprints, status, *, reason=No
     with db.transaction(data_dir) as connection:
         db.lock(connection, "triage", key)  # concurrent decisions on one asset don't overwrite each other's history
         asset = load_asset(data_dir, key)
+        # A family's decision covers the copies it had (findings/canonical.py): one more reopens it.
+        counts = {finding["fingerprint"]: finding["count"] for finding in record.get("findings", []) if isinstance(finding.get("count"), int)}
         for digest in dict.fromkeys(fingerprints):
             entry = asset.get(digest, {"history": []})
-            history = [*entry.get("history", []), event][-HISTORY_MAX:]
-            asset[digest] = {**event, "history": history}
+            decided = {**event, **({"count": counts[digest]} if digest in counts else {})}
+            history = [*entry.get("history", []), decided][-HISTORY_MAX:]
+            asset[digest] = {**decided, "history": history, **({"folded": entry["folded"]} if entry.get("folded") else {})}
         _save_asset(data_dir, key, {digest: asset[digest] for digest in dict.fromkeys(fingerprints)})
     return annotate(data_dir, record, {key: asset})
