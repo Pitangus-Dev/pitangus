@@ -36,10 +36,11 @@ export type FindingsColumn = { label: string; text: (finding: RepositoryFinding)
 // `runId`: the run or state the findings come from (a finding that names its asset uses that asset's state instead);
 // `assetKey`: the one asset, if any; `focus`: a finding to open and scroll to (links from Jira issues carry it).
 // `tab`: the asset state's (or scope's) tab the findings come from; none for a run, which holds every status it saw.
-export function FindingsTable({ findings, kpis, header, aside, column, exports, audit, jira, runId, assetKey = '', canAccept, canManage = canAccept, tab, focus = null, onChanged }: {
+// `partial`: `findings` is only part of the view (a scope past its cap).
+export function FindingsTable({ findings, kpis, header, aside, column, exports, audit, jira, runId, assetKey = '', canAccept, canManage = canAccept, tab, focus = null, partial = false, onChanged }: {
   findings: RepositoryFinding[]; kpis?: FindingKpis; header: ReactNode; aside?: ReactNode; column?: FindingsColumn; exports: (openAudit: () => void) => ReactNode
   audit: { name: string; target: AuditTarget; fromSelection: boolean }; jira: { selection: JiraSelection; asset: { key: string; name?: string } | null }
-  runId: string; assetKey?: string; canAccept: boolean; canManage?: boolean; tab?: FindingTab; focus?: string | null; onChanged: () => void
+  runId: string; assetKey?: string; canAccept: boolean; canManage?: boolean; tab?: FindingTab; focus?: string | null; partial?: boolean; onChanged: () => void
 }) {
   const { t } = useTranslation('findings')
   const views = statusViews(tab)
@@ -76,6 +77,10 @@ export function FindingsTable({ findings, kpis, header, aside, column, exports, 
   // Due dates only exist in a registry's state (pending work with a detection date), not in a single run.
   const hasSla = kpis?.has_sla ?? false
   const dismissed = useMemo(() => findings.filter(item => SUPPRESSED.includes(statusOf(item))).length, [findings])
+  // How many each status holds in what this view lists, so the filter agrees with the tabs and the header. Not when the
+  // list is only part of it (a scope past its cap): a count of what was served would be wrong.
+  const statusCounts = useMemo(() => Object.fromEntries(statusViews(tab).map(view => [view, findings.filter(item => inView(item, view)).length])), [findings, tab])
+  const counted = (label: string, count: number | undefined) => partial || count === undefined ? label : t('filters.status_count', { label, count })
   const groups = useMemo(() => groupFindings(findings.filter(item =>
     inView(item, triageView)
     && (severity === 'all' || item.severity === severity) && (action === 'all' || item.priority?.action === action) && (scanner === 'all' || item.scanner === scanner)
@@ -122,7 +127,8 @@ export function FindingsTable({ findings, kpis, header, aside, column, exports, 
         <Button type="button" size="sm" variant="outline" aria-expanded={moreFilters} aria-controls="more-filters" onClick={() => setMoreFilters(!moreFilters)} className="w-fit border-input bg-card"><SlidersHorizontalIcon />{t('filters.more')}{hiddenActive ? ` · ${hiddenActive}` : ''}</Button>
       </div>
       {moreFilters && <div id="more-filters" className="flex flex-wrap gap-3">
-        {views.length > 0 && <Filter label={t('filters.status')} value={triageView} onChange={value => { setTriageView(value); setOffset(0) }} all={t('filters.any_status')} options={views.map(view => [view, t(STATUS_VIEW_LABEL[view])])} />}
+        {views.length > 0 && <Filter label={t('filters.status')} value={triageView} onChange={value => { setTriageView(value); setOffset(0) }}
+          all={counted(t('filters.any_status'), findings.length)} options={views.map(view => [view, counted(t(STATUS_VIEW_LABEL[view]), statusCounts[view])])} />}
         <Filter label={t('filters.priority')} value={action} onChange={setAction} all={t('filters.any_priority')} options={[['act', t('common:priority.act')], ['attend', t('common:priority.attend')], ['track', t('common:priority.track')]]} />
         <Filter label={t('filters.source')} value={scanner} onChange={setScanner} all={t('filters.any_source')} options={[['sca', t('filters.source_options.sca')], ['sast', t('filters.source_options.sast')], ['iac', t('filters.source_options.iac')], ['cicd', t('filters.source_options.cicd')], ['secrets', t('filters.source_options.secrets')], ['dast', t('filters.source_options.dast')]]} />
         {hasSla && <Filter label={t('filters.deadline')} value={deadline} onChange={value => { setDeadline(value); setOffset(0) }} all={t('filters.any_deadline')} options={[['overdue', t('filters.deadline_options.overdue')], ['soon', t('filters.deadline_options.soon')]]} />}

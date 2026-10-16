@@ -63,7 +63,7 @@ Los dos huecos por los que más preguntan:
           with:
             upload: never
             output: codeql
-        - uses: Pitangus-Dev/pitangus@v0.14.1
+        - uses: Pitangus-Dev/pitangus@v0.14.2
           if: always()
           with:
             scan: false
@@ -140,7 +140,7 @@ jobs:
           docker run --rm -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2 \
             zap.sh -cmd -autorun /zap/wrk/zap.yaml
           # la plantilla sarif-json escribe zap.json
-      - uses: Pitangus-Dev/pitangus@v0.14.1
+      - uses: Pitangus-Dev/pitangus@v0.14.2
         if: always()
         with:
           scan: false
@@ -158,7 +158,7 @@ Nuclei escribe SARIF con `-se` ([opciones](https://docs.projectdiscovery.io/tool
           docker run --rm -v "$PWD:/out" projectdiscovery/nuclei:v3.3.5 \
             -u https://app.example.com -rl 20 -c 10 -severity low,medium,high,critical \
             -etags dos,fuzz,intrusive -se /out/nuclei.sarif
-      - uses: Pitangus-Dev/pitangus@v0.14.1
+      - uses: Pitangus-Dev/pitangus@v0.14.2
         if: always()
         with:
           scan: false
@@ -217,8 +217,11 @@ resto (se puede desactivar).
 - Una regla automática con **relleno** (backfill) también crea, de forma espaciada, las incidencias de los hallazgos que
   ya estaban abiertos al guardarla o activarla.
 
-El formulario de la regla muestra qué crearía antes de guardarla: cuántas incidencias, para cuántos hallazgos abiertos,
-y cómo se verá en Jira la más grave (su título y sus primeras líneas). Cuando el relleno termina, la regla muestra cuántas
+Antes de guardar una regla automática, su formulario dice en una frase qué hará («Esta regla creará ahora cerca de 12
+incidencias en SEC · Bug, para los hallazgos abiertos de severidad Alta o superior en org/api; las siguientes, a medida
+que aparezcan»), con las cifras detrás y cómo se verán sus incidencias en Jira (el título y las primeras líneas de la
+más grave). Sin relleno, dice que no se crea nada ahora y cuántos hallazgos abiertos se quedan sin incidencia; una regla
+manual dice a dónde van las incidencias que se creen desde **Hallazgos**. Cuando el relleno termina, la regla muestra cuántas
 incidencias se crearon, enlaza las primeras y, si alguna falló, por qué, agrupado por motivo.
 
 ### Cuando se verifica la corrección

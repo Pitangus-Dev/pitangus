@@ -2,9 +2,12 @@
 
 - Dependencies: the manager comes from the file that declared it (package-lock.json → npm, poetry.lock → Poetry…)
   and the fix depends on whether the dependency is direct or transitive. For a transitive one, the graph Trivy resolves
-  from the lockfile says who brings it in (`package.introduced_by`, scanning/dependency_graph.py), in any ecosystem: the
-  guide updates the package, shows which version ended up installed and, if it didn't move, updates the direct
-  dependency that holds it back. The version is the one that closes every advisory for that package.
+  from the lockfile says who brings it in (`package.introduced_by`, scanning/dependency_graph.py), in any ecosystem;
+  where the lockfile keeps ranges (scanning/declared_ranges.py), whether that package accepts the fixed version. When
+  it doesn't, the direct dependency is updated first and the guide says why: updating the package alone would be a
+  no-op. When it does, updating the package is enough. When the range is unknown, the guide updates the package and,
+  if it stays below, the direct dependency. Every guide ends with a command that shows the installed version. The
+  version is the one that closes every advisory for that package.
 - Code: a before/after example for the rule (fix_examples), in its language.
 - Secrets: rotate first; removing them from the code isn't enough, they're already in the history.
 - An image's system packages: in the Dockerfile.
@@ -20,6 +23,7 @@ import posixpath
 import re
 
 from pitangus.modules.intel.advisories import compare_versions
+from pitangus.modules.intel.version_ranges import SYNTAX, allows
 from pitangus.modules.findings import web_fix
 from pitangus.modules.findings.fix_examples import EXAMPLES
 from pitangus.shared.i18n import msg
@@ -44,6 +48,10 @@ def panel_step(step) -> bool:
 COMMAND_LABELS = {"update": msg("findings.fix.commands.update"), "reinstall": msg("findings.fix.commands.reinstall"),
                   "install": msg("findings.fix.commands.install")}
 JS = ("npm", "yarn", "pnpm", "bun")
+# Where the project declares its direct dependencies; and the managers whose update command for the direct dependency
+# rewrites that declared range (`add …@latest`) instead of moving within it.
+MANIFESTS = {"poetry": "pyproject.toml", "npm": "package.json", "yarn": "package.json", "bundler": "Gemfile"}
+REWRITES = ("poetry", *JS)
 
 # Dependency file → package manager.
 MANAGERS = {"package-lock.json": "npm", "npm-shrinkwrap.json": "npm", "package.json": "npm", "yarn.lock": "yarn",
@@ -84,19 +92,31 @@ def _check(tool: str | None, name: str, target: str) -> dict | None:
 
 
 def _update_direct(tool: str | None, name: str, dev: bool) -> str | None:
-    """Updates the direct dependency that brings a transitive one in, for when the transitive one doesn't move: its
-    range is what holds it back. Go, Maven and Gradle don't need it: they set a transitive version on their own."""
+    """Updates the direct dependency that brings a transitive one in, for when its range is what holds the transitive
+    one back. Go, Maven and Gradle don't need it: they set a transitive version on their own."""
     if not SAFE_NAME.fullmatch(name):
         return None
-    return {"poetry": f"poetry add{' --group dev' if dev else ''} {name}@latest", "uv": f"uv lock --upgrade-package {name}",
+    flag = " -D" if dev else ""
+    return {"npm": f"npm install{flag} {name}@latest", "yarn": f"yarn add{flag} {name}@latest", "pnpm": f"pnpm add{flag} {name}@latest",
+            "bun": f"bun add{' -d' if dev else ''} {name}@latest",
+            "poetry": f"poetry add{' --group dev' if dev else ''} {name}@latest", "uv": f"uv lock --upgrade-package {name}",
             "pipenv": f"pipenv update {name}", "pdm": f"pdm update {name}", "cargo": f"cargo update -p {name}",
             "composer": f"composer update {name} --with-dependencies", "bundler": f"bundle update {name}",
             "dotnet": f"dotnet add package {name}", "pub": f"dart pub upgrade {name}", "mix": f"mix deps.update {name}"}.get(tool or "")
 
 
-def _introduced(package: Package) -> DependencyPath | None:
-    """The shortest chain that brings a transitive dependency in (from the lockfile's graph), if it is known."""
-    return next((entry for entry in package.get("introduced_by") or [] if isinstance(entry, dict) and entry.get("name") and entry.get("direct")), None)
+def _introduced(package: Package, tool: str | None, target: str) -> tuple[DependencyPath | None, bool | None]:
+    """Who brings a transitive dependency in (from the lockfile's graph) and whether every package that requires it
+    accepts `target`: False names the one that doesn't, True only when all of them are known to, None when a range is
+    unknown. (None, None) when the graph doesn't say."""
+    entries = [entry for entry in package.get("introduced_by") or [] if isinstance(entry, dict) and entry.get("name") and entry.get("direct")]
+    if not entries:
+        return None, None
+    verdicts = [allows(SYNTAX.get(tool or ""), entry.get("requires"), target) for entry in entries]
+    blocking = next((entry for entry, verdict in zip(entries, verdicts) if verdict is False), None)
+    if blocking:
+        return blocking, False
+    return entries[0], True if all(verdicts) and not package.get("introduced_by_more") else None
 
 
 def _dependency(finding: Finding, target: str | None) -> dict:
@@ -116,23 +136,26 @@ def _dependency(finding: Finding, target: str | None) -> dict:
     transitive = direct is False
     dev = bool(package.get("dev"))  # a dev dependency: the command must not move it to production
     fixed = package.get("fixed_version")
-    lead = _introduced(package) if transitive else None
+    lead, fits = _introduced(package, tool, target) if transitive else (None, None)
     names: dict = {}
     if lead:
         names = {"package": name, "version": version, "target": target, "parent": lead["name"], "parent_version": lead.get("version") or "?",
-                 "direct": lead["direct"], "direct_version": lead.get("direct_version") or "?"}
+                 "requires": lead.get("requires") or "", "direct": lead["direct"], "direct_version": lead.get("direct_version") or "?"}
+    override = {"npm": "overrides", "yarn": "resolutions", "pnpm": "pnpm.overrides", "bun": "overrides"}.get(tool or "", "")
     if fixed and fixed != target:
         steps.append(msg("findings.fix.closes_all", version=target, package=name, fixed=fixed))
     if tool in JS:
-        key = {"npm": "overrides", "yarn": "resolutions", "pnpm": "pnpm.overrides", "bun": "overrides"}[tool]
-        if transitive:
-            steps.append(msg("findings.fix.npm_transitive", package=name, field=key))
-            note = msg("findings.fix.path.override_note", direct=lead["direct"]) if lead else msg("findings.fix.override_note")
+        if transitive and fits and tool == "npm":
+            add("update", f"npm update {name}")  # within the range of what requires it: npm moves it in place
+        elif transitive and fits is not False:
+            steps.append(msg("findings.fix.npm_transitive", package=name, field=override))
+            # Within the range of what requires it, the override only moves it; otherwise updating that one is cleaner.
+            note = "" if fits else msg("findings.fix.path.override_note", direct=lead["direct"]) if lead else msg("findings.fix.override_note")
             example = {"language": "json", "file": "package.json", "before": "", "after": ("{\n  \"pnpm\": {\n    \"overrides\": {\n      \"" + name + "\": \">=" + target + "\"\n    }\n  }\n}"
                                                                    if tool == "pnpm" else
-                                                                   "{\n  \"" + key + "\": {\n    \"" + name + "\": \">=" + target + "\"\n  }\n}"), "note": note}
+                                                                   "{\n  \"" + override + "\": {\n    \"" + name + "\": \">=" + target + "\"\n  }\n}"), "note": note}
             add("reinstall", {"npm": "npm install", "yarn": "yarn install", "pnpm": "pnpm install", "bun": "bun install"}[tool])
-        else:
+        elif not transitive:
             flag = " -D" if dev else ""
             add("update", {"npm": f"npm install{flag} {name}@{target}", "yarn": f"yarn add{flag} {name}@{target}",
                               "pnpm": f"pnpm add{flag} {name}@{target}", "bun": f"bun add{' -d' if dev else ''} {name}@{target}"}[tool])
@@ -193,10 +216,33 @@ def _dependency(finding: Finding, target: str | None) -> dict:
     if check:
         commands.append(check)
     extra: dict = {}
-    if lead:
-        # Who brings it in, from the lockfile's graph: update the package, check it, and if it didn't move, the
-        # direct dependency whose range holds it back.
-        steps.insert(0, msg("findings.fix.path.from_via" if lead["direct"] != lead["name"] else "findings.fix.path.from", **names))
+    via = lead is not None and lead["direct"] != lead["name"]
+    if lead and fits is False:
+        # What requires it doesn't accept the fixed version: updating the package alone is a no-op, so the direct
+        # dependency moves first and the package's own command, if any, comes after it.
+        upgrade = _update_direct(tool, lead["direct"], bool(lead.get("direct_dev")))
+        applying = [command for command in commands if command["action"] != "check"]
+        if tool == "npm":  # once the direct one accepts it, npm moves it in place
+            applying = [{"action": "update", "code": f"npm update {name}"}]
+        checks = [command for command in commands if command["action"] == "check"]
+        if applying and upgrade:
+            applying[0] = {**applying[0], "label": msg("findings.fix.commands.update_then", package=name)}
+        first = [{"label": msg("findings.fix.commands.update_first", package=lead["direct"]), "action": "update", "code": upgrade}] if upgrade else []
+        commands = first + (applying if upgrade else []) + checks
+        extra = {"action": msg("findings.fix.path.action_blocked" if applying else "findings.fix.path.action_blocked_alone", **names)}
+        steps.insert(0, msg("findings.fix.path.blocked_via" if via else "findings.fix.path.blocked", **names))
+        if lead.get("direct_requires") and tool in MANIFESTS:
+            steps.insert(1, msg("findings.fix.path.declared_rewritten" if tool in REWRITES else "findings.fix.path.declared",
+                                manifest=MANIFESTS[tool], range=lead["direct_requires"], **names))
+        if tool in JS:  # forcing it goes against what requires it: only once no release of the direct one helps
+            steps.append(msg("findings.fix.path.force", field=override, **names))
+        else:
+            steps.append(msg("findings.fix.path.no_release_yet", **names))
+    elif lead and fits:
+        steps.insert(0, msg("findings.fix.path.fits", **names))
+    elif lead:
+        # The range is unknown: update the package, check it, and if it didn't move, the direct dependency.
+        steps.insert(0, msg("findings.fix.path.from_via" if via else "findings.fix.path.from", **names))
         upgrade = None if tool in JS else _update_direct(tool, lead["direct"], bool(lead.get("direct_dev")))
         if upgrade:
             extra = {"action": msg("findings.fix.path.action", **names)}
@@ -204,7 +250,7 @@ def _dependency(finding: Finding, target: str | None) -> dict:
         elif tool not in JS + ("go", "maven", "gradle"):
             steps.insert(1, msg("findings.fix.path.if_stuck", **names))
     elif transitive and tool not in JS + ("maven", "gradle"):
-        steps.insert(0, msg("findings.fix.transitive_other", package=name))
+        steps.insert(0, msg("findings.fix.transitive_other", package=name, version=target))
     also = [str(item) for item in package.get("also_in") or [] if item][:5]
     if also:  # a monorepo: the same version in other lockfiles, each updated on its own
         steps.append(msg("findings.fix.also_in", package=name, version=version, paths=", ".join(also)))

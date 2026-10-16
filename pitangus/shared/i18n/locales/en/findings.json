@@ -6,7 +6,9 @@
       "install": "Install",
       "check": "Check the response headers",
       "check_version": "Check that it shows {{version}} or later",
-      "if_stuck": "If it stays below {{version}}, update {{package}}"
+      "if_stuck": "If it stays below {{version}}, update {{package}}",
+      "update_first": "First, update {{package}}",
+      "update_then": "Then, update {{package}}"
     },
     "verify": "Then push the change to the main branch and click “Reverify” (or wait for the branch's automatic analysis).",
     "verify_dependency": "Then regenerate the lockfile, push the change to the main branch and click “Reverify” (or wait for the branch's automatic analysis).",
@@ -31,7 +33,7 @@
     "os_rebuild": "This is an OS package in the image: the best fix is to rebuild it on an updated base image (docker build --pull).",
     "os_dockerfile": "If the base image doesn't include the fix yet, upgrade the package in the Dockerfile:",
     "generic_update": "Update {{package}} from {{installed}} to {{version}} or later in {{path}} and regenerate the lockfile.",
-    "transitive_other": "{{package}} comes in through another dependency: if the command doesn't upgrade it, update the direct dependency that pulls it in.",
+    "transitive_other": "{{package}} comes in through another dependency, and this lockfile doesn't say which one. If the command leaves it below {{version}}, find out with your package manager which package requires it and update that one first.",
     "malicious_sibling": "{{package}} {{version}} is a malicious package: remove it instead of updating it (see its MAL- advisory). Updating isn't enough.",
     "secret": {
       "revoke": "Revoke or rotate the credential with its provider now: deleting it from the code isn't enough, it's already in the Git history.",
@@ -45,8 +47,17 @@
       "action": "Update {{package}} to {{target}}; if it stays below, update {{direct}}, which brings it in.",
       "from": "{{package}} {{version}} comes in through {{parent}} {{parent_version}}.",
       "from_via": "{{package}} {{version}} comes from {{direct}} {{direct_version}} through {{parent}} {{parent_version}}.",
-      "if_stuck": "If the update leaves it below {{target}}, {{parent}} {{parent_version}} is holding it back: update {{direct}}, then {{package}} again.",
-      "override_note": "Better still: update {{direct}}, which brings it in."
+      "if_stuck": "If the update leaves it below {{target}}, {{parent}} {{parent_version}} is probably holding it back: update {{direct}}, then {{package}} again.",
+      "override_note": "Better still: update {{direct}}, which brings it in.",
+      "action_blocked": "Update {{direct}} first, to a release that accepts {{package}} {{target}}; then {{package}}.",
+      "action_blocked_alone": "Update {{direct}} to a release that accepts {{package}} {{target}}.",
+      "blocked": "{{package}} {{version}} comes in through {{parent}} {{parent_version}}, which only accepts {{package}} {{requires}}. Updating {{package}} on its own can't take it to {{target}}: {{parent}} has to move first.",
+      "blocked_via": "{{package}} {{version}} comes from {{direct}} {{direct_version}} through {{parent}} {{parent_version}}, which only accepts {{package}} {{requires}}. Updating {{package}} on its own can't take it to {{target}}: {{direct}} has to move first, with a newer {{parent}}.",
+      "declared_rewritten": "{{manifest}} declares {{direct}} as “{{range}}”. The command below replaces that with its latest release: read {{direct}}'s release notes and run your tests before merging.",
+      "declared": "{{manifest}} declares {{direct}} as “{{range}}”. If no release in that range accepts {{package}} {{target}}, widen it first, or the update won't move it.",
+      "fits": "{{package}} {{version}} comes in through {{parent}} {{parent_version}}, which accepts {{package}} {{requires}}: {{target}} is within that range, so updating {{package}} is enough.",
+      "force": "If no release of {{direct}} accepts {{package}} {{target}} yet, force it with “{{field}}” in package.json and run your tests: it goes against the range {{parent}} declares.",
+      "no_release_yet": "If the check still shows {{package}} below {{target}} with the latest {{direct}}, no release accepts it yet: record the mitigation or the accepted risk in Pitangus until one does."
     },
     "also_in": "{{package}} {{version}} is also in {{paths}}: update it there too, in each of those folders."
   },
@@ -75,6 +86,7 @@
       "invalid": "Invalid path: “{{pattern}}”. Use letters, numbers, “/”, “.”, “-”, “_”, “*” and “?”.",
       "not_relative": "“{{pattern}}” must be relative to the repository root and can't contain “..”.",
       "everything": "“{{pattern}}” would exclude the whole repository.",
+      "rule_invalid": "“{{pattern}}”: write a path and, if you want to limit it to one rule, its ID after a space (“tests/** generic-api-key”). A rule ID uses letters, numbers, “.”, “-”, “_”, “:” and “/”.",
       "reason_required": "Explain in one sentence why these paths are excluded (it's kept in the history)."
     },
     "limitation_one": "Paths excluded by an administrator ({{patterns}}): {{count}} finding was left out of this run. You can see it in Findings → Excluded.",

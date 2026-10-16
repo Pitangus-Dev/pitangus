@@ -7,6 +7,42 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-10-15
+
+### Changed
+
+- **Every count on Findings agrees with the header.** The status filter says how many findings each status holds
+  (**Fixed · 14**), the header counts the unverified findings apart (**2 unverified**), and a view of several assets
+  counts them too: its **Open** tab listed them without counting them. A run you pick still shows what that run saw.
+- **Excluded paths, explained, and limited to one rule if you want.** Repository settings say in plain words what
+  each setting is for, and that excluded findings stay in view under **Excluded**. The dialog lists common examples
+  (`tests/fixtures/**`, `**/testdata`…) that you add with one click, and says what saving moves with the current
+  findings. A known false positive in one place is a path plus a rule: `tests/** generic-api-key` excludes only that
+  rule's findings under `tests`.
+- **A Jira rule says what it will do before you save it.** Every enabled automatic rule is checked first, with or
+  without backfill, and the form reads like a sentence: "This rule will create about 12 issues now in SEC · Bug, for open
+  findings High or above in org/api; future ones as they appear", the counts behind it and how its issues will read in
+  Jira. Without backfill it says nothing is created now and how many open findings stay without an issue; a manual rule
+  says where the issues created from Findings go.
+- **The field mapping explains its choices.** The three ways to fill a field are named for what they do (a Pitangus
+  value, the same value always, your text with Pitangus values), each with an example; a chosen Pitangus value shows
+  what it holds (`GET /api/integrations/jira/variables` returns an `example` per variable) and a template suggests one.
+
+### Fixed
+
+- **A transitive dependency's fix no longer starts with a command that changes nothing.** Where the lockfile records
+  the range each package accepts (`poetry.lock`, `package-lock.json`, `yarn.lock`, `Gemfile.lock`), the scan reads it
+  next to the graph Trivy resolves. When the package that brings it in doesn't accept the fixed version (FastAPI 0.110.1
+  only accepts `starlette>=0.37.2,<0.38.0`), the guide, the Jira issue and the reports say so and put the direct
+  dependency first (`poetry add fastapi@latest`, then `poetry update starlette`, then `poetry show starlette`), with
+  the range the manifest declares for it; npm's override becomes the last resort. When the range accepts it, updating
+  the package is enough (`npm update qs` for npm). When no engine resolved who brings it in, the guide says it doesn't
+  know instead of assuming.
+- **The README and the docs claim only what the fix guide can know:** it's built from the lockfiles and the
+  advisories, not from your code.
+- **Jira descriptions no longer glue words together.** Text next to a bold word, a link or a version lost its space in
+  Jira ("Repository:org/api", "Severity:High· Due date:…"); the spaces between parts are kept.
+
 ## [0.14.1] - 2026-10-15
 
 ### Upgrade notes

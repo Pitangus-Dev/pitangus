@@ -112,6 +112,7 @@ class JiraVariable(BaseModel):
     key: str
     type: VARIABLE_TYPES
     label: str
+    example: str
 
 
 class JiraVariables(BaseModel):

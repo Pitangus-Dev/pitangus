@@ -23,7 +23,7 @@ o un cambio sin commit nunca lo bloquea.
 ```yaml
 repos:
   - repo: https://github.com/Pitangus-Dev/pitangus
-    rev: v0.14.1          # la primera versión con el hook
+    rev: v0.14.2          # la primera versión con el hook
     hooks:
       - id: pitangus
 ```
@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: Pitangus-Dev/pitangus@v0.14.1   # fíjala al SHA del commit de la etiqueta
+      - uses: Pitangus-Dev/pitangus@v0.14.2   # fíjala al SHA del commit de la etiqueta
 ```
 
 Códigos de salida: `0` pasa · `1` hallazgos en o por encima de `--fail-on` (alta por defecto) · `3` un motor no pudo

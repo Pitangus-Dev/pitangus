@@ -11,11 +11,15 @@ import { SkeletonList, SkeletonTable } from '@/shared/ui/loading'
 import { ApiError } from '@/shared/api/http'
 import { apiPost, type PostResponse } from '@/shared/api/client'
 import { jiraFieldValuesQuery, jiraFieldsQuery, jiraIssueTypesQuery, jiraProjectsQuery, jiraStatusesQuery, jiraVariablesQuery, keys, type JiraRouting } from '@/shared/api/queries'
-import { MappingTable } from '@/features/integrations/jira-mapping'
+import { MappingTable, TEMPLATE_EXAMPLE } from '@/features/integrations/jira-mapping'
 import { buildMapping, initialDraft, type Draft, type FieldSnapshot } from '@/features/integrations/jira-mapping-model'
 import { destinationTarget, errorMap, type JiraDestination, type JiraRef } from '@/features/integrations/jira-routing'
 import { SelectField } from '@/shared/ui/select-field'
 import { Notice } from '@/shared/ui/notice'
+
+// The three ways to fill a field, each with an example, above the table.
+const SOURCE_HELP = [['jira.mapping.source.pitangus', 'jira.mapping.source_help.pitangus'], ['jira.mapping.source.fixed', 'jira.mapping.source_help.fixed'],
+  ['jira.mapping.source.template', 'jira.mapping.source_help.template']] as const
 
 type Project = { id: string; key: string; name: string }
 type Warning = { field: string; error: string }
@@ -144,7 +148,9 @@ export function DestinationEditor({ destination, onClose, onSaved }: {
             options={[{ value: 'en', label: t('jira.destinations.locale_en'), lang: 'en' }, { value: 'es', label: t('jira.destinations.locale_es'), lang: 'es' }]} />
           {fieldError('locale')}</div>
       </div>}
-      {project && issueType && <div className="space-y-2"><div><h5 className="text-sm font-medium">{t('jira.mapping.title')}</h5><p className="text-xs text-app-subtle">{t('jira.mapping.help')}</p></div>
+      {project && issueType && <div className="space-y-2"><div><h5 className="text-sm font-medium">{t('jira.mapping.title')}</h5><p className="text-xs text-app-subtle">{t('jira.mapping.help')}</p>
+        <dl className="mt-1.5 grid gap-x-3 gap-y-0.5 text-xs sm:grid-cols-[max-content_1fr]">{SOURCE_HELP.map(([source, help]) => <div key={source} className="contents">
+          <dt className="font-medium text-app-secondary">{t(source)}</dt><dd className="text-app-muted">{t(help, { template: TEMPLATE_EXAMPLE })}</dd></div>)}</dl></div>
         {fields.isError ? <p role="alert" className="text-xs text-danger">{fields.error.message}</p>
           : ready && draft ? <>
             {fields.data.truncated && <p className="text-xs text-attention">{t('jira.mapping.truncated')}</p>}

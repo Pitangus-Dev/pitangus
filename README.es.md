@@ -25,7 +25,7 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 | --- | --- |
 | **Encontrar** | Opengrep con 66 reglas propias (JS/TS, Python, Java, Go, PHP, Ruby, C#), incluidas las de lo que el código escrito con IA suele hacer mal, y reglas de acceso de Supabase y Firebase; Betterleaks para secretos; Trivy y OSV-Scanner para dependencias y paquetes maliciosos; Trivy y zizmor para IaC y GitHub Actions; Trivy para imágenes. Checkov y Grype son opcionales; la comprobación de exposición mira la raíz y las rutas conocidas de un dominio verificado, y el análisis web completo es experimental. El código nunca se ejecuta. Uno o varios repositorios, una organización entera o varias imágenes a la vez. |
 | **Priorizar** | Cada aviso cruzado con CISA KEV (explotación activa) y EPSS (probabilidad de explotación); las dependencias agrupadas por paquete con la versión que cierra todos sus avisos. |
-| **Corregir** | Cómo corregir cada hallazgo con lo que se sabe de él: el comando de tu gestor (npm, pip, Poetry, Go, Cargo, Maven…) y, si la dependencia es transitiva, qué la trae y, si su rango impide la corrección, qué actualizar primero; un ejemplo antes/después para las reglas de código que lo tienen; los pasos para rotar un secreto; y, en los resultados importados, el consejo de la propia herramienta. Pitangus no escribe un parche para tu código. Exportación a Jira sin duplicados. |
+| **Corregir** | Cómo corregir cada hallazgo, hasta donde el análisis lo sabe: el comando de tu gestor (npm, pip, Poetry, Go, Cargo, Maven…) y el que muestra la versión instalada; si la dependencia es transitiva, qué dependencia directa la trae y, cuando el lockfile guarda los rangos (Poetry, npm, Yarn, Bundler), si hay que actualizar esa primero; un ejemplo antes/después para las reglas de código que lo tienen; los pasos para rotar un secreto; y, en los resultados importados, el consejo de la propia herramienta. Sale de tus lockfiles y de los avisos, no de tu código: lo que no se puede saber, la guía lo dice. Pitangus no escribe un parche para tu código. Exportación a Jira sin duplicados. |
 | **Verificar** | «Reverificar» vuelve a analizar y te dice «Corregido ✓» o «Sigue presente». En los pull requests solo cuenta lo que el PR introduce, con comentario y estado que puede bloquear el merge. |
 | **Vigilar** | Reanálisis automático cuando cambia la rama principal, avisos nuevos a diario contra tus dependencias (sin conexión) y mensajes a **Slack, Teams o un webhook** cuando aparece algo que importa. |
 | **Demostrar** | Informes PDF técnicos y de evidencia (SOC 2 Tipo II, ISO/IEC 27001:2022, consolidado de organización), SARIF, JSON y Markdown; modelado de amenazas (STRIDE, LINDDUN, PASTA, árboles, ATT&CK) con diagrama; CVE tracker local de NVD. |
@@ -39,7 +39,7 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 Necesitas **Docker** (Engine 24+ con Compose v2.24+), **make** y **git**, 4 GB de memoria y 8 GB de disco. `make doctor` lo comprueba.
 
 ```bash
-git clone --branch v0.14.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.2 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up

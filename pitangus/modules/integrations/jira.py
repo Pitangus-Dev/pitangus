@@ -407,7 +407,10 @@ def _inline(item) -> dict | None:
         value, marks = str(item[kind]), [{"type": kind}]
     else:
         return None
-    value = " ".join(_CONTROL.sub(" ", value).split())[:DOC_TEXT_MAX]  # one line: a paragraph's text
+    raw = _CONTROL.sub(" ", value)
+    # One line: a paragraph's text. The spaces at its ends separate it from its neighbours ("Repository: " + name).
+    value = (" " if raw[:1].isspace() else "") + " ".join(raw.split()) + (" " if raw[-1:].isspace() and raw.strip() else "")
+    value = value[:DOC_TEXT_MAX]
     if not value:
         return None
     return {"type": "text", "text": value, **({"marks": marks} if marks else {})}

@@ -4611,6 +4611,8 @@ export interface components {
             type: "text" | "rich_text" | "number" | "date" | "datetime" | "labels";
             /** Label */
             label: string;
+            /** Example */
+            example: string;
         };
         /**
          * JiraVariables
@@ -10158,7 +10160,10 @@ export interface operations {
                 "application/json": {
                     /** Key */
                     key: string;
-                    /** Patterns */
+                    /**
+                     * Patterns
+                     * @description Globs relative to the root (`fixtures`, `**\/testdata`, `docs/*.md`); one may name a rule after a space (`tests/** generic-api-key`) to exclude only that rule's findings there.
+                     */
                     patterns: string[];
                     /** Reason */
                     reason?: string | null;
@@ -10189,7 +10194,10 @@ export interface operations {
                 "application/json": {
                     /** Key */
                     key: string;
-                    /** Patterns */
+                    /**
+                     * Patterns
+                     * @description Globs relative to the root (`fixtures`, `**\/testdata`, `docs/*.md`); one may name a rule after a space (`tests/** generic-api-key`) to exclude only that rule's findings there.
+                     */
                     patterns: string[];
                 };
             };

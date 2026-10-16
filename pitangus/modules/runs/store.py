@@ -4,6 +4,7 @@ from __future__ import annotations
 from pitangus.modules.findings.triage import LABELS as TRIAGE_LABELS, SUPPRESSED
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -245,10 +246,10 @@ def _finding_block(finding: dict, locale: str, *, level: str = "###") -> list[st
         lines.append(t("reports.markdown.identifiers", locale, list=", ".join(f"`{item}`" for item in identifiers)))
     if package.get("name"):
         fixed = package.get("fixed_version")
-        lines.append(t("reports.markdown.package", locale, name=package["name"], version=package.get("version"), ecosystem=package.get("ecosystem"),
-                       path=finding["path"], fix=msg("reports.markdown.fixed_in", version=fixed) if fixed else msg("reports.markdown.no_fixed_version")))
+        lines.append(t("reports.markdown.package", locale, name=_code(package["name"]), version=_inline(package.get("version")),
+                       ecosystem=_inline(package.get("ecosystem")), path=_code(finding["path"]), fix=msg("reports.markdown.fixed_in", version=fixed) if fixed else msg("reports.markdown.no_fixed_version")))
     else:
-        lines.append(t("reports.markdown.location", locale, where=_where(finding)))
+        lines.append(t("reports.markdown.location", locale, where=_code(_where(finding))))
     web = finding.get("web") or {}
     if finding.get("scanner") == "dast" and web:
         # The scanner's own words, attributed; values from the site lose their backticks so they stay inline code.
@@ -295,7 +296,7 @@ def _finding_block(finding: dict, locale: str, *, level: str = "###") -> list[st
     if fix and (fix["commands"] or fix["example"] or len(fix["steps"]) > 1):
         # Same order as the panel: steps, the edit (example) and the command last.
         lines += ["", t("reports.markdown.how_to_fix", locale), "",
-                  *[f"{index}. {step}" for index, step in enumerate([item for item in fix["steps"] if item], 1)]]
+                  *[f"{index}. {_inline(step)}" for index, step in enumerate([item for item in fix["steps"] if item], 1)]]
         example = fix["example"]
         if example and example.get("before"):
             lines += ["", t("reports.markdown.before", locale), "", f"```{example['language']}", example["before"], "```", "",
@@ -381,6 +382,20 @@ def render_repository_report(record: dict, *, locale: str | None = None) -> str:
         lines.append(f"- {item['id']} · {item['title']}: {_step_status(item['status'], locale)} · {item['reason']}")
     lines += ["", "### " + t("reports.common.limitations", locale), "", *[f"- {item}" for item in record["limitations"]], ""]
     return "\n".join(lines + _sources_section(record.get("findings") or [], locale))
+
+
+MD_ACTIVE = re.compile(r"([\\\[\]<>])")
+
+
+def _inline(value) -> str:
+    """Text that carries repository data (names, versions, paths, declared ranges) as one Markdown line: no link,
+    autolink or HTML can come out of it."""
+    return MD_ACTIVE.sub(r"\\\1", " ".join(str(value if value is not None else "").split()))
+
+
+def _code(value) -> str:
+    """The same, inside a code span: only a backtick could close it."""
+    return " ".join(str(value if value is not None else "").split()).replace("`", "'")
 
 
 def _md(value, limit: int = 160) -> str:

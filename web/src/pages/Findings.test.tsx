@@ -11,6 +11,8 @@ import type { RepositoryFinding } from '@/features/findings/finding-model'
 import { Findings } from '@/pages/Findings'
 
 const tf = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+// A status filter's option, with how many of the listed findings it holds.
+const statusOption = (status: string, count: number) => tf('filters.status_count', { label: tf(`filters.status_options.${status}`), count })
 const ADMIN: SessionUser = { id: '1', username: 'ana', display_name: 'Ana', role: 'admin', totp_enabled: false, last_login_at: null }
 const asset = (key: string, name: string): Asset => ({ key, name, provider: 'github', scans: 1, pr_reviews: 0, last_activity: '2026-10-01T00:00:00Z', removed_at: null,
   latest_scan: null, open: { total: 1, critical: 0, high: 1, medium: 0, low: 0 } })
@@ -126,9 +128,11 @@ describe('one asset\'s findings', () => {
     expect(await screen.findByText('eval still there')).toBeTruthy()
     expect(screen.queryByText('eval in a test')).toBeNull()  // dismissed: in the open tab, out of the pending view
     await user.click(screen.getByRole('button', { name: tf('filters.more') }))
-    const pendingView = screen.getByRole('combobox', { name: `${tf('filters.status')}: ${tf('filters.status_options.active')}` })
+    const pendingView = screen.getByRole('combobox', { name: `${tf('filters.status')}: ${statusOption('active', 1)}` })
     // What is fixed has its own tab: the open tab never holds it, so it isn't offered there (it could only show nothing).
-    expect(await optionsOf(user, pendingView)).not.toContain(tf('filters.status_options.fixed'))
+    const offered = await optionsOf(user, pendingView)
+    expect(offered.some(label => label?.startsWith(tf('filters.status_options.fixed')))).toBe(false)
+    expect(offered).toContain(statusOption('false_positive', 1))
 
     await user.click(screen.getByRole('button', { name: `${i18n.t('common:state.all')} · 4` }))
     expect(await screen.findByText('eval fixed by a scan')).toBeTruthy()
@@ -136,13 +140,15 @@ describe('one asset\'s findings', () => {
     const status = () => screen.getByRole('combobox', { name: new RegExp(`^${tf('filters.status')}: `) })
     const shown = () => ['eval still there', 'eval fixed by a scan', 'eval in a test', 'eval in vendor'].filter(title => screen.queryByText(title))
     expect(shown()).toHaveLength(4)
-    await choose(user, status(), tf('filters.status_options.fixed'))
+    // Each status says how many it holds: the same figures as the header (1 pending · 1 fixed · 1 dismissed · 1 excluded).
+    expect(await optionsOf(user, status())).toEqual(expect.arrayContaining([statusOption('fixed', 1), statusOption('active', 1), statusOption('excluded', 1)]))
+    await choose(user, status(), statusOption('fixed', 1))
     expect(shown()).toEqual(['eval fixed by a scan'])
-    await choose(user, status(), tf('filters.status_options.active'))
+    await choose(user, status(), statusOption('active', 1))
     expect(shown()).toEqual(['eval still there'])
-    await choose(user, status(), tf('filters.status_options.false_positive'))
+    await choose(user, status(), statusOption('false_positive', 1))
     expect(shown()).toEqual(['eval in a test'])
-    await choose(user, status(), tf('filters.status_options.excluded'))
+    await choose(user, status(), statusOption('excluded', 1))
     expect(shown()).toEqual(['eval in vendor'])
   })
 
@@ -152,9 +158,10 @@ describe('one asset\'s findings', () => {
     page('run-1')
     expect(await screen.findByText('eval still there')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: tf('filters.more') }))
-    const status = screen.getByRole('combobox', { name: `${tf('filters.status')}: ${tf('filters.status_options.active')}` })
-    expect(await optionsOf(user, status)).toContain(tf('filters.status_options.fixed'))
-    await choose(user, status, tf('filters.status_options.false_positive'))
+    const status = screen.getByRole('combobox', { name: `${tf('filters.status')}: ${statusOption('active', 1)}` })
+    // What the run saw: nothing in it was fixed afterwards.
+    expect(await optionsOf(user, status)).toContain(statusOption('fixed', 0))
+    await choose(user, status, statusOption('false_positive', 1))
     expect(screen.getByText('eval in a test')).toBeTruthy()
     expect(screen.queryByText('eval still there')).toBeNull()
   })

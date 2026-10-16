@@ -26,6 +26,7 @@ const HISTORY = {
   rule_removed: 'jira.history.rule_removed', rules_reordered: 'jira.history.rules_reordered', legacy_adopted: 'jira.history.legacy_adopted',
 } as const
 const PREVIEW_LIMIT = 3
+const SCOPE_SHOWN = 2
 // Findings one backfill queues at most (BACKFILL_MAX on the server); the rest waits for the next one.
 const PREVIEW_MAX = 5000
 
@@ -102,7 +103,7 @@ export function RulesSection({ routing, backfills, onRemove }: { routing: JiraRo
       </li>
     })}</ol>
     {editing && <RuleEditor rule={editing === 'new' ? null : editing} routing={routing} onClose={() => setEditing(null)} onSaved={saved} />}
-    {refilling && <BackfillConfirm rule={refilling} onClose={() => setRefilling(null)} onStarted={queued => refilled(refilling, queued)} />}
+    {refilling && <BackfillConfirm rule={refilling} routing={routing} onClose={() => setRefilling(null)} onStarted={queued => refilled(refilling, queued)} />}
   </section>
 }
 
@@ -116,7 +117,7 @@ function Matches({ rule }: { rule: JiraRule }) {
 }
 
 // Running a backfill again queues issues at once: first say how many, then confirm.
-function BackfillConfirm({ rule, onClose, onStarted }: { rule: JiraRule; onClose: () => void; onStarted: (queued: number) => void }) {
+function BackfillConfirm({ rule, routing, onClose, onStarted }: { rule: JiraRule; routing: JiraRouting; onClose: () => void; onStarted: (queued: number) => void }) {
   const { t } = useTranslation('integrations')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -132,7 +133,7 @@ function BackfillConfirm({ rule, onClose, onStarted }: { rule: JiraRule; onClose
   }
   return <Dialog open onOpenChange={next => { if (!next) onClose() }}><DialogContent className="max-w-md">
     <DialogHeader><DialogTitle>{t('jira.rules.rerun_title', { name: rule.name })}</DialogTitle><DialogDescription>{t('jira.rules.backfill_help')}</DialogDescription></DialogHeader>
-    <div className="text-sm text-app-muted"><p role="status">{preview ? <PreviewText preview={preview} /> : check.isPending ? t('jira.preview.checking') : null}</p>
+    <div className="text-sm text-app-muted"><div role="status">{preview ? <RuleOutcome preview={preview} rule={{ ...rule, backfill: true }} routing={routing} /> : check.isPending ? <p>{t('jira.preview.checking')}</p> : null}</div>
       {preview?.sample && <IssueSample sample={preview.sample} />}</div>
     {(error || check.isError) && <p role="alert" className="text-xs text-danger">{error || check.error?.message}</p>}
     <DialogFooter><Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
@@ -140,11 +141,36 @@ function BackfillConfirm({ rule, onClose, onStarted }: { rule: JiraRule; onClose
   </DialogContent></Dialog>
 }
 
-function PreviewText({ preview }: { preview: Preview }) {
+type Scoped = Pick<JiraRule, 'default' | 'assets' | 'patterns' | 'destination' | 'min_severity' | 'mode' | 'backfill'>
+
+// Which repositories a rule covers, in a few words: its first two names or patterns, then how many more.
+function Scope({ rule }: { rule: Pick<JiraRule, 'default' | 'assets' | 'patterns'> }) {
   const { t } = useTranslation('integrations')
-  return <>{preview.findings
-    ? t('jira.preview.result', { findings: formatNumber(preview.findings), assets: formatNumber(preview.assets), issues: formatNumber(preview.issues), linked: formatNumber(preview.linked), count: preview.issues })
-    : t('jira.preview.nothing', { linked: formatNumber(preview.linked) })}{preview.truncated ? ` ${t('jira.preview.truncated', { max: formatNumber(PREVIEW_MAX) })}` : ''}</>
+  if (rule.default) return <>{t('jira.preview.scope_rest')}</>
+  const items = [...rule.assets.map(key => ({ key, pattern: false })), ...rule.patterns.map(key => ({ key, pattern: true }))]
+  if (!items.length) return <>{t('jira.preview.scope_none')}</>
+  const list = <span>{items.slice(0, SCOPE_SHOWN).map((item, index) => <span key={`${item.pattern}:${item.key}`}>{index ? ', ' : ''}{item.pattern ? <code className="font-mono">{item.key}</code> : <AssetName assetKey={item.key} />}</span>)}</span>
+  return items.length > SCOPE_SHOWN ? <Trans t={t} i18nKey="jira.preview.scope_more" count={items.length - SCOPE_SHOWN} components={{ items: list }} /> : list
+}
+
+// What a rule does, in one sentence a person can check before saving: how many issues now, where, for which findings,
+// and that future findings get theirs as they appear. Then the counts behind it.
+function RuleOutcome({ preview, rule, routing }: { preview: Preview; rule: Scoped; routing: JiraRouting }) {
+  const { t } = useTranslation('integrations')
+  const destination = destinationOf(routing, rule.destination)
+  const values = { target: destination ? destinationTarget(destination) : '—', severity: t(SEVERITIES[rule.min_severity]).toLowerCase() }
+  const scope = { scope: <Scope rule={rule} /> }
+  const backfill = rule.backfill && preview.issues > 0
+  const sentence = backfill
+    ? <Trans t={t} i18nKey="jira.preview.now" count={preview.issues} values={{ ...values, issues: formatNumber(preview.issues) }} components={scope} />
+    : rule.backfill ? <Trans t={t} i18nKey="jira.preview.none_now" values={values} components={scope} />
+      : <Trans t={t} i18nKey="jira.preview.future_only" values={values} components={scope} />
+  return <>
+    <p className="text-app-fg">{sentence}</p>
+    {!rule.backfill && preview.issues > 0 && <p>{t('jira.preview.open_waiting', { count: preview.findings, findings: formatNumber(preview.findings), backfill: t('jira.rules.backfill') })}</p>}
+    <p className="text-app-muted">{t('jira.preview.counts', { findings: formatNumber(preview.findings), assets: formatNumber(preview.assets), linked: formatNumber(preview.linked) })}
+      {preview.truncated ? ` ${t('jira.preview.truncated', { max: formatNumber(PREVIEW_MAX) })}` : ''}</p>
+  </>
 }
 
 // The most severe issue a rule would create, as Jira will show it: its title and first lines (indented ones are a
@@ -198,6 +224,7 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
   const { t } = useTranslation('integrations')
   const id = useId()
   const [draft, setDraft] = useState(() => draftOf(rule, routing))
+  const isDefault = !!rule?.default
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -206,9 +233,12 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
   const set = (patch: Partial<RuleDraft>) => setDraft(current => ({ ...current, ...patch }))
   const body = bodyOf(rule, draft)
   const snapshot = JSON.stringify(body)
-  const wantsBackfill = body.backfill && body.enabled
+  const wantsBackfill = draft.mode === 'auto' && draft.backfill && draft.enabled
+  const needsPreview = draft.mode === 'auto' && draft.enabled && !!draft.destination
+  const scoped = { default: isDefault, assets: draft.assets, patterns: draft.patterns.split('\n').map(item => item.trim()).filter(Boolean),
+    destination: draft.destination || null, min_severity: draft.min_severity, mode: draft.mode, backfill: wantsBackfill }
+  const destination = destinationOf(routing, draft.destination)
   const previewCurrent = preview?.for === snapshot
-  const isDefault = !!rule?.default
   const fail = (caught: unknown) => {
     setMessage(caught instanceof Error ? caught.message : String(caught))
     if (caught instanceof ApiError) setErrors(errorMap(caught.errors))
@@ -219,7 +249,7 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
   }
   const save = async (event: FormEvent) => {
     event.preventDefault()
-    if (wantsBackfill && !previewCurrent) { await runPreview(); return }
+    if (needsPreview && !previewCurrent) { await runPreview(); return }
     setBusy(true); setMessage(''); setErrors({})
     try { onSaved(await apiPost('/api/integrations/jira/rules', 'jira-routing', body)) } catch (caught) { fail(caught) } finally { setBusy(false) }
   }
@@ -249,15 +279,16 @@ export function RuleEditor({ rule, routing, onClose, onSaved }: { rule: JiraRule
           className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${draft.mode === mode ? 'border-app-fg bg-app-soft' : 'border-input bg-card'}`}>
           <input type="radio" name={`${id}-mode`} value={mode} checked={draft.mode === mode} onChange={() => set({ mode })} className="mt-0.5 size-4 accent-brand" />
           <span><span className="block text-sm font-medium">{mode === 'auto' ? t('jira.rules.mode_auto') : t('jira.rules.mode_manual')}</span>
-            <span className="block text-xs text-app-muted">{mode === 'auto' ? t('jira.rules.mode_auto_help') : t('jira.rules.mode_manual_help')}</span></span></label>)}</div></fieldset>
+            <span className="block text-xs text-app-muted">{mode === 'auto' ? t('jira.rules.mode_auto_help') : t('jira.rules.mode_manual_help')}</span></span></label>)}</div>
+        {draft.mode === 'manual' && destination && <p className="text-xs text-app-muted"><Trans t={t} i18nKey="jira.preview.manual" values={{ target: destinationTarget(destination) }} components={{ scope: <Scope rule={scoped} /> }} /></p>}</fieldset>
       {draft.mode === 'auto' && <div className="space-y-3 rounded-lg border border-app-line bg-inset p-3">
         <div className="space-y-1.5 sm:w-1/2"><label htmlFor={`${id}-severity`} className="text-xs text-app-muted">{t('jira.rules.min_severity')}</label>
           <SelectField id={`${id}-severity`} value={draft.min_severity} onValueChange={level => set({ min_severity: level as Severity })} className={control} {...invalid('min_severity')}
             options={(Object.keys(SEVERITIES) as Severity[]).map(level => ({ value: level, label: t('jira.rules.at_least', { severity: t(SEVERITIES[level]) }) }))} />{fieldError('min_severity')}</div>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={draft.backfill} onChange={event => set({ backfill: event.target.checked })} className="mt-0.5 size-4 accent-brand" />
           <span>{t('jira.rules.backfill')}<span className="block text-xs text-app-subtle">{t('jira.rules.backfill_help')}</span></span></label>
-        {wantsBackfill && <div className="border-t border-app-line pt-3 text-xs">
-          <p role="status" className={previewCurrent && preview ? '' : 'text-app-muted'}>{previewCurrent && preview ? <PreviewText preview={preview.result} /> : preview ? t('jira.preview.outdated') : t('jira.preview.needed')}</p>
+        {needsPreview && <div className="space-y-1 border-t border-app-line pt-3 text-xs">
+          <div role="status" className="space-y-1 text-app-muted">{previewCurrent && preview ? <RuleOutcome preview={preview.result} rule={scoped} routing={routing} /> : <p>{preview ? t('jira.preview.outdated') : t('jira.preview.needed')}</p>}</div>
           {previewCurrent && preview?.result.sample && <IssueSample sample={preview.result.sample} />}
           {!previewCurrent && <Button type="button" size="xs" variant="outline" className="mt-2" disabled={previewing} onClick={() => void runPreview()}>{previewing && <CircleNotchIcon className="motion-safe:animate-spin" />}{t('jira.preview.run')}</Button>}
         </div>}

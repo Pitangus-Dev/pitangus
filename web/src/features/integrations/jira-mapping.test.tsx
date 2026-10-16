@@ -16,8 +16,10 @@ const field = (id: string, name: string, type: JiraField['type'], extra: Partial
 })
 const VARIABLES: JiraVariables = {
   variables: [
-    { key: 'summary', type: 'text', label: 'Issue title' }, { key: 'description', type: 'rich_text', label: 'Full description' },
-    { key: 'line', type: 'number', label: 'Line' }, { key: 'due_date', type: 'date', label: 'Due date' }, { key: 'labels', type: 'labels', label: 'Labels' },
+    { key: 'summary', type: 'text', label: 'Issue title', example: 'High · starlette 0.37.2 → 0.47.2 · org/api (poetry.lock)' },
+    { key: 'description', type: 'rich_text', label: 'Full description', example: 'What to change, where, the command and how to check it' },
+    { key: 'line', type: 'number', label: 'Line', example: '42' }, { key: 'due_date', type: 'date', label: 'Due date', example: '2026-10-31' },
+    { key: 'labels', type: 'labels', label: 'Labels', example: 'appsec, sca' },
   ],
   sources: ['pitangus', 'fixed', 'template'],
   fits: { text: ['date', 'labels', 'number', 'text'], rich_text: ['labels', 'number', 'rich_text', 'text'], number: ['number'], date: ['date'], option: [], priority: [] },
@@ -66,6 +68,14 @@ describe('destination field mapping', () => {
     // Fields Pitangus can't fill are listed, never offered.
     expect(screen.queryByLabelText(tr('jira.mapping.source_label', { field: 'Assignee' }))).toBeNull()
     expect(screen.getByText(tr('jira.mapping.unsupported_summary', { count: 1 }))).toBeTruthy()
+  })
+
+  it('says what each kind of value is and shows an example of the Pitangus value chosen', async () => {
+    editor()
+    const summary = await screen.findByLabelText(tr('jira.mapping.value_label', { field: 'Summary' }))
+    expect(summary.closest('td')?.textContent).toContain(tr('jira.mapping.example', { value: 'High · starlette 0.37.2 → 0.47.2 · org/api (poetry.lock)' }))
+    expect(screen.getByText(tr('jira.mapping.source_help.fixed'))).toBeTruthy()
+    expect(screen.getByText(tr('jira.mapping.source_help.template', { template: '{{package}} → {{fixed_version}}' }))).toBeTruthy()
   })
 
   it('enforces required fields before sending, then sends every field (empty ones as null)', async () => {

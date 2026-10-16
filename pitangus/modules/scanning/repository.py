@@ -20,6 +20,7 @@ from pitangus.modules.scanning.coverage import RULE_LANGUAGE_IDS, owasp_coverage
 from pitangus.modules.scanning.config_engines import merge_repository, run_checkov, run_zizmor
 from pitangus.modules.scanning.dependency_merge import merge_dependencies, unique_by_fingerprint
 from pitangus.modules.scanning.dependency_graph import annotate as annotate_dependency_graph
+from pitangus.modules.scanning import declared_ranges
 from pitangus.modules.scanning import engine_contract, rule_set, secret_identity, secret_rules
 from pitangus.modules.scanning.policies import run_policies
 from pitangus.modules.scanning.vendored import is_vendored
@@ -495,8 +496,9 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
             sca_status = "partial"
         except (HTTPError, URLError, TimeoutError, OSError, ValueError, KeyError, TypeError):
             sca_status, sca_detail = "inconclusive", msg("scanning.repository.sca.osv_failed")
-    # Who brings in each vulnerable package, from the graph Trivy resolved (for the fix guide), whichever engine found it.
-    annotate_dependency_graph(findings, dependency_graph)
+    # Who brings in each vulnerable package, from the graph Trivy resolved (for the fix guide), whichever engine found it;
+    # and, while the snapshot exists, the ranges its lockfile declares.
+    annotate_dependency_graph(findings, dependency_graph, declared_ranges.reader(root))
     steps.append({"id": "sca", "name": msg("scanning.repository.steps.sca", engines=" + ".join(engine_sca) if trivy_sca else "OSV"),
                   "status": sca_status, "detail": sca_detail})
     steps.append({"id": "review", "name": msg("scanning.steps.review"), "status": "pending",

@@ -841,10 +841,10 @@ def apply(data_dir: Path, record: RunRecord) -> dict:
 def _exclusion_moves(state: dict, active: list[str]) -> list[tuple[dict, str | None]]:
     """The findings a set of excluded paths moves: (entry, the pattern that excludes it), or (entry, None) for an
     excluded one that no longer is under any of them and reopens."""
-    from pitangus.modules.findings.exclusions import excluded
+    from pitangus.modules.findings.exclusions import excludes
     moves: list[tuple[dict, str | None]] = []
     for entry in state["findings"].values():
-        pattern = excluded((entry.get("finding") or {}).get("path", ""), active)
+        pattern = excludes(entry.get("finding") or {}, active)
         if entry.get("status") == "open" and pattern:
             moves.append((entry, pattern))
         elif entry.get("status") == "excluded" and not pattern and not _withheld(entry):
@@ -1011,7 +1011,8 @@ def scoped_view(data_dir: Path, assets: list[dict], *, status: str = "open", lim
     decisions, links = triage.load(data_dir), tickets.load_links(data_dir)
     days = sla.policy(data_dir)["days"]
     rows = {row["key"]: row for row in assets}
-    lifecycle = {"open": 0, "fixed": 0, "suppressed": 0, "excluded": 0, "by_severity": dict.fromkeys(("critical", "high", "medium", "low"), 0), "from_pr": 0}
+    counted = ("open", "fixed", "suppressed", "excluded", "from_pr", "unverified", "unverified_stale", "unverified_configuration")
+    lifecycle = {**dict.fromkeys(counted, 0), "by_severity": dict.fromkeys(("critical", "high", "medium", "low"), 0)}
     every: list[dict] = []
     by_asset: list[dict] = []
     whole: dict[str, list[dict]] = {}  # each asset's findings, every tab: what its fix guides look at
@@ -1026,7 +1027,7 @@ def scoped_view(data_dir: Path, assets: list[dict], *, status: str = "open", lim
                  for item in found if status == "all" or _bucket(item) == status]
         every.extend(shown)
         counts = _summarize(entries[key], decisions.get(key) or {})
-        for field in ("open", "fixed", "suppressed", "excluded", "from_pr"):
+        for field in counted:  # the unverified too: they're listed in the open tab, so its count must hold them
             lifecycle[field] += counts[field]
         for level, value in counts["by_severity"].items():
             lifecycle["by_severity"][level] += value

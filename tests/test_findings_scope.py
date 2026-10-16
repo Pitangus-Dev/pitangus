@@ -67,6 +67,17 @@ class ScopedFindingsTests(HttpCase):
         self.assertEqual(len(self.view("all", account="org", include_images=False)["findings"]), 3)
         self.assertEqual(self.view("excluded", account="org")["findings"], [])
 
+    def test_the_open_tab_counts_what_it_lists_including_the_unverified(self):
+        """A finding no scan could check lately is listed in the open tab: the scope's counts say so, as one asset's do."""
+        state = registry.load(self.data_dir, "github:org/api")
+        state["findings"][B]["unseen"] = {"since": "2026-10-01T00:00:00+00:00", "scans": 1, "reason": "unexamined"}
+        registry._save(self.data_dir, state)
+        lifecycle = self.view(account="org", include_images=False)["summary"]["lifecycle"]
+        one = registry.summarize(self.data_dir, "github:org/api")
+        self.assertEqual((lifecycle["open"], lifecycle["unverified"], one["unverified"]), (2, 1, 1))
+        listed = self.view(account="org", include_images=False)["findings"]
+        self.assertEqual(len(listed), lifecycle["open"] + lifecycle["suppressed"] + lifecycle["unverified"])
+
     def test_past_the_cap_only_the_most_urgent_come_and_it_says_so(self):
         result = self.view(limit=2)
         self.assertEqual((len(result["findings"]), result["total"], result["truncated"]), (2, 5, True))

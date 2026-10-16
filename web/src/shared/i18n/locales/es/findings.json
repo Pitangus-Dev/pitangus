@@ -72,6 +72,8 @@
     "pending_other": "<strong>{{count, number}}</strong> pendientes",
     "from_pr_one": "({{count, number}} viene de PRs abiertos)",
     "from_pr_other": "({{count, number}} vienen de PRs abiertos)",
+    "unverified_one": "{{count, number}} sin verificar",
+    "unverified_other": "{{count, number}} sin verificar",
     "fixed_one": "<strong>{{count, number}}</strong> remediado",
     "fixed_other": "<strong>{{count, number}}</strong> remediados",
     "suppressed_one": "{{count, number}} descartado en triage",
@@ -148,6 +150,7 @@
       "accepted": "Riesgo aceptado",
       "excluded": "En rutas excluidas"
     },
+    "status_count": "{{label}} · {{count, number}}",
     "priority": "Prioridad",
     "any_priority": "Cualquier prioridad",
     "source": "Fuente",
@@ -319,7 +322,7 @@
   },
   "exclusions": {
     "title": "Rutas excluidas",
-    "patterns_help": "Una por línea, desde la raíz del repositorio, hasta {{max}}. <code>fixtures</code> excluye esa carpeta y todo lo que contiene; <code>**/testdata</code>, cualquier carpeta testdata; <code>docs/*.md</code>, los .md que están directamente en docs.",
+    "patterns_help": "Desde la raíz del repositorio, hasta {{max}}. Para excluir solo una regla en esa ruta, escribe su ID después de la ruta, con un espacio: <code>tests/** generic-api-key</code>. El ID aparece bajo el título de cada hallazgo.",
     "reason": "Motivo",
     "reason_placeholder": "Por qué (queda en el historial), p. ej. «Ejemplos vulnerables para probar las reglas»",
     "moved_excluded_one": "{{count, number}} hallazgo pasó a Excluidos",
@@ -328,18 +331,34 @@
     "moved_reopened_other": "{{count, number}} volvieron a Abiertos",
     "moved_both": "{{excluded}} y {{reopened}}",
     "saved": "Guardado. Se aplicará también en los próximos escaneos y revisiones de PR.",
-    "dialog_help": "Los hallazgos en estas rutas no cuentan como abiertos ni bloquean PRs; quedan en Excluidos.",
+    "dialog_help": "Para lo que no es tu producto: pruebas, ejemplos vulnerables a propósito, código generado o de terceros. Nada se borra ni se oculta: sus hallazgos pasan a la pestaña Excluidos con la ruta que los excluye, y dejan de contar como pendientes y de bloquear PRs. Si quitas la ruta, vuelven a Abiertos.",
     "last_change": "Último cambio: {{reason}} · {{by}}, {{date}}",
-    "label": "Rutas a excluir",
+    "label": "Rutas a excluir, una por línea",
     "reason_required": "Por qué se excluyen (obligatorio, queda en el historial)",
     "reason_needed": "Explica por qué se excluyen estas rutas, con al menos {{min}} caracteres: queda en el historial.",
     "preview": {
       "checking": "Comprobando qué se movería…",
-      "nothing": "Guardar no mueve ningún hallazgo por ahora: nada entra ni sale de Excluidos. Estas rutas también se aplican a los próximos análisis y revisiones de PR.",
-      "excluded_one": "Al guardar, {{count, number}} hallazgo abierto pasa a Excluidos:",
-      "excluded_other": "Al guardar, {{count, number}} hallazgos abiertos pasan a Excluidos:",
+      "nothing": "Con los hallazgos actuales no se mueve nada: ninguno entra ni sale de Excluidos. Las rutas también se aplican a los próximos análisis y revisiones de PR.",
+      "excluded_one": "Con los hallazgos actuales, {{count, number}} hallazgo abierto pasa a Excluidos, donde sigue a la vista:",
+      "excluded_other": "Con los hallazgos actuales, {{count, number}} hallazgos abiertos pasan a Excluidos, donde siguen a la vista:",
       "reopened_one": "{{count, number}} hallazgo excluido vuelve a Abiertos:",
-      "reopened_other": "{{count, number}} hallazgos excluidos vuelven a Abiertos:"
+      "reopened_other": "{{count, number}} hallazgos excluidos vuelven a Abiertos:",
+      "title": "Qué cambia al guardar"
+    },
+    "title_for": "Rutas excluidas · {{name}}",
+    "dialog_help_image": "Para archivos de la imagen que no son tu aplicación. Nada se borra ni se oculta: sus hallazgos pasan a la pestaña Excluidos con la ruta que los excluye y dejan de contar como pendientes. Si quitas la ruta, vuelven a Abiertos.",
+    "patterns_help_image": "Desde la raíz de la imagen, hasta {{max}}: <code>usr/share/doc</code> excluye esa carpeta y todo lo que contiene.",
+    "only_rule": "solo <code>{{rule}}</code>",
+    "examples": {
+      "title": "Ejemplos",
+      "folder": "Todo lo que hay dentro de esa carpeta.",
+      "anywhere": "Cualquier carpeta testdata, esté donde esté.",
+      "files": "Los .md que están directamente en docs, no en sus subcarpetas.",
+      "rule": "Solo la regla {{rule}} dentro de {{path}}: un falso positivo conocido. El resto de lo que hay allí sigue contando.",
+      "add": "Añadir",
+      "add_named": "Añadir {{pattern}}",
+      "added": "Añadida",
+      "added_named": "{{pattern}} añadida"
     }
   },
   "repo_settings": {
@@ -348,19 +367,23 @@
     "none": "ninguna",
     "more": "+{{count, number}}",
     "view": "Ver",
-    "secrets": "Secretos",
-    "secrets_defaults": "usa los predeterminados",
+    "secrets": "Detección de secretos",
+    "secrets_defaults": "las reglas de la organización, sin cambios",
     "secrets_custom_one": "{{count, number}} entrada propia",
     "secrets_custom_other": "{{count, number}} entradas propias",
-    "customize": "Personalizar",
+    "customize": "Ajustar",
     "secrets_title": "Detección de secretos · {{name}}",
-    "secrets_help": "Solo para este repositorio, además de lo predeterminado: silencia secretos, desactiva reglas integradas o añade tus propios detectores. Lo predeterminado no se quita.",
+    "secrets_help": "Solo para este repositorio, además de lo que define la organización, que no cambia. Por ejemplo: silenciar las claves de prueba de tests/fixtures (en «En estas rutas»), apagar una regla que solo da ruido o detectar el formato de token de tu empresa. Un secreto silenciado no se oculta: se lista en Excluidos con el ajuste que lo silenció.",
     "defaults_line": "Predeterminado: {{summary}}.",
     "defaults_none": "Predeterminado: reglas integradas de Betterleaks y Trivy.",
     "deadlines": "Los plazos se definen en Políticas",
     "load_failed": "No se pudo cargar.",
     "title_image": "Ajustes de la imagen",
-    "defaults_where": "Lo predeterminado se define en Políticas"
+    "defaults_where": "Lo predeterminado se define en Políticas",
+    "paths_hint": "Para pruebas, ejemplos o código de terceros. Sus hallazgos siguen a la vista en Excluidos, pero no cuentan como pendientes ni bloquean PRs.",
+    "paths_hint_image": "Para archivos de la imagen que no son tu aplicación. Sus hallazgos siguen a la vista en Excluidos, pero no cuentan como pendientes.",
+    "exclude": "Excluir rutas",
+    "secrets_hint": "Para silenciar valores de prueba, apagar una regla que solo da ruido o detectar tus propios tokens. Lo que silencias se lista en Excluidos con el ajuste que lo silenció."
   },
   "triage": {
     "verb": {
@@ -402,6 +425,7 @@
     "vulnerable_example": "ejemplo vulnerable",
     "fixed_example": "ejemplo corregido",
     "adapt": "El ejemplo muestra el patrón y su corrección; adáptalo a tu código.",
+    "basis": "Sale de tu lockfile y de los avisos, no de tu código: comprueba que encaja en tu proyecto antes de aplicarlo. «Reverificar» confirma el resultado.",
     "copy_label": "Copiar: {{label}}",
     "example_in": "En {{file}}"
   },
@@ -585,7 +609,7 @@
     "enable_rule": "Volver a activar {{rule}}",
     "reason": "Motivo",
     "reason_placeholder": "Por qué (queda en el historial), p. ej., «Los fixtures de prueba usan claves de Stripe falsas»",
-    "effect": "Los cambios se aplican desde el próximo análisis. Un secreto que la lista de permitidos silencia deja de reportarse y ya no cuenta como abierto: si es real, rótalo antes.",
+    "effect": "Los cambios se aplican desde el próximo análisis. Un secreto silenciado no se oculta: pasa a Excluidos con el ajuste que lo silenció y deja de contar como abierto. Si es real, rótalo antes.",
     "history": "Historial ({{count, number}})",
     "history_entry": "{{date}} · {{by}}",
     "changes": {

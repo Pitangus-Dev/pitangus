@@ -20,6 +20,8 @@ class DependencyPath(TypedDict, total=False):
     direct: str                # the direct dependency at the top of the chain: what the project can update
     direct_version: str
     chain: list[str]           # from the direct dependency down to `name`
+    requires: str              # the range `name` declares for the package, when the lockfile keeps it (declared_ranges.py)
+    direct_requires: str       # the range the project's manifest declares for `direct`, when known
     direct_dev: bool
 
 
@@ -31,7 +33,8 @@ class Package(TypedDict, total=False):
     introduced: str | None
     dev: bool
     direct: bool | None
-    introduced_by: list[DependencyPath]  # transitive only, the shortest chains first
+    introduced_by: list[DependencyPath]  # transitive only: those whose range rejects the fix first, then the shortest chains
+    introduced_by_more: bool             # more packages bring it in than `introduced_by` lists
     also_in: list[str]         # other files with the same version (a monorepo's lockfiles): one finding, several places
 
 

@@ -61,7 +61,7 @@ The two gaps people ask about most:
           with:
             upload: never
             output: codeql
-        - uses: Pitangus-Dev/pitangus@v0.14.1
+        - uses: Pitangus-Dev/pitangus@v0.14.2
           if: always()
           with:
             scan: false
@@ -137,7 +137,7 @@ jobs:
           docker run --rm -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2 \
             zap.sh -cmd -autorun /zap/wrk/zap.yaml
           # the sarif-json template writes zap.json
-      - uses: Pitangus-Dev/pitangus@v0.14.1
+      - uses: Pitangus-Dev/pitangus@v0.14.2
         if: always()
         with:
           scan: false
@@ -155,7 +155,7 @@ Nuclei writes SARIF with `-se` ([options](https://docs.projectdiscovery.io/tools
           docker run --rm -v "$PWD:/out" projectdiscovery/nuclei:v3.3.5 \
             -u https://app.example.com -rl 20 -c 10 -severity low,medium,high,critical \
             -etags dos,fuzz,intrusive -se /out/nuclei.sarif
-      - uses: Pitangus-Dev/pitangus@v0.14.1
+      - uses: Pitangus-Dev/pitangus@v0.14.2
         if: always()
         with:
           scan: false
@@ -211,8 +211,11 @@ in order. **The first enabled rule that matches wins**, and a last default rule 
 - An automatic rule with **backfill** also creates, spaced out, the issues of the findings already open when it's saved
   or enabled.
 
-The rule form shows what it would create before you save it: how many issues, for how many open findings, and how the
-most severe one will read in Jira (its title and first lines). Once the backfill runs, the rule shows how many issues were
+Before you save an automatic rule, its form says in one sentence what it will do ("This rule will create about 12 issues
+now in SEC · Bug, for open findings High or above in org/api; future ones as they appear"), with the counts behind it
+and how its issues will read in Jira (the title and first lines of the most severe one). Without backfill it says that
+nothing is created now and how many open findings stay without an issue; a manual rule says where the issues created
+from **Findings** go. Once the backfill runs, the rule shows how many issues were
 created, links to the first ones and, if some failed, why, grouped by reason.
 
 ### When a fix is verified

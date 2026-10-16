@@ -23,7 +23,7 @@ uncommitted edit never blocks it.
 ```yaml
 repos:
   - repo: https://github.com/Pitangus-Dev/pitangus
-    rev: v0.14.1          # the first release with the hook
+    rev: v0.14.2          # the first release with the hook
     hooks:
       - id: pitangus
 ```
@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: Pitangus-Dev/pitangus@v0.14.1   # pin it to the tag's commit SHA
+      - uses: Pitangus-Dev/pitangus@v0.14.2   # pin it to the tag's commit SHA
 ```
 
 Exit codes: `0` pass · `1` findings at or above `--fail-on` (high by default) · `3` an engine couldn't run, which is

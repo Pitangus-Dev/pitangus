@@ -16,6 +16,10 @@ Glob-style patterns, relative to the repository root: `fixtures`, `fixtures/*`, 
 `**/testdata/**`. `*` doesn't cross `/`; `**` does. As in `.gitignore`, a pattern that matches a folder
 excludes everything inside it: `fixtures` or `fixtures/*` also exclude `fixtures/a/b.py`.
 Patterns that exclude everything are rejected.
+
+A pattern may name one rule after the path, separated by a space: `tests/** generic-api-key` excludes only
+that rule's findings there (a known false positive), and everything else under `tests` still counts. A rule
+narrows it enough that `** generic-api-key` (that rule anywhere in the repository) is accepted.
 """
 
 from __future__ import annotations
@@ -34,6 +38,7 @@ _log = logging_setup.get("exclusions")
 MAX_PATTERNS = 50
 MAX_LENGTH = 200
 PATTERN = re.compile(r"[A-Za-z0-9_.\-/*?]+")
+RULE = re.compile(r"[A-Za-z0-9_.:@/\-]{1,120}")  # the rule ids of every engine: dots (Opengrep), colons, CKV_AWS_20
 # Asset keys: github#123, local:my-repo, image:ghcr.io/acme/api… Nothing that could break a log line.
 ASSET_KEY = re.compile(r"[A-Za-z0-9#:_./@+-]{1,200}")
 HISTORY = 20
@@ -70,9 +75,12 @@ def normalize(raw) -> list[str]:
     for item in raw:
         if not isinstance(item, str):
             raise ExclusionError(msg("findings.exclusions.errors.not_text"))
-        pattern = item.strip()
-        if not pattern:
+        words = item.split()
+        if not words:
             continue
+        pattern, rule = words[0], words[1] if len(words) > 1 else None
+        if len(words) > 2 or (rule is not None and not RULE.fullmatch(rule)):
+            raise ExclusionError(msg("findings.exclusions.errors.rule_invalid", pattern=item.strip()[:80]))
         if len(pattern) > MAX_LENGTH or not PATTERN.fullmatch(pattern):
             raise ExclusionError(msg("findings.exclusions.errors.invalid", pattern=pattern[:60]))
         if pattern.startswith("/") or any(part in ("..", ".") for part in pattern.split("/")):
@@ -81,11 +89,24 @@ def normalize(raw) -> list[str]:
             pattern += "**"
         while "**/**" in pattern or "***" in pattern:  # equivalent and, when repeated, costly to evaluate
             pattern = pattern.replace("**/**", "**").replace("***", "**")
-        if matches_everything(pattern):
+        if rule is None and matches_everything(pattern):
             raise ExclusionError(msg("findings.exclusions.errors.everything", pattern=pattern))
+        if rule is not None:
+            pattern = f"{pattern} {rule}"
         if pattern not in result:
             result.append(pattern)
     return result
+
+
+def split(pattern: str) -> tuple[str, str | None]:
+    """A stored pattern's path and the one rule it is limited to (None: every rule)."""
+    path, _, rule = pattern.partition(" ")
+    return path, rule or None
+
+
+def rules_of(finding: dict) -> set[str]:
+    """The rule ids a finding answers to: its own and those of the engines that also reported it."""
+    return {rule for rule in [finding.get("rule_id"), *(finding.get("related_rules") or [])] if isinstance(rule, str) and rule}
 
 
 def matches_everything(pattern: str) -> bool:
@@ -94,37 +115,85 @@ def matches_everything(pattern: str) -> bool:
     return all(part == "**" or ("*" in part and set(part) <= {"*", "?"}) for part in pattern.split("/"))
 
 
+LITERAL, ONE, STAR, ANY, OPTIONAL = range(5)
+
+
 @lru_cache(maxsize=512)
-def _regex(pattern: str) -> re.Pattern:
-    out, index = [], 0
+def _tokens(pattern: str) -> tuple[tuple[int, str], ...]:
+    """The glob as a sequence of steps. `**/` is OPTIONAL (skip the next two steps, or take them), `**` then `/`."""
+    tokens: list[tuple[int, str]] = []
+    index = 0
     while index < len(pattern):
         if pattern.startswith("**/", index):
-            out.append("(?:.*/)?")
+            tokens += [(OPTIONAL, ""), (ANY, ""), (LITERAL, "/")]
             index += 3
         elif pattern.startswith("**", index):
-            out.append(".*")
+            tokens.append((ANY, ""))
             index += 2
-        elif pattern[index] == "*":
-            out.append("[^/]*")
-            index += 1
-        elif pattern[index] == "?":
-            out.append("[^/]")
-            index += 1
         else:
-            out.append(re.escape(pattern[index]))
+            char = pattern[index]
+            tokens.append((STAR, "") if char == "*" else (ONE, "") if char == "?" else (LITERAL, char))
             index += 1
-    return re.compile("".join(out) + r"\Z")
+    return tuple(tokens)
 
 
-def excluded(path: str, active: list[str]) -> str | None:
-    """The first pattern that excludes this path (or one of its folders), or None."""
-    parts = str(path or "").removeprefix("./").lstrip("/").split("/")
-    candidates = ["/".join(parts[:end]) for end in range(len(parts), 0, -1)]  # the file and every folder containing it
+def _matches(pattern: str, path: str) -> bool:
+    """Whether the glob matches the path or one of its folders. Walks the path once keeping every step the glob may
+    be at (no backtracking), so the time grows with path × pattern length, never exponentially with the wildcards."""
+    tokens = _tokens(pattern)
+    end = len(tokens)
+
+    def closure(states: set[int]) -> set[int]:
+        pending = list(states)
+        while pending:
+            state = pending.pop()
+            kind = tokens[state][0] if state < end else None
+            if kind in (STAR, ANY, OPTIONAL):
+                for following in (state + 1, state + 3) if kind == OPTIONAL else (state + 1,):
+                    if following not in states:
+                        states.add(following)
+                        pending.append(following)
+        return states
+
+    states = closure({0})
+    for char in path:
+        if char == "/" and end in states:  # a folder containing the path matches
+            return True
+        following = set()
+        for state in states:
+            if state == end or tokens[state][0] == OPTIONAL:
+                continue
+            kind, literal = tokens[state]
+            if kind == LITERAL:
+                if char == literal:
+                    following.add(state + 1)
+            elif kind == ONE:
+                if char != "/":
+                    following.add(state + 1)
+            elif kind == ANY or char != "/":  # `**` crosses folders, `*` doesn't
+                following.add(state)
+        if not following:
+            return False
+        states = closure(following)
+    return end in states
+
+
+def excluded(path: str, active: list[str], rules: set[str] | frozenset[str] = frozenset()) -> str | None:
+    """The first pattern that excludes this path (or one of its folders), or None. A pattern limited to a rule only
+    excludes a finding of that rule (`rules`: the finding's, see `rules_of`)."""
+    path = str(path or "").removeprefix("./").lstrip("/")
     for pattern in active:
-        regex = _regex(pattern)
-        if any(regex.match(candidate) for candidate in candidates):
+        glob, rule = split(pattern)
+        if rule is not None and rule not in rules:
+            continue
+        if _matches(glob, path):
             return pattern
     return None
+
+
+def excludes(finding: dict, active: list[str]) -> str | None:
+    """The first pattern that excludes this finding, by its path and its rule, or None."""
+    return excluded(finding.get("path", ""), active, rules_of(finding))
 
 
 def save(data_dir: Path, key: str, raw, *, reason: str | None, user: dict) -> dict:
@@ -176,7 +245,7 @@ def apply_to_record(data_dir: Path, record: dict, key: str) -> dict:
         return record
     kept, dropped, removed = [], {}, []
     for finding in record.get("findings") or []:
-        pattern = excluded(finding.get("path", ""), active)
+        pattern = excludes(finding, active)
         if pattern is None:
             kept.append(finding)
         else:

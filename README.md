@@ -25,7 +25,7 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 | --- | --- |
 | **Find** | Opengrep with 66 Pitangus rules (JS/TS, Python, Java, Go, PHP, Ruby, C#), including what AI-written code often gets wrong, plus Supabase and Firebase access rules; Betterleaks for secrets; Trivy and OSV-Scanner for dependencies and malicious packages; Trivy and zizmor for IaC and GitHub Actions; Trivy for images. Checkov and Grype are optional; the exposure check looks at a verified domain's roots and known paths, and the full web scan is experimental. Your code is never executed. One repository or many, a whole organization, or several images at once. |
 | **Prioritize** | Every advisory is checked against CISA KEV (active exploitation) and EPSS (exploit probability); dependencies are grouped by package, with the version that closes all of their advisories. |
-| **Fix** | How to fix each finding with what the tool knows: the command for your package manager (npm, pip, Poetry, Go, Cargo, Maven…) and, for a transitive dependency, what brings it in and, when its range blocks the fix, what to update first; a before/after example for the code rules that have one; the steps to rotate a secret; and, for imported results, the scanner's own advice. Pitangus doesn't write a patch for your code. Export to Jira without duplicates. |
+| **Fix** | How to fix each finding, as far as the scan can tell: the command for your package manager (npm, pip, Poetry, Go, Cargo, Maven…) and the one that shows the installed version; for a transitive dependency, which direct dependency brings it in and, where the lockfile records ranges (Poetry, npm, Yarn, Bundler), whether that one has to be updated first; a before/after example for the code rules that have one; the steps to rotate a secret; and, for imported results, the scanner's own advice. It's built from your lockfiles and the advisories, not from your code: when something can't be known, the guide says so. Pitangus doesn't write a patch for your code. Export to Jira without duplicates. |
 | **Verify** | **Reverify** rescans and tells you "Fixed ✓" or "Still present". On pull requests only what the PR introduces counts, with a comment and a status check that can block the merge. |
 | **Watch** | Automatic rescans when the main branch changes, a daily offline check of new advisories against your dependencies, and messages to **Slack, Teams or a webhook** when something important shows up. |
 | **Prove** | Technical and evidence PDF reports (SOC 2 Type II, ISO/IEC 27001:2022, organization roll-up), SARIF, JSON and Markdown; threat modeling (STRIDE, LINDDUN, PASTA, attack trees, ATT&CK) with a diagram; a local CVE tracker built from NVD. |
@@ -39,7 +39,7 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 You need **Docker** (Engine 24+ with Compose v2.24+), **make** and **git**, 4 GB of memory and 8 GB of disk. `make doctor` checks all of it.
 
 ```bash
-git clone --branch v0.14.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.2 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up

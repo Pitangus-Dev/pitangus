@@ -1,0 +1,433 @@
+{
+ "type": "doc",
+ "version": 1,
+ "content": [
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "Update starlette from 0.37.2 to 0.47.2.",
+     "marks": [
+      {
+       "type": "strong"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "bulletList",
+   "content": [
+    {
+     "type": "listItem",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Repository: "
+        },
+        {
+         "type": "text",
+         "text": "org/fastapi_template",
+         "marks": [
+          {
+           "type": "strong"
+          }
+         ]
+        },
+        {
+         "type": "text",
+         "text": " (branch main)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "listItem",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dependency file: "
+        },
+        {
+         "type": "text",
+         "text": "backend/poetry.lock",
+         "marks": [
+          {
+           "type": "link",
+           "attrs": {
+            "href": "https://github.com/acme/api/blob/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/backend/poetry.lock"
+           }
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "Run:"
+    }
+   ]
+  },
+  {
+   "type": "codeBlock",
+   "attrs": {
+    "language": "bash"
+   },
+   "content": [
+    {
+     "type": "text",
+     "text": "poetry add \"starlette>=0.47.2\""
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "Check that it shows 0.47.2 or later:"
+    }
+   ]
+  },
+  {
+   "type": "codeBlock",
+   "attrs": {
+    "language": "bash"
+   },
+   "content": [
+    {
+     "type": "text",
+     "text": "poetry show starlette"
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "Done when:",
+     "marks": [
+      {
+       "type": "strong"
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": " the update is merged, lockfile included. The next scan confirms the new version and comments here."
+    }
+   ]
+  },
+  {
+   "type": "heading",
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "type": "text",
+     "text": "Why"
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "Severity: "
+    },
+    {
+     "type": "text",
+     "text": "High",
+     "marks": [
+      {
+       "type": "strong"
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": " · Due date: "
+    },
+    {
+     "type": "text",
+     "text": "2026-10-31",
+     "marks": [
+      {
+       "type": "strong"
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": " · First detected on 2026-10-01"
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "EPSS: 31% chance of being exploited in the next 30 days."
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "2 vulnerabilities: "
+    },
+    {
+     "type": "text",
+     "text": "CVE-2024-47874",
+     "marks": [
+      {
+       "type": "link",
+       "attrs": {
+        "href": "https://nvd.nist.gov/vuln/detail/CVE-2024-47874"
+       }
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": ", "
+    },
+    {
+     "type": "text",
+     "text": "CVE-2025-54121",
+     "marks": [
+      {
+       "type": "link",
+       "attrs": {
+        "href": "https://nvd.nist.gov/vuln/detail/CVE-2025-54121"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "Type of weakness: "
+    },
+    {
+     "type": "text",
+     "text": "CWE-400",
+     "marks": [
+      {
+       "type": "link",
+       "attrs": {
+        "href": "https://cwe.mitre.org/data/definitions/400.html"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "heading",
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "type": "text",
+     "text": "Details"
+    }
+   ]
+  },
+  {
+   "type": "orderedList",
+   "content": [
+    {
+     "type": "listItem",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Run the tests."
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "bulletList",
+   "content": [
+    {
+     "type": "listItem",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "CVE-2024-47874",
+         "marks": [
+          {
+           "type": "link",
+           "attrs": {
+            "href": "https://nvd.nist.gov/vuln/detail/CVE-2024-47874"
+           }
+          }
+         ]
+        },
+        {
+         "type": "text",
+         "text": " · High · Denial of service through multipart forms · fixed in 0.40.0"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "listItem",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "CVE-2025-54121",
+         "marks": [
+          {
+           "type": "link",
+           "attrs": {
+            "href": "https://nvd.nist.gov/vuln/detail/CVE-2025-54121"
+           }
+          }
+         ]
+        },
+        {
+         "type": "text",
+         "text": " · High · Denial of service through multipart forms · fixed in 0.47.2"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "CVSS score: 7.5"
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "References",
+     "marks": [
+      {
+       "type": "strong"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "bulletList",
+   "content": [
+    {
+     "type": "listItem",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "CVE-2024-47874",
+         "marks": [
+          {
+           "type": "link",
+           "attrs": {
+            "href": "https://nvd.nist.gov/vuln/detail/CVE-2024-47874"
+           }
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "listItem",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "CVE-2025-54121",
+         "marks": [
+          {
+           "type": "link",
+           "attrs": {
+            "href": "https://nvd.nist.gov/vuln/detail/CVE-2025-54121"
+           }
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "content": [
+    {
+     "type": "text",
+     "text": "Open in Pitangus",
+     "marks": [
+      {
+       "type": "link",
+       "attrs": {
+        "href": "https://pitangus.example.com/#/findings?repo=github%3Aorg%2Fapi&finding=3333333333333333333333333333333333333333333333333333333333333333"
+       }
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": " · Finding 3333333333333333"
+    }
+   ]
+  }
+ ]
+}
