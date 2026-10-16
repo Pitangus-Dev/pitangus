@@ -18,7 +18,7 @@ from reportlab.platypus import KeepTogether, Paragraph, Spacer
 from pitangus.modules.threats import diagram as threat_diagram
 from pitangus.modules.threats import methods as threat_methods
 from pitangus.modules.reporting.design import (ATTENTION, ATTENTION_BG, DANGER, DANGER_BG, INK, MUTED, cover, SEVERITY, SEVERITY_INK, SOFT, STYLE, SUCCESS,
-                            SUCCESS_BG, WIDTH, build, bullets, chip, disclaimer, h2, kpis, listing, severity_label,
+                            SUCCESS_BG, WIDTH, build, bullets, chip, disclaimer, h2, hexval, kpis, listing, severity_label,
                             table, wide_page, wide_size)
 from pitangus.modules.reporting.design import t as esc
 from pitangus.shared.i18n import default_locale, localize, t, text
@@ -506,11 +506,16 @@ def _sections_pdf(model: dict, appendix, locale: str) -> list:
 def _attack_pdf(model: dict, data: dict, heading: str, numbered: bool = True) -> list:
     locale = data["locale"]
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
+    muted = hexval(MUTED)
+
+    def named(name: str, translation: str | None, limit: int) -> str:  # MITRE's English name; ours underneath
+        return esc(name, limit) + (f'<br/><font color="{muted}">{esc(translation, limit)}</font>' if translation else "")
     body = []
     for item in data["mappings"]:
-        tactics = threat_methods.technique_tactics(item["technique"])
-        body.append([f"<b>{esc(item['technique'], 12)}</b> {esc(text(threat_methods.technique_label(item['technique']), locale), 80)}",
-                     esc(", ".join(text(threat_methods.TACTICS[tactic], locale) for tactic in tactics), 80),
+        key = item["technique"]
+        tactics = [threat_methods.tactic_names(tactic, locale) for tactic in threat_methods.technique_tactics(key)]
+        body.append([f"<b>{esc(key, 12)}</b> " + named(text(threat_methods.technique_label(key), locale), threat_methods.technique_translation(key, locale), 80),
+                     named(", ".join(name for name, _ in tactics), ", ".join(translated for _, translated in tactics if translated) or None, 80),
                      esc(_element_name(model, data, item["element"]) if item.get("element") else r("whole_system"), 100),
                      esc(_mapping_status(item["status"], locale), 40), esc(item.get("note") or "—", 200)])
     return [h2(heading, number=numbered), table([r("col_technique"), r("col_tactic"), r("col_element"), r("col_status"), r("col_note")], body,
@@ -743,9 +748,11 @@ def _attack_md(model: dict, data: dict, heading: str) -> list[str]:
     r = lambda key, **params: t(f"threats.report.{key}", locale, **params)  # noqa: E731
     lines = ["## " + heading, "", _row(r("col_technique"), r("col_tactic"), r("col_element"), r("col_status"), r("col_note")), "|---|---|---|---|---|"]
     for item in data["mappings"]:
-        tactics = threat_methods.technique_tactics(item["technique"])
+        key = item["technique"]
+        tactics = [threat_methods.tactic_names(tactic, locale) for tactic in threat_methods.technique_tactics(key)]
         element = _element_name(model, data, item["element"]) if item.get("element") else r("whole_system")
-        lines.append(_row(f"{item['technique']} {_cell(text(threat_methods.technique_label(item['technique']), locale))}",
-                          ", ".join(text(threat_methods.TACTICS[tactic], locale) for tactic in tactics),
+        translation = threat_methods.technique_translation(key, locale)
+        lines.append(_row(f"{key} {_cell(text(threat_methods.technique_label(key), locale))}" + (f" ({_cell(translation)})" if translation else ""),
+                          _cell(", ".join(f"{name} ({translated})" if translated else name for name, translated in tactics)),
                           _cell(element), _cell(_mapping_status(item["status"], locale)), _cell(item.get("note") or "")))
     return lines + ["", r("attack_trademark"), ""]

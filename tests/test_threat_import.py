@@ -393,16 +393,30 @@ class AttackCatalogTests(unittest.TestCase):
         self.assertRegex(data["sha256"], r"^[0-9a-f]{64}$")
         self.assertIn("The MITRE Corporation", data["copyright"])
         self.assertIn("royalty-free license", data["license"])
-        self.assertGreater(len(data["techniques"]), 600)
-        for key, (name, tactics) in data["techniques"].items():
+        # Counted independently from MITRE's STIX bundle (attack-pattern objects): 697 live = 222 techniques + 475
+        # sub-techniques; 149 revoked and 12 deprecated IDs.
+        self.assertEqual(attack.counts(), {"total": 697, "techniques": 222, "subtechniques": 475, "revoked": 149, "deprecated": 12})
+        self.assertEqual(data["platforms"], ["PRE", "Windows", "macOS", "Linux", "Office Suite", "Identity Provider", "SaaS", "IaaS",
+                                             "Network Devices", "Containers", "ESXi"])
+        for key, (name, tactics, platforms) in data["techniques"].items():
             self.assertRegex(key, threat_schema.TECHNIQUE_PATTERN)
             self.assertTrue(name and tactics and set(tactics) <= set(data["tactics"]), key)
+            self.assertTrue(platforms and set(platforms) <= set(data["platforms"]), key)
+        self.assertEqual(attack.platforms("T1611"), ["Windows", "Linux", "Containers", "ESXi"])  # in the matrix's order
+        self.assertEqual(attack.platforms("T9999"), [])
 
     def test_lookups_include_sub_techniques_revoked_and_unknown(self):
         self.assertEqual(attack.technique("T1552.004"), ("Private Keys", ["TA0006"]))
         self.assertEqual(threat_methods.technique_tactics("T1565.001"), ["TA0040"])
-        self.assertEqual(localize(threat_methods.technique_label("T1552.001"), "es"), "Credentials In Files")  # MITRE's name, as published
-        self.assertEqual(localize(threat_methods.technique_label("T1110"), "es"), "Fuerza bruta")  # ours, interpreted
+        # MITRE's English name in every language; our translation apart, only in Spanish.
+        self.assertEqual(localize(threat_methods.technique_label("T1552.001"), "es"), "Credentials In Files")
+        self.assertEqual(localize(threat_methods.technique_label("T1110"), "es"), "Brute Force")
+        self.assertEqual(threat_methods.technique_translation("T1110", "es"), "Fuerza bruta")
+        self.assertIsNone(threat_methods.technique_translation("T1110", "en"))
+        self.assertIsNone(threat_methods.technique_translation("T1562", "es"))  # revoked: no name to translate
+        self.assertIsNone(threat_methods.technique_translation("T1566", "es"))  # "Phishing" in both: said once
+        self.assertEqual(threat_methods.tactic_names("TA0006", "es"), ("Credential Access", "Acceso a credenciales"))
+        self.assertEqual(threat_methods.tactic_names("TA0006", "en"), ("Credential Access", None))
         self.assertEqual(attack.state("T1562"), ("revoked", "T1685"))
         self.assertEqual(attack.state("T1043")[0], "deprecated")
         self.assertEqual(attack.state("T9999"), ("unknown", None))
@@ -415,14 +429,57 @@ class AttackCatalogTests(unittest.TestCase):
         self.assertIn("isn't in ATT&CK v19.2", messages["/attack_mappings/2/technique"][1])
         self.assertNotIn("/attack_mappings/3/technique", messages)
 
-    def test_our_suggestions_are_live_techniques(self):
-        self.assertEqual(set(threat_methods.TECHNIQUES), set(threat_methods.CURATED))
-        for keys in threat_methods.SUGGESTIONS.values():
-            self.assertTrue(set(keys) <= set(threat_methods.TECHNIQUES))
-        self.assertEqual(set(threat_methods.TACTICS), set(attack.tactics()))
+    def test_spanish_names_every_tactic_and_technique(self):
+        spanish = attack.translations("es")
+        self.assertEqual(set(spanish["tactics"]), set(attack.tactics()))
+        # Every technique (sub-techniques keep MITRE's name only); a refresh that adds one asks for its Spanish name.
+        self.assertEqual(set(spanish["techniques"]), {key for key in attack.data()["techniques"] if "." not in key})
+        self.assertEqual(attack.translations("en"), {"tactics": {}, "techniques": {}})
+
+    def test_suggestions_come_from_mitre_platforms_and_tactics(self):
+        data = attack.data()
+        self.assertEqual(set(threat_methods.SUGGESTION_RULES), set(tm.KINDS) - {"actor", "custom"})
+        for kind, (platforms, tactics) in threat_methods.SUGGESTION_RULES.items():
+            self.assertTrue(set(platforms) <= set(data["platforms"]) and set(tactics) <= set(data["tactics"]), kind)
+            for exposed in (False, True):
+                component = {"kind": kind, "internet_facing": exposed}
+                keys = threat_methods.suggested(component)
+                wanted = {*tactics, *(["TA0001"] if exposed else [])}
+                # Exactly what MITRE lists for the platforms in those tactics: none made up, none left out; no sub-techniques.
+                expected = [key for key, (_, phases, where) in data["techniques"].items()
+                            if "." not in key and set(where) & set(platforms) and set(phases) & wanted]
+                self.assertEqual(keys, expected)
+                self.assertTrue(keys, kind)
+        exposed = threat_methods.suggested({"kind": "api", "internet_facing": True})
+        self.assertTrue({"T1190", "T1059", "T1552", "T1499"} <= set(exposed))
+        self.assertNotIn("T1190", threat_methods.suggested({"kind": "api", "internet_facing": False}))  # a way in needs exposure
+        self.assertIn("T1530", threat_methods.suggested({"kind": "storage"}))
+        self.assertIn("T1556", threat_methods.suggested({"kind": "identity"}))
+        self.assertIn("T1648", threat_methods.suggested({"kind": "function"}))
+        self.assertEqual(len(exposed), 56)
+        # Containers only when the technology says so, and only on a host.
+        plain, boxed = threat_methods.suggestion_basis({"kind": "api"}), threat_methods.suggestion_basis({"kind": "api", "technology": "FastAPI on Kubernetes"})
+        self.assertEqual(plain, (["Windows", "macOS", "Linux"], ["TA0002", "TA0006", "TA0040"]))
+        self.assertEqual(boxed[0], ["Windows", "macOS", "Linux", "Containers"])
+        self.assertTrue({"T1609", "T1610"} <= set(threat_methods.suggested({"kind": "service", "technology": "Docker"})))
+        self.assertNotIn("T1610", threat_methods.suggested({"kind": "service", "technology": "Go binary on a VM"}))
+        self.assertEqual(threat_methods.suggestion_basis({"kind": "storage", "technology": "S3 behind ECS"})[0], ["IaaS"])
+        # A person isn't an ATT&CK platform, and a kind of the team's own isn't its base kind for ATT&CK.
+        self.assertEqual(threat_methods.suggested({"kind": "actor", "internet_facing": True}), [])
+        self.assertEqual(threat_methods.suggested({"kind": "custom", "custom_kind": "Cámara IP", "custom_base": "service"}), [])
+
+    def test_the_catalog_sends_all_of_attack_with_its_source_and_the_rules(self):
         catalog = threat_methods.catalog()
-        self.assertEqual(catalog["attack"]["version"], attack.version())
-        self.assertIn("T1552.004", catalog["attack"]["techniques"])
+        self.assertNotIn("techniques", catalog)  # no hand-picked subset any more
+        full = catalog["attack"]
+        self.assertEqual((full["version"], full["counts"]["total"]), (attack.version(), 697))
+        self.assertEqual(full["source"], "https://github.com/mitre-attack/attack-stix-data")
+        self.assertIn("T1552.004", full["techniques"])
+        self.assertEqual(full["tactics"]["TA0001"], "Initial Access")
+        self.assertEqual(full["translations"]["es"]["techniques"]["T1110"], "Fuerza bruta")
+        self.assertEqual(full["suggestions"]["kinds"]["identity"], {"platforms": ["Identity Provider"], "tactics": ["TA0001", "TA0003", "TA0006"]})
+        self.assertNotIn("custom", full["suggestions"]["kinds"])
+        self.assertIn("kubernetes", full["suggestions"]["container_terms"])
 
     def test_the_refresh_script_reproduces_the_bundled_file(self):
         source = (Path(__file__).resolve().parents[1] / "scripts/attack-catalog.py").read_text(encoding="utf-8")
@@ -445,7 +502,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(defs["model"]["properties"]["methodology"]["enum"], list(threat_methods.METHODOLOGIES))
         self.assertEqual(defs["manual_threat"]["properties"]["severity"]["enum"], list(threat_methods.SEVERITIES))
         self.assertEqual(defs["attack_mapping"]["properties"]["status"]["enum"], list(threat_methods.MAPPING_STATUS))
-        self.assertEqual(set(defs["attack_mapping"]["properties"]["technique"]["examples"]), set(threat_methods.TECHNIQUES))
+        self.assertTrue(all(attack.technique(key) for key in defs["attack_mapping"]["properties"]["technique"]["examples"]))
         self.assertEqual(set(defs["model"]["properties"]["pasta"]["properties"]), {key for key, _ in threat_methods.PASTA_STAGES})
         self.assertEqual(set(defs["component"]["properties"]), tm.COMPONENT_KEYS - {"asset"})  # never exported: links are local
         self.assertEqual(set(defs["flow"]["properties"]), tm.FLOW_KEYS)
@@ -453,7 +510,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(set(defs["manual_threat"]["properties"]), threat_methods.MANUAL_KEYS)
         self.assertEqual(set(defs["attack_mapping"]["properties"]), threat_methods.MAPPING_KEYS)
         self.assertEqual(set(defs["model"]["properties"]), tm.MODEL_KEYS - {"repositories"})
-        for key in threat_methods.TECHNIQUES:
+        for key in attack.data()["techniques"]:
             self.assertRegex(key, defs["attack_mapping"]["properties"]["technique"]["pattern"])
         self.assertEqual(set(defs["flow"]["properties"]), tm.FLOW_KEYS)
         self.assertEqual(set(defs["assumption"]["properties"]), threat_methods.ASSUMPTION_KEYS)
@@ -522,7 +579,7 @@ class ImportRouteTests(HttpCase):
             status, catalog, _ = self.call("GET", "/api/threat-models", headers={"Cookie": cookie})
             self.assertEqual(status, 200)
             self.assertIn("wifi", catalog["workspace"]["protocols"])
-            self.assertIn("T1552.001", catalog["workspace"]["techniques"])
+            self.assertNotIn("T1552.001", catalog["workspace"].get("techniques", []))  # a real ATT&CK ID isn't the team's own value
 
 
 if __name__ == "__main__":

@@ -205,13 +205,13 @@
       "purpose": "Look up and map tactics and techniques observed in real-world attacks. It complements a model like STRIDE rather than replacing it.",
       "when": "To check the model against real attacks and review what prevents or detects each technique.",
       "steps": [
-        "For each component, review the suggested techniques (they aren't added automatically).",
+        "For each component, review what MITRE lists for its platform (nothing is added automatically).",
         "Add the relevant ones and note which control prevents or detects each one.",
         "Mark it mitigated, or not applicable with the reason."
       ],
       "tips": [
         "Tactic = the attacker's objective at that point (the why); technique = how they achieve it.",
-        "This is a selection of techniques relevant to web apps, APIs, containers and cloud; the full catalog is at attack.mitre.org."
+        "Pitangus bundles MITRE's full Enterprise catalog, offline; the suggestions come from the platforms MITRE lists for each technique."
       ]
     },
     "custom": {
@@ -319,7 +319,9 @@
     "paths_other": "{{open}} of {{count, number}} paths open (any one is enough)",
     "no_paths": "no paths",
     "remove_tree": "Remove tree",
-    "path": "Path"
+    "path": "Path",
+    "property": "Property",
+    "add_property": "Add a property to this step"
   },
   "attack": {
     "status": {
@@ -327,25 +329,51 @@
       "mitigated": "Mitigated",
       "not_applicable": "Not applicable"
     },
-    "technique": "Technique",
-    "choose_technique": "Choose a technique…",
-    "map": "Map",
-    "suggestions": "Suggestions to review ({{count, number}})",
-    "suggestions_hint": "Techniques commonly used against these kinds of components. They aren't added automatically: add the ones that apply.",
-    "empty": "No techniques mapped yet. Start with the suggestions or with the Initial Access tactic.",
+    "suggestions_hint": "The techniques MITRE lists for each component type's platform, in the tactics where that component is the target. Sub-techniques are in the catalog. Nothing is added on its own.",
+    "empty": "No techniques mapped yet. Start with MITRE's suggestions or browse the catalog by tactic.",
     "status_label": "Status",
     "note": "Control or note",
     "note_placeholder": "What prevents or detects it",
-    "trademark": "MITRE ATT&CK® is a trademark of The MITRE Corporation. Pitangus includes the full Enterprise catalog, offline; we suggest a selection for web apps, APIs, containers and cloud.",
+    "trademark": "MITRE ATT&CK® is a trademark of The MITRE Corporation. Pitangus includes the full Enterprise catalog, offline, as MITRE publishes it.",
     "technique_format": "Use an ATT&CK technique ID: T plus four digits, with an optional sub-technique (T1552 or T1552.001).",
-    "technique_label": "ATT&CK technique",
-    "type_technique": "Search or type an ID, e.g. T1552.001",
-    "all_techniques": "All of ATT&CK v{{version}}",
     "revoked": "Revoked in ATT&CK · now {{replacement}}",
     "revoked_alone": "Revoked in ATT&CK",
     "deprecated": "{{name}} (deprecated in ATT&CK)",
     "not_found": "Not found in ATT&CK v{{version}}",
-    "all_techniques_unversioned": "All of ATT&CK"
+    "map_technique": "Map a technique",
+    "source": "MITRE ATT&CK Enterprise v{{version}} · {{total, number}} techniques",
+    "suggestions_one": "Suggested by MITRE for your components ({{count, number}} technique)",
+    "suggestions_other": "Suggested by MITRE for your components ({{count, number}} techniques)",
+    "suggestions_silent": "No suggestions for {{names}}: ATT&CK has no platform for a person or for a type of your own. Map their techniques from the catalog.",
+    "suggestions_list": "Suggested techniques",
+    "add_to": "Map {{id}} to {{name}}",
+    "add_all_one": "Add to {{count, number}} component",
+    "add_all_other": "Add to all {{count, number}}",
+    "add_all_label": "Map {{id}} to {{names}}",
+    "picker": {
+      "title": "Map an ATT&CK technique",
+      "source": "MITRE ATT&CK Enterprise v{{version}} · {{total, number}} techniques ({{techniques, number}} techniques and {{subtechniques, number}} sub-techniques), as MITRE publishes them.",
+      "element": "Element",
+      "search": "Search",
+      "search_placeholder": "ID, name or tactic: T1059, brute force, Execution…",
+      "tactics": "Tactics",
+      "all_tactics": "All tactics",
+      "suggested_for": "Suggested for {{name}}",
+      "basis": "MITRE platforms: {{platforms}} · tactics: {{tactics}}",
+      "no_platform_actor": "A person has no platform in ATT&CK, so nothing is suggested. Phishing and other social engineering are under Initial Access.",
+      "no_platform_custom": "A type of your own has no platform in ATT&CK, so nothing is suggested. Browse the catalog by tactic.",
+      "nothing_suggested": "None of the suggested techniques match this search or tactic.",
+      "subtechniques_one": "{{count, number}} sub-technique",
+      "subtechniques_other": "{{count, number}} sub-techniques",
+      "results_one": "{{count, number}} technique",
+      "results_other": "{{count, number}} techniques",
+      "outside": "Outside ATT&CK v{{version}} or used in other models",
+      "nothing": "Nothing matches. Any well-formed ID (T1234 or T1234.001) can be used, even one that isn't in ATT&CK.",
+      "map": "Map",
+      "map_to": "Map {{id}} to {{name}}",
+      "mapped": "Mapped",
+      "done": "Done"
+    }
   },
   "canvas": {
     "internet_facing": "Internet-facing",
@@ -692,7 +720,9 @@
     "empty": "Fields of your own (an owner, a ticket, a review date…). An imported model's unknown fields show up here.",
     "structured": "Structured value: shown as imported and exported as is.",
     "name_taken": "There is already a property with that name: choose another.",
-    "name_required": "A property needs a name."
+    "name_required": "A property needs a name.",
+    "true": "Yes",
+    "false": "No"
   },
   "context": {
     "assumptions": "Assumptions",

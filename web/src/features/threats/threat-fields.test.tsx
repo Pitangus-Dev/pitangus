@@ -4,16 +4,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { DataField, KindField, ProtocolField } from '@/features/threats/threat-fields'
-import { AttackMappings } from '@/features/threats/threat-methods'
-import type { Catalog, Component, Flow, Model } from '@/features/threats/threat-model-types'
+import type { Catalog, Component, Flow } from '@/features/threats/threat-model-types'
 
 const tr = (key: string, options?: Record<string, unknown>) => i18n.t(key, options)
 const CATALOG = {
   models: [], assets: [], kinds: { actor: 'Actor', api: 'API', service: 'Service', database: 'Database', custom: 'Custom' },
   protocols: ['https', 'http', 'sql', 'other'], classifications: { public: 'Public', pii: 'Personal data' },
-  methods: { methodologies: {}, linddun: {}, tactics: { TA0006: 'Credential Access' }, suggestions: {}, pasta_stages: [],
-    techniques: { T1552: { name: 'Unsecured Credentials', name_es: 'Credenciales sin proteger', tactics: ['TA0006'] } },
-    attack: { version: '19.2', techniques: { T1552: ['Unsecured Credentials', ['TA0006']], 'T1552.001': ['Credentials In Files', ['TA0006']] }, revoked: { T1562: 'T1685' }, deprecated: {} } },
+  methods: { methodologies: {}, linddun: {}, pasta_stages: [], attack: {} },
   workspace: { protocols: ['mqtt'], kinds: ['Mainframe'], data: ['Telemetry'], techniques: [] },
 } as unknown as Catalog
 
@@ -60,31 +57,5 @@ describe('fields that take your own values', () => {
     expect(screen.getByText(tr('threats:values.custom_data_hint', { values: 'Health records' }))).toBeTruthy()
     await user.click(screen.getByRole('button', { name: tr('threats:values.remove_data', { value: 'Health records' }) }))
     expect(state().data).toEqual([])
-  })
-
-  it('takes any well-formed ATT&CK ID and refuses one that is not', async () => {
-    const user = userEvent.setup()
-    function Mappings() {
-      const [model, setModel] = useState<Model>({ id: 'm', name: 'M', components: [], flows: [], boundaries: [], attack_mappings: [] })
-      return <AttackMappings model={model} setModel={setModel} catalog={CATALOG} />
-    }
-    render(<Mappings />)
-    const technique = screen.getByRole('combobox', { name: tr('threats:attack.technique_label') })
-    await user.click(technique)
-    await user.type(technique, 'X12')
-    expect(screen.getByText(tr('threats:attack.technique_format'))).toBeTruthy()
-    await user.clear(technique)
-    await user.type(technique, 't1552.001{Enter}')
-    await user.click(screen.getByRole('button', { name: new RegExp(tr('threats:attack.map')) }))
-    const link = screen.getByRole('link', { name: /T1552\.001/ })
-    expect(link.getAttribute('href')).toContain('T1552/001')
-    // Any ATT&CK technique is named from the bundled catalog; a revoked or unknown ID keeps its ID and says why.
-    expect(link.textContent).toContain('Credentials In Files')
-    for (const [id, text] of [['T1562', tr('threats:attack.revoked', { replacement: 'T1685' })], ['T9999', tr('threats:attack.not_found', { version: '19.2' })]]) {
-      await user.click(technique)
-      await user.type(technique, `${id}{Enter}`)
-      await user.click(screen.getByRole('button', { name: new RegExp(tr('threats:attack.map')) }))
-      expect(screen.getByRole('link', { name: new RegExp(id) }).textContent).toContain(text)
-    }
   })
 })

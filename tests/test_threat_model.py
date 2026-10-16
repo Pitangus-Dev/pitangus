@@ -178,7 +178,7 @@ class ModelTests(unittest.TestCase):
                         pasta={"objectives": "Que nadie pague por otro"})
         self.assertEqual(len(current["attack_mappings"]), 1)
         report = tm.to_markdown({**current, "updated_at": "", "updated_by": "x"}, tm.threats(current))
-        for text in ("Enfoque: **MITRE ATT&CK**", "T1110 Fuerza bruta", "Acceso a credenciales", "attack.mitre.org",
+        for text in ("Enfoque: **MITRE ATT&CK**", "T1110 Brute Force (Fuerza bruta)", "Credential Access (Acceso a credenciales)", "attack.mitre.org",
                      "Entrar en la cuenta de otro usuario", "  - Phishing", "mitigado", "Que nadie pague por otro",
                      # The techniques are the body of an ATT&CK model, not an appendix; the summary counts them.
                      "## Técnicas de MITRE ATT&CK (1)", "1 técnica de ATT&CK asignada al modelo",

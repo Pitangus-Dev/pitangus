@@ -20,7 +20,7 @@ import re
 
 from pitangus.modules.threats import attack
 from pitangus.modules.threats.problems import KEPT, Item, Problems, normal, pointer
-from pitangus.shared.i18n import inline, msg, t, text
+from pitangus.shared.i18n import msg, t, text
 
 METHODOLOGIES = {
     "stride": msg("threats.methods.stride"), "linddun": msg("threats.methods.linddun"), "pasta": msg("threats.methods.pasta"),
@@ -73,54 +73,55 @@ LINDDUN_RULES = [
 
 # ------------------------------------------------------------------ MITRE ATT&CK (Enterprise)
 
-# Tactics (the attacker's "why") and techniques (the "how") come from the bundled ATT&CK catalog (attack.py); here
-# only the Spanish interpretation of each tactic and of the techniques we suggest.
-SPANISH_TACTICS = {
-    "TA0043": "Reconocimiento", "TA0042": "Desarrollo de recursos", "TA0001": "Acceso inicial", "TA0002": "Ejecución",
-    "TA0003": "Persistencia", "TA0004": "Escalada de privilegios", "TA0005": "Sigilo", "TA0112": "Debilitamiento de defensas",
-    "TA0006": "Acceso a credenciales", "TA0007": "Descubrimiento", "TA0008": "Movimiento lateral", "TA0009": "Recolección",
-    "TA0011": "Mando y control", "TA0010": "Exfiltración", "TA0040": "Impacto",
-}
-TACTICS = {key: inline({"en": name, "es": SPANISH_TACTICS.get(key, name)}) for key, name in attack.tactics().items()}
-# The most useful techniques for web applications, APIs, containers and cloud: what the editor offers first and what
-# the suggestions draw from. Every other ATT&CK technique is recognized too, with its official name.
-CURATED = {
-    "T1190": "Explotar una aplicación expuesta", "T1133": "Servicios remotos expuestos", "T1078": "Cuentas válidas",
-    "T1199": "Relación de confianza", "T1195.001": "Dependencias o herramientas comprometidas",
-    "T1195.002": "Cadena de suministro comprometida", "T1566": "Phishing", "T1189": "Compromiso al navegar",
-    "T1059": "Intérprete de comandos", "T1203": "Explotación para ejecutar en el cliente", "T1648": "Ejecución en funciones serverless",
-    "T1610": "Desplegar un contenedor", "T1505.003": "Web shell", "T1098": "Manipulación de cuentas", "T1136": "Crear cuentas",
-    "T1525": "Imagen interna implantada", "T1068": "Explotación para escalar privilegios", "T1611": "Escapar del contenedor al host",
-    "T1685": "Desactivar o modificar herramientas de defensa", "T1070": "Borrar rastros",
-    "T1550": "Material de autenticación alternativo", "T1110": "Fuerza bruta", "T1552": "Credenciales sin proteger",
-    "T1528": "Robar tokens de acceso", "T1539": "Robar la cookie de sesión", "T1556": "Alterar la autenticación",
-    "T1606": "Falsificar credenciales web", "T1621": "Bombardeo de solicitudes MFA", "T1212": "Explotación para obtener credenciales",
-    "T1087": "Descubrir cuentas", "T1046": "Descubrir servicios de red", "T1526": "Descubrir servicios en la nube",
-    "T1580": "Descubrir infraestructura en la nube", "T1557": "Intermediario (AitM)", "T1040": "Captura de tráfico",
-    "T1213": "Datos de repositorios de información", "T1530": "Datos del almacenamiento en la nube", "T1005": "Datos del sistema local",
-    "T1041": "Exfiltración por el canal de control", "T1567": "Exfiltración por un servicio web",
-    "T1537": "Transferir datos a otra cuenta en la nube", "T1485": "Destrucción de datos", "T1486": "Cifrado de datos (ransomware)",
-    "T1565": "Manipulación de datos", "T1498": "Denegación de servicio de red", "T1499": "Denegación de servicio de la aplicación",
-    "T1496": "Secuestro de recursos (criptominería)",
-}
-# (English name, Spanish interpretation, tactics) of the curated ones, names and tactics as MITRE publishes them.
-TECHNIQUES = {key: (entry[0], spanish, entry[1]) for key, spanish in CURATED.items() if (entry := attack.technique(key))}
+# Tactics (the attacker's "why") and techniques (the "how") come from the bundled ATT&CK catalog (attack.py), with
+# MITRE's English names everywhere; in Spanish our translation (attack-es.json) goes under the official name.
 MAPPING_STATUS = ("relevant", "mitigated", "not_applicable")
 
-# Suggestions by component type: techniques worth reviewing, never added automatically.
-SUGGESTIONS = {
-    "internet_process": ["T1190", "T1110", "T1078", "T1539", "T1499"],
-    "web_app": ["T1189", "T1539", "T1606"],
-    "process": ["T1059", "T1195.001", "T1505.003"],
-    "identity": ["T1556", "T1621", "T1528", "T1606"],
-    "database": ["T1213", "T1485", "T1486", "T1565"],
-    "storage": ["T1530", "T1537", "T1485"],
-    "cache": ["T1552", "T1565"],
-    "queue": ["T1565", "T1499"],
-    "external": ["T1199", "T1195.002", "T1567"],
-    "function": ["T1648", "T1552"],
-    "service": ["T1046", "T1550"],
+# Suggestions. MITRE decides which techniques apply to which platform (`x_mitre_platforms`); this one table only says
+# which ATT&CK platforms each component kind runs on, and in which tactics that component is what the attacker acts on
+# (platforms alone give 177 techniques for a server). Each row is justified in docs/threat-modeling.md ("Where the
+# suggestions come from"). Techniques only (their sub-techniques are in the catalog); never added on their own. An actor
+# (a person) and a kind of the team's own get none: ATT&CK has no platform for them.
+HOSTS = ("Windows", "macOS", "Linux")
+PROCESS_TACTICS = ("TA0002", "TA0006", "TA0040")  # execution, credential access, impact
+STORE_TACTICS = ("TA0009", "TA0010", "TA0040")  # collection, exfiltration, impact
+SUGGESTION_RULES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    "web_app": (HOSTS, PROCESS_TACTICS), "api": (HOSTS, PROCESS_TACTICS), "service": (HOSTS, PROCESS_TACTICS),
+    "function": (("IaaS",), PROCESS_TACTICS),
+    "database": (HOSTS, STORE_TACTICS), "cache": (HOSTS, STORE_TACTICS), "queue": (HOSTS, STORE_TACTICS),
+    "storage": (("IaaS",), STORE_TACTICS),
+    "external": (("SaaS",), ("TA0001", "TA0006", "TA0010")),  # initial access, credential access, exfiltration
+    "identity": (("Identity Provider",), ("TA0001", "TA0003", "TA0006")),  # initial access, persistence, credential access
 }
+INTERNET_TACTIC = "TA0001"  # a component exposed to the internet is also a way in
+# A component on a host whose technology names a container runtime or orchestrator also runs on ATT&CK's Containers.
+CONTAINER_PLATFORM = "Containers"
+CONTAINER_TERMS = ("docker", "container", "containers", "containerized", "kubernetes", "k8s", "openshift", "podman", "helm",
+                   "ecs", "eks", "aks", "gke", "fargate", "cloud run", "nomad")
+CONTAINER = re.compile(r"\b(?:" + "|".join(re.escape(term) for term in CONTAINER_TERMS) + r")\b", re.IGNORECASE)
+
+
+def suggestion_basis(component: dict) -> tuple[list[str], list[str]]:
+    """(MITRE platforms, tactics) a component's suggestions come from; empty for an actor or a custom kind (its base
+    kind drives the STRIDE rules, not ATT&CK: a camera isn't a web service)."""
+    rule = SUGGESTION_RULES.get(component.get("kind") or "")
+    if rule is None:
+        return [], []
+    platforms, tactics = list(rule[0]), list(rule[1])
+    if set(platforms) & set(HOSTS) and CONTAINER.search(component.get("technology") or ""):
+        platforms.append(CONTAINER_PLATFORM)
+    if component.get("internet_facing") and INTERNET_TACTIC not in tactics:
+        tactics.append(INTERNET_TACTIC)
+    order = list(attack.tactics())
+    return platforms, sorted(tactics, key=order.index)
+
+
+def suggested(component: dict) -> list[str]:
+    """The ATT&CK techniques (not sub-techniques) MITRE lists for one of the component's platforms in one of its tactics."""
+    platforms, tactics = suggestion_basis(component)
+    return [key for key, (_, phases, where) in attack.data()["techniques"].items()
+            if "." not in key and set(where) & set(platforms) and set(phases) & set(tactics)]
+
 
 # ------------------------------------------------------------------ PASTA
 
@@ -514,11 +515,8 @@ def open_paths(tree: dict) -> int:
 
 
 def technique_label(key: str):
-    """A technique's name for the reader: for the ones we suggest, MITRE's English name or its Spanish interpretation;
-    for the rest of ATT&CK, the official name as published. A revoked, deprecated or unknown ID says so."""
-    if key in TECHNIQUES:
-        name, spanish, _ = TECHNIQUES[key]
-        return inline({"en": name, "es": spanish})
+    """A technique's name as MITRE publishes it (English, in every language); a revoked, deprecated or unknown ID says
+    so in the reader's language. The translation, shown under it, is `technique_translation`."""
     entry = attack.technique(key)
     if entry:
         return entry[0]
@@ -530,17 +528,34 @@ def technique_label(key: str):
     return msg("threats.attack.not_found", version=attack.version())
 
 
+def technique_translation(key: str, locale: str | None) -> str | None:
+    """The name in the reader's language when it isn't English, we have it and it differs from MITRE's (live only)."""
+    entry = attack.technique(key)
+    translated = attack.translations(locale)["techniques"].get(key)
+    return translated if entry and translated and translated != entry[0] else None
+
+
+def tactic_names(key: str, locale: str | None) -> tuple[str, str | None]:
+    """(MITRE's English name, the translation in the reader's language or None)."""
+    return attack.tactics().get(key, key), attack.translations(locale)["tactics"].get(key)
+
+
 def technique_tactics(key: str) -> list[str]:
     entry = attack.technique(key) or attack.technique(key.split(".")[0])
     return list(entry[1]) if entry else []
 
 
 def catalog() -> dict:
-    """What the panel needs for each approach; the usage guides live in the panel. `techniques`: the ones we suggest,
-    with a Spanish interpretation; `attack`: all of ATT&CK, to recognize and name any ID."""
+    """What the panel needs for each approach; the usage guides live in the panel. `attack`: all of ATT&CK (to browse,
+    search and name any ID) with its source, MITRE's English names and our Spanish ones apart, and the table that turns
+    a component into the platforms and tactics its suggestions come from."""
     full = attack.data()
-    return {"methodologies": METHODOLOGIES, "linddun": LINDDUN, "tactics": TACTICS,
-            "techniques": {key: {"name": name, "label": technique_label(key), "name_es": technique_label(key), "tactics": tactics}
-                           for key, (name, _, tactics) in TECHNIQUES.items()},
-            "attack": {"version": full["version"], "techniques": full["techniques"], "revoked": full["revoked"], "deprecated": full["deprecated"]},
-            "suggestions": SUGGESTIONS, "pasta_stages": [{"key": key, "title": title} for key, title in PASTA_STAGES]}
+    return {"methodologies": METHODOLOGIES, "linddun": LINDDUN,
+            "attack": {"version": full["version"], "source": full["source"], "counts": attack.counts(), "tactics": attack.tactics(),
+                       "platforms": full["platforms"], "techniques": full["techniques"], "revoked": full["revoked"],
+                       "deprecated": full["deprecated"], "translations": {"es": attack.translations("es")},
+                       "suggestions": {"kinds": {kind: {"platforms": list(platforms), "tactics": list(tactics)}
+                                                 for kind, (platforms, tactics) in SUGGESTION_RULES.items()},
+                                       "hosts": list(HOSTS), "internet_tactic": INTERNET_TACTIC,
+                                       "container_platform": CONTAINER_PLATFORM, "container_terms": list(CONTAINER_TERMS)}},
+            "pasta_stages": [{"key": key, "title": title} for key, title in PASTA_STAGES]}
