@@ -63,7 +63,7 @@ JSON and SARIF alike. In a container, pass it with `-e PITANGUS_DEFAULT_LOCALE=e
 | `--staged` | Scan what's staged (the index), as the next commit will hold it: untracked files and unstaged edits don't count. |
 | `--no-baseline` | With `--base`, skip scanning the starting point: it takes half the time, but everything on changed lines counts (and so does any advisory in a lockfile you touch). |
 | `--fail-on` | Severity at which the scan fails: `critical`, `high` (default), `medium`, `low` or `never` (report only). |
-| `--format` | `text` (default), `json`, `sarif` (SARIF 2.1.0, with `security-severity` for GitHub code scanning) or `prompt`: one prompt per finding, worst first, to paste into your own AI assistant (the rule, where it is, the matched code and the fix; never a secret's value, never code beyond the fragment). Pitangus calls no AI. |
+| `--format` | `text` (default), `json`, `sarif` (SARIF 2.1.0, with `security-severity` for GitHub code scanning) or `prompt`: one prompt per finding, worst first, to paste into your own AI assistant (the rule, where it is, the lines around it read from the scanned folder at that moment without the secrets the scan found, and the fix; only when it scanned the folder as it is on disk). Pitangus calls no AI. |
 | `--output FILE` | Write the result to a file; the text summary still goes to stderr. |
 | `--exclude PATTERN` | Path whose findings don't count: a glob relative to the root (`fixtures`, `**/testdata`, `docs/*.md`). It works like `.gitignore`: a folder excludes everything inside it; `*` doesn't cross `/`, `**` does. Repeatable. The output says how many findings were excluded. |
 | `--allow-incomplete` | Don't fail if an engine couldn't run. By default it fails: an analysis that didn't finish is not the same as "clean". |
@@ -158,7 +158,7 @@ jobs:
           fetch-depth: 0              # history is needed to compare against the base
           persist-credentials: false
       - id: pitangus
-        uses: Pitangus-Dev/pitangus@v0.14.0   # pin it to the tag's commit SHA, as with the other actions
+        uses: Pitangus-Dev/pitangus@v0.14.1   # pin it to the tag's commit SHA, as with the other actions
         with:
           exclude: |
             fixtures/
@@ -223,7 +223,7 @@ own scan:
         run: |
           python -m pip install semgrep   # pin the version
           semgrep scan --config p/ci --metrics off --sarif --output semgrep.sarif
-      - uses: Pitangus-Dev/pitangus@v0.14.0
+      - uses: Pitangus-Dev/pitangus@v0.14.1
         if: always()
         with:
           scan: false

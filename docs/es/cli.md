@@ -61,7 +61,7 @@ Los avisos de una misma dependencia salen en una línea con la versión que los 
 | `--staged` | Analiza lo preparado (el índice), tal como quedará en el próximo commit: los archivos sin seguimiento y los cambios sin preparar no cuentan. |
 | `--no-baseline` | Con `--base`, no analiza el punto de partida: tarda la mitad, pero cuenta todo lo que cae en líneas cambiadas (y cualquier aviso de un lockfile que toques). |
 | `--fail-on` | Severidad desde la que falla: `critical`, `high` (por defecto), `medium`, `low` o `never` (solo informa). |
-| `--format` | `text` (por defecto), `json`, `sarif` (SARIF 2.1.0, con `security-severity` para GitHub code scanning) o `prompt`: un prompt por hallazgo, del más grave al menos, para pegar en tu propio asistente de IA (la regla, dónde está, el código encontrado y la corrección; nunca el valor de un secreto ni código fuera del fragmento). Pitangus no llama a ninguna IA. |
+| `--format` | `text` (por defecto), `json`, `sarif` (SARIF 2.1.0, con `security-severity` para GitHub code scanning) o `prompt`: un prompt por hallazgo, del más grave al menos, para pegar en tu propio asistente de IA (la regla, dónde está, las líneas de alrededor leídas de la carpeta analizada en ese momento, sin los secretos que encontró el análisis, y la corrección; solo al analizar la carpeta tal como está en disco). Pitangus no llama a ninguna IA. |
 | `--output FILE` | Escribe el resultado en un archivo; el resumen en texto sale igualmente por la salida de errores. |
 | `--exclude PATRÓN` | Ruta cuyos hallazgos no cuentan: glob relativo a la raíz (`fixtures`, `**/testdata`, `docs/*.md`). Como en `.gitignore`, una carpeta excluye todo lo que tiene dentro; `*` no cruza `/` y `**` sí. Repetible. La salida dice cuántos se excluyeron. |
 | `--allow-incomplete` | No falla si un motor no pudo ejecutarse. Por defecto sí falla: un análisis que no terminó no equivale a «limpio». |
@@ -158,7 +158,7 @@ jobs:
           fetch-depth: 0              # hace falta la historia para comparar con la base
           persist-credentials: false
       - id: pitangus
-        uses: Pitangus-Dev/pitangus@v0.14.0   # fíjala al SHA del commit de la etiqueta, como las demás
+        uses: Pitangus-Dev/pitangus@v0.14.1   # fíjala al SHA del commit de la etiqueta, como las demás
         with:
           exclude: |
             fixtures/
@@ -223,7 +223,7 @@ sin el análisis propio de Pitangus:
         run: |
           python -m pip install semgrep   # fija la versión
           semgrep scan --config p/ci --metrics off --sarif --output semgrep.sarif
-      - uses: Pitangus-Dev/pitangus@v0.14.0
+      - uses: Pitangus-Dev/pitangus@v0.14.1
         if: always()
         with:
           scan: false

@@ -471,6 +471,50 @@ def _dependency_project_units(data_dir: Path) -> int:
     return changed
 
 
+def _without_code(value: object) -> object:
+    """`value` without code at any depth (shared/masking.CODE: a `snippet`; a SARIF's `snippet` and `contextRegion`)."""
+    from pitangus.shared.masking import CODE
+    if isinstance(value, list):
+        return [_without_code(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _without_code(item) for key, item in value.items() if key not in CODE and key != "contextRegion"}
+    return value
+
+
+def _drop_stored_code(data_dir: Path) -> int:
+    """Pitangus stores no code (0.14.1): every snippet goes from the runs (their findings, excluded ones and anything
+    else that held one), the registry, the stored SARIF and the pending outbox, its identity and its identity anywhere
+    pinned from it first; reports and SARIF are rendered again from the runs. Locations, identities and statuses stay
+    as they are: a finding's code is read from its repository when it is opened (runs/code_view.py)."""
+    from sqlalchemy import update
+    from pitangus.modules.integrations.tables import outbox
+    from pitangus.modules.runs.store import render_repository_report, render_repository_sarif
+    from pitangus.modules.runs.tables import runs
+    changed = _mask_stored_secrets(data_dir)
+    with db.transaction(data_dir) as connection:
+        for row in connection.execute(select(runs.c.id, runs.c.record, runs.c.report, runs.c.sarif).where(runs.c.tenant_id == db.TENANT)).all():
+            if row.sarif is None or _without_code(row.sarif) == row.sarif:
+                continue
+            values: dict = {}
+            try:
+                values["sarif"] = render_repository_sarif(row.record) if isinstance(row.record, dict) else _without_code(row.sarif)
+            except Exception:  # noqa: BLE001 - a record today's renderer can't read: its SARIF without code
+                values["sarif"] = _without_code(row.sarif)
+            if row.report is not None and isinstance(row.record, dict):
+                try:
+                    values["report"] = render_repository_report(row.record)
+                except Exception:  # noqa: BLE001
+                    pass
+            connection.execute(update(runs).where(runs.c.tenant_id == db.TENANT, runs.c.id == row.id).values(**values))
+            changed += 1
+        for row in connection.execute(select(outbox.c.id, outbox.c.payload).where(outbox.c.tenant_id == db.TENANT, outbox.c.status == "pending")).all():
+            payload = _without_code(row.payload)
+            if payload != row.payload:
+                connection.execute(update(outbox).where(outbox.c.tenant_id == db.TENANT, outbox.c.id == row.id).values(payload=payload))
+                changed += 1
+    return changed
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("cra_opt_in", (), _cra_opt_in),
     Migration("seal_totp_seeds", (), _seal_totp_seeds),
@@ -494,6 +538,8 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("render_stored_texts_lexicon", (), _render_stored_texts),
     # Locations are rendered like any URL: what the web identity and coverage read is pinned from them first.
     Migration("web_location_keys", (), _web_location_keys),
+    # No code is stored (0.14.1): snippets go, their identities pinned first; code is read when a finding is opened.
+    Migration("drop_stored_code", (), _drop_stored_code),
 )
 LATEST = len(MIGRATIONS)
 

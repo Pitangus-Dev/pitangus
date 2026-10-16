@@ -33,16 +33,15 @@ are merged, because an import of a tool is what later proves that tool's finding
   rendered as free text (shared/render.py): any tool can write a SARIF, and a rule's text may retell a result. Its
   references are URLs, rendered like any (`render.url`).
 * **Snippets.** `region.snippet.text` (else `contextRegion.snippet.text`), on one line, is what a code finding's
-  identity reads; nothing is stored as the tool wrote it: the identity is pinned from it and the snippet, with its
-  lines, is rendered as its structure,
-  and a secret or a hard-coded credential (CWE-798, 259, 321, 522) keeps no snippet at all (shared/masking.py, applied
-  to every run before it is stored).
+  identity reads, and is never stored: the identity is pinned from it and the snippet dropped (shared/masking.py,
+  applied to every run before it is stored); the code is read from the repository when the finding is opened. A web
+  result's snippet is what the site answered, kept as its evidence, rendered as free text.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, TypedDict, cast
+from typing import Any, TypedDict
 from urllib.parse import unquote, urlsplit
 
 from pitangus.modules.scanning import secret_filter, secret_identity
@@ -51,7 +50,6 @@ from pitangus.modules.scanning.folding import known_as
 from pitangus.modules.scanning.web_identity import identity_path, remember_former, root_of, shared_evidence, site_level
 from pitangus.shared.i18n import msg
 from pitangus.shared import render
-from pitangus.shared.code_identity import anywhere_identity, content_identity
 from pitangus.shared.masking import STRUCTURAL, mask_strings, url_credentials
 from pitangus.shared.model import Finding
 
@@ -533,16 +531,9 @@ def parse(document: Any, *, tool: str | None = None) -> list[ParsedRun]:
                 finding = mask_strings(finding, carried, skip=STRUCTURAL)
             if not web:
                 # What the canonical identity reads (findings/canonical.py): the code, else the tool's own content hashes
-                # (`partialFingerprints`), never its wording; "" when it gave neither.
+                # (`partialFingerprints`), never its wording; "" when it gave neither. Dropped once read (shared/masking.py).
                 partial = _dict(result.get("partialFingerprints"))
                 finding["snippet"] = location[2] or "\x1f".join(f"{key}={value}" for key, value in sorted(partial.items()) if isinstance(value, str))[:2000]
-                lines = _snippet(result).strip("\n")
-                if location[2] and not secret and lines != location[2]:
-                    # Stored with its lines, so it renders as the code it is; its identities read the one-line form,
-                    # as they always have.
-                    pinned: dict[str, Any] = cast(dict, finding)
-                    pinned["identity"], pinned["anywhere"] = content_identity(finding), anywhere_identity(finding)
-                    finding["snippet"] = lines
             if secret:
                 secret_identity.assign(finding, secret)
                 known_as(finding, _stable("sarif", name.lower(), earlier if not seen else f"{earlier}\x1f#{seen + 1}"))

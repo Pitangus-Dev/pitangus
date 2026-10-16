@@ -1,28 +1,24 @@
-"""No value leaves a finding or a run: what each of their texts is, and how it is rendered (shared/render.py).
+"""No code and no value leaves a finding or a run: what each of their texts is, and what is kept of it.
 
-A run and its findings are walked key by key, and each text goes through the one renderer as what it is:
+Pitangus stores no code or configuration text (docs/findings.md): a finding's code is read from the repository when
+someone opens it (runs/code_view.py), never kept. A run and its findings are walked key by key:
 
-* **Code** (a finding's `snippet`, a web finding's `evidence` and `attack`, a message parameter that carries code):
-  `render.code`, its structure and its common words, never a value.
-* **Free text an engine wrote** (a message, a step's detail, a progress line, a limitation, an error's cause, a reason
-  and every parameter of a catalog message that isn't structure), and **every other text, whatever its key**:
-  `render.prose`.
+* **Code** (`CODE`: a finding's `snippet`, at any depth, and a message parameter that carried code) is dropped. What
+  a code finding's identity reads of it is pinned first: its identity (shared/code_identity.py) and its identity
+  anywhere in the repository (the PR gate's).
+* **Free text a tool wrote** (a message, a step's detail, a progress line, a limitation, an error's cause, a reason, a
+  web scanner's evidence and attack, and every parameter of a catalog message that isn't structure), and **every other
+  text, whatever its key**: `render.prose`. A web scan's evidence is what a live site answered, not the repository's
+  code: there is nothing to read again when it is opened, so it is kept, rendered.
 * **Structure** (`STRUCTURAL`: identifiers, locations, digests, counts, what the registry reads) keeps its value, but
-  a URL among it is rendered like a URL in any text (`mask_url`, render.url): its common words kept, its user
-  information, query and fragment values and every other word replaced. What a web finding's identity and coverage read
-  of a URL is pinned first (shared/web_keys.py): its key, its instances' keys and its identity; and a web scan's, the
-  keys of the pages it reached and of the units its engines declared.
+  a URL among it is rendered like a URL in any text (`mask_url`, render.url). What a web finding's identity and
+  coverage read of a URL is pinned first (shared/web_keys.py).
 * **Rule texts** (`RULE_TEXT`: a title, a remediation, a rule's description, what public feeds publish) are what a rule
-  catalog says, never what a result matched, and are kept: an adapter that would put a result's text there renders it
-  first (scanning/engines.py). An imported SARIF's are a third-party tool's and are rendered as free text
-  (scanning/sarif_import.py).
+  catalog says, never what a result matched, and are kept. An imported SARIF's are a third-party tool's and are
+  rendered as free text (scanning/sarif_import.py).
 
 The values a secret engine detected (read from the snapshot where it pointed, never stored) are also replaced
-wherever they appear, in any of their encodings. A secret, or a weakness whose code is a credential
-(`NO_SNIPPET_CWES`), keeps no snippet at all.
-
-A finding's identity is read from its code before its code is rendered: when the snippet changes, the identity the
-original had (shared/code_identity.py) and its identity anywhere in the repository (the PR gate's) are pinned on it.
+wherever they appear, in any of their encodings.
 """
 
 from __future__ import annotations
@@ -143,24 +139,18 @@ def mask(text: str, values: Iterable[str] = ()) -> str:
     return render.prose(_replaced(text, _expanded(values)))
 
 
-def mask_code(text: str, values: Iterable[str] = ()) -> str:
-    """Code or configuration: detected `values` replaced, then rendered as code (render.code)."""
-    if not isinstance(text, str) or not text:
-        return text
-    return render.code(_replaced(text, _expanded(values)))
-
-
 # Weaknesses whose fragment is a credential in itself: hard-coded passwords and keys, credentials in a readable place.
 CREDENTIAL_CWES = frozenset({259, 321, 522, 798, 200})
-# A finding about one of these keeps no snippet at all: its code is the credential (hard-coded password, hard-coded
-# key, credentials stored unprotected), whichever way it is written.
-NO_SNIPPET_CWES = frozenset({259, 321, 522, 798})
+# A finding about one of these never shows its code, even when it is opened: its code is the credential (hard-coded
+# password, hard-coded key, credentials stored unprotected), whichever way it is written.
+NO_CODE_CWES = frozenset({259, 321, 522, 798})
 
 
-def keeps_no_snippet(finding: Mapping[str, Any]) -> bool:
-    """A secret, or a weakness whose code is a credential (`NO_SNIPPET_CWES`): no snippet is stored or shown."""
+def code_withheld(finding: Mapping[str, Any]) -> bool:
+    """A secret, or a weakness whose code is a credential (`NO_CODE_CWES`): its code is never shown, and its lines are
+    masked wherever another finding's code is (runs/code_view.py)."""
     cwes = finding.get("cwe")
-    return finding.get("scanner") == "secrets" or (isinstance(cwes, list) and bool(NO_SNIPPET_CWES & {item for item in cwes if isinstance(item, int)}))
+    return finding.get("scanner") == "secrets" or (isinstance(cwes, list) and bool(NO_CODE_CWES & {item for item in cwes if isinstance(item, int)}))
 
 
 # What in a finding is an identifier, a location or a count, never text that held code: kept, but a URL among it
@@ -174,8 +164,9 @@ STRUCTURAL = frozenset({"finding_id", "fingerprint", "web_key", "previous_finger
 # What a rule catalog or a public feed says (not what a result matched): only detected values replaced.
 RULE_TEXT = frozenset({"title", "remediation", "package", "advisory", "guidance", "references", "description", "solution"})
 PUBLIC = RULE_TEXT
-# Code, wherever it sits in a finding (`web.evidence`: what a response held; `web.attack`: what was sent).
-CODE = frozenset({"snippet", "evidence", "attack"})
+# Code, wherever it sits: dropped (its identity pinned first). A web scanner's `evidence` (what a response held) and
+# `attack` (what was sent) are text a tool wrote about a live site, rendered as prose.
+CODE = frozenset({"snippet"})
 # What in a run is an identifier, a time, a digest or what the registry reads to judge fixes (the engines and rules that
 # ran, the units each examined): kept except for its URLs. Everything else, at any depth (steps, progress,
 # limitations, details, causes, summaries, deliveries), is text and is rendered, whatever its key.
@@ -187,7 +178,7 @@ RECORD_STRUCTURAL = STRUCTURAL | frozenset({
     "severities", "priorities", "candidates", "blind", "ecosystem", "languages", "hosts", "urls", "pages", "scope",
     "baseline_run", "wildcards", "test_users", "keys"})
 # Parameters of a catalog message that are structure (a count, an engine, a path…): kept, URLs rendered. Any other
-# parameter (a detail, a reason, a cause, an engine's message) is rendered as text; one that carries code, as code.
+# parameter (a detail, a reason, a cause, an engine's message) is rendered as text; one that carries code is dropped.
 PARAMETERS = frozenset({
     "count", "max", "min", "engine", "engines", "version", "versions", "host", "hosts", "tool", "tools", "name", "names",
     "package", "packages", "path", "paths", "id", "limit", "url", "files", "file", "minutes", "seconds", "months", "rule",
@@ -249,8 +240,7 @@ def _message(value: Mapping[str, Any], wanted: tuple[str, ...]) -> dict:
     rendered: dict = {key: item for key, item in value.items() if key != "params"}
     if isinstance(params, dict):
         rendered["params"] = {key: _urls_masked(item, wanted) if key in PARAMETERS and not isinstance(item, dict)
-                              else render.code(_replaced(item, wanted)) if key in CODE_PARAMETERS and isinstance(item, str)
-                              else _text(item, wanted, frozenset()) for key, item in params.items()}
+                              else _text(item, wanted, frozenset()) for key, item in params.items() if key not in CODE_PARAMETERS}
     elif params is not None:
         rendered["params"] = params
     return rendered
@@ -271,8 +261,7 @@ def _text(value: Any, wanted: tuple[str, ...], structural: frozenset[str]) -> An
         if _finding_shaped(value):
             return sanitize_finding(value, wanted, expanded=True)
         return {key: _urls_masked(item, wanted) if key in structural
-                else render.code(_replaced(item, wanted)) if key in CODE and isinstance(item, str)
-                else _text(item, wanted, structural) for key, item in value.items()}
+                else _text(item, wanted, structural) for key, item in value.items() if key not in CODE}
     return value
 
 
@@ -288,42 +277,36 @@ def _finding_shaped(value: Any) -> bool:
 
 
 def sanitize_finding(finding: Mapping[str, Any], values: Iterable[str] = (), *, expanded: bool = False, **_: Any) -> dict:
-    """`finding` as it may be stored and shown: its code rendered as code, its other texts as text, its structure and
-    rule texts kept (URLs rendered), the detected `values` replaced everywhere; a secret or a credential weakness keeps
-    no snippet (`keeps_no_snippet`). When its snippet changes, its identity and its identity anywhere in the repository
-    are pinned first, computed from the code as it was; its fingerprint is never touched."""
+    """`finding` as it may be stored and shown: its code dropped, its other texts rendered as text, its structure and
+    rule texts kept (URLs rendered), the detected `values` replaced everywhere. When it carried code, its identity and
+    its identity anywhere in the repository are pinned first, computed from the code as it was; its fingerprint is
+    never touched."""
     wanted = tuple(values) if expanded else _expanded(values)
     if finding.get("scanner") == "dast":
         finding = web_keys.pinned(finding)
     imported = _imported(finding)
     result: dict = {}
     for key, item in finding.items():
+        if key in CODE:
+            continue
         if key in STRUCTURAL:
             result[key] = _urls_masked(item, wanted)
         elif key in RULE_TEXT and imported and key in ("title", "description", "solution") and isinstance(item, str):
             result[key] = render.prose(_replaced(item, wanted))
         elif key in RULE_TEXT:
             result[key] = _values_replaced(item, wanted)
-        elif key in CODE and isinstance(item, str):
-            result[key] = render.code(_replaced(item, wanted))
         elif key == "web" and isinstance(item, dict):
-            result[key] = {name: render.code(_replaced(entry, wanted)) if name in CODE and isinstance(entry, str)
-                           else render.prose(_replaced(entry, wanted)) if imported and name in ("description", "solution") and isinstance(entry, str)
+            result[key] = {name: render.prose(_replaced(entry, wanted)) if imported and name in ("description", "solution") and isinstance(entry, str)
                            else _values_replaced(entry, wanted) if name in RULE_TEXT
                            else _urls_masked(entry, wanted) if name in STRUCTURAL
                            else _text(entry, wanted, STRUCTURAL) for name, entry in item.items()}
         else:
             result[key] = _text(item, wanted, STRUCTURAL)
-    if "snippet" in result and keeps_no_snippet(finding):
-        del result["snippet"]
-    if result.get("snippet") != finding.get("snippet"):
+    if "snippet" in finding:
         if not finding.get("identity") and (pinned := content_identity(finding)) is not None:
             result["identity"] = pinned
         if "anywhere" not in finding:
             result["anywhere"] = anywhere_identity(finding)
-    reason = result.get("reason")
-    if isinstance(reason, dict) and reason.get("$t") == "scanning.opengrep.reason" and "snippet" in (reason.get("params") or {}):
-        result["reason"] = {**reason, "params": {key: item for key, item in reason["params"].items() if key != "snippet"}}
     return result
 
 

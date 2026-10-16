@@ -24,10 +24,15 @@ A report over several lines (a private key) is read where it says, from its firs
 the evidence holds there (the same redacted match and entropy, the same masked text line by line); its value is that
 text with its line endings normalized.
 
-An UNLINKABLE report (no spot fits, the spots hold several values nothing tells apart, the file can't be read) gets no
-value: it is named by its rule, its file and the content of the lines it names (`secret_identity.unlinkable`), so the
+An UNLINKABLE report (no spot fits, the spots hold several values nothing tells apart, the file can't be read, or the
+budget ran out before it was looked for) gets no value: it is named by its rule, its file and the content of the lines it names (`secret_identity.unlinkable`), so the
 same content gives the same name and any change gives another. That name is never a former name and never another
 report's (findings/identity.py): it links nothing and inherits nothing.
+
+All the work of a resolution is counted against one budget, in bytes looked at (a line read for its candidates, each
+candidate's window, each value read out): per file (FILE_BUDGET) and in all (RESOLVE_BUDGET). A long line built to
+match everywhere can't make it cost more: once a file's (or the resolution's) budget is spent, every report left there
+(or anywhere) is unlinkable and says so (`Read.spent`), never named from a search cut short.
 """
 
 from __future__ import annotations
@@ -36,9 +41,10 @@ import hashlib
 import math
 import re
 import struct
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from bisect import bisect_left
 from contextvars import ContextVar
+from functools import partial
 from itertools import accumulate
 from pathlib import Path
 from typing import NamedTuple
@@ -76,6 +82,7 @@ class Read(NamedTuple):
     match: str | None = None        # the whole match there, line endings normalized: the formula before (a former name)
     unlinkable: str | None = None
     duplicate: bool = False
+    spent: bool = False             # unlinkable because the budget ran out before it was looked for
 
 
 class Lines(NamedTuple):
@@ -231,13 +238,14 @@ def _core(values: list[str]) -> str | None:
     return shortest if all(shortest in value for value in values) else None
 
 
-def _one_line(claims: Sequence[Claim], groups: list[_Group], lines: Lines, number: int, results: list[Read | None]) -> None:
+def _one_line(claims: Sequence[Claim], groups: list[_Group], lines: Lines, number: int, results: dict[int, Read | None]) -> None:
     """The claims of one line, by group of claims alike (see the module's docstring). An offset from the file's start
     or a column the engine certainly counts from the line's start, landing on a spot that fits, names it (overlapping
     spots named that way are one occurrence: of one value, or unlinkable when they disagree). The rest are read without
     positions: every place of the line where the evidence fits and nobody named must hold one same value. Claims beyond
     the places they can be are duplicates."""
     line = lines.raw[number]
+    _charge(len(line))
     text, chars = _text(line), _Columns(line)
     tokens = _Tokens(text)
     named: dict[object, list[tuple[int, int, int, int]]] = {}
@@ -245,7 +253,9 @@ def _one_line(claims: Sequence[Claim], groups: list[_Group], lines: Lines, numbe
         named.setdefault(claims[group.members[0]].evidence[:1], []).extend([*group.pinned.values(), *group.anchored.values()])
 
     def value_of(spot: tuple[int, int, int, int]) -> str:
-        return tokens.whole(chars(spot[2]), chars(spot[3]))
+        value = tokens.whole(chars(spot[2]), chars(spot[3]))
+        _charge(len(value))
+        return value
 
     for group in groups:
         taken: set[tuple] = set()
@@ -315,6 +325,7 @@ def _one_line(claims: Sequence[Claim], groups: list[_Group], lines: Lines, numbe
 
 def _several_lines(claim: Claim, lines: Lines) -> Read:
     block = b"\n".join(lines.raw[number] for number in range(claim.first, claim.last + 1))
+    _charge(len(block))
     offset = claim.offset - lines.starts[claim.first] if claim.offset is not None else None
     found = claim.block(block, offset) if claim.block else None
     if found is None:
@@ -333,13 +344,55 @@ def _several_lines(claim: Claim, lines: Lines) -> Read:
     return Read(names=names, value=value, span=[line, column, end_line, end_column], match=normalized(_text(block[match_start:match_end])))
 
 
+# What one resolution may look at, in bytes (see the module's docstring): about a second of work per file, a few in all.
+FILE_BUDGET = 16_000_000
+RESOLVE_BUDGET = 64_000_000
+
+
+class _Spent(Exception):
+    """The budget of the file being read, or of the whole resolution, ran out."""
+
+
+class _Budget:
+    def __init__(self) -> None:
+        self.left = RESOLVE_BUDGET
+        self.files: dict[str, int] = {}
+        self.path = ""
+        self.seen: dict[tuple[bytes, int], dict[int, list[int]]] = {}   # runs of a line by entropy, for `_redacted_windows`
+
+    def charge(self, amount: int) -> None:
+        here = self.files.get(self.path, FILE_BUDGET)
+        if amount > self.left or amount > here:
+            self.files[self.path] = -1
+            raise _Spent
+        self.left -= amount
+        self.files[self.path] = here - amount
+
+    def spent(self, path: str) -> bool:
+        return self.left <= 0 or self.files.get(path, FILE_BUDGET) < 0
+
+
+_budget: ContextVar[_Budget | None] = ContextVar("secret_location_budget", default=None)
+
+
+def _charge(amount: int) -> None:
+    """Counts `amount` bytes of work against the resolution under way (none outside one, as when a test calls a piece)."""
+    state = _budget.get()
+    if state is not None:
+        state.charge(max(1, amount))
+
+
 def resolve(root: Path | None, claims: Sequence[Claim]) -> list[Read]:
     """What each claim's value is, or that it is unlinkable or a duplicate (see the module's docstring)."""
-    token = _budget.set({"left": WINDOW_BUDGET, "seen": {}})
+    token = _budget.set(_Budget())
     try:
         return _resolve(root, claims)
     finally:
         _budget.reset(token)
+
+
+def _spent(claim: Claim, lines: Lines | None) -> Read:
+    return _unlinkable(claim, lines)._replace(spent=True)
 
 
 def _resolve(root: Path | None, claims: Sequence[Claim]) -> list[Read]:
@@ -358,16 +411,26 @@ def _resolve(root: Path | None, claims: Sequence[Claim]) -> list[Read]:
         elif claim.first == claim.last:
             groups.setdefault((claim.path, claim.first, claim.evidence), []).append(index)
         else:
-            results[index] = _several_lines(claim, lines)
-    by_line: dict[tuple[str, int], list[_Group]] = {}
+            results[index] = _within_budget(claim.path, [index], partial(_one_of, _several_lines, claim, lines),
+                                            partial(_one_of, _spent, claim, lines))[0]
+    by_line: dict[tuple[str, int], list[list[int]]] = {}
     for (path, number, _), members in groups.items():
+        by_line.setdefault((path, number), []).append(members)
+    for (path, number), line_members in by_line.items():
         read = files[path]
         assert read is not None    # only claims whose lines were read are grouped
-        by_line.setdefault((path, number), []).append(_group(claims, members, read.raw[number], read.starts[number], read.size))
-    for (path, number), line_groups in by_line.items():
-        read = files[path]
-        assert read is not None
-        _one_line(claims, line_groups, read, number, results)
+        every = [index for members in line_members for index in members]
+
+        def one_line(path: str = path, number: int = number, line_members: list[list[int]] = line_members,
+                     read: Lines = read, every: list[int] = every) -> list[Read | None]:
+            line_groups = [_group(claims, members, read.raw[number], read.starts[number], read.size) for members in line_members]
+            found: dict[int, Read | None] = {}
+            _one_line(claims, line_groups, read, number, found)
+            return [found.get(index) for index in every]
+        def spent(read: Lines = read, every: list[int] = every) -> list[Read | None]:
+            return [_spent(claims[index], read) for index in every]
+        for member, result in zip(every, _within_budget(path, every, one_line, spent)):
+            results[member] = result
     # One engine reporting the same lines twice over the same span reads them once.
     seen: set[tuple] = set()
     for index, result in enumerate(results):
@@ -377,6 +440,25 @@ def _resolve(root: Path | None, claims: Sequence[Claim]) -> list[Read]:
                 results[index] = Read(duplicate=True)
             seen.add(key)
     return [result if result is not None else _unlinkable(claim, None) for result, claim in zip(results, claims)]
+
+
+def _one_of(work: Callable[[Claim, Lines], Read], claim: Claim, lines: Lines) -> list[Read | None]:
+    return [work(claim, lines)]
+
+
+def _within_budget(path: str, members: list[int], work: Callable[[], list], spent: Callable[[], list]) -> list:
+    """What `work` resolves for the claims `members` of `path`, or, when the budget runs out before it is done (or
+    already had), every one of them unlinkable and marked so: never what a search cut short would have named."""
+    state = _budget.get()
+    if state is None:
+        return work()
+    state.path = path
+    if state.spent(path):
+        return spent()
+    try:
+        return work()
+    except _Spent:
+        return spent()
 
 
 # --- the evidence --------------------------------------------------------------------------------------------------
@@ -433,31 +515,25 @@ def _windows(line: bytes, size: int) -> dict[int, list[int]]:
     return found
 
 
-# Characters the runs of a match that is all value (`REDACTED`) are looked for in, per call of `resolve`: one run per
-# length over every long line holding one costs that much, so past it what is left can't be verified (unlinkable).
-WINDOW_BUDGET = 16_000_000
-_budget: ContextVar[dict | None] = ContextVar("secret_location_budget", default=None)
-
-
 def _redacted_windows(line: bytes, size: int, reported: float) -> list[int]:
-    """Where every run of `size` bytes of `line` whose entropy is `reported` starts (a match that is all value), or
-    none when the budget of this resolution is spent."""
+    """Where every run of `size` bytes of `line` whose entropy is `reported` starts (a match that is all value)."""
     if size < 1 or size > len(line):
         return []
     state = _budget.get()
-    seen = state["seen"] if state is not None else {}
+    seen = state.seen if state is not None else {}
     buckets = seen.get((line, size))
     if buckets is None:
-        if state is not None:
-            if state["left"] < len(line):
-                return []
-            state["left"] -= len(line)
-            if len(seen) >= 4:
-                seen.clear()
+        _charge(len(line))
+        if len(seen) >= 4:
+            seen.clear()
         buckets = seen[(line, size)] = _windows(line, size)
     near = round(reported * 1000)
-    return sorted(start for bucket in (near - 1, near, near + 1) for start in buckets.get(bucket, ())
-                  if same_entropy(_text(line[start:start + size]), reported))
+    found = []
+    for start in sorted(start for bucket in (near - 1, near, near + 1) for start in buckets.get(bucket, ())):
+        _charge(size)
+        if same_entropy(_text(line[start:start + size]), reported):
+            found.append(start)
+    return found
 
 
 def betterleaks_spots(match: str, size: int, reported: float | None, line: bytes,
@@ -468,16 +544,20 @@ def betterleaks_spots(match: str, size: int, reported: float | None, line: bytes
         return []
     pieces = match.split("REDACTED")
     lead, tail = pieces[0].encode("utf-8", "surrogateescape"), pieces[-1].encode("utf-8", "surrogateescape")
+    starts: Iterator[int]
     if lead:
-        starts = [found.start() for found in re.finditer(re.escape(lead), line)]
+        _charge(len(line))
+        starts = (found.start() for found in re.finditer(re.escape(lead), line))
     elif tail:
-        starts = [found.end() - size for found in re.finditer(re.escape(tail), line) if found.end() >= size]
+        _charge(len(line))
+        starts = (found.end() - size for found in re.finditer(re.escape(tail), line) if found.end() >= size)
     elif reported is not None:
-        starts = _redacted_windows(line, size, reported)
+        starts = iter(_redacted_windows(line, size, reported))
     else:
         return []    # nothing but its length: every run of that length fits
     spots = []
     for start in starts:
+        _charge(size)    # every candidate costs its window, however many the text before the value makes
         window = _text(line[start:start + size])
         found = value_span(match, window)
         if len(line) < start + size or found is None or not same_entropy(window[found[0]:found[1]], reported):
@@ -494,6 +574,7 @@ def betterleaks_block(match: str, reported: float | None, start: int, end: int,
     last = block.rfind(b"\n") + 1
     if start < 0 or end < 1 or last + end > len(block) or start >= last + end:
         return None
+    _charge(last + end - start)
     window = _text(block[start:last + end])
     found = value_span(match, window)
     if found is None or not same_entropy(window[found[0]:found[1]], reported):
@@ -502,17 +583,47 @@ def betterleaks_block(match: str, reported: float | None, start: int, end: int,
             start + len(window[:found[1]].encode("utf-8", "surrogateescape")))
 
 
-def _masked_pattern(masked: bytes) -> tuple[re.Pattern[bytes], list[tuple[int, int]]] | None:
-    """`masked` (text with one `*` per byte of a secret) as a pattern of the text it masks, and its runs of `*`."""
+def _masked_pieces(masked: bytes) -> tuple[list[tuple[int, bytes]], list[tuple[int, int]]] | None:
+    """`masked` (text with one `*` per byte of a secret) as the literal text it shows, by where each piece is, and its
+    runs of `*`."""
     runs = [(found.start(), found.end()) for found in re.finditer(rb"\*+", masked)]
     if not runs:
         return None
-    parts, at = [], 0
-    for start, end in runs:
-        parts += [re.escape(masked[at:start]), b"[\\s\\S]{%d}" % (end - start)]
+    pieces, at = [], 0
+    for start, end in [*runs, (len(masked), len(masked))]:
+        if start > at:
+            pieces.append((at, masked[at:start]))
         at = end
-    parts.append(re.escape(masked[at:]))
-    return re.compile(b"(?=(" + b"".join(parts) + b"))"), runs
+    return pieces, runs
+
+
+def _masked_starts(masked: bytes, pieces: list[tuple[int, bytes]], text: bytes) -> list[int]:
+    """Every place of `text` where `masked` fits (its literal pieces where it shows them, any byte under each `*`),
+    overlapping ones too. Found by its longest piece, each candidate checked and counted against the budget: a line
+    built to fit everywhere costs what it is charged, no more."""
+    _charge(len(text))
+    span = len(masked)
+    if span > len(text):
+        return []
+    found = []
+    if not pieces:
+        candidates = iter(range(len(text) - span + 1))
+    else:
+        offset, anchor = max(pieces, key=lambda piece: len(piece[1]))
+
+        def anchored() -> Iterator[int]:
+            at = text.find(anchor)
+            while at >= 0:
+                yield at - offset
+                at = text.find(anchor, at + 1)
+        candidates = anchored()
+    for start in candidates:
+        if start < 0 or start + span > len(text):
+            continue
+        _charge(span)
+        if all(text.startswith(piece, start + at) for at, piece in pieces):
+            found.append(start)
+    return found
 
 
 def _variants(line: bytes) -> list[tuple[bytes, list[int] | None]]:
@@ -526,15 +637,15 @@ def _variants(line: bytes) -> list[tuple[bytes, list[int] | None]]:
 def trivy_spots(masked: bytes, line: bytes) -> list[tuple[int, int, int, int]]:
     """Where on `line` Trivy's masked text fits (its literal text where it shows it, a byte under each `*`), as written
     or without carriage returns: each masked run there is a spot."""
-    pattern = _masked_pattern(masked)
-    if pattern is None:
+    shape = _masked_pieces(masked)
+    if shape is None:
         return []
-    compiled, runs = pattern
+    pieces, runs = shape
     spots = set()
     for text, where in _variants(line):
-        for found in compiled.finditer(text):
+        for at in _masked_starts(masked, pieces, text):
             for start, end in runs:
-                begin, finish = found.start() + start, found.start() + end
+                begin, finish = at + start, at + end
                 if where is not None:
                     begin, finish = where[begin], where[finish - 1] + 1
                 spots.add((begin, finish, begin, finish))
@@ -542,6 +653,7 @@ def trivy_spots(masked: bytes, line: bytes) -> list[tuple[int, int, int, int]]:
 
 
 def _fits(masked: bytes, line: bytes, at: int) -> bool:
+    _charge(2 * len(line) + len(masked))
     for text, where in _variants(line):
         position = at if where is None else next((index for index, raw in enumerate(where) if raw >= at), len(text))
         if position >= 0 and len(text) >= position + len(masked) and all(
@@ -554,6 +666,7 @@ def trivy_block(masked: bytes, code: dict[int, bytes], first: int, block: bytes,
     """A Trivy secret over several lines (`block`, joined by "\\n"): its masked first line (`masked`) fits there with a
     run starting at `offset`, each masked line it shows (`code`, by number) fits its line, and the value runs from
     `offset` to the last masked byte of its last line."""
+    _charge(len(block))
     lines = block.split(b"\n")
     if offset is None or not any(_fits(masked, lines[0], offset - start) for start, _ in
                                  [(found.start(), found.end()) for found in re.finditer(rb"\*+", masked)]):

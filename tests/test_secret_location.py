@@ -28,6 +28,7 @@ import random
 import string
 import struct
 import tempfile
+import time
 import unittest
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -375,6 +376,78 @@ class PropertyTests(unittest.TestCase):
             # Its columns right, it is A's.
             found = engines.parse_betterleaks([{**entry, "StartColumn": column + 1, "EndColumn": column + 40}] * 2, None, root)
             self.assertEqual([item["identity"] for item in found], [secret_identity.identity(A)])
+
+
+class BudgetTests(unittest.TestCase):
+    """All the work of locating secrets counts against one budget, per file and per resolution (O7 of the 0.14 audit):
+    a long line where the text before a redacted value, or the text Trivy shows around a masked one, is everywhere used
+    to make every occurrence a candidate checked outside any budget. Past the budget a report is unlinkable and marked
+    `spent`, never named from a search cut short; another file keeps its own budget."""
+
+    def setUp(self):
+        keys = Keys()
+        keys.__enter__()
+        self.addCleanup(keys.__exit__)
+
+    @staticmethod
+    def betterleaks(path: str, match: str, size: int, reported: float) -> secret_location.Claim:
+        from functools import partial
+        from pitangus.modules.scanning import secret_filter
+        return secret_location.Claim("generic-api-key", path, 1, 1, ("betterleaks", "generic-api-key", match, size, reported),
+                                     partial(secret_location.betterleaks_spots, match, size, reported, value_span=secret_filter.value_span),
+                                     None)
+
+    @staticmethod
+    def trivy(path: str, masked: bytes) -> secret_location.Claim:
+        from functools import partial
+        return secret_location.Claim("generic", path, 1, 1, ("trivy", "generic", masked), partial(secret_location.trivy_spots, masked), None)
+
+    def resolve(self, root: Path, claims: list) -> tuple[list, float, int]:
+        """The reads, the seconds they took and the bytes of work counted."""
+        counted = []
+        original = secret_location._Budget.charge
+
+        def charge(budget, amount):
+            original(budget, amount)
+            counted.append(amount)      # only work that was allowed
+        with patch.object(secret_location._Budget, "charge", charge):
+            started = time.monotonic()
+            reads = secret_location.resolve(root, claims)
+            return reads, time.monotonic() - started, sum(counted)
+
+    def test_a_long_line_built_to_match_everywhere_costs_its_budget_and_no_more(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "bundle.js").write_bytes(b"k=" * 1_000_000 + b"\n")              # 2 MB: "k=" before every byte pair
+            (root / "masked.txt").write_bytes(b"a" * 2_000_000 + b"\n")              # what Trivy shows fits everywhere but the end
+            (root / "app.js").write_bytes(f'const key = "{A}";\n'.encode())
+            reads, seconds, work = self.resolve(root, [
+                self.betterleaks("bundle.js", "k=REDACTED", 2 + len(A), single(entropy(A))),
+                self.trivy("masked.txt", b"a" * 300 + b"*" * 10 + b"b"),
+                self.betterleaks("app.js", 'key = "REDACTED"', 8 + len(A), single(entropy(A)))])
+        self.assertTrue(reads[0].spent and reads[0].unlinkable and reads[0].names is None)
+        self.assertTrue(reads[1].spent and reads[1].unlinkable and reads[1].names is None)
+        # The other file keeps its own budget: its secret is read and named.
+        self.assertFalse(reads[2].spent)
+        self.assertEqual(reads[2].names.identity, secret_identity.identity(A))
+        self.assertLessEqual(work, 3 * secret_location.FILE_BUDGET)
+        self.assertLess(seconds, 20)
+
+    def test_past_the_resolution_s_budget_every_report_left_is_unlinkable_and_says_so(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for index in range(3):
+                (root / f"app{index}.js").write_bytes(f'const key = "{A}";\n'.encode())
+            claims = [self.betterleaks(f"app{index}.js", 'key = "REDACTED"', 8 + len(A), single(entropy(A))) for index in range(3)]
+            one = self.resolve(root, claims[:1])[2]      # what reading one of them costs
+            with patch.object(secret_location, "RESOLVE_BUDGET", one + one // 2):
+                reads, _, work = self.resolve(root, claims)
+        self.assertEqual([read.spent for read in reads], [False, True, True])
+        self.assertEqual(reads[0].names.identity, secret_identity.identity(A))
+        self.assertLessEqual(work, one + one // 2)
+        finding = {"rule_id": "generic-api-key", "path": "app1.js"}
+        engines.named(finding, reads[1])
+        self.assertTrue(finding["unlinkable"] and finding["over_budget"])
 
 
 class GateTests(unittest.TestCase):

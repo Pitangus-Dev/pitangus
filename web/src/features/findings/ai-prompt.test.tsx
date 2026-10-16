@@ -25,4 +25,23 @@ describe('copy prompt for your AI', () => {
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Fix this security finding in my code.')
   })
+
+  it('puts the code the reader opened between the server\'s parts, a hidden line saying so', async () => {
+    mockApi(call => call.path.startsWith('/api/findings/prompt')
+      ? { body: { prompt: 'intro\n\nfix\n', before: 'intro', heading: 'The code:', language: 'python', after: 'fix' } }
+      : call.path.startsWith('/api/findings/code')
+        ? { body: { status: 'shown', reason: null, path: 'a.py', commit: 'c'.repeat(40), permalink: null,
+          lines: [{ number: 1, text: 'eval(q)', focus: true }, { number: 2, text: '', focus: false, masked: 'line' }] } }
+        : undefined)
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderWithQueries(<AiPrompt runId="run-1" fingerprint={'a'.repeat(64)} withCode />)
+    const button = screen.getByRole('button', { name: i18n.t('findings:ai_prompt.copy') })
+    await waitFor(() => expect(button.getAttribute('aria-disabled')).toBe('false'))
+    await waitFor(async () => {
+      await user.click(button)
+      expect(writeText).toHaveBeenLastCalledWith(`intro\n\nThe code:\n\`\`\`python\neval(q)\n${i18n.t('findings:code.masked_line')}\n\`\`\`\n\nfix\n`)
+    })
+  })
 })

@@ -67,7 +67,7 @@ pulling*. Check out the new one first:
 
 ```bash
 git fetch --tags
-git checkout v0.14.0      # the version you want
+git checkout v0.14.1      # the version you want
 make update
 ```
 

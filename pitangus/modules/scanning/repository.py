@@ -23,7 +23,7 @@ from pitangus.modules.scanning.dependency_graph import annotate as annotate_depe
 from pitangus.modules.scanning import engine_contract, rule_set, secret_identity, secret_rules
 from pitangus.modules.scanning.policies import run_policies
 from pitangus.modules.scanning.vendored import is_vendored
-from pitangus.modules.scanning.engines import RULE_LANGUAGES, SECRET_SEVERITY, Engine, EngineStep, ScanContext, report_done, run_engines, SEVERITY_NAME, and_list, engines_available, joined as join_messages, host_mount_problem, run_osv_scanner, runner, socket_problem, merge_secrets, run_betterleaks, run_opengrep, screened_detail, run_trivy, masked_lead, secret_context, trivy_secrets, with_secret_identities
+from pitangus.modules.scanning.engines import ignore_entries_allowed, ignore_file_entries, RULE_LANGUAGES, SECRET_SEVERITY, Engine, EngineStep, ScanContext, report_done, run_engines, SEVERITY_NAME, and_list, engines_available, joined as join_messages, host_mount_problem, run_osv_scanner, runner, socket_problem, merge_secrets, run_betterleaks, run_opengrep, screened_detail, run_trivy, masked_lead, secret_context, trivy_secrets, with_secret_identities
 from pitangus.modules.sources.repositories import secrets_root, secrets_scan_root
 from pitangus.shared import coverage_units
 from pitangus.shared.i18n import msg
@@ -263,7 +263,7 @@ def scan_credentials(root: Path, data_dir: Path, secret_settings: dict | None, *
         screened = Counter(betterleaks.get("screened") or {})
         trivy_gaps: dict[str, str] = {}
         trivy_allowed: list[dict] = []
-        trivy = trivy_secrets(folder, data_dir / "trivy-cache", secret_settings, screened, gaps=trivy_gaps, allowed=trivy_allowed)
+        trivy = trivy_secrets(folder, data_dir / "trivy-cache", secret_settings, screened, gaps=trivy_gaps, allowed=trivy_allowed, controls=root)
         # Read while the files are there: the values to mask wherever else they appear (shared/masking.py).
         values = secret_identity.values(folder, [*betterleaks["findings"], *(betterleaks.get("withheld") or []), *(trivy or [])])
     finally:
@@ -352,9 +352,14 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
         # The defaults plus this repository's own entries apply to both secret engines.
         secret_settings = secret_rules.for_scan(data_dir, source.get("uid") or source.get("id") or source.get("name"))
         applied = rule_set.code(secret_settings)
+        ignore_entries: dict = {}
         if replay is None:
+            # The repository's `.gitleaksignore` / `.betterleaksignore` go with the secret-only files, removed once read:
+            # their entries are read first, for the code's matches too.
+            ignore_entries = ignore_file_entries(secrets_root(root))
             credentials = scan_credentials(root, data_dir or Path("data"), secret_settings, engines=True, apart=apart)
         results = run_engines(CODE_ENGINES if replay is None else replay, ScanContext(root, data_dir or Path("data"), feeds, secret_settings, allow_osv_upload), report)
+        results["betterleaks"] = ignore_entries_allowed(results["betterleaks"], ignore_entries)
         sast, secrets_betterleaks, trivy = results["opengrep"], results["betterleaks"], results["trivy"]
         dependency_graph = trivy.pop("graph", None) or {}  # only for this scan: never stored with the run
         osv, checkov, zizmor = results["osv-scanner"], results["checkov"], results["zizmor"]
@@ -367,8 +372,12 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
         trivy_secrets = [item for item in trivy["findings"] if item["scanner"] == "secrets"]
         findings.extend(merge_secrets(secrets_betterleaks["findings"], trivy_secrets))
         findings.extend(credentials["findings"])
-        withheld = (merge_secrets(secrets_betterleaks.get("withheld") or [], trivy.get("withheld") or []) + credentials["withheld"]
-                    + (sast.get("silenced") or []) + (sast.get("vendored") or []))
+        trivy_withheld = trivy.get("withheld") or []
+        # What the repository's own comments and files suppressed in the other engines (repo_controls): excluded too.
+        withheld = (merge_secrets(secrets_betterleaks.get("withheld") or [], [item for item in trivy_withheld if item["scanner"] == "secrets"])
+                    + credentials["withheld"] + [item for item in trivy_withheld if item["scanner"] != "secrets"]
+                    + (sast.get("silenced") or []) + (sast.get("vendored") or [])
+                    + [item for engine in (results["osv-scanner"], results["checkov"], results["zizmor"]) for item in engine.get("withheld") or []])
         # Trivy wins (its fingerprints hold the triage already done); OSV-Scanner adds what Trivy doesn't see
         # and confirms what matches, without repeating the advisory even if it names it with another identifier.
         dependencies_found, dependency_merge = merge_dependencies([item for item in trivy["findings"] if item["scanner"] == "sca"],
@@ -519,10 +528,9 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
     screened = Counter(credentials.get("screened") or {})
     for tool in tools:
         screened.update(tool.get("screened") or {})
-    # No value anywhere in the run (shared/masking.py, shared/render.py): every snippet rendered as its structure, every
-    # other text (a step's detail, an engine's error) as text, and each value a secret engine detected, read where it
-    # pointed, replaced wherever it shows, before anything stores, prints or sends it; a code finding's identity is pinned
-    # from its code before its snippet changes. Each finding declares first the units it lives in (its file; a
+    # No code and no value anywhere in the run (shared/masking.py): every snippet dropped, its identity pinned from it
+    # first; every other text (a step's detail, an engine's error) rendered as text; and each value a secret engine
+    # detected, read where it pointed, replaced wherever it shows, before anything stores, prints or sends it. Each finding declares first the units it lives in (its file; a
     # dependency's, its project: manifest and lockfile), which the registry compares with what each engine examined
     # (shared/coverage_units).
     for item in [*findings, *withheld]:
@@ -564,12 +572,18 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
                                1 for item in withheld if item["scanner"] == "secrets" and not item.get("inline_allowed"))) else [])
                            + ([msg("scanning.secrets.inline.limitation", count=len(inline),
                                   places=", ".join(inline[:FOLDERS_SHOWN * 2]) + ("…" if len(inline) > FOLDERS_SHOWN * 2 else ""))]
-                              if (inline := _inline_places(withheld)) else [])
+                              if (inline := _inline_places([item for item in withheld if item["scanner"] == "secrets"])) else [])
+                           + ([msg("scanning.repo_controls.limitation", count=len(controlled),
+                                  places=", ".join(controlled[:FOLDERS_SHOWN * 2]) + ("…" if len(controlled) > FOLDERS_SHOWN * 2 else ""))]
+                              if (controlled := _inline_places([item for item in withheld if item["scanner"] != "secrets"])) else [])
                            + ([msg("scanning.opengrep.silenced_limitation", count=silenced)] if (silenced := sum(
-                               1 for item in withheld if item["scanner"] != "secrets" and not is_vendored(item))) else [])
+                               1 for item in withheld if item["scanner"] != "secrets" and not is_vendored(item)
+                               and not item.get("inline_allowed"))) else [])
                            + ([msg("scanning.opengrep.vendored_limitation", count=in_vendored)] if (in_vendored := sum(
                                1 for item in withheld if is_vendored(item))) else [])
-                           + ([msg("scanning.secret_filter.limitation", detail=screened_detail(screened))] if screened else []),
+                           + ([msg("scanning.secret_filter.limitation", detail=screened_detail(screened))] if screened else [])
+                           + ([msg("scanning.secrets.over_budget", count=over_budget)] if (over_budget := sum(
+                               1 for item in [*findings, *withheld] if item.get("over_budget"))) else []),
             **({"excluded_findings": withheld} if withheld else {}),
             **({"unexamined": unexamined} if (unexamined := _unexamined(left_out, tools, credentials["unexamined"], apart)) else {}),
             **({"coverage": coverage} if (coverage := _with_inline(_coverage(left_out, tools, credentials["unexamined"], apart), withheld)) else {}),

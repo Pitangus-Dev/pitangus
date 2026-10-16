@@ -52,8 +52,10 @@ class CheckovExitTests(unittest.TestCase):
         import subprocess
         from unittest.mock import patch
         completed = subprocess.CompletedProcess(["checkov"], returncode, stdout, "killed")
-        with patch.object(cs, "unavailable", return_value=None), patch.object(cs, "_checkov", return_value=completed):
-            return cs.run_checkov(Path("/tmp"))
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder, patch.object(cs, "unavailable", return_value=None), \
+                patch.object(cs, "_checkov", return_value=completed):
+            return cs.run_checkov(Path(folder))
 
     def test_an_oom_or_output_that_isnt_json_is_inconclusive(self):
         self.assertEqual(self.run_with(137, "")["status"], "inconclusive")

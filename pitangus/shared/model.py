@@ -63,11 +63,12 @@ class Finding(TypedDict, total=False):
     identity_version: int
     count: int                # how many places a family is in (PITANGUS_IDENTITY_MODE=v2)
     instances: list[dict[str, Any]]
-    snippet: str              # the matched code or configuration the identity reads; never a secret's value
+    snippet: str              # the matched code an adapter hands over for its identity; dropped before storing (masking.CODE)
     resource: str             # the configured resource's address, when the engine gives one
     also_at: list[dict[str, Any]]  # other places the same report is in, before canonical grouping
     validation: str           # a secret its provider says is active, revoked or unknown (PITANGUS_SECRET_VALIDATION)
     span: list[int]           # where a secret's value is (line, start, end line, end; 0-based columns): never the value
+    over_budget: bool         # a secret not looked for: secret_location's budget ran out, so it is unlinkable
     scanner: Required[str]     # sast · secrets · sca · iac · cicd · image-config · dast (imported from a web scanner)
     tool: str
     rule_id: Required[str]

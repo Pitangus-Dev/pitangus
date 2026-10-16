@@ -164,49 +164,59 @@ which applies every rule below; `shadow` records what they would change and fixe
   fixed, scans that fixed far more than usual, open findings several engines report apart, unverified findings and the
   share of engines blind in each asset's last scan.
 
+## Your code is never stored
+
+**Pitangus doesn't store the text of your code: it stores the location, the rule and hashes; the snippet is shown when
+you open the finding, read from the repository at that moment and without the secrets.**
+
+- **What is stored** of a code, configuration, CI/CD or secret finding: its path, its lines (and a secret value's
+  columns), the commit its scan read, its rule, structural metadata (severity, CWE, the resource's address, the
+  engines that saw it) and hashes (its fingerprint and identity, a secret's keyed identity). Never a snippet, an
+  imported SARIF's snippet or context region, the YAML a zizmor finding points at, nor an engine's message that quotes
+  the code: an Opengrep rule without its own fix text gets a sentence naming the rule, and a Trivy configuration check
+  is described by its own description, never by its message.
+- **When you open a finding**, the panel asks for its code (`GET /api/findings/code`, for anyone who can read the
+  finding): Pitangus reads the file from the provider at the scanned commit, with the connection it already has (the
+  GitHub App or the token), and returns the lines around it. It is never stored, cached or logged on the server; the
+  panel keeps it only while the detail is open. Next to it, **Open on GitHub** links to the file at that commit.
+- **Secrets stay hidden there too.** Every place a secret engine reported in that file is masked before the lines leave
+  the server: a value whose columns are known for that commit is replaced and the rest of its line kept; a secret seen
+  at another commit, or without columns, hides its whole line, and a private key its whole block. A secret's own
+  finding, or a weakness whose code is a credential (CWE-798, 259, 321, 522), shows no code at all, only where it is.
+- **When the code can't be shown**, the detail says why: the repository is no longer reachable with Pitangus's
+  connection, the commit no longer has the file, the scan didn't record its commit, or it was a local folder (the
+  server never reads one: open the file in your editor).
+- **What leaves Pitangus carries no code either**: Jira issues and the Markdown report link to the file at the scanned
+  commit, pull request comments sit on the lines, notifications and the PDF reports give the location, and the SARIF
+  export has no snippet.
+
+What tools write about what they read is still text, not code: an engine's message or error, a step's detail, a web
+scanner's evidence (what a live site answered: there is no repository to read it from later) and its attack. That text
+goes through one renderer before anything stores, prints or sends it. It keeps punctuation and **common words** (words
+of programming languages, of Pitangus's own vocabulary in English and Spanish, of code and security writing, and words
+that split entirely into those and numbers of up to three digits, like `getConnection` or `admin123`) and replaces any
+other word with `***`, wherever it stands; a URL also loses its user information and every query and fragment value.
+So `# creds: admin / Winter2024Corp` reads `# ***: admin / ***`. Every URL stored (a web finding's location, a run's
+target, an imported SARIF's references) is rendered the same way; a web finding's identity reads the page as it was,
+through a key of digests, so the same page keeps its identity. The values the secret engines detected are also
+replaced wherever they appear, in their encoded forms. What Pitangus's own rule catalog and public advisories say is
+shown as published.
+
+Both are tested as properties: a random value placed anywhere in scanned code appears in no database table, report,
+SARIF, Jira issue, notification, prompt or log, and the snippet endpoint masks every reported secret.
+
+The upgrade to 0.14.1 removes the code earlier versions stored (data migration `drop_stored_code`: runs, the
+registry, stored SARIF and reports, pending outbox entries). Each finding's identity was computed from its code before
+it goes, and no status changes.
+
 ## Fix it with your own AI
 
 Every open finding's detail has **Copy prompt for your AI**: a ready-to-paste prompt for Claude, Cursor or Copilot
-with the rule, where it is, the matched code and the recommended fix (`pitangus scan --format prompt` gives the same in
-the terminal). It never carries a value: a secret finding and a hard-coded credential (CWE-798, 259, 321, 522) have
-no fragment at all, and any other fragment is the code's structure (see below). Nothing beyond the matched fragment is
-included, and Pitangus calls no AI for it: the assistant is yours.
-
-**Structure and common words, never values.** Every text that holds code, configuration or what an engine said about
-them goes through one renderer before anything stores, prints or sends it, whichever engine or import produced it: a
-finding's snippet (an imported SARIF's snippet or context region too, with its lines), the fragment in the prompt, an
-engine's message, an imported SARIF's rule texts, a step's detail, progress, limitations, the errors engines printed
-and what a failed scan logs. The renderer doesn't look for credentials, and it never keeps a word for where it stands:
-
-- **A word** (a run of letters, digits and `_`, in any script) is kept only if it is a common word: a word of a
-  programming language, of Pitangus's own vocabulary in English and Spanish, or of code and security writing in
-  general (`execute`, `request`, `args`, `sha256`, `injection`), or if it splits entirely, at `_`, at changes of case
-  and at digits, into such words and numbers of up to three digits (`getConnection`, `DB_PASSWORD`, `admin123`). Any
-  other word becomes `***`, wherever it is: a key, an identifier, an operand, a call's argument, a comment, a string, a
-  host name or a path segment of a URL.
-- **Punctuation and operators** are kept, so the code still reads: `cur.execute("SELECT k FROM t WHERE v = '…'" + q)`
-  reads `cur.execute("SELECT k FROM t WHERE v = '***'" + q)`, and `# creds: admin / Winter2024Corp` reads
-  `# ***: admin / ***`.
-- **A URL in a text** is read the same way, after percent-decoding, and also loses its user information and every
-  query and fragment value: `https://api.telegram.org/bot58…:AAF…/sendMessage` reads `https://api.***.org/***:***/sendMessage`.
-
-So a value survives only if it is made entirely of common words and numbers of up to three digits (`admin123` does;
-`Winter2024Corp`, `xK9#mP2` and any token don't). That is tested as a property: for a random value in any position of
-any format, through every engine and every output, no run of four or more of its letters and digits that isn't such a
-word appears anywhere.
-
-The addresses a scan was pointed at and the pages a web scan visited (a web finding's location, a run's target, the
-pages a scan reached, an imported SARIF's references) are URLs like any other and are rendered the same way: no
-exception for them. A web finding's identity and what proves it gone read the page as it was, before it is rendered:
-each page keeps a key (its scheme, host and port, and a digest of each piece of its path and of its query, never their
-text), so the same page keeps its identity from one scan to the next, its path template is built across scans as
-before, and two pages shown alike (`/users/***`) are still two pages. zizmor's findings store only where they are in the workflow (`jobs:` / `build:` / `steps[2]:`), never the YAML they
-point at. A finding's identity, and its identity anywhere in the repository (the pull request gate's), are computed
-from the original before it is rendered, so nothing looks new, fixed or moved. The values the secret engines detected
-are also replaced wherever they appear, in their encoded forms. What Pitangus's own rule catalog says and what public
-advisories say is shown as published. The upgrade to 0.14 renders what is already stored the same way (data migrations
-`render_stored_texts`, `render_stored_texts_lexicon` and `web_location_keys`: runs, the registry and pending
-notifications), pinning each stored web page's key first, so no identity changes.
+with the rule, where it is, the code you opened (with its secrets hidden) and the recommended fix. The server builds the
+prompt without code, since it stores none; the panel adds the lines you are looking at, in your browser, when you copy
+it. `pitangus scan --format prompt` does the same in the terminal from the folder it scanned, read at that moment with
+the same masking (only when it scanned the folder as it is on disk, not `--commit` or `--staged`). A secret finding and
+a hard-coded credential never carry code. Pitangus calls no AI for it: the assistant is yours.
 
 ## One identity per problem
 

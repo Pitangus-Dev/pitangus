@@ -23,7 +23,7 @@ o un cambio sin commit nunca lo bloquea.
 ```yaml
 repos:
   - repo: https://github.com/Pitangus-Dev/pitangus
-    rev: v0.14.0          # la primera versión con el hook
+    rev: v0.14.1          # la primera versión con el hook
     hooks:
       - id: pitangus
 ```
@@ -31,6 +31,9 @@ repos:
 El hook analiza lo que vas a subir, no tu árbol de trabajo: los cambios ya commiteados frente a `origin/main`
 (`PITANGUS_BASE` fija otra base), así que un archivo que no has commiteado, con seguimiento o sin él, no puede
 bloquear el push. Una base que no existe detiene el hook con un mensaje que lo dice.
+Ejecuta la imagen publicada del worker por su digest, nunca por una etiqueta que pueda moverse; si tienes
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/) instalado, antes comprueba que la firmó el flujo
+de publicación de Pitangus, igual que la GitHub Action, y si no, no la ejecuta.
 
 **En cada pull request** (GitHub), en `.github/workflows/pitangus.yml`:
 
@@ -43,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: Pitangus-Dev/pitangus@v0.14.0   # fíjala al SHA del commit de la etiqueta
+      - uses: Pitangus-Dev/pitangus@v0.14.1   # fíjala al SHA del commit de la etiqueta
 ```
 
 Códigos de salida: `0` pasa · `1` hallazgos en o por encima de `--fail-on` (alta por defecto) · `3` un motor no pudo

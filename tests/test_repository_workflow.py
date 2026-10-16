@@ -261,7 +261,7 @@ class RepositoryWorkflowTests(unittest.TestCase):
                            "confidence": 8, "verdict": "candidate", "priority": {"action": "act", "factors": []}}
                 return {**scan_engines._result("betterleaks", "completed", ""), "findings": [finding] if nested and root.parent.name.endswith(".credentials") else []}
 
-            def trivy_secret_pass(root, cache, settings, screened=None, gaps=None, allowed=None):
+            def trivy_secret_pass(root, cache, settings, screened=None, gaps=None, allowed=None, controls=None):
                 seen.setdefault("trivy", []).append(root.relative_to(head.parent).as_posix())
                 return None  # Trivy's secret scanner failed on them
 

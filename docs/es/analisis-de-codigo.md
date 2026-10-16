@@ -170,9 +170,10 @@ primero como UTF-8, así que sus secretos se encuentran como los de cualquier ot
 línea es una decisión tuya escrita en el código y se respeta, pero nunca en silencio: cada coincidencia que permite figura
 en **Excluidos** con su archivo y línea (nunca su valor), se cuenta en el paso, en las limitaciones del análisis, en la CLI
 y en `--format prompt`, y nunca se da por remediada. Lo mismo vale para las entradas de un `.gitleaksignore` o un
-`.betterleaksignore` en la raíz del repositorio (huellas de Betterleaks, `ruta:regla:línea`): Pitangus las respeta en los
-archivos que solo leen los escáneres de secretos y lista cada coincidencia como excluida; Betterleaks nunca carga esos
-archivos por su cuenta. `PITANGUS_SECRETS_IGNORE_INLINE_ALLOW=1` ignora los comentarios y esos archivos.
+`.betterleaksignore` en la raíz del repositorio (huellas de Betterleaks, `ruta:regla:línea`): Pitangus las respeta y
+lista cada coincidencia como excluida; Betterleaks nunca carga esos archivos por su cuenta. La misma regla vale para todos
+los motores ([Lo que el repositorio les dice a los motores](#lo-que-el-repositorio-les-dice-a-los-motores)).
+`PITANGUS_IGNORE_REPO_SUPPRESSIONS=1` ignora los comentarios y esos archivos.
 Leer carpetas de dependencias subidas al repositorio lleva más tiempo: unos 35 segundos más para un `node_modules/` de
 600 MB con 47.000 archivos, nada para un repositorio sin él.
 
@@ -222,6 +223,36 @@ secuencia como `12345678`). Un secreto en pruebas, documentación o ejemplos sig
 **atender** en lugar de **actuar ya**: rara vez es el que usa producción, pero rótalo si es real. En el corpus público
 (17 repositorios) las reglas por defecto pasaron de 246 coincidencias a 134 sin perder ningún secreto real; de esas 134,
 solo 23 siguen en **actuar ya**.
+
+### Lo que el repositorio les dice a los motores
+
+Un repositorio puede pedirle a un motor que informe menos: con un comentario sobre el código que señala o con un archivo
+que el motor carga. Pitangus respeta esa decisión, pero nunca en silencio. Cada resultado que alguno de ellos suprime
+figura en **Excluidos** con su regla, su archivo y línea y qué lo suprimió (nunca el código), se cuenta en el paso, en
+las limitaciones del análisis, en la CLI y en `--format prompt`, y nunca se da por remediado: se reabre si la supresión
+desaparece.
+
+| Motor | Comentarios | Archivos |
+|---|---|---|
+| Betterleaks, Trivy (secretos) | `gitleaks:allow`, `betterleaks:allow` | `.gitleaksignore`, `.betterleaksignore` |
+| zizmor | `# zizmor: ignore[regla]` | `.github/zizmor.yml`, `zizmor.yml` (resultados ignorados y auditorías apagadas) |
+| Trivy | `trivy:ignore:ID` (archivos de infraestructura) | `.trivyignore` o `.trivyignore.yaml` en la raíz (el YAML si están los dos) |
+| Checkov | `checkov:skip=ID`, anotaciones `checkov.io/skip…` | `.checkov.yaml` / `.checkov.yml`: entradas `skip-check`, `check` y `skip-path` que sean rutas simples |
+| OSV-Scanner | — | `osv-scanner.toml` en cada carpeta analizada |
+| Opengrep | `nosemgrep` | ninguno: tu `.semgrepignore` se reemplaza por la lista propia de Pitangus |
+
+Cómo sabe Pitangus qué se suprimió: zizmor, los comentarios de Checkov, los de Trivy y los archivos de OSV-Scanner se
+ejecutan una segunda vez sin las supresiones (`--no-config --no-ignores` en zizmor, una copia de los archivos con los
+comentarios desactivados, un `osv-scanner.toml` vacío de Pitangus), solo cuando el repositorio tiene alguna, y lo que
+informa solo esa ejecución es lo que ocultaban. Trivy informa por sí mismo lo que suprimió su archivo de exclusiones
+(`--show-suppressed`), y Opengrep lo que silencia un comentario `nosemgrep` (`--disable-nosem`). Checkov carga un
+`.checkov.yaml` por su cuenta, digan lo que digan sus opciones, así que nunca ve el tuyo: Pitangus aplica él mismo sus
+supresiones, y nunca ejecuta una expresión regular que venga del repositorio (un `skip-path` que no sea una ruta simple,
+y las severidades, que necesitan la plataforma de Checkov, no suprimen nada). Si falla la ejecución que dice qué se
+suprimió, el paso queda parcial y el análisis no da nada por remediado.
+
+`PITANGUS_IGNORE_REPO_SUPPRESSIONS=1` (el nombre anterior, `PITANGUS_SECRETS_IGNORE_INLINE_ALLOW`, sigue funcionando)
+hace que ninguno suprima nada: todo resultado se informa como hallazgo.
 
 ### Lo que el código escrito con un asistente de IA suele hacer mal
 
@@ -286,8 +317,8 @@ La edición gratuita de Checkov no da severidad. En las reglas emparejadas con T
 una regla en el código (`checkov_severity`) sube a alta la exposición pública, los privilegios, las credenciales o el
 TLS desactivado, baja a baja las etiquetas, la monitorización, las copias de seguridad o las claves gestionadas por el
 cliente, y deja todo lo demás en media. zizmor sí da severidad; «acción sin fijar por SHA» baja a media, porque
-explotarla exige comprometer antes la acción de terceros. Los hallazgos de Checkov y zizmor no guardan fragmentos de
-código, solo regla, archivo y líneas, porque el fragmento podría contener un secreto.
+explotarla exige comprometer antes la acción de terceros. Ningún hallazgo guarda código, solo regla, archivo y
+líneas: el código se lee del repositorio al abrir el hallazgo ([Tu código nunca se guarda](hallazgos.md#tu-código-nunca-se-guarda)).
 
 Con las dependencias pasa lo mismo: un aviso que reportan Trivy y OSV-Scanner, aunque uno lo nombre por su CVE y el
 otro por su GHSA, es **un solo hallazgo** «detectado por Trivy y OSV-Scanner», con la misma huella que le daría

@@ -29,7 +29,7 @@ from pitangus.shared.model import EngineResult, Finding
 TOOL = "policies"
 FILE_MAX = 2_000_000
 FILES_MAX = 2_000
-STATEMENT_MAX = 400   # characters of a statement kept as the finding's snippet
+STATEMENT_MAX = 400   # characters of a statement its identity reads (never stored)
 
 # --- SQL (Supabase migrations) ---------------------------------------------------------------------------------------
 

@@ -27,7 +27,7 @@ from pitangus.modules.scanning.secret_location import entropy
 from pitangus.modules.findings import canonical, registry
 from pitangus.modules.scanning import engines
 from pitangus.modules.scanning.engines import EngineStep, parse_betterleaks, parse_opengrep, parse_trivy
-from pitangus.shared.masking import NO_SNIPPET_CWES, mask, mask_code, sanitize_finding, variants
+from pitangus.shared.masking import mask, sanitize_finding, variants
 from value_oracle import fragments, leaked
 
 PROFILE = os.environ.get("HYPOTHESIS_PROFILE", "pitangus")
@@ -304,7 +304,7 @@ class CredentialShapeTests(unittest.TestCase):
         self.assertEqual(mask("See https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"),
                          "See https://***.owasp.org/***/Cross_Site_Scripting_Prevention_Cheat_Sheet.html")
         self.assertEqual(mask("The requested URL returned error: 403"), "The requested URL returned error: 403")
-        self.assertEqual(mask_code("cursor.execute(sql, (user_id,))"), "cursor.execute(sql, (user_id,))")
+        self.assertEqual(mask("cursor.execute(sql, (user_id,))"), "cursor.execute(sql, (user_id,))")
 
 
     def test_masking_stays_fast_on_adversarial_text(self):
@@ -328,9 +328,8 @@ class IdentityTests(unittest.TestCase):
                                "extra": {"lines": line, "message": "m", "severity": "ERROR", "metadata": {"cwe": [cwe]}}}]}
         finding = parse_opengrep(report)[0]
         masked = sanitize_finding(finding, pieces)
-        # A hard-coded credential keeps no snippet; any other finding keeps it masked.
-        self.assertNotEqual(masked.get("snippet"), finding["snippet"])
-        self.assertEqual("snippet" in masked, cwe not in NO_SNIPPET_CWES)
+        # No finding keeps its code (0.14.1): read from the repository when it is opened.
+        self.assertNotIn("snippet", masked)
         self.assertEqual((masked["fingerprint"], canonical.identity_of(masked)), (finding["fingerprint"], canonical.identity_of(finding)))
         self.assertEqual(sanitize_finding(masked, pieces), masked)  # idempotent
         # A run masked before grouping into families groups exactly as the unmasked one.

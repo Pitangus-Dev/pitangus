@@ -176,55 +176,64 @@ aplica todas las reglas de abajo; `shadow` guarda lo que cambiarían y remedia c
   días, análisis que remediaron mucho más de lo habitual, hallazgos abiertos que varios motores reportan por separado,
   hallazgos sin verificar y la parte de motores ciegos en el último análisis de cada activo.
 
+## Tu código nunca se guarda
+
+**Pitangus no guarda el texto de tu código: guarda la ubicación, la regla y hashes; el fragmento se muestra al abrir el
+hallazgo, leído del repositorio en ese momento y sin los secretos.**
+
+- **Lo que se guarda** de un hallazgo de código, configuración, CI/CD o secretos: su ruta, sus líneas (y las columnas
+  del valor de un secreto), el commit que leyó su análisis, su regla, metadatos estructurales (severidad, CWE, la
+  dirección del recurso, los motores que lo vieron) y hashes (su huella e identidad, la identidad con clave de un
+  secreto). Nunca un fragmento, ni el snippet o la región de contexto de un SARIF importado, ni el YAML al que apunta un
+  hallazgo de zizmor, ni el mensaje de un motor que cita el código: una regla de Opengrep sin texto de corrección propio
+  recibe una frase que nombra la regla, y una comprobación de configuración de Trivy se describe con su propia
+  descripción, nunca con su mensaje.
+- **Al abrir un hallazgo**, el panel pide su código (`GET /api/findings/code`, para quien puede leer el hallazgo):
+  Pitangus lee el archivo del proveedor en el commit analizado, con la conexión que ya tiene (la GitHub App o el
+  token), y devuelve las líneas de alrededor. En el servidor nunca se guarda, ni se cachea, ni se registra; el panel lo
+  conserva solo mientras el detalle está abierto. Al lado, **Abrir en GitHub** enlaza al archivo en ese commit.
+- **Los secretos siguen ocultos también ahí.** Cada sitio que un motor de secretos señaló en ese archivo se enmascara
+  antes de que las líneas salgan del servidor: un valor con columnas conocidas para ese commit se sustituye y el resto de
+  la línea se conserva; un secreto visto en otro commit, o sin columnas, oculta su línea entera, y una clave privada su
+  bloque entero. El hallazgo de un secreto, o una debilidad cuyo código es una credencial (CWE-798, 259, 321, 522), no
+  muestra código, solo dónde está.
+- **Cuando el código no se puede mostrar**, el detalle dice por qué: el repositorio ya no es accesible con la conexión de
+  Pitangus, el commit ya no tiene el archivo, el análisis no guardó su commit, o era una carpeta local (el servidor
+  nunca lee una: abre el archivo en tu editor).
+- **Lo que sale de Pitangus tampoco lleva código**: las incidencias de Jira y el informe Markdown enlazan al archivo en
+  el commit analizado, los comentarios de pull request están sobre las líneas, las notificaciones y los informes PDF
+  dan la ubicación, y la exportación SARIF no lleva fragmento.
+
+Lo que las herramientas escriben sobre lo que leen sigue siendo texto, no código: el mensaje o el error de un motor, el
+detalle de un paso, la evidencia de un escáner web (lo que respondió un sitio en vivo: no hay repositorio del que
+leerlo después) y su ataque. Ese texto pasa por un único renderizador antes de guardarlo, mostrarlo o enviarlo. Conserva
+la puntuación y las **palabras comunes** (de lenguajes de programación, del propio vocabulario de Pitangus en inglés y en
+español, de la escritura de código y de seguridad, y las que se parten enteras en esas y en números de hasta tres
+cifras, como `getConnection` o `admin123`) y cambia cualquier otra palabra por `***`, esté donde esté; una URL pierde
+además la información de usuario y todos los valores de su query y de su fragmento. Así,
+`# creds: admin / Winter2024Corp` se lee `# ***: admin / ***`. Toda URL guardada (la ubicación de un hallazgo web, el
+objetivo de una ejecución, las referencias de un SARIF importado) se renderiza igual; la identidad de un hallazgo web lee
+la página tal como era, mediante una clave de resúmenes, así que la misma página conserva su identidad. Los valores que
+detectaron los motores de secretos se cambian además allí donde aparezcan, también en sus formas codificadas. Lo que
+dicen el catálogo de reglas de Pitangus y los avisos públicos se muestra tal cual.
+
+Las dos cosas están probadas como propiedades: un valor aleatorio puesto en cualquier parte del código analizado no
+aparece en ninguna tabla de la base de datos, informe, SARIF, incidencia de Jira, notificación, prompt ni log, y el
+endpoint del fragmento enmascara cada secreto señalado.
+
+Al actualizar a 0.14.1 se borra el código que guardaron las versiones anteriores (migración de datos `drop_stored_code`:
+ejecuciones, registro, SARIF e informes guardados, entradas pendientes de la bandeja de salida). La identidad de cada
+hallazgo se calculó de su código antes de borrarlo, y ningún estado cambia.
+
 ## Arréglalo con tu propia IA
 
 El detalle de cada hallazgo abierto tiene **Copiar prompt para tu IA**: un prompt listo para pegar en Claude, Cursor o
-Copilot con la regla, dónde está, el código encontrado y la corrección recomendada (`pitangus scan --format prompt` da lo
-mismo en la terminal). Nunca lleva un valor: un hallazgo de secreto y una credencial escrita en el código (CWE-798, 259,
-321, 522) no llevan fragmento, y cualquier otro fragmento es la estructura del código (ver abajo). No incluye nada fuera
-del fragmento encontrado, y Pitangus no llama a ninguna IA para esto: el asistente es tuyo.
-
-**La estructura y las palabras comunes, nunca los valores.** Todo texto que lleva código, configuración o lo que un
-motor dijo de ellos pasa por un único renderizador antes de guardarlo, mostrarlo o enviarlo, venga del motor o de la
-importación que venga: el fragmento de un hallazgo (también el snippet y la región de contexto de un SARIF importado, con
-sus líneas), el fragmento del prompt, el mensaje de un motor, los textos de las reglas de un SARIF importado, el detalle
-de un paso, el progreso, los límites, los errores que imprimieron los motores y lo que registra un análisis fallido. El
-renderizador no busca credenciales y nunca conserva una palabra por el sitio en el que está:
-
-- **Una palabra** (una racha de letras, dígitos y `_`, en cualquier alfabeto) se conserva solo si es una palabra común:
-  de un lenguaje de programación, del propio vocabulario de Pitangus en inglés y en español, o de la escritura de código
-  y de seguridad en general (`execute`, `request`, `args`, `sha256`, `injection`), o si se parte entera, por `_`, por los
-  cambios de mayúsculas y por los dígitos, en palabras así y números de hasta tres cifras (`getConnection`,
-  `DB_PASSWORD`, `admin123`). Cualquier otra palabra pasa a ser `***`, esté donde esté: una clave, un identificador, un
-  operando, el argumento de una llamada, un comentario, una cadena, el nombre de un host o un segmento de la ruta de una
-  URL.
-- **La puntuación y los operadores** se conservan, así que el código se sigue leyendo:
-  `cur.execute("SELECT k FROM t WHERE v = '…'" + q)` se lee `cur.execute("SELECT k FROM t WHERE v = '***'" + q)`, y
-  `# creds: admin / Winter2024Corp` se lee `# ***: admin / ***`.
-- **Una URL dentro de un texto** se lee igual, tras decodificar los `%`, y pierde además la información de usuario y
-  todos los valores de su query y de su fragmento: `https://api.telegram.org/bot58…:AAF…/sendMessage` se lee
-  `https://api.***.org/***:***/sendMessage`.
-
-Así, un valor sobrevive solo si está hecho entero de palabras comunes y números de hasta tres cifras (`admin123` sí;
-`Winter2024Corp`, `xK9#mP2` y cualquier token no). Está probado como propiedad: con un valor aleatorio en cualquier
-posición de cualquier formato, por todos los motores y en todas las salidas, no aparece en ninguna parte ninguna racha de
-cuatro o más de sus letras y dígitos que no sea una palabra así.
-
-Las direcciones a las que se apuntó un análisis y las páginas que visitó un análisis web (la ubicación de un hallazgo
-web, el objetivo de una ejecución, las páginas que alcanzó, las referencias de un SARIF importado) son URL como
-cualquier otra y se renderizan igual: no hay excepción para ellas. La identidad de un hallazgo web y lo que prueba que ya
-no está leen la página tal como era, antes de renderizarla: cada página guarda una clave (su esquema, host y puerto, y un
-resumen de cada trozo de su ruta y de su query, nunca su texto), así que la misma página conserva su identidad de un
-análisis al siguiente, su plantilla de ruta se construye entre análisis como antes, y dos páginas que se muestran igual
-(`/users/***`) siguen siendo dos. Los hallazgos de zizmor
-guardan solo dónde están en el workflow (`jobs:` / `build:` / `steps[2]:`), nunca el YAML al que apuntan. La identidad de
-un hallazgo, y su identidad en cualquier parte del repositorio (la de la puerta de las pull requests), se calculan del
-original antes de renderizarlo, así que nada parece nuevo, remediado ni movido. Los valores que detectaron los motores
-de secretos se cambian además allí donde aparezcan, también en sus formas codificadas. Lo que dice el catálogo de reglas
-de Pitangus y lo que dicen los avisos públicos se muestra tal cual. Al actualizar a 0.14 se renderiza igual lo ya
-guardado (migraciones de datos `render_stored_texts`, `render_stored_texts_lexicon` y `web_location_keys`:
-ejecuciones, registro y notificaciones pendientes), fijando antes la clave de cada página web guardada, así que ninguna
-identidad cambia.
+Copilot con la regla, dónde está, el código que abriste (sin sus secretos) y la corrección recomendada. El servidor arma
+el prompt sin código, porque no guarda ninguno; el panel añade las líneas que estás viendo, en tu navegador, al
+copiarlo. `pitangus scan --format prompt` hace lo mismo en la terminal a partir de la carpeta que analizó, leída en ese
+momento y con el mismo enmascarado (solo cuando analizó la carpeta tal como está en disco, no con `--commit` ni
+`--staged`). Un hallazgo de secreto y una credencial escrita en el código nunca llevan código. Pitangus no llama a
+ninguna IA para esto: el asistente es tuyo.
 
 ## Una identidad por problema
 

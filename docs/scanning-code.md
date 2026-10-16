@@ -165,8 +165,9 @@ secrets are found like any other. An empty file has nothing to read. A `gitleaks
 every match it allows is listed under **Excluded** with its file and line (never its value), counted in the step, the
 run's limitations, the CLI and `--format prompt`, and never taken as fixed. The same goes for the entries of a
 `.gitleaksignore` or `.betterleaksignore` at the repository root (Betterleaks fingerprints, `path:rule:line`): Pitangus
-honours them for the files only the secret scanners read and lists each match as excluded; Betterleaks never loads those
-files itself. `PITANGUS_SECRETS_IGNORE_INLINE_ALLOW=1` ignores the comments and those files. Reading committed dependency folders takes longer: about 35 seconds more for a 600 MB
+honours them and lists each match as excluded; Betterleaks never loads those files itself. The same rule holds for every
+engine ([What the repository says to the engines](#what-the-repository-says-to-the-engines)).
+`PITANGUS_IGNORE_REPO_SUPPRESSIONS=1` ignores the comments and those files. Reading committed dependency folders takes longer: about 35 seconds more for a 600 MB
 `node_modules/` with 47,000 files, nothing for a repository without one.
 
 Manifests and lockfiles enter the snapshot by name, without the 2 MB limit that applies to code files (a large
@@ -213,6 +214,34 @@ of one character such as `XXXXXXXX` or `T00000000`, or a counted one such as `12
 examples is still a finding, with **attend** priority instead of **act now**: it's rarely the one production uses, but
 rotate it if it's real. On the public corpus (17 repositories) the default rules went from 246 matches to 134, losing no
 real secret; only 23 of those 134 are still **act now**.
+
+### What the repository says to the engines
+
+A repository can tell an engine to report less: a comment on the code it flags, or a file the engine loads. Pitangus
+honours your decision but never silently. Every result one of them suppresses is listed under **Excluded** with its rule,
+its file and line and what suppressed it (never the code), counted in the step, the run's limitations, the CLI and
+`--format prompt`, and never taken as fixed: it reopens if the suppression goes away.
+
+| Engine | Comments | Files |
+|---|---|---|
+| Betterleaks, Trivy (secrets) | `gitleaks:allow`, `betterleaks:allow` | `.gitleaksignore`, `.betterleaksignore` |
+| zizmor | `# zizmor: ignore[rule]` | `.github/zizmor.yml`, `zizmor.yml` (ignored results and audits turned off) |
+| Trivy | `trivy:ignore:ID` (infrastructure files) | `.trivyignore` or `.trivyignore.yaml` at the root (the YAML one when both are there) |
+| Checkov | `checkov:skip=ID`, `checkov.io/skip…` annotations | `.checkov.yaml` / `.checkov.yml`: `skip-check`, `check` and plain-path `skip-path` entries |
+| OSV-Scanner | — | `osv-scanner.toml` in each scanned folder |
+| Opengrep | `nosemgrep` | none: your `.semgrepignore` is replaced by Pitangus' own list |
+
+How Pitangus knows what was suppressed: zizmor, Checkov's comments, Trivy's comments and OSV-Scanner's files run a
+second time with the suppressions off (zizmor's `--no-config --no-ignores`, a copy of the files with the comments made
+inert, an empty `osv-scanner.toml` of Pitangus' own), only when the repository has some, and what only that run reports
+is what they hid. Trivy reports what its ignore file suppressed itself (`--show-suppressed`), and Opengrep what a
+`nosemgrep` comment silences (`--disable-nosem`). Checkov loads a `.checkov.yaml` on its own, whatever its flags say,
+so it never sees yours: Pitangus applies its suppressions instead, and never runs a regular expression from the
+repository (a `skip-path` that isn't a plain path, and severities, which need Checkov's platform, suppress nothing). If
+the run that says what was suppressed fails, the step is partial and the scan marks nothing as fixed.
+
+`PITANGUS_IGNORE_REPO_SUPPRESSIONS=1` (the former `PITANGUS_SECRETS_IGNORE_INLINE_ALLOW` still works) makes all of them
+suppress nothing: every result is reported as a finding.
 
 ### What code written with an AI assistant often gets wrong
 
@@ -275,8 +304,8 @@ Checkov's free edition gives no severity. For rules paired with Trivy, Trivy's s
 rule in the code (`checkov_severity`) raises public exposure, privileges, credentials or disabled TLS to high,
 lowers tags, monitoring, backups or customer-managed keys to low, and leaves everything else at medium. zizmor gives
 its own severity; "action not pinned by SHA" is lowered to medium, because exploiting it first requires compromising
-the third-party action. Neither Checkov nor zizmor findings store code snippets, only rule, file and lines, because
-a snippet might contain a secret.
+the third-party action. No finding stores code, only rule, file and lines: the code is read from the repository when
+you open the finding ([Your code is never stored](findings.md#your-code-is-never-stored)).
 
 Dependencies follow the same idea: an advisory that Trivy and OSV-Scanner both report, even when one calls it by its
 CVE and the other by its GHSA, is **one finding** "detected by Trivy and OSV-Scanner", with the same fingerprint

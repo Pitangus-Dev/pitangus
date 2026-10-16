@@ -200,6 +200,16 @@ def _percent(value: float, locale: str) -> str:
     return (text_.replace(".", ",") if t("reports.design.decimal_separator", locale) == "," else text_) + " %"
 
 
+def _linked_where(finding: dict, source: dict | None) -> str:
+    """`_where` as code, linked to the file at the scanned commit when there is one: the report carries no code."""
+    from pitangus.modules.sources.permalinks import code_url
+    shown = f"`{_md(_where(finding), 400)}`"
+    if finding.get("scanner") in ("sca", "dast") or source is None:
+        return shown
+    url = code_url(source, str(finding.get("path") or ""), finding.get("line"), finding.get("end_line"))
+    return f"[{shown}]({url})" if url else shown
+
+
 def _where(finding: dict) -> str:
     """A dependency advisory points at its manifest and a web finding at its URL (their line says nothing); code at
     path:line."""
@@ -351,7 +361,7 @@ def render_repository_report(record: dict, *, locale: str | None = None) -> str:
                   t("reports.markdown.context_note", locale), ""]
     active = [item for item in findings if (item.get("triage") or {}).get("status", "open") not in SUPPRESSED]
     suppressed = [item for item in findings if item not in active]
-    lines += _findings_sections([dict(item) for item in active], locale)
+    lines += _findings_sections([dict(item) for item in active], locale, source)
     if suppressed:
         # Each decision with who made it and why: the first thing a reviewer asks.
         lines += ["## " + t("reports.markdown.dismissed", locale), "",
@@ -387,7 +397,7 @@ def _is_update(command: dict) -> bool:
     return command.get("action") == "update"
 
 
-def _findings_sections(active: list[dict], locale: str) -> list[str]:
+def _findings_sections(active: list[dict], locale: str, source: dict | None = None) -> list[str]:
     """Findings as in the technical PDF: what to do first, dependencies grouped by package with their command, code
     with detail only for critical and high, and a compact index. Full detail stays in the panel, the JSON, the SARIF
     and the tickets."""
@@ -411,8 +421,9 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
                 else f"{item.get('title')} · {t('reports.count.urls', locale, count=len(entry['items']))}" if entry["kind"] == "web" and len(entry["items"]) > 1
                 else item.get("title"))
         where = entry["path"] if entry["kind"] == "package" else _where(item)
+        shown = f"`{_md(where, 400)}`" if entry["kind"] == "package" else _linked_where(item, source)
         lines.append(f"| {_severity(entry['severity'], locale)}{' · KEV' if entry['kev'] else ''} | {_md(what, 100)} | "
-                     f"`{_md(where, 400)}` | {_md(action(entry, short=True, locale=locale), 160)} |")
+                     f"{shown} | {_md(action(entry, short=True, locale=locale), 160)} |")
     packages = [entry for entry in groups if entry["kind"] == "package"]
     if packages:
         lines += ["", "### " + t("reports.markdown.dependencies", locale, packages=msg("reports.count.packages", count=len(packages)),
@@ -450,7 +461,7 @@ def _findings_sections(active: list[dict], locale: str) -> list[str]:
                 worst = min((entry.get("severity") or "info" for entry in unit), key=lambda level: SEVERITY_ORDER.get(level, 9))
                 more = " " + _md(t('reports.count.more_urls', locale, count=len(unit) - 1), 60) if len(unit) > 1 else ""
                 lines.append(f"| {_severity(worst, locale)} | {_md(item.get('title'), 100)} | "
-                             f"`{_md(_where(item), 400)}`{more} | {_md(item.get('remediation'), 160)} |")
+                             f"{_linked_where(item, source)}{more} | {_md(item.get('remediation'), 160)} |")
             if len(rest) > MD_TABLE_LIMIT:
                 lines.append(f"| | {t('reports.markdown.more_in_panel', locale, count=len(rest) - MD_TABLE_LIMIT)} | | |")
             lines.append("")

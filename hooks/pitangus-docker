@@ -2,9 +2,36 @@
 # The pre-commit hook (.pre-commit-hooks.yaml): the published worker image on the repository, read-only, with the
 # engines' databases in a Docker volume kept between runs. PITANGUS_IMAGE, PITANGUS_BASE and PITANGUS_CACHE_VOLUME
 # change the image, the starting point and the volume.
+# The published image runs by its digest (`make pin-hook` writes it after a release), never by a tag someone could move,
+# and with cosign installed its signature is checked first, as the Action does: keyless, by the release workflow of a
+# v* tag. An image of your own (PITANGUS_IMAGE from another repository) is yours to check.
 set -eu
-image="${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus-worker:0.14}"
+published=ghcr.io/pitangus-dev/pitangus-worker
+image="${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus-worker:0.14@sha256:cc0e0d03da5aadf1178198f5a6cb98e4d5aa7140e996c661464848b82de25a13}"
+signers='^https://github\.com/Pitangus-Dev/pitangus/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+(\.[0-9]+)?$'
 volume="${PITANGUS_CACHE_VOLUME:-pitangus-cache}"
+repository="${image%%@*}"
+case "${repository##*/}" in *:*) repository="${repository%:*}" ;; esac
+if [ "$repository" = "$published" ]; then
+  if command -v cosign > /dev/null 2>&1; then
+    case "$image" in
+      *@sha256:*) ;;
+      *)  # a tag: resolved once to the digest `docker run` would use, and that digest is what's checked and run
+        docker image inspect "$image" > /dev/null 2>&1 || docker pull --quiet "$image" > /dev/null
+        resolved=
+        for reference in $(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image"); do
+          if [ "${reference%@*}" = "$repository" ]; then resolved="$reference"; break; fi
+        done
+        [ -n "$resolved" ] || { echo "pitangus: $image has no registry digest to check its signature against" >&2; exit 2; }
+        image="$resolved" ;;
+    esac
+    cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      --certificate-identity-regexp "$signers" "$image" > /dev/null 2>&1 ||
+      { echo "pitangus: $image is not signed by Pitangus's release workflow" >&2; exit 2; }
+  else
+    echo "pitangus: cosign isn't installed: the signature of $image isn't checked" >&2
+  fi
+fi
 # It scans what git holds, never the folder on disk: at pre-push, the commit being pushed (PRE_COMMIT_TO_REF) against
 # what the remote already has (PRE_COMMIT_FROM_REF); run by hand, HEAD against origin/main. An untracked file or an
 # uncommitted edit can't block a push. `args: [--staged]` in your config scans the index instead (for a pre-commit stage).

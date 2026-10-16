@@ -1517,7 +1517,7 @@
           "findings"
         ],
         "summary": "Fix Prompt",
-        "description": "A finding as a prompt for the reader's own AI assistant, in their language: rule, place, fragment and fix, never\na secret's value (findings/ai_prompt.py). Pitangus calls no AI for it.",
+        "description": "A finding as a prompt for the reader's own AI assistant, in their language: rule, place and fix, never code nor\na secret's value (findings/ai_prompt.py): the panel adds the code the reader opened. Pitangus calls no AI for it.",
         "operationId": "fix_prompt_api_findings_prompt_get",
         "parameters": [
           {
@@ -1548,6 +1548,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FixPrompt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/findings/code": {
+      "get": {
+        "tags": [
+          "findings"
+        ],
+        "summary": "Finding Code",
+        "description": "A finding's code for whoever can read the finding: the lines around it, read from the provider at the commit\nits run scanned, with every secret a secret engine reported in that file masked (runs/code_view.py). Never stored,\ncached or logged.",
+        "operationId": "finding_code_api_findings_code_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "fingerprint",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16,64}$",
+              "title": "Fingerprint"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingCode"
                 }
               }
             }
@@ -9011,6 +9065,44 @@
         ],
         "title": "CodeConnection"
       },
+      "CodeLine": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "focus": {
+            "type": "boolean",
+            "title": "Focus"
+          },
+          "masked": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "span",
+                  "line"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Masked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "text",
+          "focus"
+        ],
+        "title": "CodeLine"
+      },
       "CraAssessment": {
         "properties": {
           "by": {
@@ -11693,6 +11785,90 @@
         ],
         "title": "ExclusionsSaved"
       },
+      "FindingCode": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "shown",
+              "withheld",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "secret",
+                  "imported",
+                  "symlink",
+                  "secret_other_commit",
+                  "not_code",
+                  "local",
+                  "no_commit",
+                  "no_location",
+                  "file_gone",
+                  "file_changed",
+                  "binary",
+                  "repository_gone",
+                  "repository_unreachable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/CodeLine"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Lines"
+          },
+          "permalink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permalink"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "path",
+          "commit",
+          "lines",
+          "permalink"
+        ],
+        "title": "FindingCode",
+        "description": "A finding's code, read from its repository at the scanned commit now; never stored. `withheld`: only its place\nand the provider's link (a secret or a credential, an imported finding, a symbolic link, a file whose secrets are\nknown only at another commit); `unavailable`: why not (`reason`)."
+      },
       "FindingKpis": {
         "properties": {
           "active": {
@@ -12229,13 +12405,34 @@
           "prompt": {
             "type": "string",
             "title": "Prompt"
+          },
+          "before": {
+            "type": "string",
+            "title": "Before"
+          },
+          "heading": {
+            "type": "string",
+            "title": "Heading"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "after": {
+            "type": "string",
+            "title": "After"
           }
         },
         "type": "object",
         "required": [
-          "prompt"
+          "prompt",
+          "before",
+          "heading",
+          "language",
+          "after"
         ],
-        "title": "FixPrompt"
+        "title": "FixPrompt",
+        "description": "The prompt without code (`prompt`) and its parts: the panel puts the code the reader opened between `before`\nand `after`, under `heading`, as a `language` block."
       },
       "GitHubManifest": {
         "properties": {

@@ -158,6 +158,7 @@
     "package_fixed": "Package: {{name}} {{version}}; the first version without the problem is {{fixed}}",
     "why": "Why it matters: {{reason}}",
     "code": "The code it was found in:",
+    "masked_line": "(line withheld: a secret was found on it)",
     "fix": "Recommended fix: {{fix}}",
     "steps": "Steps:",
     "commands": "Commands that may help:",

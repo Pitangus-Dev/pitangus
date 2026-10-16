@@ -77,6 +77,7 @@ No hay telemetría.
 - Las imágenes de contenedor que analizas **no se ejecutan ni se construyen**: los motores leen el manifiesto y las capas.
 - Las imágenes de Trivy, OSV-Scanner, Betterleaks, Grype, Checkov y zizmor van fijadas por digest. La de Opengrep se construye con el binario oficial comprobado contra su SHA-256.
 - Los valores de los secretos encontrados en tu código se redactan: en los hallazgos queda la ubicación y el tipo, no el valor.
+- **Pitangus no guarda el texto de tu código**: guarda la ubicación, la regla y hashes; el fragmento se muestra al abrir el hallazgo, leído del repositorio en ese momento (con la GitHub App o el token que conectaste, en el commit analizado) y sin los secretos. Nunca se cachea ni se registra ([Tu código nunca se guarda](hallazgos.md#tu-código-nunca-se-guarda)).
 
 ## Concesiones conocidas
 

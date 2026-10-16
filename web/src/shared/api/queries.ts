@@ -10,6 +10,7 @@ export const keys = {
   runs: ['runs'] as const,
   run: (id: string) => ['runs', id] as const,
   fixPrompt: (runId: string, fingerprint: string) => ['fix-prompt', runId, fingerprint] as const,
+  findingCode: (runId: string, fingerprint: string) => ['finding-code', runId, fingerprint] as const,
   dashboard: (days: number, tz?: string) => ['dashboard', days, tz] as const,
   sla: ['sla'] as const,
   cra: ['cra'] as const,
@@ -71,6 +72,12 @@ export const runQuery = <T extends { status: string }>(id: string) => queryOptio
 export const fixPromptQuery = (runId: string, fingerprint: string) => queryOptions({
   queryKey: keys.fixPrompt(runId, fingerprint), staleTime: 5 * 60_000, retry: false,
   queryFn: ({ signal }) => apiGet('/api/findings/prompt', { run_id: runId, fingerprint }, { signal }),
+})
+// A finding's code, read from its repository when its detail opens (runs/code_view.py): Pitangus stores none. Kept in
+// memory only while the detail is open, and asked again when it opens later (the repository may have changed access).
+export const findingCodeQuery = (runId: string, fingerprint: string) => queryOptions({
+  queryKey: keys.findingCode(runId, fingerprint), staleTime: 60_000, gcTime: 0, retry: false,
+  queryFn: ({ signal }) => apiGet('/api/findings/code', { run_id: runId, fingerprint }, { signal }),
 })
 export const healthQuery = () => queryOptions({ queryKey: keys.health, queryFn: ({ signal }) => apiGet('/api/health', undefined, { signal }), staleTime: 5 * 60_000 })
 // The first steps, worked out by the server from the real state: asked again whenever the card shows up (a step can
