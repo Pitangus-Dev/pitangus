@@ -5,9 +5,9 @@
 # Every input reaches the scripts through `env:` and is quoted; arguments are built as bash arrays (no eval).
 # The image runs by the digest whose cosign signature was checked (keyless, the release workflow of a v* tag).
 # tests/test_action.py runs these scripts against a fake `docker` and `cosign` and checks the pins and the default image.
-name: Pitangus
+name: Pitangus Security Scan
 description: Block pull requests on the vulnerabilities, secrets and misconfigurations they introduce. SARIF for code scanning.
-author: BrayansStivens
+author: Arodium
 branding:
   icon: shield
   color: purple
