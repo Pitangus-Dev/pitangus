@@ -64,6 +64,7 @@ DECISIONS = ("mitigated", "accepted", "not_applicable")
 ID = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")
 FOLDER = re.compile(r"[A-Za-z0-9_.\- /@+]{0,200}")
 CANVAS = 100_000  # canvas coordinates: plenty for any diagram
+LABEL_REACH = 1000  # how far a flow label may be moved from its line's midpoint, per axis
 LIMITS = {"components": 60, "flows": 150, "boundaries": 20}
 
 
@@ -116,6 +117,17 @@ def _size(raw) -> dict | None:
     return {"width": width, "height": height} if width and height else None
 
 
+def _label_offset(raw, problems: Problems, path: str, identifier: str) -> dict | None:
+    """Where a flow's label was moved, relative to its line's midpoint; out of bounds, the label goes back to its place."""
+    if raw is None:
+        return None
+    x, y = (_number(raw.get(axis), -LABEL_REACH, LABEL_REACH) if isinstance(raw, dict) else None for axis in ("x", "y"))
+    if x is None or y is None:
+        problems.info(path, msg("threats.problems.label_offset_dropped", limit=LABEL_REACH), identifier)
+        return None
+    return {"x": x, "y": y}
+
+
 def _box(raw) -> dict | None:
     if not isinstance(raw, dict):
         return None
@@ -140,7 +152,7 @@ MODEL_KEYS = {"name", "description", "methodology", "custom_modules", "component
 STORED_KEYS = {"id", "created_at", "created_by", "updated_at", "updated_by", "decisions"}
 COMPONENT_KEYS = {"id", "name", "kind", "custom_kind", "custom_base", "description", "technology", "asset", "asset_ref", "path",
                   "position", "size", "data", "internet_facing", "authenticates", "encrypted_at_rest", "color", "origin"}
-FLOW_KEYS = {"id", "source", "target", "name", "protocol", "description", "data", "authenticated", "encrypted"}
+FLOW_KEYS = {"id", "source", "target", "name", "protocol", "description", "data", "authenticated", "encrypted", "label_offset"}
 BOUNDARY_KEYS = {"id", "name", "components", "description", "box", "color"}
 DESCRIPTION_LIMIT = 1000  # a flow's or a boundary's description (a component's: 400, shown on the canvas)
 # Field synonyms read as ours, with an info (documented in the JSON Schema): what assistants and other tools write.
@@ -314,6 +326,9 @@ def _flow(item: Item, identifier: str, ids: set[str], problems: Problems) -> dic
              "data": _data(item.get("data"), problems, item.at("data"), identifier),
              "authenticated": problems.flag(item.get("authenticated"), item.at("authenticated"), "authenticated", identifier),
              "encrypted": problems.flag(item.get("encrypted"), item.at("encrypted"), "encrypted", identifier) or protocol in ("https", "sftp")}
+    offset = _label_offset(item.get("label_offset"), problems, item.at("label_offset"), identifier)
+    if offset:
+        entry["label_offset"] = offset
     return item.keep(entry) if ends_ok else None
 
 

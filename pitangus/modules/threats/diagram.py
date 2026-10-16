@@ -496,12 +496,21 @@ def label_width(text: str) -> float:
     return min(132, len(text) * 6 + 14)
 
 
-def label_spots(edges: list[tuple[str, tuple, str, float]], rects: list[dict]) -> dict[str, tuple[float, float]]:
+def label_spots(edges: list[tuple[str, tuple, str, float, dict | None]], rects: list[dict]) -> dict[str, tuple[float, float]]:
     """Each flow's label, at the first point of its curve that overlaps no component or other label.
-    Same as the editor's labelSpots: short flows first (they have fewer places to choose from)."""
+    Same as the editor's labelSpots: a label the team moved stays at its offset from the curve's midpoint and the
+    others avoid it; then short flows first (they have fewer places to choose from)."""
     placed: list[dict] = []
     spots: dict[str, tuple[float, float]] = {}
-    for key, curve, text, _ in sorted(edges, key=lambda edge: edge[3]):
+    for key, curve, text, _, offset in edges:
+        if offset:
+            x, y = _point(curve, 0.5)
+            spots[key] = (x + offset["x"], y + offset["y"])
+            width = label_width(text) + 8
+            placed.append({"x": spots[key][0] - width / 2, "y": spots[key][1] - (LABEL_ROOM + 6) / 2, "width": width, "height": LABEL_ROOM + 6})
+    for key, curve, text, _, offset in sorted(edges, key=lambda edge: edge[3]):
+        if offset:
+            continue
         width = label_width(text) + 8
         best = (math.inf, _point(curve, 0.5), None)
         for spot in SPOTS:
@@ -585,7 +594,8 @@ def scene(model: dict, kinds: dict[str, str] | None = None, *, locale: str | Non
         source_side, target_side, bend = chosen[flow["id"]]
         curves.append((flow, number, _bezier(a, source_side, b, target_side, offsets[flow["id"]], bend),
                        math.hypot(b["x"] - a["x"], b["y"] - a["y"])))
-    spots = label_spots([(flow["id"], curve, flow_label(number, flow), length) for flow, number, curve, length in curves], list(rects.values()))
+    spots = label_spots([(flow["id"], curve, flow_label(number, flow), length, flow.get("label_offset")) for flow, number, curve, length in curves],
+                        list(rects.values()))
     curves = [(flow, number, curve) for flow, number, curve, _ in curves]
     for flow, number, curve in curves:
         plain = not flow.get("encrypted")
@@ -606,7 +616,7 @@ def scene(model: dict, kinds: dict[str, str] | None = None, *, locale: str | Non
         text = flow_label(number, flow)
         width = label_width(text) - 10
         plain = not flow.get("encrypted")
-        items += [{"t": "rect", "x": x - width / 2, "y": y - LABEL_H / 2, "w": width, "h": LABEL_H, "rx": 9, "fill": WHITE,
+        items += [{"t": "rect", "x": x - width / 2, "y": y - LABEL_H / 2, "w": width, "h": LABEL_H, "rx": 4, "fill": WHITE,
                    "stroke": COLORS["danger"][0] if plain else LINE, "sw": 1},
                   {"t": "text", "x": x, "y": y + 3.6, "text": text, "size": 10, "bold": True, "fill": COLORS["danger"][0] if plain else MUTED,
                    "anchor": "middle"}]

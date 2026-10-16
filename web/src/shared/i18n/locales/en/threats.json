@@ -400,7 +400,9 @@
       "fit_view": "Fit to view",
       "interactive": "Lock or unlock the diagram",
       "minimap": "Minimap",
-      "handle": "Connection point"
+      "handle": "Connection point",
+      "flow_label": "Label of flow {{label}}",
+      "flow_label_hint": "Arrow keys move the label, further with Shift; Escape cancels a drag. Double-click or Reset label puts it back. Enter selects the flow."
     },
     "new_component": "New component",
     "component": "Component",
@@ -454,7 +456,9 @@
     "authenticates": "Authenticates",
     "remove_component": "Remove component",
     "flow_description_placeholder": "What travels and why",
-    "boundary_description_placeholder": "What this boundary separates"
+    "boundary_description_placeholder": "What this boundary separates",
+    "reset_label": "Reset label",
+    "reset_label_hint": "Put the label back in its automatic place"
   },
   "help": {
     "title": "How it works",
@@ -462,7 +466,8 @@
     "flows": "To create a flow, drag from one of a component's connection points to another component. The arrow shows which way the data travels.",
     "select": "Click a component, a flow or a boundary's name to edit it here. Delete removes the selection.",
     "colors": "Color: each component takes the color of its role (legend at the bottom right); change it once selected. To name a color you chose, click it in the legend or use the field below the color picker. Orange ring: threats with evidence from scans. Dashed red line: unencrypted flow.",
-    "numbers": "Each flow has a number, the same one used in the SVG and in the report's flow table."
+    "numbers": "Each flow has a number, the same one used in the SVG and in the report's flow table.",
+    "labels": "If a flow's label covers something, drag it aside: it stays with its line when components move. Double-click it to put it back."
   },
   "importer": {
     "hints": {

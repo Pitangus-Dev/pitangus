@@ -1,11 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   applyNodeChanges, Background, BackgroundVariant, BaseEdge, ConnectionMode, Controls, EdgeLabelRenderer, Handle,
-  MarkerType, NodeResizer, Panel, Position, ReactFlow, ReactFlowProvider, useReactFlow,
+  MarkerType, NodeResizer, Panel, Position, ReactFlow, ReactFlowProvider, useReactFlow, useStore,
   type Connection, type Edge, type EdgeChange, type EdgeProps, type Node, type NodeChange, type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowCounterClockwiseIcon, CheckIcon, GlobeIcon, LockIcon, PencilSimpleIcon, PlusIcon, SquareIcon, SquaresFourIcon, TrashIcon } from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon, ArrowUUpLeftIcon, CheckIcon, GlobeIcon, LockIcon, PencilSimpleIcon, PlusIcon, SquareIcon, SquaresFourIcon, TrashIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -120,24 +120,94 @@ function BoundaryNode({ data, selected }: NodeProps<Node<BoundaryData, 'boundary
   </div>
 }
 
+// Moving a flow's label: who may, and what it does (the model keeps an offset from the line's midpoint, so the label
+// follows its line when components move).
+type LabelMoves = { editable: boolean; hint: string; move: (flow: string, offset: Point | null) => void; select: (flow: string) => void }
+const LabelContext = createContext<LabelMoves>({ editable: false, hint: '', move: () => {}, select: () => {} })
+const LABEL_REACH = 1000  // as the server bounds it (model.LABEL_REACH)
+const LABEL_STEP = 8, LABEL_LEAP = 40
+const LINK_AFTER = 24  // from this far off its line, a label being moved shows which line it belongs to
+const KEY_STEPS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+const reach = (value: number) => Math.max(-LABEL_REACH, Math.min(LABEL_REACH, Math.round(value)))
+const placeLabel = (flow: Flow, offset: Point | null): Flow => {
+  const next = { ...flow }
+  if (offset) next.label_offset = offset
+  else delete next.label_offset
+  return next
+}
+
 function FlowEdge({ id, sourceX: rawSourceX, sourceY: rawSourceY, targetX: rawTargetX, targetY: rawTargetY, sourcePosition, targetPosition, data, selected, markerEnd }: EdgeProps<Edge<FlowData, 'flow'>>) {
   const { t } = useTranslation('threats')
+  const labels = useContext(LabelContext)
+  const zoom = useStore(state => state.transform[2])
+  const [moving, setMoving] = useState<Point | null>(null)
+  const [focused, setFocused] = useState(false)
+  const drag = useRef<{ x: number; y: number; from: Point; to: Point | null } | null>(null)
+  const dragging = moving !== null
+  useEffect(() => {
+    if (!dragging) return
+    const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopPropagation(); drag.current = null; setMoving(null) } }
+    window.addEventListener('keydown', cancel, true)
+    return () => window.removeEventListener('keydown', cancel, true)
+  }, [dragging])
   // Flows sharing a side spread along it (ports); the curve is the exports' one, not React Flow's.
   const [sourceX, sourceY] = shift(sourcePosition as Side, rawSourceX, rawSourceY, data?.offsets?.[0] ?? 0)
   const [targetX, targetY] = shift(targetPosition as Side, rawTargetX, rawTargetY, data?.offsets?.[1] ?? 0)
-  const path = bezierPath(sourceX, sourceY, sourcePosition as Side, targetX, targetY, targetPosition as Side, data?.bend ?? 1)
-  const spot = curvePoint(sourceX, sourceY, sourcePosition as Side, targetX, targetY, targetPosition as Side, data?.labelAt ?? 0.5, data?.bend ?? 1)
-  const labelX = Math.round(spot.x), labelY = Math.round(spot.y)
+  const bend = data?.bend ?? 1
+  const path = bezierPath(sourceX, sourceY, sourcePosition as Side, targetX, targetY, targetPosition as Side, bend)
+  const mid = curvePoint(sourceX, sourceY, sourcePosition as Side, targetX, targetY, targetPosition as Side, 0.5, bend)
+  const auto = curvePoint(sourceX, sourceY, sourcePosition as Side, targetX, targetY, targetPosition as Side, data?.labelAt ?? 0.5, bend)
   const flow = data?.flow
+  const offset = moving ?? flow?.label_offset ?? null
+  const labelX = Math.round(offset ? mid.x + offset.x : auto.x), labelY = Math.round(offset ? mid.y + offset.y : auto.y)
   // En el lienzo, corta: número y protocolo (lo mismo que el SVG y el informe). Completa al seleccionarla y en el título.
   const short = flow ? `${data?.number} · ${flow.protocol.toUpperCase()}` : ''
   const label = flow ? `${short}${flow.name ? ` · ${flow.name}` : ''}${flow.encrypted ? '' : ` · ${t('canvas.unencrypted_flow')}`}` : ''
+  const current = (): Point => flow?.label_offset ?? { x: Math.round(auto.x - mid.x), y: Math.round(auto.y - mid.y) }
+  const link = !!offset && (dragging || focused) && Math.hypot(offset.x, offset.y) > LINK_AFTER
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    event.stopPropagation()
+    drag.current = { x: event.clientX, y: event.clientY, from: current(), to: null }
+    if (labels.editable) event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const state = drag.current
+    if (!state || !labels.editable) return
+    if (!state.to && Math.hypot(event.clientX - state.x, event.clientY - state.y) < 3) return
+    state.to = { x: reach(state.from.x + (event.clientX - state.x) / zoom), y: reach(state.from.y + (event.clientY - state.y) / zoom) }
+    setMoving(state.to)
+  }
+  const onPointerUp = () => {
+    const state = drag.current
+    drag.current = null
+    if (!state || !flow) return
+    if (state.to) labels.move(flow.id, state.to)
+    else labels.select(flow.id)
+    setMoving(null)
+  }
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!flow) return
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); labels.select(flow.id); return }
+    const direction = KEY_STEPS[event.key]
+    if (!direction || !labels.editable) return
+    event.preventDefault()
+    event.stopPropagation()
+    const base = current(), step = event.shiftKey ? LABEL_LEAP : LABEL_STEP
+    labels.move(flow.id, { x: reach(base.x + direction[0] * step), y: reach(base.y + direction[1] * step) })
+  }
   return <>
     <BaseEdge id={id} path={path} markerEnd={markerEnd} className={`tm-flow ${flow?.encrypted ? '' : 'tm-flow--plain'} ${data?.flagged ? 'tm-flow--flagged' : ''} ${selected ? 'tm-flow--selected' : ''}`} />
+    {link && <g className="tm-label-link" aria-hidden><path d={`M${mid.x},${mid.y}L${labelX},${labelY}`} /><circle cx={mid.x} cy={mid.y} r={2.5} /></g>}
     {flow && label && <EdgeLabelRenderer>
-      <div className="tm-flow-label nodrag nopan" data-x={labelX} data-y={labelY} ref={element => { if (element) element.style.transform = `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}>
+      <div className="tm-flow-label nodrag nopan nokey flex min-h-6 items-center rounded-sm" data-x={labelX} data-y={labelY} data-movable={labels.editable || undefined} data-moving={dragging || undefined}
+        ref={element => { if (element) element.style.transform = `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+        {...(labels.editable ? { role: 'button', tabIndex: 0, 'aria-label': t('canvas.aria.flow_label', { label }), 'aria-describedby': labels.hint } : {})}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={() => { drag.current = null; setMoving(null) }}
+        onDoubleClick={() => { if (labels.editable && flow.label_offset) labels.move(flow.id, null) }}
+        onKeyDown={onKeyDown} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>
         {/* Acotada al hueco entre columnas para no tapar componentes; completa en el título y al seleccionarla. */}
-        <span title={tooltip(label, flow.description, flow.custom_properties)} className={`inline-block truncate rounded-full border px-1.5 py-0.5 align-middle text-[11px] font-semibold ${selected ? 'max-w-[260px] border-brand/60 text-brand' : flow.encrypted ? 'max-w-[132px] border-app-line text-app-muted' : 'max-w-[132px] border-danger-line text-danger'} bg-panel`}>
+        <span title={tooltip(label, flow.description, flow.custom_properties)} className={`inline-block truncate rounded-sm border px-1.5 py-0.5 align-middle text-[11px] font-semibold ${selected ? 'max-w-[260px] border-brand/60 text-brand' : flow.encrypted ? 'max-w-[132px] border-app-line text-app-muted' : 'max-w-[132px] border-danger-line text-danger'} bg-panel`}>
           {selected ? label : short}
         </span>
       </div>
@@ -163,7 +233,8 @@ function useDarkMode() {
   return dark
 }
 
-type Props = { model: Model; setModel: (model: Model) => void; threats: Threat[]; catalog: Catalog; compact?: boolean }
+// readOnly: someone who can't edit the model sees the diagram but can't move its labels.
+type Props = { model: Model; setModel: (model: Model) => void; threats: Threat[]; catalog: Catalog; compact?: boolean; readOnly?: boolean }
 
 // "+ Component": the menu is as wide as its longest type, never wider than the window.
 export function AddComponentMenu({ kinds, onAdd }: { kinds: Record<Kind, string>; onAdd: (kind: Kind) => void }) {
@@ -203,7 +274,7 @@ function useAriaLabels() {
   }), [t])
 }
 
-function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
+function Canvas({ model, setModel, threats, catalog, compact = false, readOnly = false }: Props) {
   const { t } = useTranslation('threats')
   const ariaLabels = useAriaLabels()
   const dark = useDarkMode()
@@ -269,12 +340,17 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
     const offsets = ports(model.flows, boxes, chosen)
     const drawn = model.flows.flatMap((item, index) => chosen[item.id] ? [{ item, number: index + 1, sides: chosen[item.id] }] : [])
     const spots = labelSpots(drawn.map(({ item, number, sides }) => ({ id: item.id, source: rects[item.source], target: rects[item.target],
-      sourceSide: sides[0], targetSide: sides[1], text: `${number} · ${item.protocol}`, offsets: offsets[item.id], bend: sides[2] })), Object.values(rects))
+      sourceSide: sides[0], targetSide: sides[1], text: `${number} · ${item.protocol}`, offsets: offsets[item.id], bend: sides[2], moved: item.label_offset })), Object.values(rects))
     return drawn.map(({ item, number, sides }) => ({ id: flowId(item.id), type: 'flow' as const, source: componentId(item.source), target: componentId(item.target),
       sourceHandle: handle[sides[0]], targetHandle: handle[sides[1]], selected: selectedFlow === item.id,
       data: { flow: item, number, flagged: hot.has(item.id), labelAt: spots[item.id], offsets: offsets[item.id], bend: sides[2] },
       markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 } }))
   }, [model.flows, model.components, rects, selectedFlow, hot])
+
+  const hint = useId()
+  const labelMoves = useMemo<LabelMoves>(() => ({ editable: !readOnly, hint,
+    move: (id, offset) => { const current = modelRef.current; setModel({ ...current, flows: current.flows.map(item => item.id === id ? placeLabel(item, offset) : item) }) },
+    select: id => { setSelectedFlow(id); setNodes(previous => previous.map(node => node.selected ? { ...node, selected: false } : node)) } }), [readOnly, hint, setModel])
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     const picked = changes.find(change => change.type === 'select')
@@ -326,6 +402,7 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
     const current = modelRef.current
     const layout = autoLayout({ ...current, components: current.components.map(item => ({ ...item, position: null })) })
     setModel({ ...current, components: current.components.map(item => ({ ...item, position: layout.positions[item.id] ?? item.position ?? null })),
+      flows: current.flows.map(item => placeLabel(item, null)),
       boundaries: current.boundaries.map(item => ({ ...item, box: layout.boxes[item.id] ?? item.box ?? null })) })
     setTimeout(() => flow.fitView({ padding: 0.15, duration: 300 }), 60)
   }
@@ -333,7 +410,7 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
   const selectedNode = nodes.find(node => node.selected)
   // Con la guía abierta el panel de edición baja bajo el lienzo: el diagrama necesita el ancho.
   return <div className={`grid gap-4 ${compact ? '' : 'xl:grid-cols-[minmax(0,1fr)_320px]'}`}>
-    <ShiftContext.Provider value={shift}><div className="tm-canvas h-[640px] overflow-hidden rounded-lg border border-app-line bg-inset">
+    <ShiftContext.Provider value={shift}><LabelContext.Provider value={labelMoves}><div className="tm-canvas h-[640px] overflow-hidden rounded-lg border border-app-line bg-inset">
       <ReactFlow<CanvasNode, Edge<FlowData, 'flow'>> ariaLabelConfig={ariaLabels} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
         onDelete={({ nodes: removed, edges: gone }) => remove(removed.map(node => node.id), gone.map(edge => edge.id))}
@@ -351,8 +428,9 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
           <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={tidy} title={t('canvas.tidy_hint')}><SquaresFourIcon />{t('canvas.tidy')}</Button>
         </Panel>
       </ReactFlow>
-    </div></ShiftContext.Provider>
-    <Inspector model={model} setModel={setModel} catalog={catalog} node={selectedNode} flowId={selectedFlow}
+      <p id={hint} hidden>{t('canvas.aria.flow_label_hint')}</p>
+    </div></LabelContext.Provider></ShiftContext.Provider>
+    <Inspector model={model} setModel={setModel} catalog={catalog} node={selectedNode} flowId={selectedFlow} editable={!readOnly}
       onRemove={() => remove(selectedNode ? [selectedNode.id] : [], selectedFlow ? [flowId(selectedFlow)] : [])} />
   </div>
 }
@@ -361,7 +439,7 @@ function Check({ checked, onChange, children }: { checked: boolean; onChange: (v
   return <label className="flex items-center gap-2 text-xs text-app-secondary"><input type="checkbox" className="size-3.5 accent-brand" checked={checked} onChange={event => onChange(event.target.checked)} />{children}</label>
 }
 
-function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove }: { model: Model; setModel: (model: Model) => void; catalog: Catalog; node?: CanvasNode; flowId: string | null; onRemove: () => void }) {
+function Inspector({ model, setModel, catalog, node, flowId: selected, editable, onRemove }: { model: Model; setModel: (model: Model) => void; catalog: Catalog; node?: CanvasNode; flowId: string | null; editable: boolean; onRemove: () => void }) {
   const { t } = useTranslation('threats')
   const field = 'block space-y-1'
   const label = 'text-[11px] font-medium text-app-muted'
@@ -378,7 +456,8 @@ function Inspector({ model, setModel, catalog, node, flowId: selected, onRemove 
       <div className="space-y-1.5"><Check checked={item.authenticated} onChange={authenticated => update({ authenticated })}>{t('inspector.authenticated')}</Check><Check checked={item.encrypted} onChange={encrypted => update({ encrypted })}>{t('inspector.encrypted_in_transit')}</Check></div>
       <label className={field}><span className={label}>{t('inspector.description')}</span><textarea value={item.description ?? ''} maxLength={1000} rows={2} onChange={event => update({ description: event.target.value })} placeholder={t('inspector.flow_description_placeholder')} className="field-sizing-content w-full rounded-lg border border-input bg-card px-3 py-2 text-xs text-app-fg" /></label>
       <CustomPropertiesField compact value={item.custom_properties} onChange={custom_properties => update({ custom_properties })} />
-      <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => update({ source: item.target, target: item.source })}><ArrowCounterClockwiseIcon />{t('inspector.reverse')}</Button>
+      <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => update({ source: item.target, target: item.source })}><ArrowCounterClockwiseIcon />{t('inspector.reverse')}</Button>
+        {editable && item.label_offset && <Button size="sm" variant="outline" title={t('inspector.reset_label_hint')} onClick={() => setModel({ ...model, flows: model.flows.map(entry => entry.id === item.id ? placeLabel(entry, null) : entry) })}><ArrowUUpLeftIcon />{t('inspector.reset_label')}</Button>}
         <Button size="sm" variant="ghost" onClick={onRemove}><TrashIcon />{t('common:actions.remove')}</Button></div>
     </aside>
   }
@@ -433,6 +512,7 @@ function Help() {
     <p>{t('help.select')}</p>
     <p>{t('help.colors')}</p>
     <p>{t('help.numbers')}</p>
+    <p>{t('help.labels')}</p>
   </aside>
 }
 

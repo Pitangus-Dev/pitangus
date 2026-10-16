@@ -9,7 +9,8 @@ export type Box = Point & { width: number; height: number }
 export type Kind = 'actor' | 'web_app' | 'api' | 'service' | 'function' | 'database' | 'cache' | 'queue' | 'storage' | 'external' | 'identity' | 'custom'
 export type Component = { id: string; name: string; kind: Kind; custom_kind?: string; custom_base?: Exclude<Kind, 'custom'>; description?: string; technology?: string; asset?: string | null; asset_ref?: string; path?: string; position?: Point | null; size?: { width: number; height: number } | null; data: string[]; internet_facing: boolean; authenticates: boolean; encrypted_at_rest: boolean; origin?: string; color?: string } & Extensible
 export type CustomModule = 'stride' | 'linddun' | 'manual' | 'pasta' | 'trees' | 'attack' | 'elements'
-export type Flow = { id: string; source: string; target: string; name?: string; protocol: string; description?: string; data: string[]; authenticated: boolean; encrypted: boolean } & Extensible
+// label_offset: where the team moved the diagram label, from the middle of the line (none: automatic place).
+export type Flow = { id: string; source: string; target: string; name?: string; protocol: string; description?: string; data: string[]; authenticated: boolean; encrypted: boolean; label_offset?: Point | null } & Extensible
 export type Boundary = { id: string; name: string; components: string[]; description?: string; box?: Box | null; color?: string } & Extensible
 export type Level = 'low' | 'medium' | 'high'
 export type Severity = 'critical' | 'high' | 'medium' | 'low'

@@ -637,6 +637,7 @@
     "not_a_method_category": "{{method}} solo tiene estas categorías: {{allowed}}. «{{value}}» se conserva como propiedad personalizada; para modelar con tus propias categorías, usa el enfoque Personalizado",
     "not_a_gate": "Un paso de un árbol de ataque es AND u OR: «{{value}}» se conserva como propiedad personalizada y el paso queda en OR",
     "not_a_pasta_stage": "PASTA solo tiene sus siete etapas: «{{value}}» se conserva y se muestra después de ellas; para añadir secciones propias, usa el enfoque Personalizado",
+    "label_offset_dropped": "label_offset: la etiqueta vuelve a su sitio automático (cada coordenada es un número entre -{{limit}} y {{limit}})",
     "module_added": "El enfoque Personalizado acepta {{section}} que trae el modelo: se activó su módulo",
     "equivalents_ignored": "level_equivalents.{{field}}: solo estos niveles sirven de equivalente ({{allowed}}); el resto se ignoró"
   },

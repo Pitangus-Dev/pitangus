@@ -469,6 +469,54 @@ class ConsistencyTests(unittest.TestCase):
         self.assertEqual(open_paths({"nodes": [*nodes[:4], {**nodes[5], "mitigated": True}]}), 0)
 
 
+class FlowLabelTests(unittest.TestCase):
+    """A flow label moved on the diagram: kept as an offset from its line's midpoint, everywhere the diagram is drawn."""
+
+    def placed(self, **offsets):
+        components = [{**item, "position": {"x": 40 + index * 260, "y": 80}} for index, item in enumerate(model()["components"])]
+        flows = [{**item, "label_offset": offsets[item["id"]]} if item["id"] in offsets else item for item in model()["flows"]]
+        return model(components=components, flows=flows, boundaries=[])
+
+    def test_offsets_are_bounded_and_dropped_with_an_info(self):
+        self.assertEqual(self.placed(f1={"x": 12.34, "y": -80})["flows"][0]["label_offset"], {"x": 12.3, "y": -80})
+        self.assertNotIn("label_offset", model()["flows"][0])
+        for raw in ({"x": tm.LABEL_REACH + 1, "y": 0}, {"x": "1", "y": 2}, {"x": True, "y": 0}, {"x": 1}, [1, 2], "up"):
+            with self.subTest(raw=raw):
+                flows = [{**model()["flows"][0], "label_offset": raw}, *model()["flows"][1:]]
+                current, problems = tm.inspect({**model(), "flows": flows}, known_assets={REPO})
+                self.assertNotIn("label_offset", current["flows"][0])
+                self.assertNotIn("custom_properties", current["flows"][0])
+                self.assertEqual([(item["path"], item["severity"]) for item in problems.items], [("/flows/0/label_offset", "info")])
+        current, problems = tm.inspect({**model(), "flows": [{**model()["flows"][0], "label_offset": None}]}, known_assets={REPO})
+        self.assertEqual((problems.items, "label_offset" in current["flows"][0]), ([], False))
+
+    def test_the_portable_format_carries_it_and_other_tools_ignore_it(self):
+        current = self.placed(f2={"x": -40, "y": 64})
+        document = json.loads(json.dumps(tm.to_portable(current)))
+        self.assertEqual(document["model"]["flows"][1]["label_offset"], {"x": -40, "y": 64})
+        self.assertNotIn("label_offset", document["model"]["flows"][0])
+        self.assertEqual(tm.from_portable(document)["flows"][1]["label_offset"], {"x": -40, "y": 64})
+        self.assertNotIn("label_offset", json.dumps(tm.to_threat_dragon(current, [])))
+        self.assertNotIn("label_offset", tm.to_pytm(current))
+
+    def test_the_exports_draw_it_at_its_offset_from_the_midpoint(self):
+        from pitangus.modules.threats import diagram as threat_diagram
+        current = self.placed(f1={"x": 30, "y": -96})
+        rects = threat_diagram.drawn_rects(current)
+        chosen = threat_diagram.routes(current["flows"], rects)
+        ports = threat_diagram.ports(current["flows"], rects, chosen)
+        source, target, bend = chosen["f1"]
+        curve = threat_diagram._bezier(rects["usuario"], source, rects["api"], target, ports["f1"], bend)
+        mid_x, mid_y = threat_diagram._point(curve, 0.5)
+        items = threat_diagram.scene(current, locale="en")["items"]
+        text = next(item for item in items if item["t"] == "text" and item["text"] == "1 · HTTPS")
+        self.assertAlmostEqual(text["x"], mid_x + 30)
+        self.assertAlmostEqual(text["y"] - 3.6, mid_y - 96)
+        pills = [item for item in items if item["t"] == "rect" and item["h"] == threat_diagram.LABEL_H]
+        self.assertTrue(pills and all(item["rx"] <= 8 for item in pills))  # the manual: no radius above 8
+        self.assertIn(f'x="{text["x"]:g}"', tm.to_svg(current))
+
+
 class EmptyTreeTests(unittest.TestCase):
     def test_a_tree_without_steps_is_not_reported_as_cut(self):
         current = model(methodology="attack_trees", attack_trees=[{"id": "vacio", "goal": "Robar pagos", "nodes": []}])

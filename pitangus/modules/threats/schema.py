@@ -64,6 +64,9 @@ def build() -> dict:
         "protocol": {"type": "string", "maxLength": tm.PROTOCOL_LIMIT, "examples": list(tm.PROTOCOLS),
                      "description": "Known: " + ", ".join(tm.PROTOCOLS) + ". Any other short text is kept as your own protocol; Pitangus can't tell whether it's encrypted, so set encrypted."},
         "data": data, "authenticated": {"type": "boolean"}, "encrypted": {"type": "boolean"},
+        "label_offset": {"type": ["object", "null"], "description": "Where the diagram's label was moved, from the middle of its line; omit it for the automatic place",
+                         "properties": {axis: {"type": "number", "minimum": -tm.LABEL_REACH, "maximum": tm.LABEL_REACH} for axis in ("x", "y")},
+                         "required": ["x", "y"], "additionalProperties": False},
     }, ("id", "source", "target", "protocol")), tm.FLOW_ALIASES)
     boundary = _aliased(_object({"id": _id("Unique among boundaries"), "name": _text(80),
                                  "components": {"type": "array", "items": reference, "description": "Component ids; a component belongs to one boundary at most"},
