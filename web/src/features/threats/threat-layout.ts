@@ -226,7 +226,8 @@ export function fitBox(box: Box, members: { position: Point; width: number; heig
 // pisa componentes ni etiquetas ya colocadas. Mismo trazado que getBezierPath de React Flow.
 export type Side = 'top' | 'right' | 'bottom' | 'left'
 type Rect = { x: number; y: number; width: number; height: number }
-export type LabelEdge = { id: string; source: Rect; target: Rect; sourceSide: Side; targetSide: Side; text: string; offsets?: [number, number]; bend?: number }
+// `moved`: where the team put the label, from the curve's midpoint (the flow's label_offset).
+export type LabelEdge = { id: string; source: Rect; target: Rect; sourceSide: Side; targetSide: Side; text: string; offsets?: [number, number]; bend?: number; moved?: Point | null }
 
 export const shift = (side: Side, x: number, y: number, offset: number): [number, number] => side === 'left' || side === 'right' ? [x, y + offset] : [x + offset, y]
 
@@ -365,12 +366,25 @@ const overlap = (a: Rect, b: Rect) => Math.max(0, Math.min(a.x + a.width, b.x + 
 export function labelSpots(edges: LabelEdge[], components: Rect[]): Record<string, number> {
   const placed: Rect[] = []
   const spots: Record<string, number> = {}
+  const ends = (edge: LabelEdge) => {
+    const [ax, ay] = anchor(edge.source, edge.sourceSide), [bx, by] = anchor(edge.target, edge.targetSide)
+    return [...shift(edge.sourceSide, ax, ay, edge.offsets?.[0] ?? 0), ...shift(edge.targetSide, bx, by, edge.offsets?.[1] ?? 0)] as [number, number, number, number]
+  }
+  const widthOf = (edge: LabelEdge) => Math.min(LABEL_MAX, edge.text.length * 6 + 14) + 8
+  // A label the team moved stays at its offset from the midpoint (t = 0.5) and the others avoid it.
+  for (const edge of edges) {
+    if (!edge.moved) continue
+    const [sx, sy, tx, ty] = ends(edge)
+    const point = curvePoint(sx, sy, edge.sourceSide, tx, ty, edge.targetSide, 0.5, edge.bend ?? 1)
+    const width = widthOf(edge)
+    spots[edge.id] = 0.5
+    placed.push({ x: point.x + edge.moved.x - width / 2, y: point.y + edge.moved.y - (LABEL_H + 6) / 2, width, height: LABEL_H + 6 })
+  }
   // Primero los flujos cortos: tienen menos sitio donde elegir.
   const length = (edge: LabelEdge) => Math.hypot(edge.target.x - edge.source.x, edge.target.y - edge.source.y)
-  for (const edge of [...edges].sort((a, b) => length(a) - length(b))) {
-    const [ax, ay] = anchor(edge.source, edge.sourceSide), [bx, by] = anchor(edge.target, edge.targetSide)
-    const [sx, sy] = shift(edge.sourceSide, ax, ay, edge.offsets?.[0] ?? 0), [tx, ty] = shift(edge.targetSide, bx, by, edge.offsets?.[1] ?? 0)
-    const width = Math.min(LABEL_MAX, edge.text.length * 6 + 14) + 8
+  for (const edge of [...edges].filter(item => !item.moved).sort((a, b) => length(a) - length(b))) {
+    const [sx, sy, tx, ty] = ends(edge)
+    const width = widthOf(edge)
     let best = { t: 0.5, cost: Infinity, rect: null as Rect | null }
     for (const t of SPOTS) {
       const point = curvePoint(sx, sy, edge.sourceSide, tx, ty, edge.targetSide, t, edge.bend ?? 1)

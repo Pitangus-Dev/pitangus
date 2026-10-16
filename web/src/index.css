@@ -400,6 +400,11 @@ input[data-bare]:focus-visible { outline: none !important; }
 .tm-canvas .tm-flow--flagged { stroke: var(--attention); stroke-width: 2; }
 .tm-canvas .tm-flow--selected { stroke: var(--app-fg); stroke-width: 2.25; }
 .tm-canvas .tm-flow-label { position: absolute; pointer-events: all; cursor: pointer; }
+.tm-canvas .tm-flow-label[data-movable] { cursor: grab; touch-action: none; }
+.tm-canvas .tm-flow-label[data-moving] { cursor: grabbing; }
+.tm-canvas .tm-label-link { stroke: var(--app-muted); fill: none; pointer-events: none; }
+.tm-canvas .tm-label-link path { stroke-width: 1; }
+.tm-canvas .tm-label-link circle { fill: var(--app-muted); stroke: none; }
 .tm-canvas .react-flow__edge-textbg { fill: var(--app-panel); }
 
 /* Fronteras y componentes redimensionables desde cualquier borde o esquina, sin seleccionarlos antes: el borde

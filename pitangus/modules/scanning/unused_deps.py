@@ -9,6 +9,10 @@ To avoid false positives, a dependency counts as used if it is imported in the
 code **or** its name appears in configuration, scripts, a Dockerfile or a
 Procfile (PostCSS plugins, `gunicorn` in the CMD, Django apps…). Even so, it is
 a heuristic and is presented as one.
+
+Only manifests declare dependencies. Lockfiles (package-lock, pnpm-lock, a
+requirements.txt compiled by pip-compile/uv/poetry) list transitive packages
+the project never imports, so they are neither declarations nor evidence of use.
 """
 
 from __future__ import annotations
@@ -36,6 +40,11 @@ IMPLICIT = {"npm": {"react-dom", "sharp", "typescript", "tailwindcss", "postcss"
             "pypi": {"uvicorn", "gunicorn", "psycopg2", "psycopg2-binary", "psycopg", "psycopg-binary", "asyncpg", "pymysql",
                      "mysqlclient", "python-multipart", "email-validator", "setuptools", "wheel", "pip", "alembic", "celery"}}
 MAX_FILE = 400_000
+LOCKFILES = {"package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb",
+             "poetry.lock", "uv.lock", "pdm.lock", "pipfile.lock", "pylock.toml"}
+REQUIREMENTS = re.compile(r"requirements(?!-dev|-test|_dev|_test)[\w.-]*\.(?:txt|in)")
+LOCK_HEADER = re.compile(r"^#.*\b(?:auto-?)?generated\s+by\s+(?:pip-compile|uv|pdm|poetry)\b", re.I | re.M)
+REQUIREMENT_NAME = re.compile(r"\s*([A-Za-z0-9][A-Za-z0-9_.\-]*)")
 
 
 def _files(root: Path):
@@ -91,20 +100,70 @@ def _python_manifests(root: Path) -> list[tuple[Path, dict[str, int]]]:
                 continue
             items = list((data.get("project") or {}).get("dependencies") or [])
             items += [key for key in (((data.get("tool") or {}).get("poetry") or {}).get("dependencies") or {}) if key != "python"]
-        elif re.fullmatch(r"requirements(?!-dev|-test|_dev|_test)[\w.-]*\.txt", name):
-            text = _read(path)
-            items = text.splitlines()
+        elif REQUIREMENTS.fullmatch(name):
+            lines = _requirements_declarations(path)
+            if lines:
+                result.append((path, lines))
+            continue
         else:
             continue
         lines = {}
         for item in items:
-            match = re.match(r"\s*([A-Za-z0-9][A-Za-z0-9_.\-]*)", str(item))
+            match = REQUIREMENT_NAME.match(str(item))
             if match and not str(item).lstrip().startswith(("#", "-")):
                 dist = match[1].lower().replace("_", "-")
                 lines[dist] = next((number for number, line in enumerate(text.splitlines(), 1) if match[1] in line), 1)
         if lines:
             result.append((path, lines))
     return result
+
+
+def _requirement_entries(text: str) -> tuple[list[dict], bool]:
+    """Entries of a requirements file with their line, hashes and `# via` sources; and whether it has a lock header."""
+    entries, current, continued, via_block = [], None, False, False
+    for number, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip()
+        if continued and current is not None:
+            current["hashed"] |= "--hash=" in line
+            continued = line.endswith("\\")
+            continue
+        continued = False
+        if line.startswith("#"):
+            comment = line[1:].strip()
+            if current is not None and re.match(r"via\b", comment):
+                rest = comment[3:].strip()
+                via_block = not rest
+                if rest:
+                    current["via"].append(rest)
+            elif current is not None and via_block and comment:
+                current["via"].append(comment)
+            else:
+                via_block = False
+            continue
+        via_block = False
+        if not line or line.startswith("-"):
+            current = None
+            continue
+        match = REQUIREMENT_NAME.match(line)
+        current = {"name": match[1].lower().replace("_", "-"), "line": number, "hashed": "--hash=" in line, "via": []} if match else None
+        if current:
+            entries.append(current)
+        continued = line.endswith("\\")
+    return entries, bool(LOCK_HEADER.search(text))
+
+
+def _requirements_declarations(path: Path) -> dict[str, int]:
+    """Direct dependencies a requirements file declares. When it is a lockfile, only the entries it pins because an
+    input file asks for them (`# via -r requirements.in`); a sibling `.in` is the declaration itself."""
+    if path.suffix == ".txt" and path.with_suffix(".in").is_file():
+        return {}
+    entries, header = _requirement_entries(_read(path))
+    lockfile = header or any(entry["via"] for entry in entries) or bool(entries) and all(entry["hashed"] for entry in entries)
+    declared = {}
+    for entry in entries:
+        if not lockfile or any(source.startswith("-r ") for source in entry["via"]):
+            declared.setdefault(entry["name"], entry["line"])
+    return declared
 
 
 def analyze(root: Path) -> dict:
@@ -119,7 +178,8 @@ def analyze(root: Path) -> dict:
             text = _read(path)
             py_used.update(item for pair in PY_IMPORT.findall(text) for item in pair if item)
             mentions.append(text)
-        if CONFIG_HINTS.search(path.name) and path.name not in ("package.json", "package-lock.json") and not path.name.startswith("requirements"):
+        if (CONFIG_HINTS.search(path.name) and path.name != "package.json" and path.name.lower() not in LOCKFILES
+                and not path.name.startswith("requirements")):
             mentions.append(_read(path))
     # package.json scripts name binaries: `next dev`, `prisma migrate`.
     for path, _ in _npm_manifests(root):

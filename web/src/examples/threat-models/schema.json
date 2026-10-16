@@ -475,6 +475,30 @@
         },
         "encrypted": {
           "type": "boolean"
+        },
+        "label_offset": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Where the diagram's label was moved, from the middle of its line; omit it for the automatic place",
+          "properties": {
+            "x": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 1000
+            },
+            "y": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 1000
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [

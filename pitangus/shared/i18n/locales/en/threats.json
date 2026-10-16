@@ -637,6 +637,7 @@
     "not_a_method_category": "{{method}} has only these categories: {{allowed}}. «{{value}}» is kept as a custom property; to model with your own categories, use the Custom approach",
     "not_a_gate": "An attack tree step is AND or OR: «{{value}}» is kept as a custom property and the step is OR",
     "not_a_pasta_stage": "PASTA has only its seven stages: «{{value}}» is kept and shown after them; to add your own sections, use the Custom approach",
+    "label_offset_dropped": "label_offset: the label goes back to its automatic place (each coordinate is a number between -{{limit}} and {{limit}})",
     "module_added": "The Custom approach takes the {{section}} the model brings: its module was turned on",
     "equivalents_ignored": "level_equivalents.{{field}}: only these levels can be equivalents ({{allowed}}); the rest was ignored"
   },

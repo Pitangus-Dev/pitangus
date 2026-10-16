@@ -400,7 +400,9 @@
       "fit_view": "Ajustar a la vista",
       "interactive": "Bloquear o desbloquear el diagrama",
       "minimap": "Minimapa",
-      "handle": "Punto de conexión"
+      "handle": "Punto de conexión",
+      "flow_label": "Etiqueta del flujo {{label}}",
+      "flow_label_hint": "Las flechas mueven la etiqueta, más lejos con Mayús; Escape cancela el arrastre. Doble clic o «Recolocar etiqueta» la devuelve a su sitio. Intro selecciona el flujo."
     },
     "new_component": "Nuevo componente",
     "component": "Componente",
@@ -454,7 +456,9 @@
     "authenticates": "Autentica",
     "remove_component": "Quitar componente",
     "flow_description_placeholder": "Qué viaja y para qué",
-    "boundary_description_placeholder": "Qué separa esta frontera"
+    "boundary_description_placeholder": "Qué separa esta frontera",
+    "reset_label": "Recolocar etiqueta",
+    "reset_label_hint": "Devolver la etiqueta a su sitio automático"
   },
   "help": {
     "title": "Cómo se usa",
@@ -462,7 +466,8 @@
     "flows": "Para crear un flujo, arrastra desde uno de los puntos de un componente hasta otro. La flecha indica hacia dónde viajan los datos.",
     "select": "Haz clic en un componente, un flujo o el nombre de una frontera para editarlo aquí. Suprimir borra lo seleccionado.",
     "colors": "Color: el del papel de cada componente (leyenda abajo a la derecha); cámbialo al seleccionarlo. Para ponerle nombre a un color que elegiste, haz clic en él en la leyenda o usa el campo bajo el selector de color. Anillo naranja: amenazas con indicios en los análisis. Línea roja discontinua: flujo sin cifrar.",
-    "numbers": "Cada flujo lleva un número: es el mismo del SVG y de la tabla de flujos del informe."
+    "numbers": "Cada flujo lleva un número: es el mismo del SVG y de la tabla de flujos del informe.",
+    "labels": "Si la etiqueta de un flujo tapa algo, arrástrala a un lado: sigue a su línea cuando muevas los componentes. Con doble clic vuelve a su sitio."
   },
   "importer": {
     "hints": {
