@@ -21,7 +21,8 @@ settings.register_profile("nightly", derandomize=False, database=None, print_blo
 settings.load_profile(PROFILE)
 SCALE = 30 if PROFILE == "nightly" else 1
 
-FLAGS = ("PITANGUS_CHECKOV_ENABLED", "PITANGUS_GRYPE_ENABLED", "PITANGUS_DAST_ENABLED")
+FLAGS = ("PITANGUS_CHECKOV_ENABLED", "PITANGUS_GRYPE_ENABLED", "PITANGUS_DAST_ENABLED", "PITANGUS_TRIVY_ENABLED",
+         "PITANGUS_OSV_SCANNER_ENABLED", "PITANGUS_KATANA_ENABLED", "PITANGUS_NUCLEI_ENABLED")
 VALUE = st.sampled_from([None, "", "1", "true", "YES", "On", "0", "no", "off", "maybe"])
 
 
@@ -50,7 +51,7 @@ class EngineImagesTests(unittest.TestCase):
         for key, meta in IMAGES.items():
             if not enabled[key]:
                 self.assertNotIn(meta["image"], expected, key)
-            if key in EXPOSURE_ENGINES:
+            if key in EXPOSURE_ENGINES and enabled[key]:
                 self.assertIn(meta["image"], expected, key)
 
     def test_pull_skips_an_engine_turned_off(self):

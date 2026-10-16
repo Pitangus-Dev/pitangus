@@ -49,6 +49,7 @@ export const keys = {
   jiraFieldValues: (project: string, issueType: string, field: string, q: string) => ['jira', 'fields', project, issueType, field, q] as const,
   health: ['health'] as const,
   onboarding: ['onboarding'] as const,
+  engines: ['engines'] as const,
 }
 
 const active = (status?: string) => status === 'queued' || status === 'running'
@@ -83,6 +84,12 @@ export const healthQuery = () => queryOptions({ queryKey: keys.health, queryFn: 
 // The first steps, worked out by the server from the real state: asked again whenever the card shows up (a step can
 // be done anywhere, also in another tab or from the CLI).
 export const onboardingQuery = () => queryOptions({ queryKey: keys.onboarding, queryFn: ({ signal }) => apiGet('/api/onboarding', undefined, { signal }), staleTime: 0 })
+// Polled only while an engine's images are being prepared on the worker's server.
+export const enginesQuery = () => queryOptions({
+  queryKey: keys.engines,
+  queryFn: ({ signal }) => apiGet('/api/engines', undefined, { signal }),
+  refetchInterval: query => (query.state.data?.engines ?? []).some(engine => engine.image === 'preparing') ? 3000 : false,
+})
 export const slaQuery = () => queryOptions({ queryKey: keys.sla, queryFn: ({ signal }) => apiGet('/api/sla', undefined, { signal }) })
 export const craQuery = () => queryOptions({ queryKey: keys.craOverview, queryFn: ({ signal }) => apiGet('/api/cra', undefined, { signal }) })
 // Assets that can still be marked as CRA products, searched by name (the picker shows the first matches).

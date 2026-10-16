@@ -671,6 +671,9 @@ class WithheldSecretsTests(unittest.TestCase):
         databases = patch.object(engines, "trivy_databases", return_value=[])
         databases.start()
         self.addCleanup(databases.stop)
+        images = patch.object(engines, "image_available", return_value=True)
+        images.start()
+        self.addCleanup(images.stop)
         self.clock = datetime.now(timezone.utc)
 
     def betterleaks(self, secrets, applied, **options):

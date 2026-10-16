@@ -1,17 +1,18 @@
 """Secret detection settings (Betterleaks and Trivy), organization defaults and per repository: anyone signed in reads
-them (without the patterns unless an admin), an admin changes them."""
+them (without the patterns unless an admin), an admin changes them. And which analysis engines run (Settings → Analysis
+engines): only an admin sees and changes them."""
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 
-from pitangus.app.api.deps import ApiError, Context, Policy, guard
+from pitangus.app.api.deps import ApiError, Context, Policy, body as json_model, documented, guard
 from pitangus.modules.findings import registry as findings_registry
 from pitangus.modules.findings.exclusions import ASSET_KEY
-from pitangus.modules.scanning import secret_rules
+from pitangus.modules.scanning import engine_switches, secret_rules
 from pitangus.modules.scanning.engines import IMAGES
 from pitangus.modules.scanning.secret_builtin_rules import DEFAULT_SECRET_RULES, OPT_IN_RULES, TRIVY_EQUIVALENTS
 from pitangus.modules.runs.assets import overview as assets_overview
@@ -193,3 +194,103 @@ def builtin_rules(context: Context = Depends(guard())) -> dict:
     """Betterleaks' default rules (what can be turned off), with the Trivy rule that is turned off with each, if any."""
     return {"engine": "betterleaks", "version": IMAGES["betterleaks"]["version"],
             "rules": [{"id": rule, "trivy": TRIVY_EQUIVALENTS.get(rule), "opt_in": rule in OPT_IN_RULES} for rule in DEFAULT_SECRET_RULES]}
+
+
+# --- Analysis engines ---------------------------------------------------------------------------------------------
+
+class EngineSwitchRow(BaseModel):
+    """One engine (or the full web scan, `dast`) as it stands: on or off, why (`source`: pinned by the server's
+    environment variable `setting`, chosen in the panel, or the default), who changed it last, and its images on the
+    worker's server (`image`: unknown until a worker reports)."""
+    key: str
+    name: str
+    version: str
+    group: Literal["code", "secrets", "infrastructure", "images", "web"]
+    covers: list[str] = Field(max_length=10)
+    requires: str | None
+    enabled: bool
+    default: bool
+    locked: bool
+    source: Literal["server", "workspace", "default"]
+    setting: str
+    changed_by: str | None
+    changed_at: str | None
+    image: Literal["ready", "missing", "preparing", "unknown", "built_in"]
+    image_problem: str | None
+
+
+class EngineSwitchChange(BaseModel):
+    engine: str
+    enabled: bool
+    by: str | None
+    at: str | None
+
+
+class EngineSwitches(BaseModel):
+    engines: list[EngineSwitchRow] = Field(max_length=len(engine_switches.SWITCHES))
+    # Kinds of check no engine that is on makes (engine_switches.CAPABILITIES)
+    uncovered: list[str] = Field(max_length=len(engine_switches.CAPABILITIES))
+    images_checked_at: str | None
+    history: list[EngineSwitchChange] = Field(max_length=engine_switches.HISTORY_SHOWN)
+
+
+class EngineSwitchIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    engine: str = Field(max_length=40)
+    enabled: bool
+
+
+class EnginePrepareIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    engine: str = Field(max_length=40)
+
+
+def _engines_view(context: Context) -> dict:
+    switches = engine_switches.resolve(context.data_dir)
+    images = engine_switches.image_status(context.data_dir)
+    rows = []
+    for switch in engine_switches.SWITCHES:
+        state, meta, image = switches[switch.key], IMAGES[switch.images[0]], images["engines"][switch.key]
+        rows.append({"key": switch.key, "name": meta["name"], "version": meta["version"], "group": switch.group,
+                     "covers": list(switch.covers), "requires": switch.requires, "enabled": state["enabled"],
+                     "default": switch.default, "locked": state["locked"], "source": state["source"], "setting": switch.setting,
+                     "changed_by": state["by"], "changed_at": state["at"], "image": image["status"], "image_problem": image["problem"]})
+    return context.render({"engines": rows, "uncovered": engine_switches.uncovered(switches),
+                           "images_checked_at": images["checked_at"], "history": engine_switches.history(context.data_dir)})
+
+
+@router.get("/api/engines", response_model=EngineSwitches)
+def engines(context: Context = Depends(guard(Policy(admin=True)))) -> dict:
+    """Which analysis engines run in every scan, and whether each one's images are on the worker's server."""
+    return _engines_view(context)
+
+
+@router.post("/api/engines", response_model=EngineSwitches, openapi_extra=documented(EngineSwitchIn))
+def switch_engine(context: Context = Depends(guard(Policy(admin=True, action="engine-switch", body=512))),
+                  body: EngineSwitchIn = Depends(json_model(EngineSwitchIn, msg("api.invalid_parameters")))) -> dict:
+    """Turns an engine on or off from the next scan; kept in the history. One the server pins (its environment variable
+    is set) can't be changed here. Off, its step says «not run (disabled)» and what it found before stays open. On, its
+    missing images are queued for download at once."""
+    try:
+        engine_switches.set_switch(context.data_dir, body.engine, body.enabled, user=context.user)
+    except engine_switches.SwitchError as exc:
+        raise ApiError(409 if body.engine in engine_switches.BY_KEY else 400, exc.message) from exc
+    if body.enabled:
+        # Turned on: its images (and those of what it lets run, katana with the full web scan) are prepared right away.
+        switches, images = engine_switches.resolve(context.data_dir), engine_switches.image_status(context.data_dir)["engines"]
+        for switch in engine_switches.SWITCHES:
+            if body.engine in (switch.key, switch.requires) and engine_switches.is_on(switches, switch.key) \
+                    and images[switch.key]["status"] in ("missing", "unknown"):
+                context.state.jobs.prepare_engine(switch.key, by=context.user["username"], automatic=True)
+    return _engines_view(context)
+
+
+@router.post("/api/engines/prepare", response_model=EngineSwitches, openapi_extra=documented(EnginePrepareIn))
+def prepare_engine(context: Context = Depends(guard(Policy(admin=True, action="prepare-engine", body=512))),
+                   body: EnginePrepareIn = Depends(json_model(EnginePrepareIn, msg("api.invalid_parameters")))) -> dict:
+    """Queues the download of an engine's images, pinned by digest, on the worker's server (the worker also does it on its
+    own for every engine that is on; this retries at once). Until they are there, scans declare that engine not run."""
+    if body.engine not in engine_switches.BY_KEY:
+        raise ApiError(400, msg("scanning.switches.errors.unknown"))
+    context.state.jobs.prepare_engine(body.engine, by=context.user["username"])  # once while one is under way
+    return _engines_view(context)

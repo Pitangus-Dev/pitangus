@@ -18,11 +18,12 @@ from __future__ import annotations
 import json
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, wait
+from pathlib import Path
 
+from pitangus.modules.scanning import engine_switches
 from pitangus.modules.scanning.engines import _run, docker_problem, image_available, runner, with_cause
 from pitangus.modules.sources import domains
 from pitangus.modules.sources.domains import DomainError
-from pitangus.shared import settings
 from pitangus.shared.i18n import MARK, is_msg, msg
 
 MAX_MINUTES = 1        # subfinder's own budget for the whole enumeration
@@ -42,10 +43,10 @@ class DiscoveryError(ValueError):
         self.message = message
 
 
-def unavailable():
-    """Why discovery can't run here, or None."""
-    if not settings.flag("PITANGUS_DAST_ENABLED"):
-        return msg("scanning.discovery.disabled")
+def unavailable(data_dir: Path | None = None):
+    """Why discovery can't run here, or None. It belongs to the full web scan (its switch, engine_switches)."""
+    if off := engine_switches.mode_off(engine_switches.resolve(data_dir), "dast", "scanning.discovery.disabled"):
+        return off
     if runner() == "local":
         return msg("scanning.discovery.needs_docker")
     if problem := docker_problem():

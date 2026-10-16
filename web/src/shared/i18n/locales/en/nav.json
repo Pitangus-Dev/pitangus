@@ -26,7 +26,8 @@
     "users": "Users",
     "new": "New scan",
     "account": "Account",
-    "domains": "Domains & APIs"
+    "domains": "Domains & APIs",
+    "engines": "Analysis engines"
   },
   "descriptions": {
     "overview": "What risks your code, dependencies and images carry, why they matter and how to fix them.",
@@ -42,7 +43,8 @@
     "compliance": "Evidence for audits and customers, and EU CRA reporting when it applies.",
     "threats": "Model the system with the approach you prefer (STRIDE, LINDDUN, PASTA, attack trees, ATT&CK) and check the threats against your scans.",
     "default": "Results for the selected target, with steps and coverage limits in plain view.",
-    "policies": "Rules that apply to every repository."
+    "policies": "Rules that apply to every repository.",
+    "engines": "Which engines every scan runs, and their images on the server."
   },
   "theme": {
     "label": "Appearance",

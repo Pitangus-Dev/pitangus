@@ -100,7 +100,7 @@ class Fixture(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.root = write(Path(folder.name) / "snapshot", REPO)
-        for name, value in (("unavailable", None), ("switched_off", None)):
+        for name, value in (("unavailable", None),):
             replaced = patch.object(config_engines, name, return_value=value)
             replaced.start()
             self.addCleanup(replaced.stop)

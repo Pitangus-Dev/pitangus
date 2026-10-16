@@ -95,7 +95,7 @@ def plan(source_id: str = "", context: Context = Depends(guard())) -> dict[str, 
     if source is None:
         raise ApiError(400, msg("sources.errors.not_available"))
     try:
-        return context.render(scan_plan(source["id"], installation_id=source.get("installation_id")))
+        return context.render(scan_plan(source["id"], installation_id=source.get("installation_id"), data_dir=context.data_dir))
     except GitHubAppError as exc:
         raise ApiError(502, problem(exc)) from exc
 

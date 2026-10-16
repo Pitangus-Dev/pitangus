@@ -20,7 +20,7 @@
     "import_tools": "ZAP, Nuclei, CodeQL, Semgrep, Strix y más",
     "off": "No está activado en este servidor",
     "off_how": "Cómo activar el análisis web completo (experimental)",
-    "off_admin": "Define <mono>PITANGUS_DAST_ENABLED=1</mono> y reinicia el servidor.",
+    "off_admin": "Actívalo en Ajustes → Motores de análisis.",
     "admin_only": "Solo un admin puede lanzarlo.",
     "experimental": "Experimental"
   },

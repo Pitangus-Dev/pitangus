@@ -20,7 +20,7 @@
     "import_tools": "ZAP, Nuclei, CodeQL, Semgrep, Strix and more",
     "off": "Not enabled on this server",
     "off_how": "How to turn on the full web scan (experimental)",
-    "off_admin": "Set <mono>PITANGUS_DAST_ENABLED=1</mono> and restart the server.",
+    "off_admin": "Turn it on in Settings → Analysis engines.",
     "admin_only": "Only an admin can launch it.",
     "experimental": "Experimental"
   },

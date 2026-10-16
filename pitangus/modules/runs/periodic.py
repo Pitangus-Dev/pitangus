@@ -15,6 +15,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Callable
 
+from pitangus.modules.scanning import engine_switches
 from pitangus.modules.sources.domains import RECHECK_SECONDS as DOMAIN_RECHECK_SECONDS
 from pitangus.shared import documents, settings
 from pitangus.shared import log as logging_setup
@@ -28,7 +29,7 @@ DOMAIN_SCAN_SECONDS = 300  # how often due scheduled web scans are looked for (a
 
 @dataclass(frozen=True)
 class Task:
-    every: Callable[[], int]      # seconds between rounds; 0 means every time it's called, negative means off
+    every: Callable[[Path], int]  # seconds between rounds (for a data folder); 0 means every time it's called, negative off
     on_worker: bool                # needs the engines or takes long: an API queues it
     run: Callable[[Path, object], object]
 
@@ -168,12 +169,13 @@ def _domain_scans(data_dir: Path, jobs, *, now: datetime | None = None) -> objec
 
 
 TASKS: dict[str, Task] = {
-    "outbox": Task(lambda: 0, False, _outbox),
-    "pull_requests": Task(lambda: settings.integer("PITANGUS_PR_POLL_SECONDS"), False, _pull_requests),
-    "nvd": Task(lambda: NVD_EVERY if settings.flag("PITANGUS_CVE_SYNC") else -1, True, _nvd),
-    "advisories": Task(lambda: 3600 * settings.integer("PITANGUS_ADVISORY_WATCH_HOURS") or -1, True, _advisories),
-    "domains": Task(lambda: DOMAIN_RECHECK_SECONDS, False, _domains),
-    "domain_scans": Task(lambda: DOMAIN_SCAN_SECONDS if settings.flag("PITANGUS_DAST_ENABLED") else -1, False, _domain_scans),
+    "outbox": Task(lambda _: 0, False, _outbox),
+    "pull_requests": Task(lambda _: settings.integer("PITANGUS_PR_POLL_SECONDS"), False, _pull_requests),
+    "nvd": Task(lambda _: NVD_EVERY if settings.flag("PITANGUS_CVE_SYNC") else -1, True, _nvd),
+    "advisories": Task(lambda _: 3600 * settings.integer("PITANGUS_ADVISORY_WATCH_HOURS") or -1, True, _advisories),
+    "domains": Task(lambda _: DOMAIN_RECHECK_SECONDS, False, _domains),
+    # Scheduled web scans belong to the full web scan: off while its switch is (engine_switches).
+    "domain_scans": Task(lambda data_dir: DOMAIN_SCAN_SECONDS if engine_switches.enabled("dast", data_dir) else -1, False, _domain_scans),
 }
 
 
@@ -187,7 +189,7 @@ def _claim(data_dir: Path, names: list[str], now: datetime) -> list[str]:
     claimed = []
     with documents.edit(data_dir, STATE, {}) as state:
         for name in names:
-            every = TASKS[name].every()
+            every = TASKS[name].every(data_dir)
             last = (state.get(name) or {}).get("started_at")
             if every < 0:
                 continue

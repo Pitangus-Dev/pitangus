@@ -29,10 +29,16 @@ def enqueue(data_dir: Path, kind: str, payload: dict, *, run_id: str | None = No
     return identifier
 
 
-def claim(data_dir: Path, worker: str) -> dict | None:
-    """The oldest queued job, already marked as this worker's; None if there is none."""
+def claim(data_dir: Path, worker: str, *, only: tuple[str, ...] = (), excluding: tuple[str, ...] = ()) -> dict | None:
+    """The oldest queued job (of the kinds in `only`, if given; none of those in `excluding`), already marked as this
+    worker's; None if there is none."""
+    conditions = [jobs.c.tenant_id == TENANT, jobs.c.status == "queued"]
+    if only:
+        conditions.append(jobs.c.kind.in_(only))
+    if excluding:
+        conditions.append(jobs.c.kind.not_in(excluding))
     with db.transaction(data_dir) as connection:
-        oldest = (select(jobs.c.id).where(jobs.c.tenant_id == TENANT, jobs.c.status == "queued")
+        oldest = (select(jobs.c.id).where(*conditions)
                   .order_by(jobs.c.created_at).limit(1).with_for_update(skip_locked=True).scalar_subquery())
         row = connection.execute(update(jobs).where(jobs.c.tenant_id == TENANT, jobs.c.id == oldest)
                                  .values(status="running", locked_by=worker, locked_at=func.now(), attempts=jobs.c.attempts + 1)

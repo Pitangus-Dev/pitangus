@@ -1054,6 +1054,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/engines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Engines
+         * @description Which analysis engines run in every scan, and whether each one's images are on the worker's server.
+         */
+        get: operations["engines_api_engines_get"];
+        put?: never;
+        /**
+         * Switch Engine
+         * @description Turns an engine on or off from the next scan; kept in the history. One the server pins (its environment variable
+         *     is set) can't be changed here. Off, its step says «not run (disabled)» and what it found before stays open. On, its
+         *     missing images are queued for download at once.
+         */
+        post: operations["switch_engine_api_engines_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/engines/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare Engine
+         * @description Queues the download of an engine's images, pinned by digest, on the worker's server (the worker also does it on its
+         *     own for every engine that is on; this retries at once). Until they are there, scans declare that engine not run.
+         */
+        post: operations["prepare_engine_api_engines_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sources": {
         parameters: {
             query?: never;
@@ -1306,7 +1353,7 @@ export interface paths {
          * @description Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,
          *     at a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the
          *     local day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task
-         *     queues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the
+         *     queues it within five minutes of that moment (only with the full web scan on); scheduled scans crawl the
          *     domain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one
          *     of those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the
          *     scope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason.
@@ -1357,7 +1404,7 @@ export interface paths {
          * Domain Discover
          * @description Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,
          *     archives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are
-         *     listed out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources.
+         *     listed out of scope. Only with the full web scan on: the domain's name goes to those sources.
          */
         post: operations["domain_discover_api_domains_discover_post"];
         delete?: never;
@@ -1380,7 +1427,7 @@ export interface paths {
          * @description Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD
          *     operations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and
          *     signed in as some of its test users.
-         *     Off unless the server sets PITANGUS_DAST_ENABLED; one at a time.
+         *     Off unless the full web scan is on (Settings → Analysis engines); one at a time.
          */
         post: operations["domain_scan_api_domains_scans_post"];
         delete?: never;
@@ -3279,7 +3326,7 @@ export interface components {
         };
         /**
          * DomainPage
-         * @description `dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED); `egress`: where they leave from.
+         * @description `dast`: whether the full passive web scan is on (Settings → Analysis engines); `egress`: where they leave from.
          */
         DomainPage: {
             /** Items */
@@ -3533,6 +3580,75 @@ export interface components {
             detected_at?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** EngineSwitchChange */
+        EngineSwitchChange: {
+            /** Engine */
+            engine: string;
+            /** Enabled */
+            enabled: boolean;
+            /** By */
+            by: string | null;
+            /** At */
+            at: string | null;
+        };
+        /**
+         * EngineSwitchRow
+         * @description One engine (or the full web scan, `dast`) as it stands: on or off, why (`source`: pinned by the server's
+         *     environment variable `setting`, chosen in the panel, or the default), who changed it last, and its images on the
+         *     worker's server (`image`: unknown until a worker reports).
+         */
+        EngineSwitchRow: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "code" | "secrets" | "infrastructure" | "images" | "web";
+            /** Covers */
+            covers: string[];
+            /** Requires */
+            requires: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Default */
+            default: boolean;
+            /** Locked */
+            locked: boolean;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "server" | "workspace" | "default";
+            /** Setting */
+            setting: string;
+            /** Changed By */
+            changed_by: string | null;
+            /** Changed At */
+            changed_at: string | null;
+            /**
+             * Image
+             * @enum {string}
+             */
+            image: "ready" | "missing" | "preparing" | "unknown" | "built_in";
+            /** Image Problem */
+            image_problem: string | null;
+        };
+        /** EngineSwitches */
+        EngineSwitches: {
+            /** Engines */
+            engines: components["schemas"]["EngineSwitchRow"][];
+            /** Uncovered */
+            uncovered: string[];
+            /** Images Checked At */
+            images_checked_at: string | null;
+            /** History */
+            history: components["schemas"]["EngineSwitchChange"][];
         };
         /** Euvd */
         Euvd: {
@@ -7844,6 +7960,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuiltinRules"];
+                };
+            };
+        };
+    };
+    engines_api_engines_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineSwitches"];
+                };
+            };
+        };
+    };
+    switch_engine_api_engines_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Engine */
+                    engine: string;
+                    /** Enabled */
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineSwitches"];
+                };
+            };
+        };
+    };
+    prepare_engine_api_engines_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Engine */
+                    engine: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineSwitches"];
                 };
             };
         };

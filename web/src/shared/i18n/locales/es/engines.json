@@ -1,0 +1,124 @@
+{
+  "loading": "Cargando los motores…",
+  "load_failed": "No se pudieron cargar los motores.",
+  "consequence": "Desactivar un motor no oculta nada: cada análisis dice «no ejecutado (desactivado)» para él, y lo que encontró sigue abierto y nunca se da por remediado. Los cambios aplican desde el próximo análisis.",
+  "uncovered": "Ningún motor activo revisa {{what}}: los análisis lo dicen, y lo que se encontró ahí antes sigue abierto.",
+  "capability": {
+    "sast": "el código (SAST)",
+    "dependencies": "las dependencias",
+    "secrets": "los secretos",
+    "iac": "la infraestructura como código",
+    "pipelines": "los pipelines de CI",
+    "images": "los paquetes de las imágenes de contenedor",
+    "exposure": "lo que exponen tus dominios"
+  },
+  "groups": {
+    "code": {
+      "title": "Código y dependencias",
+      "description": "Lo que hace tu código y los paquetes que trae."
+    },
+    "secrets": {
+      "title": "Secretos",
+      "description": "Claves, tokens y contraseñas subidos a un repositorio."
+    },
+    "infrastructure": {
+      "title": "Infraestructura y CI",
+      "description": "Terraform, Kubernetes, Dockerfiles y pipelines de CI."
+    },
+    "images": {
+      "title": "Imágenes",
+      "description": "Paquetes de las imágenes de contenedor; Trivy, arriba, también revisa su configuración y sus secretos."
+    },
+    "web": {
+      "title": "Web",
+      "description": "Lo que tus dominios verificados le muestran a cualquiera. Nada de esto ataca un sitio."
+    }
+  },
+  "rows": {
+    "opengrep": {
+      "adds": "SAST con las reglas de Pitangus para JavaScript, TypeScript, Python, Java, Go, PHP, Ruby y C#.",
+      "covers": "el código (SAST)"
+    },
+    "trivy": {
+      "adds": "Dependencias de cualquier ecosistema, infraestructura como código, secretos e imágenes de contenedor.",
+      "covers": "dependencias, infraestructura como código, secretos ni imágenes"
+    },
+    "osv_scanner": {
+      "adds": "Dependencias contra la base de OSV, con más formatos de manifiesto (.NET, Gradle, uv).",
+      "covers": "las dependencias contra OSV"
+    },
+    "betterleaks": {
+      "adds": "Secretos con alta precisión, en el código y en los archivos de credenciales.",
+      "covers": "los secretos con alta precisión"
+    },
+    "checkov": {
+      "adds": "Más comprobaciones de Terraform, CloudFormation y Dockerfile, y pipelines además de GitHub Actions.",
+      "covers": "esas comprobaciones extra de infraestructura y pipelines"
+    },
+    "zizmor": {
+      "adds": "GitHub Actions a fondo: inyección en plantillas, disparadores peligrosos y permisos.",
+      "covers": "los workflows de GitHub Actions"
+    },
+    "grype": {
+      "adds": "Una segunda opinión sobre los paquetes de las imágenes, junto a Trivy.",
+      "covers": "los paquetes de las imágenes con una segunda opinión"
+    },
+    "httpx": {
+      "adds": "Las tecnologías y versiones que muestra cada host, y el estado de las páginas alcanzadas.",
+      "covers": "tecnologías, versiones ni estado de las páginas"
+    },
+    "testssl": {
+      "adds": "La configuración TLS y el certificado de cada host.",
+      "covers": "el TLS"
+    },
+    "nuclei": {
+      "adds": "Plantillas solo de detección: archivos expuestos, configuraciones erróneas y takeovers.",
+      "covers": "archivos expuestos ni configuraciones erróneas"
+    },
+    "dast": {
+      "title": "Análisis web completo",
+      "adds": "Experimental. ZAP rastrea de forma pasiva los dominios verificados y subfinder busca hosts relacionados; nunca ataca.",
+      "covers": "los sitios con un rastreo"
+    },
+    "katana": {
+      "adds": "Un rastreador cuyas URL alimentan a ZAP y nuclei en el análisis web completo.",
+      "covers": "las páginas que solo encuentra un rastreador"
+    }
+  },
+  "status": {
+    "default_on": "Activado por defecto",
+    "default_off": "Desactivado por defecto",
+    "changed": "Cambiado por {{by}} el {{date}}",
+    "locked": "Fijado por el servidor ({{setting}})",
+    "requires_dast": "solo funciona con el análisis web completo activado"
+  },
+  "image": {
+    "ready": "Imagen lista",
+    "missing": "Imagen no descargada",
+    "preparing": "Preparando…",
+    "unknown": "El worker aún no ha informado",
+    "built_in": "Instalado en el worker",
+    "failed": "No se pudo preparar: {{problem}}",
+    "prepare": "Preparar motor",
+    "prepare_label": "Preparar motor {{name}}"
+  },
+  "confirm": {
+    "off_title": "¿Desactivar {{name}}?",
+    "off_core": "Sin {{name}}, Pitangus no revisa {{covers}}: lo que encontró sigue abierto y nunca se da por remediado; los análisis quedarán con cobertura parcial.",
+    "off_optional": "Al desactivarlo, lo que encontró sigue abierto y nunca se da por remediado.",
+    "off_last": "Ningún otro motor activo revisa {{what}}: los análisis lo dirán.",
+    "off": "Desactivar",
+    "dast_title": "¿Activar el análisis web completo?",
+    "dast_body": "Es experimental. ZAP, katana y subfinder solo llegan a los dominios que verificaste, y de forma pasiva: nunca atacan. Necesita un worker con Docker.",
+    "on": "Activar"
+  },
+  "saved_on": "{{name}} queda activado desde el próximo análisis.",
+  "saved_off": "{{name}} queda desactivado desde el próximo análisis.",
+  "preparing_notice": "Preparando {{name}}: el worker está descargando sus imágenes.",
+  "history": {
+    "title": "Últimos cambios",
+    "empty": "Todavía no hay cambios.",
+    "on": "{{by}} activó {{name}} · {{date}}",
+    "off": "{{by}} desactivó {{name}} · {{date}}"
+  }
+}

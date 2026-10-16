@@ -93,12 +93,22 @@ SETTINGS: dict[str, Setting] = {
     "PITANGUS_FIX_HOLD_MINIMUM": Setting(default="10", kind="integer", minimum=1),
     # After this many scans without being able to check an open finding, the panel warns about it
     "PITANGUS_UNSEEN_WARN_SCANS": Setting(default="3", kind="integer", minimum=1),
-    # Passive web scans (ZAP) of verified domains: off unless the operator turns them on
+    # Which analysis engines run (scanning/engine_switches.py). An administrator turns each on or off in the panel
+    # (Settings → Analysis engines); one of these set here wins and locks that switch. Unset, the panel's choice applies,
+    # else the default: every engine on but Checkov, Grype and the full web scan (ZAP, katana, subfinder), which is
+    # experimental. Off, an engine is "not run (disabled)": what it found before stays open, never fixed
     "PITANGUS_DAST_ENABLED": Setting(kind="flag"),
-    # Optional engines, off unless turned on: Checkov (more IaC and Dockerfile checks next to Trivy's) and Grype (a second
-    # opinion on container images' packages). Off, an engine is "not run (disabled)": what it found before stays open
     "PITANGUS_CHECKOV_ENABLED": Setting(kind="flag"),
     "PITANGUS_GRYPE_ENABLED": Setting(kind="flag"),
+    "PITANGUS_OPENGREP_ENABLED": Setting(default="on", kind="flag"),
+    "PITANGUS_BETTERLEAKS_ENABLED": Setting(default="on", kind="flag"),
+    "PITANGUS_TRIVY_ENABLED": Setting(default="on", kind="flag"),
+    "PITANGUS_OSV_SCANNER_ENABLED": Setting(default="on", kind="flag"),
+    "PITANGUS_ZIZMOR_ENABLED": Setting(default="on", kind="flag"),
+    "PITANGUS_HTTPX_ENABLED": Setting(default="on", kind="flag"),
+    "PITANGUS_TESTSSL_ENABLED": Setting(default="on", kind="flag"),
+    "PITANGUS_NUCLEI_ENABLED": Setting(default="on", kind="flag"),
+    "PITANGUS_KATANA_ENABLED": Setting(default="on", kind="flag"),
     # GitLab's sast-rules (MIT and Apache-2.0 ones, third_party/gitlab-sast-rules) next to Pitangus' own rules: off, since
     # on the measured corpus none reached 85% precision with at least 3 hits
     "PITANGUS_THIRD_PARTY_RULES": Setting(kind="flag"),

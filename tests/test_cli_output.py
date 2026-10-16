@@ -197,7 +197,7 @@ class EngineLineProperties(unittest.TestCase):
     @given(st.booleans())
     def test_an_engine_turned_off_is_not_announced_as_running(self, checkov_on):
         said = []
-        listed = [EngineStep(key, lambda context, key=key: engines.switched_off(key) or engines._result(key, "completed", ""),
+        listed = [EngineStep(key, lambda context, key=key: engines._result(key, "completed", ""),
                              f"scanning.progress.{'osv' if key == 'osv-scanner' else key}") for key in ("trivy", "checkov")]
         with patch.dict(os.environ, {"PITANGUS_CHECKOV_ENABLED": "1" if checkov_on else ""}):
             run_engines(listed, ScanContext(Path("."), Path("."), {}), lambda level, message: said.append(message))

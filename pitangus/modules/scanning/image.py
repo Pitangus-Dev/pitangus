@@ -36,7 +36,7 @@ from pitangus.modules.intel.packages import OS_FAMILIES, canonical_id, dependenc
 from pitangus.modules.scanning.coverage import owasp_coverage
 from pitangus.modules.scanning.dependency_merge import advisory_groups, malicious_if_any
 from pitangus.modules.scanning.config_engines import merge_image, run_checkov_image
-from pitangus.modules.scanning import engine_contract, rule_set
+from pitangus.modules.scanning import engine_contract, engine_switches, rule_set
 from pitangus.modules.scanning.engine_contract import Contract
 from pitangus.modules.scanning.engines import (_pick_fixed, _result, _run, parse_trivy, trivy_databases, trivy_packages, switched_off, unavailable,
                                                with_cause, writable_cache)
@@ -305,8 +305,6 @@ def run_grype_image(reference: str, cache_dir: Path, feeds: dict, credentials: d
     """`platform`: the one Trivy analyzed. Left to itself, Grype picks the host's (arm64 on an ARM server or a Mac) while
     Trivy picks amd64, and the two reports of a multi-platform image would be about different images."""
     started = time.time()
-    if off := switched_off("grype"):
-        return off
     if problem := unavailable("grype", msg("scanning.image.no_docker", engine="Grype")):
         return _result("grype", "not_tested", problem)
     cache_dir = writable_cache(cache_dir)
@@ -504,17 +502,27 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None,
     credentials = credentials_for(image["registry"]) if replay is None else None
     report("info", msg("scanning.image.progress.reading_credentials" if credentials else "scanning.image.progress.reading_public",
                        reference=image["reference"]))
-    trivy, metadata = run_trivy_image(image["reference"], data_dir / "trivy-cache", feeds, credentials, hosts, data_dir) if replay is None \
-        else replay["trivy"]
+    # Which engines are on, read once: a switch flipped mid-scan applies from the next one.
+    switches = engine_switches.all_on() if replay is not None else engine_switches.resolve(data_dir)  # replays: as recorded
+    if off := switched_off("trivy", switches):
+        trivy, metadata = off, {}
+    else:
+        trivy, metadata = run_trivy_image(image["reference"], data_dir / "trivy-cache", feeds, credentials, hosts, data_dir) if replay is None \
+            else replay["trivy"]
     trivy = engine_contract.settled(trivy)   # a run that didn't finish opens nothing, whatever its adapter did
     report("ok" if trivy["status"] == "completed" else "warn", msg("scanning.progress.engine", engine="Trivy", detail=trivy["detail"]))
-    report("info", msg("scanning.image.progress.grype"))
-    grype = run_grype_image(image["reference"], data_dir / "grype-cache", feeds, credentials, image["registry"], hosts,
-                            platform=image_platform(metadata)) if replay is None else replay["grype"]
+    if off := switched_off("grype", switches):
+        grype = off
+    else:
+        report("info", msg("scanning.image.progress.grype"))
+        grype = run_grype_image(image["reference"], data_dir / "grype-cache", feeds, credentials, image["registry"], hosts,
+                                platform=image_platform(metadata)) if replay is None else replay["grype"]
     grype = engine_contract.settled(grype)
     report("ok" if grype["status"] == "completed" else "warn", msg("scanning.progress.engine", engine="Grype", detail=grype["detail"]))
 
-    if metadata:
+    if off := switched_off("checkov", switches):
+        checkov = off
+    elif metadata:
         report("info", msg("scanning.image.progress.checkov"))
         checkov = engine_contract.settled(run_checkov_image(metadata, image, data_dir / "tmp") if replay is None else replay["checkov"])
     else:
@@ -572,7 +580,8 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None,
     priorities = {action: sum(1 for item in findings if (item.get("priority") or {}).get("action") == action) for action in ("act", "attend", "track")}
     tools = [trivy, grype, checkov]
     # An engine the operator turned off doesn't leave the scan incomplete; it only fixes nothing (it didn't look).
-    return {"type": "image_scan", "status": "completed" if trivy["status"] == "completed" and (grype["status"] == "completed" or grype.get("disabled"))
+    return {"type": "image_scan", "status": "completed" if (trivy["status"] == "completed" or trivy.get("disabled"))
+            and (grype["status"] == "completed" or grype.get("disabled")) and (engines_ok or not any(tool.get("disabled") for tool in (trivy, grype)))
             else "incomplete",
             "source": {"id": image["asset"], "uid": None, "name": image["name"], "provider": "registry", "image": image_meta},
             "target": image["reference"], "variant": "image", "context": " ".join(str(context).split())[:400],
@@ -587,6 +596,7 @@ def scan_image(image: dict, *, data_dir: Path, context: str = "", progress=None,
                         "tools": [{"name": tool["tool"], "version": tool["version"], "status": tool["status"]} for tool in tools],
                         "planned": 3, "executed": sum(1 for step in steps[1:4] if step["status"] in ("completed", "partial")), "confirmed": 0},
             "limitations": [msg("scanning.image.limitations.read_only"), msg("scanning.image.limitations.no_source"),
-                            msg("scanning.image.limitations.backports"), msg("scanning.image.limitations.system_package")],
-            "configuration": rule_set.image(),  # an engine turned off fixes nothing it found before (findings/registry)
+                            msg("scanning.image.limitations.backports"), msg("scanning.image.limitations.system_package"),
+                            *engine_switches.uncovered_limitations(switches, ("images",))],
+            "configuration": rule_set.image(switches),  # an engine turned off fixes nothing it found before (findings/registry)
             "scanned_at": datetime.now(timezone.utc).isoformat()}

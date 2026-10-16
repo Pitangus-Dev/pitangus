@@ -29,6 +29,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Findings } from '@/pages/Findings'
 import { CveTracker } from '@/pages/CveTracker'
 import { Users } from '@/pages/Users'
+import { Engines } from '@/pages/Engines'
 import { CoverageView } from '@/pages/Coverage'
 import { Integrations } from '@/pages/Integrations'
 import { PullRequests } from '@/pages/PullRequests'
@@ -51,7 +52,7 @@ const DESCRIPTION: Partial<Record<View, string>> = {
   overview: 'descriptions.overview', analyses: 'descriptions.analyses', repositories: 'descriptions.repositories', images: 'descriptions.images',
   domains: 'descriptions.domains', integrations: 'descriptions.integrations', account: 'descriptions.account', users: 'descriptions.users',
   pulls: 'descriptions.pulls', cves: 'descriptions.cves', compliance: 'descriptions.compliance', threats: 'descriptions.threats',
-  policies: 'descriptions.policies',
+  policies: 'descriptions.policies', engines: 'descriptions.engines',
 }
 
 function App({ user, session }: { user: SessionUser; session: SessionActions }) {
@@ -208,6 +209,7 @@ function App({ user, session }: { user: SessionUser; session: SessionActions }) 
     if (view === 'coverage') return <CoverageView />
     if (view === 'account') return <Account user={user} onChanged={session.reload} />
     if (view === 'users' && user.role === 'admin') return <Users me={user} />
+    if (view === 'engines' && user.role === 'admin') return <Engines />
     if (view === 'integrations') return <Integrations user={user} />
     return <Dashboard onOpenRun={id => openRun(id, 'findings')} onNew={() => selectView('new')} onNavigate={view => selectView(view as View)} onTracker={openTracker} />
   }

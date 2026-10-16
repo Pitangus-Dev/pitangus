@@ -49,7 +49,7 @@ from pitangus.modules.intel import data_sources
 from pitangus.modules.intel.advisories import compare_versions, cvss3_base_score, is_malicious, mark_malicious, prioritize, severity_from_score
 from pitangus.modules.intel.advisories import fingerprint as sca_fingerprint
 from pitangus.modules.intel.packages import dependency_fingerprint
-from pitangus.modules.scanning import dependency_coverage, dependency_graph, engine_contract, repo_controls, sast_merge, secret_coverage, secret_filter, secret_identity, secret_location, secret_rules, vendored
+from pitangus.modules.scanning import dependency_coverage, dependency_graph, engine_contract, engine_switches, repo_controls, sast_merge, secret_coverage, secret_filter, secret_identity, secret_location, secret_rules, vendored
 from pitangus.modules.scanning.engine_contract import Contract
 from pitangus.modules.scanning.dependency_merge import unique_by_fingerprint
 from pitangus.modules.scanning.folding import absorbed
@@ -348,57 +348,108 @@ def engines_problem():
     return msg("scanning.engines.none_installed") if runner() == "local" else docker_problem()
 
 
-# Engines that run only when the operator turns them on, and the setting that does.
-OPTIONAL_ENGINES = {"checkov": "PITANGUS_CHECKOV_ENABLED", "grype": "PITANGUS_GRYPE_ENABLED"}
+def enabled(key: str, switches: dict[str, dict] | None = None) -> bool:
+    """Whether engine `key` runs, under `switches` (engine_switches.resolve) or, without them, the environment and the
+    defaults alone (what `make engines` sees)."""
+    return engine_switches.is_on(switches if switches is not None else engine_switches.resolve(None), key)
 
 
-def enabled(key: str) -> bool:
-    return key not in OPTIONAL_ENGINES or settings.flag(OPTIONAL_ENGINES[key])
+def switched_off(key: str, switches: dict[str, dict]) -> EngineResult | None:
+    """The result of an engine turned off (in the panel, or pinned off by the server): not run (disabled), never a clean
+    run. Like any engine that didn't look, it fixes nothing it found before (findings/registry.py)."""
+    reason = engine_switches.off_reason(switches, key, IMAGES[key]["name"])
+    return None if reason is None else {**_result(key, "not_tested", reason), "disabled": True}
 
 
-def switched_off(key: str) -> EngineResult | None:
-    """The result of an optional engine the operator didn't turn on: not run (disabled), never a clean run. Like any
-    engine that didn't look, it fixes nothing it found before (findings/registry.py)."""
-    if enabled(key):
-        return None
-    return {**_result(key, "not_tested", msg("scanning.engines.disabled", engine=IMAGES[key]["name"], setting=OPTIONAL_ENGINES[key])),
-            "disabled": True}
+# What a scan does with a published image that isn't on this machine. A one-shot scan (`pitangus scan`, the GitHub
+# Action, the pre-commit hook: no worker, no panel) pulls it by its digest, as it always did; an analysis the server's
+# worker runs (engine_switches.server_analysis) never does, since a pull can take minutes: it declares the engine not
+# run and the worker prepares the image.
+declaring_missing_images = engine_switches.server_analysis
 
 
 def unavailable(key: str, without_docker):
-    """None if engine `key` can run; else the reason, in the terms of the runner in use."""
+    """None if engine `key` can run; else the reason, in the terms of the runner in use. A published image that isn't
+    here is pulled by its digest in a one-shot scan, and only declared (being prepared) in the server's analyses."""
     if runner() == "local":
         return None if engine_ready(key) else msg("scanning.engines.not_installed", engine=IMAGES[key]["name"], binary=BINARIES[key])
-    return None if docker_available() else without_docker
+    if not docker_available():
+        return without_docker
+    if "@sha256:" in IMAGES[key]["image"] and not image_available(key):
+        if engine_switches.in_server_analysis():
+            return msg("scanning.engines.image_missing", engine=IMAGES[key]["name"])
+        if (problem := pull_image(key)) is not None:
+            return msg("scanning.engines.image_pull_failed", engine=IMAGES[key]["name"], image=IMAGES[key]["image"], cause=problem)
+    return None
 
 
-def engine_status() -> list[dict]:
-    """Which engines are ready (images in the host's Docker, or installed binaries). For `make doctor` and `engines`."""
+def engine_status(data_dir: Path | None = None) -> list[dict]:
+    """Which engines are ready (images in the host's Docker, or installed binaries). For `make doctor` and `engines`;
+    `data_dir`: whose panel switches count (without it, the environment and the defaults)."""
     local = runner() == "local"
+    switches = engine_switches.resolve(data_dir)
     listed = {key: meta for key, meta in IMAGES.items()
-              if key not in WEB_ENGINES or (not local and (key in EXPOSURE_ENGINES or settings.flag("PITANGUS_DAST_ENABLED")))}
+              if key not in WEB_ENGINES or (not local and (key in EXPOSURE_ENGINES or enabled("zap", switches)))}
     return [{"tool": key, "name": meta["name"], "version": meta["version"], "image": shutil.which(BINARIES[key]) or BINARIES[key] if local else meta["image"],
-             "ready": engine_ready(key), "built_locally": local or "@sha256:" not in meta["image"], "enabled": enabled(key)} for key, meta in listed.items()]
+             "ready": engine_ready(key), "built_locally": local or "@sha256:" not in meta["image"], "enabled": enabled(key, switches)}
+            for key, meta in listed.items()]
 
 
 def pulled_images() -> list[str]:
-    """The published images this server runs, so the ones `make engines` pulls (scripts/engine-images.sh applies the
-    same rule to this file without Python): no engine the operator didn't turn on, no full-DAST tool without
-    PITANGUS_DAST_ENABLED, the exposure check's always."""
-    return [meta["image"] for key, meta in IMAGES.items() if "@sha256:" in meta["image"] and enabled(key)
-            and (key not in WEB_ENGINES or key in EXPOSURE_ENGINES or settings.flag("PITANGUS_DAST_ENABLED"))]
+    """The published images `make engines` pulls (scripts/engine-images.sh applies the same rule to this file without
+    Python, so from the environment and the defaults only: the panel prepares what it turns on): no engine turned off,
+    no full-DAST tool without PITANGUS_DAST_ENABLED, the exposure check's unless pinned off."""
+    switches = engine_switches.resolve(None)
+    return [meta["image"] for key, meta in IMAGES.items() if "@sha256:" in meta["image"] and enabled(key, switches)]
 
 
-def pull_engines(report=None) -> list[dict]:
+def pull_image(key: str):
+    """Pulls one published image by its digest; None when it's there afterwards, else why not."""
+    binary = shutil.which("docker")
+    if "@sha256:" not in IMAGES[key]["image"]:
+        return None if image_available(key) else msg("scanning.engines.action.build")
+    if not binary:
+        return msg("scanning.engines.action.no_docker")
+    try:
+        completed = subprocess.run([binary, "pull", "--quiet", IMAGES[key]["image"]], capture_output=True, text=True, timeout=3600)
+    except (OSError, subprocess.TimeoutExpired):
+        completed = None
+    return None if completed is not None and completed.returncode == 0 else with_cause(msg("scanning.engines.action.pull_failed"), completed)
+
+
+def image_readiness() -> dict[str, bool]:
+    """Every engine's image (or installed binary) on this worker's server: what the panel shows next to each switch."""
+    if runner() == "local":
+        return {key: key in BINARIES and shutil.which(BINARIES[key]) is not None for key in IMAGES}
+    if not docker_available():
+        return dict.fromkeys(IMAGES, False)
+    return {key: image_available(key) for key in IMAGES}
+
+
+def prepare(key: str):
+    """Gets every image switch `key` needs onto this server ("Prepare engine"): None when they're all there, else why
+    not. With installed engines there is nothing to download."""
+    if runner() == "local":
+        return None if all(engine_ready(image) for image in engine_switches.BY_KEY[key].images) else \
+            msg("scanning.engines.action.not_installed")
+    if problem := docker_problem():
+        return problem
+    for image in engine_switches.BY_KEY[key].images:
+        if not image_available(image) and (problem := pull_image(image)) is not None:
+            return problem
+    return None
+
+
+def pull_engines(report=None, data_dir: Path | None = None) -> list[dict]:
     """Pulls the missing published images by digest; Opengrep's is built with `make build`.
 
     `make engines` pulls from the host (with progress); this is for those who don't use make."""
     if runner() == "local":  # installed with the image: nothing to download
         return [{**row, "action": msg("scanning.engines.action.none") if row["ready"] else msg("scanning.engines.action.not_installed")}
-                for row in engine_status()]
+                for row in engine_status(data_dir)]
     binary = shutil.which("docker")
     results = []
-    for row in engine_status():
+    for row in engine_status(data_dir):
         if not row["enabled"]:
             results.append({**row, "action": msg("scanning.engines.action.disabled")})
             continue
@@ -408,13 +459,8 @@ def pull_engines(report=None) -> list[dict]:
             results.append({**row, "action": msg("scanning.engines.action.none") if row["ready"]
                             else msg("scanning.engines.action.build") if row["built_locally"] else msg("scanning.engines.action.no_docker")})
             continue
-        try:
-            completed = subprocess.run([binary, "pull", "--quiet", row["image"]], capture_output=True, text=True, timeout=3600)
-        except (OSError, subprocess.TimeoutExpired):
-            completed = None
-        done = bool(completed) and completed.returncode == 0
-        results.append({**row, "ready": done, "action": msg("scanning.engines.action.pulled") if done
-                        else with_cause(msg("scanning.engines.action.pull_failed"), completed)})
+        problem = pull_image(row["tool"])
+        results.append({**row, "ready": problem is None, "action": msg("scanning.engines.action.pulled") if problem is None else problem})
     return results
 
 
@@ -427,6 +473,8 @@ class ScanContext:
     feeds: dict
     secret_settings: dict | None = None
     allow_osv_upload: bool = False
+    # Which engines are on for this scan (engine_switches.resolve), read once when it starts; None: read them when run.
+    switches: dict | None = None
 
 
 class Engine(Protocol):
@@ -458,10 +506,12 @@ def run_engines(engines: Sequence[Engine], context: ScanContext, report: Callabl
     """Runs each engine in order and reports it; returns their results by key. An engine that fails to run says so in
     its result (`inconclusive`), never by raising; one that didn't finish opens nothing (engine_contract.settled)."""
     results: dict[str, EngineResult] = {}
+    switches = context.switches if context.switches is not None else engine_switches.resolve(context.data_dir)
     for engine in engines:
-        if enabled(engine.key):  # one the operator didn't turn on isn't announced as running: its result says so
+        off = switched_off(engine.key, switches)
+        if off is None:  # one turned off isn't announced as running, nor run: its result says so
             report("info", msg(engine.progress, version=IMAGES[engine.key]["version"]))
-        result = results[engine.key] = engine_contract.settled(engine.run(context))
+        result = results[engine.key] = engine_contract.settled(off if off is not None else engine.run(context))
         if not engine.merged:
             report_done(report, result)
     return results

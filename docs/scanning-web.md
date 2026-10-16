@@ -27,7 +27,7 @@ in as test users, launching or scheduling a scan, and reading what comes back.
   check, and an exposure check neither fixes a full scan's findings, nor marks them unverified, nor takes them over when
   both report the same page: each kind of scan keeps its own findings and the date it first saw them. **New analysis →
   Exposure check**, or a domain's own scan button.
-- **Full web scan** (experimental, off unless `PITANGUS_DAST_ENABLED=1`): everything below, with ZAP, katana and
+- **Full web scan** (experimental, off until an administrator turns it on in **Settings → Analysis engines**): everything below, with ZAP, katana and
   subfinder crawling the site. It isn't part of the core: turning it off fixes nothing it found before, those findings
   stay open until a scan of the same kind proves them gone.
 
@@ -61,9 +61,10 @@ You need:
   verify, change, remove or scan them, and only they see the verification token and the saved headers.
 - **The Docker runner.** The scan tools run in containers. The worker image without a Docker socket
   (`pitangus-worker`, see [containers.md](containers.md)) doesn't carry them, and the run says so.
-- **For the full scan only:** `PITANGUS_DAST_ENABLED=1`. It's experimental and off by default; the exposure check
-  needs nothing. The API and the worker both read it, so set it for both (in `.env` with the default setup). See
-  [configuration.md](configuration.md).
+- **For the full scan only:** an administrator turns on **Full web scan** in **Settings → Analysis engines**. It's
+  experimental and off by default; the exposure check needs nothing. `PITANGUS_DAST_ENABLED` in the server's
+  environment pins it on (`1`) or off (`0`) over the panel; set it for both the API and the worker. See
+  [configuration.md](configuration.md#analysis-engines).
 - **The engine images.** `make engines` (also run by `make up`) pulls the missing ones, each pinned by version and
   digest: nuclei, testssl.sh and httpx for the exposure check always, and ZAP, katana and subfinder too when the full
   scan is on. ZAP alone is about 1.2 GB; the other web tools about 1 GB together. `make engines LIST=1` lists
@@ -71,7 +72,8 @@ You need:
 - **A public HTTPS site** on port 443, with a valid certificate and a public DNS name. Private and internal addresses
   are never scanned.
 
-For the full scan, turn it on and pull its images:
+For the full scan, turn it on in **Settings → Analysis engines**: the worker downloads its images (and katana's) right
+away, and the row says when they're ready. From the command line instead, pin it on and pull them:
 
 ```bash
 echo 'PITANGUS_DAST_ENABLED=1' >> .env
@@ -188,7 +190,7 @@ you can add subdomains.
 When a domain is added (and when you click **Search again** in its **Scope** tab), Pitangus runs **subfinder**, a
 tool that looks for names under the domain in public sources only: certificate transparency logs, passive DNS and
 archives. It uses no API keys and stops after one minute. Nothing is sent to your hosts; your domain's name is sent to
-those public sources, which is why discovery only runs with `PITANGUS_DAST_ENABLED=1`.
+those public sources, which is why discovery only runs with the full web scan on.
 
 Each name found must be a valid host under the domain and resolve to public addresses only (no private, loopback,
 link-local or cloud metadata addresses); the rest is dropped and counted. New hosts start **excluded**.
@@ -599,7 +601,7 @@ Every route takes and returns JSON. Reads are open to any signed-in user; every 
 
 | What you see | Why | Fix |
 | --- | --- | --- |
-| **Not enabled on this server**, or "Web scans are turned off on this server" | `PITANGUS_DAST_ENABLED` isn't set for the API or the worker | Set `PITANGUS_DAST_ENABLED=1` for both and restart (`make up`). |
+| **Not enabled on this server**, or "The full web scan is turned off" | The full web scan is off | An administrator turns it on in **Settings → Analysis engines**. If the message names `PITANGUS_DAST_ENABLED`, the server pins it off: set it to `1` for the API and the worker and restart (`make up`). |
 | "The ZAP image isn't on this server: run make engines" (or another tool) | The image wasn't pulled | Run `make engines`. A step marked **Skipped** says which. |
 | "Web scans need the Docker runner" | The worker has no Docker socket | Use the Docker runner ([containers.md](containers.md)). |
 | No TXT record found yet | Wrong name or value, or DNS hasn't propagated | Check with `dig +short TXT _pitangus.<host>`, wait a few minutes, verify again. |

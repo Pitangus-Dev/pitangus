@@ -290,7 +290,9 @@ def main(argv: list[str] | None = None) -> int:
             from pitangus.modules.scanning.engines import engine_status, pull_engines, socket_problem
             if socket_problem():
                 print(_say(socket_problem()))
-            rows = pull_engines(report=lambda message: print(_say(message), flush=True)) if args.pull else engine_status()
+            data_dir = getattr(args, "data_dir", None)
+            rows = pull_engines(report=lambda message: print(_say(message), flush=True), data_dir=data_dir) if args.pull \
+                else engine_status(data_dir)
             for row in rows:
                 state = t("cli.engines.ready") if row["ready"] else t("cli.engines.missing")
                 off = f"  ({t('cli.engines.disabled')})" if not row.get("enabled", True) else ""

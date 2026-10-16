@@ -35,6 +35,10 @@ from pitangus.shared.i18n import msg, text
 
 log = logging_setup.get("jobs")
 HEARTBEAT_SECONDS = 30  # well under queue.STALE
+# Downloads of engine images run in a lane of their own: a pull can take up to an hour, and the analyses queued meanwhile
+# (during an upgrade, say) mustn't wait for it.
+PREPARE_LANE = ("engine_prepare",)
+IMAGES_SECONDS = 300  # how often a worker tells the panel which engine images it has
 Progress = Callable[[str, object], None]
 
 
@@ -77,6 +81,7 @@ class ScanJobs:
         self.idle_poll = 3.0
         self._stop = threading.Event()
         self._thread = None
+        self._images_at = float("-inf")
         # Only the leader advances batches (with several workers, two could take the same repository). In a single
         # process it is always the leader; the worker process turns it on when it wins the leader lock.
         self.leader = worker
@@ -287,12 +292,14 @@ class ScanJobs:
         """Claims and runs jobs until asked to stop. The heartbeat keeps beating while a scan runs (scans take far
         longer than queue.STALE), so no other worker takes a live job for a dead one."""
         beat = 0.0
+        lane = threading.Thread(target=self._run_prepare_lane, name="pitangus-engine-images", daemon=True)
+        lane.start()
         while not self._stop.is_set():
             if time.monotonic() - beat > HEARTBEAT_SECONDS:
                 beat = time.monotonic()
                 self._beat(recover=True)
             try:
-                job = queue.claim(self.data_dir, self.worker_id)
+                job = queue.claim(self.data_dir, self.worker_id, excluding=PREPARE_LANE)
             except Exception:  # noqa: BLE001
                 log.exception("no se pudo reclamar trabajo")
                 self._stop.wait(self.idle_poll)
@@ -316,19 +323,58 @@ class ScanJobs:
                 done.set()
                 beating.join()
                 beat = time.monotonic()
+                self._images_at = float("-inf")  # an image a scan found missing gets prepared at the next beat
                 if not queue.finish(self.data_dir, job["id"], error=error, worker=self.worker_id):
                     log.warning("job_lease_lost", extra={"run_id": job.get("run_id")})
+        lane.join(timeout=5)
+
+    def _run_prepare_lane(self) -> None:
+        """Engine image downloads, one at a time, next to the analyses. Their lease is renewed with this worker's
+        heartbeat (queue.touch renews every job it holds)."""
+        while not self._stop.is_set():
+            try:
+                job = queue.claim(self.data_dir, self.worker_id, only=PREPARE_LANE)
+            except Exception:  # noqa: BLE001 — the database may be away for a moment
+                log.exception("engine_prepare_claim_failed")
+                job = None
+            if job is None:
+                self._stop.wait(self.idle_poll)
+                continue
+            error = None
+            try:
+                self._execute_prepare({**job["payload"], "kind": job["kind"]})
+            except Exception as exc:  # noqa: BLE001
+                error = type(exc).__name__
+                log.exception("engine_prepare_failed")
+            if not queue.finish(self.data_dir, job["id"], error=error, worker=self.worker_id):
+                log.warning("job_lease_lost", extra={"reason": "engine_prepare"})
 
     def _beat(self, *, recover: bool) -> None:
         from pitangus.modules.scanning.engines import engines_available
         from pitangus.version import RELEASE
         try:
             queue.heartbeat(self.data_dir, self.worker_id, docker=engines_available(), version=RELEASE)
+            if recover and time.monotonic() - self._images_at > IMAGES_SECONDS:
+                self._record_images()
             queue.touch(self.data_dir, self.worker_id)
             if recover:
                 self._recover(everything=False)
         except Exception:  # noqa: BLE001 — the database may not be ready for a moment; it retries
             log.exception("latido del worker fallido")
+
+    def _record_images(self) -> None:
+        """Which engine images are on this server, for the panel (a scan checks again itself), and the preparation of
+        every engine that is on and lacks its pinned image: after an upgrade that changed a digest, or one turned on in
+        the panel (`make engines` only pulls what the environment turns on). A scan never pulls one mid-run."""
+        from pitangus.modules.scanning import engine_switches, engines
+        self._images_at = time.monotonic()
+        ready = engines.image_readiness()
+        engine_switches.record_images(self.data_dir, ready, runner=engines.runner())
+        if engines.runner() != "docker" or not engines.docker_available():
+            return  # installed engines (nothing to download), or no Docker to pull with
+        pinned = {key for key, meta in engines.IMAGES.items() if "@sha256:" in meta["image"]}
+        for key in engine_switches.missing_images(engine_switches.resolve(self.data_dir), ready, pinned):
+            self.prepare_engine(key, by="worker", automatic=True)
 
     def _beat_until(self, done: threading.Event) -> None:
         """While a scan runs: renews its lease every HEARTBEAT_SECONDS and, on the leader, keeps the batch fed, so
@@ -342,6 +388,12 @@ class ScanJobs:
                 self._feed_batches()
 
     def _execute(self, job: dict) -> None:
+        from pitangus.modules.scanning.engines import declaring_missing_images
+        # A server analysis never downloads a missing image: the engine is declared not run and the worker prepares it.
+        with declaring_missing_images():
+            return self._dispatch(job)
+
+    def _dispatch(self, job: dict) -> None:
         if job.get("kind") == "periodic":
             # Already claimed as due by whoever queued it: the worker just runs it.
             from pitangus.modules.runs import periodic
@@ -357,6 +409,8 @@ class ScanJobs:
             return self._execute_dast(job)
         if job.get("kind") == "domain_discovery":
             return self._execute_discovery(job)
+        if job.get("kind") == "engine_prepare":
+            return self._execute_prepare(job)
         run_id = job["run_id"]
         tokens = vault.unseal(job["tokens"], "job-tokens") if job.get("tokens") else {}
         record = load_run(self.data_dir, run_id)
@@ -441,7 +495,7 @@ class ScanJobs:
         job, is opened and removed from it before anything else can fail."""
         from pitangus.modules.scanning import openapi_spec
         from pitangus.modules.scanning.engines import docker_problem, runner
-        from pitangus.modules.scanning import web_tools, web_versions
+        from pitangus.modules.scanning import engine_switches, web_tools, web_versions
         from pitangus.modules.scanning.web import WebScanError, scan_domain, scan_exposure
         from pitangus.modules.sources import domain_headers, domain_scope, test_users
         from pitangus.modules.sources.domains import DomainError, confirm_control, public_address, scan_scope
@@ -459,8 +513,11 @@ class ScanJobs:
 
         try:
             exposure = job.get("mode") == "exposure"
-            if not exposure and not settings.flag("PITANGUS_DAST_ENABLED"):
-                raise WebScanError(msg("scanning.web.errors.disabled"))
+            switches = engine_switches.resolve(self.data_dir)  # read once: a switch flipped mid-scan applies next time
+            if not exposure and (off := engine_switches.mode_off(switches, "dast", "scanning.web.errors.disabled")):
+                raise WebScanError(off)
+            if exposure and engine_switches.uncovered(switches, ("exposure",)):
+                raise WebScanError(msg("scanning.switches.uncovered", what=msg("scanning.switches.capability.exposure")))
             if runner() == "local":
                 raise WebScanError(msg("scanning.web.exposure.errors.needs_docker" if exposure else "scanning.web.errors.needs_docker"))
             if problem := docker_problem():
@@ -514,12 +571,12 @@ class ScanJobs:
             if exposure:
                 from pitangus.modules.findings import registry as findings_registry
                 scan = scan_exposure(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope,
-                                     tools={**web_tools.readiness(), web_versions.KEY: web_versions.readiness()},
+                                     tools={**web_tools.readiness(switches), web_versions.KEY: web_versions.readiness(switches)},
                                      recheck=findings_registry.web_instances(self.data_dir, domain["key"]))
             else:
                 scan = scan_domain(domain, pins, data_dir=self.data_dir, progress=progress, scope=scope, headers=headers, api=api,
                                    excluded=excluded, users=users, session_check=domain.get("session_check") or "",
-                                   tools={**web_tools.readiness(), web_versions.KEY: web_versions.readiness()})
+                                   tools={**web_tools.readiness(switches), web_versions.KEY: web_versions.readiness(switches)})
             counts = _counts(scan["summary"])
             progress("warn" if scan["status"] == "incomplete" else "ok",
                      msg("runs.progress.finished_incomplete" if scan["status"] == "incomplete" else "runs.progress.finished", counts=counts))
@@ -540,6 +597,30 @@ class ScanJobs:
             self._fail(record, msg("runs.failure.dast_internal"))
             del exc
 
+    def _execute_prepare(self, job: dict) -> None:
+        """Gets an engine's images onto this server ("Prepare engine"), pulled by their digest, and records what's there
+        now for the panel. A scan never pulls a missing image: it declares the engine not run until this is done."""
+        from pitangus.modules.scanning import engine_switches, engines
+        key = job.get("engine")
+        if key not in engine_switches.BY_KEY:
+            return None
+        try:
+            problem = engines.prepare(key)
+        except Exception:  # noqa: BLE001 — said in the panel; the worker goes on
+            log.exception("engine_prepare_failed", extra={"reason": key})
+            problem = msg("scanning.engines.action.pull_failed")
+        engine_switches.prepare_finished(self.data_dir, key, ready=engines.image_readiness(), runner=engines.runner(), problem=problem)
+        log.info("engine_prepared" if problem is None else "engine_prepare_failed",
+                 extra={"reason": key if problem is None else f"{key}: {text(problem, 'en')}"})
+        return None
+
+    def prepare_engine(self, engine: str, *, by: str, automatic: bool = False) -> bool:
+        """Queues the preparation of an engine's images, once while one is under way (engine_switches.prepare_requested)."""
+        from pitangus.modules.scanning import engine_switches
+        return engine_switches.prepare_requested(
+            self.data_dir, engine, by=by, automatic=automatic,
+            enqueue=lambda: queue.enqueue(self.data_dir, "engine_prepare", {"engine": engine, "by": by[:200]}))
+
     def _execute_discovery(self, job: dict) -> None:
         """Runs subfinder for the domain and stores the hosts that resolve to public addresses, all out of scope. When
         it can't run (web scans off, no Docker, image missing, offline), the domain says why."""
@@ -552,7 +633,7 @@ class ScanJobs:
             return None  # removed since it was queued
         domain_scope.discovery_started(self.data_dir, domain["id"])
         try:
-            problem = unavailable()
+            problem = unavailable(self.data_dir)
             if problem:
                 raise DiscoveryError(problem)
             found = discover(domain["host"])

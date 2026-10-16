@@ -422,7 +422,9 @@ class EngineRegistryTests(unittest.TestCase):
         ran, lines = [], []
         engines = [repository_scan.EngineStep(key, lambda context, key=key: ran.append(key) or _result(key, "completed", "ok"), "scanning.progress.trivy",
                                               merged=key == "zizmor") for key in keys]
-        results = run_engines(engines, ScanContext(Path("."), Path("."), {}), lambda level, message: lines.append(level))
+        from pitangus.modules.scanning import engine_switches
+        results = run_engines(engines, ScanContext(Path("."), Path("."), {}, switches=engine_switches.all_on()),
+                              lambda level, message: lines.append(level))
         self.assertEqual((ran, list(results)), (keys, keys))
         self.assertEqual(lines.count("ok"), len(keys) - 1)  # the merged one reports after its merge
 

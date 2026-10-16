@@ -54,7 +54,11 @@
     "failed_early": "{{engine}} terminó con error antes de producir resultados",
     "not_installed": "{{engine}} no está instalado en este worker ({{binary}} no está en el PATH): esa parte del análisis no se hizo.",
     "none_installed": "Este worker no tiene ningún motor de análisis instalado y PITANGUS_ENGINE_RUNNER=local: usa la imagen worker-standalone o dale al worker el socket de Docker.",
-    "disabled": "{{engine}}: no ejecutado (desactivado). Se activa con {{setting}}=1; lo que encontró antes sigue abierto, nunca remediado."
+    "disabled": "{{engine}}: no ejecutado (desactivado). Un administrador lo activa en Ajustes → Motores de análisis; lo que encontró antes sigue abierto y nunca se da por remediado.",
+    "disabled_by_server": "{{engine}}: no ejecutado (este servidor lo apaga con {{setting}}); lo que encontró antes sigue abierto y nunca se da por remediado.",
+    "image_missing": "{{engine}}: no ejecutado, su imagen todavía no está en este servidor. Se está preparando y se ejecutará en el próximo análisis; mientras tanto, lo que encontró antes sigue abierto y nunca se da por remediado.",
+    "image_pull_failed": "{{engine}}: no ejecutado, su imagen no está en esta máquina y no se pudo descargar ({{cause}}). Descárgala con docker pull {{image}} (o make engines) y vuelve a analizar; lo que encontró antes sigue abierto.",
+    "disabled_here": "{{engine}}: no ejecutado (desactivado). Se activa con {{setting}}=1; lo que encontró antes sigue abierto y nunca se da por remediado."
   },
   "opengrep": {
     "no_fix": "Abre el hallazgo para ver su código y corrígelo como indica la regla {{rule}}.",
@@ -454,7 +458,7 @@
       "no_zizmor": "zizmor no está disponible: los workflows de GitHub Actions solo los revisa Checkov",
       "no_dast": "Sin pruebas dinámicas: no se envía tráfico a ninguna aplicación",
       "no_ai": "Sin IA: no se envía código fuente a OpenAI ni a Anthropic",
-      "checkov_disabled": "{{engine}}: no se ejecutará (desactivado; se activa con PITANGUS_CHECKOV_ENABLED=1)."
+      "disabled": "{{engine}}: desactivado (Ajustes → Motores de análisis)."
     }
   },
   "local": {
@@ -724,7 +728,7 @@
       "tool_unreached": "{{tool}} no pudo revisar {{hosts}}: su parte del análisis quedó incompleta ahí, y lo que había reportado antes no se marca como remediado."
     },
     "errors": {
-      "disabled": "Los análisis web están apagados en este servidor: define PITANGUS_DAST_ENABLED=1 en su entorno y reinícialo.",
+      "disabled": "El análisis web completo está desactivado: un administrador lo activa en Ajustes → Motores de análisis.",
       "needs_docker": "Los análisis web necesitan el runner de Docker: el worker sin socket de Docker no incluye ZAP.",
       "failed": "ZAP no terminó el análisis.",
       "timeout": "ZAP pasó del límite de {{minutes}} minutos y el análisis se detuvo.",
@@ -732,7 +736,8 @@
       "busy": "Ya hay un análisis web en cola o en curso; espera a que termine.",
       "address": "No se puede analizar {{host}}: {{reason}}",
       "no_headers": "Este dominio no tiene cabeceras guardadas: añádelas antes de pedir un análisis que las use.",
-      "variable": "Una cabecera guardada o la ruta del servidor de la definición de API contiene ${, que ZAP leería como una variable: quítalo y vuelve a analizar."
+      "variable": "Una cabecera guardada o la ruta del servidor de la definición de API contiene ${, que ZAP leería como una variable: quítalo y vuelve a analizar.",
+      "disabled_by_server": "Este servidor apaga el análisis web completo ({{setting}}): no se puede activar desde el panel."
     },
     "spec": {
       "empty": "La definición OpenAPI está vacía.",
@@ -864,12 +869,13 @@
     }
   },
   "discovery": {
-    "disabled": "La búsqueda de hosts relacionados solo funciona con los análisis web activos: define PITANGUS_DAST_ENABLED=1 en este servidor.",
+    "disabled": "La búsqueda de hosts relacionados es parte del análisis web completo, que está desactivado: un administrador lo activa en Ajustes → Motores de análisis.",
     "needs_docker": "La búsqueda de hosts relacionados necesita el runner de Docker: el worker sin socket de Docker no incluye subfinder.",
     "no_docker": "No se pudo buscar hosts relacionados: {{reason}}",
     "image_missing": "La imagen de subfinder aún no está en este servidor: ejecuta make engines (o haz docker pull) y vuelve a buscar.",
     "timeout": "subfinder pasó de su límite de {{seconds}} segundos y se detuvo; vuelve a buscar más tarde.",
-    "failed": "subfinder no terminó: comprueba que el servidor tenga salida a internet y vuelve a buscar."
+    "failed": "subfinder no terminó: comprueba que el servidor tenga salida a internet y vuelve a buscar.",
+    "disabled_by_server": "La búsqueda de hosts relacionados es parte del análisis web completo, que este servidor apaga ({{setting}})."
   },
   "egress": {
     "declared": "Este servidor declara sus direcciones de salida en {{name}}: cámbialas ahí.",
@@ -979,5 +985,21 @@
     "limitation": "{{count|# resultado está suprimido|# resultados están suprimidos}} por comentarios o archivos de exclusión del propio repositorio ({{places}}). Siguen ahí: los ves en Hallazgos → Excluidos.",
     "comment": "un comentario {{marker}}",
     "file": "el archivo {{file}}"
+  },
+  "switches": {
+    "uncovered": "Todos los motores de {{what}} están desactivados: Pitangus no lo revisó, y lo que encontró ahí antes sigue abierto.",
+    "capability": {
+      "sast": "análisis de código (SAST)",
+      "dependencies": "dependencias",
+      "secrets": "secretos",
+      "iac": "infraestructura como código",
+      "pipelines": "pipelines de CI",
+      "images": "paquetes de imágenes de contenedor",
+      "exposure": "la comprobación de exposición"
+    },
+    "errors": {
+      "unknown": "No hay ningún motor de análisis con ese nombre.",
+      "locked": "Este servidor define {{setting}}, así que este motor no se cambia desde el panel: cambia esa variable y reinicia."
+    }
   }
 }

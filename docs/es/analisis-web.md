@@ -29,7 +29,7 @@ iniciar sesión con usuarios de prueba, lanzar o programar un análisis y leer l
   ni marca como sin verificar los hallazgos de un análisis completo, ni se los queda cuando ambos reportan la misma
   página: cada tipo de análisis conserva sus hallazgos y la fecha en que los vio por primera vez. **Nuevo análisis →
   Comprobación de exposición**, o el botón de análisis del propio dominio.
-- **Análisis web completo** (experimental, apagado salvo con `PITANGUS_DAST_ENABLED=1`): todo lo de abajo, con ZAP,
+- **Análisis web completo** (experimental, apagado hasta que un administrador lo activa en **Ajustes → Motores de análisis**): todo lo de abajo, con ZAP,
   katana y subfinder rastreando el sitio. No forma parte del núcleo: apagarlo no remedia nada de lo que encontró, esos
   hallazgos siguen abiertos hasta que un análisis del mismo tipo pruebe que ya no están.
 
@@ -64,9 +64,10 @@ Necesitas:
   cabeceras guardadas.
 - **El runner de Docker.** Las herramientas corren en contenedores. La imagen del worker sin socket de Docker
   (`pitangus-worker`, ver [contenedores.md](contenedores.md)) no las incluye, y el análisis lo indica.
-- **Solo para el análisis completo:** `PITANGUS_DAST_ENABLED=1`. Es experimental y viene apagado; la comprobación de
-  exposición no necesita nada. La leen la API y el worker, así que defínela en los dos (en `.env` con la instalación
-  por defecto). Ver [configuracion.md](configuracion.md).
+- **Solo para el análisis completo:** un administrador activa **Análisis web completo** en **Ajustes → Motores de
+  análisis**. Es experimental y viene apagado; la comprobación de exposición no necesita nada.
+  `PITANGUS_DAST_ENABLED` en el entorno del servidor lo fija encendido (`1`) o apagado (`0`) por encima del panel;
+  defínela para la API y el worker. Ver [configuracion.md](configuracion.md#motores-de-análisis).
 - **Las imágenes de los motores.** `make engines` (que también ejecuta `make up`) descarga las que faltan, cada una
   fijada por versión y digest: nuclei, testssl.sh y httpx para la comprobación de exposición siempre, y además ZAP,
   katana y subfinder si el análisis completo está activado. Solo ZAP ocupa unos 1,2 GB; las demás herramientas web,
@@ -75,7 +76,8 @@ Necesitas:
 - **Un sitio HTTPS público** en el puerto 443, con un certificado válido y un nombre DNS público. Las direcciones
   privadas o internas nunca se analizan.
 
-Para el análisis completo, actívalo y descarga sus imágenes:
+Para el análisis completo, actívalo en **Ajustes → Motores de análisis**: el worker descarga sus imágenes (y las de
+katana) al momento, y la fila dice cuándo están listas. Desde la línea de comandos, fíjalo encendido y descárgalas:
 
 ```bash
 echo 'PITANGUS_DAST_ENABLED=1' >> .env
@@ -196,8 +198,8 @@ una prueba DNS vigente puedes añadir subdominios.
 Al añadir un dominio (y cuando pulsas **Buscar de nuevo** en su pestaña **Alcance**), Pitangus ejecuta **subfinder**,
 una herramienta que busca nombres bajo el dominio solo en fuentes públicas: registros de transparencia de
 certificados, DNS pasivo y archivos históricos. No usa claves de API y se detiene al minuto. No se envía nada a tus
-hosts; el nombre de tu dominio sí va a esas fuentes públicas, y por eso la búsqueda solo corre con
-`PITANGUS_DAST_ENABLED=1`.
+hosts; el nombre de tu dominio sí va a esas fuentes públicas, y por eso la búsqueda solo corre con el análisis web
+completo activado.
 
 Cada nombre encontrado debe ser un host válido bajo el dominio y resolver solo a direcciones públicas (ni privadas, ni
 de loopback, ni link-local, ni de metadatos de la nube); el resto se descarta y se cuenta. Los hosts nuevos empiezan
@@ -631,7 +633,7 @@ requiere a quien administra.
 
 | Lo que ves | Por qué | Cómo resolverlo |
 | --- | --- | --- |
-| **No está activado en este servidor**, o «Los análisis web están apagados en este servidor» | `PITANGUS_DAST_ENABLED` no está definida para la API o el worker | Define `PITANGUS_DAST_ENABLED=1` en los dos y reinicia (`make up`). |
+| **No está activado en este servidor**, o «El análisis web completo está desactivado» | El análisis web completo está apagado | Un administrador lo activa en **Ajustes → Motores de análisis**. Si el mensaje nombra `PITANGUS_DAST_ENABLED`, el servidor lo fija apagado: defínela en `1` para la API y el worker y reinicia (`make up`). |
 | «La imagen de ZAP no está en este servidor: ejecuta make engines» (u otra herramienta) | No se descargó la imagen | Ejecuta `make engines`. Un paso marcado **Omitido** dice cuál. |
 | «Los análisis web necesitan el runner de Docker» | El worker no tiene socket de Docker | Usa el runner de Docker ([contenedores.md](contenedores.md)). |
 | Aún no aparece el registro TXT | Nombre o valor incorrectos, o el DNS no se ha propagado | Compruébalo con `dig +short TXT _pitangus.<host>`, espera unos minutos y verifica de nuevo. |

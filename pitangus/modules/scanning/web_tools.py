@@ -39,7 +39,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from pitangus.modules.scanning import engine_contract, nuclei_templates
+from pitangus.modules.scanning import engine_contract, engine_switches, nuclei_templates
 from pitangus.modules.scanning.engine_contract import Contract
 from pitangus.modules.scanning.web_identity import identity_path, remember_former, root_of, site_level
 from pitangus.modules.scanning.engines import IMAGES, _base, _run, _stable, docker_problem, host_path, image_available, runner
@@ -196,8 +196,16 @@ def evidence(answers: list[tuple[str, int]]) -> tuple[list[tuple[str, int]], dic
     return [((urlsplit(url).hostname or "").lower(), status) for url, status in answers], pages
 
 
-def readiness() -> dict[str, Message | None]:
-    """For each tool, None if it can run here, else why not (the step says so and the scan goes on without it)."""
+def readiness(switches: dict | None = None) -> dict[str, Message | None]:
+    """For each tool, None if it can run here, else why not (the step says so and the scan goes on without it): turned
+    off (`switches`, engine_switches.resolve; without them, the environment and the defaults), or it can't run here."""
+    switches = switches if switches is not None else engine_switches.resolve(None)
+    if off := {key: reason for key in TOOLS if (reason := engine_switches.off_reason(switches, key, IMAGES[key]["name"]))}:
+        return {**_runnable(), **off}
+    return _runnable()
+
+
+def _runnable() -> dict[str, Message | None]:
     if runner() == "local":
         return {key: msg("scanning.web.tools.needs_docker") for key in TOOLS}
     if problem := docker_problem():

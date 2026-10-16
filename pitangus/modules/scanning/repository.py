@@ -21,10 +21,10 @@ from pitangus.modules.scanning.config_engines import merge_repository, run_check
 from pitangus.modules.scanning.dependency_merge import merge_dependencies, unique_by_fingerprint
 from pitangus.modules.scanning.dependency_graph import annotate as annotate_dependency_graph
 from pitangus.modules.scanning import declared_ranges
-from pitangus.modules.scanning import engine_contract, rule_set, secret_identity, secret_rules
+from pitangus.modules.scanning import engine_contract, engine_switches, rule_set, secret_identity, secret_rules
 from pitangus.modules.scanning.policies import run_policies
 from pitangus.modules.scanning.vendored import is_vendored
-from pitangus.modules.scanning.engines import ignore_entries_allowed, ignore_file_entries, RULE_LANGUAGES, SECRET_SEVERITY, Engine, EngineStep, ScanContext, report_done, run_engines, SEVERITY_NAME, and_list, engines_available, joined as join_messages, host_mount_problem, run_osv_scanner, runner, socket_problem, merge_secrets, run_betterleaks, run_opengrep, screened_detail, run_trivy, masked_lead, secret_context, trivy_secrets, with_secret_identities
+from pitangus.modules.scanning.engines import enabled, switched_off, ignore_entries_allowed, ignore_file_entries, RULE_LANGUAGES, SECRET_SEVERITY, Engine, EngineStep, ScanContext, report_done, run_engines, SEVERITY_NAME, and_list, engines_available, joined as join_messages, host_mount_problem, run_osv_scanner, runner, socket_problem, merge_secrets, run_betterleaks, run_opengrep, screened_detail, run_trivy, masked_lead, secret_context, trivy_secrets, with_secret_identities
 from pitangus.modules.sources.repositories import secrets_root, secrets_scan_root
 from pitangus.shared import coverage_units
 from pitangus.shared.i18n import msg
@@ -170,6 +170,8 @@ FOLDERS_SHOWN = 5
 # Every engine reads the snapshot but the secret scanners, which also read what `set_apart` moved out of it: Trivy only
 # with its secret scanner, so its other scanners leave those folders unexamined.
 SECRET_ENGINES = frozenset({"betterleaks"})
+# The kinds of check a code scan makes (engine_switches.CAPABILITIES): one left with every engine off is said.
+CODE_CAPABILITIES = ("sast", "dependencies", "secrets", "iac", "pipelines")
 SECRET_ONLY_SCANNERS = {"trivy": ("sca", "iac")}
 
 
@@ -243,14 +245,15 @@ def _with_inline(coverage: dict[str, dict], withheld: list[dict]) -> dict[str, d
 
 
 def scan_credentials(root: Path, data_dir: Path, secret_settings: dict | None, *, engines: bool,
-                     apart: dict[str, str] | None = None) -> dict:
+                     apart: dict[str, str] | None = None, switches: dict | None = None) -> dict:
     """What only the secret scanners read (`secrets_root`): the credential files (`.env`, `.npmrc`, `id_rsa`…), the
     dependency and build output folders the other engines don't read (`apart`) and every other committed file they don't
     read (hidden folders, binaries). Read by Betterleaks and Trivy's secret scanner only (by the internal patterns
     without Docker), and removed when they finish, whatever happened. A scanner that failed leaves them unexamined for
     it (the folders as such), one that finished the files its log doesn't name as read (secret_coverage): nothing it
-    saw there before is fixed."""
+    saw there before is fixed, nor by one turned off (`switches`), which reads nothing."""
     folder = secrets_root(root)
+    switches = switches if switches is not None else engine_switches.resolve(data_dir)
     if not folder.is_dir():
         return {"findings": [], "withheld": [], "unexamined": {}, "files": 0}
     try:
@@ -260,11 +263,12 @@ def scan_credentials(root: Path, data_dir: Path, secret_settings: dict | None, *
                     "unexamined": {}, "files": len(files)}
         # Betterleaks scans the folder above, which holds nothing else: no committed file sits where it loads its
         # control files from (`.gitleaksignore`, `.betterleaksignore`), so only Pitangus honours them, never silently.
-        betterleaks = engine_contract.settled(run_betterleaks(folder, secret_settings, nested=True))
+        betterleaks = switched_off("betterleaks", switches) or engine_contract.settled(run_betterleaks(folder, secret_settings, nested=True))
         screened = Counter(betterleaks.get("screened") or {})
         trivy_gaps: dict[str, str] = {}
         trivy_allowed: list[dict] = []
-        trivy = trivy_secrets(folder, data_dir / "trivy-cache", secret_settings, screened, gaps=trivy_gaps, allowed=trivy_allowed, controls=root)
+        trivy = None if not enabled("trivy", switches) else \
+            trivy_secrets(folder, data_dir / "trivy-cache", secret_settings, screened, gaps=trivy_gaps, allowed=trivy_allowed, controls=root)
         # Read while the files are there: the values to mask wherever else they appear (shared/masking.py).
         values = secret_identity.values(folder, [*betterleaks["findings"], *(betterleaks.get("withheld") or []), *(trivy or [])])
     finally:
@@ -340,6 +344,9 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
         feeds = load_feeds(data_dir or Path("data")) if (engines or allow_osv_upload) else {"kev": {}, "epss": {}}
     tools: list[dict] = []
     applied: dict | None = None  # which engines and rules this scan ran with (rule_set)
+    # Which engines are on, read once: a switch flipped mid-scan applies from the next one.
+    switches = engine_switches.all_on() if replay is not None else engine_switches.resolve(data_dir)  # replays: as recorded
+    off_checks = engine_switches.uncovered(switches, CODE_CAPABILITIES) if engines else []
     dependency_graph: dict = {}
     misconfigured = None if engines or not docker else socket_problem()
     if misconfigured:
@@ -352,14 +359,15 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
             report("warn", mount_problem)
         # The defaults plus this repository's own entries apply to both secret engines.
         secret_settings = secret_rules.for_scan(data_dir, source.get("uid") or source.get("id") or source.get("name"))
-        applied = rule_set.code(secret_settings)
+        applied = rule_set.code(secret_settings, switches)
         ignore_entries: dict = {}
         if replay is None:
             # The repository's `.gitleaksignore` / `.betterleaksignore` go with the secret-only files, removed once read:
             # their entries are read first, for the code's matches too.
             ignore_entries = ignore_file_entries(secrets_root(root))
-            credentials = scan_credentials(root, data_dir or Path("data"), secret_settings, engines=True, apart=apart)
-        results = run_engines(CODE_ENGINES if replay is None else replay, ScanContext(root, data_dir or Path("data"), feeds, secret_settings, allow_osv_upload), report)
+            credentials = scan_credentials(root, data_dir or Path("data"), secret_settings, engines=True, apart=apart, switches=switches)
+        results = run_engines(CODE_ENGINES if replay is None else replay,
+                              ScanContext(root, data_dir or Path("data"), feeds, secret_settings, allow_osv_upload, switches), report)
         results["betterleaks"] = ignore_entries_allowed(results["betterleaks"], ignore_entries)
         sast, secrets_betterleaks, trivy = results["opengrep"], results["betterleaks"], results["trivy"]
         dependency_graph = trivy.pop("graph", None) or {}  # only for this scan: never stored with the run
@@ -444,6 +452,8 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
         joined = sum(1 for item in findings if item["scanner"] == "sca" and item.get("also_detected_by"))
         sca_detail = (msg("scanning.repository.sca.engines_confirmed", engines=and_list(engine_sca), advisories=sca_count, confirmed=joined)
                       if joined else msg("scanning.repository.sca.engines", engines=and_list(engine_sca), advisories=sca_count))
+    elif "dependencies" in off_checks:
+        sca_status, sca_detail = "not_tested", msg("scanning.switches.uncovered", what=msg("scanning.switches.capability.dependencies"))
     elif not manifests:
         sca_status, sca_detail = "not_tested", msg("scanning.repository.sca.no_manifests")
     elif not dependencies:
@@ -517,7 +527,7 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
     suffixes = {path.suffix.lower() for path in files}
     languages = frozenset(RULE_LANGUAGE_IDS[name] for name, extensions in RULE_LANGUAGES.items() if extensions & suffixes)
     coverage = owasp_coverage(findings, sast_ran=bool(sast_ran), sca_status=sca_status, iac_ran=bool(iac_ran),
-                              iac_files=iac_files, secrets_ran=True, engines=bool(engines), iac_tools=iac_tools,
+                              iac_files=iac_files, secrets_ran="secrets" not in off_checks, engines=bool(engines), iac_tools=iac_tools,
                               cicd_tools=cicd_tools if engines else (), pipeline_files=pipelines, languages=languages)
     source = {**source, "sha256": digest.hexdigest()}
     declared = " ".join(str(context).split())[:400]
@@ -585,7 +595,8 @@ def scan_repository(root: Path, source: dict, *, allow_osv_upload: bool = False,
                                1 for item in withheld if is_vendored(item))) else [])
                            + ([msg("scanning.secret_filter.limitation", detail=screened_detail(screened))] if screened else [])
                            + ([msg("scanning.secrets.over_budget", count=over_budget)] if (over_budget := sum(
-                               1 for item in [*findings, *withheld] if item.get("over_budget"))) else []),
+                               1 for item in [*findings, *withheld] if item.get("over_budget"))) else [])
+                           + [msg("scanning.switches.uncovered", what=msg(f"scanning.switches.capability.{check}")) for check in off_checks],
             **({"excluded_findings": withheld} if withheld else {}),
             **({"unexamined": unexamined} if (unexamined := _unexamined(left_out, tools, credentials["unexamined"], apart)) else {}),
             **({"coverage": coverage} if (coverage := _with_inline(_coverage(left_out, tools, credentials["unexamined"], apart), withheld)) else {}),

@@ -65,7 +65,7 @@ export function TypeChooser({ choice, onChoose, onContinue, onImport, onCancel, 
     </div>
     {dast === false && isAdmin && <details className="text-sm text-app-muted">
       <summary className="min-h-6 cursor-pointer">{t('chooser.off_how')}</summary>
-      <p className="mt-1"><Trans t={t} i18nKey="chooser.off_admin" components={{ mono: <code className="font-mono text-app-secondary" /> }} /></p>
+      <p className="mt-1">{t('chooser.off_admin')}</p>
     </details>}
     <p className="flex flex-wrap items-center gap-2 text-sm text-app-muted"><UploadSimpleIcon className="size-4 shrink-0" aria-hidden />
       <span><Trans t={t} i18nKey="chooser.import" components={{ go: <button type="button" onClick={onImport} className="min-h-6 font-medium text-brand underline underline-offset-2" /> }} /></span>

@@ -412,10 +412,16 @@ class ScheduleTests(unittest.TestCase):
 
     def test_the_task_is_off_without_web_scans(self):
         from pitangus.modules.runs import periodic
+        from pitangus.modules.scanning import engine_switches
         with patch.dict("os.environ", {"PITANGUS_DAST_ENABLED": ""}):
-            self.assertEqual(periodic.TASKS["domain_scans"].every(), -1)
+            self.assertEqual(periodic.TASKS["domain_scans"].every(self.data_dir), -1)
+            # Turned on in the panel, with nothing in the environment.
+            engine_switches.set_switch(self.data_dir, "dast", True, user={"username": "ana"})
+            self.assertEqual(periodic.TASKS["domain_scans"].every(self.data_dir), periodic.DOMAIN_SCAN_SECONDS)
+        with patch.dict("os.environ", {"PITANGUS_DAST_ENABLED": "0"}):  # the server's variable wins
+            self.assertEqual(periodic.TASKS["domain_scans"].every(self.data_dir), -1)
         with patch.dict("os.environ", {"PITANGUS_DAST_ENABLED": "1"}):
-            self.assertEqual(periodic.TASKS["domain_scans"].every(), periodic.DOMAIN_SCAN_SECONDS)
+            self.assertEqual(periodic.TASKS["domain_scans"].every(self.data_dir), periodic.DOMAIN_SCAN_SECONDS)
 
 
 class AccessApiTests(HttpCase):
