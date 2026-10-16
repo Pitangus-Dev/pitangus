@@ -36,14 +36,14 @@ version on purpose. Check out the new one first, then update:
 
 ```bash
 git fetch --tags
-git checkout v0.14.2      # the version you want
+git checkout v0.14.3      # the version you want
 make update
 ```
 
 On a fixed version, `make update` says so and doesn't pull:
 
 ```text
-On v0.14.2 (a fixed version): not pulling. Check out the version you want first.
+On v0.14.3 (a fixed version): not pulling. Check out the version you want first.
 ```
 
 That's expected right after `git checkout`: the code is already at the new version.

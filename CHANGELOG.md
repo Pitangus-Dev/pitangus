@@ -7,6 +7,49 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-10-15
+
+### Added
+
+- **The full MITRE ATT&CK catalog in threat models.** The hand-made technique list is replaced by MITRE ATT&CK
+  Enterprise v19.2, pinned by SHA-256: 697 current techniques (222 techniques and 475 sub-techniques) and their
+  platforms. **Map a technique** opens the whole catalog, filtered by tactic and searchable by ID or by name in English
+  or Spanish, with the total and its source in view.
+- **Suggested techniques come from the component's platform, and say why.** One documented table
+  (`SUGGESTION_RULES`, in [Threat modeling](docs/threat-modeling.md)) ties each component type to MITRE platforms and
+  tactics; a component exposed to the internet adds Initial Access and container technologies add the Containers
+  platform. The picker groups them under **Suggested for <component>** with the platforms and tactics that justify them,
+  and the suggestions panel lists one row per technique with the components it applies to and **Add to all N**. Actors
+  and custom types get none, and the panel says so.
+- **Spanish names under MITRE's.** Every technique and tactic shows MITRE's official English name with its Spanish
+  translation below, in the panel and in the reports.
+- **Movable flow labels in threat-model diagrams.** Drag a flow's label with the pointer or move it with the keyboard
+  (arrows, Shift for big steps, Escape to cancel); double-click, **Reset label** or **Tidy up** put it back where it
+  goes by itself. The offset (`label_offset: {x, y}`, ±1000 per axis) is kept relative to the middle of the flow's
+  curve, so the label follows its line when you move the nodes, and a thin line joins it to its flow when it is far.
+  The panel, the SVG, the PDF and the Markdown place it the same way, moved labels first and automatic ones around them.
+  It travels in the portable JSON; Threat Dragon and pytm ignore it, and an invalid or out-of-range value is dropped
+  with a warning.
+- **The threat-model importer keeps more.** A tree step can have properties added, and numbers and yes/no values keep
+  their type.
+
+### Changed
+
+- **Select menus size to their content**, so the **+ Component** menu is no longer cut off.
+- **A technique's note grows with its text** instead of scrolling in a fixed box.
+- A flow label's corners are rounded to 4 px, as the identity manual asks.
+
+### Fixed
+
+- **Unused dependencies: a lockfile is not a declaration.** Pull request review reported transitive packages of
+  generated `requirements.txt` files as unused (79 in this repository, now 0). A `requirements*.txt` counts as a
+  lockfile when it carries `# via`, when every entry has a hash or when its header says pip-compile, uv, pdm or poetry
+  made it; with a `.in` sibling the declaration is read from there, and in a lockfile only the entries marked `# via -r
+  <file>` count as declared. A direct dependency that is really unused is still reported, on its line.
+- **npm, pnpm, yarn, bun, Poetry, uv, pdm and Pipenv lockfiles no longer count as proof a package is used.** In pnpm
+  projects every dependency used to look used.
+- **A dialog's fieldset never overflows** (the link-images dialog).
+
 ## [0.14.2] - 2026-10-15
 
 ### Changed

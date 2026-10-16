@@ -39,7 +39,7 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 You need **Docker** (Engine 24+ with Compose v2.24+), **make** and **git**, 4 GB of memory and 8 GB of disk. `make doctor` checks all of it.
 
 ```bash
-git clone --branch v0.14.2 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.3 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up
