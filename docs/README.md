@@ -16,6 +16,7 @@ English · [Español](es/README.md)
 | [Integrations and automation](integrations.md) | GitHub, CI and SARIF, Jira, notifications, webhooks and periodic tasks. |
 | [Configuration](configuration.md) | Every `.env` variable. |
 | [Security](security.md) | How secrets are stored, what leaves your machine and known trade-offs. |
+| [Supply chain](supply-chain.md) | Engines and images pinned by digest, signed releases, how to verify one before installing it, and how this repository's pipeline is pinned. |
 | [Scan your code](scanning-code.md) | Code, dependencies, secrets, infrastructure and pipelines; pull request review and the engines. |
 | [Scan container images](scanning-images.md) | Images read from the registry, never run: packages, secrets and configuration. |
 | [Scan a website or API](scanning-web.md) | Passive web and API scans of a verified domain: scope, headers, test users and schedules. |
