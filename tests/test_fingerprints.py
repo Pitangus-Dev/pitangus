@@ -117,9 +117,10 @@ class SecretIdentityTests(unittest.TestCase):
         self.assertEqual(len(starts), count)
         report = [{"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 1, "StartColumn": start + 1, "EndColumn": start + 40,
                    "Match": "REDACTED", "Entropy": entropy(FIRST)} for start in starts]
-        started = time.monotonic()
+        # CPU time of this process, not wall time: the suite runs in parallel workers on shared CI runners.
+        started = time.process_time()
         found = engines.parse_betterleaks(report, None, self.snapshot(line + "\n"))
-        self.assertLess(time.monotonic() - started, 5)
+        self.assertLess(time.process_time() - started, 5)
         self.assertEqual(len({item["fingerprint"] for item in found}), count)
 
     def test_a_path_outside_the_snapshot_is_never_read(self):
