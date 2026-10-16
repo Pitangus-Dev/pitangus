@@ -1,6 +1,12 @@
-# Blank issues stay open for questions: the repository has no Discussions.
-blank_issues_enabled: true
+# Questions and ideas go to Discussions; issues are for bugs and concrete feature requests.
+blank_issues_enabled: false
 contact_links:
+  - name: Ask a question / Haz una pregunta
+    url: https://github.com/Pitangus-Dev/pitangus/discussions/categories/q-a
+    about: Usage questions, in English or Spanish.
+  - name: Share an idea / Propón una idea
+    url: https://github.com/Pitangus-Dev/pitangus/discussions/categories/ideas
+    about: Proposals and open-ended ideas, before they become an issue.
   - name: Report a vulnerability (private)
     url: https://github.com/Pitangus-Dev/pitangus/security/advisories/new
     about: Security issues go here, never in a public issue. See SECURITY.md.

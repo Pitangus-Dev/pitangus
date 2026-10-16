@@ -21,6 +21,11 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Changed
 
+- **The GitHub Action is named "Pitangus Security Scan"**, by Arodium, ready for the GitHub Marketplace (a GitHub
+  account already uses the name "Pitangus"). Workflows keep `uses: Pitangus-Dev/pitangus@<version>`; nothing else
+  changes.
+- **Questions and ideas go to GitHub Discussions**: the issue chooser links to Q&A and Ideas and no longer opens blank
+  issues.
 - **The security policy** ([`.github/SECURITY.md`](.github/SECURITY.md)) is complete: private reporting link, what to
   include, response targets, coordinated disclosure, supported versions (the latest minor line) and scope.
 
