@@ -111,16 +111,23 @@ class SecretIdentityTests(unittest.TestCase):
 
     def test_a_long_line_full_of_secrets_is_read_in_bounded_windows(self):
         import time
-        count = 2000
-        line = "".join(f'k{index} = "{FIRST}"; ' for index in range(count))
-        starts = [found.start() for found in re.finditer(FIRST, line)]
-        self.assertEqual(len(starts), count)
-        report = [{"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 1, "StartColumn": start + 1, "EndColumn": start + 40,
-                   "Match": "REDACTED", "Entropy": entropy(FIRST)} for start in starts]
-        started = time.monotonic()
-        found = engines.parse_betterleaks(report, None, self.snapshot(line + "\n"))
-        self.assertLess(time.monotonic() - started, 5)
-        self.assertEqual(len({item["fingerprint"] for item in found}), count)
+
+        def read(count):
+            line = "".join(f'k{index} = "{FIRST}"; ' for index in range(count))
+            starts = [found.start() for found in re.finditer(FIRST, line)]
+            self.assertEqual(len(starts), count)
+            report = [{"RuleID": "github-pat", "File": "/src/app.py", "StartLine": 1, "StartColumn": start + 1,
+                       "EndColumn": start + 40, "Match": "REDACTED", "Entropy": entropy(FIRST)} for start in starts]
+            snapshot = self.snapshot(line + "\n")
+            started = time.process_time()
+            found = engines.parse_betterleaks(report, None, snapshot)
+            self.assertEqual(len({item["fingerprint"] for item in found}), count)
+            return time.process_time() - started
+
+        # Bounded windows mean the work grows linearly with the secrets on the line, whatever the machine: doubling
+        # them must stay well under quadrupling the CPU time (absolute seconds depend on the CI runner).
+        small, large = min(read(500) for _ in range(2)), min(read(1000) for _ in range(2))
+        self.assertLess(large, 3.5 * small + 0.2)
 
     def test_a_path_outside_the_snapshot_is_never_read(self):
         root = self.snapshot(source())
