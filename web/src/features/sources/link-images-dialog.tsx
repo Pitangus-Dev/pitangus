@@ -65,7 +65,7 @@ export function LinkImagesDialog({ repository, onClose, onLinked, onAddImage }: 
         : empty ? <p className="py-4 text-center text-sm text-app-muted">{t('images.no_match')}</p>
         : <fieldset>
           <legend className="sr-only">{t('images.link_dialog.legend', { name: repository.name })}</legend>
-          <ul className="max-h-80 divide-y divide-app-line overflow-y-auto rounded-xl border border-app-line">{data.items.map(image => {
+          <ul className="max-h-80 divide-y divide-app-line overflow-y-auto rounded-lg border border-app-line">{data.items.map(image => {
             const here = image.built_from?.repository === repository.key
             const hint = here ? t('images.link_dialog.already') : image.built_from?.repository ? t('images.currently', { name: image.built_from.name }) : t('images.tabs.unlinked')
             return <li key={image.key}><label className={`flex min-h-6 items-start gap-3 px-3 py-2.5 ${here ? '' : 'cursor-pointer hover:bg-app-soft'}`}>

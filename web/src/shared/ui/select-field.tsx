@@ -6,6 +6,8 @@ export type SelectOption = { value: string; label: string; lang?: string; disabl
 export type SelectOptionGroup = { label: string; options: SelectOption[] }
 
 export const selectPopup = "border border-app-line bg-panel p-1 text-app-fg shadow-md"
+// As wide as the longest option (never narrower than the trigger, never wider than the window): no clipped labels.
+export const fitPopup = "w-max min-w-(--anchor-width) max-w-(--available-width)"
 
 type SelectFieldProps = {
   value: string
@@ -40,7 +42,7 @@ export function SelectField({ value, onValueChange, options = [], groups = [], p
         className={cn("w-full min-w-0 border-input bg-card text-app-fg", className)}>
         <SelectValue placeholder={placeholder} className="min-w-0 truncate" />
       </SelectTrigger>
-      <SelectContent align={align} className={selectPopup}>
+      <SelectContent align={align} className={cn(selectPopup, fitPopup)}>
         {placeholder !== undefined && <SelectItem value={null}>{placeholder}</SelectItem>}
         {options.map(option => <SelectItem key={option.value} value={option.value} lang={option.lang} disabled={option.disabled}>{option.label}</SelectItem>)}
         {groups.map(group => <SelectGroup key={group.label}><SelectLabel>{group.label}</SelectLabel>

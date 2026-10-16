@@ -36,7 +36,7 @@ microfrontends). Un componente vinculado a un repositorio lo agrega a la lista s
 | LINDDUN | Amenazas a la privacidad de las personas | Reglas integradas sobre los elementos que guardan datos personales (`PV-*`) |
 | PASTA | Riesgo de negocio en siete etapas | Etapas con notas; las etapas 3, 4 y 5 se alimentan del diagrama, de STRIDE y de los análisis |
 | Árboles de ataque | Caminos hacia el objetivo de un atacante | Editor de árboles Y/O con dificultad, elemento y mitigación; calcula qué caminos siguen abiertos |
-| MITRE ATT&CK | Técnicas de atacantes reales | Una selección de técnicas (web, API, contenedores, nube) para mapear sobre los componentes, con sugerencias y enlace a attack.mitre.org; también admite cualquier otro ID de técnica |
+| MITRE ATT&CK | Técnicas de atacantes reales | El catálogo Enterprise completo, sin conexión, para mapear sobre los componentes, con sugerencias a partir de los datos de plataformas de MITRE (ver [MITRE ATT&CK](#mitre-attck)) y enlace a attack.mitre.org; también admite cualquier otro ID de técnica |
 | Personalizado | El método de tu equipo | El diagrama más las herramientas que actives: reglas STRIDE o LINDDUN, amenazas propias, etapas PASTA, árboles de ataque, ATT&CK y la tabla de elementos |
 
 En cualquier enfoque puedes **agregar tus propias amenazas**: título, escenario, categoría, elemento, severidad,
@@ -48,6 +48,43 @@ STRIDE y LINDDUN muestran su pregunta guía al pasar el cursor.
 LINDDUN `PV-*` en `pitangus/modules/threats/methods.py`). Cada amenaza dice qué la dispara en ese elemento, su
 severidad, sus mitigaciones y sus CWE. La severidad parte de la base de la regla, sube un nivel si el elemento está
 expuesto a internet y maneja credenciales o pagos, y baja uno si es interno y poco sensible.
+
+### MITRE ATT&CK
+
+**El catálogo es el de MITRE, completo.** Pitangus incluye MITRE ATT&CK Enterprise v19.2 tal como MITRE lo publica en
+[attack-stix-data](https://github.com/mitre-attack/attack-stix-data) (archivo fijado por SHA-256, nunca se descarga
+en ejecución): 697 técnicas vigentes (222 técnicas y 475 subtécnicas), más 149 IDs revocados y 12 obsoletos, que se
+reconocen y se señalan. **Mapear una técnica** abre el catálogo: recórrelo por táctica o busca por ID, nombre o
+táctica. Los nombres son los de MITRE, en inglés; en español, nuestra traducción va debajo (técnicas y tácticas; las
+subtécnicas conservan solo el nombre de MITRE). Los informes siguen el mismo criterio.
+
+**De dónde salen las sugerencias.** MITRE indica, para cada técnica, las plataformas a las que aplica
+(`x_mitre_platforms`). Pitangus solo decide en qué plataforma de ATT&CK corre cada tipo de componente y en qué
+tácticas ese componente es lo que el atacante ataca; las técnicas son las que MITRE lista ahí. Solo con las
+plataformas, un servidor recibiría 177 técnicas; las tácticas acotan la lista. Una sola tabla, en
+`pitangus/modules/threats/methods.py` (`SUGGESTION_RULES`):
+
+| Tipo de componente | Plataformas de MITRE | Tácticas | Por qué |
+| --- | --- | --- | --- |
+| Aplicación web, API, servicio interno | Windows, macOS, Linux (+ Containers) | Execution, Credential Access, Impact | Corren en un equipo, y en una plataforma de contenedores cuando la tecnología lo dice; ahí el atacante ejecuta código, se lleva los secretos que guardan y los deja sin servicio. |
+| Función o tarea | IaaS | Execution, Credential Access, Impact | El código serverless corre en el proveedor de nube, no en un equipo que administres: MITRE ubica Serverless Execution y las técnicas de credenciales de nube en IaaS. |
+| Base de datos, caché, cola | Windows, macOS, Linux (+ Containers) | Collection, Exfiltration, Impact | Los almacenes autogestionados corren en un equipo; lo que importa son los datos: tomarlos, sacarlos, destruirlos o alterarlos. |
+| Almacenamiento de archivos | IaaS | Collection, Exfiltration, Impact | Suele ser un bucket en la nube; las técnicas de almacenamiento en la nube de MITRE (Data from Cloud Storage, Transfer Data to Cloud Account) son de IaaS. |
+| Servicio de terceros | SaaS | Initial Access, Credential Access, Exfiltration | Un proveedor que no operas: una vía de entrada de confianza, tokens y sesiones que robar y un canal para sacar datos. |
+| Proveedor de identidad | Identity Provider | Initial Access, Persistence, Credential Access | Tiene plataforma propia en ATT&CK: cuentas válidas, manipulación de cuentas y alteración de la autenticación. |
+
+- Los componentes **expuestos a internet** suman **Initial Access** (Exploit Public-Facing Application, External
+  Remote Services…).
+- **Containers** se suma a un componente que corre en un equipo cuando su tecnología nombra un motor u orquestador de
+  contenedores (Docker, Kubernetes, k8s, OpenShift, Podman, Helm, ECS, EKS, AKS, GKE, Fargate, Cloud Run, Nomad).
+- Solo se sugieren técnicas; sus subtécnicas están a un clic en el catálogo.
+- **Sin sugerencias** para un actor (ATT&CK no tiene plataforma para personas) ni para un **tipo propio** (su rol base
+  decide las reglas STRIDE, no ATT&CK: una cámara no es un servicio web). Mapea sus técnicas desde el catálogo.
+- ATT&CK también tiene Office Suite, Network Devices, ESXi y PRE; ningún tipo de componente corresponde todavía a
+  ellas, y sus técnicas siguen en el catálogo.
+
+Las sugerencias se agrupan por técnica, con los componentes a los que aplica cada una; añádela a uno o a todos. Nada se
+añade solo.
 
 ## Dibujar el sistema
 

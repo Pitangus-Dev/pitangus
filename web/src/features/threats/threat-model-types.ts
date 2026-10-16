@@ -26,10 +26,9 @@ export type AttackMapping = { technique: string; element?: string; status: strin
 export type Model = { id: string; name: string; description?: string; components: Component[]; flows: Flow[]; boundaries: Boundary[]; updated_at?: string; updated_by?: string;
   methodology?: import('@/features/threats/threat-guides').Methodology; custom_modules?: CustomModule[]; repositories?: string[]; repository_refs?: string[]; assumptions?: Assumption[]; level_equivalents?: LevelEquivalents; custom_properties?: CustomProperties; manual_threats?: ManualThreat[]; attack_trees?: AttackTree[]; attack_mappings?: AttackMapping[]; pasta?: PastaNotes;
   legend?: Partial<Record<import('@/features/threats/threat-colors').Tone, string>> }
-export type MethodsCatalog = { methodologies: Record<string, string>; linddun: Record<string, string>; tactics: Record<string, string>;
-  techniques: Record<string, { name: string; name_es: string; tactics: string[] }>; suggestions: Record<string, string[]>; pasta_stages: { key: string; title: string }[]
-  // All of MITRE ATT&CK Enterprise, bundled on the server: [name, tactics] of each live technique; revoked → replacement.
-  attack?: { version: string; techniques: Record<string, [string, string[]]>; revoked: Record<string, string | null>; deprecated: Record<string, string> } }
+export type MethodsCatalog = { methodologies: Record<string, string>; linddun: Record<string, string>; pasta_stages: { key: string; title: string }[]
+  // All of MITRE ATT&CK Enterprise, bundled on the server, with the table its suggestions come from.
+  attack: import('@/features/threats/attack-catalog').AttackCatalog }
 export type Evidence = { asset: string; run_id: string; fingerprint: string; title: string; severity: string; location: string }
 export type Threat = { id: string; rule: string; stride: string; category: string; title: string; why: string; mitigations: string[]; cwe: number[]; element: string; element_name: string; severity: string; severity_label?: string | null; custom_properties?: CustomProperties; status: 'evidenced' | 'open' | 'mitigated' | 'accepted' | 'not_applicable'; decision?: { status: string; reason: string; by: string; at: string } | null; contradicted?: boolean; evidence: Evidence[]; evidence_count: number; framework?: 'stride' | 'linddun' | 'manual'; manual_id?: string; likelihood?: string | null; impact?: string | null; owner?: string; evidence_scope?: { asset: string; path: string | null }[] }
 export type Summary = { total: number; by_status: Record<string, number>; by_stride: Record<string, number>; by_severity: Record<string, number> }

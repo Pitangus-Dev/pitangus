@@ -36,7 +36,7 @@ microfrontends). A component linked to a repository adds it to the list automati
 | LINDDUN | Threats to people's privacy | Built-in rules on the elements that hold personal data (`PV-*`) |
 | PASTA | Business risk in seven stages | Stages with notes; stages 3, 4 and 5 are fed by the diagram, STRIDE and the scans |
 | Attack trees | Paths toward an attacker's goal | AND/OR tree editor with difficulty, element and mitigation; works out which paths are still open |
-| MITRE ATT&CK | Real attackers' techniques | A selection of techniques (web, API, containers, cloud) to map onto components, with suggestions and a link to attack.mitre.org; any other technique ID can be added too |
+| MITRE ATT&CK | Real attackers' techniques | The full Enterprise catalog, offline, to map onto components, with suggestions from MITRE's own platform data (see [MITRE ATT&CK](#mitre-attck)) and a link to attack.mitre.org; any other technique ID can be added too |
 | Custom | Your team's method | The diagram plus whichever tools you turn on: STRIDE or LINDDUN rules, your own threats, PASTA stages, attack trees, ATT&CK and the element table |
 
 In any approach you can **add your own threats**: title, scenario, category, element, severity, likelihood, impact,
@@ -48,6 +48,43 @@ question on hover.
 in `pitangus/modules/threats/methods.py`). Each threat says what triggers it on that element, its severity, its
 mitigations and its CWEs. The severity starts from the rule's base, goes one level up if the element is exposed to
 the internet and carries credentials or payments, and one level down if it's internal and not very sensitive.
+
+### MITRE ATT&CK
+
+**The catalog is MITRE's, whole.** Pitangus bundles MITRE ATT&CK Enterprise v19.2 as MITRE publishes it in
+[attack-stix-data](https://github.com/mitre-attack/attack-stix-data) (file pinned by SHA-256, never fetched at run
+time): 697 live techniques (222 techniques and 475 sub-techniques), plus 149 revoked and 12 deprecated IDs, which are
+recognized and flagged. **Map a technique** opens the catalog: browse it by tactic or search by ID, name or tactic.
+Names are MITRE's in English; in Spanish, our translation goes underneath (techniques and tactics; sub-techniques keep
+MITRE's name only). The same applies to the reports.
+
+**Where the suggestions come from.** MITRE lists, for every technique, the platforms it applies to
+(`x_mitre_platforms`). Pitangus only decides which ATT&CK platform each component type runs on, and in which tactics
+that component is what the attacker acts on; the techniques are whatever MITRE lists there. Platforms alone would
+suggest 177 techniques for a server, so the tactics narrow them. One table, in
+`pitangus/modules/threats/methods.py` (`SUGGESTION_RULES`):
+
+| Component type | MITRE platforms | Tactics | Why |
+| --- | --- | --- | --- |
+| Web app, API, internal service | Windows, macOS, Linux (+ Containers) | Execution, Credential Access, Impact | They run on a host, and on a container platform when the technology says so; the attacker runs code there, takes the secrets it holds and disrupts it. |
+| Function or job | IaaS | Execution, Credential Access, Impact | Serverless code runs on the cloud provider, not on a host you manage: MITRE puts Serverless Execution and the cloud credential techniques under IaaS. |
+| Database, cache, queue | Windows, macOS, Linux (+ Containers) | Collection, Exfiltration, Impact | Self-managed stores run on a host; what matters is the data: taking it, moving it out, destroying or altering it. |
+| File storage | IaaS | Collection, Exfiltration, Impact | File storage is usually a cloud bucket; MITRE's cloud storage techniques (Data from Cloud Storage, Transfer Data to Cloud Account) are IaaS. |
+| Third-party service | SaaS | Initial Access, Credential Access, Exfiltration | A provider you don't run: a trusted way in, tokens and sessions to steal, and a channel to take data out. |
+| Identity provider | Identity Provider | Initial Access, Persistence, Credential Access | Its own platform in ATT&CK: valid accounts, account manipulation and authentication tampering. |
+
+- **Internet-facing** components also get **Initial Access** (Exploit Public-Facing Application, External Remote
+  Services…).
+- **Containers** is added to a host component when its technology names a container runtime or orchestrator (Docker,
+  Kubernetes, k8s, OpenShift, Podman, Helm, ECS, EKS, AKS, GKE, Fargate, Cloud Run, Nomad).
+- Only techniques are suggested; their sub-techniques are one click away in the catalog.
+- **No suggestions** for an actor (ATT&CK has no platform for people) or for a **type of your own** (its base role
+  drives the STRIDE rules, not ATT&CK: a camera isn't a web service). Map their techniques from the catalog.
+- ATT&CK also has Office Suite, Network Devices, ESXi and PRE; no component type maps to them yet, and their
+  techniques stay in the catalog.
+
+The suggestions are grouped by technique, with the components each one applies to; add it to one component or to all
+of them. Nothing is added on its own.
 
 ## Draw the system
 

@@ -79,7 +79,7 @@ def build() -> dict:
                              "element": reference, "difficulty": level, "mitigated": {"type": "boolean"}}, ("id", "text")), threat_methods.NODE_ALIASES)
     tree = _aliased(_object({"id": _id("Unique among trees"), "goal": _text(200, "The attacker's goal; a name written under a synonym is joined in front of it"),
                              "nodes": {"type": "array", "maxItems": threat_methods.LIMITS["tree_nodes"], "items": {"$ref": "#/$defs/attack_tree_node"}}}, ("id", "goal")), threat_methods.TREE_ALIASES)
-    mapping = _aliased(_object({"technique": {"type": "string", "pattern": TECHNIQUE_PATTERN, "examples": list(threat_methods.TECHNIQUES),
+    mapping = _aliased(_object({"technique": {"type": "string", "pattern": TECHNIQUE_PATTERN, "examples": ["T1190", "T1059", "T1552.001"],
                                               "description": f"A MITRE ATT&CK Enterprise technique or sub-technique ID (ATT&CK v{attack.version()}, bundled: any of them is recognized). "
                                                              "A revoked, deprecated or unknown ID is kept, with a warning.",
                                               "x-pitangus-attack-version": attack.version()},

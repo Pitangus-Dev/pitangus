@@ -205,13 +205,13 @@
       "purpose": "Consultar y mapear tácticas y técnicas observadas en atacantes reales. Complementa un modelo como STRIDE; no cumple la misma función.",
       "when": "Para contrastar el modelo con ataques reales y revisar qué previene o detecta cada técnica.",
       "steps": [
-        "Para cada componente, revisa las técnicas sugeridas (no se añaden solas).",
-        "Añade las relevantes y anota qué control la previene o la detecta.",
-        "Márcala mitigada o «no aplica» con el motivo."
+        "Para cada componente, revisa lo que MITRE asigna a su plataforma (nada se añade solo).",
+        "Añade las que apliquen y anota qué control previene o detecta cada una.",
+        "Márcala como mitigada, o como no aplica con el motivo."
       ],
       "tips": [
         "Táctica = el objetivo del atacante en ese momento (el porqué); técnica = cómo lo consigue.",
-        "Aquí hay una selección de técnicas útiles para aplicaciones web, APIs, contenedores y nube; el catálogo completo está en attack.mitre.org."
+        "Pitangus incluye el catálogo Enterprise completo de MITRE, sin conexión; las sugerencias salen de las plataformas que MITRE asigna a cada técnica."
       ]
     },
     "custom": {
@@ -319,7 +319,9 @@
     "paths_other": "{{open}} de {{count, number}} rutas abiertas (basta una)",
     "no_paths": "sin rutas",
     "remove_tree": "Quitar el árbol",
-    "path": "Ruta"
+    "path": "Ruta",
+    "property": "Propiedad",
+    "add_property": "Añadir una propiedad a este paso"
   },
   "attack": {
     "status": {
@@ -327,25 +329,51 @@
       "mitigated": "Mitigada",
       "not_applicable": "No aplica"
     },
-    "technique": "Técnica",
-    "choose_technique": "Elige una técnica…",
-    "map": "Mapear",
-    "suggestions": "Sugerencias para revisar ({{count, number}})",
-    "suggestions_hint": "Técnicas habituales contra este tipo de componentes. No se añaden solas: añade las que apliquen.",
-    "empty": "Sin técnicas mapeadas. Empieza por las sugerencias o por la táctica «Acceso inicial».",
+    "suggestions_hint": "Las técnicas que MITRE asigna a la plataforma de cada tipo de componente, en las tácticas en que ese componente es el objetivo. Las subtécnicas están en el catálogo. Nada se añade solo.",
+    "empty": "Sin técnicas mapeadas. Empieza por las sugerencias de MITRE o recorre el catálogo por táctica.",
     "status_label": "Estado",
     "note": "Control o nota",
     "note_placeholder": "Qué la previene o la detecta",
-    "trademark": "MITRE ATT&CK® es una marca de The MITRE Corporation. Pitangus incluye el catálogo Enterprise completo, sin conexión; sugerimos una selección para aplicaciones web, APIs, contenedores y nube.",
+    "trademark": "MITRE ATT&CK® es una marca de The MITRE Corporation. Pitangus incluye el catálogo Enterprise completo, sin conexión, tal como lo publica MITRE.",
     "technique_format": "Usa un ID de técnica de ATT&CK: T y cuatro dígitos, con subtécnica opcional (T1552 o T1552.001).",
-    "technique_label": "Técnica de ATT&CK",
-    "type_technique": "Busca o escribe un ID, p. ej. T1552.001",
-    "all_techniques": "Todo ATT&CK v{{version}}",
     "revoked": "Revocada en ATT&CK · ahora {{replacement}}",
     "revoked_alone": "Revocada en ATT&CK",
     "deprecated": "{{name}} (obsoleta en ATT&CK)",
     "not_found": "No existe en ATT&CK v{{version}}",
-    "all_techniques_unversioned": "Todo ATT&CK"
+    "map_technique": "Mapear una técnica",
+    "source": "MITRE ATT&CK Enterprise v{{version}} · {{total, number}} técnicas",
+    "suggestions_one": "Sugerencias de MITRE para tus componentes ({{count, number}} técnica)",
+    "suggestions_other": "Sugerencias de MITRE para tus componentes ({{count, number}} técnicas)",
+    "suggestions_silent": "Sin sugerencias para {{names}}: ATT&CK no tiene plataforma para una persona ni para un tipo propio. Mapea sus técnicas desde el catálogo.",
+    "suggestions_list": "Técnicas sugeridas",
+    "add_to": "Mapear {{id}} a {{name}}",
+    "add_all_one": "Añadir a {{count, number}} componente",
+    "add_all_other": "Añadir a los {{count, number}}",
+    "add_all_label": "Mapear {{id}} a {{names}}",
+    "picker": {
+      "title": "Mapear una técnica de ATT&CK",
+      "source": "MITRE ATT&CK Enterprise v{{version}} · {{total, number}} técnicas ({{techniques, number}} técnicas y {{subtechniques, number}} subtécnicas), tal como las publica MITRE.",
+      "element": "Elemento",
+      "search": "Buscar",
+      "search_placeholder": "ID, nombre o táctica: T1059, fuerza bruta, Execution…",
+      "tactics": "Tácticas",
+      "all_tactics": "Todas las tácticas",
+      "suggested_for": "Sugeridas para {{name}}",
+      "basis": "Plataformas de MITRE: {{platforms}} · tácticas: {{tactics}}",
+      "no_platform_actor": "Una persona no tiene plataforma en ATT&CK, así que no hay sugerencias. El phishing y otras técnicas de ingeniería social están en Initial Access.",
+      "no_platform_custom": "Un tipo propio no tiene plataforma en ATT&CK, así que no hay sugerencias. Recorre el catálogo por táctica.",
+      "nothing_suggested": "Ninguna de las técnicas sugeridas coincide con esta búsqueda o táctica.",
+      "subtechniques_one": "{{count, number}} subtécnica",
+      "subtechniques_other": "{{count, number}} subtécnicas",
+      "results_one": "{{count, number}} técnica",
+      "results_other": "{{count, number}} técnicas",
+      "outside": "Fuera de ATT&CK v{{version}} o usados en otros modelos",
+      "nothing": "Nada coincide. Puedes usar cualquier ID bien formado (T1234 o T1234.001), aunque no exista en ATT&CK.",
+      "map": "Mapear",
+      "map_to": "Mapear {{id}} a {{name}}",
+      "mapped": "Mapeada",
+      "done": "Listo"
+    }
   },
   "canvas": {
     "internet_facing": "Expuesto a Internet",
@@ -692,7 +720,9 @@
     "empty": "Campos propios (un responsable, un ticket, una fecha de revisión…). Los campos desconocidos de un modelo importado aparecen aquí.",
     "structured": "Valor estructurado: se muestra como se importó y se exporta tal cual.",
     "name_taken": "Ya hay una propiedad con ese nombre: elige otro.",
-    "name_required": "Una propiedad necesita un nombre."
+    "name_required": "Una propiedad necesita un nombre.",
+    "true": "Sí",
+    "false": "No"
   },
   "context": {
     "assumptions": "Supuestos",

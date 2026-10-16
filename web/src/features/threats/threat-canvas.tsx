@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
-import { SelectField } from '@/shared/ui/select-field'
+import { fitPopup, SelectField, selectPopup } from '@/shared/ui/select-field'
 import { autoLayout, baseKind, bezierPath, curvePoint, drawnRect, fitBox, labelSpots, NODE_H, NODE_W, ports, routes, shift, sizeOf, type Side } from '@/features/threats/threat-layout'
 import { BOUNDARY_TONE, boundaryTone, isManual, kindTone, LEGEND, legendTones, NODE_BASE, NODE_TONE, NODE_WASH, TEXT_TONE, toneOf, TONE_NAMES, TONES, withLegendLabel, type Tone } from '@/features/threats/threat-colors'
 import { assetGroups, newId, PROCESSES, STORES, type Catalog, type Component, type Flow, type Kind, type Model, type Point, type Threat } from '@/features/threats/threat-model-types'
@@ -164,6 +164,18 @@ function useDarkMode() {
 }
 
 type Props = { model: Model; setModel: (model: Model) => void; threats: Threat[]; catalog: Catalog; compact?: boolean }
+
+// "+ Component": the menu is as wide as its longest type, never wider than the window.
+export function AddComponentMenu({ kinds, onAdd }: { kinds: Record<Kind, string>; onAdd: (kind: Kind) => void }) {
+  const { t } = useTranslation('threats')
+  return <Select value={null} onValueChange={value => { if (value) onAdd(value as Kind) }}>
+    <SelectTrigger aria-label={t('canvas.add_component')} className="h-8 border-input bg-card text-xs shadow-sm"><PlusIcon className="size-3.5" /><SelectValue placeholder={t('canvas.component_placeholder')} /></SelectTrigger>
+    <SelectContent align="start" alignItemWithTrigger={false} className={`${selectPopup} ${fitPopup}`}>
+      {Object.entries(kinds).filter(([key]) => key !== 'custom').map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}
+      <SelectItem value="custom">{t('canvas.other_kind')}</SelectItem>
+    </SelectContent>
+  </Select>
+}
 
 export function ThreatCanvas(props: Props) {
   return <ReactFlowProvider><Canvas {...props} /></ReactFlowProvider>
@@ -334,7 +346,7 @@ function Canvas({ model, setModel, threats, catalog, compact = false }: Props) {
         <Controls showInteractive={false} />
         <Panel position="bottom-right"><Legend model={model} setModel={setModel} /></Panel>
         <Panel position="top-left" className="flex flex-wrap gap-1.5">
-          <Select value={null} onValueChange={value => { if (value) addComponent(value as Kind) }}><SelectTrigger aria-label={t('canvas.add_component')} className="h-8 border-input bg-card text-xs shadow-sm"><PlusIcon className="size-3.5" /><SelectValue placeholder={t('canvas.component_placeholder')} /></SelectTrigger><SelectContent>{Object.entries(catalog.kinds).filter(([key]) => key !== 'custom').map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}<SelectItem value="custom">{t('canvas.other_kind')}</SelectItem></SelectContent></Select>
+          <AddComponentMenu kinds={catalog.kinds} onAdd={addComponent} />
           <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={addBoundary}><SquareIcon />{t('canvas.boundary')}</Button>
           <Button size="sm" variant="outline" className="h-8 bg-panel shadow-sm" onClick={tidy} title={t('canvas.tidy_hint')}><SquaresFourIcon />{t('canvas.tidy')}</Button>
         </Panel>

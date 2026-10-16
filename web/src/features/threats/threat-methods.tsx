@@ -9,7 +9,8 @@ import { SelectField } from '@/shared/ui/select-field'
 import { ValueCombobox } from '@/shared/ui/value-combobox'
 import { currentLocale } from '@/shared/i18n'
 import { attackUrl, guideOf, methodName, METHOD_ORDER, type Methodology } from '@/features/threats/threat-guides'
-import { baseKind } from '@/features/threats/threat-layout'
+import { basisOf, groupSuggestions, tacticTranslation, translationOf, type AttackCatalog } from '@/features/threats/attack-catalog'
+import { AttackPicker } from '@/features/threats/attack-picker'
 import { elementsOf, newId, type AttackMapping, type AttackTree, type Catalog, type Level, type LevelEquivalents, type ManualThreat, type Model, type Threat, type TreeNode } from '@/features/threats/threat-model-types'
 import { CustomPropertiesField, ValueView } from '@/features/threats/threat-properties'
 import { headingOf } from '@/features/threats/property-values'
@@ -24,9 +25,6 @@ const LEVELS: Record<Level, string> = { low: 'level.low', medium: 'level.medium'
 const SEVERITIES = { critical: 'common:severity.critical', high: 'common:severity.high', medium: 'common:severity.medium', low: 'common:severity.low' } as const
 const SEVERITY_COUNT = { critical: 'pasta.severity_count.critical', high: 'pasta.severity_count.high', medium: 'pasta.severity_count.medium', low: 'pasta.severity_count.low' } as const
 
-// The server sends the English ATT&CK name plus a Spanish one.
-const TECHNIQUE_ID = /^T\d{4}(\.\d{3})?$/
-const techniqueName = (item?: { name: string; name_es?: string }) => item ? (currentLocale() === 'es' && item.name_es ? item.name_es : item.name) : undefined
 
 
 // ------------------------------------------------------------------ choosing an approach
@@ -233,6 +231,7 @@ function TreeEditor({ tree, model, levels, onChange, onRemove }: { tree: AttackT
         <SelectField aria-label={t('manual.element')} value={node.element ?? ''} onValueChange={element => update(node.id, { element })} className={`${inline} max-w-40`} placeholder={t('trees.no_element')} options={elements.map(item => ({ value: item.id, label: item.label }))} />
         <label className="flex items-center gap-1 text-xs text-app-muted"><input type="checkbox" className="size-3.5 accent-brand" checked={node.mitigated} onChange={event => update(node.id, { mitigated: event.target.checked })} />{t('trees.mitigated')}</label>
         <Button size="xs" variant="ghost" onClick={() => addNode(node.id)} aria-label={t('trees.add_step')}><PlusIcon />{t('trees.step')}</Button>
+        {Object.keys(node.custom_properties ?? {}).length === 0 && <Button size="xs" variant="ghost" onClick={() => update(node.id, { custom_properties: { [t('properties.new_name')]: '' } })} aria-label={t('trees.add_property')}><PlusIcon />{t('trees.property')}</Button>}
         <Button size="xs" variant="ghost" onClick={() => remove(node.id)} aria-label={t('trees.remove_step')}><TrashIcon /></Button>
       </div>
       {Object.keys(node.custom_properties ?? {}).length > 0 && <div className="ml-6"><CustomPropertiesField compact value={node.custom_properties} onChange={custom_properties => update(node.id, { custom_properties })} /></div>}
@@ -255,63 +254,82 @@ const MAPPING_STATUS = { relevant: 'attack.status.relevant', mitigated: 'attack.
 
 export function AttackMappings({ model, setModel, catalog }: { model: Model; setModel: (model: Model) => void; catalog: Catalog }) {
   const { t } = useTranslation('threats')
-  const { techniques, tactics, suggestions } = catalog.methods
+  const attack = catalog.methods.attack
+  const locale = currentLocale()
   const rows = model.attack_mappings ?? []
   const setRows = (next: AttackMapping[]) => setModel({ ...model, attack_mappings: next })
-  const [technique, setTechnique] = useState('')
-  const [element, setElement] = useState('')
+  const [picking, setPicking] = useState(false)
   const elements = elementsOf(model)
   const label = Object.fromEntries(elements.map(item => [item.id, item.label]))
   const has = (id: string, target: string) => rows.some(row => row.technique === id && (row.element ?? '') === target)
-  const add = (id: string, target: string) => { if (id && !has(id, target)) setRows([...rows, { technique: id, element: target, status: 'relevant' }]) }
-  // Suggestions by component kind (a custom one by its base kind); never added on their own.
-  const proposals = model.components.flatMap(component => {
-    const kind = baseKind(component)
-    const keys = [kind, ...(component.internet_facing && ['web_app', 'api', 'service', 'function'].includes(kind) ? ['internet_process'] : []),
-                  ...(['web_app', 'api', 'service', 'function'].includes(kind) ? ['process'] : [])]
-    return [...new Set(keys.flatMap(key => suggestions[key] ?? []))].filter(id => !has(id, component.id)).map(id => ({ id, component }))
-  }).slice(0, 24)
-  const full = catalog.methods.attack
-  const groups = { workspace: t('values.workspace'), all: full ? t('attack.all_techniques', { version: full.version }) : t('attack.all_techniques_unversioned') }
-  // Ours first, by tactic (with the Spanish interpretation); then every other ATT&CK technique by its official name.
-  const options = [...Object.entries(tactics).flatMap(([key, name]) => Object.entries(techniques).filter(([, item]) => item.tactics[0] === key)
-    .map(([id, item]) => ({ value: id, label: `${id} · ${techniqueName(item) ?? ''}`, group: `${name} (${key})` }))),
-  ...Object.entries(full?.techniques ?? {}).filter(([id]) => !techniques[id]).map(([id, [name]]) => ({ value: id, label: `${id} · ${name}`, group: groups.all })),
-  ...(catalog.workspace?.techniques ?? []).filter(id => !techniques[id] && !full?.techniques[id]).map(id => ({ value: id, label: id, hint: describe(id), group: groups.workspace }))]
-  // Any well-formed ATT&CK ID works: one that isn't in ATT&CK keeps its ID and says so.
-  const check = (text: string) => TECHNIQUE_ID.test(text.toUpperCase()) ? null : t('attack.technique_format')
-  const lookup = (id: string) => techniques[id] ? { name: techniqueName(techniques[id]) ?? id, official: techniques[id].name, tactics: techniques[id].tactics }
-    : full?.techniques[id] ? { name: full.techniques[id][0], official: full.techniques[id][0], tactics: full.techniques[id][1] } : null
+  const add = (pairs: [string, string][]) => {
+    const fresh = pairs.filter(([id, target], index) => id && !has(id, target) && pairs.findIndex(other => other[0] === id && other[1] === target) === index)
+    if (fresh.length) setRows([...rows, ...fresh.map(([technique, target]) => ({ technique, element: target, status: 'relevant' }))])
+  }
+  const lookup = (id: string) => attack.techniques[id] ? { name: attack.techniques[id][0], translation: translationOf(attack, locale, id), tactics: attack.techniques[id][1] } : null
   function describe(id: string) {
-    if (full && id in full.revoked) return full.revoked[id] ? t('attack.revoked', { replacement: full.revoked[id] }) : t('attack.revoked_alone')
-    if (full && id in full.deprecated) return t('attack.deprecated', { name: full.deprecated[id] })
-    return t('attack.not_found', { version: full?.version ?? '' })
+    if (id in attack.revoked) return attack.revoked[id] ? t('attack.revoked', { replacement: attack.revoked[id] }) : t('attack.revoked_alone')
+    if (id in attack.deprecated) return t('attack.deprecated', { name: attack.deprecated[id] })
+    return t('attack.not_found', { version: attack.version })
   }
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-app-line bg-panel p-4">
-      <label className="min-w-64 flex-1 space-y-1"><span className="text-[11px] font-medium text-app-muted">{t('attack.technique')}</span>
-        <ValueCombobox label={t('attack.technique_label')} value={technique} onChange={value => setTechnique(value.trim().toUpperCase())} options={options} check={check} maxLength={9} placeholder={t('attack.type_technique')} /></label>
-      <label className="min-w-48 space-y-1"><span className="text-[11px] font-medium text-app-muted">{t('manual.element')}</span>
-        <SelectField value={element} onValueChange={setElement} className={select} placeholder={t('manual.whole_system')} options={elements.map(item => ({ value: item.id, label: item.label }))} /></label>
-      <Button size="sm" variant="outline" disabled={!technique} onClick={() => { add(technique, element); setTechnique('') }}><PlusIcon />{t('attack.map')}</Button>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-xs text-app-muted">{t('attack.source', { version: attack.version, total: attack.counts.total })}</p>
+      <Button size="sm" variant="outline" onClick={() => setPicking(true)}><PlusIcon />{t('attack.map_technique')}</Button>
     </div>
-    {proposals.length > 0 && <details className="rounded-lg border border-app-line bg-panel p-4"><summary className="cursor-pointer text-sm font-medium">{t('attack.suggestions', { count: proposals.length })}</summary>
-      <p className="mt-1 text-xs text-app-subtle">{t('attack.suggestions_hint')}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">{proposals.map(({ id, component }) => <button key={`${id}:${component.id}`} onClick={() => add(id, component.id)} className="inline-flex items-center gap-1 rounded-lg border border-input bg-card px-2 py-1 text-xs text-app-muted hover:border-app-faint hover:underline"><PlusIcon className="size-3" /><span className="font-mono">{id}</span> {techniqueName(techniques[id])} → {component.name}</button>)}</div>
-    </details>}
+    <AttackSuggestions model={model} attack={attack} has={has} onAdd={add} />
     {rows.length === 0 ? <p className="rounded-xl border border-dashed border-app-line px-4 py-10 text-center text-sm text-app-subtle">{t('attack.empty')}</p>
-      : <div className="divide-y divide-app-line overflow-hidden rounded-lg border border-app-line bg-panel">{rows.map((row, index) => { const item = lookup(row.technique)
+      : <div className="divide-y divide-app-line overflow-hidden rounded-xl border border-app-line bg-panel">{rows.map((row, index) => { const item = lookup(row.technique)
         const parent = item ?? lookup(row.technique.split('.')[0])
         const change = (next: Partial<AttackMapping>) => setRows(rows.map((entry, position) => position === index ? { ...entry, ...next } : entry))
-        return <div key={`${row.technique}:${row.element}`} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_150px_minmax(0,1fr)_36px] md:items-start">
-          <div className="min-w-0"><a href={attackUrl(row.technique)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium hover:underline"><span className="font-mono text-xs text-app-subtle">{row.technique}</span>{item ? item.name : describe(row.technique)}<ArrowSquareOutIcon className="size-3 text-app-subtle" /><span className="sr-only">{t('sources:new_tab')}</span></a>
-            <p className="text-[11px] text-app-subtle">{[item && item.name !== item.official ? item.official : '', parent?.tactics.map(key => tactics[key] ?? key).join(', ')].filter(Boolean).join(' · ')}</p></div>
+        return <div key={`${row.technique}:${row.element}`} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_150px_minmax(0,1.2fr)_36px] md:items-start">
+          <div className="min-w-0"><a href={attackUrl(row.technique)} target="_blank" rel="noopener noreferrer" className="inline-flex items-baseline gap-1.5 text-sm font-medium hover:underline"><span className="font-mono text-xs text-app-muted">{row.technique}</span><span>{item ? item.name : describe(row.technique)}</span><ArrowSquareOutIcon className="size-3 shrink-0 self-center text-app-subtle" /><span className="sr-only">{t('sources:new_tab')}</span></a>
+            {item?.translation && <p lang={locale} className="text-xs text-app-muted">{item.translation}</p>}
+            {parent && <p className="text-[11px] text-app-subtle">{parent.tactics.map(key => attack.tactics[key] ?? key).join(', ')}</p>}</div>
           <p className="text-xs text-app-muted">{row.element ? label[row.element] ?? '—' : t('manual.whole_system')}</p>
           <OwnValueField size="xs" label={t('attack.status_label')} value={row.status} known={MAPPING_STATUS} own={catalog.workspace?.statuses} onChange={status => change({ status: status || 'relevant' })} />
-          <Input aria-label={t('attack.note')} value={row.note ?? ''} maxLength={600} placeholder={t('attack.note_placeholder')} onChange={event => setRows(rows.map((entry, position) => position === index ? { ...entry, note: event.target.value } : entry))} className="h-8 border-input bg-card text-xs" />
+          <textarea aria-label={t('attack.note')} rows={1} value={row.note ?? ''} maxLength={600} placeholder={t('attack.note_placeholder')} onChange={event => change({ note: event.target.value })}
+            className="field-sizing-content min-h-8 w-full resize-y rounded-lg border border-input bg-card px-2.5 py-1.5 text-xs leading-5 text-app-fg placeholder:text-app-subtle" />
           <Button size="icon-sm" variant="ghost" aria-label={t('common:actions.remove')} onClick={() => setRows(rows.filter((_, position) => position !== index))}><TrashIcon /></Button>
           {Object.keys(row.custom_properties ?? {}).length > 0 && <div className="md:col-span-5"><CustomPropertiesField compact value={row.custom_properties} onChange={custom_properties => change({ custom_properties })} /></div>}
         </div> })}</div>}
     <p className="text-[11px] text-app-subtle">{t('attack.trademark')}</p>
+    {picking && <AttackPicker attack={attack} elements={elements} components={model.components} isMapped={has} onPick={(id, target) => add([[id, target]])}
+      describe={describe} workspace={catalog.workspace?.techniques} onClose={() => setPicking(false)} />}
   </div>
+}
+
+// What MITRE lists for each component's platforms, one row per technique with the components it applies to.
+function AttackSuggestions({ model, attack, has, onAdd }: { model: Model; attack: AttackCatalog; has: (id: string, element: string) => boolean; onAdd: (pairs: [string, string][]) => void }) {
+  const { t } = useTranslation('threats')
+  const locale = currentLocale()
+  const [open, setOpen] = useState(() => !(model.attack_mappings ?? []).length)
+  const groups = groupSuggestions(attack, model.components, has)
+  const silent = model.components.filter(component => !basisOf(attack, component))
+  const tactics = [...new Set(groups.map(group => group.tactic))]
+  if (!groups.length && !silent.length) return null
+  return <details open={open} onToggle={event => setOpen(event.currentTarget.open)} className="rounded-xl border border-app-line bg-panel">
+    <summary className="cursor-pointer px-4 py-3 text-sm font-medium">{t('attack.suggestions', { count: groups.length })}</summary>
+    <div className="space-y-1 border-t border-app-line px-4 py-3 text-xs leading-5 text-app-muted">
+      <p>{t('attack.suggestions_hint')}</p>
+      {silent.length > 0 && <p>{t('attack.suggestions_silent', { names: silent.map(component => component.name).join(', ') })}</p>}
+    </div>
+    {groups.length > 0 && <div role="group" aria-label={t('attack.suggestions_list')} className="max-h-[28rem] scroll-pt-9 overflow-y-auto border-t border-app-line">{tactics.map(tactic => <section key={tactic} aria-labelledby={`suggested-${tactic}`}>
+      <h4 id={`suggested-${tactic}`} className="sticky top-0 z-10 border-b border-app-line bg-panel px-4 py-1.5 text-xs font-medium text-app-secondary">
+        {attack.tactics[tactic]}{tacticTranslation(attack, locale, tactic) && <span lang={locale} className="font-normal text-app-muted"> · {tacticTranslation(attack, locale, tactic)}</span>}</h4>
+      <ul className="divide-y divide-app-line">{groups.filter(group => group.tactic === tactic).map(group => {
+        const [name] = attack.techniques[group.id]
+        const translation = translationOf(attack, locale, group.id)
+        return <li key={group.id} className="grid gap-2 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] md:items-center">
+          <div className="min-w-0"><p className="text-sm"><span className="mr-1.5 font-mono text-xs text-app-muted">{group.id}</span>{name}</p>
+            {translation && <p lang={locale} className="text-xs text-app-muted">{translation}</p>}</div>
+          <div className="flex flex-wrap gap-1.5">{group.components.map(component => <button key={component.id} type="button" onClick={() => onAdd([[group.id, component.id]])}
+            aria-label={t('attack.add_to', { id: group.id, name: component.name })}
+            className="inline-flex min-h-6 items-center gap-1 rounded-sm border border-input bg-card px-2 py-0.5 text-xs text-app-secondary hover:bg-app-soft hover:text-app-fg"><PlusIcon className="size-3" />{component.name}</button>)}</div>
+          {group.components.length > 1 ? <Button size="xs" variant="ghost" aria-label={t('attack.add_all_label', { id: group.id, names: group.components.map(component => component.name).join(', ') })}
+            onClick={() => onAdd(group.components.map(component => [group.id, component.id]))}><PlusIcon />{t('attack.add_all', { count: group.components.length })}</Button> : <span className="max-md:hidden" />}
+        </li>
+      })}</ul>
+    </section>)}</div>}
+  </details>
 }

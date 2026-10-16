@@ -113,7 +113,7 @@ técnico, no asesoría legal.
 ## Datos incluidos: MITRE ATT&CK
 
 Los modelos de amenazas reconocen todas las técnicas de MITRE ATT&CK Enterprise a partir de una copia incluida en
-Pitangus, `pitangus/modules/threats/attack-enterprise.json` (IDs, nombres, tácticas, IDs revocados y obsoletos),
+Pitangus, `pitangus/modules/threats/attack-enterprise.json` (IDs, nombres, tácticas, plataformas, IDs revocados y obsoletos),
 generada por `scripts/attack-catalog.py` desde los datos STIX oficiales de MITRE
 ([attack-stix-data](https://github.com/mitre-attack/attack-stix-data), versión v19.2, archivo
 `enterprise-attack/enterprise-attack-19.2.json`, con su SHA-256 fijado en el script). Nunca se descarga en ejecución;
@@ -122,6 +122,8 @@ generada por `scripts/attack-catalog.py` desde los datos STIX oficiales de MITRE
 | Datos | Versión | Licencia | Obligaciones |
 |---|---|---|---|
 | MITRE ATT&CK® Enterprise | 19.2 | Licencia de ATT&CK de MITRE: uso libre de regalías para investigación, desarrollo y fines comerciales | Reproducir la mención de copyright de MITRE y la licencia en cualquier copia: ambas viajan dentro del JSON (`copyright`, `license`). «© 2026 The MITRE Corporation. This work is reproduced and distributed with the permission of The MITRE Corporation.» ATT&CK® es una marca de The MITRE Corporation; el panel y los informes lo indican junto a las técnicas. |
+
+Los nombres en español de técnicas y tácticas que muestran el panel y los informes (`pitangus/modules/threats/attack-es.json`) son una traducción propia de Pitangus de los nombres de MITRE, obra derivada de los datos de arriba bajo la misma licencia y atribución; el nombre en inglés de MITRE se muestra siempre junto a ellos.
 
 ## Dependencias de la aplicación
 

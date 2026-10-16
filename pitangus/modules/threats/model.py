@@ -593,7 +593,7 @@ def workspace_values(data_dir: Path) -> dict:
                 if node.get("difficulty") not in (None, *threat_methods.LEVELS):
                     add("levels", node.get("difficulty"))
         for mapping in model.get("attack_mappings") or []:
-            if mapping.get("technique") not in threat_methods.TECHNIQUES:
+            if not isinstance(mapping.get("technique"), str) or threat_methods.attack.technique(mapping["technique"]) is None:
                 add("techniques", mapping.get("technique"))
             if mapping.get("status") not in threat_methods.MAPPING_STATUS:
                 add("statuses", mapping.get("status"))

@@ -45,6 +45,9 @@ export function CustomPropertiesField({ value, onChange, compact = false }: { va
   const entries = Object.entries(value ?? {})
   const [names, setNames] = useState<Record<string, string>>({})
   const set = (next: [string, unknown][]) => onChange(Object.fromEntries(next))
+  const setValue = (key: string, next: unknown) => set(entries.map(([other, current]) => [other, other === key ? next : current]))
+  // What is typed into a number field while it isn't a number yet ("", "-", "1e"): kept here, never saved as text.
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
   // A name already used (or empty) can't be taken: what was typed stays, with the reason next to it.
   const clash = (from: string) => { const to = (names[from] ?? from).trim(); return to !== from && (!to || entries.some(([key]) => key === to)) }
   const rename = (from: string) => {
@@ -72,9 +75,17 @@ export function CustomPropertiesField({ value, onChange, compact = false }: { va
         <Button size="icon-sm" variant="ghost" aria-label={t('properties.remove', { name: key })} onClick={() => set(entries.filter(([other]) => other !== key))}><TrashIcon /></Button>
       </div>
       {invalid && <p id={`${heading}-${key}`} className="text-[11px] text-danger">{(names[key] ?? '').trim() ? t('properties.name_taken') : t('properties.name_required')}</p>}
-      {isPlain(item) || item === null
+      {/* A value keeps its JSON type: a number stays a number and true/false a boolean, as they go back to the file. */}
+      {typeof item === 'boolean'
+        ? <label className="flex min-h-6 w-fit items-center gap-2 text-xs text-app-secondary"><input type="checkbox" className="size-3.5 accent-brand" checked={item}
+            aria-label={t('properties.value', { name: key })} onChange={event => setValue(key, event.target.checked)} />{item ? t('properties.true') : t('properties.false')}</label>
+        : typeof item === 'number'
+        ? <Input type="number" step="any" inputMode="decimal" aria-label={t('properties.value', { name: key })} value={drafts[key] ?? String(item)}
+            onChange={event => { const text = event.target.value; setDrafts({ ...drafts, [key]: text }); const number = Number(text); if (text.trim() && Number.isFinite(number)) setValue(key, number) }}
+            onBlur={() => setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })} className="h-7 w-40 border-input bg-card text-xs tabular-nums" />
+        : isPlain(item) || item === null
         ? <textarea aria-label={t('properties.value', { name: key })} rows={1} maxLength={VALUE_LIMIT} value={item === null ? '' : String(item)}
-            onChange={event => set(entries.map(([other, current]) => [other, other === key ? event.target.value : current]))}
+            onChange={event => setValue(key, event.target.value)}
             className="field-sizing-content w-full rounded-lg border border-input bg-card px-2 py-1 text-xs text-app-fg" />
         : <div className="text-xs"><ValueView value={item} /><p className="mt-1 text-[11px] text-app-subtle">{t('properties.structured')}</p></div>}
     </div> })}</div>}

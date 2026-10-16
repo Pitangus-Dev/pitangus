@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Writes pitangus/modules/threats/attack-enterprise.json: every MITRE ATT&CK Enterprise technique and sub-technique
-(ID, name, tactics), plus the revoked IDs with their replacement and the deprecated ones, from MITRE's official STIX
+(ID, name, tactics and the platforms MITRE lists in `x_mitre_platforms`), plus the revoked IDs with their replacement and the deprecated ones, from MITRE's official STIX
 data. Pitangus never fetches ATT&CK at run time: this file is the catalog, refreshed on purpose.
 
 The release is pinned (VERSION, COMMIT, SHA256): to move to a new one, change the three, run
@@ -24,6 +24,9 @@ REPOSITORY = "https://github.com/mitre-attack/attack-stix-data"
 PATH = f"enterprise-attack/enterprise-attack-{VERSION}.json"
 URL = f"https://raw.githubusercontent.com/mitre-attack/attack-stix-data/{COMMIT}/{PATH}"
 LICENSE_URL = f"https://raw.githubusercontent.com/mitre-attack/attack-stix-data/{COMMIT}/LICENSE.txt"
+# The platforms in the order attack.mitre.org lists them. A platform a new release adds stops the script: place it here
+# (and, if a component kind should use it, in SUGGESTION_RULES in threats/methods.py) on purpose.
+PLATFORMS = ("PRE", "Windows", "macOS", "Linux", "Office Suite", "Identity Provider", "SaaS", "IaaS", "Network Devices", "Containers", "ESXi")
 COPYRIGHT = "© 2026 The MITRE Corporation. This work is reproduced and distributed with the permission of The MITRE Corporation."
 
 
@@ -57,7 +60,11 @@ def build(bundle: dict, license_text: str) -> dict:
             deprecated[key] = item["name"]
         else:
             phases = [phase["phase_name"] for phase in item.get("kill_chain_phases") or [] if phase.get("kill_chain_name") == "mitre-attack"]
-            techniques[key] = [item["name"], sorted({tactics[phase] for phase in phases if phase in tactics}, key=rank.__getitem__)]
+            platforms = item.get("x_mitre_platforms") or []
+            if unknown := set(platforms) - set(PLATFORMS):
+                raise SystemExit(f"{key}: unknown platform(s) {sorted(unknown)}; add them to PLATFORMS")
+            techniques[key] = [item["name"], sorted({tactics[phase] for phase in phases if phase in tactics}, key=rank.__getitem__),
+                               sorted(platforms, key=PLATFORMS.index)]
     # An ID can be revoked in one object and live in another (rare): the live one wins.
     revoked = {key: value for key, value in revoked.items() if key not in techniques}
     for key, value in revoked.items():  # follow a chain of revocations to the live technique
@@ -72,6 +79,7 @@ def build(bundle: dict, license_text: str) -> dict:
         "source": REPOSITORY, "file": PATH, "version": VERSION, "commit": COMMIT, "sha256": SHA256,
         "copyright": COPYRIGHT, "license": license_text.strip(),
         "tactics": {external_id(item): item["name"] for item in live},
+        "platforms": [name for name in PLATFORMS if any(name in entry[2] for entry in techniques.values())],
         "techniques": {key: techniques[key] for key in sorted(techniques, key=order)},
         "revoked": {key: revoked[key] for key in sorted(revoked, key=order)},
         "deprecated": {key: deprecated[key] for key in sorted(deprecated, key=order)},
@@ -87,7 +95,9 @@ def main() -> None:
     license_text = fetch(LICENSE_URL).decode("utf-8")
     catalog = build(json.loads(raw), license_text)
     TARGET.write_text(json.dumps(catalog, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
-    print(f"{TARGET.relative_to(ROOT)}: ATT&CK v{VERSION}, {len(catalog['techniques'])} techniques, "
+    subtechniques = sum("." in key for key in catalog["techniques"])
+    print(f"{TARGET.relative_to(ROOT)}: ATT&CK v{VERSION}, {len(catalog['techniques'])} techniques "
+          f"({len(catalog['techniques']) - subtechniques} techniques and {subtechniques} sub-techniques), "
           f"{len(catalog['revoked'])} revoked, {len(catalog['deprecated'])} deprecated")
 
 

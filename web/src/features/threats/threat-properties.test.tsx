@@ -4,7 +4,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '@/shared/i18n'
 import { CustomPropertiesField } from '@/features/threats/threat-properties'
-import type { CustomProperties } from '@/features/threats/threat-model-types'
+import { AttackTrees } from '@/features/threats/threat-methods'
+import type { CustomProperties, Model } from '@/features/threats/threat-model-types'
 
 const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`threats:${key}`, options)
 
@@ -32,5 +33,36 @@ describe('custom properties', () => {
     expect(Object.keys(latest)).toEqual(['responsable', 'register'])
     await user.click(screen.getByRole('button', { name: tr('properties.remove', { name: 'register' }) }))
     expect(latest).toEqual({ responsable: 'Luis' })
+  })
+
+  it('keeps numbers as numbers and true/false as booleans while editing', async () => {
+    const user = userEvent.setup()
+    let latest: CustomProperties = { score: 7.5, reviewed: false }
+    function Field() {
+      const [value, setValue] = useState(latest)
+      return <CustomPropertiesField value={value} onChange={next => { latest = next; setValue(next) }} />
+    }
+    render(<Field />)
+    const score = screen.getByRole('spinbutton', { name: tr('properties.value', { name: 'score' }) })
+    await user.clear(score)
+    expect(latest.score).toBe(7.5)  // an empty number field isn't saved as text
+    await user.type(score, '-12')
+    expect(latest.score).toBe(-12)
+    await user.click(screen.getByRole('checkbox', { name: tr('properties.value', { name: 'reviewed' }) }))
+    expect(latest).toEqual({ score: -12, reviewed: true })
+  })
+
+  it('adds a property to an attack tree step that has none', async () => {
+    const user = userEvent.setup()
+    let latest: Model = { id: 'm', name: 'M', components: [], flows: [], boundaries: [],
+      attack_trees: [{ id: 't', goal: 'Goal', nodes: [{ id: 'n', parent: null, text: 'Step', gate: 'or', mitigated: false }] }] }
+    function Trees() {
+      const [model, setModel] = useState(latest)
+      return <AttackTrees model={model} setModel={next => { latest = next; setModel(next) }} />
+    }
+    render(<Trees />)
+    await user.click(screen.getByRole('button', { name: tr('trees.add_property') }))
+    expect(latest.attack_trees?.[0].nodes[0].custom_properties).toEqual({ [tr('properties.new_name')]: '' })
+    expect(screen.queryByRole('button', { name: tr('trees.add_property') })).toBeNull()  // the field's own button takes over
   })
 })

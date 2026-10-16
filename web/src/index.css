@@ -294,6 +294,11 @@ body { min-width: 320px; }
   * {
     @apply border-border outline-ring/50;
     }
+  /* A fieldset sizes to its content by default (min-inline-size: min-content), so a long value inside it overflows
+     instead of truncating. */
+  fieldset {
+    min-width: 0;
+  }
   body {
     @apply bg-background text-foreground;
     }
