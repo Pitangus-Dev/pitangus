@@ -4,7 +4,7 @@
 
 <h1 align="center">Pitangus</h1>
 
-<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
+<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a> <a href="https://scorecard.dev/viewer/?uri=github.com/Pitangus-Dev/pitangus"><img src="https://api.scorecard.dev/projects/github.com/Pitangus-Dev/pitangus/badge" alt="OpenSSF Scorecard"></a></p>
 
 <p align="center"><strong>Detéctalo. Corrígelo. Demuéstralo.</strong> Seguridad de aplicaciones autoalojada, libre y sin enviar tu código a nadie.</p>
 
@@ -17,6 +17,7 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 - **Autoalojado y libre (AGPL-3.0).** El código, las dependencias y los hallazgos se quedan en tu servidor.
 - **Un solo sitio para todo:** código (SAST), dependencias, secretos, infraestructura como código, pipelines e imágenes, con siete motores abiertos y sin duplicados entre ellos.
 - **Del hallazgo a la corrección verificada:** prioridad real (CISA KEV y EPSS), comando de corrección por gestor de paquetes, botón «Reverificar» y remediación automática cuando deja de aparecer.
+- **Una cadena de suministro que puedes comprobar:** motores e imágenes base fijados por digest, versiones firmadas y un OpenSSF Scorecard público. [Cómo verificar una versión](docs/es/cadena-de-suministro.md).
 - **En español e inglés, y pensado para equipos pequeños**, con evidencia lista para auditorías SOC 2 e ISO 27001 y modelado de amenazas conectado a los hallazgos reales.
 
 ## Qué hace
@@ -80,6 +81,7 @@ El panel sigue el idioma de tu navegador y tiene un selector de idioma en la bar
 | [Actualizar](docs/es/actualizar.md) | Pasar a una versión nueva, y qué cambia en 0.15 |
 | [Configuración](docs/es/configuracion.md) | Variables de `.env` |
 | [Seguridad](docs/es/seguridad.md) | Secretos, transporte, qué sale de tu máquina y concesiones |
+| [Cadena de suministro](docs/es/cadena-de-suministro.md) | Motores fijados, versiones firmadas y cómo verificar una |
 | [Contenedores y Makefile](docs/es/contenedores.md) | Comandos `make`, imágenes y endurecimiento |
 | [Arquitectura](docs/es/arquitectura.md) | Componentes, flujo de un análisis y datos en disco |
 | [Solución de problemas](docs/es/solucion-problemas.md) | Errores frecuentes |

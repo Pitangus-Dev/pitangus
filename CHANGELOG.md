@@ -7,6 +7,13 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Added
+
+- **A "Supply chain" page** ([docs/supply-chain.md](docs/supply-chain.md)): what is pinned by digest or commit, how
+  release images are built and signed, and the commands to verify one before installing it.
+- **OpenSSF Scorecard** (`.github/workflows/scorecard.yml`) on every push to `main`, weekly and when branch
+  protection changes, with its badge in the README. It reads the repository and changes nothing.
+
 ## [0.15.0] - 2026-10-16
 
 ### Upgrade notes

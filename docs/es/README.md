@@ -16,6 +16,7 @@
 | [Integraciones y automatización](integraciones.md) | GitHub, CI y SARIF, Jira, notificaciones, webhooks y tareas periódicas. |
 | [Configuración](configuracion.md) | Todas las variables de `.env`. |
 | [Seguridad](seguridad.md) | Cómo se guardan los secretos, qué sale de tu máquina y concesiones conocidas. |
+| [Cadena de suministro](cadena-de-suministro.md) | Motores e imágenes fijados por digest, versiones firmadas, cómo verificar una antes de instalarla y cómo está fijado el pipeline de este repositorio. |
 | [Analizar tu código](analisis-de-codigo.md) | Código, dependencias, secretos, infraestructura y pipelines; revisión de pull requests y los motores. |
 | [Analizar imágenes de contenedor](analisis-de-imagenes.md) | Imágenes leídas del registro, nunca ejecutadas: paquetes, secretos y configuración. |
 | [Analizar un sitio web o una API](analisis-web.md) | Análisis web y de API pasivos de un dominio verificado: alcance, cabeceras, usuarios de prueba y programación. |

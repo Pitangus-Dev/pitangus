@@ -1,0 +1,55 @@
+# OpenSSF Scorecard: scores the repository's own supply-chain practices (pinned actions, token permissions, branch and
+# tag protection, signed releases, dependency updates…) and publishes the result for the badge in the README and
+# for anyone to check at https://scorecard.dev/viewer/?uri=github.com/Pitangus-Dev/pitangus. It reads the repository;
+# it changes nothing in it and builds nothing.
+#
+# - Runs on pushes to main, weekly (the default branch only, as the action requires) and when the branch protection
+#   rules change. Never on pull requests: the action does not support them and they would only run it twice.
+# - Results go to code scanning (category `scorecard`, separate from "Pitangus on itself") and, because of
+#   `publish_results`, to the public Scorecard API: that is what the badge reads. Publishing needs `id-token: write`.
+# - Scorecard's API refuses a workflow that doesn't follow its restrictions (no top-level env or defaults, no
+#   container, only a short list of actions in the job, no `run:` step). Keep this file that plain.
+#
+# Actions pinned by commit; least-privilege permissions per job; no credentials persisted in the checkout.
+name: Scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 2"
+  branch_protection_rule:
+
+permissions: {}
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read           # upload-sarif reads the run in private repositories
+      security-events: write  # upload the SARIF to code scanning
+      id-token: write         # publish_results: the workflow's OIDC identity vouches for the result
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e  # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
+        with:
+          sarif_file: results.sarif
+          category: scorecard

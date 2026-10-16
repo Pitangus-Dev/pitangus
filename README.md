@@ -4,7 +4,7 @@ English · [Español](README.es.md)
 
 <h1 align="center">Pitangus</h1>
 
-<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
+<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a> <a href="https://scorecard.dev/viewer/?uri=github.com/Pitangus-Dev/pitangus"><img src="https://api.scorecard.dev/projects/github.com/Pitangus-Dev/pitangus/badge" alt="OpenSSF Scorecard"></a></p>
 
 <p align="center"><strong>Spot it. Fix it. Prove it.</strong> Self-hosted, open-source application security that never sends your code anywhere.</p>
 
@@ -17,6 +17,7 @@ Pitangus scans your repositories and container images, tells you **what to fix f
 - **Self-hosted and free software (AGPL-3.0).** Your code, dependencies and findings stay on your server.
 - **One place for everything:** code (SAST), dependencies, secrets, infrastructure as code, pipelines and images, with seven open-source engines and no duplicates across them.
 - **From finding to verified fix:** real prioritization (CISA KEV and EPSS), a fix command for each package manager, a **Reverify** button, and automatic remediation once a finding stops showing up.
+- **A supply chain you can check:** engines and base images pinned by digest, signed releases and a public OpenSSF Scorecard. [How to verify a release](docs/supply-chain.md).
 - **Built for small teams, in English and Spanish**, with evidence ready for SOC 2 and ISO 27001 audits and threat modeling tied to your actual findings.
 
 ## What it does
@@ -80,6 +81,7 @@ The panel follows your browser's language and has a language switch in the sideb
 | [Upgrade](docs/upgrading.md) | Moving to a new version, and what changes in 0.15 |
 | [Configuration](docs/configuration.md) | `.env` variables |
 | [Security](docs/security.md) | Secrets, transport, what leaves your machine, and trade-offs |
+| [Supply chain](docs/supply-chain.md) | Pinned engines, signed releases and how to verify one |
 | [Containers and Makefile](docs/containers.md) | `make` commands, images and hardening |
 | [Architecture](docs/architecture.md) | Components, how a scan flows, and data on disk |
 | [Troubleshooting](docs/troubleshooting.md) | Common errors |

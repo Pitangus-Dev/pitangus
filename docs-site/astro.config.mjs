@@ -92,6 +92,7 @@ const sidebar = [
     translations: es('Seguridad'),
     items: [
       page('security', 'Security model', 'Modelo de seguridad'),
+      page('supply-chain', 'Supply chain', 'Cadena de suministro'),
     ],
   },
   {
