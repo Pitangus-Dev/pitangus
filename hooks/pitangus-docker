@@ -7,7 +7,7 @@
 # v* tag. An image of your own (PITANGUS_IMAGE from another repository) is yours to check.
 set -eu
 published=ghcr.io/pitangus-dev/pitangus-worker
-image="${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus-worker:0.15@sha256:53f2063ce49ce2ff52ec054e2e173027adda2815c2b8b787bed99adfa1905a77}"
+image="${PITANGUS_IMAGE:-ghcr.io/pitangus-dev/pitangus-worker:0.15@sha256:7f703da3dcc5f9a5cd930c04bcc21b7c2fa48b006f1306879148043f8d19b94d}"
 signers='^https://github\.com/Pitangus-Dev/pitangus/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+(\.[0-9]+)?$'
 volume="${PITANGUS_CACHE_VOLUME:-pitangus-cache}"
 repository="${image%%@*}"
