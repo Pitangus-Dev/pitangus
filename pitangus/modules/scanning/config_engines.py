@@ -35,7 +35,7 @@ from pitangus.modules.scanning import engine_contract, repo_controls
 from pitangus.modules.scanning.engine_contract import Contract
 from pitangus.modules.scanning.folding import absorbed as folded
 from pitangus.modules.scanning.engines import (_base, _relative, _result, _run, _stable, comment_control, config_file, controls_unknown,
-                                               declare_suppressed, file_control, joined as join_messages, repo_suppressed, switched_off,
+                                               declare_suppressed, file_control, joined as join_messages, repo_suppressed,
                                                unavailable, with_cause)
 from pitangus.shared.code_identity import anywhere_identity, content_identity
 from pitangus.shared.i18n import msg, text
@@ -391,8 +391,6 @@ def _checkov_config(snapshot: Path, names: list[str], findings: list[dict]) -> t
 
 def run_checkov(snapshot: Path) -> dict:
     started = time.time()
-    if off := switched_off("checkov"):
-        return off
     if problem := unavailable("checkov", msg("scanning.checkov.no_docker")):
         return _result("checkov", "not_tested", problem)
     configs = [name for name in CHECKOV_CONFIGS if (snapshot / name).is_file() and not (snapshot / name).is_symlink()]
@@ -495,8 +493,6 @@ def run_checkov_image(metadata: dict, image: dict, work_dir: Path) -> dict:
     """Checkov on the rebuilt Dockerfile. The history may carry secrets: the file lives in a temporary
     folder deleted when done, and the container has no network."""
     started = time.time()
-    if off := switched_off("checkov"):
-        return off
     if problem := unavailable("checkov", msg("scanning.checkov.image_no_docker")):
         return _result("checkov", "not_tested", problem)
     config_block = metadata.get("ImageConfig") or {}

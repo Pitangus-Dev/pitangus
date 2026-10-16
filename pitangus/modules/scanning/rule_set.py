@@ -109,19 +109,29 @@ def _custom(secret_settings: dict | None) -> dict[str, str]:
             for rule in (secret_settings or {}).get("rules") or []}
 
 
-def _optional(key: str) -> dict:
-    return {"others": ""} if enabled(key) else {"off": True}
+def _optional(key: str, switches: dict | None) -> dict:
+    return {"others": ""} if enabled(key, switches) else {"off": True}
 
 
-def code(secret_settings: dict | None) -> dict:
+def _switched(engines: dict, switches: dict | None) -> dict:
+    """Every engine turned off declared off (findings/registry: what it found before can't be told gone); one that runs
+    keeps what it declares, or nothing, as before engines could be turned off."""
+    return {**engines, **{key: {"off": True} for key in CODE_SWITCHED if not enabled(key, switches)}}
+
+
+CODE_SWITCHED = ("opengrep", "betterleaks", "trivy", "osv-scanner", "zizmor")
+
+
+def code(secret_settings: dict | None, switches: dict | None = None) -> dict:
     """A repository scan's configuration, with the secret detection settings it applied and the ids of the keys its
-    secrets' identities were computed with (`identity_keys`: a secret named under another key can't be told gone)."""
+    secrets' identities were computed with (`identity_keys`: a secret named under another key can't be told gone).
+    `switches`: the engines on for the scan (engine_switches.resolve); without them, the environment and the defaults."""
     custom = _custom(secret_settings)
     third_party = settings.flag("PITANGUS_THIRD_PARTY_RULES") and THIRD_PARTY_RULES_DIR.is_dir()
     # Opt-in rules stay off unless turned on, in the scan and in its unfiltered reference run alike.
     dormant = sorted(set(OPT_IN_RULES) - set((secret_settings or {}).get("enabled_rules") or []))
     revised = {rule: builtin(rule) for rule in SECRET_REVISIONS}
-    return {"engines": {
+    return {"engines": _switched({
         "opengrep": {"rules": own_rules(), "enumerated": [OWN_PREFIX], **({"inactive": sast_dormant} if (sast_dormant := dormant_rules()) else {}),
                      **({"others": third_party_digest()} if third_party else {})},
         "betterleaks": {"rules": {**revised, **custom}, "enumerated": [secret_rules.ENGINE_PREFIX], "others": builtin(),
@@ -129,10 +139,11 @@ def code(secret_settings: dict | None) -> dict:
         # Trivy's built-in rules are also its dependency advisories and configuration checks: no digest to compare, but
         # its secret rules go through the same filter as Betterleaks'.
         "trivy": {"rules": custom, "enumerated": [secret_rules.ENGINE_PREFIX], "others": "", "scanners": {"secrets": builtin()}},
-        "checkov": _optional("checkov"),
-    }, "identity_keys": secret_identity.key_ids()}
+        "checkov": _optional("checkov", switches),
+    }, switches), "identity_keys": secret_identity.key_ids()}
 
 
-def image() -> dict:
-    """An image scan's configuration: its optional engines."""
-    return {"engines": {"grype": _optional("grype"), "checkov": _optional("checkov")}}
+def image(switches: dict | None = None) -> dict:
+    """An image scan's configuration: Grype and Checkov, and Trivy when it is turned off."""
+    return {"engines": {"grype": _optional("grype", switches), "checkov": _optional("checkov", switches),
+                        **({} if enabled("trivy", switches) else {"trivy": {"off": True}})}}

@@ -3163,6 +3163,119 @@
         }
       }
     },
+    "/api/engines": {
+      "get": {
+        "tags": [
+          "scanning"
+        ],
+        "summary": "Engines",
+        "description": "Which analysis engines run in every scan, and whether each one's images are on the worker's server.",
+        "operationId": "engines_api_engines_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineSwitches"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "scanning"
+        ],
+        "summary": "Switch Engine",
+        "description": "Turns an engine on or off from the next scan; kept in the history. One the server pins (its environment variable\nis set) can't be changed here. Off, its step says «not run (disabled)» and what it found before stays open. On, its\nmissing images are queued for download at once.",
+        "operationId": "switch_engine_api_engines_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "engine": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "title": "Engine"
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "title": "Enabled"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "engine",
+                  "enabled"
+                ],
+                "title": "EngineSwitchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineSwitches"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/engines/prepare": {
+      "post": {
+        "tags": [
+          "scanning"
+        ],
+        "summary": "Prepare Engine",
+        "description": "Queues the download of an engine's images, pinned by digest, on the worker's server (the worker also does it on its\nown for every engine that is on; this retries at once). Until they are there, scans declare that engine not run.",
+        "operationId": "prepare_engine_api_engines_prepare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "engine": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "title": "Engine"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "engine"
+                ],
+                "title": "EnginePrepareIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineSwitches"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sources": {
       "get": {
         "tags": [
@@ -4050,7 +4163,7 @@
           "sources"
         ],
         "summary": "Domain Schedule",
-        "description": "Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,\nat a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the\nlocal day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task\nqueues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the\ndomain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one\nof those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the\nscope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason.",
+        "description": "Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,\nat a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the\nlocal day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task\nqueues it within five minutes of that moment (only with the full web scan on); scheduled scans crawl the\ndomain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one\nof those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the\nscope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason.",
         "operationId": "domain_schedule_api_domains_schedule_post",
         "requestBody": {
           "content": {
@@ -4310,7 +4423,7 @@
           "sources"
         ],
         "summary": "Domain Discover",
-        "description": "Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,\narchives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are\nlisted out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources.",
+        "description": "Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,\narchives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are\nlisted out of scope. Only with the full web scan on: the domain's name goes to those sources.",
         "operationId": "domain_discover_api_domains_discover_post",
         "requestBody": {
           "content": {
@@ -4360,7 +4473,7 @@
           "sources"
         ],
         "summary": "Domain Scan",
-        "description": "Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD\noperations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and\nsigned in as some of its test users.\nOff unless the server sets PITANGUS_DAST_ENABLED; one at a time.",
+        "description": "Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD\noperations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and\nsigned in as some of its test users.\nOff unless the full web scan is on (Settings → Analysis engines); one at a time.",
         "operationId": "domain_scan_api_domains_scans_post",
         "requestBody": {
           "content": {
@@ -10666,7 +10779,7 @@
           "limit"
         ],
         "title": "DomainPage",
-        "description": "`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED); `egress`: where they leave from."
+        "description": "`dast`: whether the full passive web scan is on (Settings → Analysis engines); `egress`: where they leave from."
       },
       "DomainRemoved": {
         "properties": {
@@ -11334,6 +11447,230 @@
         "type": "object",
         "title": "Egress",
         "description": "The public addresses web scans leave from, for sites that filter by IP: declared by the server\n(`source` setting, PITANGUS_EGRESS_IPS), detected once by an administrator (`detected`, with `detected_at`), or\nunknown (no `ips`)."
+      },
+      "EngineSwitchChange": {
+        "properties": {
+          "engine": {
+            "type": "string",
+            "title": "Engine"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "engine",
+          "enabled",
+          "by",
+          "at"
+        ],
+        "title": "EngineSwitchChange"
+      },
+      "EngineSwitchRow": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "code",
+              "secrets",
+              "infrastructure",
+              "images",
+              "web"
+            ],
+            "title": "Group"
+          },
+          "covers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Covers"
+          },
+          "requires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "server",
+              "workspace",
+              "default"
+            ],
+            "title": "Source"
+          },
+          "setting": {
+            "type": "string",
+            "title": "Setting"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "image": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "missing",
+              "preparing",
+              "unknown",
+              "built_in"
+            ],
+            "title": "Image"
+          },
+          "image_problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "version",
+          "group",
+          "covers",
+          "requires",
+          "enabled",
+          "default",
+          "locked",
+          "source",
+          "setting",
+          "changed_by",
+          "changed_at",
+          "image",
+          "image_problem"
+        ],
+        "title": "EngineSwitchRow",
+        "description": "One engine (or the full web scan, `dast`) as it stands: on or off, why (`source`: pinned by the server's\nenvironment variable `setting`, chosen in the panel, or the default), who changed it last, and its images on the\nworker's server (`image`: unknown until a worker reports)."
+      },
+      "EngineSwitches": {
+        "properties": {
+          "engines": {
+            "items": {
+              "$ref": "#/components/schemas/EngineSwitchRow"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Engines"
+          },
+          "uncovered": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 7,
+            "title": "Uncovered"
+          },
+          "images_checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images Checked At"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/EngineSwitchChange"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "engines",
+          "uncovered",
+          "images_checked_at",
+          "history"
+        ],
+        "title": "EngineSwitches"
       },
       "Euvd": {
         "properties": {

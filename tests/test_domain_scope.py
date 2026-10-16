@@ -335,7 +335,7 @@ class ApiTests(HttpCase):
             self.assertEqual(self.send("/api/domains", "register-domain", {"url": "https://off.example.com/"})[0], 200)
             status, answer, _ = self.send("/api/domains/discover", "discover-domain", {"domain_id": self.domain["id"]})
             self.assertEqual(status, 409)
-            self.assertIn("PITANGUS_DAST_ENABLED", answer["error"])
+            self.assertIn("Settings → Analysis engines", answer["error"])
             self.assertFalse(self.read(self.domain["id"])[1]["discovery"]["available"])
         with patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": "1"}), \
                 patch.object(self.state.jobs, "enqueue_discovery", return_value=True) as enqueue:

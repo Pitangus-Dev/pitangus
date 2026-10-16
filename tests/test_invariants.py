@@ -196,16 +196,26 @@ def call_adapter(call, failure):
 class FailureInjectionTests(unittest.TestCase):
     """I2 for every adapter and every way an engine can fail."""
 
-    def test_an_optional_engine_left_off_is_not_run_never_clean(self):
-        """Disabled is blind: Checkov and Grype off report `not_tested`, so nothing they found before is fixed."""
-        with patch.dict(os.environ, {"PITANGUS_CHECKOV_ENABLED": "", "PITANGUS_GRYPE_ENABLED": ""}):
-            for name in ("checkov", "grype-image"):
-                with self.subTest(adapter=name):
-                    self.assertEqual(run_adapter(name, (0, "{}")), "not_tested")
-            result = config_engines.run_checkov(Path("/nonexistent"))
-        self.assertTrue(result["disabled"])
-        record = {"status": "completed", "type": "repository_scan", "summary": {"tools": [{"name": "checkov", "status": result["status"]}]}}
-        self.assertEqual(registry.unproven_reason(record, {"tool": "checkov", "path": "main.tf", "scanner": "iac"}), "engine_blind")
+    def test_an_engine_left_off_is_not_run_never_clean(self):
+        """Disabled is blind: any engine turned off (Checkov and Grype by default) reports `not_tested` without running,
+        so nothing it found before is fixed."""
+        from pitangus.modules.scanning import engine_switches
+        from pitangus.modules.scanning.engines import EngineStep, ScanContext, run_engines
+        with patch.dict(os.environ, {"PITANGUS_CHECKOV_ENABLED": "", "PITANGUS_GRYPE_ENABLED": "", "PITANGUS_OPENGREP_ENABLED": "0"}):
+            switches = engine_switches.resolve(None)
+            for key in ("checkov", "grype", "opengrep"):
+                with self.subTest(engine=key):
+                    result = engines.switched_off(key, switches)
+                    self.assertEqual((result["status"], result["disabled"]), ("not_tested", True))
+                    record = {"status": "completed", "type": "repository_scan", "summary": {"tools": [{"name": key, "status": result["status"]}]}}
+                    self.assertEqual(registry.unproven_reason(record, {"tool": key, "path": "main.tf", "scanner": "iac"}), "engine_blind")
+            ran: list[str] = []
+            steps = [EngineStep(key, lambda context, key=key: ran.append(key) or engines._result(key, "completed", ""), "scanning.progress.trivy")
+                     for key in ("opengrep", "trivy", "checkov")]
+            results = run_engines(steps, ScanContext(Path("."), Path("."), {}, switches=switches), lambda *_: None)
+        self.assertEqual(ran, ["trivy"])
+        self.assertEqual({key: result["status"] for key, result in results.items()},
+                         {"opengrep": "not_tested", "trivy": "completed", "checkov": "not_tested"})
 
     def test_no_failure_is_ever_reported_as_a_clean_run(self):
         """PITANGUS_COVERAGE_MODE=shadow: only KNOWN_GAPS look clean."""

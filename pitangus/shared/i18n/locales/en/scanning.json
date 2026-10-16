@@ -54,7 +54,11 @@
     "failed_early": "{{engine}} ended with an error before producing results",
     "not_installed": "{{engine}} isn't installed on this worker ({{binary}} isn't on the PATH): that part of the analysis didn't run.",
     "none_installed": "No analysis engine is installed on this worker and PITANGUS_ENGINE_RUNNER=local: use the worker-standalone image, or give the worker the Docker socket.",
-    "disabled": "{{engine}}: not run (disabled). Turn it on with {{setting}}=1; what it found before stays open, never fixed."
+    "disabled": "{{engine}}: not run (disabled). An administrator turns it on in Settings → Analysis engines; what it found before stays open, never fixed.",
+    "disabled_by_server": "{{engine}}: not run (turned off by this server's {{setting}}); what it found before stays open, never fixed.",
+    "image_missing": "{{engine}}: not run, its image isn't on this server yet. It's being prepared and will run in the next scan; until then, what it found before stays open, never fixed.",
+    "image_pull_failed": "{{engine}}: not run, its image isn't on this machine and couldn't be downloaded ({{cause}}). Pull it with docker pull {{image}} (or make engines) and scan again; what it found before stays open.",
+    "disabled_here": "{{engine}}: not run (disabled). {{setting}}=1 turns it on; what it found before stays open, never fixed."
   },
   "opengrep": {
     "no_fix": "Open the finding to see its code, and fix it as rule {{rule}} describes.",
@@ -454,7 +458,7 @@
       "no_zizmor": "zizmor isn't available: GitHub Actions workflows are reviewed by Checkov only",
       "no_dast": "No dynamic testing: no traffic is sent to any application",
       "no_ai": "No AI: no source code is sent to OpenAI or Anthropic",
-      "checkov_disabled": "{{engine}}: not run (disabled; PITANGUS_CHECKOV_ENABLED=1 turns it on)."
+      "disabled": "{{engine}}: turned off (Settings → Analysis engines)."
     }
   },
   "local": {
@@ -724,7 +728,7 @@
       "tool_unreached": "{{tool}} couldn't check {{hosts}}: its part of this scan is incomplete there, and what it reported before isn't marked fixed."
     },
     "errors": {
-      "disabled": "Web scans are turned off on this server: set PITANGUS_DAST_ENABLED=1 in its environment and restart it.",
+      "disabled": "The full web scan is turned off: an administrator turns it on in Settings → Analysis engines.",
       "needs_docker": "Web scans need the Docker runner: the worker without a Docker socket doesn't carry ZAP.",
       "failed": "ZAP didn't finish the scan.",
       "timeout": "ZAP went past the {{minutes}}-minute limit and the scan was stopped.",
@@ -732,7 +736,8 @@
       "busy": "A web scan is already queued or running; wait for it to finish.",
       "address": "{{host}} can't be scanned: {{reason}}",
       "no_headers": "This domain has no saved headers: add them before asking for a scan that uses them.",
-      "variable": "A saved header or the API definition's server path contains ${, which ZAP would read as a variable: remove it and scan again."
+      "variable": "A saved header or the API definition's server path contains ${, which ZAP would read as a variable: remove it and scan again.",
+      "disabled_by_server": "The full web scan is turned off on this server ({{setting}}): it can't be turned on from the panel."
     },
     "spec": {
       "empty": "The OpenAPI definition is empty.",
@@ -864,12 +869,13 @@
     }
   },
   "discovery": {
-    "disabled": "Related-host discovery runs only where web scans are on: set PITANGUS_DAST_ENABLED=1 on this server.",
+    "disabled": "Related-host discovery belongs to the full web scan, which is turned off: an administrator turns it on in Settings → Analysis engines.",
     "needs_docker": "Related-host discovery needs the Docker runner: the worker without a Docker socket doesn't carry subfinder.",
     "no_docker": "Related-host discovery couldn't run: {{reason}}",
     "image_missing": "subfinder's image isn't on this server yet: run make engines (or docker pull it) and search again.",
     "timeout": "subfinder went past its {{seconds}}-second limit and was stopped; search again later.",
-    "failed": "subfinder didn't finish: check that the server can reach the internet, then search again."
+    "failed": "subfinder didn't finish: check that the server can reach the internet, then search again.",
+    "disabled_by_server": "Related-host discovery belongs to the full web scan, which this server turns off ({{setting}})."
   },
   "egress": {
     "declared": "This server declares its outgoing addresses in {{name}}: change them there.",
@@ -979,5 +985,21 @@
     "limitation": "{{count|# result is|# results are}} suppressed by the repository's own ignore comments or files ({{places}}). They're still there: you can see them in Findings → Excluded.",
     "comment": "{{marker}} comment",
     "file": "{{file}}"
+  },
+  "switches": {
+    "uncovered": "Every engine for {{what}} is turned off: Pitangus didn't check it, and what it found there before stays open.",
+    "capability": {
+      "sast": "code analysis (SAST)",
+      "dependencies": "dependencies",
+      "secrets": "secrets",
+      "iac": "infrastructure as code",
+      "pipelines": "CI pipelines",
+      "images": "container image packages",
+      "exposure": "the exposure check"
+    },
+    "errors": {
+      "unknown": "There's no analysis engine by that name.",
+      "locked": "This server sets {{setting}}, so this engine can't be changed from the panel: change that variable and restart."
+    }
   }
 }

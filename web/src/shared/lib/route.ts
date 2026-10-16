@@ -4,7 +4,7 @@
 const SLUGS: Record<string, string> = {
   overview: 'overview', analyses: 'analyses', new: 'new', findings: 'findings', coverage: 'coverage', threats: 'threats',
   repositories: 'repositories', images: 'images', pulls: 'pull-requests', domains: 'domains', domain: 'domain', integrations: 'integrations',
-  users: 'users', account: 'account', cves: 'cve-tracker', compliance: 'compliance', policies: 'policies',
+  users: 'users', account: 'account', cves: 'cve-tracker', compliance: 'compliance', policies: 'policies', engines: 'engines',
 }
 // The Spanish paths of earlier versions: links already sent (Jira issues, notifications, bookmarks) keep working and
 // are rewritten to the English path.

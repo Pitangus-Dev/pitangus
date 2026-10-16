@@ -26,7 +26,8 @@
     "users": "Usuarios",
     "new": "Nuevo análisis",
     "account": "Cuenta",
-    "domains": "Dominios y APIs"
+    "domains": "Dominios y APIs",
+    "engines": "Motores de análisis"
   },
   "descriptions": {
     "overview": "Qué riesgos tiene tu código, sus dependencias y tus imágenes, por qué importan y cómo se corrigen.",
@@ -42,7 +43,8 @@
     "compliance": "Evidencias para auditorías y clientes y, si aplica, la notificación CRA de la UE.",
     "threats": "Modela el sistema con el enfoque que prefieras (STRIDE, LINDDUN, PASTA, árboles de ataque, ATT&CK) y contrasta las amenazas con los análisis.",
     "default": "Resultados del objetivo seleccionado, con pasos y límites de cobertura visibles.",
-    "policies": "Reglas que se aplican a todos los repositorios."
+    "policies": "Reglas que se aplican a todos los repositorios.",
+    "engines": "Qué motores ejecuta cada análisis y sus imágenes en el servidor."
   },
   "theme": {
     "label": "Apariencia",

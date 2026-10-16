@@ -82,7 +82,7 @@ class GitHubRoutesTests(HttpCase):
             _, listing, _ = self.call("GET", "/api/sources", headers={"Cookie": self.member})
             self.assertEqual({item["name"]: item["installation_id"] for item in listing["sources"]},
                              {"acme/api": 77, "beta/web": 88})
-            with patch("pitangus.app.api.repositories.scan_plan", side_effect=lambda source, installation_id: {
+            with patch("pitangus.app.api.repositories.scan_plan", side_effect=lambda source, installation_id, **_: {
                     "source_id": source, "languages": [], "engines": [], "manifests": [], "iac": [], "pipelines": [], "runs": [],
                     "skips": [], "osv_needed": False, "files": None, "installation_id": installation_id}):
                 _, plan, _ = self.call("GET", "/api/repositories/plan?source_id=github:beta/web", headers={"Cookie": self.member})

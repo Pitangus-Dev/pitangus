@@ -26,7 +26,7 @@ from pathlib import Path
 
 from pitangus.modules.intel import cve_db
 from pitangus.modules.intel.advisories import compare_versions
-from pitangus.modules.scanning import engines
+from pitangus.modules.scanning import engine_switches, engines
 from pitangus.modules.scanning.dependency_merge import purl
 from pitangus.modules.scanning.engines import _stable, joined
 from pitangus.shared.i18n import msg
@@ -60,8 +60,12 @@ ACTIONS = {"act": 2, "attend": 1, "track": 0}
 ZAP_JS_LIBRARIES = "10003"   # ZAP's (retire.js) vulnerable JavaScript library rule
 
 
-def readiness():
-    """None if OSV-Scanner can run here, else why not (the step says so and the scan goes on without it)."""
+def readiness(switches: dict | None = None):
+    """None if OSV-Scanner can run here, else why not (the step says so and the scan goes on without it): turned off
+    (`switches`), or it can't run here."""
+    if reason := engine_switches.off_reason(switches if switches is not None else engine_switches.resolve(None), KEY,
+                                            engines.IMAGES[KEY]["name"]):
+        return reason
     if problem := engines.unavailable(KEY, engines.docker_problem() or None):
         return problem
     if engines.runner() == "local" or engines.image_available(KEY):

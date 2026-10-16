@@ -11,8 +11,8 @@ limpio no demuestra que no haya vulnerabilidades. Los términos están en el [gl
 ## Requisitos previos
 
 - Pitangus en marcha ([instalación](instalacion.md)), con las imágenes de los motores disponibles (`make up` o
-  `make engines`): Trivy, y Grype y Checkov si los activaste (`PITANGUS_GRYPE_ENABLED=1`,
-  `PITANGUS_CHECKOV_ENABLED=1`; los dos vienen apagados).
+  `make engines`): Trivy, y Grype y Checkov si un administrador los activó en **Ajustes → Motores de análisis**
+  (los dos vienen apagados; al activarlos ahí se descargan sus imágenes).
 - La referencia de la imagen, tal como la usarías en `docker pull`: `ghcr.io/acme/api:1.4`, `nginx:1.27` (las de
   Docker Hub pueden ir sin registro) o `…@sha256:…`. Fija una versión o un digest para saber exactamente qué
   revisaste; sin etiqueta se asume `latest`.
@@ -71,12 +71,12 @@ Son los mismos códigos que `scan-repository` y [`scan`](cli.md).
 
 | Qué | Cómo |
 | --- | --- |
-| Paquetes del sistema y de aplicaciones | **Trivy 0.75.0, y Grype 0.120.0 si se activa** (`PITANGUS_GRYPE_ENABLED=1`; apagado por defecto, figura como no ejecutado (desactivado) y no remedia nada de lo que encontró antes). Sobre código fuente coinciden casi por completo; sobre imágenes discrepan en paquetes cuyas correcciones la distribución aplicó a versiones antiguas (en `nginx:1.21`: 781 avisos en común, 99 solo de Trivy y 11 solo de Grype, uno de ellos crítico). Los avisos se unen por paquete, versión e identificador (CVE o GHSA), comparando los nombres como los escribe cada motor (un paquete Java es `grupo:artefacto` para Trivy y `artefacto` para Grype; una versión de Go es `v1.22.1` para uno y `go1.22.1` para el otro); los que ven ambos motores ganan confianza. De una imagen multiplataforma, ambos analizan la misma plataforma: Grype la que leyó Trivy (normalmente `linux/amd64`; el paso de Grype la nombra), nunca la del propio servidor (en un servidor ARM se mezclarían dos imágenes). |
+| Paquetes del sistema y de aplicaciones | **Trivy 0.75.0, y Grype 0.120.0 si se activa** (**Ajustes → Motores de análisis**; apagado por defecto, figura como no ejecutado (desactivado) y no remedia nada de lo que encontró antes). Sobre código fuente coinciden casi por completo; sobre imágenes discrepan en paquetes cuyas correcciones la distribución aplicó a versiones antiguas (en `nginx:1.21`: 781 avisos en común, 99 solo de Trivy y 11 solo de Grype, uno de ellos crítico). Los avisos se unen por paquete, versión e identificador (CVE o GHSA), comparando los nombres como los escribe cada motor (un paquete Java es `grupo:artefacto` para Trivy y `artefacto` para Grype; una versión de Go es `v1.22.1` para uno y `go1.22.1` para el otro); los que ven ambos motores ganan confianza. De una imagen multiplataforma, ambos analizan la misma plataforma: Grype la que leyó Trivy (normalmente `linux/amd64`; el paso de Grype la nombra), nunca la del propio servidor (en un servidor ARM se mezclarían dos imágenes). |
 | Secretos en las capas | Trivy busca credenciales en los archivos de cada capa. |
 | Credenciales en `ENV` | Variables con nombre de secreto (`*_TOKEN`, `*_PASSWORD`, `API_KEY`…) y un valor fijo: cualquiera que descargue la imagen las lee con `docker inspect`. |
 | Credenciales en el historial de construcción | `ARG` usados en un `RUN` (por ejemplo `NPM_TOKEN=… npm ci`), URLs con usuario y contraseña, y cabeceras `Authorization` fijas: se quedan en la imagen y `docker history` las muestra. La corrección recomendada es `RUN --mount=type=secret` de BuildKit. |
 | Configuración | Reglas de Pitangus: usuario root, falta de `HEALTHCHECK`, `ADD` desde una URL, SSH expuesto, la etiqueta `latest` sin digest e imágenes de más de un año. |
-| Instrucciones del historial | **Checkov**, si se activa (`PITANGUS_CHECKOV_ENABLED=1`), sobre un Dockerfile reconstruido a partir del historial de la imagen: descargas sin verificar TLS (`curl -k`, `wget --no-check-certificate`, `NODE_TLS_REJECT_UNAUTHORIZED=0`), `pip --trusted-host`, gestores de paquetes sin firma, `sudo`, `chpasswd`… Cada hallazgo apunta al paso del historial. Se reconstruye el Dockerfile porque el modo de imágenes propio de Checkov exige una cuenta de Prisma Cloud. |
+| Instrucciones del historial | **Checkov**, si se activa (**Ajustes → Motores de análisis**), sobre un Dockerfile reconstruido a partir del historial de la imagen: descargas sin verificar TLS (`curl -k`, `wget --no-check-certificate`, `NODE_TLS_REJECT_UNAUTHORIZED=0`), `pip --trusted-host`, gestores de paquetes sin firma, `sudo`, `chpasswd`… Cada hallazgo apunta al paso del historial. Se reconstruye el Dockerfile porque el modo de imágenes propio de Checkov exige una cuenta de Prisma Cloud. |
 
 Los hallazgos de configuración que ven a la vez Trivy, Checkov (si está activo) y las reglas de Pitangus quedan como uno solo (la
 regla de Pitangus es la principal). Los avisos de dependencias reciben el mismo trato que en un análisis de código:

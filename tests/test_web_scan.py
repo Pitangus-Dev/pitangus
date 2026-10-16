@@ -261,7 +261,13 @@ class GuardrailTests(unittest.TestCase):
     def test_off_by_default(self):
         with patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": ""}), \
                 patch.object(web, "scan_domain", side_effect=AssertionError("scanned")):
-            self.assertIn("PITANGUS_DAST_ENABLED", self.refused(self.run_job()))
+            # Off in the panel: says where an administrator turns it on, not a variable the panel can't change.
+            refused = self.refused(self.run_job())
+            self.assertTrue("Analysis engines" in refused or "Motores de análisis" in refused, refused)
+            self.assertNotIn("PITANGUS_DAST_ENABLED", refused)
+        with patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": "0"}), \
+                patch.object(web, "scan_domain", side_effect=AssertionError("scanned")):
+            self.assertIn("PITANGUS_DAST_ENABLED", self.refused(self.run_job()))  # pinned off by the server: named
 
     def test_a_txt_record_gone_since_verification_stops_it_and_withdraws_the_proof(self):
         with patch.object(web, "scan_domain", side_effect=AssertionError("scanned")):
@@ -315,7 +321,7 @@ class ApiTests(HttpCase):
             with patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": ""}):
                 status, answer, _ = self.send(body)
                 self.assertEqual(status, 409)
-                self.assertIn("PITANGUS_DAST_ENABLED", answer["error"])
+                self.assertIn("Settings → Analysis engines", answer["error"])
                 self.assertFalse(self.call("GET", "/api/domains", headers={"Cookie": self.cookies["member"]})[1]["dast"])
             with patch.dict(os.environ, {"PITANGUS_DAST_ENABLED": "1"}):
                 self.assertTrue(self.call("GET", "/api/domains", headers={"Cookie": self.cookies["member"]})[1]["dast"])

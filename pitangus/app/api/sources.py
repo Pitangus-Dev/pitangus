@@ -20,7 +20,7 @@ from pitangus.modules.integrations.github import (REQUIRED_PERMISSIONS, GitHubAp
                                                   install_url, installation_details, permission_review, save_credentials, verify_app)
 from pitangus.modules.integrations import github_manifest
 from pitangus.modules.integrations.installations import clear_github, github_connections, github_installations, save_github
-from pitangus.modules.scanning import egress, openapi_spec
+from pitangus.modules.scanning import egress, engine_switches, openapi_spec
 from pitangus.modules.sources import assets as source_assets
 from pitangus.modules.sources import domain_headers, domain_scope, domains, test_users
 from pitangus.modules.sources.assets import with_scan_branches
@@ -278,7 +278,7 @@ class Egress(Open):
 
 
 class DomainPage(Open):
-    """`dast`: whether this server runs passive web scans (PITANGUS_DAST_ENABLED); `egress`: where they leave from."""
+    """`dast`: whether the full passive web scan is on (Settings → Analysis engines); `egress`: where they leave from."""
     items: list[DomainRow] = Field(max_length=domains.LIMIT)
     total: int
     limit: int
@@ -364,7 +364,7 @@ def domain_list(context: Context = Depends(guard())) -> Any:
     """The registered domains (at most `limit`), with whether each one's proof is current and its scheduled scan."""
     records = domains.list_domains(context.data_dir)
     return context.render({"items": _domain_rows(context, records), "total": len(records), "limit": domains.LIMIT,
-                           "dast": settings.flag("PITANGUS_DAST_ENABLED"), "egress": egress.current(context.data_dir)})
+                           "dast": engine_switches.enabled("dast", context.data_dir), "egress": egress.current(context.data_dir)})
 
 
 @router.post("/api/domains/egress", response_model=Egress, **AS_RETURNED,
@@ -551,7 +551,7 @@ def domain_register(context: Context = Depends(guard(Policy(admin=True, action="
     except DomainError as exc:
         raise ApiError(400, exc.message) from exc
     context.state.log.info("domain_registered", extra={"user": context.user["username"], "reason": record["host"]})
-    if settings.flag("PITANGUS_DAST_ENABLED"):
+    if engine_switches.enabled("dast", context.data_dir):
         context.state.jobs.enqueue_discovery(domain=record)
     return context.render(_domain_rows(context, [record])[0])
 
@@ -694,7 +694,7 @@ def domain_schedule(context: Context = Depends(guard(Policy(admin=True, action="
     """Sets when the domain's passive web scan runs on its own (daily, on some weekdays or on some days of the month,
     at a time in a timezone), or turns it off. The answer carries `schedule.next_run_at`, computed here: never on the
     local day of the domain's last web scan, so a scan launched just before doesn't repeat that day. The periodic task
-    queues it within five minutes of that moment (only with PITANGUS_DAST_ENABLED); scheduled scans crawl the
+    queues it within five minutes of that moment (only with the full web scan on); scheduled scans crawl the
     domain's own host and the hosts saved in its scope, signed in as the rule's `test_users` (each must sign in on one
     of those hosts) and with the saved headers if `use_headers`. When it runs, a test user deleted or now outside the
     scope, or headers no longer saved, are left out with a note; a domain whose proof lapsed is skipped with the reason."""
@@ -790,7 +790,7 @@ class DomainScopeIn(BaseModel):
 
 def _scope_view(context: Context, domain_id: str) -> dict:
     shown = domain_scope.view(context.data_dir, domain_id)
-    off = None if settings.flag("PITANGUS_DAST_ENABLED") else msg("scanning.discovery.disabled")
+    off = engine_switches.mode_off(engine_switches.resolve(context.data_dir), "dast", "scanning.discovery.disabled")
     shown["discovery"] = {**shown["discovery"], "available": off is None, "unavailable": off}
     return context.render(shown)
 
@@ -834,12 +834,12 @@ def domain_discover(context: Context = Depends(guard(Policy(admin=True, action="
                     data: DomainIdIn = Depends(body(DomainIdIn, msg("sources.domains.invalid_request")))) -> Any:
     """Queues a search for hosts related to the domain in passive sources (certificate transparency, passive DNS,
     archives) with subfinder. Nothing reaches the domain's hosts; found hosts that resolve to public addresses are
-    listed out of scope. Only with PITANGUS_DAST_ENABLED: the domain's name goes to those sources."""
+    listed out of scope. Only with the full web scan on: the domain's name goes to those sources."""
     record = _known(context, data.domain_id)
     if domains.is_demo(record):
         raise ApiError(409, msg("sources.domains.discovery.demo", host=record["host"]))
-    if not settings.flag("PITANGUS_DAST_ENABLED"):
-        raise ApiError(409, msg("scanning.discovery.disabled"))
+    if off := engine_switches.mode_off(engine_switches.resolve(context.data_dir), "dast", "scanning.discovery.disabled"):
+        raise ApiError(409, off)
     if not context.state.jobs.enqueue_discovery(domain=record):
         raise ApiError(409, msg("sources.domains.discovery.busy"))
     context.state.log.info("domain_discovery_requested", extra={"user": context.user["username"], "reason": record["host"]})
@@ -905,8 +905,11 @@ def launch_domain_scan(context: Context, domain_id: str, *, trigger: dict | None
     """Queues a passive web or API scan of a verified domain; the worker checks everything again before it starts."""
     from pitangus.app.api.repositories import QUEUE_LIMIT
     # The full DAST (ZAP, katana) is experimental and off unless enabled; the light exposure check is always available.
-    if not settings.flag("PITANGUS_DAST_ENABLED") and (data is None or data.mode != "exposure"):
-        raise ApiError(409, msg("scanning.web.errors.disabled"))
+    switches = engine_switches.resolve(context.data_dir)
+    if (data is None or data.mode != "exposure") and (off := engine_switches.mode_off(switches, "dast", "scanning.web.errors.disabled")):
+        raise ApiError(409, off)
+    if data is not None and data.mode == "exposure" and engine_switches.uncovered(switches, ("exposure",)):
+        raise ApiError(409, msg("scanning.switches.uncovered", what=msg("scanning.switches.capability.exposure")))
     record = _known(context, domain_id)
     if domains.is_demo(record):  # before any DNS lookup: nothing leaves the machine for demo data
         raise ApiError(409, msg("sources.domains.demo", host=record["host"]))
@@ -940,7 +943,7 @@ def domain_scan(context: Context = Depends(guard(Policy(admin=True, action="scan
     """Queues a passive scan of a verified domain with ZAP, never an attack: a crawl (web) or the GET and HEAD
     operations of an OpenAPI definition (api), optionally over listed subdomains, with the domain's saved headers and
     signed in as some of its test users.
-    Off unless the server sets PITANGUS_DAST_ENABLED; one at a time."""
+    Off unless the full web scan is on (Settings → Analysis engines); one at a time."""
     launched = launch_domain_scan(context, data.domain_id, data=data)
     return context.render({"run_id": launched["run"]["id"], "run": launched["run"], "domain": _domain_rows(context, [launched["domain"]])[0]})
 

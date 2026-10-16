@@ -89,7 +89,7 @@ describe('choosing what to scan', () => {
     setup({ dast: false })
     await waitFor(() => expect(screen.getByRole('radio', { name: tr('wizard.kinds.web.title') }).getAttribute('aria-disabled')).toBe('true'))
     expect(screen.getAllByText(tr('chooser.off'))).toHaveLength(1)
-    expect(screen.getByText('PITANGUS_DAST_ENABLED=1')).toBeTruthy()
+    expect(screen.getByText(tr('chooser.off_admin'))).toBeTruthy()
   })
 
   it('runs the exposure check with the full web scan off: the domain, then launch, anonymous', async () => {

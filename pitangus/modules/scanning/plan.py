@@ -15,6 +15,9 @@ from collections import Counter
 from pathlib import PurePosixPath
 
 from pitangus.modules.sources.repositories import is_manifest
+from pathlib import Path
+
+from pitangus.modules.scanning import engine_switches
 from pitangus.modules.scanning.engines import IMAGES, RULES_DIR, WEB_ENGINES, enabled, engine_ready, joined
 from pitangus.shared.i18n import msg
 
@@ -71,11 +74,14 @@ def files_of(source_id: str, *, installation_id: int | None) -> list[str] | None
 PLAN_FILES = 50  # manifests, IaC files and pipelines the plan names, each
 
 
-def plan(source_id: str, *, installation_id: int | None) -> dict:
+def plan(source_id: str, *, installation_id: int | None, data_dir: Path | None = None) -> dict:
     paths = files_of(source_id, installation_id=installation_id)
     paths = [path for path in (paths or []) if not SKIP.intersection(path.split("/"))] if paths is not None else None
-    engines = {key: {"key": key, "name": value["name"], "version": value["version"],
-                     "available": engine_ready(key)} for key, value in IMAGES.items() if key not in WEB_ENGINES}
+    switches = engine_switches.resolve(data_dir)
+    # An engine turned off is never offered as available: the plan names it as off instead.
+    engines = {key: {"key": key, "name": value["name"], "version": value["version"], "enabled": enabled(key, switches),
+                     "available": enabled(key, switches) and engine_ready(key)} for key, value in IMAGES.items() if key not in WEB_ENGINES}
+    off = [engine for engine in engines.values() if not engine["enabled"] and engine["key"] != "checkov"]  # Checkov: below
     rules = rule_counts()
     languages = Counter()
     manifests, iac, pipelines = [], [], []
@@ -106,12 +112,14 @@ def plan(source_id: str, *, installation_id: int | None) -> dict:
         elif paths is not None:
             skips.append(msg("scanning.plan.skips.sast_no_files"))
     else:
-        skips.append(msg("scanning.plan.skips.no_sast"))
+        if opengrep["enabled"]:
+            skips.append(msg("scanning.plan.skips.no_sast"))
         uncovered = []
     if uncovered:
         skips.append(msg("scanning.plan.skips.no_rules", languages=joined(_language(item, rules=False) for item in uncovered)))
-    runs.append(msg("scanning.plan.runs.secrets", engine=betterleaks["name"], version=betterleaks["version"])
-                if betterleaks["available"] else msg("scanning.plan.runs.internal_secrets"))
+    if betterleaks["enabled"]:
+        runs.append(msg("scanning.plan.runs.secrets", engine=betterleaks["name"], version=betterleaks["version"])
+                    if betterleaks["available"] else msg("scanning.plan.runs.internal_secrets"))
     if trivy["available"]:
         if manifests:
             common = {"engine": trivy["name"], "version": trivy["version"], "sample": _sample(manifests),
@@ -122,14 +130,14 @@ def plan(source_id: str, *, installation_id: int | None) -> dict:
             skips.append(msg("scanning.plan.skips.no_manifests"))
         if iac:
             runs.append(msg("scanning.plan.runs.iac", engine=trivy["name"], sample=_sample(iac)))
-    else:
+    elif trivy["enabled"]:
         runs.append(msg("scanning.plan.runs.osv_only"))
         if iac:
             skips.append(msg("scanning.plan.skips.iac_without_trivy", files=msg("scanning.plan.files", count=len(iac))))
     checkov, zizmor = engines["checkov"], engines["zizmor"]
     if iac or pipelines or paths is None:
-        if not enabled("checkov"):
-            skips.append(msg("scanning.plan.skips.checkov_disabled", engine=checkov["name"]))
+        if not checkov["enabled"]:
+            skips.append(msg("scanning.plan.skips.disabled", engine=checkov["name"]))
         elif checkov["available"]:
             runs.append(msg("scanning.plan.runs.checkov", engine=checkov["name"], version=checkov["version"]))
         else:
@@ -139,8 +147,10 @@ def plan(source_id: str, *, installation_id: int | None) -> dict:
             runs.append(msg("scanning.plan.runs.zizmor_workflows", engine=zizmor["name"], version=zizmor["version"],
                             workflows=msg("scanning.plan.workflows", count=len(pipelines)))
                         if pipelines else msg("scanning.plan.runs.zizmor", engine=zizmor["name"], version=zizmor["version"]))
-        elif pipelines:
+        elif pipelines and zizmor["enabled"]:
             skips.append(msg("scanning.plan.skips.no_zizmor"))
+    skips += [msg("scanning.plan.skips.disabled", engine=engine["name"]) for engine in off]
+    skips += engine_switches.uncovered_limitations(switches, ("sast", "dependencies", "secrets", "iac", "pipelines"))
     skips += [msg("scanning.plan.skips.no_dast"), msg("scanning.plan.skips.no_ai")]
     if paths is None:
         runs.insert(1, msg("scanning.plan.runs.languages_later"))

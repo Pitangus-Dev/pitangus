@@ -29,14 +29,12 @@ Every variable is optional and goes in `.env` (a copy of `.env.example`). After 
 | `PITANGUS_ADVISORY_WATCH_HOURS` | `24` | How many hours between offline checks of already-scanned dependencies against new advisories. `0` turns it off. |
 | `PITANGUS_ALLOW_PRIVATE_WEBHOOKS` | empty | `1` allows alerts to webhooks on your internal network (blocked by default to prevent SSRF). |
 | `PITANGUS_ALLOW_PRIVATE_REGISTRIES` | — | `1` allows scanning images from registries with a private IP (your internal network). Blocked by default to prevent SSRF. |
-| `PITANGUS_DAST_ENABLED` | empty (off) | Experimental. `1` turns on the full passive web and API scans of verified domains (ZAP: spider or an OpenAPI definition's GET and HEAD operations, and passive rules, never an attack), launched by an administrator from **New scan → Full web scan**, and the scans administrators schedule (the periodic task looks for due ones every 5 minutes). Read by the API and the worker, so set it on both. Needs the Docker runner; with it on, `make engines` also pulls ZAP's image (about 1.2 GB). The light exposure check (roots and known paths, no crawl) doesn't need it. See [Scan a website or API](scanning-web.md). |
+| `PITANGUS_<ENGINE>_ENABLED` | unset: the panel decides | Pins an analysis engine on (`1`) or off (`0`) for the whole server, over what an administrator chose in **Settings → Analysis engines**: see [Analysis engines](#analysis-engines). |
 | `PITANGUS_COVERAGE_MODE` | `on` | How a scan proves it looked before marking anything fixed ([findings.md](findings.md#proof-before-fixing)). `on` fixes only what the engine that owns a finding proved gone where it looked, with the per-file coverage, unverified findings and the fix hold; `shadow` works them out, records what they would change and fixes as before 0.14; `off` doesn't work them out. An engine run that didn't finish opens and fixes nothing in every mode. Read by the worker and the API. |
 | `PITANGUS_IDENTITY_MODE` | `v2` | How findings are identified: `v2` stores one finding per family of identical problems, by its canonical identity, with its count; `shadow` keeps the engines' fingerprints, also works out the canonical identity and records the differences; `v1` uses the engines' fingerprints only. If `pitangus identity-gate` doesn't give 0/0 on a repository scanned twice on one commit, set `shadow` until it does ([findings.md](findings.md#one-identity-per-problem)). |
 | `PITANGUS_SECRET_VALIDATION` | off | Betterleaks asks each secret's provider whether it is still active: it sends the secret to that provider ([security.md](security.md#what-leaves-your-machine)). An active secret is acted on first, a revoked one is tracked; none is hidden. |
 | `PITANGUS_IGNORE_REPO_SUPPRESSIONS` | off | What the scanned repository says to suppress results allows nothing: comments in the code (`gitleaks:allow`, `# zizmor: ignore[…]`, `trivy:ignore`, `checkov:skip=`, `nosemgrep`) and files an engine would load (`.gitleaksignore`, `.github/zizmor.yml`, `.trivyignore`, `.checkov.yaml`, `osv-scanner.toml`). Off, they are honoured and every result they suppress is listed under Excluded with its rule, file and line and what suppressed it ([scanning-code.md](scanning-code.md#what-the-repository-says-to-the-engines)). |
 | `PITANGUS_SECRETS_IGNORE_INLINE_ALLOW` | off | Its name before 0.14.1 (secret engines only): still read, with the same meaning as `PITANGUS_IGNORE_REPO_SUPPRESSIONS`. |
-| `PITANGUS_CHECKOV_ENABLED` | off | Runs Checkov on code and images: more Terraform, CloudFormation and Dockerfile checks, and pipelines other than GitHub Actions. Off, it's not run (disabled) and fixes nothing it found before. |
-| `PITANGUS_GRYPE_ENABLED` | off | Runs Grype on container images, a second opinion on their packages next to Trivy (they disagree mostly on backported fixes). Off, it's not run (disabled) and fixes nothing it found before. |
 | `PITANGUS_THIRD_PARTY_RULES` | off | Adds 259 of GitLab's sast-rules (MIT and Apache-2.0 only, provenance checked file by file: [third_party/gitlab-sast-rules/NOTICE](../third_party/gitlab-sast-rules/NOTICE)) to Opengrep, next to Pitangus' own rules: more Java, Scala, C#, Go and Python coverage, with English rule texts. Off by default because of their noise: measured on a public corpus of 18 intentionally vulnerable and real applications, no rule reached 85% precision with at least 3 hits. Turned on, a GitLab match on the same line as one of Pitangus' and for the same weakness (CWE) is folded into it: one finding, Pitangus' texts and severity, the GitLab rule listed among its related rules. |
 | `PITANGUS_SAST_OPT_IN_RULES` | empty | Pitangus' Opengrep rules that are off by default, to turn on, comma-separated: `appsec.js.dom-xss-sink` (3 of 18 matches were XSS on the measured corpus, [scanning-code.md](scanning-code.md#analysis-engines)). While a rule is off it reports nothing, and what it found before shows as not checked, never fixed. |
 | `PITANGUS_FIX_HOLD_PERCENT` / `PITANGUS_FIX_HOLD_MINIMUM` | `30` / `10` | With the coverage contract on, a scan that would fix at least this share of an asset's open findings, and at least this many, holds its fixes until the next complete scan confirms them. |
@@ -61,6 +59,44 @@ Every variable is optional and goes in `.env` (a copy of `.env.example`). After 
 | `PITANGUS_LOG_FILE` | empty (Compose: `logs/app.log`) | Also write JSON logs to this file, rotated at 10 MB × 5; a relative path is under the data folder. |
 | `PITANGUS_METRICS_TOKEN` | empty (off) | Turns on `/api/metrics` (Prometheus) for requests with `Authorization: Bearer <token>`. At least 32 characters: `openssl rand -hex 32`. |
 | `PITANGUS_IMPORT_TOKEN` | empty (off) | Turns on `POST /api/ci/sarif`, which lets CI import another tool's SARIF 2.1.0 into an existing asset with `Authorization: Bearer <token>` (no session). At least 32 characters: `openssl rand -hex 32`. Also what `pitangus import-sarif --server` sends, read from the environment. |
+
+## Analysis engines
+
+An administrator turns each engine on or off in **Settings → Analysis engines**; the change applies from the next scan
+and is kept with who made it and when. The rows are grouped by what they check: code and dependencies (Opengrep, Trivy,
+OSV-Scanner), secrets (Betterleaks), infrastructure and CI (Checkov, zizmor), images (Grype) and web (httpx, testssl.sh,
+nuclei, the full web scan and katana). Defaults: every engine on but Checkov, Grype and the full web scan.
+
+Turning an engine off hides nothing. Its step in every scan says **not run (disabled)**, with where to turn it back on,
+and what it found before stays open, never marked fixed (it didn't look). When every engine for a kind of check is off
+(secrets, say), the panel warns about it and each scan says that kind of check wasn't made.
+
+A variable set in the server's environment wins over the panel and locks that switch: the panel shows it **Set by the
+server**, naming the variable, and the step of an engine it keeps off names it too. Set it for both the API and the
+worker. Unset (or empty), the panel's choice applies.
+
+| Variable | Engine |
+| --- | --- |
+| `PITANGUS_OPENGREP_ENABLED` | Opengrep (SAST with Pitangus rules) |
+| `PITANGUS_TRIVY_ENABLED` | Trivy (dependencies, infrastructure as code, secrets and images) |
+| `PITANGUS_OSV_SCANNER_ENABLED` | OSV-Scanner (dependencies against OSV; also the known vulnerabilities of the versions a web scan sees) |
+| `PITANGUS_BETTERLEAKS_ENABLED` | Betterleaks (secrets) |
+| `PITANGUS_CHECKOV_ENABLED` | Checkov, on code and images: more Terraform, CloudFormation and Dockerfile checks, and pipelines other than GitHub Actions. Off by default. |
+| `PITANGUS_ZIZMOR_ENABLED` | zizmor (GitHub Actions) |
+| `PITANGUS_GRYPE_ENABLED` | Grype, a second opinion on container image packages next to Trivy (they disagree mostly on backported fixes). Off by default. |
+| `PITANGUS_HTTPX_ENABLED` / `PITANGUS_TESTSSL_ENABLED` / `PITANGUS_NUCLEI_ENABLED` | The exposure check's tools. With all three off the exposure check doesn't start, and says why. |
+| `PITANGUS_DAST_ENABLED` | The full web scan (experimental, off by default): passive web and API scans of verified domains with ZAP (spider or an OpenAPI definition's GET and HEAD operations, and passive rules, never an attack), launched by an administrator from **New scan → Full web scan**, the scans administrators schedule (the periodic task looks for due ones every 5 minutes) and related-host discovery with subfinder. Needs the Docker runner. The light exposure check doesn't need it. See [Scan a website or API](scanning-web.md). |
+| `PITANGUS_KATANA_ENABLED` | katana, the full web scan's crawler (it only runs with it). |
+
+**Images.** Each row says whether the engine's images are on the worker's server. An analysis the server runs never
+downloads a missing one on the fly: the engine is declared not run (being prepared, it runs in the next scan), and
+what it found before stays open. A one-shot scan with no server behind it (`pitangus scan`, the GitHub Action, the
+pre-commit hook) pulls a missing image by its digest as it starts, and says so only if the pull fails. Nobody has to remember to download it: turning an engine on in the panel queues its images at once, and every
+5 minutes the worker queues those of every engine that is on (from the panel or the environment) whose pinned image
+is missing, as after an upgrade that changed a digest. The worker pulls them by digest in a lane of its own, so the
+analyses queued meanwhile keep running, one preparation per engine at a time; after a failure (offline, say) it waits an hour before trying again on its own, and **Prepare engine** retries
+at once. `make engines` reads only the environment and `.env`; the worker prepares the rest. With the engines
+installed in the worker image (`PITANGUS_ENGINE_RUNNER=local`) there is nothing to download.
 
 **Server with a domain** ([deploy-vps.md](deploy-vps.md)). Read by Compose, not by the app; `make setup DOMAIN=… [PREBUILT=1] [SOCKET=1]` writes them (`make setup PREBUILT=1`, without a domain, only `COMPOSE_FILE` and `PITANGUS_IMAGE`).
 

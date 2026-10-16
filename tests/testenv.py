@@ -16,6 +16,11 @@ def docker_runner(case) -> None:
     pinned = patch.dict(os.environ, {"PITANGUS_ENGINE_RUNNER": "docker"})
     pinned.start()
     case.addCleanup(pinned.stop)
+    # Every engine image is on the server unless a test says otherwise (a missing one is declared not run).
+    from pitangus.modules.scanning import engines
+    present = patch.object(engines, "image_available", return_value=True)
+    present.start()
+    case.addCleanup(present.stop)
     # A web scan's other tools (katana, nuclei, testssl.sh, httpx) ask Docker for their images: absent unless a test
     # hands them to `scan_domain` itself.
     from pitangus.modules.scanning import web_tools

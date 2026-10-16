@@ -1,6 +1,6 @@
-import { BugIcon, GitPullRequestIcon, GlobeIcon, ListMagnifyingGlassIcon, PackageIcon, PlugsConnectedIcon, ScalesIcon, ScrollIcon, ShieldIcon, ShieldWarningIcon, SquaresFourIcon, StackIcon, TargetIcon, TreeStructureIcon, UsersIcon } from '@phosphor-icons/react'
+import { BugIcon, EngineIcon, GitPullRequestIcon, GlobeIcon, ListMagnifyingGlassIcon, PackageIcon, PlugsConnectedIcon, ScalesIcon, ScrollIcon, ShieldIcon, ShieldWarningIcon, SquaresFourIcon, StackIcon, TargetIcon, TreeStructureIcon, UsersIcon } from '@phosphor-icons/react'
 
-export type View = 'overview' | 'analyses' | 'new' | 'findings' | 'coverage' | 'repositories' | 'images' | 'domains' | 'domain' | 'integrations' | 'account' | 'users' | 'pulls' | 'threats' | 'cves' | 'compliance' | 'policies'
+export type View = 'overview' | 'analyses' | 'new' | 'findings' | 'coverage' | 'repositories' | 'images' | 'domains' | 'domain' | 'integrations' | 'account' | 'users' | 'pulls' | 'threats' | 'cves' | 'compliance' | 'policies' | 'engines'
 // `go` is the letter after G that opens the page (G then O, the overview). Letters stay the same in every language.
 export type NavItem = { id: View; label: string; icon: typeof ShieldIcon; go: string; admin?: boolean }
 
@@ -24,7 +24,8 @@ export const navigation: { id: string; label: string; items: NavItem[] }[] = [
   { id: 'settings', label: 'groups.settings', items: [
     { id: 'policies', label: 'items.policies', icon: ScrollIcon, go: 'l' },
     { id: 'integrations', label: 'items.integrations', icon: PlugsConnectedIcon, go: 'e' },
-    // Users is for administrators only; the server enforces it too.
+    // Analysis engines and Users are for administrators only; the server enforces it too.
+    { id: 'engines', label: 'items.engines', icon: EngineIcon, go: 'n', admin: true },
     { id: 'users', label: 'items.users', icon: UsersIcon, go: 'u', admin: true },
   ] },
 ]

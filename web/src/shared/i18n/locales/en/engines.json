@@ -1,0 +1,124 @@
+{
+  "loading": "Loading the engines…",
+  "load_failed": "Couldn't load the engines.",
+  "consequence": "Turning an engine off hides nothing: each scan says «not run (disabled)» for it, and what it found stays open, never marked fixed. Changes apply from the next scan.",
+  "uncovered": "No engine that is on checks {{what}}: scans say so, and what was found there before stays open.",
+  "capability": {
+    "sast": "the code (SAST)",
+    "dependencies": "dependencies",
+    "secrets": "secrets",
+    "iac": "infrastructure as code",
+    "pipelines": "CI pipelines",
+    "images": "container image packages",
+    "exposure": "what your domains expose"
+  },
+  "groups": {
+    "code": {
+      "title": "Code and dependencies",
+      "description": "What your code does and the packages it brings in."
+    },
+    "secrets": {
+      "title": "Secrets",
+      "description": "Keys, tokens and passwords committed to a repository."
+    },
+    "infrastructure": {
+      "title": "Infrastructure and CI",
+      "description": "Terraform, Kubernetes, Dockerfiles and CI pipelines."
+    },
+    "images": {
+      "title": "Images",
+      "description": "Container image packages; Trivy, above, reads their configuration and secrets too."
+    },
+    "web": {
+      "title": "Web",
+      "description": "What your verified domains show anyone. Nothing here attacks a site."
+    }
+  },
+  "rows": {
+    "opengrep": {
+      "adds": "SAST with Pitangus rules for JavaScript, TypeScript, Python, Java, Go, PHP, Ruby and C#.",
+      "covers": "the code (SAST)"
+    },
+    "trivy": {
+      "adds": "Dependencies of any ecosystem, infrastructure as code, secrets and container images.",
+      "covers": "dependencies, infrastructure as code, secrets or images"
+    },
+    "osv_scanner": {
+      "adds": "Dependencies against the OSV database, with more manifest formats (.NET, Gradle, uv).",
+      "covers": "dependencies against OSV"
+    },
+    "betterleaks": {
+      "adds": "High-precision secrets, in the code and in credential files.",
+      "covers": "secrets with high precision"
+    },
+    "checkov": {
+      "adds": "More Terraform, CloudFormation and Dockerfile checks, and pipelines beyond GitHub Actions.",
+      "covers": "those extra infrastructure and pipeline checks"
+    },
+    "zizmor": {
+      "adds": "GitHub Actions in depth: template injection, dangerous triggers and permissions.",
+      "covers": "GitHub Actions workflows"
+    },
+    "grype": {
+      "adds": "A second opinion on image packages, next to Trivy.",
+      "covers": "image packages with a second opinion"
+    },
+    "httpx": {
+      "adds": "The technologies and versions each host shows, and the status of the pages reached.",
+      "covers": "technologies, versions or page statuses"
+    },
+    "testssl": {
+      "adds": "Each host's TLS configuration and certificate.",
+      "covers": "TLS"
+    },
+    "nuclei": {
+      "adds": "Detection-only templates: exposed files, misconfigurations and takeovers.",
+      "covers": "exposed files or misconfigurations"
+    },
+    "dast": {
+      "title": "Full web scan",
+      "adds": "Experimental. ZAP crawls verified domains passively and subfinder finds related hosts; it never attacks.",
+      "covers": "sites with a crawl"
+    },
+    "katana": {
+      "adds": "A crawler whose URLs feed ZAP and nuclei in the full web scan.",
+      "covers": "pages only a crawler finds"
+    }
+  },
+  "status": {
+    "default_on": "On by default",
+    "default_off": "Off by default",
+    "changed": "Changed by {{by}} on {{date}}",
+    "locked": "Set by the server ({{setting}})",
+    "requires_dast": "runs only with the full web scan on"
+  },
+  "image": {
+    "ready": "Image ready",
+    "missing": "Image not on the server",
+    "preparing": "Preparing…",
+    "unknown": "No word from the worker yet",
+    "built_in": "Installed in the worker",
+    "failed": "Couldn't prepare it: {{problem}}",
+    "prepare": "Prepare engine",
+    "prepare_label": "Prepare engine {{name}}"
+  },
+  "confirm": {
+    "off_title": "Turn off {{name}}?",
+    "off_core": "Without {{name}}, Pitangus doesn't check {{covers}}: what it found stays open and is never marked fixed, and scans will have partial coverage.",
+    "off_optional": "Once it's off, what it found stays open and is never marked fixed.",
+    "off_last": "No other engine that is on checks {{what}}: scans will say so.",
+    "off": "Turn off",
+    "dast_title": "Turn on the full web scan?",
+    "dast_body": "It's experimental. ZAP, katana and subfinder reach only domains you verified, and passively: they never attack. It needs a worker with Docker.",
+    "on": "Turn on"
+  },
+  "saved_on": "{{name}} is on from the next scan.",
+  "saved_off": "{{name}} is off from the next scan.",
+  "preparing_notice": "Preparing {{name}}: the worker is downloading its images.",
+  "history": {
+    "title": "Recent changes",
+    "empty": "No changes yet.",
+    "on": "{{by}} turned on {{name}} · {{date}}",
+    "off": "{{by}} turned off {{name}} · {{date}}"
+  }
+}

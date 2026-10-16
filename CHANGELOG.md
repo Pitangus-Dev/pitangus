@@ -7,6 +7,32 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Added
+
+- **Analysis engines from the panel.** Administrators turn each engine on or off in **Settings → Analysis engines**,
+  grouped by what it checks (code and dependencies, secrets, infrastructure and CI, images, web): Opengrep, Trivy,
+  OSV-Scanner, Betterleaks, Checkov, zizmor, Grype, httpx, testssl.sh, nuclei, katana and the full web scan. Defaults
+  don't change (all on but Checkov, Grype and the full web scan). Every change is kept with who made it and when, and
+  logged. Turning a core engine off asks first and says what goes unchecked; its step in every scan says **not run
+  (disabled)** with where to turn it back on, and what it found stays open, never marked fixed. A kind of check left
+  with no engine (every secrets engine off, say) is warned about in the panel and said in each scan.
+- **Engine images are prepared on their own.** Each engine says whether its images are on the server. Turning one on
+  queues its images at once, and every 5 minutes the worker pulls, by digest, those of every engine that is on and
+  missing them (after an upgrade that changed a digest, say), in a lane of its own so queued analyses keep running;
+  **Prepare engine** retries by hand. An analysis the server runs no longer downloads a missing image mid-run: the
+  engine is declared not run (being prepared, it runs in the next scan) and fixes nothing it found before. One-shot
+  scans (`pitangus scan`, the GitHub Action, the pre-commit hook) still pull a missing image by digest as they start.
+
+### Changed
+
+- **`PITANGUS_<ENGINE>_ENABLED` pins a switch.** `PITANGUS_CHECKOV_ENABLED`, `PITANGUS_GRYPE_ENABLED` and
+  `PITANGUS_DAST_ENABLED`, and the new `PITANGUS_OPENGREP_ENABLED`, `PITANGUS_TRIVY_ENABLED`,
+  `PITANGUS_OSV_SCANNER_ENABLED`, `PITANGUS_BETTERLEAKS_ENABLED`, `PITANGUS_ZIZMOR_ENABLED`,
+  `PITANGUS_HTTPX_ENABLED`, `PITANGUS_TESTSSL_ENABLED`, `PITANGUS_NUCLEI_ENABLED` and `PITANGUS_KATANA_ENABLED`, set
+  in the server's environment, win over the panel and show its switch locked, naming the variable; unset, the panel
+  decides. A server that sets `PITANGUS_CHECKOV_ENABLED=1` today keeps Checkov on, as before. `make engines` still
+  reads only the environment and `.env`; the worker prepares what the panel turns on.
+
 ## [0.14.3] - 2026-10-15
 
 ### Added

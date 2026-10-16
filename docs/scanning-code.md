@@ -83,7 +83,7 @@ snapshot mounted read-only.
 | **Betterleaks 1.9.0** | Secrets, values redacted | None |
 | **Trivy 0.75.0** | Dependencies of any ecosystem, infrastructure configuration (Dockerfile, Kubernetes, Terraform) and secrets | Only to download its vulnerability databases and misconfiguration checks, cached in `data/trivy-cache/` and refreshed once for every worker when due; nothing from the repository is sent |
 | **OSV-Scanner 2.6.0** | Dependencies, against the OSV database (which includes GitHub's advisory database); reads more formats, such as .NET `.csproj` and `Directory.Packages.props`, `gradle.lockfile`, `uv.lock`, `Pipfile.lock`, `pubspec.lock` | Only to download the OSV databases, cached in `data/osv-cache/`; matching is local |
-| **Checkov 3.3.19** (optional, off by default: `PITANGUS_CHECKOV_ENABLED=1`) | IaC (Terraform, CloudFormation, Kubernetes, Helm, Kustomize, ARM, Bicep, Serverless, OpenAPI, Ansible, Dockerfile) and pipelines (GitHub Actions, GitLab CI, Bitbucket, Azure Pipelines, CircleCI, Argo) | None (`--skip-download`, no external modules) |
+| **Checkov 3.3.19** (optional, off by default: turn it on in **Settings → Analysis engines**) | IaC (Terraform, CloudFormation, Kubernetes, Helm, Kustomize, ARM, Bicep, Serverless, OpenAPI, Ansible, Dockerfile) and pipelines (GitHub Actions, GitLab CI, Bitbucket, Azure Pipelines, CircleCI, Argo) | None (`--skip-download`, no external modules) |
 | **zizmor 1.30.1** | GitHub Actions in depth: template injection, dangerous triggers (`pull_request_target`), token permissions, actions not pinned by SHA or archived, credentials that persist after `checkout` | None (`--offline`) |
 
 The Opengrep image is built locally by `make build` (or `make up`): it downloads the official binary and checks it
