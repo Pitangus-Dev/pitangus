@@ -15,7 +15,7 @@ ones. A snapshot of the mapped fields is kept with the destination, so creating 
 Variables (one issue may cover several findings of one package: the notes say what a group takes):
 
 ======================  ==========  ==========================================================================
-``summary``             text        Pitangus's issue title: ``Severity: title in path:line``, or the package update
+``summary``             text        Pitangus's issue title, what and where: ``High · starlette 0.37.2 → 0.47.2 · org/api (poetry.lock)``
 ``title``               text        The finding's title (for a group, the package upgrade without the severity)
 ``severity``            text        critical, high, medium, low or info (a group: the highest)
 ``jira_priority``       text        Highest, High or Medium, from Pitangus's priority (act, attend, track)
@@ -59,6 +59,24 @@ VARIABLE_LABELS = {
     "line": msg("integrations.jira.variables.line"), "asset": msg("integrations.jira.variables.asset"),
     "panel_url": msg("integrations.jira.variables.panel_url"), "first_seen": msg("integrations.jira.variables.first_seen"),
     "due_date": msg("integrations.jira.variables.due_date"), "labels": msg("integrations.jira.variables.labels"),
+}
+VARIABLE_EXAMPLES = {
+    "summary": msg("integrations.jira.variable_examples.summary"),
+    "title": msg("integrations.jira.variable_examples.title"),
+    "severity": msg("integrations.jira.variable_examples.severity"),
+    "jira_priority": msg("integrations.jira.variable_examples.jira_priority"),
+    "description": msg("integrations.jira.variable_examples.description"),
+    "cwe": msg("integrations.jira.variable_examples.cwe"),
+    "cve": msg("integrations.jira.variable_examples.cve"),
+    "package": msg("integrations.jira.variable_examples.package"),
+    "fixed_version": msg("integrations.jira.variable_examples.fixed_version"),
+    "path": msg("integrations.jira.variable_examples.path"),
+    "line": msg("integrations.jira.variable_examples.line"),
+    "asset": msg("integrations.jira.variable_examples.asset"),
+    "panel_url": msg("integrations.jira.variable_examples.panel_url"),
+    "first_seen": msg("integrations.jira.variable_examples.first_seen"),
+    "due_date": msg("integrations.jira.variable_examples.due_date"),
+    "labels": msg("integrations.jira.variable_examples.labels"),
 }
 # Variables whose value names an option: they go into select and priority fields by matching the option's name.
 BY_NAME = ("severity", "jira_priority")
@@ -105,7 +123,9 @@ class MappingError(ValueError):
 
 
 def variables() -> list[dict]:
-    return [{"key": key, "type": kind, "label": VARIABLE_LABELS[key]} for key, kind in VARIABLES.items()]
+    """Each variable with its label and an example of what it holds, so a mapping can be read before an issue exists."""
+    return [{"key": key, "type": kind, "label": VARIABLE_LABELS[key], "example": VARIABLE_EXAMPLES[key]}
+            for key, kind in VARIABLES.items()]
 
 
 def default_mapping(fields: list[dict]) -> dict:

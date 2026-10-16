@@ -327,8 +327,20 @@ docs/*.md
 Los patrones funcionan como `.gitignore`: un patrón que coincide con una carpeta excluye todo lo que contiene
 (`fixtures` cubre `fixtures/a/b.py`), `*` no cruza carpetas y `**` sí. Se rechazan los patrones que excluirían todo
 (`**`, `*/**`), las rutas absolutas y `..`. Mientras escribes, el diálogo comprueba los patrones como lo haría al
-guardar y dice qué hallazgos pasarían a **Excluidos** (o volverían a abiertos), con algunas de sus rutas, antes de
-guardar nada.
+guardar y dice cuáles de los hallazgos actuales pasarían a **Excluidos** (o volverían a abiertos), con algunas de sus
+rutas, antes de guardar nada. El diálogo también muestra ejemplos habituales, cada uno con lo que significa; al elegir
+uno se añade su línea.
+
+**Un falso positivo conocido en un lugar.** Escribe el ID de una regla después de la ruta, separado por un espacio, y
+solo se excluyen los hallazgos de esa regla allí; todo lo demás bajo esa ruta sigue contando:
+
+```text
+tests/** generic-api-key
+```
+
+El ID es el que aparece bajo el título de cada hallazgo (un hallazgo que reportaron dos motores responde a la regla de
+cualquiera de los dos). Una regla acota lo suficiente como para aceptar `** generic-api-key` (esa regla en todo el
+repositorio). Para descartar un solo hallazgo, márcalo como falso positivo en el triage.
 
 - Lo que cae bajo ellos no cuenta como abierto, no entra en el informe ni en el SARIF y **no bloquea PR**. No
   desaparece: queda en la pestaña **Excluidos**, y cada ejecución dice en sus limitaciones cuántos hallazgos quedaron

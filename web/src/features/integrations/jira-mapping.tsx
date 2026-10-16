@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SelectField, selectPopup } from '@/shared/ui/select-field'
 import { CHOICES, EMPTY, LISTS, fittingVariables, mustFill, sourcesFor, type Draft, type Entry, type JiraField, type JiraVariables, type SearchValues, type Source, type Variable } from '@/features/integrations/jira-mapping-model'
 
+// Variables are language-neutral tokens, so the example is passed as a value (never interpolated as a key).
+export const TEMPLATE_EXAMPLE = '{{package}} → {{fixed_version}}'
 const SOURCE_LABEL = { none: 'jira.mapping.source.none', pitangus: 'jira.mapping.source.pitangus', fixed: 'jira.mapping.source.fixed', template: 'jira.mapping.source.template' } as const
 const TYPE_LABEL: Record<string, string> = {
   text: 'jira.mapping.type.text', rich_text: 'jira.mapping.type.rich_text', number: 'jira.mapping.type.number', date: 'jira.mapping.type.date',
@@ -61,7 +63,8 @@ function MappingRow({ field, variables, entry, error, onChange, searchValues }: 
   const id = useId()
   const sources = sourcesFor(field, variables, entry.key)
   const set = (patch: Partial<Entry>) => onChange({ ...entry, ...patch })
-  const describedBy = error ? `${id}-error` : undefined
+  const example = entry.source === 'pitangus' ? variables.variables.find(variable => variable.key === entry.key)?.example : undefined
+  const describedBy = [example && `${id}-example`, error && `${id}-error`].filter(Boolean).join(' ') || undefined
   const control = 'aria-invalid:border-danger'
   const valueLabel = t('jira.mapping.value_label', { field: field.name })
   let value: React.ReactNode = <span className="text-xs text-app-subtle">{mustFill(field) ? t('jira.mapping.choose_source') : t('jira.mapping.left_empty')}</span>
@@ -87,7 +90,8 @@ function MappingRow({ field, variables, entry, error, onChange, searchValues }: 
       <span className="block text-[11px] font-normal text-app-subtle">{TYPE_LABEL[field.type] ? t(TYPE_LABEL[field.type]) : field.type}{field.allowed_truncated ? ` · ${t('jira.mapping.allowed_truncated')}` : ''}</span></th>
     <td className="w-44 px-3 py-2"><SelectField aria-label={t('jira.mapping.source_label', { field: field.name })} value={entry.source} onValueChange={source => set({ source: source as Source })} className={control}
       options={[...(entry.source === 'none' && !sources.includes('none') ? [{ value: 'none', label: t('jira.mapping.choose_source'), disabled: true }] : []), ...sources.map(source => ({ value: source, label: t(SOURCE_LABEL[source]) }))]} /></td>
-    <td className="min-w-56 px-3 py-2">{value}{error && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-danger">{error}</p>}</td>
+    <td className="min-w-56 px-3 py-2">{value}{example && <p id={`${id}-example`} className="mt-1 text-xs text-app-subtle [overflow-wrap:anywhere]">{t('jira.mapping.example', { value: example })}</p>}
+      {error && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-danger">{error}</p>}</td>
   </tr>
 }
 
@@ -106,7 +110,7 @@ function TemplateInput({ id, label, text, variables, invalid, describedBy, onCha
     window.requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(start + token.length, start + token.length) })
   }
   return <div className="space-y-1.5">
-    <textarea ref={area} id={id} aria-label={label} aria-invalid={invalid || undefined} aria-describedby={describedBy} value={text} onChange={event => onChange(event.target.value)} rows={2} maxLength={2000}
+    <textarea ref={area} id={id} aria-label={label} aria-invalid={invalid || undefined} aria-describedby={describedBy} value={text} onChange={event => onChange(event.target.value)} rows={2} maxLength={2000} placeholder={t('jira.mapping.template_placeholder', { template: TEMPLATE_EXAMPLE })}
       className="w-full rounded-lg border border-input bg-card px-2 py-1.5 font-mono text-xs text-app-fg aria-invalid:border-danger" />
     <div role="group" aria-label={t('jira.mapping.insert_label')} className="flex flex-wrap gap-1">{variables.map(variable => <button key={variable.key} type="button" title={variable.label}
       aria-label={t('jira.mapping.insert', { name: variable.label })} onClick={() => insert(variable.key)}

@@ -6,7 +6,9 @@
       "install": "Instala",
       "check": "Revisa las cabeceras de la respuesta",
       "check_version": "Comprueba que muestre {{version}} o superior",
-      "if_stuck": "Si sigue por debajo de {{version}}, actualiza {{package}}"
+      "if_stuck": "Si sigue por debajo de {{version}}, actualiza {{package}}",
+      "update_first": "Primero, actualiza {{package}}",
+      "update_then": "Después, actualiza {{package}}"
     },
     "verify": "Después: sube el cambio a la rama principal y haz clic en «Reverificar» (o espera al análisis automático de la rama).",
     "verify_dependency": "Después: regenera el lockfile, sube el cambio a la rama principal y haz clic en «Reverificar» (o espera al análisis automático de la rama).",
@@ -31,7 +33,7 @@
     "os_rebuild": "Es un paquete del sistema de la imagen: lo mejor es reconstruirla sobre una base actualizada (docker build --pull).",
     "os_dockerfile": "Si la base aún no trae la corrección, actualiza el paquete en el Dockerfile:",
     "generic_update": "Actualiza {{package}} de {{installed}} a {{version}} o superior en {{path}} y regenera el lockfile.",
-    "transitive_other": "{{package}} llega como dependencia de otra: si el comando no la sube, actualiza la dependencia directa que la trae.",
+    "transitive_other": "{{package}} llega como dependencia de otra y este lockfile no dice de cuál. Si el comando la deja por debajo de {{version}}, averigua con tu gestor de paquetes qué paquete la requiere y actualiza primero ese.",
     "malicious_sibling": "{{package}} {{version}} es un paquete malicioso: elimínalo en lugar de actualizarlo (ver su aviso MAL-). Actualizar no basta.",
     "secret": {
       "revoke": "Revoca o rota la credencial ahora en su proveedor: borrarla del código no basta, ya está en el historial de Git.",
@@ -45,8 +47,17 @@
       "action": "Actualiza {{package}} a {{target}}; si no sube, actualiza {{direct}}, que es quien la trae.",
       "from": "{{package}} {{version}} llega a través de {{parent}} {{parent_version}}.",
       "from_via": "{{package}} {{version}} viene de {{direct}} {{direct_version}} a través de {{parent}} {{parent_version}}.",
-      "if_stuck": "Si la actualización la deja por debajo de {{target}}, la está limitando {{parent}} {{parent_version}}: actualiza {{direct}} y luego otra vez {{package}}.",
-      "override_note": "Mejor aún: actualiza {{direct}}, que es quien la trae."
+      "if_stuck": "Si la actualización la deja por debajo de {{target}}, probablemente la está limitando {{parent}} {{parent_version}}: actualiza {{direct}} y luego otra vez {{package}}.",
+      "override_note": "Mejor aún: actualiza {{direct}}, que es quien la trae.",
+      "action_blocked": "Actualiza primero {{direct}} a una versión que acepte {{package}} {{target}}; después, {{package}}.",
+      "action_blocked_alone": "Actualiza {{direct}} a una versión que acepte {{package}} {{target}}.",
+      "blocked": "{{package}} {{version}} llega a través de {{parent}} {{parent_version}}, que solo acepta {{package}} {{requires}}. Actualizar solo {{package}} no la sube a {{target}}: primero tiene que moverse {{parent}}.",
+      "blocked_via": "{{package}} {{version}} viene de {{direct}} {{direct_version}} a través de {{parent}} {{parent_version}}, que solo acepta {{package}} {{requires}}. Actualizar solo {{package}} no la sube a {{target}}: primero tiene que moverse {{direct}}, con un {{parent}} más reciente.",
+      "declared_rewritten": "{{manifest}} declara {{direct}} como «{{range}}». El comando de abajo lo cambia por su última versión: lee las notas de versión de {{direct}} y pasa tus pruebas antes de fusionar.",
+      "declared": "{{manifest}} declara {{direct}} como «{{range}}». Si ninguna versión de ese rango acepta {{package}} {{target}}, amplíalo primero o la actualización no la moverá.",
+      "fits": "{{package}} {{version}} llega a través de {{parent}} {{parent_version}}, que acepta {{package}} {{requires}}: {{target}} entra en ese rango, así que basta con actualizar {{package}}.",
+      "force": "Si ninguna versión de {{direct}} acepta todavía {{package}} {{target}}, fuérzala con «{{field}}» en package.json y pasa tus pruebas: contradice el rango que declara {{parent}}.",
+      "no_release_yet": "Si con la última versión de {{direct}} la comprobación sigue mostrando {{package}} por debajo de {{target}}, aún no hay una versión que la acepte: registra en Pitangus la mitigación o el riesgo aceptado hasta que salga."
     },
     "also_in": "{{package}} {{version}} también está en {{paths}}: actualízala ahí también, en cada una de esas carpetas."
   },
@@ -75,6 +86,7 @@
       "invalid": "Ruta no válida: «{{pattern}}». Usa letras, números, «/», «.», «-», «_», «*» y «?».",
       "not_relative": "«{{pattern}}» debe ser relativa a la raíz del repositorio y sin «..».",
       "everything": "«{{pattern}}» excluiría todo el repositorio.",
+      "rule_invalid": "«{{pattern}}»: escribe una ruta y, si quieres limitarla a una regla, su ID después de un espacio («tests/** generic-api-key»). El ID de una regla usa letras, números, «.», «-», «_», «:» y «/».",
       "reason_required": "Explica en una frase por qué se excluyen estas rutas (queda en el historial)."
     },
     "limitation_one": "Rutas excluidas por un administrador ({{patterns}}): {{count}} hallazgo quedó fuera de esta ejecución. Se puede ver en Hallazgos → Excluidos.",

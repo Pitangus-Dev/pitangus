@@ -1,6 +1,7 @@
 """Excluded paths per repository: patterns, effect on runs and the registry, and who can change them."""
 
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -53,6 +54,31 @@ class PatternTests(unittest.TestCase):
         self.assertIsNone(exclusions.excluded("src/fixtures/app.py", ["fixtures/*"]))
         self.assertIsNone(exclusions.excluded("docs/deep/intro.md", ["docs/*.md"]))
 
+    def test_matching_takes_linear_time_whatever_the_wildcards(self):
+        # As a regex, `*a*a*a*a*a*a*b` against a 100-character name backtracked for ~30 s. Generous bound: CI is slower.
+        hostile = exclusions.normalize(["*a*a*a*a*a*a*b/**", "**/*a*a*a*a*a*a*a*a*b*"])
+        started = time.process_time()
+        for path in ("a" * 100, "src/" + "a" * 2_000 + "/x.py", "a/" * 500 + "c"):
+            self.assertIsNone(exclusions.excluded(path, hostile))
+        self.assertLess(time.process_time() - started, 2.0)
+        self.assertEqual(exclusions.excluded("aaaaaab/x.py", hostile), hostile[0])
+
+    def test_a_pattern_can_be_limited_to_one_rule(self):
+        """A known false positive: one rule in one place. Everything else there still counts."""
+        self.assertEqual(exclusions.normalize(["tests/fixtures/  generic-api-key", "** python.lang.eval-detected", "tests/fixtures/**"]),
+                         ["tests/fixtures/** generic-api-key", "** python.lang.eval-detected", "tests/fixtures/**"])
+        for bad in (["tests a b"], ["tests rule;drop"], ["tests " + "r" * 200], ["../tests rule"]):
+            with self.subTest(bad=bad), self.assertRaises(exclusions.ExclusionError):
+                exclusions.normalize(bad)
+        active = ["tests/** generic-api-key"]
+        key = {"path": "tests/fixtures/settings.py", "rule_id": "generic-api-key"}
+        self.assertEqual(exclusions.excludes(key, active), "tests/** generic-api-key")
+        self.assertIsNone(exclusions.excludes({**key, "rule_id": "aws-access-token"}, active))
+        self.assertIsNone(exclusions.excludes({**key, "path": "app/settings.py"}, active))
+        # A finding two engines reported answers to either engine's rule.
+        self.assertEqual(exclusions.excludes({**key, "rule_id": "CKV_SECRET_6", "related_rules": ["generic-api-key"]}, active), active[0])
+        self.assertIsNone(exclusions.excluded("tests/fixtures/settings.py", active))  # by path alone, never
+
     def test_reason_is_mandatory_and_history_is_kept(self):
         with tempfile.TemporaryDirectory() as folder:
             data_dir = Path(folder)
@@ -103,6 +129,23 @@ class RecordAndRegistryTests(unittest.TestCase):
         self.save(10)
         state = findings_registry.summarize(self.data_dir, KEY)
         self.assertEqual((state["open"], state["excluded"], state["fixed"]), (2, 0, 0))
+
+    def test_a_rule_limited_pattern_moves_only_that_rule_and_the_preview_says_so(self):
+        self.findings = [{**located("a" * 64, "tests/settings.py", "critical"), "rule_id": "generic-api-key"},
+                         {**located("c" * 64, "tests/test_api.py"), "rule_id": "python.lang.eval-detected"}, located("b" * 64, "app/main.py")]
+        self.save(0)
+        active = exclusions.normalize(["tests/** generic-api-key"])
+        preview = findings_registry.preview_exclusions(self.data_dir, KEY, active)
+        self.assertEqual((preview["excluded"], preview["excluded_paths"]), (1, ["tests/settings.py"]))
+        findings_registry.apply_exclusions(self.data_dir, KEY, active, when=self.now.isoformat())
+        exclusions.save(self.data_dir, KEY, active, reason="Clave de ejemplo de los tests", user=ADMIN)
+        record = self.save(5)
+        self.assertEqual(sorted(item["path"] for item in record["findings"]), ["app/main.py", "tests/test_api.py"])
+        self.assertEqual(record["excluded"]["by_pattern"], {"tests/** generic-api-key": 1})
+        state = findings_registry.summarize(self.data_dir, KEY)
+        self.assertEqual((state["open"], state["excluded"], state["fixed"]), (2, 1, 0))
+        listed = findings_registry.view(self.data_dir, KEY, status="excluded")["findings"]
+        self.assertEqual([(item["path"], item["lifecycle"]["excluded"]["pattern"]) for item in listed], [("tests/settings.py", "tests/** generic-api-key")])
 
     def test_applying_twice_changes_nothing(self):
         exclusions.save(self.data_dir, KEY, ["fixtures/**"], reason="Ejemplos vulnerables a propósito", user=ADMIN)

@@ -1,10 +1,15 @@
 """The Jira issue description: written for the developer who fixes it, and safe to build from what a scan found."""
 
 import json
+import os
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from pitangus.modules.integrations import jira
+from pitangus.modules.runs import jira_brief
 from pitangus.modules.runs.jira_brief import brief
+from pitangus.modules.runs.jira_sync import TITLE_MAX, issue_title
 
 DAYS = {"critical": 7, "high": 30, "medium": 90, "low": 180, "info": 365}
 SOURCE = {"id": "github:acme/api", "name": "acme/api", "branch": "main", "commit": "a" * 40}
@@ -110,3 +115,77 @@ class BriefTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+SNAPSHOT = Path(__file__).parent / "fixtures" / "jira-adf-dependency.json"
+# The guide's content is the fix guide's (findings/fix_guide.py), not this layout's: a fixed one keeps the snapshot
+# about how the issue is laid out, whatever the guides say tomorrow.
+GUIDE = {"action": "Update starlette from 0.37.2 to 0.47.2.", "steps": ["Update starlette from 0.37.2 to 0.47.2.", "Run the tests."],
+         "commands": [{"code": 'poetry add "starlette>=0.47.2"', "action": "apply"},
+                      {"code": "poetry show starlette", "action": "check", "label": "Check that it shows 0.47.2 or later"}]}
+
+
+class AdfSnapshotTests(unittest.TestCase):
+    def test_a_dependency_issue_is_this_document(self):
+        """The exact Atlassian document Jira Cloud receives for a package with two advisories (UPDATE_SNAPSHOTS=1 rewrites
+        it): first the change, where (linked to the file at the scanned commit), the commands and when it is done; then
+        why in a few lines; the details last. Only nodes Pitangus builds: no Markdown, no code from the repository."""
+        def advisory(fingerprint, cve, fixed, epss=None):
+            return {"fingerprint": fingerprint, "scanner": "sca", "rule_id": cve, "cve": [cve], "title": cve, "path": "backend/poetry.lock",
+                    "line": 1, "severity": "high", "cwe": [400], "epss": {"score": epss} if epss else None,
+                    "package": {"ecosystem": "pypi", "name": "starlette", "version": "0.37.2", "fixed_version": fixed, "direct": True},
+                    "advisory": {"summary": "Denial of service through multipart forms", "cvss_score": 7.5}}
+        findings = {"3" * 64: advisory("3" * 64, "CVE-2024-47874", "0.40.0", 0.31), "4" * 64: advisory("4" * 64, "CVE-2025-54121", "0.47.2")}
+        with patch.object(jira_brief, "_fix", return_value=GUIDE):
+            written = brief([ticket("3" * 64), ticket("4" * 64)], findings, asset="org/fastapi_template", source=SOURCE,
+                            first_seen={"3" * 64: "2026-10-01T09:00:00+00:00"}, days=DAYS,
+                            panel_url="https://pitangus.example.com/#/findings?repo=github%3Aorg%2Fapi&finding=" + "3" * 64, locale="en")
+        document = jira.adf_document(written["blocks"])
+        if os.environ.get("UPDATE_SNAPSHOTS"):
+            SNAPSHOT.write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n")
+        self.assertEqual(document, json.loads(SNAPSHOT.read_text()))
+        kinds = {node["type"] for node in _walk(document)}
+        self.assertLessEqual(kinds, {"doc", "paragraph", "text", "heading", "bulletList", "orderedList", "listItem", "codeBlock"})
+        self.assertEqual([node["content"][0]["text"] for node in nodes(document, "codeBlock")],
+                         ['poetry add "starlette>=0.47.2"', "poetry show starlette"])
+
+
+def _walk(node):
+    yield node
+    for child in node.get("content") or []:
+        yield from _walk(child)
+
+
+class IssueTitleTests(unittest.TestCase):
+    """The summary says what and where, in Jira's 255 characters, and is the same every time for the same finding."""
+
+    def title(self, **extra):
+        values = {"severity": "High", "asset": "fastapi_template", "where": "poetry.lock", "title": "", "package": "starlette",
+                  "version": "0.37.2", "target": "1.3.1", "locale": "en"} | extra
+        return issue_title(**values)
+
+    def test_what_and_where(self):
+        self.assertEqual(self.title(), "High · starlette 0.37.2 → 1.3.1 · fastapi_template (poetry.lock)")
+        self.assertEqual(self.title(target=None), "High · starlette 0.37.2 · no fix yet · fastapi_template (poetry.lock)")
+        self.assertEqual(self.title(where=""), "High · starlette 0.37.2 → 1.3.1 · fastapi_template")
+        self.assertEqual(self.title(package=None, title="SQL injection from request input", where="app/db.py:14"),
+                         "High · SQL injection from request input · fastapi_template (app/db.py:14)")
+        self.assertEqual(self.title(locale="es", severity="Alta"), "Alta · starlette 0.37.2 → 1.3.1 · fastapi_template (poetry.lock)")
+
+    def test_long_paths_keep_their_end_and_long_titles_give_way_first(self):
+        deep = "/".join(["services"] * 12) + "/backend/poetry.lock"
+        self.assertEqual(self.title(where=deep), "High · starlette 0.37.2 → 1.3.1 · fastapi_template (…/backend/poetry.lock)")
+        long = self.title(package=None, title="Unsafe " * 80, where="app/db.py:14", asset="org/" + "a" * 300)
+        self.assertLessEqual(len(long), TITLE_MAX)
+        self.assertTrue(long.startswith("High · Unsafe Unsafe"))
+        self.assertIn("db.py:14", long)
+
+    def test_always_fits_and_is_deterministic(self):
+        cases = [{"package": None, "title": "x" * 1000, "where": "y/" * 400, "asset": "z" * 400},
+                 {"package": "p" * 400, "version": "1" * 200, "target": "2" * 200, "where": "w" * 600, "asset": "a" * 500},
+                 {"package": None, "title": "line\nbreak\x07 and\ttab", "where": "a.py:1"}]
+        for case in cases:
+            first = self.title(**case)
+            self.assertLessEqual(len(first), TITLE_MAX)
+            self.assertEqual(first, self.title(**case))
+            self.assertNotRegex(first, r"[\x00-\x1f]")

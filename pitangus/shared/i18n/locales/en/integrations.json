@@ -145,6 +145,24 @@
       "due_date": "Due date (SLA)",
       "labels": "Pitangus labels"
     },
+    "variable_examples": {
+      "summary": "High · starlette 0.37.2 → 0.47.2 · org/api (poetry.lock)",
+      "title": "SQL injection from request input",
+      "severity": "high",
+      "jira_priority": "High",
+      "description": "What to change, where, the command and how to check it; then why and the details",
+      "cwe": "CWE-89, CWE-79",
+      "cve": "CVE-2024-47874, CVE-2025-54121",
+      "package": "starlette 0.37.2",
+      "fixed_version": "0.47.2",
+      "path": "backend/poetry.lock",
+      "line": "42",
+      "asset": "org/api",
+      "panel_url": "https://pitangus.example.com/#/findings?repo=…",
+      "first_seen": "2026-10-01 14:20",
+      "due_date": "2026-10-31",
+      "labels": "appsec, sca, high, fix-available"
+    },
     "mapping": {
       "invalid": "The field mapping doesn't fit this issue type",
       "too_many": "Map at most {{max}} fields",

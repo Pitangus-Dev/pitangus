@@ -134,10 +134,14 @@ def asset_exclusions(key: str = "", context: Context = Depends(guard())) -> dict
     return context.render(exclusions.get(context.data_dir, key))
 
 
+PATTERNS_HELP = ("Globs relative to the root (`fixtures`, `**/testdata`, `docs/*.md`); one may name a rule after a space "
+                 "(`tests/** generic-api-key`) to exclude only that rule's findings there.")
+
+
 class ExclusionsIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str = Field(max_length=200, pattern=f"^{exclusions.ASSET_KEY.pattern}$")
-    patterns: list[str] = Field(max_length=exclusions.MAX_PATTERNS)
+    patterns: list[str] = Field(max_length=exclusions.MAX_PATTERNS, description=PATTERNS_HELP)
     reason: str | None = None
 
 
@@ -147,7 +151,7 @@ EXCLUSION_FIELDS = set(ExclusionsIn.model_fields)
 class ExclusionsPreviewIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str = Field(max_length=200, pattern=f"^{exclusions.ASSET_KEY.pattern}$")
-    patterns: list[str] = Field(max_length=exclusions.MAX_PATTERNS)
+    patterns: list[str] = Field(max_length=exclusions.MAX_PATTERNS, description=PATTERNS_HELP)
 
 
 class ExclusionsPreview(BaseModel):

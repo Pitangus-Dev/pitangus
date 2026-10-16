@@ -16,7 +16,7 @@ qué vas a ver. Los pasos marcados **opcional** pueden esperar. ¿Términos nuev
 ## 1. Arrancar (5 min)
 
 ```bash
-git clone --branch v0.14.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.2 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make doctor
 ```

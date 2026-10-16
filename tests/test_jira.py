@@ -889,7 +889,7 @@ class RouteTests(HttpCase):
         self.assertIn(self.get("/api/integrations/jira/projects/..%2Fmyself/issue-types", self.admin)[0], (400, 404))
         self.assertEqual(self.get("/api/integrations/jira/projects/1%20OR%201/issue-types", self.admin)[0], 400)
         variables = self.get("/api/integrations/jira/variables", self.admin)[1]["variables"]
-        self.assertIn({"key": "due_date", "type": "date", "label": "Plazo de corrección (SLA)"}, variables)
+        self.assertIn({"key": "due_date", "type": "date", "label": "Plazo de corrección (SLA)", "example": "2026-10-31"}, variables)
 
     def test_validation_errors_are_field_specific_and_localized(self):
         self.post("/api/integrations/jira", "connect-jira", {"action": "save", "site": "acme.atlassian.net", "email": "sec@acme.io",

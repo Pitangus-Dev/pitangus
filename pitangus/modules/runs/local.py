@@ -262,7 +262,7 @@ def run(path: Path, *, data_dir: Path, base: str | None = None, baseline: bool =
     `exclude`: glob patterns relative to the root (`fixtures/**`, `**/testdata/**`) whose findings don't count.
     The output mentions them ("N in excluded paths"): nothing is hidden without saying so.
     `revision` (a commit) or `staged` (the index): scan what git holds there instead of the folder on disk."""
-    from pitangus.modules.findings.exclusions import ExclusionError, excluded, normalize
+    from pitangus.modules.findings.exclusions import ExclusionError, excludes, normalize
     from pitangus.modules.findings.registry import blind_engines, unseen
     from pitangus.modules.scanning.engines import IMAGES, engines_available, engines_problem, names_engine
     try:
@@ -296,7 +296,7 @@ def run(path: Path, *, data_dir: Path, base: str | None = None, baseline: bool =
             report("info", msg("scanning.local.progress.copied", files=stats["files"]))
         scan = scan_repository(head, {**source, "files": stats["files"], "snapshot": stats},
                                allow_osv_upload=allow_osv_upload, data_dir=data_dir, progress=report)
-        findings = [item for item in scan["findings"] if not excluded(item.get("path", ""), patterns)]
+        findings = [item for item in scan["findings"] if not excludes(item, patterns)]
         skipped = len(scan["findings"]) - len(findings)
         if base:
             files = diff_files(path, commit, target, staged=staged)
@@ -310,14 +310,14 @@ def run(path: Path, *, data_dir: Path, base: str | None = None, baseline: bool =
                 base_scan = scan_repository(base_dir, {**source, "files": base_stats["files"], "snapshot": base_stats},
                                             allow_osv_upload=allow_osv_upload, data_dir=data_dir)
                 # Both sides alike: the same excluded paths, grouped and counted by the registry's identity (classify).
-                base_findings = [item for item in base_scan["findings"] if not excluded(item.get("path", ""), patterns)]
+                base_findings = [item for item in base_scan["findings"] if not excludes(item, patterns)]
                 base_status = base_scan["status"]
                 # Only two complete scans prove something went away: a failed engine also "loses" findings.
                 # Nor does one an engine that failed in either scan (an optional one can fail in a complete scan).
                 if base_status == "completed" and scan["status"] == "completed":
                     blind = blind_engines(base_scan) | blind_engines(scan)
                     before = [item for item in base_scan["findings"]
-                              if not excluded(item.get("path", ""), patterns) and not unseen(item, blind)]
+                              if not excludes(item, patterns) and not unseen(item, blind)]
                     resolved = resolved_findings(before, scan["findings"], changed,
                                                  Path(temporary) / "head-raw" if target or staged else path, renames(files))
             outcome = classify(findings, changed, base_findings, renames(files))

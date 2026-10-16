@@ -345,12 +345,25 @@ Cada aviso de dependencia llega listo para decidir:
   nuevo (ni como ticket duplicado) en cada ejecución.
 - **Quién la trae, cuando es transitiva.** Trivy resuelve el grafo de dependencias del lockfile (npm, yarn, pnpm,
   Poetry, uv, Pipenv, Cargo, Go, Composer, NuGet, Bundler, Gradle y más), así que la guía de corrección dice qué
-  paquete la requiere y qué dependencia directa está arriba de la cadena, sin importar qué motor reportó el aviso. La
-  guía actualiza el paquete con el comando de tu gestor, muestra cómo comprobar la versión instalada y, si se queda por
-  debajo de la corregida, actualiza la dependencia directa que la limita: por ejemplo `cargo update -p rustls-webpki
-  --precise 0.103.13`, luego `cargo tree --invert rustls-webpki` y, si no subió, `cargo update -p reqwest`. Go, Maven y
-  Gradle fijan solos la versión de una transitiva; npm, yarn y pnpm reciben un override que nombra a quién actualizar
-  en su lugar.
+  paquete la requiere y qué dependencia directa está arriba de la cadena, sin importar qué motor reportó el aviso.
+- **Si basta con actualizarla a ella.** Algunos lockfiles guardan además el rango que cada paquete acepta para lo que
+  requiere (`poetry.lock`, `package-lock.json`, `yarn.lock`, `Gemfile.lock`), y el manifiesto de al lado, los rangos
+  del propio proyecto. Se leen mientras el análisis tiene el repositorio y deciden la guía:
+  - **El rango rechaza la versión corregida.** FastAPI 0.110.1 solo acepta `starlette>=0.37.2,<0.38.0`, así que
+    `poetry update starlette` no cambia nada. La guía lo dice y ordena los comandos: `poetry add fastapi@latest`
+    (reescribe el `^0.110.0` que declara `pyproject.toml`; lee las notas de versión de FastAPI), luego `poetry update
+    starlette` y después `poetry show starlette` para ver la versión instalada. Con npm también se mueve primero la
+    dependencia directa, y un `overrides` queda como último recurso, porque contradice lo que declara el paquete padre.
+  - **El rango la acepta.** Basta con actualizar el paquete: `poetry update starlette` o `npm update qs`.
+  - **El rango no se conoce** (Cargo, pnpm, uv, Go… o un lockfile que no lo guarda). La guía actualiza el paquete,
+    muestra la versión instalada y, si se queda por debajo, actualiza la dependencia directa: por ejemplo `cargo update
+    -p rustls-webpki --precise 0.103.13`, luego `cargo tree --invert rustls-webpki` y, si no subió, `cargo update -p
+    reqwest`. Go, Maven y Gradle fijan solos la versión de una transitiva; npm, yarn y pnpm reciben un override que
+    nombra a quién actualizar en su lugar.
+  - **Sin grafo** para ese lockfile: la guía dice que no sabe qué dependencia la trae.
+
+  La guía trabaja con tus lockfiles y los avisos, no con tu código: no puede saber si la nueva versión de la dependencia
+  directa rompe algo ni adivinar una versión que aún no existe. Tus pruebas y **Reverificar** cierran el ciclo.
 - **Un comando para comprobar el resultado.** `poetry show starlette`, `npm ls qs`, `bundle info rack`…: muestra qué
   versión quedó instalada, antes de que el siguiente análisis lo confirme.
 

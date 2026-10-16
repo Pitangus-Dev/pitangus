@@ -72,6 +72,8 @@
     "pending_other": "<strong>{{count, number}}</strong> pending",
     "from_pr_one": "({{count, number}} comes from open PRs)",
     "from_pr_other": "({{count, number}} come from open PRs)",
+    "unverified_one": "{{count, number}} unverified",
+    "unverified_other": "{{count, number}} unverified",
     "fixed_one": "<strong>{{count, number}}</strong> fixed",
     "fixed_other": "<strong>{{count, number}}</strong> fixed",
     "suppressed_one": "{{count, number}} dismissed in triage",
@@ -148,6 +150,7 @@
       "accepted": "Accepted risk",
       "excluded": "In excluded paths"
     },
+    "status_count": "{{label}} · {{count, number}}",
     "priority": "Priority",
     "any_priority": "Any priority",
     "source": "Source",
@@ -319,7 +322,7 @@
   },
   "exclusions": {
     "title": "Excluded paths",
-    "patterns_help": "One per line, from the repository root, up to {{max}}. <code>fixtures</code> excludes that folder and everything in it; <code>**/testdata</code>, any testdata folder; <code>docs/*.md</code>, the .md files right in docs.",
+    "patterns_help": "From the repository root, up to {{max}}. To exclude only one rule there, write its ID after the path with a space: <code>tests/** generic-api-key</code>. The ID is under each finding's title.",
     "reason": "Reason",
     "reason_placeholder": "Why (kept in the history), e.g. “Intentionally vulnerable samples for testing the rules”",
     "moved_excluded_one": "{{count, number}} finding moved to Excluded",
@@ -328,18 +331,34 @@
     "moved_reopened_other": "{{count, number}} went back to Open",
     "moved_both": "{{excluded}} and {{reopened}}",
     "saved": "Saved. It also applies to upcoming scans and PR reviews.",
-    "dialog_help": "Findings under these paths don't count as open or block PRs; you'll find them under Excluded.",
+    "dialog_help": "For what isn't your product: tests, examples that are vulnerable on purpose, generated or third-party code. Nothing is deleted or hidden: their findings move to the Excluded tab with the path that excludes them, and stop counting as pending or blocking pull requests. Remove the path and they go back to Open.",
     "last_change": "Last change: {{reason}} · {{by}}, {{date}}",
-    "label": "Paths to exclude",
+    "label": "Paths to exclude, one per line",
     "reason_required": "Why they are excluded (required, kept in the history)",
     "reason_needed": "Say why these paths are excluded, in at least {{min}} characters: it stays in the history.",
     "preview": {
       "checking": "Checking what would move…",
-      "nothing": "Saving doesn't move any finding now: nothing enters or leaves Excluded. These paths also apply to upcoming scans and PR reviews.",
-      "excluded_one": "Saving moves {{count, number}} open finding to Excluded:",
-      "excluded_other": "Saving moves {{count, number}} open findings to Excluded:",
+      "nothing": "Nothing moves with the current findings: none enter or leave Excluded. The paths also apply to upcoming scans and pull request reviews.",
+      "excluded_one": "With the current findings, {{count, number}} open finding moves to Excluded, where it stays in view:",
+      "excluded_other": "With the current findings, {{count, number}} open findings move to Excluded, where they stay in view:",
       "reopened_one": "{{count, number}} excluded finding goes back to Open:",
-      "reopened_other": "{{count, number}} excluded findings go back to Open:"
+      "reopened_other": "{{count, number}} excluded findings go back to Open:",
+      "title": "What saving changes now"
+    },
+    "title_for": "Excluded paths · {{name}}",
+    "dialog_help_image": "For files in the image that aren't your application. Nothing is deleted or hidden: their findings move to the Excluded tab with the path that excludes them and stop counting as pending. Remove the path and they go back to Open.",
+    "patterns_help_image": "From the image's root, up to {{max}}: <code>usr/share/doc</code> excludes that folder and everything in it.",
+    "only_rule": "only <code>{{rule}}</code>",
+    "examples": {
+      "title": "Examples",
+      "folder": "Everything inside that folder.",
+      "anywhere": "Any testdata folder, wherever it is.",
+      "files": "The .md files directly in docs, not in its subfolders.",
+      "rule": "Only rule {{rule}} under {{path}}: a known false positive. Everything else there still counts.",
+      "add": "Add",
+      "add_named": "Add {{pattern}}",
+      "added": "Added",
+      "added_named": "{{pattern}} added"
     }
   },
   "repo_settings": {
@@ -348,19 +367,23 @@
     "none": "none",
     "more": "+{{count, number}}",
     "view": "View",
-    "secrets": "Secrets",
-    "secrets_defaults": "uses the defaults",
+    "secrets": "Secret detection",
+    "secrets_defaults": "the organization's rules, unchanged",
     "secrets_custom_one": "{{count, number}} custom entry",
     "secrets_custom_other": "{{count, number}} custom entries",
-    "customize": "Customize",
+    "customize": "Adjust",
     "secrets_title": "Secret detection · {{name}}",
-    "secrets_help": "Applies only to this repository, on top of the defaults: silence secrets, turn off built-in rules or add your own detectors. You can't remove a default.",
+    "secrets_help": "Only for this repository, on top of the organization's settings, which stay as they are. For example: silence the test keys in tests/fixtures (under “In these paths”), turn off a rule that only makes noise, or detect your company's token format. A silenced secret isn't hidden: it's listed under Excluded with the setting that withheld it.",
     "defaults_line": "Defaults: {{summary}}.",
     "defaults_none": "Defaults: Betterleaks and Trivy built-in rules.",
     "deadlines": "Deadlines are set in Policies",
     "load_failed": "Couldn't load it.",
     "title_image": "Image settings",
-    "defaults_where": "The defaults are set in Policies"
+    "defaults_where": "The defaults are set in Policies",
+    "paths_hint": "For tests, examples or third-party code. Their findings stay in view under Excluded, but don't count as pending or block pull requests.",
+    "paths_hint_image": "For files in the image that aren't your application. Their findings stay in view under Excluded, but don't count as pending.",
+    "exclude": "Exclude paths",
+    "secrets_hint": "To silence test values, turn off a rule that only makes noise or detect your own tokens. What you silence is listed under Excluded with the setting that withheld it."
   },
   "triage": {
     "verb": {
@@ -402,6 +425,7 @@
     "vulnerable_example": "vulnerable example",
     "fixed_example": "fixed example",
     "adapt": "The example shows the pattern and its fix; adapt it to your code.",
+    "basis": "Built from your lockfile and the advisories, not from your code: check it fits your project before you apply it. Reverify confirms the result.",
     "copy_label": "Copy: {{label}}",
     "example_in": "In {{file}}"
   },
@@ -585,7 +609,7 @@
     "enable_rule": "Turn {{rule}} back on",
     "reason": "Reason",
     "reason_placeholder": "Why (kept in the history), e.g. “Test fixtures use fake Stripe keys”",
-    "effect": "Changes apply from the next scan. A secret the allowlist silences stops being reported and no longer counts as open, so rotate it first if it's real.",
+    "effect": "Changes apply from the next scan. A silenced secret isn't hidden: it moves to Excluded with the setting that withheld it and no longer counts as open. If it's real, rotate it first.",
     "history": "History ({{count, number}})",
     "history_entry": "{{date}} · {{by}}",
     "changes": {

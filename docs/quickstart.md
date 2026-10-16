@@ -16,7 +16,7 @@ Steps marked **optional** can wait. New to the terms? See [What is Pitangus](ove
 ## 1. Start it (5 min)
 
 ```bash
-git clone --branch v0.14.1 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.14.2 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make doctor
 ```

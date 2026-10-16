@@ -101,7 +101,7 @@
     },
     "mapping": {
       "title": "Fields",
-      "help": "Required fields are marked. Fields left empty take Jira's default, if there is one.",
+      "help": "Required fields are marked. Fields left empty take Jira's default, if there is one. Each field can take:",
       "caption": "What Pitangus puts in each field of the issue",
       "loading": "Loading the issue type's fields",
       "truncated": "This issue type has more fields than Pitangus lists; only the first ones appear here.",
@@ -112,10 +112,15 @@
       "source_label": "What goes in {{field}}",
       "value_label": "Value for {{field}}",
       "source": {
-        "pitangus": "Pitangus data",
-        "fixed": "Fixed value",
-        "template": "Template",
+        "pitangus": "A Pitangus value",
+        "fixed": "The same value always",
+        "template": "Your text with Pitangus values",
         "none": "Leave empty"
+      },
+      "source_help": {
+        "pitangus": "The issue's own data, such as its title, severity, file or due date.",
+        "fixed": "One value for every issue, such as a component or a team.",
+        "template": "Text with variables in braces, such as «Update {{template}}»."
       },
       "type": {
         "text": "Text",
@@ -133,12 +138,14 @@
       "choose_source": "Choose what goes here",
       "left_empty": "Stays empty",
       "pick_variable": "Pick a Pitangus value",
+      "example": "For example: {{value}}",
       "pick_value": "Pick a value",
       "search_value": "Search a value by name",
       "search_values": "Add values by name",
       "chosen": "Values chosen for {{field}}",
       "remove_value": "Remove {{name}}",
       "list_placeholder": "Separate values with commas",
+      "template_placeholder": "For example: Update {{template}}",
       "insert_label": "Insert a variable",
       "insert": "Insert {{name}}",
       "more_one": "{{count, number}} more optional field",
@@ -211,17 +218,26 @@
       "rerun_confirm_other": "Create {{count, number}} issues"
     },
     "preview": {
-      "needed": "Check what this rule would create before saving.",
+      "needed": "Check what this rule will do before saving it.",
       "outdated": "The rule changed: check again what it would create.",
       "run": "Check what it would create",
-      "result_one": "It would create {{issues}} issue now · open findings: {{findings}} · repositories: {{assets}} · already linked: {{linked}}",
-      "result_other": "It would create {{issues}} issues now · open findings: {{findings}} · repositories: {{assets}} · already linked: {{linked}}",
-      "nothing": "Nothing to create now: no open finding without an issue matches (already linked: {{linked}}).",
       "truncated": "Only the first {{max}} findings are queued; the rest go in the next run.",
       "checking": "Checking what it would create…",
-      "sample": "The most severe one will read like this in Jira:",
+      "sample": "Its issues will read like this in Jira (the most severe open one):",
       "sample_findings_one": "It covers {{count, number}} finding.",
-      "sample_findings_other": "It covers {{count, number}} findings."
+      "sample_findings_other": "It covers {{count, number}} findings.",
+      "now_one": "This rule will create about {{issues}} issue now in {{target}}, for open findings of {{severity}} severity or above in <scope/>; future ones as they appear.",
+      "now_other": "This rule will create about {{issues}} issues now in {{target}}, for open findings of {{severity}} severity or above in <scope/>; future ones as they appear.",
+      "none_now": "Nothing to create now: every open finding of {{severity}} severity or above in <scope/> already has an issue. Future ones get theirs in {{target}} as they appear.",
+      "future_only": "This rule creates no issues now. Future findings of {{severity}} severity or above in <scope/> get one in {{target}} as they appear.",
+      "open_waiting_one": "{{findings}} open finding already matches and stays without an issue; to create it now, check «{{backfill}}».",
+      "open_waiting_other": "{{findings}} open findings already match and stay without an issue; to create theirs now, check «{{backfill}}».",
+      "counts": "Open findings without an issue: {{findings}} · repositories: {{assets}} · already linked: {{linked}}",
+      "scope_rest": "any repository no rule above matches",
+      "scope_none": "the repositories you choose",
+      "scope_more_one": "<items/> and {{count, number}} more",
+      "scope_more_other": "<items/> and {{count, number}} more",
+      "manual": "Pitangus creates nothing on its own: issues someone creates from Findings for <scope/> go to {{target}}."
     },
     "backfill": {
       "running_one": "Creating issues for open findings: {{count, number}} queued",

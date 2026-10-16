@@ -5,8 +5,10 @@ indirect) and `DependsOn` (the IDs of what it requires). That graph is the same 
 yarn, pnpm, Poetry, uv, pip, Pipenv, Cargo, Go, Composer, NuGet, Gradle, Bundler…), so the fix guide never depends on
 parsing each lockfile format ourselves. A lockfile Trivy reads without a graph simply adds nothing.
 
-The result is stored on each dependency finding as data (`package.introduced_by`, `package.direct`): the guide turns it
-into text when the finding is served.
+The graph has no version ranges: where the lockfile keeps them, declared_ranges.py adds the range each parent declares
+for the package and the one the project declares for the direct dependency, so the guide can tell whether updating the
+package alone can work. The result is stored on each dependency finding as data (`package.introduced_by`,
+`package.direct`): the guide turns it into text when the finding is served.
 """
 
 from __future__ import annotations
@@ -14,10 +16,12 @@ from __future__ import annotations
 import re
 from collections import deque
 
-from pitangus.shared.model import DependencyPath, Finding
+from pitangus.modules.intel.version_ranges import allows
+from pitangus.shared.model import DependencyPath, Finding, Package
 
 TOP = ("root", "workspace")   # the project itself: whatever it requires is a direct dependency
 MAX_ENTRIES = 3
+MAX_PARENTS = 200
 MAX_VISITED = 50_000
 PYTHON = ("pip", "pipenv", "poetry", "uv", "pdm", "python-pkg")
 
@@ -78,7 +82,7 @@ def graphs(results: list[dict], relative) -> dict[str, Graph]:
     return found
 
 
-def introduced_by(graph: Graph, name: str, version: str) -> tuple[list[DependencyPath], bool | None]:
+def introduced_by(graph: Graph, name: str, version: str, limit: int = MAX_ENTRIES) -> tuple[list[DependencyPath], bool | None]:
     """Who requires `name` `version` and the direct dependency above each of them, the shortest chains first; and
     whether the project declares it itself (None when the lockfile doesn't have it)."""
     targets = graph.by_name.get((graph.key(name), version)) or []
@@ -92,23 +96,43 @@ def introduced_by(graph: Graph, name: str, version: str) -> tuple[list[Dependenc
             if chain is None:
                 continue
             seen.add(parent)
+            if len(seen) > MAX_PARENTS:
+                break
             top, node = graph.nodes[chain[0]], graph.nodes[parent]
             entries.append({"name": node["name"], "version": node["version"], "direct": top["name"], "direct_version": top["version"],
                             "chain": [graph.nodes[item]["name"] for item in chain], **({"direct_dev": True} if top["dev"] else {})})
     entries.sort(key=lambda entry: len(entry["chain"]))
-    return entries[:MAX_ENTRIES], any(graph.is_direct(target) for target in targets)
+    return entries[:limit], any(graph.is_direct(target) for target in targets)
 
 
-def annotate(findings: list[Finding], found: dict[str, Graph]) -> None:
+def _with_ranges(entries: list[DependencyPath], package: Package, ranges) -> None:
+    """Adds the declared ranges and puts first the parents whose range rejects the fixed version (then the ones whose
+    range is unknown): those decide what has to move first."""
+    for entry in entries:
+        requires = ranges.of(entry["name"], entry["version"], str(package["name"]))
+        declared = ranges.declared(entry["direct"])
+        entry.update({**({"requires": requires} if requires else {}), **({"direct_requires": declared} if declared else {})})
+    fixed = str(package.get("fixed_version") or "")
+    order = {False: 0, None: 1, True: 2}
+    entries.sort(key=lambda entry: (order[allows(ranges.syntax, entry.get("requires"), fixed)], len(entry["chain"])))
+
+
+def annotate(findings: list[Finding], found: dict[str, Graph], ranges=None) -> None:
     """Adds who brings it in (and whether it is direct, when no engine said) to each dependency finding whose lockfile
-    Trivy resolved, whichever engine reported it."""
+    Trivy resolved, whichever engine reported it. `ranges`: lockfile path → declared_ranges.Ranges | None."""
     for finding in findings:
         package = finding.get("package") or {}
-        graph = found.get(str(finding.get("path") or ""))
+        path = str(finding.get("path") or "")
+        graph = found.get(path)
         if graph is None or finding.get("scanner") != "sca" or not package.get("name") or finding.get("malicious"):
             continue
-        entries, direct = introduced_by(graph, str(package["name"]), str(package.get("version") or ""))
+        entries, direct = introduced_by(graph, str(package["name"]), str(package.get("version") or ""), limit=MAX_PARENTS)
         if entries and direct is False:
-            package["introduced_by"] = entries
+            declared = ranges(path) if ranges else None
+            if declared is not None:
+                _with_ranges(entries, package, declared)
+            package["introduced_by"] = entries[:MAX_ENTRIES]
+            if len(entries) > MAX_ENTRIES:
+                package["introduced_by_more"] = True  # others bring it in too: "updating it alone is enough" can't be said
         if package.get("direct") is None and direct is not None:
             package["direct"] = direct

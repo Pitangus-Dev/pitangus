@@ -55,3 +55,12 @@ describe('asset state header', () => {
   })
 })
 
+describe('current state header', () => {
+  it('counts the unverified apart, so the header adds up to what the open tab lists', () => {
+    const lifecycle = { open: 16, fixed: 14, suppressed: 2, from_pr: 0, excluded: 0, unverified: 3, by_severity: {} }
+    render(<RunHeader run={{ ...RUN, type: 'asset_state', source: { id: 'github#1', name: 'org/api', provider: 'github' }, summary: { lifecycle } }} onNew={() => {}} />)
+    const line = screen.getByText(content => content.includes(tr('state.unverified', { count: 3 })))
+    expect(line.textContent).toContain('16')
+    expect(line.textContent).toContain('14')
+  })
+})

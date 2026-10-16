@@ -333,12 +333,27 @@ Each dependency advisory arrives ready for a decision:
   duplicate ticket) on every run.
 - **Who brings it in, when it's transitive.** Trivy resolves the dependency graph of the lockfile (npm, yarn, pnpm,
   Poetry, uv, Pipenv, Cargo, Go, Composer, NuGet, Bundler, Gradle and more), so the fix guide says which package
-  requires it and which direct dependency is at the top of the chain, whichever engine reported the advisory. The guide
-  updates the package with your manager's command, shows how to check the installed version and, if it stays below
-  the fixed version, updates the direct dependency that holds it back: for example `cargo update -p rustls-webpki
-  --precise 0.103.13`, then `cargo tree --invert rustls-webpki`, and if it didn't move, `cargo update -p reqwest`. Go,
-  Maven and Gradle set a transitive version themselves; npm, yarn and pnpm get an override, naming who to update
-  instead.
+  requires it and which direct dependency is at the top of the chain, whichever engine reported the advisory.
+- **Whether updating it alone can work.** Some lockfiles also record the range each package accepts for what it
+  requires (`poetry.lock`, `package-lock.json`, `yarn.lock`, `Gemfile.lock`), and the manifest next to them the
+  project's own ranges. Read while the scan has the repository, they settle it:
+  - **The range rejects the fixed version.** FastAPI 0.110.1 only accepts `starlette>=0.37.2,<0.38.0`, so
+    `poetry update starlette` changes nothing. The guide says so, and the commands go in order: `poetry add
+    fastapi@latest` (it rewrites the `^0.110.0` that `pyproject.toml` declares, so read FastAPI's release notes), then
+    `poetry update starlette`, then `poetry show starlette` to see the installed version. With npm the direct
+    dependency moves first too, and an `overrides` entry is only the last resort, since it goes against what the
+    parent declares.
+  - **The range accepts it.** Updating the package is enough: `poetry update starlette`, or `npm update qs`.
+  - **The range is unknown** (Cargo, pnpm, uv, Go… or a lockfile without it). The guide updates the package, shows
+    the installed version and, if it stays below, updates the direct dependency: for example `cargo update -p
+    rustls-webpki --precise 0.103.13`, then `cargo tree --invert rustls-webpki`, and if it didn't move, `cargo update -p
+    reqwest`. Go, Maven and Gradle set a transitive version themselves; npm, yarn and pnpm get an override, naming who
+    to update instead.
+  - **No graph** for that lockfile: the guide says it doesn't know which dependency brings it in.
+
+  The guide works from your lockfiles and the advisories, not your code: it can't tell whether the new version of the
+  direct dependency breaks something, nor guess a release that doesn't exist yet. Your tests and **Reverify** close the
+  loop.
 - **A command to check the result.** `poetry show starlette`, `npm ls qs`, `bundle info rack`…: it shows which version
   ended up installed, before the next scan confirms it.
 

@@ -305,7 +305,19 @@ docs/*.md
 Patterns work like `.gitignore`: a pattern that matches a folder excludes everything inside it (`fixtures` covers
 `fixtures/a/b.py`), `*` doesn't cross folders and `**` does. Patterns that would exclude everything (`**`, `*/**`),
 absolute paths and `..` are rejected. While you type, the dialog checks the patterns as saving would and says which
-findings would move to **Excluded** (or back to open), with a few of their paths, before anything is saved.
+of the current findings would move to **Excluded** (or back to open), with a few of their paths, before anything is
+saved. The dialog also lists common examples, each with what it means; choosing one adds its line.
+
+**A known false positive in one place.** Write a rule's ID after the path, separated by a space, and only that rule's
+findings there are excluded; everything else under the path still counts:
+
+```text
+tests/** generic-api-key
+```
+
+The ID is the one under each finding's title (a finding two engines reported answers to either engine's rule). A rule
+narrows it enough that `** generic-api-key` (that rule anywhere in the repository) is accepted. To dismiss a single
+finding instead, mark it as a false positive in triage.
 
 - What falls under them doesn't count as open, isn't in the report or the SARIF and **doesn't block PRs**. It
   doesn't disappear: it stays in the **Excluded** tab, and every run states in its limitations how many findings were

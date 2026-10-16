@@ -7239,6 +7239,7 @@
                     "type": "string"
                   },
                   "patterns": {
+                    "description": "Globs relative to the root (`fixtures`, `**/testdata`, `docs/*.md`); one may name a rule after a space (`tests/** generic-api-key`) to exclude only that rule's findings there.",
                     "items": {
                       "type": "string"
                     },
@@ -7295,7 +7296,8 @@
                     },
                     "type": "array",
                     "maxItems": 50,
-                    "title": "Patterns"
+                    "title": "Patterns",
+                    "description": "Globs relative to the root (`fixtures`, `**/testdata`, `docs/*.md`); one may name a rule after a space (`tests/** generic-api-key`) to exclude only that rule's findings there."
                   }
                 },
                 "additionalProperties": false,
@@ -14381,13 +14383,18 @@
           "label": {
             "type": "string",
             "title": "Label"
+          },
+          "example": {
+            "type": "string",
+            "title": "Example"
           }
         },
         "type": "object",
         "required": [
           "key",
           "type",
-          "label"
+          "label",
+          "example"
         ],
         "title": "JiraVariable"
       },

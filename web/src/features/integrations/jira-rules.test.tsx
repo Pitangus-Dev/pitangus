@@ -13,6 +13,8 @@ const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`integrati
 const rule = (id: string, name: string, extra: Partial<JiraRule> = {}): JiraRule => ({
   id, name, assets: [], patterns: [], destination: 'd1', mode: 'manual', min_severity: 'high', backfill: false, enabled: true, ...extra,
 })
+// The live region that says what a rule will do.
+const outcome = () => screen.getAllByRole('status').map(node => node.textContent ?? '').join(' ')
 const ROUTING: JiraRouting = {
   destinations: [{ id: 'd1', name: 'Payments', project: { key: 'PAY', name: 'Payments' }, issue_type: { name: 'Bug' }, mapping: {}, on_fixed: { label: 'pitangus-fixed', status: null } }],
   rules: [rule('a1', 'Payments', { patterns: ['org/payments-*'] }), rule('b2', 'Identity', { assets: ['github#7'] }), rule('default', 'Every other repository', { default: true, enabled: false, destination: null })],
@@ -87,7 +89,9 @@ describe('routing rules', () => {
     // Saving first checks what it would create; nothing is saved yet.
     await user.click(screen.getByRole('button', { name: tr('jira.preview.run') }))
     const body = { name: 'Web', assets: [], patterns: ['org/web-*'], destination: 'd1', mode: 'auto', min_severity: 'critical', backfill: true, enabled: true }
-    expect(await screen.findByText(tr('jira.preview.result', { count: 5, issues: '5', findings: '9', assets: '2', linked: '3' }))).toBeTruthy()
+    // What the rule will do, in one sentence: how many issues now, where, for which findings; and the counts behind it.
+    await vi.waitFor(() => expect(outcome()).toContain(tr('jira.preview.now', { count: 5, issues: '5', target: 'PAY · Bug', severity: i18n.t('common:severity.critical').toLowerCase() }).replace('<scope/>', 'org/web-*')))
+    expect(outcome()).toContain(tr('jira.preview.counts', { findings: '9', assets: '2', linked: '3' }))
     // And how the most severe of those issues will read in Jira.
     expect(screen.getByText(sample.summary)).toBeTruthy()
     expect(screen.getByText('Actualiza fastapi primero.')).toBeTruthy()
@@ -105,8 +109,60 @@ describe('routing rules', () => {
     const user = userEvent.setup()
     renderWithQueries(<RuleEditor rule={rule('a1', 'Payments', { patterns: ['org/payments-*'], mode: 'auto', backfill: true })} routing={ROUTING} onClose={() => {}} onSaved={() => {}} />)
     await user.click(screen.getAllByRole('button', { name: tr('jira.preview.run') })[0])
-    expect(await screen.findByText(tr('jira.preview.nothing', { linked: '4' }))).toBeTruthy()
+    await vi.waitFor(() => expect(outcome()).toContain(tr('jira.preview.none_now', { target: 'PAY · Bug', severity: i18n.t('common:severity.high').toLowerCase() }).replace('<scope/>', 'org/payments-*')))
     await choose(user, screen.getByLabelText(tr('jira.rules.min_severity')), tr('jira.rules.at_least', { severity: i18n.t('common:severity.low') }))
     expect(screen.getByText(tr('jira.preview.outdated'))).toBeTruthy()
+  })
+
+  it('an automatic rule without backfill is checked too: nothing now, future findings as they appear', async () => {
+    const calls = mockApi(call => {
+      if (call.path === '/api/integrations/jira/rules/preview') return { body: { assets: 1, findings: 4, issues: 2, linked: 0, truncated: false } }
+      if (call.path === '/api/integrations/jira/rules') return { body: { rule: rule('c3', 'Web', { mode: 'auto' }), backfill: null, routing: ROUTING } }
+    })
+    const saved = vi.fn()
+    const user = userEvent.setup()
+    renderWithQueries(<RuleEditor rule={rule('a1', 'Payments', { patterns: ['org/payments-*'], mode: 'auto' })} routing={ROUTING} onClose={() => {}} onSaved={saved} />)
+    // The first click on Save checks what it would do; nothing is saved until it is read.
+    await user.click(screen.getByRole('button', { name: tr('jira.rules.save') }))
+    await vi.waitFor(() => expect(outcome()).toContain(tr('jira.preview.future_only', { target: 'PAY · Bug', severity: i18n.t('common:severity.high').toLowerCase() }).replace('<scope/>', 'org/payments-*')))
+    expect(outcome()).toContain(tr('jira.preview.open_waiting', { count: 4, findings: '4', backfill: tr('jira.rules.backfill') }))
+    expect(calls.map(call => call.path)).toEqual(['/api/integrations/jira/rules/preview'])
+    await user.click(screen.getByRole('button', { name: tr('jira.rules.save') }))
+    await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce())
+    expect(calls[1]).toMatchObject({ path: '/api/integrations/jira/rules', body: { mode: 'auto', backfill: false } })
+  })
+
+  it('a manual rule says where its issues go and saves without a check', async () => {
+    const calls = mockApi(call => call.path === '/api/integrations/jira/rules' ? { body: { rule: rule('a1', 'Payments'), backfill: null, routing: ROUTING } } : undefined)
+    const saved = vi.fn()
+    const user = userEvent.setup()
+    renderWithQueries(<RuleEditor rule={rule('a1', 'Payments', { patterns: ['org/payments-*'] })} routing={ROUTING} onClose={() => {}} onSaved={saved} />)
+    expect(screen.getByRole('group', { name: tr('jira.rules.mode') }).textContent).toContain(tr('jira.preview.manual', { target: 'PAY · Bug' }).replace('<scope/>', 'org/payments-*'))
+    await user.click(screen.getByRole('button', { name: tr('jira.rules.save') }))
+    await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce())
+    expect(calls.map(call => call.path)).toEqual(['/api/integrations/jira/rules'])
+  })
+
+  it('a rule without a name or repositories shows each error next to its field', async () => {
+    mockApi(call => call.path === '/api/integrations/jira/rules'
+      ? { status: 400, body: { detail: 'Invalid rule', errors: [{ field: 'name', error: 'Give it a name' }, { field: 'assets', error: 'Choose repositories or patterns' }] } } : undefined)
+    const user = userEvent.setup()
+    renderWithQueries(<RuleEditor rule={null} routing={ROUTING} onClose={() => {}} onSaved={() => {}} />)
+    await user.click(screen.getByRole('button', { name: tr('jira.rules.save') }))
+    expect(await screen.findByText('Give it a name')).toBeTruthy()
+    expect(screen.getByLabelText(tr('jira.rules.name')).getAttribute('aria-invalid')).toBe('true')
+    expect(screen.getByText('Choose repositories or patterns')).toBeTruthy()
+  })
+
+  it('creating issues again for a rule saved without backfill says what it will create now, not to check a box', async () => {
+    const routing = { ...ROUTING, rules: [rule('a1', 'Payments', { patterns: ['org/payments-*'], mode: 'auto' }), ...ROUTING.rules.slice(1)] }
+    mockApi(call => call.path === '/api/integrations/jira/rules/preview' ? { body: { assets: 1, findings: 4, issues: 2, linked: 0, truncated: false } } : { body: { items: [], total: 0, limit: 1, offset: 0 } })
+    const user = userEvent.setup()
+    renderWithQueries(<RulesSection routing={routing} backfills={[]} onRemove={() => {}} />)
+    await user.click(screen.getByRole('button', { name: tr('jira.rules.actions', { name: 'Payments' }) }))
+    await user.click(await screen.findByRole('menuitem', { name: tr('jira.rules.rerun_backfill') }))
+    await vi.waitFor(() => expect(outcome()).toContain(tr('jira.preview.now', { count: 2, issues: '2', target: 'PAY · Bug', severity: i18n.t('common:severity.high').toLowerCase() }).replace('<scope/>', 'org/payments-*')))
+    expect(outcome()).not.toContain(tr('jira.rules.backfill'))
+    expect(screen.getByRole('button', { name: tr('jira.rules.rerun_confirm', { count: 2 }) })).toBeTruthy()
   })
 })

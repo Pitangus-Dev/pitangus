@@ -19,6 +19,14 @@ describe('fix guide', () => {
     expect(order).toEqual([...order].sort((a, b) => a - b))
   })
 
+  it('says what a dependency guide is built from, and nothing of the sort without commands', () => {
+    const { unmount } = render(<FixSection remediation="" fix={{ kind: 'dependency', steps: [], example: null, commands: [{ label: 'Update', action: 'update', code: 'poetry update starlette' }] }} />)
+    expect(screen.getByText(tf('fix.basis'))).toBeTruthy()
+    unmount()
+    render(<FixSection remediation="" fix={{ kind: 'dependency', steps: ['No fixed version has been published.'], commands: [], example: null }} />)
+    expect(screen.queryByText(tf('fix.basis'))).toBeNull()
+  })
+
   it('says which file a snippet goes in', () => {
     render(<FixSection remediation="" fix={{ kind: 'dependency', steps: [], commands: [], example: { language: 'json', file: 'package.json', before: '', after: '{"overrides": {}}' } }} />)
     expect(screen.getByText(tf('fix.example_in', { file: 'package.json' }))).toBeTruthy()

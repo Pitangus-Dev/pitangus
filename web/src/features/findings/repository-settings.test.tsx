@@ -27,7 +27,7 @@ describe('excluded paths', () => {
         ? { excluded: 2, reopened: 0, excluded_paths: ['fixtures/a.py', 'fixtures/b.py'], reopened_paths: [], excluded_path_count: 2, reopened_path_count: 0 }
         : { excluded: 0, reopened: 0, excluded_paths: [], reopened_paths: [], excluded_path_count: 0, reopened_path_count: 0 } }
       : call.path === '/api/assets/exclusions' ? { body: { ...NO_PATHS, patterns: ['fixtures'], moved: { excluded: 2, reopened: 0 } } } : undefined)
-    await user.click(await screen.findByRole('button', { name: i18n.t('common:actions.edit') }))
+    await user.click(await screen.findByRole('button', { name: tf('repo_settings.exclude') }))
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText(tf('exclusions.preview.nothing'))).toBeTruthy()
     await user.type(within(dialog).getByLabelText(tf('exclusions.label')), 'fixtures')
@@ -60,12 +60,52 @@ describe('excluded paths', () => {
     const { user } = settings(call => call.path === '/api/assets/exclusions/preview'
       ? ((call.body as { patterns: string[] }).patterns.length ? { status: 400, body: { error: 'That pattern would exclude everything' } }
         : { body: { excluded: 0, reopened: 0, excluded_paths: [], reopened_paths: [], excluded_path_count: 0, reopened_path_count: 0 } }) : undefined)
-    await user.click(await screen.findByRole('button', { name: i18n.t('common:actions.edit') }))
+    await user.click(await screen.findByRole('button', { name: tf('repo_settings.exclude') }))
     const dialog = await screen.findByRole('dialog')
     const field = within(dialog).getByLabelText(tf('exclusions.label'))
     await user.type(field, '**')
     expect(await within(dialog).findByText('That pattern would exclude everything')).toBeTruthy()
     expect(field.getAttribute('aria-invalid')).toBe('true')
+  })
+})
+
+describe('excluded paths, explained', () => {
+  const nothing = { excluded: 0, reopened: 0, excluded_paths: [], reopened_paths: [], excluded_path_count: 0, reopened_path_count: 0 }
+
+  it('says in plain words what excluding does, that nothing is hidden, and what each setting is for', async () => {
+    const { user } = settings(call => call.path === '/api/assets/exclusions/preview' ? { body: nothing } : undefined)
+    expect(await screen.findByText(tf('repo_settings.paths_hint'))).toBeTruthy()
+    expect(screen.getByText(tf('repo_settings.secrets_hint'))).toBeTruthy()
+    expect(await screen.findByText(tf('repo_settings.secrets_defaults'))).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: tf('repo_settings.exclude') }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: tf('exclusions.title_for', { name: 'org/api' }) })).toBeTruthy()
+    expect(within(dialog).getByText(tf('exclusions.dialog_help'))).toBeTruthy()
+  })
+
+  it('adds an example as a line, and one limited to a rule is a path and that rule', async () => {
+    const { calls, user } = settings(call => call.path === '/api/assets/exclusions/preview'
+      ? { body: (call.body as { patterns: string[] }).patterns.length ? { ...nothing, excluded: 1, excluded_paths: ['tests/settings.py'], excluded_path_count: 1 } : nothing }
+      : undefined)
+    await user.click(await screen.findByRole('button', { name: tf('repo_settings.exclude') }))
+    const dialog = await screen.findByRole('dialog')
+    const field = within(dialog).getByLabelText(tf('exclusions.label')) as HTMLTextAreaElement
+    await user.click(within(dialog).getByRole('button', { name: tf('exclusions.examples.add_named', { pattern: 'tests/fixtures/**' }) }))
+    await user.click(within(dialog).getByRole('button', { name: tf('exclusions.examples.add_named', { pattern: 'tests/** generic-api-key' }) }))
+    expect(field.value).toBe('tests/fixtures/**\ntests/** generic-api-key')
+    expect((within(dialog).getByRole('button', { name: tf('exclusions.examples.added_named', { pattern: 'tests/fixtures/**' }) }) as HTMLButtonElement).disabled).toBe(true)
+    expect(within(dialog).getByText(tf('exclusions.examples.rule', { rule: 'generic-api-key', path: 'tests/**' }))).toBeTruthy()
+    // What would move, with the current findings: listed in Excluded, not hidden.
+    expect(await within(dialog).findByText(tf('exclusions.preview.excluded', { count: 1 }))).toBeTruthy()
+    await waitFor(() => expect(calls.filter(call => call.path === '/api/assets/exclusions/preview').at(-1)?.body)
+      .toEqual({ key: 'github#7', patterns: ['tests/fixtures/**', 'tests/** generic-api-key'] }))
+  })
+
+  it('shows a saved pattern limited to a rule as its path and the rule', async () => {
+    settings(call => call.path.startsWith('/api/assets/exclusions?') ? { body: { ...NO_PATHS, patterns: ['tests/** generic-api-key'], reason: 'Clave de ejemplo', by: 'jefa', at: '2026-10-01T00:00:00Z' } } : undefined)
+    const path = await screen.findByText('tests/**')
+    expect(path.tagName).toBe('CODE')
+    expect(screen.getByText('generic-api-key').tagName).toBe('CODE')
   })
 })
 

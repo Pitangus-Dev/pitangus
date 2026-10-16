@@ -51,6 +51,7 @@ export function FixSection({ fix, remediation }: { fix?: FixGuide | null; remedi
     {editFirst ? <>{example}{commands}</> : <>{commands}{example}</>}
     {fix.example?.note && <p className="text-xs text-app-muted">{fix.example.note}</p>}
     {fix.kind === 'code' && fix.example && <p className="text-xs text-app-subtle">{t('fix.adapt')}</p>}
+    {fix.kind === 'dependency' && fix.commands.length > 0 && <p className="text-xs text-app-subtle">{t('fix.basis')}</p>}
   </section>
 }
 
