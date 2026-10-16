@@ -13,6 +13,16 @@ between minor versions: anything that changes behaviour is called out below.
   release images are built and signed, and the commands to verify one before installing it.
 - **OpenSSF Scorecard** (`.github/workflows/scorecard.yml`) on every push to `main`, weekly and when branch
   protection changes, with its badge in the README. It reads the repository and changes nothing.
+- **Signed files on every GitHub release.** After the images are built, signed and verified, `release.yml` attaches to
+  the release of the tag the SPDX SBOM of each image and platform, their SLSA provenance (`.intoto.jsonl`) and a manifest
+  of the image digests signed with cosign (keyless, the same identity as the images). The job waits up to 15 minutes for
+  the release, which a maintainer still creates by hand, and never creates it. How to verify them is in
+  [Supply chain](docs/supply-chain.md#release-assets).
+
+### Changed
+
+- **The security policy** ([`.github/SECURITY.md`](.github/SECURITY.md)) is complete: private reporting link, what to
+  include, response targets, coordinated disclosure, supported versions (the latest minor line) and scope.
 
 ## [0.15.0] - 2026-10-16
 

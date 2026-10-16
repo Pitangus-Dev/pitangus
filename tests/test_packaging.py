@@ -116,6 +116,21 @@ class PackagingTests(unittest.TestCase):
             self.assertIn(needed, release)
         self.assertNotIn("${{ github.ref_name }}\n", release.split("REF_NAME:")[0])  # the tag reaches scripts via env only
 
+    def test_release_assets_job_signs_waits_for_the_release_and_never_creates_it(self):
+        release = (ROOT / ".github/workflows/release.yml").read_text()
+        job = release.split("\n  assets:\n")[1]
+        self.assertIn("needs: images", job)
+        self.assertRegex(job, r"permissions:\n      contents: write.*\n      id-token: write.*\n    env:")
+        self.assertNotIn("packages: write", job)
+        self.assertIn("persist-credentials: false", job)
+        for needed in ("cosign sign-blob --yes --bundle", "cosign verify-blob", "gh release view", "deadline=$((SECONDS + 900))",
+                       "gh release upload", "--clobber", "scripts/release-assets.sh"):
+            self.assertIn(needed, job)
+        self.assertNotIn("gh release create", release)
+        script = (ROOT / "scripts/release-assets.sh").read_text()
+        for needed in ("imagetools inspect", ".intoto.jsonl", ".spdx.json", "-images.json"):
+            self.assertIn(needed, script)
+
     @unittest.skipUnless(shutil.which("docker"), "needs docker compose")
     def test_production_overlays_are_valid_compose(self):
         env = {**isolated_env(), "PITANGUS_DB_PASSWORD": "x", "PITANGUS_DOMAIN": "pitangus.example.com",

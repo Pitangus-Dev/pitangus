@@ -20,6 +20,7 @@ Ese es el mecanismo alrededor del cual está construido Pitangus: nada de lo que
 | Paquetes de Python | Con hashes en el lock (`--require-hashes`) | `requirements.txt`, `docker/checkov/requirements.txt` |
 | GitHub Actions que usa este repositorio | SHA de commit completo, con la versión en un comentario | [`.github/workflows/`](../../.github/workflows/) |
 | Imágenes de cada versión | Construidas desde una etiqueta `v*`, con SBOM y procedencia adjuntos, firmadas con cosign (sin clave) | [`release.yml`](../../.github/workflows/release.yml) |
+| Archivos de cada versión | SBOM, procedencia y un manifiesto firmado con los digests de las imágenes, adjuntos a cada release de GitHub | [`release.yml`](../../.github/workflows/release.yml), [`release-assets.sh`](../../scripts/release-assets.sh) |
 | Imagen que usan la GitHub Action y el hook de pre-commit | Firma comprobada, ejecutada por digest | [`action.yml`](../../action.yml), [`hooks/pitangus-docker`](../../hooks/pitangus-docker) |
 | Las prácticas del propio repositorio | Puntuadas por OpenSSF Scorecard, cada semana | [`scorecard.yml`](../../.github/workflows/scorecard.yml) |
 
@@ -53,7 +54,9 @@ Lo que hace el workflow, en orden:
 3. Construye y sube para `linux/amd64` y `linux/arm64` con `sbom: true` y `provenance: mode=max`: BuildKit adjunta a la imagen un SBOM en SPDX y una declaración de procedencia SLSA.
 4. Firma la imagen por digest, nunca por etiqueta, con `cosign sign --recursive`: **sin clave** (keyless), con la identidad OIDC de GitHub del propio workflow, así que no hay ninguna clave de firma que guardar ni que se pueda filtrar. Después comprueba su propia firma antes de terminar el job.
 
-El job que puede escribir paquetes corre solo desde el entorno `release`, con `contents: read`, `packages: write` e `id-token: write` y nada más. Las etiquetas `v*` están protegidas por una regla del repositorio para que no se puedan mover ni borrar (lo anota la cabecera del workflow), y eso es lo que da sentido a la identidad de abajo.
+5. Adjunta al release de GitHub de la etiqueta los archivos descritos en [Archivos de cada versión](#archivos-de-cada-versión), en un job aparte.
+
+El job que puede escribir paquetes corre solo desde el entorno `release`, con `contents: read`, `packages: write` e `id-token: write` y nada más. El job que adjunta los archivos corre desde el mismo entorno con `contents: write` (para subir al release) e `id-token: write` (para firmar el manifiesto) y nada más. Las etiquetas `v*` están protegidas por una regla del repositorio para que no se puedan mover ni borrar (lo anota la cabecera del workflow), y eso es lo que da sentido a la identidad de abajo.
 
 La firma une un digest de imagen con esta identidad de certificado, emitida por el proveedor OIDC de GitHub:
 
@@ -62,6 +65,21 @@ https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags
 ```
 
 Una construcción desde un fork, desde otro workflow o desde una rama tiene otra identidad y no pasa la comprobación.
+
+## Archivos de cada versión
+
+Desde la primera versión construida después de este cambio, cada [release de GitHub](https://github.com/Pitangus-Dev/pitangus/releases) lleva estos archivos (`<versión>` es la del release, por ejemplo `0.15.1`; las versiones anteriores a este cambio no los tienen):
+
+| Archivo | Qué es |
+| --- | --- |
+| `pitangus-<versión>-images.json` | Manifiesto: las tres imágenes con su digest, el digest y el nombre del SBOM de cada plataforma, la etiqueta, el commit y el SHA-256 de cada uno de los demás archivos de la lista |
+| `pitangus-<versión>-images.json.sigstore.json` | Firma de cosign (sin clave) del manifiesto, con su certificado y su entrada en el registro de transparencia |
+| `<imagen>-<versión>-linux-amd64.spdx.json`, `…-linux-arm64.spdx.json` | El SBOM en SPDX que BuildKit adjuntó a la imagen de esa plataforma, para cada una de las tres imágenes |
+| `pitangus-<versión>.intoto.jsonl` | La procedencia SLSA de cada imagen y plataforma, una declaración in-toto por línea, byte a byte como BuildKit la guardó en el registro |
+
+El job `assets` de `release.yml` corre después de construir, firmar y verificar las imágenes. Toma los digests firmados del job anterior, vuelve a comprobar sus firmas, lee del registro los SBOM y la procedencia de exactamente esos digests (`scripts/release-assets.sh`), firma el manifiesto y lo sube todo con `gh release upload`. Una persona mantenedora crea el release a mano después de subir la etiqueta, y las imágenes tardan más que eso en construirse, así que el job espera al release (hasta 15 minutos) y falla con un mensaje claro si no aparece; nunca lo crea. Si falla, crea el release y vuelve a ejecutar el job: los archivos se generan de nuevo.
+
+El archivo de procedencia no va firmado por sí mismo (las declaraciones de BuildKit no llevan firma); el manifiesto firmado responde por él mediante su SHA-256, y cada declaración nombra el digest de la imagen de la que habla. Los SBOM son lo que BuildKit vio al construir: listan los paquetes de la imagen, no sus vulnerabilidades.
 
 ## Verifica una versión antes de instalarla
 
@@ -79,6 +97,23 @@ cosign verify \
 docker buildx imagetools inspect ghcr.io/pitangus-dev/pitangus-worker:0.15 --format '{{json .SBOM}}'
 docker buildx imagetools inspect ghcr.io/pitangus-dev/pitangus-worker:0.15 --format '{{json .Provenance}}'
 ```
+
+Para comprobar en cambio los archivos adjuntos a un release, descárgalos de su página en una misma carpeta:
+
+```bash
+# 3. La firma del manifiesto: tiene que venir del workflow de release de una etiqueta v*.
+V=0.15.1   # el release que descargaste
+cosign verify-blob \
+  --bundle pitangus-$V-images.json.sigstore.json \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github\.com/Pitangus-Dev/pitangus/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+(\.[0-9]+)?$' \
+  pitangus-$V-images.json
+
+# 4. Los demás archivos son los que lista el manifiesto.
+jq -r '.files | to_entries[] | "\(.value)  \(.key)"' pitangus-$V-images.json | shasum -a 256 -c -   # sha256sum -c en Linux
+```
+
+Cada digest de imagen del manifiesto se puede comprobar como en el paso 1, pasando `ghcr.io/pitangus-dev/pitangus-worker@sha256:…` en lugar de la etiqueta. Para fijar un release a su etiqueta exacta, usa `--certificate-identity https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags/v$V` en lugar de la expresión regular.
 
 En un servidor no hace falta ejecutarlo a mano:
 
@@ -108,7 +143,7 @@ Las dos ejecutan la imagen publicada del worker, y las dos se niegan a ejecutar 
 ## Lo que esto no te da
 
 - Una firma válida dice que la imagen la construyó el workflow de release de Pitangus desde una etiqueta `v*` de este repositorio. No dice que el código no tenga errores. Fijar un motor evita que cambie sin que lo sepas; no vuelve fiable el código del propio motor, y por eso los motores corren sin capacidades, con el sistema de archivos en solo lectura y, donde la plataforma lo permite, sin red ([Seguridad](seguridad.md#análisis-del-código)).
-- Las construcciones no son reproducibles bit a bit, y la procedencia es la declaración de BuildKit, no un nivel SLSA reclamado.
+- Las construcciones no son reproducibles bit a bit, y la procedencia es la declaración de BuildKit, no un nivel SLSA reclamado. El `.intoto.jsonl` adjunto es esa declaración sin cambios, no una atestación firmada por un generador SLSA.
 - En un portátil el worker sigue usando el socket de Docker, que equivale a root en el host ([concesiones conocidas](seguridad.md#concesiones-conocidas)).
 - Una puntuación de Scorecard es una heurística sobre los ajustes del repositorio. Es un indicio, no una garantía.
 
