@@ -20,6 +20,7 @@ That is the mechanism Pitangus is built around: nothing it runs is named by a ta
 | Python packages | Hash-locked (`--require-hashes`) | `requirements.txt`, `docker/checkov/requirements.txt` |
 | GitHub Actions used by this repository | Full commit SHA, with the version in a comment | [`.github/workflows/`](../.github/workflows/) |
 | Release images | Built from a `v*` tag, SBOM and provenance attached, signed with cosign (keyless) | [`release.yml`](../.github/workflows/release.yml) |
+| Release assets | SBOMs, provenance and a signed manifest of the image digests, attached to each GitHub release | [`release.yml`](../.github/workflows/release.yml), [`release-assets.sh`](../scripts/release-assets.sh) |
 | Image used by the GitHub Action and the pre-commit hook | Signature checked, run by digest | [`action.yml`](../action.yml), [`hooks/pitangus-docker`](../hooks/pitangus-docker) |
 | This repository's own practices | Scored by OpenSSF Scorecard, weekly | [`scorecard.yml`](../.github/workflows/scorecard.yml) |
 
@@ -53,7 +54,9 @@ What the workflow does, in order:
 3. Builds and pushes for `linux/amd64` and `linux/arm64` with `sbom: true` and `provenance: mode=max`: BuildKit attaches an SPDX SBOM and a SLSA provenance statement to the image.
 4. Signs the image by digest, never by tag, with `cosign sign --recursive`: **keyless**, with the workflow's GitHub OIDC identity, so there is no signing key to store or leak. It then verifies its own signature before the job ends.
 
-The job that can write packages runs only from the `release` environment, with `contents: read`, `packages: write` and `id-token: write` and nothing else. `v*` tags are protected by a repository ruleset so they can't be moved or deleted (as the workflow's header notes), which is what makes the identity below meaningful.
+5. Attaches to the GitHub release of the tag the files described in [Release assets](#release-assets), in a job of its own.
+
+The job that can write packages runs only from the `release` environment, with `contents: read`, `packages: write` and `id-token: write` and nothing else. The job that attaches the assets runs from the same environment with `contents: write` (to upload to the release) and `id-token: write` (to sign the manifest) and nothing else. `v*` tags are protected by a repository ruleset so they can't be moved or deleted (as the workflow's header notes), which is what makes the identity below meaningful.
 
 The signature binds an image digest to this certificate identity, issued by GitHub's OIDC provider:
 
@@ -62,6 +65,21 @@ https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags
 ```
 
 A build from a fork, from another workflow or from a branch has a different identity and fails the check.
+
+## Release assets
+
+From the first release built after this page was added, each [GitHub release](https://github.com/Pitangus-Dev/pitangus/releases) carries these files (`<version>` is the release's, such as `0.15.1`; releases before this change have none):
+
+| File | What it is |
+| --- | --- |
+| `pitangus-<version>-images.json` | Manifest: the three images with their digest, each platform's digest and SBOM file name, the tag, the commit and the SHA-256 of every other file in the list |
+| `pitangus-<version>-images.json.sigstore.json` | Cosign (keyless) signature of the manifest, with its certificate and transparency-log entry |
+| `<image>-<version>-linux-amd64.spdx.json`, `…-linux-arm64.spdx.json` | The SPDX SBOM BuildKit attached to that platform's image, for each of the three images |
+| `pitangus-<version>.intoto.jsonl` | The SLSA provenance of each image and platform, one in-toto statement per line, byte for byte as BuildKit stored it in the registry |
+
+The `assets` job of `release.yml` runs after the images are built, signed and verified. It takes the signed digests from the previous job, checks their signatures again, reads the SBOMs and provenance of exactly those digests from the registry (`scripts/release-assets.sh`), signs the manifest and uploads everything with `gh release upload`. A maintainer creates the release by hand after pushing the tag, and the images take longer than that to build, so the job waits for the release (up to 15 minutes) and fails with a clear message if it never appears; it never creates the release. If it fails, create the release and re-run the job: the files are generated again.
+
+The provenance file is not signed by itself (BuildKit's statements carry no signature); the signed manifest vouches for it through its SHA-256, and each statement names the digest of the image it is about. The SBOMs are what BuildKit saw while building: they list the packages of the image, not their vulnerabilities.
 
 ## Verify a release before you install it
 
@@ -79,6 +97,23 @@ cosign verify \
 docker buildx imagetools inspect ghcr.io/pitangus-dev/pitangus-worker:0.15 --format '{{json .SBOM}}'
 docker buildx imagetools inspect ghcr.io/pitangus-dev/pitangus-worker:0.15 --format '{{json .Provenance}}'
 ```
+
+To check the files attached to a release instead, download them from its page into one folder:
+
+```bash
+# 3. The manifest's signature: it must come from the release workflow of a v* tag.
+V=0.15.1   # the release you downloaded
+cosign verify-blob \
+  --bundle pitangus-$V-images.json.sigstore.json \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github\.com/Pitangus-Dev/pitangus/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+(\.[0-9]+)?$' \
+  pitangus-$V-images.json
+
+# 4. The other files are the ones the manifest lists.
+jq -r '.files | to_entries[] | "\(.value)  \(.key)"' pitangus-$V-images.json | shasum -a 256 -c -   # sha256sum -c on Linux
+```
+
+Each image digest in the manifest can be checked as in step 1, passing `ghcr.io/pitangus-dev/pitangus-worker@sha256:…` instead of the tag. To pin a release to its exact tag, use `--certificate-identity https://github.com/Pitangus-Dev/pitangus/.github/workflows/release.yml@refs/tags/v$V` instead of the regexp.
 
 On a server, you don't need to run this by hand:
 
@@ -108,7 +143,7 @@ Both run the published worker image, and both refuse to run an image Pitangus's 
 ## What this doesn't give you
 
 - A valid signature says the image was built by Pitangus's release workflow from a `v*` tag of this repository. It doesn't say the code has no bugs. Pinning keeps an engine from changing under you; it doesn't make the engine's own code trustworthy, which is why engines run with no capabilities, a read-only filesystem and, where the platform allows, no network ([Security](security.md#code-analysis)).
-- The builds aren't reproducible bit for bit, and the provenance is BuildKit's own statement, not a claimed SLSA level.
+- The builds aren't reproducible bit for bit, and the provenance is BuildKit's own statement, not a claimed SLSA level. The attached `.intoto.jsonl` is that statement unchanged, not a signed attestation from a SLSA generator.
 - On a laptop the worker still uses the Docker socket, which is equivalent to root on the host ([known trade-offs](security.md#known-trade-offs)).
 - A Scorecard score is a heuristic over repository settings. It's evidence, not a guarantee.
 
