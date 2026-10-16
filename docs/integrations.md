@@ -61,7 +61,7 @@ The two gaps people ask about most:
           with:
             upload: never
             output: codeql
-        - uses: Pitangus-Dev/pitangus@v0.14.2
+        - uses: Pitangus-Dev/pitangus@v0.14.3
           if: always()
           with:
             scan: false
@@ -137,7 +137,7 @@ jobs:
           docker run --rm -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2 \
             zap.sh -cmd -autorun /zap/wrk/zap.yaml
           # the sarif-json template writes zap.json
-      - uses: Pitangus-Dev/pitangus@v0.14.2
+      - uses: Pitangus-Dev/pitangus@v0.14.3
         if: always()
         with:
           scan: false
@@ -155,7 +155,7 @@ Nuclei writes SARIF with `-se` ([options](https://docs.projectdiscovery.io/tools
           docker run --rm -v "$PWD:/out" projectdiscovery/nuclei:v3.3.5 \
             -u https://app.example.com -rl 20 -c 10 -severity low,medium,high,critical \
             -etags dos,fuzz,intrusive -se /out/nuclei.sarif
-      - uses: Pitangus-Dev/pitangus@v0.14.2
+      - uses: Pitangus-Dev/pitangus@v0.14.3
         if: always()
         with:
           scan: false
