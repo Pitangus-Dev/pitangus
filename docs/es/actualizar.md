@@ -4,7 +4,7 @@
 
 Actualizar es llevar el código a una versión nueva, descargar (o reconstruir) sus imágenes y reiniciar. Tus datos se
 quedan: la base de datos, `data/` y `config/` se conservan, y lo que cambie de formato se convierte al arrancar. Esta
-página cubre el procedimiento general y lo que cambia al pasar a 0.14. Cada versión también lista sus cambios en
+página cubre el procedimiento general y lo que cambia al pasar a 0.15. Cada versión también lista sus cambios en
 [CHANGELOG.md](../../CHANGELOG.md) y en la [página de Releases](https://github.com/Pitangus-Dev/pitangus/releases).
 
 ## Antes de actualizar
@@ -32,19 +32,19 @@ página cubre el procedimiento general y lo que cambia al pasar a 0.14. Cada ver
 
 ### Si instalaste una versión
 
-Si clonaste una etiqueta (`git clone --branch v0.14.x`, como en el [inicio rápido](inicio-rapido.md)), el repositorio
+Si clonaste una etiqueta (`git clone --branch v0.15.x`, como en el [inicio rápido](inicio-rapido.md)), el repositorio
 se queda en esa versión a propósito. Primero cambia a la nueva y luego actualiza:
 
 ```bash
 git fetch --tags
-git checkout v0.14.3      # la versión que quieras
+git checkout v0.15.0      # la versión que quieras
 make update
 ```
 
 En una versión fija, `make update` lo dice y no trae código:
 
 ```text
-On v0.14.3 (a fixed version): not pulling. Check out the version you want first.
+On v0.15.0 (a fixed version): not pulling. Check out the version you want first.
 ```
 
 Es lo esperado justo después de `git checkout`: el código ya está en la versión nueva.
@@ -79,6 +79,33 @@ Al terminar, abre el panel y comprueba la versión en la cabecera. Si algo no cu
 > No vuelvas a una versión anterior sobre una base de datos que ya migró una versión nueva. Para volver atrás, restaura
 > la copia que hizo `make update`: `make restore FROM=backups/<fecha> CONFIRM=restore`, luego cambia a la versión
 > anterior y ejecuta `make up`.
+
+## Actualizar a 0.15
+
+0.15 pone los motores de análisis en tus manos: un administrador activa o apaga cada uno en **Ajustes → Motores de
+análisis**, y el servidor prepara sus imágenes por su cuenta. No corre ninguna migración de base de datos y a la mayoría
+de las instalaciones les basta con `make update`. Lee esta sección si fijas motores en `.env` o usas un espejo propio
+del registro.
+
+### Interruptores de motores
+
+Los valores por defecto no cambian: todos los motores activos salvo Checkov, Grype y el análisis web completo.
+`PITANGUS_CHECKOV_ENABLED`, `PITANGUS_GRYPE_ENABLED` y `PITANGUS_DAST_ENABLED` siguen funcionando: puestas en `.env`,
+mandan sobre el panel y muestran su interruptor bloqueado. Ahora hay una variable así por motor
+(`PITANGUS_OPENGREP_ENABLED`, `PITANGUS_TRIVY_ENABLED`, `PITANGUS_OSV_SCANNER_ENABLED`, `PITANGUS_BETTERLEAKS_ENABLED`,
+`PITANGUS_ZIZMOR_ENABLED`, `PITANGUS_HTTPX_ENABLED`, `PITANGUS_TESTSSL_ENABLED`, `PITANGUS_NUCLEI_ENABLED`,
+`PITANGUS_KATANA_ENABLED`); sin definirlas, decide el panel ([Configuración](configuracion.md#motores-de-análisis)).
+Defínela en la API y en el worker. Un motor apagado aparece como **no ejecutado (desactivado)** y no remedia nada de lo
+que encontró.
+
+### Imágenes de los motores
+
+Un análisis que ejecuta el servidor ya no descarga una imagen de motor que falte en mitad de la ejecución. El worker
+prepara, por digest y en un carril propio, las imágenes de todos los motores activos, cada 5 minutos y en cuanto activas
+uno. Tras una actualización que cambie la imagen de un motor, los primeros análisis antes de que esté lista dicen que ese
+motor no se ejecutó (en preparación) y no remedian nada de lo que encontró; el siguiente análisis lo ejecuta. **Preparar
+motor** en el panel lo reintenta al momento. Los análisis puntuales (`pitangus scan`, la Action de GitHub, el hook de
+pre-commit) siguen descargando una imagen que falte al empezar.
 
 ## Actualizar a 0.14
 

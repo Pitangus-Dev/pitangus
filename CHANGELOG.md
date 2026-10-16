@@ -7,6 +7,28 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-16
+
+### Upgrade notes
+
+- **No database migrations.** This release has no Alembic or data migrations: the engine switches are kept as settings
+  documents in the existing database, created when an administrator first changes one. `make update` is all it takes.
+- **Every engine can now be turned on or off from the panel.** Defaults don't change: every engine is on but Checkov,
+  Grype and the full web scan. A server that sets `PITANGUS_CHECKOV_ENABLED`, `PITANGUS_GRYPE_ENABLED` or
+  `PITANGUS_DAST_ENABLED` today keeps them as they are. The new `PITANGUS_<ENGINE>_ENABLED` variables
+  (`OPENGREP`, `TRIVY`, `OSV_SCANNER`, `BETTERLEAKS`, `ZIZMOR`, `HTTPX`, `TESTSSL`, `NUCLEI`, `KATANA`) are optional: set
+  one, on both the API and the worker, and it wins over the panel and locks that switch; leave it unset and an
+  administrator decides in **Settings → Analysis engines**. Turning an engine off fixes nothing it found.
+- **An analysis run by the server no longer downloads a missing engine image.** The worker prepares the images of every
+  engine that is on, by digest, in a lane of its own (every 5 minutes, and at once when an engine is turned on). After
+  an upgrade that changes an engine's digest, the first analyses before its image is ready show that engine as not run
+  (being prepared), and nothing it found before is marked fixed; the next scan runs it. `make engines` still pulls the
+  images of the engines the environment and `.env` turn on, and one-shot scans (`pitangus scan`, the GitHub Action, the
+  pre-commit hook) still pull a missing image as they start.
+- **The Action and the pre-commit hook now point at the 0.15 worker image**
+  (`ghcr.io/pitangus-dev/pitangus-worker:0.15`). Until the release publishes it, the hook runs the signed digest of the
+  last release's image; `make pin-hook` points it at the new one.
+
 ### Added
 
 - **Analysis engines from the panel.** Administrators turn each engine on or off in **Settings → Analysis engines**,

@@ -92,7 +92,7 @@ Sí. Pitangus y sus motores corren como contenedores: Docker Engine 24 o posteri
 
 ## ¿Está listo para producción?
 
-Está en beta (v0.14). Funciona y tiene pruebas, pero la API y los formatos de datos todavía pueden cambiar entre
+Está en beta (v0.15). Funciona y tiene pruebas, pero la API y los formatos de datos todavía pueden cambiar entre
 versiones. Cada versión dice qué hacer antes de actualizar. Haz copias de seguridad (`make backup`) y lee la
 [guía para actualizar](actualizar.md) antes de cada actualización.
 

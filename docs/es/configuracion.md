@@ -107,7 +107,7 @@ Con los motores instalados en la imagen del worker (`PITANGUS_ENGINE_RUNNER=loca
 | `PITANGUS_DOMAIN` | — | Dominio para el que Caddy pide el certificado (`compose.prod.yaml`). La URL pública y los orígenes permitidos pasan a ser `https://<dominio>`. |
 | `COMPOSE_FILE` | `compose.yaml` | Ficheros de Compose que usan todos los comandos, p. ej. `compose.yaml:compose.prod.yaml:compose.no-socket.yaml:compose.images.yaml:compose.images.no-socket.yaml`. `make setup` conserva `compose.backup-age.yaml` si lo añadiste. |
 | `PITANGUS_IMAGE` | — | Imagen publicada que se ejecuta en lugar de construirla (`compose.images.yaml`), p. ej. `ghcr.io/pitangus-dev/pitangus`. |
-| `PITANGUS_IMAGE_TAG` | la versión del código | Etiqueta de esa imagen; admite digest (`0.14@sha256:…`). |
+| `PITANGUS_IMAGE_TAG` | la versión del código | Etiqueta de esa imagen; admite digest (`0.15@sha256:…`). |
 | `PITANGUS_WORKER_IMAGE_TAG` | la versión del código | Lo mismo para `<PITANGUS_IMAGE>-worker`, el worker con los motores dentro (sin socket). `make up` fija las dos al digest que comprobó. |
 | `COMPOSE_PROFILES` | — | `backup` activa el servicio de copias programadas. |
 | `PITANGUS_BACKUP_DIR` | `./backups` | Dónde escribe el servicio de copias. |

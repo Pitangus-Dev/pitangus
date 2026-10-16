@@ -62,13 +62,13 @@ cambia y lo que haya que hacer antes de actualizar (también en [CHANGELOG.md](.
 tienes: `git describe --tags` en la carpeta del repositorio, o la versión en la barra superior del panel (también la
 responde `/api/health`).
 
-**Si instalaste una versión** (`git clone --branch v0.14.x`, como en el [inicio rápido](inicio-rapido.md)), el
-repositorio se queda en esa versión a propósito y `make update` por sí solo no la cambia: dice *On v0.14.x (a fixed
+**Si instalaste una versión** (`git clone --branch v0.15.x`, como en el [inicio rápido](inicio-rapido.md)), el
+repositorio se queda en esa versión a propósito y `make update` por sí solo no la cambia: dice *On v0.15.x (a fixed
 version): not pulling*. Primero cambia a la nueva:
 
 ```bash
 git fetch --tags
-git checkout v0.14.3      # la versión que quieras
+git checkout v0.15.0      # la versión que quieras
 make update
 ```
 

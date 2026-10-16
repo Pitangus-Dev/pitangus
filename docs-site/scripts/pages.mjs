@@ -63,7 +63,7 @@ export const descriptions = {
     'third-party-notices': 'Licenses and provenance of the scan engines, advisory data and dependencies bundled with Pitangus.',
     'threat-modeling': 'Model a system in Pitangus with STRIDE, LINDDUN, PASTA, attack trees or MITRE ATT&CK, and check threats against scan evidence.',
     troubleshooting: 'Fix common Pitangus problems: Docker and WSL, VPN and proxies, missing engines, web scans, domain verification, sign-in checks and upgrades.',
-    upgrading: 'Upgrade Pitangus safely, and what changes in 0.14: proof before fixing, one identity per problem, Betterleaks and optional engines.',
+    upgrading: 'Upgrade Pitangus safely, and what changes in 0.15: engine switches in the panel and engine images prepared by the worker.',
   },
   es: {
     architecture: 'Cómo encajan la API en FastAPI, el panel en React, los workers, PostgreSQL, los motores y los límites del monolito modular de Pitangus.',
@@ -95,6 +95,6 @@ export const descriptions = {
     'third-party-notices': 'Licencias y procedencia de los motores, los datos de avisos y las dependencias que incluye Pitangus.',
     'threat-modeling': 'Modela un sistema en Pitangus con STRIDE, LINDDUN, PASTA, árboles de ataque o MITRE ATT&CK y contrasta las amenazas con los análisis.',
     troubleshooting: 'Resuelve problemas frecuentes de Pitangus: Docker y WSL, VPN y proxies, motores ausentes, análisis web, verificación de dominios y actualizaciones.',
-    upgrading: 'Actualiza Pitangus con seguridad, y qué cambia en 0.14: prueba antes de remediar, una identidad por problema, Betterleaks y motores opcionales.',
+    upgrading: 'Actualiza Pitangus con seguridad, y qué cambia en 0.15: interruptores de motores en el panel e imágenes de motores preparadas por el worker.',
   },
 }

@@ -4,7 +4,7 @@ English · [Español](es/actualizar.md)
 
 Upgrading means moving the code to a new version, pulling (or rebuilding) its images and restarting. Your data stays:
 the database, `data/` and `config/` are kept, and anything whose format changed is converted on start-up. This page
-covers the general procedure and what changes when you move to 0.14. Every release also lists its changes in
+covers the general procedure and what changes when you move to 0.15. Every release also lists its changes in
 [CHANGELOG.md](../CHANGELOG.md) and on the [Releases page](https://github.com/Pitangus-Dev/pitangus/releases).
 
 ## Before you upgrade
@@ -31,19 +31,19 @@ covers the general procedure and what changes when you move to 0.14. Every relea
 
 ### If you installed a release
 
-If you cloned a tag (`git clone --branch v0.14.x`, as in the [quickstart](quickstart.md)), the repository stays on that
+If you cloned a tag (`git clone --branch v0.15.x`, as in the [quickstart](quickstart.md)), the repository stays on that
 version on purpose. Check out the new one first, then update:
 
 ```bash
 git fetch --tags
-git checkout v0.14.3      # the version you want
+git checkout v0.15.0      # the version you want
 make update
 ```
 
 On a fixed version, `make update` says so and doesn't pull:
 
 ```text
-On v0.14.3 (a fixed version): not pulling. Check out the version you want first.
+On v0.15.0 (a fixed version): not pulling. Check out the version you want first.
 ```
 
 That's expected right after `git checkout`: the code is already at the new version.
@@ -78,6 +78,30 @@ looks off.
 > Don't go back to an older version over a database a newer version has migrated. To roll back, restore the backup
 > `make update` took: `make restore FROM=backups/<date> CONFIRM=restore`, then check out the old version and
 > `make up`.
+
+## Upgrading to 0.15
+
+0.15 puts the analysis engines in your hands: an administrator turns each one on or off in **Settings → Analysis engines**,
+and the server prepares their images on its own. No database migration runs, and most installations need nothing beyond
+`make update`. Read this section if you pin engines in `.env` or run your own registry mirror.
+
+### Engine switches
+
+Defaults don't change: every engine is on but Checkov, Grype and the full web scan. `PITANGUS_CHECKOV_ENABLED`,
+`PITANGUS_GRYPE_ENABLED` and `PITANGUS_DAST_ENABLED` keep working: set in `.env`, they win over the panel and show their
+switch locked. There is now one such variable per engine (`PITANGUS_OPENGREP_ENABLED`, `PITANGUS_TRIVY_ENABLED`,
+`PITANGUS_OSV_SCANNER_ENABLED`, `PITANGUS_BETTERLEAKS_ENABLED`, `PITANGUS_ZIZMOR_ENABLED`, `PITANGUS_HTTPX_ENABLED`,
+`PITANGUS_TESTSSL_ENABLED`, `PITANGUS_NUCLEI_ENABLED`, `PITANGUS_KATANA_ENABLED`); leave them unset and the panel decides
+([Configuration](configuration.md#analysis-engines)). Set one on both the API and the worker. An engine turned off shows
+as **not run (disabled)** and fixes nothing it found.
+
+### Engine images
+
+An analysis the server runs no longer downloads a missing engine image in the middle of the run. The worker prepares, by
+digest and in a lane of its own, the images of every engine that is on, every 5 minutes and as soon as you turn one on.
+After an upgrade that changes an engine's image, the first analyses before it is ready say that engine was not run
+(being prepared) and fix nothing it found; the next scan runs it. **Prepare engine** in the panel retries at once.
+One-shot scans (`pitangus scan`, the GitHub Action, the pre-commit hook) still pull a missing image as they start.
 
 ## Upgrading to 0.14
 

@@ -86,7 +86,7 @@ and `git`. `make doctor` checks all of it. See [Installation](installation.md).
 
 ## Is it ready for production?
 
-It's in beta (v0.14). It works and is tested, but the API and the data formats may still change between releases.
+It's in beta (v0.15). It works and is tested, but the API and the data formats may still change between releases.
 Each release lists anything to do before upgrading. Take backups (`make backup`) and read the
 [upgrade guide](upgrading.md) before each upgrade.
 

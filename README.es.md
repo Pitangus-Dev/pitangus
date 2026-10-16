@@ -10,7 +10,7 @@
 
 Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corregir primero y cómo** (el comando de tu gestor de paquetes, o un ejemplo de código cuando la regla lo tiene), comprueba que quedó corregido y **vigila solo** lo que cambia después. Todo corre en tu máquina, con tus credenciales: tu código no va a ningún servicio nuestro.
 
-> Estado: **beta (v0.14)**. Funcional y con pruebas, pero la API y los formatos de `data/` aún pueden cambiar entre versiones.
+> Estado: **beta (v0.15)**. Funcional y con pruebas, pero la API y los formatos de `data/` aún pueden cambiar entre versiones.
 
 ## Por qué Pitangus
 
@@ -39,7 +39,7 @@ Pitangus analiza tus repositorios e imágenes de contenedor, te dice **qué corr
 Necesitas **Docker** (Engine 24+ con Compose v2.24+), **make** y **git**, 4 GB de memoria y 8 GB de disco. `make doctor` lo comprueba.
 
 ```bash
-git clone --branch v0.14.3 https://github.com/Pitangus-Dev/pitangus.git
+git clone --branch v0.15.0 https://github.com/Pitangus-Dev/pitangus.git
 cd pitangus
 make setup PREBUILT=1
 make up
@@ -77,7 +77,7 @@ El panel sigue el idioma de tu navegador y tiene un selector de idioma en la bar
 | [Hallazgos](docs/es/hallazgos.md) | Triage, plazos, verificación y exportaciones |
 | [Cumplimiento](docs/es/cumplimiento.md) | SBOM, VEX, evidencia para auditorías y CRA |
 | [Modelado de amenazas](docs/es/modelado-de-amenazas.md) | Modelos del sistema contrastados con tus análisis |
-| [Actualizar](docs/es/actualizar.md) | Pasar a una versión nueva, y qué cambia en 0.14 |
+| [Actualizar](docs/es/actualizar.md) | Pasar a una versión nueva, y qué cambia en 0.15 |
 | [Configuración](docs/es/configuracion.md) | Variables de `.env` |
 | [Seguridad](docs/es/seguridad.md) | Secretos, transporte, qué sale de tu máquina y concesiones |
 | [Contenedores y Makefile](docs/es/contenedores.md) | Comandos `make`, imágenes y endurecimiento |
