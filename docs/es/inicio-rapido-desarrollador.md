@@ -8,7 +8,7 @@ los motores quedan en el volumen `pitangus-cache`: solo el primer análisis las 
 **Analiza tu proyecto** (desde su carpeta):
 
 ```bash
-docker run --rm -v "$PWD":/src:ro -v pitangus-cache:/data ghcr.io/pitangus-dev/pitangus-worker:0.14 python -m pitangus --data-dir /data scan /src
+docker run --rm -v "$PWD":/src:ro -v pitangus-cache:/data ghcr.io/pitangus-dev/pitangus-worker:0.15 python -m pitangus --data-dir /data scan /src
 ```
 
 **Solo lo que añade tu cambio:** agrega `--base origin/main`. Lo que ya estaba no se te cobra.
@@ -23,7 +23,7 @@ o un cambio sin commit nunca lo bloquea.
 ```yaml
 repos:
   - repo: https://github.com/Pitangus-Dev/pitangus
-    rev: v0.14.3          # la primera versión con el hook
+    rev: v0.15.0          # la primera versión con el hook
     hooks:
       - id: pitangus
 ```
@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: Pitangus-Dev/pitangus@v0.14.3   # fíjala al SHA del commit de la etiqueta
+      - uses: Pitangus-Dev/pitangus@v0.15.0   # fíjala al SHA del commit de la etiqueta
 ```
 
 Códigos de salida: `0` pasa · `1` hallazgos en o por encima de `--fail-on` (alta por defecto) · `3` un motor no pudo

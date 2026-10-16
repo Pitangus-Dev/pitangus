@@ -129,7 +129,7 @@ En el panel, **Nuevo análisis → Importar SARIF** hace lo mismo desde el naveg
 
 ## En CI
 
-En CI, Pitangus corre desde la imagen publicada del worker, `ghcr.io/pitangus-dev/pitangus-worker:0.14`, que trae
+En CI, Pitangus corre desde la imagen publicada del worker, `ghcr.io/pitangus-dev/pitangus-worker:0.15`, que trae
 los motores dentro y los ejecuta como procesos propios: nada que construir y sin socket de Docker.
 
 ### GitHub Actions
@@ -158,7 +158,7 @@ jobs:
           fetch-depth: 0              # hace falta la historia para comparar con la base
           persist-credentials: false
       - id: pitangus
-        uses: Pitangus-Dev/pitangus@v0.14.3   # fíjala al SHA del commit de la etiqueta, como las demás
+        uses: Pitangus-Dev/pitangus@v0.15.0   # fíjala al SHA del commit de la etiqueta, como las demás
         with:
           exclude: |
             fixtures/
@@ -180,7 +180,7 @@ log, en inglés salvo que el paso ponga `env: PITANGUS_DEFAULT_LOCALE: es`.
 | `exclude` | vacío | Un patrón por línea; cada uno se convierte en un `--exclude`. |
 | `name` | el nombre del repositorio | Como `--name`. |
 | `sarif` | `$RUNNER_TEMP/pitangus.sarif` | Dónde escribir el SARIF (las rutas relativas parten del workspace). |
-| `image` | `ghcr.io/pitangus-dev/pitangus-worker:0.14` | Imagen del worker. Fíjala por digest (`…@sha256:…`) si no quieres que nada cambie sin avisar. |
+| `image` | `ghcr.io/pitangus-dev/pitangus-worker:0.15` | Imagen del worker. Fíjala por digest (`…@sha256:…`) si no quieres que nada cambie sin avisar. |
 | `verify` | `true` | `false`: no comprueba la firma de la imagen. Solo para una `image` tuya (un fork, un espejo privado): la imagen publicada se comprueba siempre. |
 | `allow-incomplete` | `false` | `true`: como `--allow-incomplete`. |
 | `cache` | `true` | `false`: descarga las bases de avisos de los motores en cada ejecución. Por defecto se guardan durante el día con `actions/cache`. |
@@ -223,7 +223,7 @@ sin el análisis propio de Pitangus:
         run: |
           python -m pip install semgrep   # fija la versión
           semgrep scan --config p/ci --metrics off --sarif --output semgrep.sarif
-      - uses: Pitangus-Dev/pitangus@v0.14.3
+      - uses: Pitangus-Dev/pitangus@v0.15.0
         if: always()
         with:
           scan: false
@@ -242,7 +242,7 @@ Sin socket de Docker y sin Docker-in-Docker.
 ```yaml
 pitangus:
   stage: test
-  image: ghcr.io/pitangus-dev/pitangus-worker:0.14
+  image: ghcr.io/pitangus-dev/pitangus-worker:0.15
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
@@ -259,7 +259,7 @@ En un runner con ejecutor `shell`, usa `docker run` como hace la Action, sin el 
 ```sh
 mkdir -p /tmp/pitangus-data   # la creas tú, no Docker: tiene que ser de tu usuario
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/src:ro -v /tmp/pitangus-data:/data \
-  ghcr.io/pitangus-dev/pitangus-worker:0.14 python -m pitangus scan /src --name "$CI_PROJECT_NAME" --base "origin/$BASE"
+  ghcr.io/pitangus-dev/pitangus-worker:0.15 python -m pitangus scan /src --name "$CI_PROJECT_NAME" --base "origin/$BASE"
 ```
 
 > El propio repositorio de Pitangus usa la Action en [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), y

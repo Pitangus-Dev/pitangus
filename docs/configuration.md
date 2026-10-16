@@ -105,7 +105,7 @@ installed in the worker image (`PITANGUS_ENGINE_RUNNER=local`) there is nothing 
 | `PITANGUS_DOMAIN` | — | Domain Caddy gets the certificate for (`compose.prod.yaml`). The public URL and allowed origins become `https://<domain>`. |
 | `COMPOSE_FILE` | `compose.yaml` | Compose files every command uses, e.g. `compose.yaml:compose.prod.yaml:compose.no-socket.yaml:compose.images.yaml:compose.images.no-socket.yaml`. `make setup` keeps `compose.backup-age.yaml` if you added it. |
 | `PITANGUS_IMAGE` | — | Published image to run instead of building (`compose.images.yaml`), e.g. `ghcr.io/pitangus-dev/pitangus`. |
-| `PITANGUS_IMAGE_TAG` | the code's version | Tag of that image; accepts a digest (`0.14@sha256:…`). |
+| `PITANGUS_IMAGE_TAG` | the code's version | Tag of that image; accepts a digest (`0.15@sha256:…`). |
 | `PITANGUS_WORKER_IMAGE_TAG` | the code's version | The same for `<PITANGUS_IMAGE>-worker`, the worker with the engines inside (without the socket). `make up` pins both to the digests it checked. |
 | `COMPOSE_PROFILES` | — | `backup` turns on the scheduled backups service. |
 | `PITANGUS_BACKUP_DIR` | `./backups` | Where the backup service writes. |
