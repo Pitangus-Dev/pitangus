@@ -1,0 +1,7 @@
+# OSV-Scanner's configuration for this folder (requirements.txt: Checkov and its dependencies for the worker-standalone
+# image), read by tools that scan this repository, such as OpenSSF Scorecard and CI's "Pitangus on itself", which lists
+# what this file hides under Excluded. Each entry says why the advisory doesn't apply and when to look again.
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-1325"  # also CVE-2024-23342 and GHSA-wj6h-64fc-37mp: Minerva timing attack in python-ecdsa
+reason = "The timing leak is in signing, key generation and ECDH, which can reveal a private key; the advisory says signature verification is unaffected, and every ecdsa release is affected (no fix is planned upstream). ecdsa 0.19.2 is here only because Checkov 3.3.19 requires it (ecdsa>=0.19.0,<1.0.0) and imports it when it loads its check registry, so it can't be left out. Checkov uses it only to verify signed external checks (checkov/common/external_checks/verification), with a public key and only when --external-checks-public-key is given; Pitangus runs Checkov with its own checks alone and never that flag, and nothing in Pitangus signs with ecdsa. Look again when Checkov is updated (IMAGES['checkov'] in pitangus/modules/scanning/engines.py)."

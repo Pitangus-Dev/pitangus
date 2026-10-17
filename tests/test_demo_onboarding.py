@@ -28,6 +28,10 @@ class DemoTests(unittest.TestCase):
 
         def scan(root, source, **kwargs):
             seen.append((source["id"], sorted(path.name for path in Path(root).iterdir())))
+            # The sample's osv-scanner.toml is for tools scanning this repository: the demo reports those advisories.
+            self.assertTrue((ROOT / "fixtures/scanner-samples/osv-scanner.toml").is_file())
+            self.assertEqual(list(Path(root).rglob("osv-scanner.toml")), [])
+            self.assertTrue((Path(root) / "scanner-samples/package-lock.json").is_file())
             return {**_scan("demo · ejemplos vulnerables", [_finding("a" * 64)], datetime.now(timezone.utc).isoformat()),
                     "source": {**source, "sha256": "x"}, "context": kwargs.get("context", "")}
 

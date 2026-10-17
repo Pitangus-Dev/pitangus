@@ -18,6 +18,17 @@ between minor versions: anything that changes behaviour is called out below.
   of the image digests signed with cosign (keyless, the same identity as the images). The job waits up to 15 minutes for
   the release, which a maintainer still creates by hand, and never creates it. How to verify them is in
   [Supply chain](docs/supply-chain.md#release-assets).
+- **CodeQL** (`.github/workflows/codeql.yml`) analyzes the Python, the panel's and docs site's TypeScript and the
+  workflows on every pull request, on pushes to `main` and weekly, with results in code scanning: a second opinion next
+  to "Pitangus on itself". The samples that are vulnerable on purpose and the panel's build output are left out.
+- **Property-based tests in the panel** (fast-check, a development dependency): the Jira routing patterns are checked
+  against a reference reading of `fnmatchcase`, a scope read from any link against the API, and a domain's next
+  scheduled scan against every time zone and clock change, over thousands of generated cases each.
+- **The advisories that don't apply to this repository are declared** in an `osv-scanner.toml` next to each manifest,
+  with the reason for each: the demo's vulnerable sample (`fixtures/scanner-samples`, never installed or run) and
+  `ecdsa` in Checkov's requirements (its timing advisory affects signing; Checkov only verifies signatures, and only
+  for signed external checks, which Pitangus never loads). `make demo` copies the sample without that file, so the demo still
+  reports those advisories as open findings.
 
 ### Changed
 
@@ -28,6 +39,17 @@ between minor versions: anything that changes behaviour is called out below.
   issues.
 - **The security policy** ([`.github/SECURITY.md`](.github/SECURITY.md)) is complete: private reporting link, what to
   include, response targets, coordinated disclosure, supported versions (the latest minor line) and scope.
+
+### Fixed
+
+- **The Jira routing preview now matches what the server decides.** A pattern with `]` first in a bracket (`[]a]`,
+  `[!]a]`), a reversed range next to a valid one (`[a-cz-a]`) or a character outside the BMP (an emoji under `?`) was
+  read differently by the panel than by Python's `fnmatchcase` on the server, so the panel could show a different rule
+  for an asset than the one that applied (found by the new property-based tests). A pattern full of stars
+  (`*a*a*a…*b`) could also freeze the page; it now answers at once, as the server does.
+- **A link to Findings with a long organization name no longer breaks the view.** The name was cut at 100 UTF-16 units,
+  which could split an emoji in two and make the request to the API throw. It is now cut at 100 characters. Found by
+  the new property-based tests.
 
 ## [0.15.0] - 2026-10-16
 

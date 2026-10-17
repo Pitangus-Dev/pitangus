@@ -17,6 +17,7 @@ from tempfile import TemporaryDirectory
 from pitangus.shared.i18n import LOCALES, default_locale, t, text
 
 DEMO_SOURCE_ID = "local:demo-ejemplos"  # stable id: the onboarding checks look for it
+SAMPLE_METADATA = ("osv-scanner.toml",)
 
 
 def demo_source(locale: str | None = None) -> dict:
@@ -75,7 +76,9 @@ def _analyze_examples(data_dir: Path, fixtures: Path, locale: str, report) -> di
         combined, head = Path(temporary) / "src", Path(temporary) / "head"
         for folder in ("sast-samples", "scanner-samples"):
             if (fixtures / folder).is_dir():
-                shutil.copytree(fixtures / folder, combined / folder)
+                # The samples' osv-scanner.toml tells tools scanning this repository that their advisories are on purpose;
+                # it isn't part of the sample, and with it the demo would show them as excluded, not open.
+                shutil.copytree(fixtures / folder, combined / folder, ignore=shutil.ignore_patterns(*SAMPLE_METADATA))
         if not combined.is_dir():
             raise FileNotFoundError(t("cli.demo.no_fixtures", path=str(fixtures)))
         stats = snapshot_directory(combined, head)

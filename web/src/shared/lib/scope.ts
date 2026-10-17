@@ -21,13 +21,14 @@ export const scopeReady = (scope: Scope) => scope.kind === 'all' || (scope.kind 
 export const SCOPE_MAX = 500
 
 // The scope in the address (#/findings?scope=account&account=org): a reload or a shared link lands on the same view.
-// Only keys travel; names come back with the data (`withNames`; until then a chip shows its key).
+// Only keys travel; names come back with the data (`withNames`; until then a chip shows its key). The account is cut
+// by characters, never inside one: half an emoji can't be sent to the API.
 export function scopeFromParams(params: URLSearchParams): Scope | null {
   const kind = params.get('scope')
   if (kind !== 'account' && kind !== 'assets' && kind !== 'all') return null
   const keys = kind === 'assets' ? (params.get('assets') ?? '').split(',').filter(Boolean).slice(0, SCOPE_MAX) : []
   const assets = keys.flatMap(raw => { try { const key = decodeURIComponent(raw); return [{ key, name: key, image: key.startsWith('image:') }] } catch { return [] } })
-  return { kind, account: kind === 'account' ? (params.get('account') ?? '').slice(0, 100) : '', assets, images: params.get('images') !== '0' }
+  return { kind, account: kind === 'account' ? Array.from(params.get('account') ?? '').slice(0, 100).join('') : '', assets, images: params.get('images') !== '0' }
 }
 export function scopeParams(scope: Scope): Record<'scope' | 'account' | 'assets' | 'images', string | null> {
   const chosen = scope.kind === 'account' || scope.kind === 'assets'

@@ -50,7 +50,12 @@ cd ..
 
 El panel y el sitio de documentación usan pnpm, no npm. Su `pnpm-workspace.yaml` tiene los ajustes de cadena de suministro: una versión debe tener una semana antes de instalarse, se rechaza una versión reciente que pierde la procedencia que tenían las anteriores, las dependencias transitivas no pueden venir de git ni de tarballs, y los scripts de instalación de las dependencias nunca se ejecutan (uno nuevo hace fallar la instalación hasta que se lista a propósito). Si un arreglo de seguridad necesita una versión con menos de una semana, entra como excepción para esa versión exacta (`minimumReleaseAgeExclude`), con el aviso y la fecha en que deja de hacer falta.
 
-Las pruebas del panel (`pnpm test`, vitest con Testing Library) van junto a lo que prueban (`*.test.tsx`) y cubren el inicio de sesión, el triage y el lanzamiento de un análisis. Sustituyen `fetch` por `mockApi` (`web/src/shared/test/`) y buscan los elementos por el texto del catálogo, así que cambiar un texto no las rompe.
+Las pruebas del panel (`pnpm test`, vitest con Testing Library) van junto a lo que prueban (`*.test.tsx`) y cubren el inicio de sesión, el triage y el lanzamiento de un análisis. Sustituyen `fetch` por `mockApi` (`web/src/shared/test/`) y buscan los elementos por el texto del catálogo, así que cambiar un texto no las rompe. El código que lee datos de fuera (un enlace pegado, un patrón de enrutado, una
+programación en cualquier zona horaria) tiene además pruebas basadas en propiedades con
+[fast-check](https://fast-check.dev/): en lugar de unos pocos ejemplos, cada una comprueba una regla sobre mil casos
+generados, como «un patrón de enrutado de Jira coincide exactamente con lo que coincide `fnmatchcase` en el servidor»
+(`*.test.ts`, junto al código). Si una falla, fast-check muestra el contraejemplo más pequeño que encontró y la semilla
+para repetirlo.
 
 Las pruebas necesitan PostgreSQL: `make test` arranca uno efímero en Docker (datos en memoria) y da a cada prueba su propio esquema (`PITANGUS_DB_ISOLATE=data-dir`). Para correr una sola: `PITANGUS_DATABASE_URL=$(sh scripts/test-db.sh) PITANGUS_DB_ISOLATE=data-dir PITANGUS_CONFIG_DIR=$(mktemp -d) .venv/bin/python -m unittest discover -s tests -p 'test_x.py'` (la carpeta de configuración temporal evita que las pruebas creen una clave maestra en la tuya). Cada `make test` usa su propia base de datos, que se borra al terminar, y apunta Docker a un socket que no existe: ninguna prueba puede lanzar un motor real, simulan lo que necesitan. `make lint-py` pasa ruff y mypy, y `make arch` los contratos de arquitectura; la CI corre los tres. mypy se salta los módulos listados en `pyproject.toml`, que tenían errores de tipos cuando llegó: arreglar uno es sacarlo de la lista.
 

@@ -1,0 +1,59 @@
+# CodeQL: GitHub's static analysis of this repository's own code, a second opinion next to "Pitangus on itself" in
+# ci.yml (which runs the product's engines). It analyzes the backend (Python), the panel and the docs site
+# (JavaScript/TypeScript) and the workflows themselves (Actions), with no build: CodeQL reads the sources as they are.
+#
+# - Runs on every pull request, on pushes to main and weekly, so new CodeQL queries also reach code that hasn't changed.
+# - Results go to code scanning, one category per language. On a pull request they appear as checks and annotations;
+#   this workflow doesn't decide the merge on its own.
+# - Left out: fixtures/ and rules/tests/, vulnerable on purpose (the samples the engines and the rules must catch), and
+#   pitangus/app/static/, the panel's build output (web/ is its source, analyzed here).
+#
+# Actions pinned by commit; least-privilege permissions per job; no credentials persisted in the checkout.
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "37 5 * * 3"
+
+permissions: {}
+
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read          # read the code
+      actions: read           # CodeQL reads the run in private repositories
+      security-events: write  # upload the results to code scanning
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config: |
+            paths-ignore:
+              - fixtures
+              - rules/tests
+              - pitangus/app/static
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
+        with:
+          category: /language:${{ matrix.language }}
