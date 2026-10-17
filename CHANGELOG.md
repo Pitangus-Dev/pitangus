@@ -50,6 +50,8 @@ between minor versions: anything that changes behaviour is called out below.
 - **A link to Findings with a long organization name no longer breaks the view.** The name was cut at 100 UTF-16 units,
   which could split an emoji in two and make the request to the API throw. It is now cut at 100 characters. Found by
   the new property-based tests.
+- **A malformed advisory link no longer breaks a finding's detail.** References that aren't valid http(s) URLs are
+  shown as text instead of links, and a source URL that isn't http(s) isn't linked.
 
 ## [0.15.0] - 2026-10-16
 
