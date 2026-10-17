@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { Badge } from '@/shared/ui/badge'
+import { externalLink } from '@/shared/lib/links'
 import { formatCalendarDay, formatDate, formatNumber } from '@/shared/i18n/format'
 import { slaText } from '@/features/findings/sla'
 import { AiPrompt } from '@/features/findings/ai-prompt'
@@ -19,6 +20,7 @@ import { SEVERITY_LABEL, idOf, labelOf, locationOf, severityClass, statusOf, too
 export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChanged, jira, heading }: { finding: RepositoryFinding; runId: string; demo: boolean; canAccept: boolean; onPick: (status: TriageStatus) => void; onChanged: () => void; jira: ReactNode; heading?: string }) {
   const { t } = useTranslation('findings')
   const advisory = finding.advisory
+  const sourceLink = externalLink(finding.source?.url)
   const pkg = finding.package
   const web = finding.scanner === 'dast'
   // Code, configuration and secrets have a place in a file to read when the detail opens; a dependency or a site doesn't.
@@ -46,8 +48,8 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
     {(finding.tool || finding.also_detected_by?.length) && <p className="mt-2 text-xs text-app-subtle">{finding.also_detected_by?.length
       ? t('detail.detected_by_also', { tool: toolName(t, finding.tool ?? ''), others: finding.also_detected_by.map(tool => toolName(t, tool)).join(', ') })
       : t('detail.detected_by', { tool: toolName(t, finding.tool ?? '') })}{finding.related_rules?.length ? <> · <Trans t={t} i18nKey="detail.related" values={{ rules: finding.related_rules.join(', ') }} components={{ mono: <span className="font-mono" /> }} /></> : null}.</p>}
-    {finding.source?.name && <p className="mt-1 text-xs text-app-subtle">{t('detail.advisory_source')} {finding.source.url
-      ? <a href={finding.source.url} target="_blank" rel="noreferrer" className="underline decoration-app-faint underline-offset-2 hover:text-app-fg">{finding.source.name}</a>
+    {finding.source?.name && <p className="mt-1 text-xs text-app-subtle">{t('detail.advisory_source')} {sourceLink
+      ? <a href={sourceLink.href} target="_blank" rel="noreferrer" className="underline decoration-app-faint underline-offset-2 hover:text-app-fg">{finding.source.name}</a>
       : finding.source.name} · {finding.source.license}{finding.source.terms === 'non-commercial' && <span className="text-attention"> · {t('detail.non_commercial')}</span>}</p>}
     {(finding.count ?? 1) > 1 && <details className="mt-2 text-xs text-app-subtle"><summary className="cursor-pointer text-app-muted">{t('detail.copies', { count: finding.count })}</summary>
       <ul className="mt-1 space-y-0.5">{(finding.instances ?? []).map(item => <li key={`${item.path}:${item.line ?? ''}`}><span className="font-mono break-all">{item.line ? `${item.path}:${item.line}` : item.path}</span>{item.unseen ? <span className="text-attention"> · {t('detail.copy_unverified')}</span> : null}</li>)}</ul>
@@ -66,7 +68,9 @@ export function FindingDetail({ finding, runId, demo, canAccept, onPick, onChang
       : t('lifecycle.excluded'))}</span> : null}</p>}
     <TriageHistory state={finding.triage} />
     {advisory?.details && <details className="mt-3"><summary className="cursor-pointer text-xs text-app-muted">{t('detail.advisory_details')}</summary><p className="mt-2 text-xs leading-5 whitespace-pre-line text-app-muted">{advisory.details}</p></details>}
-    {advisory?.references.length ? <p className="mt-3 flex flex-wrap gap-x-3 text-xs">{advisory.references.slice(0, 4).map(url => <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand underline underline-offset-2">{new URL(url).hostname} <ArrowSquareOutIcon className="size-3" /></a>)}</p> : null}
+    {advisory?.references.length ? <p className="mt-3 flex flex-wrap gap-x-3 text-xs">{[...new Set(advisory.references)].slice(0, 4).map(url => { const link = externalLink(url)
+      return link ? <a key={url} href={link.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand underline underline-offset-2">{link.host} <ArrowSquareOutIcon className="size-3" /></a>
+        : <span key={url} className="break-all text-app-muted">{url}</span> })}</p> : null}
     <OwaspGuidance links={finding.guidance} />
   </div>
 }
