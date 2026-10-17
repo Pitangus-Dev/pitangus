@@ -4,7 +4,7 @@ English · [Español](README.es.md)
 
 <h1 align="center">Pitangus</h1>
 
-<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a> <a href="https://scorecard.dev/viewer/?uri=github.com/Pitangus-Dev/pitangus"><img src="https://api.scorecard.dev/projects/github.com/Pitangus-Dev/pitangus/badge" alt="OpenSSF Scorecard"></a></p>
+<p align="center"><a href="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml"><img src="https://github.com/Pitangus-Dev/pitangus/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a> <a href="https://scorecard.dev/viewer/?uri=github.com/Pitangus-Dev/pitangus"><img src="https://api.scorecard.dev/projects/github.com/Pitangus-Dev/pitangus/badge" alt="OpenSSF Scorecard"></a> <a href="https://www.bestpractices.dev/projects/15604"><img src="https://www.bestpractices.dev/projects/15604/badge" alt="OpenSSF Best Practices"></a></p>
 
 <p align="center"><strong>Spot it. Fix it. Prove it.</strong> Self-hosted, open-source application security that never sends your code anywhere.</p>
 
