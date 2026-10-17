@@ -10,6 +10,7 @@ from unittest.mock import patch
 from pitangus.modules.runs import batches
 from pitangus.modules.identity.auth import Users
 from pitangus.modules.integrations.installations import save_github
+import testenv
 from fake_github import fake_github
 from test_auth import PASSWORD, HttpCase
 
@@ -171,8 +172,7 @@ class WorkerTests(unittest.TestCase):
                 time.sleep(0.1)
             state = batches.summary(data, batches.load(data, batch["id"]))
             # The worker thread must not outlive this test's database (its connections would be cut under the next test).
-            jobs.stop()
-            jobs._thread.join(10)
+            testenv.stop_worker(self, jobs)
         self.assertEqual((state["status"], state["done"], state["failed"], state["high"]), ("done", 3, 0, 3))
 
 

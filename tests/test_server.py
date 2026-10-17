@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 import asgi
+import testenv
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,6 +18,7 @@ from pitangus.modules.runs.store import list_runs
 class ServerTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
         self.data_dir = Path(self.directory.name)
         # The provider credential store is isolated: otherwise the tests would see
         # the real App of whoever runs them and stop being deterministic.
@@ -32,6 +34,7 @@ class ServerTests(unittest.TestCase):
         policy.start()
         self.addCleanup(policy.stop)
         self.state = build_state(self.data_dir)
+        self.addCleanup(testenv.stop_worker, self, self.state.jobs)
         self.client = asgi.client_for(self.data_dir, self.state)
         self.origin = "http://127.0.0.1:8766"
         # Every route requires a session: the tests sign in as an admin created by the CLI.
@@ -46,9 +49,6 @@ class ServerTests(unittest.TestCase):
             if line.lower().startswith(b"set-cookie:"):
                 return line.split(b":", 1)[1].strip().split(b";", 1)[0].decode("ascii")
         raise AssertionError(raw)
-
-    def tearDown(self):
-        self.directory.cleanup()
 
     def request(self, method, path, body=None, headers=None, cookie="default"):
         raw = self.raw_request(method, path, body, headers, cookie=cookie)

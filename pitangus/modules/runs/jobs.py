@@ -81,6 +81,7 @@ class ScanJobs:
         self.idle_poll = 3.0
         self._stop = threading.Event()
         self._thread = None
+        self._lane = None
         self._images_at = float("-inf")
         # Only the leader advances batches (with several workers, two could take the same repository). In a single
         # process it is always the leader; the worker process turns it on when it wins the leader lock.
@@ -99,8 +100,19 @@ class ScanJobs:
         if findings_registry.is_empty(self.data_dir) and find_runs(self.data_dir, limit=1):
             run_registry.rebuild(self.data_dir)
 
-    def stop(self) -> None:
+    def stop(self, timeout: float | None = None) -> bool:
+        """Asks the worker to stop. With `timeout`, waits up to that long for its threads (the scans' and the image
+        lane's) and says whether they all ended."""
         self._stop.set()
+        if timeout is None:
+            return True
+        deadline = time.monotonic() + timeout
+        if self._thread is not None:
+            self._thread.join(timeout)
+        # Read after the scans' thread ended: it is the one that starts the lane.
+        if self._lane is not None:
+            self._lane.join(max(0.0, deadline - time.monotonic()))
+        return not any(thread is not None and thread.is_alive() for thread in (self._thread, self._lane))
 
     def _recover(self, *, everything: bool) -> None:
         """Runs that will never finish: from a worker that stopped responding, or with no job in the queue (from an
@@ -292,7 +304,7 @@ class ScanJobs:
         """Claims and runs jobs until asked to stop. The heartbeat keeps beating while a scan runs (scans take far
         longer than queue.STALE), so no other worker takes a live job for a dead one."""
         beat = 0.0
-        lane = threading.Thread(target=self._run_prepare_lane, name="pitangus-engine-images", daemon=True)
+        lane = self._lane = threading.Thread(target=self._run_prepare_lane, name="pitangus-engine-images", daemon=True)
         lane.start()
         while not self._stop.is_set():
             if time.monotonic() - beat > HEARTBEAT_SECONDS:

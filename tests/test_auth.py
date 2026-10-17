@@ -12,6 +12,7 @@ from dataclasses import asdict
 from types import SimpleNamespace
 
 import asgi
+import testenv
 from pathlib import Path
 from unittest.mock import patch
 
@@ -230,6 +231,7 @@ class HttpCase(unittest.TestCase):
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
         self.data_dir = Path(self.directory.name)
         store = patch("pitangus.shared.paths.CONFIG_DIR", self.data_dir / "config")
         store.start()
@@ -242,11 +244,10 @@ class HttpCase(unittest.TestCase):
         engines.start()
         self.addCleanup(engines.stop)
         self.state = build_state(self.data_dir)
+        # The embedded worker stops before its folder goes.
+        self.addCleanup(testenv.stop_worker, self, self.state.jobs)
         # Every request goes through the full application (FastAPI with all its routes).
         self.client = asgi.client_for(self.data_dir, self.state)
-
-    def tearDown(self):
-        self.directory.cleanup()
 
     def call(self, method, path, body=None, headers=None):
         response = asgi.request(self.client, method, path, json.dumps(body) if body is not None else None, headers)

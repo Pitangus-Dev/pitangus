@@ -19,6 +19,7 @@ from pitangus.modules.runs.store import load_run, save_repository_scan, render_p
 from pitangus.modules.scanning import engines as scan_engines, repository as scan_repository
 from pitangus.modules.reporting.pdf import render_pdf
 from pitangus.shared.i18n import text
+import testenv
 from fake_github import fake_github
 from test_auth import ORIGIN, PASSWORD, HttpCase
 
@@ -265,6 +266,7 @@ class JobTests(unittest.TestCase):
                 patch("pitangus.modules.integrations.github.upsert_pr_comment", side_effect=lambda *args: self.posted.append(("comment", args)) or "created"), \
                 patch("pitangus.modules.integrations.github.set_commit_status", side_effect=lambda *args: self.posted.append(("status", args))):
             jobs = ScanJobs(self.data_dir)
+            self.addCleanup(testenv.stop_worker, self, jobs)
             queued = jobs.enqueue_pr_review(source_id="github:org/api", pull=pull, installation_id=7, requested_by="ana")
             for _ in range(200):
                 record = load_run(self.data_dir, queued["id"])
@@ -395,6 +397,7 @@ class SecretInDocsTests(unittest.TestCase):
                 patch("pitangus.modules.integrations.github.upsert_pr_comment", side_effect=lambda *args: self.posted.append(("comment", args)) or "created"), \
                 patch("pitangus.modules.integrations.github.set_commit_status", side_effect=lambda *args: self.posted.append(("status", args))):
             jobs = ScanJobs(self.data_dir)
+            self.addCleanup(testenv.stop_worker, self, jobs)
             queued = jobs.enqueue_pr_review(source_id="github:org/api", pull=pull, installation_id=7, requested_by="ana")
             for _ in range(200):
                 record = load_run(self.data_dir, queued["id"])

@@ -21,6 +21,7 @@ from pitangus.modules.runs import assets as run_assets
 from pitangus.modules.sources import assets
 from pitangus.shared.i18n import msg, text
 
+import testenv
 from fake_github import fake_github
 from test_auth import ORIGIN, PASSWORD, HttpCase
 from test_jobs import _wait
@@ -108,7 +109,7 @@ class PinnedScanTests(unittest.TestCase):
     def run_scan(self, **kwargs):
         with patch("pitangus.modules.runs.jobs.snapshot_source", side_effect=self.snapshot):
             jobs = ScanJobs(self.data_dir)
-            self.addCleanup(jobs.stop)
+            self.addCleanup(testenv.stop_worker, self, jobs)
             queued = jobs.enqueue_repository_scan(source_id="github:org/api", source_name="org/api", allow_osv_upload=False, context="",
                                                   tokens={}, installation_id=7, uid="github#1", **kwargs)
             return _wait(self.data_dir, queued["id"])

@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from sqlalchemy import select, text, update
 
+import testenv
 from pitangus.modules.integrations import notifications
 from pitangus.modules.integrations.tables import outbox
 from pitangus.modules.runs import queue
@@ -123,7 +124,9 @@ class QueueTests(unittest.TestCase):
             threading.Timer(0.1, follower.stop).start()
             follower.run_worker()
         feed.assert_not_called()
-        self.assertTrue(ScanJobs(self.data_dir, worker=True).leader)  # single process: always the leader
+        embedded = ScanJobs(self.data_dir, worker=True)
+        self.addCleanup(testenv.stop_worker, self, embedded)
+        self.assertTrue(embedded.leader)  # single process: always the leader
 
     def test_a_leader_that_loses_its_connection_stops_its_tasks_and_competes_again(self):
         import time
