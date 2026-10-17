@@ -1,6 +1,7 @@
 """HTTP API on FastAPI: one router per context (`<context>.py`).
 
-Every request goes through the same control (see `security.py`): allowed host (middleware) → CSRF, session,
+Every request goes through the same control (see `security.py`): allowed host and, in the public demo, its read-only
+rule (middleware, `app/public_demo.py`) → CSRF, session,
 second factor and role (`security.authorize`, via `deps.guard`) → body limits. Responses carry the same security
 headers (CSP, nosniff, frame, HSTS over HTTPS). Neither the interactive docs nor the OpenAPI document are served:
 the schema is generated with `make openapi`.
@@ -17,6 +18,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from pitangus.app import public_demo
 from pitangus.app.api import assets, auth, compliance, cron, findings, images, imports, intel, jira, metrics, notifications, onboarding, pullrequests, reporting, repositories, runs, scanning, sources, static, system, threats
 from pitangus.app.api.deps import ApiError
 from pitangus.app.api.security import DEFAULT_CSP, State, host_allowed, public_url
@@ -83,6 +85,9 @@ def create_app(data_dir: Path, *, port: int, state: State | None = None, watch: 
                 response = JSONResponse({"status": "ok", "version": RELEASE})
             else:
                 response = JSONResponse(_error(request, msg("api.host_not_allowed")), status_code=403)
+        elif public_demo.refuses(request.method, request.url.path):
+            # Before any route, guard or body: the demo's read-only rule holds for every session, role and token.
+            response = JSONResponse(_error(request, msg("api.public_demo_read_only"), code="public_demo"), status_code=403)
         elif (oversized := _body_problem(request)) is not None:
             response = JSONResponse(_error(request, msg("api.invalid_request")), status_code=oversized)
         else:

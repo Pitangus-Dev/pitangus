@@ -33,28 +33,14 @@ def models_folder(models: Path, locale: str | None = None) -> Path:
     return localized if localized.is_dir() else models
 
 
-def seed(data_dir: Path, *, fixtures: Path, models: Path | None = None, image: str | None = None, report=print) -> dict:
+def seed(data_dir: Path, *, fixtures: Path, models: Path | None = None, image: str | None = None, analyze: bool = True,
+         report=print) -> dict:
+    """`analyze` False skips the real analysis of the examples (engines needed): only the threat model is imported."""
     from pitangus.modules.threats import model as tm
-    from pitangus.modules.sources.repositories import snapshot_directory
-    from pitangus.modules.scanning.repository import scan_repository
-    from pitangus.modules.runs.store import save_repository_scan
     locale = default_locale()
     result: dict = {}
-    (data_dir / "work").mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(prefix="demo-", dir=data_dir / "work") as temporary:
-        combined, head = Path(temporary) / "src", Path(temporary) / "head"
-        for folder in ("sast-samples", "scanner-samples"):
-            if (fixtures / folder).is_dir():
-                shutil.copytree(fixtures / folder, combined / folder)
-        if not combined.is_dir():
-            raise FileNotFoundError(t("cli.demo.no_fixtures", path=str(fixtures)))
-        stats = snapshot_directory(combined, head)
-        report(t("cli.demo.analyzing", count=stats["files"]))
-        scan = scan_repository(head, {**demo_source(locale), "files": stats["files"], "snapshot": stats}, context=t("demo.context", locale), data_dir=data_dir,
-                               progress=lambda level, message: report(f"  {text(message)}"))
-        record = save_repository_scan(data_dir, {**scan, "requested_by": "demo"})
-        result["code"] = {"id": record["id"], "status": record["status"], "findings": record["summary"].get("candidates", 0)}
-        report(t("cli.demo.code_done", count=result["code"]["findings"], status=record["status"]))
+    if analyze:
+        result["code"] = _analyze_examples(data_dir, fixtures, locale, report)
     example = (models_folder(models, locale) / "stride.json") if models else None
     if example and example.is_file():
         name = model_name(locale)
@@ -69,6 +55,7 @@ def seed(data_dir: Path, *, fixtures: Path, models: Path | None = None, image: s
             result["threat_model"] = saved["id"]
             report(t("cli.demo.model_imported", name=name))
     if image:
+        from pitangus.modules.runs.store import save_repository_scan
         from pitangus.modules.scanning.image import check_registry_address, parse_reference, scan_image
         target = parse_reference(image)
         check_registry_address(target["registry"])
@@ -77,3 +64,25 @@ def seed(data_dir: Path, *, fixtures: Path, models: Path | None = None, image: s
         result["image"] = {"id": record["id"], "status": record["status"], "findings": record["summary"].get("candidates", 0)}
         report(t("cli.demo.image_done", count=result["image"]["findings"], status=record["status"]))
     return result
+
+
+def _analyze_examples(data_dir: Path, fixtures: Path, locale: str, report) -> dict:
+    from pitangus.modules.sources.repositories import snapshot_directory
+    from pitangus.modules.scanning.repository import scan_repository
+    from pitangus.modules.runs.store import save_repository_scan
+    (data_dir / "work").mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix="demo-", dir=data_dir / "work") as temporary:
+        combined, head = Path(temporary) / "src", Path(temporary) / "head"
+        for folder in ("sast-samples", "scanner-samples"):
+            if (fixtures / folder).is_dir():
+                shutil.copytree(fixtures / folder, combined / folder)
+        if not combined.is_dir():
+            raise FileNotFoundError(t("cli.demo.no_fixtures", path=str(fixtures)))
+        stats = snapshot_directory(combined, head)
+        report(t("cli.demo.analyzing", count=stats["files"]))
+        scan = scan_repository(head, {**demo_source(locale), "files": stats["files"], "snapshot": stats}, context=t("demo.context", locale), data_dir=data_dir,
+                               progress=lambda level, message: report(f"  {text(message)}"))
+        record = save_repository_scan(data_dir, {**scan, "requested_by": "demo"})
+        summary = {"id": record["id"], "status": record["status"], "findings": record["summary"].get("candidates", 0)}
+        report(t("cli.demo.code_done", count=summary["findings"], status=record["status"]))
+        return summary

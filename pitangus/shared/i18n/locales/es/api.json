@@ -74,5 +74,6 @@
   },
   "cron_token_required": "Envía el token de cron como token bearer (Authorization: Bearer …)",
   "import_token_required": "Envía el token de importación como bearer token (Authorization: Bearer …)",
-  "finding_from_import": "Este hallazgo lo reportó {{tool}}: importa un nuevo SARIF completo de {{tool}} para comprobar si sigue ahí"
+  "finding_from_import": "Este hallazgo lo reportó {{tool}}: importa un nuevo SARIF completo de {{tool}} para comprobar si sigue ahí",
+  "public_demo_read_only": "Esta es una demo pública de solo lectura con datos inventados: aquí no se puede cambiar nada. Instala Pitangus en tu servidor para probarlo de verdad."
 }

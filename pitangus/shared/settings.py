@@ -128,6 +128,11 @@ SETTINGS: dict[str, Setting] = {
     "GITLAB_TOKEN": Setting(),
     "OPENAI_API_KEY": Setting(),
     "ANTHROPIC_API_KEY": Setting(),
+    # A public demo anyone on the internet signs in to with published credentials (deploy/demo): the server refuses every
+    # change and reaches nothing outside; only the demo account can sign in, and the sign-in page shows its password
+    "PITANGUS_PUBLIC_DEMO": Setting(kind="flag"),
+    "PITANGUS_PUBLIC_DEMO_USER": Setting(default="demo"),
+    "PITANGUS_PUBLIC_DEMO_PASSWORD": Setting(),
     # Tests only: one PostgreSQL schema per data folder
     "PITANGUS_DB_ISOLATE": Setting(kind="choice", choices=("", "data-dir")),
 }
@@ -232,7 +237,27 @@ def _check(name: str, setting: Setting, environment: Mapping[str, str]):
     return None
 
 
+# What a public demo must not have: credentials that reach other services, and features that call out on a visitor's
+# request. The demo refuses to start with any of them set (or, for the flags, turned on).
+PUBLIC_DEMO_UNSET = ("GITHUB_APP_ID", "GITHUB_APP_SLUG", "GITHUB_APP_PRIVATE_KEY_FILE", "GITHUB_TOKEN", "GITLAB_TOKEN",
+                     "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "PITANGUS_NVD_API_KEY", "PITANGUS_METRICS_TOKEN",
+                     "PITANGUS_CRON_TOKEN", "CRON_SECRET", "PITANGUS_IMPORT_TOKEN")
+PUBLIC_DEMO_OFF = ("PITANGUS_EUVD", "PITANGUS_CVE_SYNC", "PITANGUS_SECRET_VALIDATION", "PITANGUS_EMBEDDED_WORKER")
+
+
+def _public_demo_problems(environment: Mapping[str, str]) -> list[dict]:
+    if environment.get("PITANGUS_PUBLIC_DEMO", "").strip().lower() not in TRUE:
+        return []
+    found = [msg("cli.settings.public_demo_unset", name=name) for name in PUBLIC_DEMO_UNSET if environment.get(name, "").strip()]
+    for name in PUBLIC_DEMO_OFF:
+        value = environment.get(name, "").strip().lower() or SETTINGS[name].default
+        if value in TRUE:
+            found.append(msg("cli.settings.public_demo_off", name=name))
+    return found
+
+
 def problems(environment: Mapping[str, str] | None = None) -> list[dict]:
     """Every setting that is set but invalid, or required and missing, as messages."""
     environment = os.environ if environment is None else environment
-    return [problem for name, setting in SETTINGS.items() if (problem := _check(name, setting, environment))]
+    return [*(problem for name, setting in SETTINGS.items() if (problem := _check(name, setting, environment))),
+            *_public_demo_problems(environment)]

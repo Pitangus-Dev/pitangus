@@ -16,7 +16,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
-from pitangus.app import data_migrations, wiring
+from pitangus.app import data_migrations, public_demo, wiring
 from pitangus.modules.runs import periodic
 from pitangus.modules.runs.jobs import ScanJobs
 from pitangus.shared import db
@@ -103,6 +103,8 @@ def _lead(data_dir: Path, jobs: ScanJobs, stop: threading.Event) -> None:
 
 
 def run(data_dir: Path) -> None:
+    if public_demo.enabled():
+        raise SystemExit(t("cli.public_demo.no_background"))
     # The standalone compose points TMPDIR at data/tmp (disk, not the small in-memory /tmp) for the engines' files.
     (data_dir / "tmp").mkdir(parents=True, exist_ok=True)
     tempfile.tempdir = None  # look at TMPDIR again, now that the folder exists

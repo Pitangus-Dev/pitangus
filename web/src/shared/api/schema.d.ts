@@ -2549,6 +2549,7 @@ export interface components {
             totp_required: boolean;
             /** Totp Policy */
             totp_policy: string;
+            public_demo?: components["schemas"]["PublicDemo"] | null;
         };
         /** AffectedAsset */
         AffectedAsset: {
@@ -4849,6 +4850,7 @@ export interface components {
             authenticated: false;
             /** Setup Required */
             setup_required: boolean;
+            public_demo?: components["schemas"]["PublicDemo"] | null;
         };
         /** Onboarding */
         Onboarding: {
@@ -4950,6 +4952,16 @@ export interface components {
             saved_at?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * PublicDemo
+         * @description The public demo's account, published on purpose (the sign-in page shows it); absent on any other server.
+         */
+        PublicDemo: {
+            /** Username */
+            username: string;
+            /** Password */
+            password: string | null;
         };
         /** PublicUser */
         PublicUser: {

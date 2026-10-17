@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from pitangus.app import public_demo
 from pitangus.shared import settings
 from pitangus.modules.identity.auth import Authenticator
 from pitangus.shared.i18n import msg
@@ -63,6 +64,8 @@ def authorize(state: State, entry, *, method: str, port: int, origin: str | None
     user, session = state.auth.current(cookie)
     if user is not None and user.get("totp", {}).get("enabled") and not (session or {}).get("mfa"):
         user, session = None, None
+    if user is not None and public_demo.enabled() and not public_demo.is_demo_account(user):
+        user, session = None, None  # the public demo has one account: any other session (an admin's) counts for nothing
     if user is None and not entry.public:
         return Denied(401, msg("api.login_required"))
     if user is not None and not entry.enrolment and state.auth.needs_totp(user):

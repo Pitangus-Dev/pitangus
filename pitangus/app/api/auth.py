@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, model_validator
 
+from pitangus.app import public_demo
 from pitangus.app.api.deps import ApiError, Context, Policy, body, documented, guard
 from pitangus.app.api.deps import problem
 from pitangus.app.api.security import public_url
@@ -110,9 +111,16 @@ class PublicUser(BaseModel):
     pending_link: str | None
 
 
+class PublicDemo(BaseModel):
+    """The public demo's account, published on purpose (the sign-in page shows it); absent on any other server."""
+    username: str
+    password: str | None
+
+
 class NoSession(BaseModel):
     authenticated: Literal[False]
     setup_required: bool
+    public_demo: PublicDemo | None = None
 
 
 class ActiveSession(BaseModel):
@@ -121,6 +129,7 @@ class ActiveSession(BaseModel):
     mfa: bool
     totp_required: bool
     totp_policy: str
+    public_demo: PublicDemo | None = None
 
 
 class SignedIn(BaseModel):
@@ -206,13 +215,14 @@ def _signed_in(request: Request, response: Response, result: dict) -> dict:
     return {"step": "done", "user": result["user"]}
 
 
-@router.get("/api/auth/session", response_model=ActiveSession | NoSession)
+@router.get("/api/auth/session", response_model=ActiveSession | NoSession, response_model_exclude_unset=True)
 def session(context: Context = Depends(guard(Policy(public=True, enrolment=True)))) -> dict:
     auth, user = context.state.auth, context.user
+    demo = {"public_demo": public_demo.credentials()} if public_demo.enabled() else {}
     if user is None:
-        return {"authenticated": False, "setup_required": auth.setup_required()}
+        return {"authenticated": False, "setup_required": auth.setup_required(), **demo}
     return {"authenticated": True, "user": auth.users.public(user), "mfa": context.session["mfa"],
-            "totp_required": auth.needs_totp(user), "totp_policy": auth.totp_policy()}
+            "totp_required": auth.needs_totp(user), "totp_policy": auth.totp_policy(), **demo}
 
 
 @router.post("/api/auth/setup", response_model=SignedIn, openapi_extra=documented(SetupIn))
@@ -230,7 +240,8 @@ def login(request: Request, response: Response,
           context: Context = Depends(guard(Policy(public=True, enrolment=True, action="login", body=640))),
           data: LoginIn = _invalid(LoginIn)) -> dict:
     with _auth_errors(sign_in=True):
-        result = context.state.auth.login(data.username, data.password, _client(request))
+        result = context.state.auth.login(data.username, data.password, _client(request),
+                                          public_account=public_demo.username() if public_demo.enabled() else None)
     if "challenge" in result:
         return {"step": "totp", "challenge": result["challenge"]}
     return _signed_in(request, response, result)
