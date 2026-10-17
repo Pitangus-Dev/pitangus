@@ -17,6 +17,7 @@ Thanks for your interest. Taking part means following the [code of conduct](CODE
 
 3. Follow the house rules:
    - **No new backend dependencies** unless they are essential: today they are the ones in `requirements.txt` (FastAPI, uvicorn, Pydantic, SQLAlchemy, Alembic, psycopg, `cryptography` and ReportLab), at pinned versions.
+   - **New functionality and bug fixes come with automated tests**: Python in `tests/`, the panel in `web/src/**/*.test.tsx`. A fix includes a test that fails without it.
    - **No secrets in logs, responses or files under `data/`.** Secrets go through `vault.py`.
    - Every new route is declared with its permission, its action header (POST) and its maximum body size; the route table test checks it.
    - Whatever couldn't be tested is said so (`not_tested` with a reason); it is never presented as "no vulnerabilities".

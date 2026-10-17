@@ -17,6 +17,7 @@ Gracias por el interés. Participar implica respetar el [código de conducta](CO
 
 3. Mantén las reglas de la casa:
    - **Sin dependencias nuevas en el backend** salvo que sea imprescindible: hoy son las de `requirements.txt` (FastAPI, uvicorn, Pydantic, SQLAlchemy, Alembic, psycopg, `cryptography` y ReportLab), con versión fijada.
+   - **Toda función nueva y todo arreglo llevan tests automáticos**: Python en `tests/` y el panel en `web/src/**/*.test.tsx`. Un arreglo incluye un test que falla sin él.
    - **Ningún secreto en logs, respuestas ni ficheros de `data/`.** Los secretos van por `vault.py`.
    - Cada ruta nueva se declara con su permiso, su cabecera de acción (POST) y su tamaño máximo de cuerpo; la prueba de la tabla de rutas lo comprueba.
    - Lo que no se pudo probar se dice (`not_tested` con motivo); nunca se presenta como «sin vulnerabilidades».
