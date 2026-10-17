@@ -50,7 +50,11 @@ cd ..
 
 The panel and the docs site use pnpm, not npm. Their `pnpm-workspace.yaml` holds the supply-chain settings: a release has to be a week old before it is installed, a version that loses the provenance its predecessors had is refused while it is recent, transitive dependencies can't come from git or tarballs, and dependencies' install scripts never run (a new one fails the install until it is listed on purpose). When a security fix needs a release younger than a week, it goes in as an exception for that exact version (`minimumReleaseAgeExclude`), with the advisory and the date it stops mattering.
 
-The panel tests (`pnpm test`, vitest with Testing Library) sit next to what they test (`*.test.tsx`) and cover sign-in, triage and launching an analysis. They replace `fetch` with `mockApi` (`web/src/shared/test/`) and look elements up by the catalog's text, so a copy change doesn't break them.
+The panel tests (`pnpm test`, vitest with Testing Library) sit next to what they test (`*.test.tsx`) and cover sign-in, triage and launching an analysis. They replace `fetch` with `mockApi` (`web/src/shared/test/`) and look elements up by the catalog's text, so a copy change doesn't break them. Code that reads outside input (a pasted link, a routing pattern, a schedule in any
+time zone) also has property-based tests with [fast-check](https://fast-check.dev/): instead of a few examples, each
+one checks an invariant over a thousand generated cases, such as "a Jira routing pattern matches exactly what the
+server's `fnmatchcase` matches" (`*.test.ts`, next to the code). When one fails, fast-check prints the smallest
+counterexample it found and the seed to replay it.
 
 The tests need PostgreSQL: `make test` starts a throwaway one in Docker (data in memory) and gives each test its own schema (`PITANGUS_DB_ISOLATE=data-dir`). To run a single file: `PITANGUS_DATABASE_URL=$(sh scripts/test-db.sh) PITANGUS_DB_ISOLATE=data-dir PITANGUS_CONFIG_DIR=$(mktemp -d) .venv/bin/python -m unittest discover -s tests -p 'test_x.py'` (the temporary configuration folder keeps the tests from creating a master key in yours). Each `make test` run gets its own database, dropped when it ends, and points Docker at a socket that doesn't exist: no test may start a real engine, they mock what they need. `make lint-py` runs ruff and mypy, and `make arch` the architecture contracts; CI runs all three. mypy skips the modules listed in `pyproject.toml`, which had type errors when it arrived: fixing one means taking it off the list.
 
