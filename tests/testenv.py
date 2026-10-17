@@ -9,6 +9,12 @@ def base(**extra) -> dict:
     return {**{name: os.environ[name] for name in KEEP if name in os.environ}, **extra}
 
 
+def stop_worker(case, jobs) -> None:
+    """Stops a ScanJobs' worker threads and fails if they don't end. One left running would claim the work of the tests
+    after it and call their patched functions: its image lane pulling inside another test's `pull_image` patch."""
+    case.assertTrue(jobs.stop(timeout=10), "the worker's threads outlived the test")
+
+
 def docker_runner(case) -> None:
     """Pins the Docker engine runner for a test. With `auto`, the first check (often a patched one) would choose the
     runner for every test after it."""

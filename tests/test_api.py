@@ -90,7 +90,7 @@ class BodyLimitTests(unittest.TestCase):
         from pathlib import Path
         from pitangus.app.api.server import build_state
         with tempfile.TemporaryDirectory() as temporary:
-            client = asgi.client_for(Path(temporary), build_state(Path(temporary)))
+            client = asgi.client_for(Path(temporary), build_state(Path(temporary), worker=False))
             big = asgi.request(client, "POST", "/api/repositories/branch", b"{" + b" " * 1_000_001 + b"}",
                                {"Content-Type": "application/json", "Origin": ORIGIN, "X-Pitangus-Action": "set-scan-branch"})
             self.assertEqual(big.status_code, 413)

@@ -5,6 +5,7 @@ run, never a clean pass."""
 import logging
 import os
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -165,9 +166,16 @@ class RunTests(unittest.TestCase):
         snapshot = self.data_dir / "snapshot"
         snapshot.mkdir()
         (snapshot / "app.py").write_text("print('hi')\n")
+        scan = threading.get_ident()
+
+        def pull(key):
+            # Only this scan's pulls: the patch is module-wide, and a worker thread may be running in this process.
+            if threading.get_ident() == scan:
+                pulled.append(key)
+                present.add(key)
         with patch.object(engines, "docker_available", return_value=True), \
                 patch.object(engines, "image_available", side_effect=lambda key: key in present), \
-                patch.object(engines, "pull_image", side_effect=lambda key: pulled.append(key) or present.add(key)), \
+                patch.object(engines, "pull_image", side_effect=pull), \
                 patch.object(engines, "_run", side_effect=fake):
             result = engines.run_betterleaks(snapshot, None)
         self.assertEqual((pulled, result["status"]), (["betterleaks"], "completed"))
@@ -302,7 +310,6 @@ class ApiTests(HttpCase):
 
     def test_an_analysis_is_picked_up_while_an_image_is_being_prepared(self):
         """A pull runs in its own lane: the analyses queued meanwhile don't wait for it."""
-        import threading
         from pitangus.modules.runs import queue as job_queue
         release, pulling = threading.Event(), threading.Event()
 
@@ -331,7 +338,7 @@ class ApiTests(HttpCase):
                 self.assertFalse(release.is_set())  # the pull is still under way
             finally:
                 release.set()
-                worker.stop()
+                testenv.stop_worker(self, worker)
                 thread.join(10)
 
     def test_a_failed_preparation_says_why(self):

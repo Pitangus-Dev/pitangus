@@ -39,6 +39,7 @@ class JobsTests(unittest.TestCase):
 
     def test_enqueue_returns_immediately_and_records_progress(self):
         jobs = ScanJobs(self.data_dir)
+        self.addCleanup(testenv.stop_worker, self, jobs)
         with patch("pitangus.modules.runs.jobs.snapshot_source") as snapshot:
             def fake(source_id, destination, tokens, installation, ref=None, progress=None):
                 (destination / "app.py").write_text('db.execute(f"SELECT {user_id}")\n')
@@ -62,6 +63,7 @@ class JobsTests(unittest.TestCase):
 
     def test_source_failure_is_reported_without_server_internals(self):
         jobs = ScanJobs(self.data_dir)
+        self.addCleanup(testenv.stop_worker, self, jobs)
         with patch("pitangus.modules.runs.jobs.snapshot_source", side_effect=SourceError("Repositorio no disponible para la credencial configurada")):
             queued = jobs.enqueue_repository_scan(source_id="github:x/y", source_name="x/y", allow_osv_upload=False,
                                                   context="", tokens={}, installation_id=None)
@@ -71,6 +73,7 @@ class JobsTests(unittest.TestCase):
 
     def test_unexpected_error_never_leaks_a_traceback_to_the_user(self):
         jobs = ScanJobs(self.data_dir)
+        self.addCleanup(testenv.stop_worker, self, jobs)
         with patch("pitangus.modules.runs.jobs.snapshot_source", side_effect=RuntimeError("/srv/secret/path exploded")):
             queued = jobs.enqueue_repository_scan(source_id="github:x/y", source_name="x/y", allow_osv_upload=False,
                                                   context="", tokens={}, installation_id=None)

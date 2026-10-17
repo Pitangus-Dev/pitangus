@@ -100,7 +100,7 @@ class ApiLocaleTests(unittest.TestCase):
         import asgi
         from pitangus.app.api.server import build_state
         with tempfile.TemporaryDirectory() as folder, patch("pitangus.shared.paths.CONFIG_DIR", Path(folder) / "config"):
-            client = asgi.client_for(Path(folder), build_state(Path(folder)))
+            client = asgi.client_for(Path(folder), build_state(Path(folder), worker=False))
             for language, expected in (("en", "Not found"), ("es", "Ruta no encontrada")):
                 response = asgi.request(client, "GET", "/api/no-such-route", headers={"Accept-Language": language})
                 self.assertEqual((response.status_code, response.json()), (404, {"error": expected}), language)
