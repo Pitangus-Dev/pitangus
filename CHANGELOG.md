@@ -7,8 +7,23 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-17
+
+### Upgrade notes
+
+- **Nothing to do.** No database or data migrations and no new required settings; `make update` is all it takes.
+  `PITANGUS_PUBLIC_DEMO` (with `PITANGUS_PUBLIC_DEMO_USER` and `PITANGUS_PUBLIC_DEMO_PASSWORD`) is new and optional, only
+  for a public demo with made-up data: leave it unset on a normal installation.
+
 ### Added
 
+- **A read-only public demo** ([deploy/demo](deploy/demo/README.md)). `PITANGUS_PUBLIC_DEMO=1` turns an installation
+  into a demo anyone can open with published credentials, on the made-up Lapis Labs organization that `pitangus demo
+  --full --recorded-only` builds without engines or network. The server, not the panel, enforces it: it answers 403
+  (`public_demo`) to everything but reading, signing in and out and the evidence PDFs; only the demo account can sign in;
+  nothing runs in the background and no connection leaves the API process; and it refuses to start with integration
+  credentials set or with EUVD, the CVE sync, secret validation or the embedded worker on. The panel shows a read-only
+  notice and the sign-in page shows the demo credentials. `deploy/demo/` brings it up on any VPS behind a tunnel.
 - **A "Supply chain" page** ([docs/supply-chain.md](docs/supply-chain.md)): what is pinned by digest or commit, how
   release images are built and signed, and the commands to verify one before installing it.
 - **OpenSSF Scorecard** (`.github/workflows/scorecard.yml`) on every push to `main`, weekly and when branch
@@ -39,6 +54,8 @@ between minor versions: anything that changes behaviour is called out below.
   issues.
 - **The security policy** ([`.github/SECURITY.md`](.github/SECURITY.md)) is complete: private reporting link, what to
   include, response targets, coordinated disclosure, supported versions (the latest minor line) and scope.
+- **Every new feature and fix needs tests**, now written in CONTRIBUTING and the pull request template, and the
+  README shows the OpenSSF Best Practices badge (passing).
 
 ### Fixed
 
