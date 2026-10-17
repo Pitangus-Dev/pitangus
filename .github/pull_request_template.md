@@ -6,6 +6,7 @@
 
 **Checklist** ([CONTRIBUTING.md](https://github.com/Pitangus-Dev/pitangus/blob/main/.github/CONTRIBUTING.md))
 - [ ] `make check` passes
+- [ ] New functionality or fixes come with automated tests
 - [ ] If it touches `web/src`: `make web` rebuilt `pitangus/app/static`
 - [ ] If it changes a route or an API schema: `make openapi`
 - [ ] Text people read is in the English and Spanish catalogs; docs updated in `docs/` and `docs/es/`
