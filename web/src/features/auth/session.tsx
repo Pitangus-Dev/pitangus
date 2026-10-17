@@ -10,13 +10,15 @@ import { Account } from '@/features/auth/account'
 import { SkeletonCard, Splash } from '@/shared/ui/loading'
 import { LocaleSwitch } from '@/shared/i18n/locale-switch'
 import { Notice } from '@/shared/ui/notice'
+import { PublicDemoCredentials, type PublicDemo } from '@/features/auth/public-demo'
 
 export type SessionUser = { id: string; username: string; display_name: string; role: 'admin' | 'member'; totp_enabled: boolean; last_login_at: string | null; disabled?: boolean; created_at?: string; has_password?: boolean; pending_link?: 'invite' | 'reset' | null }
 
 // El token del enlace viaja en el fragmento (#link=…): el navegador no lo manda al servidor ni en el Referer.
 const linkToken = () => new URLSearchParams(window.location.hash.slice(1)).get('link')
-type SessionState = { authenticated: true; user: SessionUser; mfa: boolean; totp_required: boolean } | { authenticated: false; setup_required: boolean }
-export type SessionActions = { logout: () => Promise<void>; reload: () => Promise<void> }
+type SessionState = ({ authenticated: true; user: SessionUser; mfa: boolean; totp_required: boolean } | { authenticated: false; setup_required: boolean }) & { public_demo?: PublicDemo | null }
+// `publicDemo`: this server is the public read-only demo (the server refuses every change; the panel only says so).
+export type SessionActions = { logout: () => Promise<void>; reload: () => Promise<void>; publicDemo: boolean }
 
 // La puerta de todo el panel: nada se pinta ni se pide al servidor hasta que hay sesión.
 export function SessionGate({ children }: { children: (user: SessionUser, actions: SessionActions) => ReactNode }) {
@@ -32,7 +34,7 @@ export function SessionGate({ children }: { children: (user: SessionUser, action
       .then(next => window.setTimeout(() => setState(next), Math.max(0, 500 - (Date.now() - started))))
   }, [])
   useEffect(() => {
-    const expired = () => { setNotice(t('session_expired')); setState(previous => previous?.authenticated ? { authenticated: false, setup_required: false } : previous) }
+    const expired = () => { setNotice(t('session_expired')); setState(previous => previous?.authenticated ? { authenticated: false, setup_required: false, public_demo: previous.public_demo } : previous) }
     const enrol = () => { void reload() }
     const follow = () => { const token = linkToken(); if (token) setLink(token) }
     window.addEventListener('hashchange', follow)
@@ -41,7 +43,7 @@ export function SessionGate({ children }: { children: (user: SessionUser, action
     return () => { window.removeEventListener(UNAUTHORIZED_EVENT, expired); window.removeEventListener(TOTP_REQUIRED_EVENT, enrol); window.removeEventListener('hashchange', follow) }
   }, [reload, t])
   const logout = useCallback(async () => {
-    try { await api.post('/api/auth/logout', 'logout', {}) } finally { setNotice(''); setState({ authenticated: false, setup_required: false }) }
+    try { await api.post('/api/auth/logout', 'logout', {}) } finally { setNotice(''); setState(previous => ({ authenticated: false, setup_required: false, public_demo: previous?.public_demo })) }
   }, [])
   const leaveLink = () => { window.history.replaceState(null, '', window.location.pathname); setLink(null) }
   if (link) return <LinkView token={link} onDone={() => { leaveLink(); void reload() }} onCancel={leaveLink} />
@@ -51,8 +53,8 @@ export function SessionGate({ children }: { children: (user: SessionUser, action
     <Account user={state.user} onChanged={reload} only="totp" />
     <Button variant="ghost" size="sm" onClick={() => void logout()} className="text-app-muted"><SignOutIcon />{t('sign_out')}</Button>
   </Shell>
-  if (!state.authenticated) return <LoginView setupRequired={state.setup_required} notice={notice} onDone={() => { setNotice(''); void reload() }} />
-  return <>{children(state.user, { logout, reload })}</>
+  if (!state.authenticated) return <LoginView setupRequired={state.setup_required} demo={state.public_demo ?? null} notice={notice} onDone={() => { setNotice(''); void reload() }} />
+  return <>{children(state.user, { logout, reload, publicDemo: !!state.public_demo })}</>
 }
 
 function Shell({ children, narrow }: { children: ReactNode; narrow?: boolean }) {
@@ -110,10 +112,10 @@ function LinkView({ token, onDone, onCancel }: { token: string; onDone: () => vo
       : <SkeletonCard lines={3} label={t('link.checking_label')} />}</CardContent></Card></Shell>
 }
 
-function LoginView({ setupRequired, notice, onDone }: { setupRequired: boolean; notice: string; onDone: () => void }) {
+function LoginView({ setupRequired, demo, notice, onDone }: { setupRequired: boolean; demo: PublicDemo | null; notice: string; onDone: () => void }) {
   const { t } = useTranslation('auth')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState(demo?.username ?? '')
+  const [password, setPassword] = useState(demo?.password ?? '')
   const [challenge, setChallenge] = useState<string | null>(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -141,9 +143,10 @@ function LoginView({ setupRequired, notice, onDone }: { setupRequired: boolean; 
     <div className="w-full max-w-sm space-y-6">
       <ShellHeader />
       {setupRequired ? <SetupCard onDone={onDone} />
-      : <Card className="border-app-line bg-panel"><CardHeader><CardTitle level={1} className="flex items-center gap-2">{challenge ? <><ShieldCheckIcon className="size-4" />{t('login.second_factor')}</> : <><LockKeyIcon className="size-4" />{t('login.title')}</>}</CardTitle><CardDescription>{challenge ? t('login.code_hint') : t('login.credentials_hint')}</CardDescription></CardHeader>
+      : <Card className="border-app-line bg-panel"><CardHeader><CardTitle level={1} className="flex items-center gap-2">{challenge ? <><ShieldCheckIcon className="size-4" />{t('login.second_factor')}</> : <><LockKeyIcon className="size-4" />{t('login.title')}</>}</CardTitle>{(challenge || !demo) && <CardDescription>{challenge ? t('login.code_hint') : t('login.credentials_hint')}</CardDescription>}</CardHeader>
         <CardContent><form className="space-y-4" onSubmit={submit}>
           {notice && !error && <Notice role="status" tone="attention" className="text-xs">{notice}</Notice>}
+          {demo && !challenge && <PublicDemoCredentials demo={demo} />}
           {challenge ? <div className="space-y-1.5"><label htmlFor="login-code" className="text-xs text-app-muted">{t('fields.code')}</label><Input id="login-code" autoFocus required autoComplete="one-time-code" inputMode="numeric" maxLength={11} value={code} onChange={event => setCode(event.target.value)} placeholder="123456" className="border-input bg-card font-mono tracking-widest" /></div>
           : <><div className="space-y-1.5"><label htmlFor="login-user" className="text-xs text-app-muted">{t('fields.username')}</label><Input id="login-user" autoFocus required autoComplete="username" maxLength={40} value={username} onChange={event => setUsername(event.target.value)} className="border-input bg-card" /></div>
             <div className="space-y-1.5"><label htmlFor="login-password" className="text-xs text-app-muted">{t('fields.password')}</label><Input id="login-password" type="password" required autoComplete="current-password" maxLength={256} value={password} onChange={event => setPassword(event.target.value)} className="border-input bg-card" /></div></>}
@@ -151,7 +154,7 @@ function LoginView({ setupRequired, notice, onDone }: { setupRequired: boolean; 
           <Button type="submit" disabled={busy} className="w-full">{busy ? <CircleNotchIcon className="animate-spin" /> : <KeyIcon />}{challenge ? t('login.verify') : t('login.enter')}</Button>
           {challenge && <button type="button" onClick={() => { setChallenge(null); setCode(''); setError('') }} className="w-full text-center text-xs text-app-subtle hover:text-app-fg">{t('login.back_to_password')}</button>}
         </form></CardContent></Card>}
-      <p className="text-center text-xs text-app-subtle">{t('login.forgot')}</p>
+      {!demo && <p className="text-center text-xs text-app-subtle">{t('login.forgot')}</p>}
     </div>
   </div>
 }

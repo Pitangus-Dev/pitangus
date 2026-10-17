@@ -146,6 +146,9 @@ def build_parser() -> argparse.ArgumentParser:
                            "real data, and nothing removes it: use a trial install")
     demo.add_argument("--recordings", type=Path, default=Path("tests"),
                       help="Folder with the recorded engine outputs (fixtures/ and engine-outputs/), for --full")
+    demo.add_argument("--recorded-only", action="store_true",
+                      help="Analyze nothing (no engines, Docker or network): only the example threat model and, with --full, "
+                           "the fictional organization from the recordings. What the public demo is built with (deploy/demo)")
     commands.add_parser("providers", help="Show which AI providers have a credential on the server")
     commands.add_parser("github-app", help="Status of this server's GitHub App (no secrets)")
     engines = commands.add_parser("engines", help="Status of the analysis engine images")
@@ -201,6 +204,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "import-sarif" and args.server:
         return _import_remote(args)  # a client: no database here
     args.data_dir = args.data_dir or Path(settings.text("PITANGUS_DATA_DIR") or "data")
+    if (args.command == "worker" and not args.check) or args.command == "periodic":
+        from pitangus.app import public_demo
+        if public_demo.enabled():
+            print(t("cli.public_demo.no_background"), file=sys.stderr)
+            return 1
     if args.command == "check-config" or args.command == "serve" or (args.command == "worker" and not args.check):
         problems = settings.problems()
         if problems:
@@ -266,8 +274,8 @@ def main(argv: list[str] | None = None) -> int:
             from pitangus.app.demo import seed
             from pitangus.modules.scanning.image import ImageError
             try:
-                result = seed(args.data_dir, fixtures=args.fixtures, models=args.models, image=args.image,
-                              report=lambda message: print(_say(message), flush=True))
+                result = seed(args.data_dir, fixtures=args.fixtures, models=args.models, image=None if args.recorded_only else args.image,
+                              analyze=not args.recorded_only, report=lambda message: print(_say(message), flush=True))
             except (FileNotFoundError, ImageError) as exc:
                 parser.exit(1, t("cli.error", detail=_detail(exc)) + "\n")
             if args.full:
@@ -278,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
                 except FileNotFoundError as exc:
                     parser.exit(1, t("cli.error", detail=_detail(exc)) + "\n")
             print(t("cli.demo.ready_full" if args.full else "cli.demo.ready"))
-            return 0 if result.get("code", {}).get("status") == "completed" else 3
+            return 0 if args.recorded_only or result.get("code", {}).get("status") == "completed" else 3
         if args.command == "providers":
             print(_json(provider_status()))
             return 0

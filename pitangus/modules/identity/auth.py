@@ -57,6 +57,7 @@ USERNAME_PATTERN = re.compile(r"[a-z0-9](?:[a-z0-9._-]{1,38}[a-z0-9])?")
 PASSWORD_MIN, PASSWORD_MAX = 12, 256
 SCRYPT = {"n": 2 ** 15, "r": 8, "p": 1}
 SESSION_TTL = 12 * 3600
+PUBLIC_SESSIONS = 500  # sessions kept for an account whose password is published (the public demo)
 CHALLENGE_TTL = 300
 CHALLENGE_FAILURES = 3
 TOTP_STEP, TOTP_DIGITS = 30, 6
@@ -476,13 +477,19 @@ class Sessions:
     def _sign(self, session_id: str) -> str:
         return hmac.new(self._key, session_id.encode("ascii"), hashlib.sha256).hexdigest()[:32]
 
-    def issue(self, user: dict, *, mfa: bool) -> str:
+    def issue(self, user: dict, *, mfa: bool, keep: int | None = None) -> str:
+        """`keep`: at most this many sessions for the user, the oldest closed first (an account whose password is public)."""
         session_id = secrets.token_urlsafe(32)
         now = time.time()
         record = {"user_id": user["id"], "created_at": now, "expires_at": now + SESSION_TTL, "mfa": mfa,
                   "password_changed_at": user.get("password_changed_at")}
         with db.transaction(self.data_dir) as connection:
             connection.execute(delete(sessions).where(sessions.c.tenant_id == TENANT, sessions.c.expires_at <= now))
+            if keep is not None:
+                newest = select(sessions.c.id).where(sessions.c.tenant_id == TENANT, sessions.c.user_id == user["id"]) \
+                    .order_by(sessions.c.expires_at.desc()).limit(max(0, keep - 1))
+                connection.execute(delete(sessions).where(sessions.c.tenant_id == TENANT, sessions.c.user_id == user["id"],
+                                                          sessions.c.id.not_in(newest)))
             connection.execute(insert(sessions).values(tenant_id=TENANT, id=hashlib.sha256(session_id.encode("ascii")).hexdigest(),
                                                        user_id=user["id"], expires_at=record["expires_at"], record=record))
         return f"{session_id}.{self._sign(session_id)}"
@@ -668,13 +675,20 @@ class Authenticator:
             return {"challenge": self.sessions.open_challenge(user["id"], client)}
         return self._complete(user, client, mfa=False)
 
-    def login(self, username, password, client: str) -> dict:
-        """First step. Returns {"session": cookie}, or {"challenge": token} if TOTP is still needed."""
+    def login(self, username, password, client: str, *, public_account: str | None = None) -> dict:
+        """First step. Returns {"session": cookie}, or {"challenge": token} if TOTP is still needed.
+
+        `public_account`: the only username that may sign in, one whose password is published (the public demo). Its
+        failures lock out the address, never the account (anyone could lock everyone out), and it keeps at most
+        PUBLIC_SESSIONS sessions (anyone could pile them up)."""
         key = normalize_username(username, strict=False) if isinstance(username, str) else ""
         if not key or not isinstance(password, str) or len(password) > PASSWORD_MAX:
             raise AuthError(msg("auth.errors.bad_credentials"))
+        if public_account is not None and key != public_account:
+            _log.warning("login_failed", extra={"user": key, "client": client, "reason": "not the public account"})
+            raise AuthError(msg("auth.errors.bad_credentials"))
         # The address first: once it is locked out, made-up usernames from it add no rows.
-        for scope in (f"client:{client}", f"user:{key}"):
+        for scope in (f"client:{client}",) if public_account is not None else (f"client:{client}", f"user:{key}"):
             wait = self.throttle.reserve(scope)
             if wait:
                 _log.warning("login_blocked", extra={"user": key, "client": client, "retry_in": wait})
@@ -690,7 +704,7 @@ class Authenticator:
         if user["totp"].get("enabled"):
             _log.info("login_password_ok", extra={"user": key, "client": client, "next": "totp"})
             return {"challenge": self.sessions.open_challenge(user["id"], client)}
-        return self._complete(user, client, mfa=False)
+        return self._complete(user, client, mfa=False, keep=PUBLIC_SESSIONS if public_account is not None else None)
 
     def second_factor(self, token, code, client: str) -> dict:
         user_id = self.sessions.peek_challenge(token, client)
@@ -711,12 +725,12 @@ class Authenticator:
         self.sessions.close_challenge(token)
         return self._complete(user, client, mfa=True)
 
-    def _complete(self, user: dict, client: str, *, mfa: bool) -> dict:
+    def _complete(self, user: dict, client: str, *, mfa: bool, keep: int | None = None) -> dict:
         self.throttle.succeeded(f"user:{user['username']}")
         self.throttle.succeeded(f"client:{client}")
         self.users.touch_login(user["id"])
         _log.info("login_ok", extra={"user": user["username"], "client": client, "mfa": mfa})
-        return {"session": self.sessions.issue(user, mfa=mfa), "user": self.users.public(user)}
+        return {"session": self.sessions.issue(user, mfa=mfa, keep=keep), "user": self.users.public(user)}
 
     def current(self, cookie_header: str | None) -> tuple[dict | None, dict | None]:
         session = self.sessions.resolve(parse_cookie(cookie_header))

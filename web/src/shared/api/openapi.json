@@ -8394,6 +8394,16 @@
           "totp_policy": {
             "type": "string",
             "title": "Totp Policy"
+          },
+          "public_demo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicDemo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -14994,6 +15004,16 @@
           "setup_required": {
             "type": "boolean",
             "title": "Setup Required"
+          },
+          "public_demo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicDemo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -15274,6 +15294,32 @@
           "configured"
         ],
         "title": "ProviderStatus"
+      },
+      "PublicDemo": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "PublicDemo",
+        "description": "The public demo's account, published on purpose (the sign-in page shows it); absent on any other server."
       },
       "PublicUser": {
         "properties": {

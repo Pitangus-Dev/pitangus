@@ -73,7 +73,9 @@
     "invalid_key": "{{name}} must be 32 random bytes in base64. Generate one with: openssl rand -base64 32",
     "short_token": "{{name}} is too short: use at least 32 characters (openssl rand -hex 32).",
     "ok": "Configuration: no problems found.",
-    "invalid_addresses": "{{name}}={{value}} isn't a comma-separated list of IP addresses or CIDR ranges (at most {{max}}), such as 203.0.113.10, 2001:db8::/48."
+    "invalid_addresses": "{{name}}={{value}} isn't a comma-separated list of IP addresses or CIDR ranges (at most {{max}}), such as 203.0.113.10, 2001:db8::/48.",
+    "public_demo_unset": "{{name}} must be empty in the public demo (PITANGUS_PUBLIC_DEMO): it reaches services outside this server.",
+    "public_demo_off": "{{name}} must be 0 in the public demo (PITANGUS_PUBLIC_DEMO): it works in the background or calls outside this server."
   },
   "setup_code": {
     "code": "Setup code: {{code}}",
@@ -102,5 +104,8 @@
     "title_scan": "Canonical identity gate: {{path}} scanned twice on the same commit",
     "incomplete": "A scan was incomplete: an engine didn't run, so nothing is proven.",
     "failed_scan": "Gate not passed: the same commit changed between two scans, or a scan was incomplete."
+  },
+  "public_demo": {
+    "no_background": "This is a public demo (PITANGUS_PUBLIC_DEMO): it runs no analyses or periodic tasks, so there is no worker to start."
   }
 }

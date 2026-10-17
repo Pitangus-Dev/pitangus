@@ -1,0 +1,178 @@
+# Pitangus public demo: read-only, made-up data (Lapis Labs), reachable only through a Cloudflare Tunnel.
+# Guide: deploy/demo/README.md (English) · deploy/demo/README.es.md (español).
+#
+#   cp deploy/demo/demo.env.example deploy/demo/.env    # then fill in the domain and the tunnel token
+#   sh deploy/demo/reset.sh                             # builds, seeds and starts it; run it daily from cron
+#
+# What runs: `postgres` (in memory: every start is a clean database), `seed` (once per start: builds the demo from the
+# recorded engine outputs in this repository, offline, then exits), `api` (the panel with PITANGUS_PUBLIC_DEMO=1) and
+# `tunnel` (cloudflared). No worker, no Docker socket, no published ports. `api`, `seed` and `postgres` sit on an
+# internal network with no route out; only `tunnel` reaches the internet, to Cloudflare.
+name: pitangus-demo
+
+x-app: &app
+  build:
+    context: ../..
+    dockerfile: docker/app/Dockerfile
+    target: app
+    args:
+      VERSION: ${PITANGUS_VERSION:-0.15}
+  image: ${PITANGUS_DEMO_IMAGE:-localhost/pitangus/app:demo}
+  init: true
+  user: "10001:10001"
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  networks:
+    - inside
+  env_file:
+    - path: generated.env  # written by reset.sh: demo password, master key, database password
+      required: true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-env: &env
+  PITANGUS_DATABASE_URL: "postgresql+psycopg://pitangus:${PITANGUS_DB_PASSWORD:?run reset.sh}@postgres:5432/pitangus"
+  PITANGUS_PUBLIC_URL: "https://${PITANGUS_DEMO_DOMAIN:?set PITANGUS_DEMO_DOMAIN in deploy/demo/.env}"
+  PITANGUS_ALLOWED_ORIGINS: "https://${PITANGUS_DEMO_DOMAIN}"
+  PITANGUS_DEFAULT_LOCALE: "${PITANGUS_DEFAULT_LOCALE:-en}"
+  PITANGUS_PUBLIC_DEMO: "1"
+  PITANGUS_PUBLIC_DEMO_USER: demo
+  PITANGUS_EMBEDDED_WORKER: "0"
+  PITANGUS_EUVD: "0"
+  PITANGUS_CVE_SYNC: "0"
+  PITANGUS_REQUIRE_TOTP: admins
+  PITANGUS_LOG_FILE: ""
+  PITANGUS_LOG_FORMAT: json
+  PITANGUS_DATA_DIR: /data
+  HOME: /home/pitangus
+
+services:
+  postgres:
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: pitangus
+      POSTGRES_DB: pitangus
+      POSTGRES_PASSWORD: "${PITANGUS_DB_PASSWORD:?run reset.sh}"
+    # In memory: a restart is the daily reset. The demo's data is a few megabytes.
+    tmpfs:
+      - /var/lib/postgresql:size=256m
+      - /var/run/postgresql:size=1m
+    read_only: true
+    networks:
+      - inside
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 64mb
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pitangus -d pitangus"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Once per start: the admin (random password nobody sees; it can't sign in to the demo), the demo account and Lapis
+  # Labs, from the recordings in tests/ (pitangus demo --full --recorded-only). Offline: no engines, no network.
+  seed:
+    <<: *app
+    command: ["sh", "/demo/seed.sh"]
+    environment: *env
+    tmpfs:
+      - /tmp:size=64m
+      - /data:size=64m,uid=10001,gid=10001
+      - /home/pitangus:size=8m,uid=10001,gid=10001
+    volumes:
+      - ./seed.sh:/demo/seed.sh:ro
+      - ../../fixtures:/demo/fixtures:ro
+      - ../../web/src/examples/threat-models:/demo/models:ro
+      - ../../tests/fixtures:/demo/recordings/fixtures:ro
+      - ../../tests/engine-outputs:/demo/recordings/engine-outputs:ro
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    environment:
+      <<: *env
+      # Only cloudflared (on this internal network) reaches the API: its X-Forwarded-For carries the visitor's address,
+      # which sign-in throttling needs.
+      PITANGUS_FORWARDED_ALLOW_IPS: "${PITANGUS_DEMO_SUBNET:-172.29.80.0/24}"
+    tmpfs:
+      - /tmp:size=64m
+      - /data:size=64m,uid=10001,gid=10001
+      - /home/pitangus:size=8m,uid=10001,gid=10001
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 128
+    restart: unless-stopped
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,urllib.parse as p,urllib.request as r; h=p.urlsplit(os.environ['PITANGUS_ALLOWED_ORIGINS'].split(',')[0].strip()).netloc; sys.exit(0 if r.urlopen(r.Request('http://127.0.0.1:8766/api/health', headers={'Host': h}), timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  # Cloudflare Tunnel: an outbound connection to Cloudflare, so the server needs no open port. In Cloudflare, the
+  # tunnel's public hostname (your demo domain) points to http://api:8766.
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:-}"  # reset.sh refuses to start without it
+    networks:
+      - inside
+      - outside
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  inside:
+    internal: true  # no route to the internet: the API can't call out even if something tried
+    ipam:
+      config:
+        - subnet: "${PITANGUS_DEMO_SUBNET:-172.29.80.0/24}"
+  outside: {}

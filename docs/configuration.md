@@ -59,6 +59,7 @@ Every variable is optional and goes in `.env` (a copy of `.env.example`). After 
 | `PITANGUS_LOG_FILE` | empty (Compose: `logs/app.log`) | Also write JSON logs to this file, rotated at 10 MB × 5; a relative path is under the data folder. |
 | `PITANGUS_METRICS_TOKEN` | empty (off) | Turns on `/api/metrics` (Prometheus) for requests with `Authorization: Bearer <token>`. At least 32 characters: `openssl rand -hex 32`. |
 | `PITANGUS_IMPORT_TOKEN` | empty (off) | Turns on `POST /api/ci/sarif`, which lets CI import another tool's SARIF 2.1.0 into an existing asset with `Authorization: Bearer <token>` (no session). At least 32 characters: `openssl rand -hex 32`. Also what `pitangus import-sarif --server` sends, read from the environment. |
+| `PITANGUS_PUBLIC_DEMO` + `PITANGUS_PUBLIC_DEMO_USER` / `PITANGUS_PUBLIC_DEMO_PASSWORD` | off · `demo` / empty | Only for a public demo with made-up data ([deploy/demo](../deploy/demo/README.md)). The server refuses every change (all but signing in and out and the evidence PDFs), runs nothing in the background, opens no network connection and lets only that account sign in; the sign-in page shows its password. It refuses to start with integration credentials set or with `PITANGUS_EUVD`, `PITANGUS_CVE_SYNC`, `PITANGUS_SECRET_VALIDATION` or `PITANGUS_EMBEDDED_WORKER` on. |
 
 ## Analysis engines
 

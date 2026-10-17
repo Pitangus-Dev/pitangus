@@ -74,5 +74,6 @@
   },
   "cron_token_required": "Send the cron token as a bearer token (Authorization: Bearer …)",
   "import_token_required": "Send the import token as a bearer token (Authorization: Bearer …)",
-  "finding_from_import": "{{tool}} reported this finding: import a new full SARIF from {{tool}} to check whether it's still there"
+  "finding_from_import": "{{tool}} reported this finding: import a new full SARIF from {{tool}} to check whether it's still there",
+  "public_demo_read_only": "This is a public read-only demo with made-up data: nothing here can be changed. Install Pitangus on your own server to try it for real."
 }

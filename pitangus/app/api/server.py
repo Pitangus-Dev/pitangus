@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from pitangus.shared import log as logging_setup, settings
-from pitangus.app import data_migrations as migrations, wiring
+from pitangus.app import data_migrations as migrations, public_demo, wiring
 from pitangus.app.api.security import State, public_url
 from pitangus.modules.identity.auth import Authenticator
 from pitangus.modules.runs import periodic
@@ -24,6 +24,10 @@ def build_state(data_dir: Path, *, watch_pull_requests: bool = False, worker: bo
     wiring.configure()
     migrations.upgrade(data_dir)  # before anything reads: an upgrade converts old data exactly once
     embedded = embedded_worker() if worker is None else worker
+    if public_demo.enabled():
+        # Nothing runs in the background and nothing leaves this process: the demo only shows what was recorded.
+        embedded = False
+        public_demo.seal_outbound()
     state = State(data_dir=data_dir, log=logging_setup.configure(data_dir), jobs=ScanJobs(data_dir, worker=embedded),
                   auth=Authenticator(data_dir))
     if watch_pull_requests and embedded and not periodic.external():
