@@ -18,10 +18,20 @@ FAKE = """#!/bin/sh
 printf '{"args": "%s", "home": "%s", "db": "%s", "key": "%s", "cache": "%s"}\\n' "$*" "$HOME" "$PITANGUS_DATABASE_URL" "$PITANGUS_MASTER_KEY" "$OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY"
 cat "$2/app.py" >&2
 """
+# Writes its own PID and its child's, so the test checks those processes and nothing else on the machine.
 SLEEPER = """#!/bin/sh
 sleep 30 &
+echo "$$ $!" > '{pids}'
 wait
 """
+
+
+def alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:  # gone, or reused by another user's process
+        return False
+    return True
 
 
 class LocalRunnerTests(unittest.TestCase):
@@ -65,13 +75,19 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertTrue(engines.engines_available())
 
     def test_a_timeout_kills_the_engine_and_what_it_started(self):
-        self.install("zizmor", SLEEPER)
+        pids = Path(self.directory.name) / "pids"
+        self.install("zizmor", SLEEPER.format(pids=pids))
         started = time.monotonic()
         with self.assertRaises(subprocess.TimeoutExpired):
             engines._run("zizmor", ["/src"], self.snapshot, timeout=1)
         self.assertLess(time.monotonic() - started, 10)
-        leftovers = subprocess.run(["pgrep", "-f", "sleep 30"], capture_output=True, text=True).stdout.split()
-        self.assertEqual([pid for pid in leftovers if int(pid) != os.getpid()], [])
+        started_pids = [int(pid) for pid in pids.read_text().split()]
+        self.assertEqual(len(started_pids), 2)
+        # The orphaned child is reaped by init, not by us: give it a moment before calling it a leftover.
+        deadline = time.monotonic() + 5
+        while (leftovers := [pid for pid in started_pids if alive(pid)]) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertEqual(leftovers, [])
 
     def test_opengrep_rule_ids_are_the_same_whatever_the_rules_folder(self):
         self.assertEqual(engines._rule_id("rules.appsec.py.eval-exec-non-literal"), "appsec.py.eval-exec-non-literal")
