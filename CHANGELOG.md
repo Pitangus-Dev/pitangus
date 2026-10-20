@@ -7,6 +7,22 @@ between minor versions: anything that changes behaviour is called out below.
 
 ## [Unreleased]
 
+### Security
+
+- **Pillow 13.0.0** (was 12.3.0; it comes with ReportLab, which draws the PDF reports). Fixes GHSA-8g5g-8vmr-9782
+  (CVE-2026-112403, critical: heap overflow decoding a lossless JPEG), GHSA-58r4-6rv3-gfh8, GHSA-65qm-jvmh-6pqg,
+  GHSA-q45j-58j2-45rg, GHSA-pchr-8j38-3x4p, GHSA-p4wg-p73j-c528, GHSA-c6hw-5grf-ff96 (high), GHSA-vx6w-vv9f-6gvg and
+  GHSA-462x-pgg6-55fp (medium). Pitangus only hands Pillow its own logo (a PNG in the package), never an image or PDF
+  from a user or a repository, so none of these was reachable; the image no longer carries them. Pillow 13's removed
+  APIs aren't used by Pitangus or by ReportLab 5.0.1, and the reports render the same.
+- **certifi 2026.10.19** (was 2026.7.22): GHSA-6q48-6c7w-9gw2 (critical), the emSign root whose intermediate CAs had
+  their keys compromised. certifi is only in the development lock (the tests' HTTP client) and in Checkov's environment
+  in the `pitangus-worker` image, where Checkov runs without network; the app image doesn't carry it.
+- **aiohttp 3.14.4** (was 3.14.3) in Checkov's environment in the `pitangus-worker` image: GHSA-9xw5-w5jj-pvcg,
+  GHSA-5wr8-gcqf-gqf3, GHSA-2g87-pp6c-29x5 (high), GHSA-f9xw-jh8m-3mwq, GHSA-6cjc-53gc-5rqm, GHSA-pqxq-w44r-73xw
+  (medium), GHSA-gx76-c99x-2c96 and GHSA-494j-54xm-rwp3 (low). Most are in aiohttp's server, which Checkov doesn't run,
+  and Checkov makes no connections in Pitangus. Checkov 3.3.19 allows it (`aiohttp<3.15`), so no override is needed.
+
 ## [0.15.1] - 2026-10-17
 
 ### Upgrade notes
