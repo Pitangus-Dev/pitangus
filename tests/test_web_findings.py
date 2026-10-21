@@ -3,6 +3,7 @@ fragment of the evidence, a curl check of the headers, a web priority factor) an
 
 import json
 import shlex
+import time
 import unittest
 from pathlib import Path
 
@@ -88,6 +89,12 @@ class DerivedTests(unittest.TestCase):
         server = served(zap_finding("10036", "The web/application server is leaking version information", "nginx/1.18.0 (Ubuntu)"))
         self.assertEqual(server["fix"]["web"]["highlight"]["match"], "1.18.0")
         self.assertEqual(server["fix"]["commands"][0]["action"], "check")
+
+    def test_server_version_is_found_in_linear_time_after_a_long_run_of_digits(self):
+        started = time.monotonic()
+        highlight = web_fix.highlight({"rule_id": "10036", "web": {"evidence": "9" * 100_000 + " nginx/1.18.0"}}, "")
+        self.assertLess(time.monotonic() - started, 2)  # quadratic before: about a minute
+        self.assertEqual(highlight["match"], "1.18.0")
 
     def test_only_header_rules_on_get_get_a_check(self):
         self.assertIsNone(served(zap_finding("10096", "1831565813", "1831565813"))["fix"]["web"]["check"])

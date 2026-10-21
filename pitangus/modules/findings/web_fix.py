@@ -36,7 +36,8 @@ NUCLEI_HEADER_TEMPLATES = frozenset(("http-missing-security-headers",))
 HEADER_NAME = re.compile(r"[a-z0-9][a-z0-9-]{1,60}")
 URL = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 CSP_SOURCE = re.compile(r"\b([a-z-]+-src(?:-elem|-attr)?)\s+includes\s+(unsafe-[a-z]+)", re.IGNORECASE)
-VERSION = re.compile(r"\d+(?:\.\d+)+[\w.-]*")
+# Never from the middle of a run of digits: a long run without a dot would be tried from each of them (quadratic).
+VERSION = re.compile(r"(?<!\d)\d+(?:\.\d+)+[\w.-]*")
 VERIFY_WEB = msg("findings.fix.verify_web")
 WEB_FACTORS = ("findings.web.factor.header", "findings.web.factor.cookie", "findings.web.factor.info", "findings.web.factor.attack",
                "findings.web.factor.observed", "scanning.priority.confirm_reachability")

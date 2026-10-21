@@ -22,6 +22,18 @@ between minor versions: anything that changes behaviour is called out below.
   GHSA-5wr8-gcqf-gqf3, GHSA-2g87-pp6c-29x5 (high), GHSA-f9xw-jh8m-3mwq, GHSA-6cjc-53gc-5rqm, GHSA-pqxq-w44r-73xw
   (medium), GHSA-gx76-c99x-2c96 and GHSA-494j-54xm-rwp3 (low). Most are in aiohttp's server, which Checkov doesn't run,
   and Checkov makes no connections in Pitangus. Checkov 3.3.19 allows it (`aiohttp<3.15`), so no override is needed.
+- **Image scan: a history step can no longer hang the worker.** Rebuilding the Dockerfile from an image's history
+  read the build arguments of a `RUN |N KEY=value …` step with a pattern that backtracked exponentially when the values
+  carried `=` (base64 padding, for instance) and no `/bin/sh -c` followed: about forty such arguments kept a worker busy
+  for good. Argument names can't contain `=` any more, so it is read in linear time with the same result (CodeQL
+  py/redos).
+- **Hardening found by CodeQL's first analysis** (none was exploitable): the domain proofs and the reachability check
+  require TLS 1.2 or later explicitly, instead of relying on the interpreter's default; the server version in a web
+  finding's evidence and the `requirements*.txt` name check no longer take quadratic time on long input (both inputs
+  were already short).
+- **CodeQL leaves the tests out** (`tests/` and the panel's `*.test.ts(x)`), as it already did with `fixtures/` and
+  `rules/tests/`: they plant made-up secrets and hostile input on purpose. The demo sample's `osv-scanner.toml`
+  declares two newer lodash 4.17.20 advisories (GHSA-xxjr-mmjv-4gpg, GHSA-r5fr-rjxr-66jc), which the demo still shows.
 
 ## [0.15.1] - 2026-10-17
 

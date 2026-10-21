@@ -17,7 +17,15 @@ id = "GHSA-35jh-r3h4-6jhm"  # lodash 4.17.20, command injection in template (CVE
 reason = "Deliberately vulnerable demo input: `make demo` scans this folder so that this advisory shows up as a finding. Nothing here is installed, built or run: there is no node_modules, and no Pitangus code, image or release uses this package."
 
 [[IgnoredVulns]]
-id = "GHSA-f23m-r3pf-42rh"  # lodash 4.17.20, prototype pollution in unset/omit (CVE-2025-13465)
+id = "GHSA-f23m-r3pf-42rh"  # lodash 4.17.20, prototype pollution in unset/omit via array paths (CVE-2026-2950)
+reason = "Deliberately vulnerable demo input: `make demo` scans this folder so that this advisory shows up as a finding. Nothing here is installed, built or run: there is no node_modules, and no Pitangus code, image or release uses this package."
+
+[[IgnoredVulns]]
+id = "GHSA-xxjr-mmjv-4gpg"  # lodash 4.17.20, prototype pollution in unset/omit (CVE-2025-13465)
+reason = "Deliberately vulnerable demo input: `make demo` scans this folder so that this advisory shows up as a finding. Nothing here is installed, built or run: there is no node_modules, and no Pitangus code, image or release uses this package."
+
+[[IgnoredVulns]]
+id = "GHSA-r5fr-rjxr-66jc"  # lodash 4.17.20, code injection through template's imports key names (CVE-2026-4800)
 reason = "Deliberately vulnerable demo input: `make demo` scans this folder so that this advisory shows up as a finding. Nothing here is installed, built or run: there is no node_modules, and no Pitangus code, image or release uses this package."
 
 [[IgnoredVulns]]

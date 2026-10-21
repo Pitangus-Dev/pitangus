@@ -66,7 +66,7 @@ def manager(path: str, ecosystem: str) -> str | None:
     name = posixpath.basename(path or "").lower()
     if name in MANAGERS:
         return MANAGERS[name]
-    if re.fullmatch(r".*requirements.*\.txt", name):
+    if name.endswith(".txt") and "requirements" in name[:-4]:
         return "pip"
     if name.endswith((".gradle", ".gradle.kts")):
         return "gradle"

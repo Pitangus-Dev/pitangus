@@ -2,6 +2,7 @@
 
 import json
 import logging
+import ssl
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -34,6 +35,11 @@ class RegistryTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.data_dir = Path(self.directory.name)
+
+    def test_https_fetches_validate_the_certificate_and_refuse_anything_below_tls_1_2(self):
+        context = domains.tls_context()
+        self.assertEqual((context.verify_mode, context.check_hostname), (ssl.CERT_REQUIRED, True))
+        self.assertGreaterEqual(context.minimum_version, ssl.TLSVersion.TLSv1_2)
 
     def test_verification_counts_for_ninety_days_and_the_recheck_extends_or_withdraws_it(self):
         record = domains.register_domain(self.data_dir, f"https://{HOST}/", "api", "Agenda API", by="jefa")

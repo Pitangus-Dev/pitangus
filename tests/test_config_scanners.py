@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -194,6 +195,13 @@ class ImageTests(unittest.TestCase):
         self.assertIn("RUN pip install --trusted-host pypi.example.com flask", lines)
         self.assertIn("EXPOSE 22/tcp 8080/tcp", lines)
         self.assertEqual(step_of[lines.index("USER root") + 1], 8)
+
+    def test_build_arguments_full_of_equals_signs_are_read_in_linear_time(self):
+        text, _ = cs.dockerfile_from_history(["RUN |2 TOKEN=YWJj== SALT=a=b=c /bin/sh -c make # buildkit"])
+        self.assertIn("RUN make", text.splitlines())
+        started = time.monotonic()
+        cs.dockerfile_from_history(["RUN |40" + " KEY==" * 40 + " make # buildkit"])  # exponential before: never ended
+        self.assertLess(time.monotonic() - started, 1)
 
     def test_config_user_and_healthcheck_are_added_when_history_lacks_them(self):
         text, _ = cs.dockerfile_from_history(["RUN /bin/sh -c true # buildkit"], {"User": "101", "Healthcheck": {"Test": ["NONE"]}})
