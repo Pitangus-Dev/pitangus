@@ -9,6 +9,16 @@ between minor versions: anything that changes behaviour is called out below.
 
 ### Security
 
+- **The SSRF checks judge IPv6 addresses that carry an IPv4 by that IPv4.** Python's `ipaddress` calls NAT64 addresses
+  (`64:ff9b::/96`, RFC 6052) global whatever they embed, so on an IPv6-only network with DNS64/NAT64 a domain, registry
+  or webhook whose name resolved to `64:ff9b::a00:1` passed the check and reached 10.0.0.1. One shared check
+  (`pitangus/shared/addresses.py`) now backs the domain probe and verification, the registry check, the webhook URLs and
+  the egress detection: NAT64 well-known and IPv4-mapped (`::ffff:0:0/96`) addresses are public only when their IPv4
+  is; the NAT64 local-use prefix (`64:ff9b:1::/48`, RFC 8215, where the operator decides where the IPv4 sits) and the
+  deprecated IPv4-compatible form (`::/96`, which `ipaddress` also called global) never are; 6to4 (`2002::/16`) and
+  Teredo (`2001::/32`) stay refused as before, and their embedded IPv4 is checked too. A NAT64 prefix of the
+  operator's own (network-specific, any global /96) can't be told apart from a normal address: on such a network, keep
+  the server's own egress filtering.
 - **Pillow 13.0.0** (was 12.3.0; it comes with ReportLab, which draws the PDF reports). Fixes GHSA-8g5g-8vmr-9782
   (CVE-2026-112403, critical: heap overflow decoding a lossless JPEG), GHSA-58r4-6rv3-gfh8, GHSA-65qm-jvmh-6pqg,
   GHSA-q45j-58j2-45rg, GHSA-pchr-8j38-3x4p, GHSA-p4wg-p73j-c528, GHSA-c6hw-5grf-ff96 (high), GHSA-vx6w-vv9f-6gvg and

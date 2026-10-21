@@ -15,6 +15,7 @@ from urllib.error import URLError
 from urllib.request import Request
 
 from pitangus.shared import documents, http, settings
+from pitangus.shared.addresses import is_public
 from pitangus.shared.i18n import msg
 
 SETTING = "PITANGUS_EGRESS_IPS"
@@ -65,7 +66,7 @@ def detect(data_dir: Path, *, by: str) -> dict:
         address = ipaddress.ip_address(raw.decode("ascii").strip())
     except (UnicodeDecodeError, ValueError) as exc:
         raise EgressError(msg("scanning.egress.unexpected")) from exc
-    if not address.is_global:
+    if not is_public(address):
         raise EgressError(msg("scanning.egress.unexpected"))
     documents.save(data_dir, DOCUMENT, {"ip": str(address), "at": datetime.now(timezone.utc).isoformat(), "by": by})
     return current(data_dir)

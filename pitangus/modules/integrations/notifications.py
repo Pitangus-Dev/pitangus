@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import ipaddress
 import json
 import re
 import secrets as token_source
@@ -36,6 +35,7 @@ from sqlalchemy.dialects.postgresql import insert
 from pitangus.modules.integrations.tables import JIRA_CHANNEL, outbox
 from pitangus.shared import db, http, settings
 from pitangus.shared import log as logging_setup
+from pitangus.shared.addresses import is_public
 from pitangus.shared.i18n import default_locale, msg, t, text
 
 _log = logging_setup.get("notifications")
@@ -102,7 +102,7 @@ def check_url(kind: str, url: str) -> str:
             addresses = {info[4][0] for info in socket.getaddrinfo(host, parts.port or 443, proto=socket.IPPROTO_TCP)}
         except OSError as exc:
             raise NotificationError(msg("integrations.notifications.errors.unresolved", host=host)) from exc
-        if not addresses or not all(ipaddress.ip_address(address.split("%")[0]).is_global for address in addresses):
+        if not addresses or not all(is_public(address) for address in addresses):
             raise NotificationError(msg("integrations.notifications.errors.private_host", host=host))
     return url.strip()
 
