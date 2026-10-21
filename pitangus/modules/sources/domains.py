@@ -66,6 +66,7 @@ BODY_LIMIT = 64 * 1024
 FETCH_SECONDS = 10    # a whole HTTPS fetch, however slowly the server answers
 SCOPE_LIMIT = 20      # hosts a scan may list
 LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+HOST_CHARACTERS = re.compile(r"[a-z0-9.-]{1,253}")
 
 
 # Demo data (`pitangus demo --full`) registers its domains as this, under names reserved for documentation (RFC 2606).
@@ -189,7 +190,8 @@ def _host(url: str) -> tuple[str, str]:
     if (parsed.scheme != "https" or parsed.username or parsed.password or port is not None
             or parsed.fragment or parsed.query or not host or len(host) > 253):
         raise DomainError(msg("sources.domains.https_only"))
-    if not valid_host(host):
+    # Checked on the very string requests are sent to: letters, digits, dots and hyphens only; valid_host, its shape.
+    if not HOST_CHARACTERS.fullmatch(host) or not valid_host(host):
         raise DomainError(msg("sources.domains.invalid_domain"))
     return host, f"https://{host}{parsed.path or '/'}"
 

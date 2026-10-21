@@ -10,8 +10,16 @@ const dist = path.resolve(fileURLToPath(new URL('../dist', import.meta.url)))
 const problems = []
 
 const entities = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'", nbsp: ' ' }
-const visible = (html) => html
-  .replace(/<(script|style|template)[\s\S]*?<\/\1>/g, '')
+// Until none is left: taking one block out can join what surrounded it into another.
+const withoutHiddenBlocks = (html) => {
+  let previous
+  do {
+    previous = html
+    html = html.replace(/<(script|style|template)[\s\S]*?<\/\1>/g, '')
+  } while (html !== previous)
+  return html
+}
+const visible = (html) => withoutHiddenBlocks(html)
   .replace(/<[^>]+>/g, ' ')
   .replace(/&(#?\w+);/g, (whole, name) => entities[name] ?? whole)
   .replace(/\s+/g, ' ')
@@ -47,7 +55,7 @@ for await (const file of htmlPages(dist)) {
     if (!html.includes(`<meta ${tag}`)) fail(`no <meta ${tag}>`)
   }
   if (canonical && !sitemap.includes(`<loc>${canonical}</loc>`)) fail('not in the sitemap')
-  if (canonical && !new RegExp(`<loc>${canonical.replace(/[.?]/g, '\\$&')}</loc><lastmod>`).test(sitemap) && /<time datetime/.test(html)) fail('no <lastmod> in the sitemap')
+  if (canonical && !sitemap.includes(`<loc>${canonical}</loc><lastmod>`) && /<time datetime/.test(html)) fail('no <lastmod> in the sitemap')
   if (canonical && !llms.includes(`](${canonical})`)) fail('not listed in llms.txt')
 
   const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]

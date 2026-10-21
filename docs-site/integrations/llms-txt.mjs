@@ -28,24 +28,44 @@ export function parse(source) {
 
 const decode = (text) => text.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
 
+// Each removal runs until nothing is left to remove: taking one comment or tag out can join what surrounded it into
+// another one.
+const withoutComments = (text) => {
+  let previous
+  do {
+    previous = text
+    text = text.replace(/<!--[\s\S]*?-->/g, '')
+  } while (text !== previous)
+  return text
+}
+const withoutTags = (text) => {
+  let previous
+  do {
+    previous = text
+    text = text.replace(/<\/?[a-zA-Z][^>]*>/g, '')
+  } while (text !== previous)
+  return text
+}
+
 // MDX and the HTML the sync step writes (figures, diagrams, link lists) turned back into plain Markdown.
 function toMarkdown(body, pageUrl) {
   const absolute = (href) => (/^(?:[a-z]+:|#)/i.test(href) ? href : new URL(href, pageUrl).href)
-  // Code (fenced or inline) is left exactly as written; only the prose around it is cleaned.
-  const parts = body.replace(/^import\s.+$/gm, '').split(/(^```[\s\S]*?^```|`[^`\n]+`)/m)
-  return parts
-    .map((part, index) => (index % 2 ? part : part
-      .replace(/<!--[\s\S]*?-->/g, '')
+  const prose = (part) => {
+    const linked = withoutComments(part)
       .replace(/<figure[\s\S]*?<\/figure>/g, (figure) => {
         const alt = /alt="([^"]*)"/.exec(figure)?.[1]
         const caption = /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/.exec(figure)?.[1]
-        return alt ? `[Image: ${decode(alt)}${caption ? ` (${decode(caption.replace(/<[^>]+>/g, ''))})` : ''}]` : ''
+        return alt ? `[Image: ${decode(alt)}${caption ? ` (${decode(withoutTags(caption))})` : ''}]` : ''
       })
       .replace(/<img\s[^>]*alt="([^"]*)"[^>]*>/g, (_, alt) => (alt ? `[Image: ${decode(alt)}]` : ''))
       .replace(/<li><a href="([^"]+)">([\s\S]*?)<\/a><p>([\s\S]*?)<\/p><\/li>/g, (_, href, label, note) => `- [${label}](${absolute(href)}): ${note}`)
       .replace(/<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g, (_, href, label) => `[${label}](${absolute(href)})`)
-      .replace(/<\/?[a-zA-Z][^>]*>/g, '')
-      .replace(/(?<!!)\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, href) => `[${label}](${absolute(href)})`)))
+    return withoutTags(linked).replace(/(?<!!)\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, href) => `[${label}](${absolute(href)})`)
+  }
+  // Code (fenced or inline) is left exactly as written; only the prose around it is cleaned.
+  const parts = body.replace(/^import\s.+$/gm, '').split(/(^```[\s\S]*?^```|`[^`\n]+`)/m)
+  return parts
+    .map((part, index) => (index % 2 ? part : prose(part)))
     .join('')
     .replace(/\n{3,}/g, '\n\n')
     .trim()

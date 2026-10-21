@@ -324,6 +324,14 @@ class RepositoryWorkflowTests(unittest.TestCase):
         self.assertFalse(result["reachable"])
         self.assertEqual(result["status"], "private_address")
 
+    def test_reachability_refuses_malformed_hosts_before_resolving_them(self):
+        hosts = ("exa_mple.com", "a..example.com", "-a.example.com", "app.example.com:8443", "127.0.0.1", "[::1]",
+                 "éxample.com", "app.example.local", "localhost", "app%2eexample.com", "app.example.com@evil.example")
+        with patch("pitangus.modules.sources.domains.socket.getaddrinfo", side_effect=AssertionError("resolved")):
+            for host in hosts:
+                with self.assertRaises(DomainError, msg=host):
+                    check_reachability(f"https://{host}/")
+
     def test_reachability_pins_the_resolved_public_address(self):
         addresses = [(2, 1, 6, "", ("93.184.216.34", 443))]
         with patch("pitangus.modules.sources.domains.socket.getaddrinfo", return_value=addresses), \

@@ -1,10 +1,14 @@
 import json
 import os
+import re
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+from hypothesis import given, settings, strategies as st
 
 import testenv
 from pitangus.shared import paths
@@ -132,6 +136,27 @@ class CredentialTests(unittest.TestCase):
         self.assertIn("TRIVY_PASSWORD", captured["argv"])
         self.assertEqual(captured["env"]["TRIVY_PASSWORD"], TOKEN)
         self.assertIn("--cap-drop", captured["argv"])
+
+
+class RegistryHostTests(unittest.TestCase):
+    FORMER = re.compile(r"(?:[a-z0-9-]+\.)+[a-z0-9-]+(?::\d{1,5})?|localhost(?::\d{1,5})?|[a-z0-9-]+:\d{1,5}")
+
+    def test_the_same_registries_are_accepted_as_with_the_former_pattern(self):
+        for host in ("ghcr.io", "registry.example.com:5000", "localhost", "localhost:5000", "registry:5000", "registry",
+                     "a.b", "a..b", ".a", "a.", "a:", ":5000", "a:123456", "a:1:2", "a.b:٣", "-.-", "GHCR.io", "a_b.io", ""):
+            self.assertEqual(image_scan.registry_host(host), self.FORMER.fullmatch(host) is not None, host)
+
+        @settings(max_examples=3000, deadline=None)
+        @given(st.text(alphabet="az09-.:_l٣", max_size=24))
+        def same(host):
+            self.assertEqual(image_scan.registry_host(host), self.FORMER.fullmatch(host) is not None, host)
+        same()
+
+    def test_a_long_name_is_judged_in_linear_time(self):
+        for host in ("-" * 200_000, "a-" * 100_000 + ":", "a." * 100_000 + ":x", "a" * 200_000 + ":"):
+            started = time.monotonic()
+            self.assertFalse(image_scan.registry_host(host))
+            self.assertLess(time.monotonic() - started, 2)
 
 
 class PlatformTests(unittest.TestCase):

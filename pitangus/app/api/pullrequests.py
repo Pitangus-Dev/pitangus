@@ -188,8 +188,9 @@ def pulls(source_id: str | None = None, context: Context = Depends(guard())) -> 
     try:
         rows = open_pull_requests(installation, repository)
     except GitHubAppError as exc:
-        # The settings can be left ready even if GitHub doesn't let the App read the pull requests yet.
-        return context.render({"settings": settings, "pulls": [], "pulls_error": problem(exc)})
+        # The settings can be left ready even if GitHub doesn't let the App read the pull requests yet. Only the
+        # catalog message the error carries is shown, never the exception's text.
+        return context.render({"settings": settings, "pulls": [], "pulls_error": exc.message})
     done = pr_watch.reviewed(data_dir, uid)
     runs = {row["id"]: row for row in find_runs(data_dir, types=("pr_review",), ids=[entry["run_id"] for entry in done.values() if entry.get("run_id")])}
     for row in rows:
