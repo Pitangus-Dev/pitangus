@@ -21,10 +21,17 @@ const NAMES = {
 const json = (data: unknown) => JSON.stringify(data).replace(/</g, '\\u003c')
 
 const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'", nbsp: ' ' }
+// Until none is left: taking one tag out can join what surrounded it into another.
+const withoutTags = (html: string) => {
+  let previous
+  do {
+    previous = html
+    html = html.replace(/<[^>]+>/g, '')
+  } while (html !== previous)
+  return html
+}
 const text = (html: string) =>
-  html
-    .replace(/<\/?(?:p|li|ul|ol|br|div|h[1-6]|pre|table|tr|td|th|blockquote)\b[^>]*>/g, ' ')
-    .replace(/<[^>]+>/g, '')
+  withoutTags(html.replace(/<\/?(?:p|li|ul|ol|br|div|h[1-6]|pre|table|tr|td|th|blockquote)\b[^>]*>/g, ' '))
     .replace(/&(#?\w+);/g, (whole, name) => entities[name] ?? (name.startsWith('#') ? String.fromCodePoint(Number(name.replace(/^#x?/, name[1] === 'x' ? '0x' : ''))) : whole))
     .replace(/\s+/g, ' ')
     .trim()

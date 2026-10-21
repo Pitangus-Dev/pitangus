@@ -19,12 +19,13 @@ export async function* htmlPages(dir) {
   }
 }
 
-// Every inline script the browser would run: no src, and not a data block (JSON, JSON-LD).
+// Every inline script the browser would run: no src, and not a data block (JSON, JSON-LD). Tag and attribute names
+// in any case, and an end tag as HTML ends it (`</script >` too), so none is missed whatever writes the page.
 export function inlineScripts(html) {
   const scripts = []
-  for (const [, attributes = '', body] of html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)) {
-    if (/\ssrc=/.test(attributes)) continue
-    const type = attributes.match(/\stype=["']?([^"'\s>]+)/)?.[1]
+  for (const [, attributes = '', body] of html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script(?:[\s/][^>]*)?>/gi)) {
+    if (/\ssrc=/i.test(attributes)) continue
+    const type = attributes.match(/\stype=["']?([^"'\s>]+)/i)?.[1]?.toLowerCase()
     if (type && type !== 'module' && !/javascript/.test(type)) continue
     scripts.push(body)
   }

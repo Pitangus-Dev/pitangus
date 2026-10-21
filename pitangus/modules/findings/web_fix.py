@@ -36,8 +36,8 @@ NUCLEI_HEADER_TEMPLATES = frozenset(("http-missing-security-headers",))
 HEADER_NAME = re.compile(r"[a-z0-9][a-z0-9-]{1,60}")
 URL = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 CSP_SOURCE = re.compile(r"\b([a-z-]+-src(?:-elem|-attr)?)\s+includes\s+(unsafe-[a-z]+)", re.IGNORECASE)
-# Never from the middle of a run of digits: a long run without a dot would be tried from each of them (quadratic).
-VERSION = re.compile(r"(?<!\d)\d+(?:\.\d+)+[\w.-]*")
+DIGITS = re.compile(r"\d+")
+VERSION_REST = re.compile(r"[\w.-]+")
 VERIFY_WEB = msg("findings.fix.verify_web")
 WEB_FACTORS = ("findings.web.factor.header", "findings.web.factor.cookie", "findings.web.factor.info", "findings.web.factor.attack",
                "findings.web.factor.observed", "scanning.priority.confirm_reachability")
@@ -65,6 +65,16 @@ def check(finding: Finding) -> str | None:
     return f"curl -sI {shlex.quote(url)} | grep -i -E {shlex.quote(pattern)}"
 
 
+def version_span(evidence: str) -> tuple[int, int] | None:
+    """Where the first version number is (`2.4.41`, `8.1.2-1ubuntu`): a whole run of digits followed by a dot and a
+    digit, up to the end of the word. Each run of digits is looked at once, so it takes linear time."""
+    for digits in DIGITS.finditer(evidence):
+        end = digits.end()
+        if evidence.startswith(".", end) and DIGITS.match(evidence, end + 1) and (rest := VERSION_REST.match(evidence, end)):
+            return digits.start(), rest.end()
+    return None
+
+
 def _span(evidence: str, start: int, end: int) -> dict:
     return {"before": evidence[:start], "match": evidence[start:end], "after": evidence[end:]}
 
@@ -85,8 +95,8 @@ def highlight(finding: Finding, message: str) -> dict | None:
     rule = str(finding.get("rule_id") or "")
     if rule == "10035" and (fragment := re.search(r"max-age\s*=\s*0\b", evidence, re.IGNORECASE)):
         return _span(evidence, fragment.start(), fragment.end())
-    if rule == "10036" and (fragment := VERSION.search(evidence)):
-        return _span(evidence, fragment.start(), fragment.end())
+    if rule == "10036" and (version := version_span(evidence)):
+        return _span(evidence, *version)
     parameter = str(web.get("parameter") or "")
     if len(parameter) >= 2 and parameter != evidence and (index := evidence.find(parameter)) >= 0:
         return _span(evidence, index, index + len(parameter))

@@ -1118,7 +1118,7 @@ def github_manifest_return(request: Request, code: str = "", state: str = "", co
     try:
         verified, user = github_manifest.finish(context.data_dir, code, state)
     except GitHubAppError as exc:
-        return _landing(locale, port, msg("integrations.github.manifest.not_created"), problem(exc))
+        return _landing(locale, port, msg("integrations.github.manifest.not_created"), exc.message)  # its catalog message
     throttle.succeeded(scope)
     save_credentials(verified)
     if previous_app != verified["app_id"]:

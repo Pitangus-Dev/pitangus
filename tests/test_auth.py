@@ -77,7 +77,11 @@ class AuthenticatorTests(unittest.TestCase):
         self.assertNotIn(PASSWORD, stored)
 
     def test_tampered_cookie_and_logout(self):
-        cookie = self.auth.login("operadora", PASSWORD, "c")["session"]
+        with self.assertLogs("pitangus.auth", "INFO") as logs:
+            cookie = self.auth.login("operadora", PASSWORD, "c")["session"]
+        record = next(record for record in logs.records if record.getMessage() == "login_ok")
+        self.assertEqual((record.user, record.client, record.mfa), ("operadora", "c", False))
+        self.assertFalse(any(PASSWORD in str(value) for value in vars(record).values()))
         header = f"{auth.COOKIE_NAME}={cookie}"
         self.assertEqual(self.auth.current(header)[0]["username"], "operadora")
         self.assertIsNone(self.auth.current(header[:-1] + ("0" if header[-1] != "0" else "1"))[0])
@@ -177,8 +181,12 @@ class AuthenticatorTests(unittest.TestCase):
             self.auth.second_factor(step["challenge"], "000000", "c")
         with self.assertRaises(AuthError):  # the challenge is bound to the client that opened it
             self.auth.second_factor(step["challenge"], codes[0], "otro")
-        done = self.auth.second_factor(step["challenge"], codes[0], "c")
+        with self.assertLogs("pitangus.auth", "INFO") as logs:
+            done = self.auth.second_factor(step["challenge"], codes[0], "c")
         self.assertTrue(self.auth.sessions.resolve(done["session"])["mfa"])
+        record = next(record for record in logs.records if record.getMessage() == "login_ok")
+        self.assertEqual((record.user, record.client, record.mfa), ("operadora", "c", True))
+        self.assertFalse(any(codes[0] in str(value) or PASSWORD in str(value) for value in vars(record).values()))
         again = self.auth.login("operadora", PASSWORD, "c")
         with self.assertRaises(AuthError):  # a backup code works only once
             self.auth.second_factor(again["challenge"], codes[0], "c")

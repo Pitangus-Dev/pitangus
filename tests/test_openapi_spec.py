@@ -95,6 +95,20 @@ class ParseTests(unittest.TestCase):
         for reference in ("https://evil.example/schemas.json#/A", "other.yaml#/A", "//evil.example/x", "file:///etc/passwd"):
             document = {"openapi": "3.0.0", "paths": {"/a": {"get": {"responses": {"200": {"$ref": reference}}}}}}
             self.assertIn("$ref", error(json.dumps(document).encode()), reference)
+        for payload in (b"!!python/object/apply:os.system ['touch /tmp/pitangus-pwned']\n",
+                        b"x: !!python/object/apply:subprocess.check_output [['id']]\n",
+                        b"x: !!python/name:os.system\n",
+                        b"x: !!python/object/new:subprocess.Popen [['id']]\n",
+                        b"x: !!python/object:collections.OrderedDict {}\n",
+                        b"x: !!python/module:os\n",
+                        b"x: !!python/tuple [1, 2]\n",
+                        b"openapi: 3.0.0\npaths: {/a: {get: !!python/object/apply:os.getcwd []}}\n"):
+            self.assertIn("valid JSON or YAML", error(payload, "x.yaml"), payload)
+        for payload in (b"openapi: &v 3.0.0\nswagger: *v\npaths: {}\n", b"a: &a {}\nb: {<<: *a}\n", b"- &x 1\n- *x\n"):
+            self.assertIn("aliases", error(payload, "x.yaml"), payload)
+        self.assertIn("valid JSON or YAML", error(b"openapi: 3.0.0\x07\npaths: {}\n", "x.yaml"))
+        anchored = openapi_spec.parse(b"openapi: &v 3.0.0\npaths: {/a: {get: {responses: {'200': {description: ok}}}}}\n", "a.yaml")
+        self.assertEqual(anchored["endpoints"], 1)
         local = {"openapi": "3.0.0", "paths": {"/a": {"get": {"responses": {"200": {"$ref": "#/components/responses/Ok"}}}}},
                  "components": {"responses": {"Ok": {"description": "ok"}}}}
         self.assertEqual(openapi_spec.parse(json.dumps(local).encode())["endpoints"], 1)

@@ -48,8 +48,13 @@ def _yaml(raw: str) -> Any:
                 raise yaml.YAMLError("aliases are not accepted")
             return super().compose_node(parent, index)
 
+    # yaml.load's own steps, spelled out with our loader: a SafeLoader, so no tag can construct a Python object.
     try:
-        return yaml.load(raw, Loader=NoAliases)  # noqa: S506 (NoAliases is a SafeLoader subclass)  # nosemgrep
+        loader = NoAliases(raw)  # the reader already refuses non-printable characters here
+        try:
+            return loader.get_single_data()
+        finally:
+            loader.dispose()
     except (yaml.YAMLError, RecursionError, ValueError) as exc:
         raise SpecError(msg("scanning.web.spec.unreadable")) from exc
 
