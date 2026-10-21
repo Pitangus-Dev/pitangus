@@ -16,7 +16,6 @@ not authorization to test anything: that stays with whoever operates Pitangus.
 from __future__ import annotations
 
 import http.client
-import ipaddress
 import re
 import secrets
 import socket
@@ -36,6 +35,7 @@ from pitangus.modules.sources.domain_schedule import ScheduleError
 from pitangus.modules.sources.tables import domain_registry
 from pitangus.shared import db, documents
 from pitangus.shared import log as logging_setup
+from pitangus.shared.addresses import is_public
 from pitangus.shared.db import TENANT
 from pitangus.shared.i18n import msg, text
 from pitangus.version import USER_AGENT
@@ -616,13 +616,6 @@ def _moment(value) -> datetime | None:
     return moment.replace(tzinfo=timezone.utc) if moment and moment.tzinfo is None else moment
 
 
-def _is_public(address: str) -> bool:
-    try:
-        return ipaddress.ip_address(address.split("%")[0]).is_global
-    except ValueError:
-        return False
-
-
 def public_address(host: str) -> str:
     """The address a scan of `host` is pinned to, once every address the name resolves to is public (no loopback,
     private, link-local or cloud metadata range). IPv4 first: Docker's default bridge often has no IPv6 route."""
@@ -633,7 +626,7 @@ def public_address(host: str) -> str:
     addresses = sorted({info[4][0].split("%")[0] for info in infos}, key=lambda address: (":" in address, address))
     if not addresses:
         raise DomainError(msg("sources.domains.check.dns_error"))
-    if not all(_is_public(address) for address in addresses):
+    if not all(is_public(address) for address in addresses):
         raise DomainError(msg("sources.domains.check.private_address"))
     return addresses[0]
 
@@ -657,7 +650,7 @@ def check_reachability(url: str) -> dict:
     if not addresses:
         return {"host": host, "reachable": False, "status": "dns_error", "https": False, "public": None,
                 "detail": msg("sources.domains.check.dns_error")}
-    if not all(_is_public(address) for address in addresses):
+    if not all(is_public(address) for address in addresses):
         return {"host": host, "reachable": False, "status": "private_address", "https": False, "public": False,
                 "detail": msg("sources.domains.check.private_address")}
     ssl_context = tls_context()

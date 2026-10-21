@@ -30,6 +30,7 @@ from pathlib import Path
 
 from pitangus.modules.intel import data_sources
 from pitangus.shared import log as logging_setup, settings
+from pitangus.shared.addresses import is_public
 from pitangus.shared.i18n import default_locale, msg, text
 from pitangus.modules.intel.advisories import cvss3_base_score, fingerprint as sca_fingerprint, is_malicious, mark_malicious, prioritize, severity_from_score
 from pitangus.modules.intel.packages import OS_FAMILIES, canonical_id, dependency_fingerprint, family, package_name
@@ -126,13 +127,12 @@ def check_registry_address(registry: str) -> dict[str, str]:
     """
     if settings.flag("PITANGUS_ALLOW_PRIVATE_REGISTRIES"):
         return {}
-    import ipaddress
     host = _host_only(registry)
     try:
         addresses = {info[4][0] for info in socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)}
     except OSError as exc:
         raise ImageError(msg("scanning.image.errors.unresolvable", registry=registry)) from exc
-    if not addresses or not all(ipaddress.ip_address(address.split("%")[0]).is_global for address in addresses):
+    if not addresses or not all(is_public(address) for address in addresses):
         raise ImageError(msg("scanning.image.errors.private_address", registry=registry))
     if registry == DOCKER_HUB:
         return {}
