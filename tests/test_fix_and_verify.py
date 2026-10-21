@@ -1,6 +1,7 @@
 """Closing the loop: how to fix each finding and re-verify it without hunting for it by hand."""
 
 import os
+import time
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
@@ -40,6 +41,15 @@ class FixGuideTests(unittest.TestCase):
         self.assertEqual(stdlib["commands"][0]["code"], "go mod edit -toolchain=go1.22.5")  # not "go get stdlib@…"
         dev = {**dependency("yarn.lock", "jest", "29.0.0", "29.7.0"), "package": {**dependency("yarn.lock", "jest", "29.0.0", "29.7.0")["package"], "dev": True}}
         self.assertEqual(fix_guide.guide(dev)["commands"][0]["code"], "yarn add -D jest@29.7.0")  # stays dev-only
+
+    def test_any_requirements_text_file_is_pip_and_a_long_name_is_read_in_linear_time(self):
+        for name in ("requirements.txt", "api/requirements-dev.txt", "dev-requirements.txt"):
+            self.assertEqual(fix_guide.manager(name, "pip"), "pip", name)
+        for name in ("requirements/base.txt", "requirements.md", "notes.txt"):
+            self.assertIsNone(fix_guide.manager(name, "pip"), name)
+        started = time.monotonic()
+        self.assertIsNone(fix_guide.manager("requirements" * 50_000, "pip"))
+        self.assertLess(time.monotonic() - started, 1)
 
     def test_the_pull_request_table_only_shows_a_command_that_updates(self):
         from pitangus.modules.pullrequests.review import markdown_rows

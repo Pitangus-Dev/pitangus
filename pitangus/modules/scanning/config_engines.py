@@ -448,7 +448,8 @@ def _checkov_inline(snapshot: Path, configs: list[str], marks: dict[str, list[in
     return [repo_suppressed(finding, comment_control("checkov:skip")) for finding in hidden]
 
 
-RUN_PREFIX = re.compile(r"^(?:\|\d+(?:\s+\S+=\S*)*\s+)?/bin/(?:ba)?sh -c\s+")
+# A build argument's name has no "=": with `\S+=` a value full of "=" could be split many ways (exponential backtracking).
+RUN_PREFIX = re.compile(r"^(?:\|\d+(?:\s+[^\s=]+=\S*)*\s+)?/bin/(?:ba)?sh -c\s+")
 INSTRUCTION = re.compile(r"^(RUN|ENV|COPY|ADD|USER|EXPOSE|WORKDIR|ARG|LABEL|HEALTHCHECK|ENTRYPOINT|CMD|VOLUME|STOPSIGNAL|SHELL|ONBUILD)\b\s*(.*)$", re.S)
 
 

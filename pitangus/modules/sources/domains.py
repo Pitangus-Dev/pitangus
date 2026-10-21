@@ -306,6 +306,13 @@ def meta_tokens(page: bytes) -> list[str]:
     return parser.found
 
 
+def tls_context() -> ssl.SSLContext:
+    """Certificate and name validation, and TLS 1.2 at least whatever the interpreter or OpenSSL defaults to."""
+    context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
 def https_get(host: str, address: str, path: str, *, limit: int = BODY_LIMIT, seconds: int = FETCH_SECONDS,
               headers=()) -> tuple[int, bytes]:
     """One GET of `https://<host><path>` sent to `address` (already checked as public) with SNI and certificate
@@ -313,7 +320,7 @@ def https_get(host: str, address: str, path: str, *, limit: int = BODY_LIMIT, se
     `seconds` in all; `headers`: (name, value) pairs to add (the domain's saved ones, already validated). Raises
     OSError, ssl.SSLError or http.client.HTTPException when it can't."""
     deadline = time.monotonic() + seconds
-    ssl_context = ssl.create_default_context()
+    ssl_context = tls_context()
     with socket.create_connection((address, 443), timeout=6) as raw:
         with ssl_context.wrap_socket(raw, server_hostname=host) as secure:
             connection = http.client.HTTPSConnection(host, 443, timeout=6)
@@ -653,7 +660,7 @@ def check_reachability(url: str) -> dict:
     if not all(_is_public(address) for address in addresses):
         return {"host": host, "reachable": False, "status": "private_address", "https": False, "public": False,
                 "detail": msg("sources.domains.check.private_address")}
-    ssl_context = ssl.create_default_context()
+    ssl_context = tls_context()
     try:
         with socket.create_connection((addresses[0], 443), timeout=6) as raw:
             with ssl_context.wrap_socket(raw, server_hostname=host) as secure:
