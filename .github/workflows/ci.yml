@@ -1,7 +1,8 @@
 # Tests and security analysis on every pull request and every push to main.
 #
 # - backend: Python tests.
-# - panel: types, lint, and a check that pitangus/app/static is rebuilt (the served panel is the one in the repo).
+# - panel: types, lint, tests and that the panel builds. Its output (pitangus/app/static) is not in the repo:
+#   every image builds it (docker/app/Dockerfile) and `make dev` builds it on demand.
 # - pitangus: Pitangus analyzes itself with its CLI (the same usage documented in docs/cli.md).
 #   On a PR only what the PR introduces counts, and it blocks from high severity up; on main it analyzes
 #   everything and reports. fixtures/ are intentionally vulnerable examples: they are excluded and the output
@@ -102,14 +103,9 @@ jobs:
       - name: Tests
         working-directory: web
         run: pnpm test
-      - name: The served panel is rebuilt
-        run: |
-          (cd web && pnpm run build)
-          if [ -n "$(git status --porcelain -- pitangus/app/static)" ]; then
-            git status --short -- pitangus/app/static
-            echo "::error::pitangus/app/static does not match web/src: run 'make web' and commit the result."
-            exit 1
-          fi
+      - name: Build
+        working-directory: web
+        run: pnpm run build
 
   pitangus:
     name: Pitangus on itself
