@@ -204,6 +204,9 @@ lock: ## Regenerate requirements.txt and requirements-dev.txt from the .in files
 	     python -m piptools compile -q --generate-hashes --allow-unsafe --strip-extras $(ARGS) --output-file $$name.txt $$name.in || exit 1; done'
 
 dev: ## Local server without a container on 127.0.0.1:8767 (engines through your Docker)
+	@[ -f pitangus/app/static/index.html ] || { [ -d web/node_modules ] || \
+	  { echo 'The panel is not built and web/node_modules is missing: run `make dev-setup` first.'; exit 1; }; \
+	  $(MAKE) --no-print-directory web; }
 	PITANGUS_PUBLIC_URL=http://127.0.0.1:8767 PITANGUS_ALLOWED_ORIGINS=http://127.0.0.1:8767,http://localhost:8767 \
 	PITANGUS_CONFIG_DIR=$(CURDIR)/.dev/config $(VENV)/bin/python -m pitangus --data-dir .dev/data serve --port 8767
 

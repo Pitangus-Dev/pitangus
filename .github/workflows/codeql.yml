@@ -7,7 +7,8 @@
 #   this workflow doesn't decide the merge on its own.
 # - Left out: fixtures/ and rules/tests/, vulnerable on purpose (the samples the engines and the rules must catch); the
 #   tests (tests/ and the panel's *.test.ts(x)), which plant made-up secrets and hostile input for the code to catch
-#   and never run in production; and pitangus/app/static/, the panel's build output (web/ is its source, analyzed here).
+#   and never run in production. pitangus/app/static/ stays in paths-ignore as a safety net: the panel's build output
+#   is no longer committed (web/ is its source, analyzed here), but nothing should analyze it if a build ever lands here.
 #
 # Actions pinned by commit; least-privilege permissions per job; no credentials persisted in the checkout.
 name: CodeQL

@@ -15,6 +15,10 @@ make dev         # servidor en http://127.0.0.1:8767 con datos en .dev/ (no toca
 make check       # pruebas y contratos de arquitectura del backend + tipos y lint del panel
 ```
 
+`pitangus/app/static/` (lo que compila el panel) no está en el repositorio: lo escribe `make web`, `make dev` lo
+compila si falta y cada imagen construye el suyo, así que actualizar una dependencia ya no obliga a commitear el
+bundle recompilado.
+
 `make dev` usa el puerto 8767 y la carpeta `.dev/` para que puedas tenerlo a la vez que la instancia de Docker. Para recarga en caliente del panel, `cd web && pnpm run dev` (Vite reenvía `/api` al backend).
 
 La CLI usa el mismo almacén que el panel (en Docker: `make cli ARGS="…"`):

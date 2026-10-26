@@ -11,6 +11,8 @@ backups/
 .dev/
 web/node_modules/
 web/dist/
+# The panel's build output: every image builds it (docker/app/Dockerfile) and `make dev` builds it on demand.
+pitangus/app/static/
 pitangus/RELEASE
 
 deploy/demo/generated.env
