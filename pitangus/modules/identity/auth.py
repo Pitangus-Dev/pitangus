@@ -656,7 +656,7 @@ class Authenticator:
         vault.delete(SETUP_CODE)
         self.throttle.succeeded("setup")
         _log.info("first_admin_created", extra={"user": user["username"], "client": client})
-        return self._complete(user, client, mfa=False)
+        return self._complete(user, client, with_second_factor=False)
 
     @staticmethod
     def totp_policy() -> str:
@@ -673,7 +673,7 @@ class Authenticator:
         """After redeeming a link: if the account has TOTP, the link replaces the password, not the second factor."""
         if user["totp"].get("enabled"):
             return {"challenge": self.sessions.open_challenge(user["id"], client)}
-        return self._complete(user, client, mfa=False)
+        return self._complete(user, client, with_second_factor=False)
 
     def login(self, username, password, client: str, *, public_account: str | None = None) -> dict:
         """First step. Returns {"session": cookie}, or {"challenge": token} if TOTP is still needed.
@@ -704,7 +704,7 @@ class Authenticator:
         if user["totp"].get("enabled"):
             _log.info("login_password_ok", extra={"user": key, "client": client, "next": "totp"})
             return {"challenge": self.sessions.open_challenge(user["id"], client)}
-        return self._complete(user, client, mfa=False, keep=PUBLIC_SESSIONS if public_account is not None else None)
+        return self._complete(user, client, with_second_factor=False, keep=PUBLIC_SESSIONS if public_account is not None else None)
 
     def second_factor(self, token, code, client: str) -> dict:
         user_id = self.sessions.peek_challenge(token, client)
@@ -723,14 +723,16 @@ class Authenticator:
             raise AuthError(msg("auth.errors.wrong_code"))
         self.throttle.succeeded(f"totp:{user_id}")
         self.sessions.close_challenge(token)
-        return self._complete(user, client, mfa=True)
+        return self._complete(user, client, with_second_factor=True)
 
-    def _complete(self, user: dict, client: str, *, mfa: bool, keep: int | None = None) -> dict:
+    def _complete(self, user: dict, client: str, *, with_second_factor: bool, keep: int | None = None) -> dict:
+        """`with_second_factor`: this sign-in also passed the second factor (a TOTP or backup code); the session and the
+        log record it as `mfa`."""
         self.throttle.succeeded(f"user:{user['username']}")
         self.throttle.succeeded(f"client:{client}")
         self.users.touch_login(user["id"])
-        _log.info("login_ok", extra={"user": user["username"], "client": client, "mfa": mfa})
-        return {"session": self.sessions.issue(user, mfa=mfa, keep=keep), "user": self.users.public(user)}
+        _log.info("login_ok", extra={"user": user["username"], "client": client, "mfa": with_second_factor})
+        return {"session": self.sessions.issue(user, mfa=with_second_factor, keep=keep), "user": self.users.public(user)}
 
     def current(self, cookie_header: str | None) -> tuple[dict | None, dict | None]:
         session = self.sessions.resolve(parse_cookie(cookie_header))

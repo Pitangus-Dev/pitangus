@@ -240,7 +240,7 @@ def prose(text: str) -> str:
 # What a web finding's identity reads of a URL (findings/canonical.py, through shared/web_keys.py): a path segment stays
 # unless it is shaped like a token. Never stored or shown: every URL is, rendered by `url`.
 
-_WORDS = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+")
+_RUNS = re.compile(r"(?P<upper>[A-Z]+)|(?P<lower>[a-z]+)|\d+")
 _PREFIXED = (r"(?:gh[pousr]_|github_pat_|glpat-|gldt-|glptt-|glrt-|xox[abposr]-|xapp-|sk_(?:live|test)_|rk_(?:live|test)_"
              r"|whsec_|sk-(?:proj-|ant-|svcacct-)?|hf_|shp(?:at|ss|ca|pa)_|dop_v1_|doo_v1_|sbp_|sb_secret_|ATATT|npm_|pypi-"
              r"|AIza|SG\.|figd_|lin_api_|pat-na1-|xkeysib-)")
@@ -253,10 +253,29 @@ _SHORT_HEX = re.compile(r"[0-9a-fA-F]{16,}")
 _DIGEST_LEAD = re.compile(r"(?:sha(?:1|224|256|384|512)[:-]|md5[:-]|@|commit/|/blob/|/tree/|integrity\W{0,4})$", re.I)
 
 
+def _identifier_words(text: str) -> list[str]:
+    """The words an identifier is written with: lower, Capitalized, CAPS and numbers ("HTTPServer2" is HTTP, Server
+    and 2). Built from runs of one kind of character, each read once: the capital right before lowercase letters
+    starts the next word."""
+    words: list[str] = []
+    caps_end = -1
+    for run in _RUNS.finditer(text):
+        if run.lastgroup == "lower" and run.start() == caps_end:
+            caps = words.pop()
+            if len(caps) > 1:
+                words.append(caps[:-1])
+            words.append(caps[-1] + run.group())
+        else:
+            words.append(run.group())
+        if run.lastgroup == "upper":
+            caps_end = run.end()
+    return words
+
+
 def plain_share(text: str) -> float:
     """How much of `text` is words (lower, Capitalized, short CAPS) and short numbers, as identifiers, paths and names
     are written; a random run is mostly one- and two-letter pieces."""
-    words = _WORDS.findall(text)
+    words = _identifier_words(text)
     shouting = not any(character.islower() for character in text)
     plain = sum(len(word) for word in words if not ((word.isdigit() and len(word) > 7) or (word.isupper() and len(word) > (40 if shouting else 4))
                                                     or (word[-1].islower() and sum(ch.islower() for ch in word) < 2)))
@@ -287,7 +306,7 @@ def random_looking(token: str) -> bool:
 def _reads_as_words(text: str) -> bool:
     if not any(character.islower() for character in text):
         return any(character in "-_" for character in text) or not any(character.isdigit() for character in text)
-    words = _WORDS.findall(text)
+    words = _identifier_words(text)
     mixed = any(character.isupper() for character in text)
     return all(word.isdigit() or not (word.isupper() or (mixed and _CONSONANTS.search(word))) for word in words) and \
         sum(len(word) for word in words if len(word) >= 3) >= 0.7 * sum(map(len, words))

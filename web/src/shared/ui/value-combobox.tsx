@@ -4,7 +4,15 @@ import { useTranslation } from 'react-i18next'
 
 export type ValueOption = { value: string; label: string; hint?: string; group?: string }
 
-const clean = (text: string, maxLength: number) => text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, maxLength)
+// Tags go until none is left (taking one out can join what surrounded it into another); then spaces are collapsed.
+function clean(text: string, maxLength: number) {
+  let previous
+  do {
+    previous = text
+    text = text.replace(/<[^>]*>/g, '')
+  } while (text !== previous)
+  return text.replace(/\s+/g, ' ').trim().slice(0, maxLength)
+}
 
 // A field with suggestions that also takes the person's own value: our list helps, it doesn't limit.
 // `check` rejects a typed value that can't work (e.g. a malformed ATT&CK ID) and explains why.

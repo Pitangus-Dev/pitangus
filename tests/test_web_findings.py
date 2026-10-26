@@ -2,10 +2,13 @@
 fragment of the evidence, a curl check of the headers, a web priority factor) and nothing invented."""
 
 import json
+import re
 import shlex
 import time
 import unittest
 from pathlib import Path
+
+from hypothesis import given, settings, strategies as st
 
 from pitangus.modules.findings import fix_guide, web_fix
 from pitangus.modules.integrations.notifications import _where
@@ -95,6 +98,38 @@ class DerivedTests(unittest.TestCase):
         highlight = web_fix.highlight({"rule_id": "10036", "web": {"evidence": "9" * 100_000 + " nginx/1.18.0"}}, "")
         self.assertLess(time.monotonic() - started, 2)  # quadratic before: about a minute
         self.assertEqual(highlight["match"], "1.18.0")
+
+    def test_server_version_is_found_where_the_former_pattern_found_it(self):
+        former = re.compile(r"(?<!\d)\d+(?:\.\d+)+[\w.-]*")
+        cases = ["nginx/1.18.0 (Ubuntu)", "Apache/2.4.41", "PHP/8.1.2-1ubuntu2.14", "v1.2", "1.", "1.a", ".1.2", "12..3",
+                 "build 2024 then 3.4", "x1.2.3_rc-1/2", "٣.٤", "9" * 50 + "." + "9" * 50, "1.2" * 1000, "", "no version"]
+
+        def check(evidence):
+            found = former.search(evidence)
+            self.assertEqual(web_fix.version_span(evidence), (found.start(), found.end()) if found else None, evidence)
+        for evidence in cases:
+            check(evidence)
+        settings(max_examples=3000, deadline=None)(given(st.text(alphabet="0123456789.-_ab/ (٣", max_size=40))(check))()
+
+    def test_words_split_where_the_former_pattern_split_them(self):
+        former = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+")
+        for text_ in ("HTTPServer2", "parseHTTPResponse", "AbC", "ABCdef", "aB", "A", "Aa", "AAa", "getURLs", "v1Beta2",
+                      "snake_case-ID", "ÁrbolÑu", "٣٤x", ""):
+            self.assertEqual(render._identifier_words(text_), former.findall(text_), text_)
+
+        @settings(max_examples=3000, deadline=None)
+        @given(st.text(alphabet="AZaz09_-Éé٣ ", max_size=40))
+        def same(text_):
+            self.assertEqual(render._identifier_words(text_), former.findall(text_), text_)
+        same()
+
+    def test_words_and_versions_take_linear_time_on_long_runs(self):
+        for pathological in ("A" * 200_000, "Aa" * 100_000, "A" * 100_000 + "a", "0" * 200_000, "0." * 100_000, "1" * 100_000 + "x"):
+            started = time.monotonic()
+            render._identifier_words(pathological)
+            render.plain_share(pathological)
+            web_fix.version_span(pathological)
+            self.assertLess(time.monotonic() - started, 2, pathological[:10])
 
     def test_only_header_rules_on_get_get_a_check(self):
         self.assertIsNone(served(zap_finding("10096", "1831565813", "1831565813"))["fix"]["web"]["check"])
