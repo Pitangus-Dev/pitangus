@@ -1,6 +1,6 @@
 # Tests and security analysis on every pull request and every push to main.
 #
-# - backend: Python tests.
+# - backend: Python tests. It builds the panel too: tests/test_server.py serves it and its output is not in the repo.
 # - panel: types, lint, tests and that the panel builds. Its output (pitangus/app/static) is not in the repo:
 #   every image builds it (docker/app/Dockerfile) and `make dev` builds it on demand.
 # - pitangus: Pitangus analyzes itself with its CLI (the same usage documented in docs/cli.md).
@@ -68,6 +68,19 @@ jobs:
             echo "::error::web/src/shared/api/openapi.json does not match the API: run 'make openapi' and commit the result."
             exit 1
           fi
+      # tests/test_server.py serves the panel and follows an asset it references. That build output is not in the
+      # repository (every image builds its own), so the tests build it here, the same way the panel job does.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "22"
+      - name: The panel the tests serve
+        working-directory: web
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm run build
       - name: Tests
         # No Docker daemon for the tests: none of them may start a real engine (they mock what they need). Four workers
         # take the modules from a queue; each test already has its own database schema.
