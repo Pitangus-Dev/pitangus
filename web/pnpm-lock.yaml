@@ -36,8 +36,8 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0
       i18next:
-        specifier: 26.4.3
-        version: 26.4.3(typescript@7.0.2)
+        specifier: 26.4.7
+        version: 26.4.7(typescript@7.0.2)
       qrcode:
         specifier: 1.5.4
         version: 1.5.4
@@ -49,7 +49,7 @@ importers:
         version: 19.3.0(react@19.3.0)
       react-i18next:
         specifier: 17.0.16
-        version: 17.0.16(i18next@26.4.3(typescript@7.0.2))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@7.0.2)
+        version: 17.0.16(i18next@26.4.7(typescript@7.0.2))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@7.0.2)
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -992,8 +992,8 @@ packages:
   html-parse-stringify@4.0.1:
     resolution: {integrity: sha512-0zHsZJrK7S3K2aucXWL6ycoYJ/iNtIcFHC/nYQgFklPtrv5LpJctIiSCroWZWeuoXvuyFdzp6KzjJQ+OT5MfFw==}
 
-  i18next@26.4.3:
-    resolution: {integrity: sha512-QIIueUYS2giFVIY3hu/X5Dz7/qTzwcXE06H29m1DKVhUGVPCyT0wnsh14wEn/cTy9nZ/B6VhbDItdXotOKSO8A==}
+  i18next@26.4.7:
+    resolution: {integrity: sha512-p/3hqy6EcuqRs6wNwBYwGGC1fzBJSMxV9zMuN814ab/7QjdZbXfjXwuPZdQbngX6KDOTxM01uUiZyqmMB8ghZg==}
     peerDependencies:
       typescript: ^5 || ^6 || ^7
     peerDependenciesMeta:
@@ -1381,8 +1381,8 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
-  undici@8.11.2:
-    resolution: {integrity: sha512-u4UB2/IrKdU6lFxumHmmo1a3fCQO5tzQllRorfoRS63txhrB7xTpSn1PftwC4qEHkOaqP95fCWW4lJzwErwzhQ==}
+  undici@8.12.3:
+    resolution: {integrity: sha512-+fdndUTwBP86cVjihTp21hZHo7d6oj1c/47XPA3lL8mM0XHs+C4EkcjmgRsFnFk2f/UONGDy9ItBItmXsLOQHw==}
     engines: {node: '>=22.19.0'}
 
   use-sync-external-store@1.7.0:
@@ -2170,7 +2170,7 @@ snapshots:
 
   html-parse-stringify@4.0.1: {}
 
-  i18next@26.4.3(typescript@7.0.2):
+  i18next@26.4.7(typescript@7.0.2):
     optionalDependencies:
       typescript: 7.0.2
 
@@ -2198,7 +2198,7 @@ snapshots:
       parse5: 8.0.1
       saxes: 6.0.0
       tough-cookie: 6.0.2
-      undici: 8.11.2
+      undici: 8.12.3
       w3c-xmlserializer: 6.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -2398,11 +2398,11 @@ snapshots:
       react: 19.3.0
       scheduler: 0.28.0
 
-  react-i18next@17.0.16(i18next@26.4.3(typescript@7.0.2))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@7.0.2):
+  react-i18next@17.0.16(i18next@26.4.7(typescript@7.0.2))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@7.0.2):
     dependencies:
       '@babel/runtime': 7.29.10
       html-parse-stringify: 4.0.1
-      i18next: 26.4.3(typescript@7.0.2)
+      i18next: 26.4.7(typescript@7.0.2)
       react: 19.3.0
       use-sync-external-store: 1.7.0(react@19.3.0)
     optionalDependencies:
@@ -2518,7 +2518,7 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici@8.11.2: {}
+  undici@8.12.3: {}
 
   use-sync-external-store@1.7.0(react@19.3.0):
     dependencies:
