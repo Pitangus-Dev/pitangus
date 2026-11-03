@@ -43,3 +43,7 @@ reason = "Deliberately vulnerable demo input: `make demo` scans this folder so t
 [[IgnoredVulns]]
 id = "GHSA-23c5-xmqv-rm74"  # minimatch 3.0.4, ReDoS with nested extglobs (CVE-2026-27904)
 reason = "Deliberately vulnerable demo input: `make demo` scans this folder so that this advisory shows up as a finding. Nothing here is installed, built or run: there is no node_modules, and no Pitangus code, image or release uses this package."
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"  # minimatch 3.0.4, denial of service via globparts amplification (CVE-2026-118764)
+reason = "Deliberately vulnerable demo input: `make demo` scans this folder so that this advisory shows up as a finding. Nothing here is installed, built or run: there is no node_modules, and no Pitangus code, image or release uses this package."
