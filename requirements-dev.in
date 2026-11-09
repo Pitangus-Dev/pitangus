@@ -3,9 +3,9 @@
 -c requirements.txt
 -r requirements.in
 import-linter==2.15
-ruff==0.17.2
-mypy==2.4.0
+ruff==0.17.3
+mypy==2.4.1
 # HTTP client for the tests (Starlette's TestClient).
 httpx==0.28.1
 # Property-based tests: generated inputs for the invariants of identity, merging and the registry (tests/test_invariants.py).
-hypothesis==6.170.11
+hypothesis==6.170.14
