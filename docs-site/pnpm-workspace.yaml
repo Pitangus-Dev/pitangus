@@ -23,3 +23,8 @@ overrides:
   # GHSA-rj75-hqrm-r3gf (quadratic parse of flat selectors), fixed only in 7.1.6; postcss-nested 6 (via Expressive Code)
   # still asks for ^6. Build time only, on our own CSS. Remove once Expressive Code moves to postcss-nested 7.
   'postcss-selector-parser@<7.1.6': 7.1.6
+  # @astrojs/check reaches @napi-rs/wasm-runtime, which resolves its emnapi peer to the 2.0.0 beta. That beta has no
+  # `bridge.deleteEnv`, so importing @astrojs/check throws, astro decides it isn't installed and `astro check` fails.
+  # 1.11.3 is the newest stable. Remove it once @napi-rs/wasm-runtime peers on a stable 2.x.
+  '@emnapi/runtime': 1.11.3
+  '@emnapi/core': 1.11.3
