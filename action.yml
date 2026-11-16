@@ -107,7 +107,7 @@ runs:
 
     - name: Install cosign
       if: inputs.verify != 'false'
-      uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
+      uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532  # v4.1.3
 
     # Advisory data, not code: Trivy's and OSV-Scanner's databases and the EPSS/KEV feeds kept for the day, so a run doesn't download them again.
     # A pull request's cache stays in its own ref (GitHub scopes caches by branch).

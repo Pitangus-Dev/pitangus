@@ -226,7 +226,7 @@ jobs:
         # In a private repository without GitHub Advanced Security, code scanning does not accept results: CI does
         # not fail because of that (the verdict is the one from the "Analyze" step).
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370  # v4.39.1
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066  # v4.39.3
         with:
           sarif_file: ${{ runner.temp }}/pitangus-data/pitangus.sarif
           category: pitangus
