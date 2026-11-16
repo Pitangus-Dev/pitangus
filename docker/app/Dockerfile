@@ -21,7 +21,7 @@ COPY web/ ./
 RUN mkdir -p /src/pitangus/app && pnpm run build
 
 # ---------- 2. runtime ----------
-FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258 AS app
+FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS app
 ARG VERSION=dev
 # 29.9.0 came out on 2026-10-09: a security exception to the week-old rule (Go 1.26.9's standard library fixes,
 # CVE-2026-78667 and CVE-2026-97031 among them). The exception stops mattering on 2026-10-16.
