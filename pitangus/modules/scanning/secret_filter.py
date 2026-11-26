@@ -71,7 +71,12 @@ LONG = 16
 # in 10^9 per position.
 GENERIC = "generic-"
 VENDOR_RUN = 10
-PLACEHOLDER_WORD = re.compile(r"example|placeholder|change[-_]?me|replace[-_]?me|dummy|redacted|\.\.\.|…|(?:^|[^a-z0-9])(?:your|my)[-_]", re.I)
+# `your`/`my` only with the credential word that follows it (`YOUR-ACCESS-TOKEN`, `my_api_key`, `sk_test_your_key`):
+# alone, `_my-` turns up in a random base64url token about once in 20,000.
+PLACEHOLDER_WORD = re.compile(
+    r"example|placeholder|change[-_]?me|replace[-_]?me|dummy|redacted|\.\.\.|…"
+    r"|(?:^|[^a-z0-9])(?:your|my)[-_](?:[a-z]+[-_])?(?:api|access|auth|secret|key|token|pat|pass|client|private|app|account|here)",
+    re.I)
 RUN = 6
 JWT = re.compile(r"eyJ[A-Za-z0-9_-]+\.e[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*")
 PUBLIC_PREFIXES = ("sb_publishable_",)
