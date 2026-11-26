@@ -76,9 +76,10 @@ export function SessionCheck({ domain }: { domain: Domain }) {
       void queryClient.invalidateQueries({ queryKey: keys.domains })
       setUrl(result.session_check ?? '')
       setNotice(t(result.session_check ? 'domains.access.check_saved' : 'domains.access.check_removed'))
-      // Removing takes its button away: the focus goes back to the field rather than to the page.
-      if (!result.session_check) field.current?.focus()
     },
+    // While it is sent both buttons are disabled, and after it Save stays disabled (nothing changed) or Remove is gone:
+    // the browser would drop the focus to the page, so it goes back to the field.
+    onSettled: () => field.current?.focus(),
   })
   const send = (value: string) => { setNotice(''); change.mutate(value) }
   const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); send(url.trim()) }
