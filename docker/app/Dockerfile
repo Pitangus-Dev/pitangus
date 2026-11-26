@@ -8,7 +8,7 @@
 
 # ---------- 1. web panel ----------
 # Static files are the same on every architecture: build them natively (no emulation in multi-arch builds).
-FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS web
+FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS web
 WORKDIR /src/web
 # pnpm at the exact version (and hash) of package.json's packageManager, through Node's corepack. pnpm-workspace.yaml
 # holds the supply-chain settings: no install scripts, no release younger than a week, no trust downgrades.
