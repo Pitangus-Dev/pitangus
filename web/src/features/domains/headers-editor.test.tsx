@@ -92,7 +92,7 @@ describe('saved headers', () => {
     expect(await screen.findByText(tr('domains.access.check_saved'))).toBeTruthy()
     expect(calls.filter(call => call.path === '/api/domains/session-check').at(-1)).toEqual({ method: 'POST', path: '/api/domains/session-check',
       action: 'domain-session-check', body: { domain_id: ID, url: 'https://app.example.com/account' } })
-    expect(document.activeElement).not.toBe(document.body)  // the form stays: the focus isn't lost on saving
+    expect(document.activeElement).toBe(field)  // the form stays: the focus isn't lost on saving
     await user.click(await screen.findByRole('button', { name: tr('domains.access.check_remove') }))
     expect(await screen.findByText(tr('domains.access.check_removed'))).toBeTruthy()
     const emptied = screen.getByLabelText(tr('domains.access.check_label')) as HTMLInputElement
