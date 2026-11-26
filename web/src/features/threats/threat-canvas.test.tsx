@@ -8,7 +8,7 @@ import { labelSpots } from '@/features/threats/threat-layout'
 import type { Catalog, Component, Model } from '@/features/threats/threat-model-types'
 import { mockReactFlowLayout } from '@/shared/test/react-flow'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`threats:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`threats:${key}`, options)
 
 beforeAll(mockReactFlowLayout)
 

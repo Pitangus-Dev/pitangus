@@ -9,7 +9,7 @@ import { useJiraAvailability } from '@/features/integrations/jira-availability'
 import { RepositoryResult } from '@/features/findings/repository-result'
 import type { RepositoryFinding, RepositoryRun } from '@/features/findings/finding-model'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`integrations:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`integrations:${key}`, options)
 const CONNECTED = { configured: true, site: 'https://acme.atlassian.net', email: 'sec@acme.test', last4: 'abcd', destinations: 1, rules: 2, automatic: false }
 const ROUTING = {
   destinations: [{ id: 'd1', name: 'Payments', project: { key: 'PAY' }, issue_type: { name: 'Bug' }, mapping: {} }],

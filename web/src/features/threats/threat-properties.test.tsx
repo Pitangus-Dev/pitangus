@@ -7,7 +7,7 @@ import { CustomPropertiesField } from '@/features/threats/threat-properties'
 import { AttackTrees } from '@/features/threats/threat-methods'
 import type { CustomProperties, Model } from '@/features/threats/threat-model-types'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`threats:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`threats:${key}`, options)
 
 describe('custom properties', () => {
   it('shows what an import kept, edits text values and refuses a name already used, saying why', async () => {

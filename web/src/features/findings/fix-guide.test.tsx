@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import i18n from '@/shared/i18n'
 import { FixSection, type FixGuide } from '@/features/findings/fix-guide'
 
-const tf = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+const tf = (key: string, options: Record<string, unknown> = {}) => i18n.t(`findings:${key}`, options)
 
 describe('fix guide', () => {
   it('starts with the whole move for a transitive dependency, then the commands in order', () => {

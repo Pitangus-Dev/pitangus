@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useQuery } from '@tanstack/react-query'
 import { domainScopeQuery, type DomainSchedule } from '@/shared/api/queries'
 import { formatList } from '@/shared/i18n/format'
@@ -26,7 +27,7 @@ export function usableAccess(domain: Domain, value: ScheduleAccess, hosts: strin
 }
 
 // The access in words, for the schedule's summary: who it signs in as and whether it sends headers.
-export function describeAccess(t: (key: string, options?: Record<string, unknown>) => string, domain: Domain, value: ScheduleAccess): string {
+export function describeAccess(t: TFunction<'sources'>, domain: Domain, value: ScheduleAccess): string {
   // Members get no test users, only how many the schedule signs in as.
   const names = domain.test_users ? domain.test_users.filter(user => value.test_users.includes(user.id)).map(user => user.name)
     : value.test_users.length ? [t('domains.schedule.access.count', { count: value.test_users.length })] : []

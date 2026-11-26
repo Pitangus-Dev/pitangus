@@ -10,7 +10,7 @@ import { BatchDetail, JiraBackgroundWork } from '@/features/integrations/jira-ba
 import { useJiraSettled } from '@/features/integrations/jira-batches'
 import { JiraExportDialog } from '@/features/integrations/jira-export'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`integrations:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`integrations:${key}`, options)
 const print = (index: number) => index.toString(16).padStart(64, '0')
 const MANY = Array.from({ length: 120 }, (_, index) => ({ fingerprint: print(index), label: `Finding ${index}` }))
 const QUEUED: JiraQueued = { batch: 'b1', by: 'ana', started_at: '2026-09-30T10:00:00Z', finished_at: null, queued: 80, findings: 118, linked: 1, created: 0, existing: 0,

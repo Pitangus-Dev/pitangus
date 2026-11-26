@@ -11,7 +11,7 @@ import { renderWithQueries } from '@/shared/test/render'
 import { Domain } from '@/pages/Domain'
 import { browserZone, describeRule, formatRun, weekdayName } from '@/features/domains/schedule'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
 const ID = 'a'.repeat(24)
 const DOMAIN = { id: ID, host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: 'Shop front', key: 'domain:app.example.com', verified: true, expired: false,
   registered_at: '2026-10-01T00:00:00Z', registered_by: 'jefa', verified_until: '2026-12-31T00:00:00Z', proof_method: 'meta', schedule: null,

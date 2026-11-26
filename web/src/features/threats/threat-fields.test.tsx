@@ -6,7 +6,7 @@ import i18n from '@/shared/i18n'
 import { DataField, KindField, ProtocolField } from '@/features/threats/threat-fields'
 import type { Catalog, Component, Flow } from '@/features/threats/threat-model-types'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(key, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(key, options)
 const CATALOG = {
   models: [], assets: [], kinds: { actor: 'Actor', api: 'API', service: 'Service', database: 'Database', custom: 'Custom' },
   protocols: ['https', 'http', 'sql', 'other'], classifications: { public: 'Public', pii: 'Personal data' },

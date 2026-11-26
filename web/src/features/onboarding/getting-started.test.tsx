@@ -6,7 +6,7 @@ import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { GettingStarted } from '@/features/onboarding/getting-started'
 
-const to = (key: string, options?: Record<string, unknown>) => i18n.t(`onboarding:${key}`, options)
+const to = (key: string, options: Record<string, unknown> = {}) => i18n.t(`onboarding:${key}`, options)
 const NOTHING = { mfa: false, github: false, analyzed: false, demo: false, watching: false, alerts: false, admin: true }
 // A step's title, with what a screen reader hears after it: (done) or (pending).
 const step = (title: string) => screen.getByText(to(title)).textContent

@@ -7,7 +7,7 @@ import { choose } from '@/shared/test/select'
 import { SchedulePicker } from '@/features/domains/schedule-picker'
 import { formatRun, localDay, weekdayName, type ScheduleRule } from '@/features/domains/schedule'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
 const NOW = new Date('2026-10-09T12:00:00Z')  // a Friday
 const START: ScheduleRule = { frequency: 'weekly', weekdays: [5], month_days: [9], time: '09:00', timezone: 'America/Bogota' }
 

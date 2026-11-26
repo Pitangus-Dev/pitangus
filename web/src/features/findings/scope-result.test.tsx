@@ -23,7 +23,7 @@ const SCOPE = { id: 'scope', type: 'asset_scope', status: 'completed', created_a
   by_asset: [{ ...API, kind: 'repository', open: 1, critical: 1, high: 0, fixed: 0, suppressed: 0, excluded: 0, shown: 1 },
     { ...WEB, kind: 'repository', open: 1, critical: 0, high: 1, fixed: 0, suppressed: 0, excluded: 0, shown: 1 }],
   findings: [finding(API, 'critical', 'eval in api'), finding(WEB, 'high', 'eval in web')] } as ScopedFindings
-const tf = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+const tf = (key: string, options: Record<string, unknown> = {}) => i18n.t(`findings:${key}`, options)
 const JIRA = { configured: true, site: 'https://acme.atlassian.net', email: 'sec@acme.test', last4: 'abcd', destinations: 1, rules: 1, automatic: false }
 
 function render(onOpenAsset = vi.fn()) {

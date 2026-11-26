@@ -8,7 +8,7 @@ import { AddComponentMenu } from '@/features/threats/threat-canvas'
 import { AttackMappings } from '@/features/threats/threat-methods'
 import type { Catalog, Component, Model } from '@/features/threats/threat-model-types'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`threats:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`threats:${key}`, options)
 const HOSTS = ['Windows', 'macOS', 'Linux']
 // A slice of ATT&CK v19.2 as the server sends it (names, tactics and platforms as MITRE publishes them), with the
 // server's own suggestion table.

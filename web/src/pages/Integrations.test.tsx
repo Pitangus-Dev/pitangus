@@ -8,8 +8,8 @@ import type { SessionUser } from '@/features/auth/session'
 import type { GitHubStatus } from '@/features/sources/github-setup'
 import { Integrations } from '@/pages/Integrations'
 
-const src = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`integrations:${key}`, options)
+const src = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`integrations:${key}`, options)
 const ADMIN: SessionUser = { id: 'u1', username: 'admin', display_name: 'Admin', role: 'admin', totp_enabled: false, last_login_at: null }
 const MEMBER: SessionUser = { ...ADMIN, id: 'u2', username: 'member', role: 'member' }
 const GITHUB: GitHubStatus = { configured: true, missing: [], connected: true, app_id: '4242', slug: 'pitangus-acme', owner: 'acme', name: 'Pitangus Acme', html_url: null,

@@ -9,7 +9,7 @@ import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { HeadersEditor, SessionCheck } from '@/features/domains/headers-editor'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
 const ID = 'a'.repeat(24)
 const SECRET = 'Bearer s3cr3t-value-never-shown'
 const DOMAIN = { id: ID, host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: '', key: 'domain:app.example.com', verified: true, expired: false,

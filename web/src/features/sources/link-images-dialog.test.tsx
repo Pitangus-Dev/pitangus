@@ -6,7 +6,7 @@ import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { LinkImagesDialog } from '@/features/sources/link-images-dialog'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
 const REPO = { key: 'github#1', name: 'org/api' }
 const image = (name: string, built: { repository: string; name: string } | null, analyzed = true) => ({ key: `image:${name}`, name, reference: `${name}:1`,
   analyzed, last_scan: null, last_complete: null, built_from: built && { ...built, revision: null, how: 'manual' } })

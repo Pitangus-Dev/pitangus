@@ -6,7 +6,7 @@ import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { ImageList } from '@/features/sources/image-list'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
 const page = (items: unknown[]) => ({ items, total: items.length, limit: 25, offset: 0, counts: { all: items.length, unlinked: items.length, label: 0, manual: 0 }, repositories: {} })
 const PENDING = { key: 'image:ghcr.io/org/app', name: 'ghcr.io/org/app', reference: 'ghcr.io/org/app:1.4.2', last_scan: null, last_complete: null, analyzed: false, built_from: null }
 const SCANNED = { key: 'image:docker.io/org/web', name: 'docker.io/org/web', reference: 'docker.io/org/web:1', analyzed: true, built_from: null,
@@ -45,7 +45,7 @@ describe('images page', () => {
   })
 
   it('links an image to a repository that has not been analyzed yet, and says it is waiting for its scan', async () => {
-    const tc = (key: string, options?: Record<string, unknown>) => i18n.t(`compliance:${key}`, options)
+    const tc = (key: string, options: Record<string, unknown> = {}) => i18n.t(`compliance:${key}`, options)
     let built: unknown = null
     const calls = mockApi(call => {
       if (call.path === '/api/images/repositories') return { body: { items: [{ key: 'github:org/api', name: 'org/api', analyzed: true }, { key: 'github#42', name: 'org/new', analyzed: false }], total: 2 } }

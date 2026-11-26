@@ -6,7 +6,7 @@ import { mockApi, type Call, type Reply } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { RepositorySettings } from '@/features/findings/repository-settings'
 
-const tf = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+const tf = (key: string, options: Record<string, unknown> = {}) => i18n.t(`findings:${key}`, options)
 const NO_PATHS = { patterns: [], reason: null, by: null, at: null, history: [] }
 const SECRETS = { rules: [], disabled_rules: [], allowlist: { regexes: [], paths: [], stopwords: [] }, history: [],
   limits: { rules: 50, entries: 100, regex: 500, description: 120 }, defaults: { rules: 0, disabled: 0, allowlist: 0 } }

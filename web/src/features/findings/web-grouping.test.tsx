@@ -22,7 +22,7 @@ const SCOPE = { id: 'scope', type: 'asset_scope', status: 'completed', created_a
     kpis: { active: 4, dismissed: 0, only_excluded: false, has_sla: false, overdue: 0, soon: 0, act: 0, attend: 0, critical: 0, high: 0, kev: 0, fixable: 0 } },
   by_asset: [{ ...SITE, kind: 'domain', open: 4, critical: 0, high: 0, fixed: 0, suppressed: 0, excluded: 0, shown: 4 }],
   findings: FINDINGS } as ScopedFindings
-const tf = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+const tf = (key: string, options: Record<string, unknown> = {}) => i18n.t(`findings:${key}`, options)
 
 describe('a web problem on several URLs', () => {
   it('is one group per rule and title, each URL still its own finding', () => {
