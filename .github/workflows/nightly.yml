@@ -26,7 +26,12 @@ jobs:
           POSTGRES_PASSWORD: pitangus  # only for the ephemeral CI container
           POSTGRES_DB: pitangus
         ports: ["5432:5432"]
-        options: --health-cmd "pg_isready -U pitangus" --health-interval 2s --health-timeout 5s --health-retries 30
+        # Each test's data folder gets its own schema (PITANGUS_DB_ISOLATE), and at thirty times the examples what
+        # Postgres keeps in shared memory outgrows Docker's 64 MB /dev/shm ("could not resize shared memory
+        # segment").
+        options: >-
+          --shm-size=1g
+          --health-cmd "pg_isready -U pitangus" --health-interval 2s --health-timeout 5s --health-retries 30
     env:
       PITANGUS_DATABASE_URL: postgresql+psycopg://pitangus:pitangus@127.0.0.1:5432/pitangus
       PITANGUS_DB_ISOLATE: data-dir

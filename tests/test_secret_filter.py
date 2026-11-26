@@ -334,6 +334,10 @@ class TokenPropertyTests(unittest.TestCase):
         self.assertEqual(sf.verdict("jwt", "app/client.ts", "", anon), "public")
         self.assertIsNone(sf.verdict("jwt", "app/server.ts", "", service))
         self.assertEqual(sf.verdict("curl-auth-header", "README.md", "", "YOUR-ACCESS-TOKEN"), "placeholder")
+        for placeholder in ("your-token-here", "my_api_key_1234567890", "sk_test_your_secret_key", "ghp_YOUR_GITHUB_TOKEN"):
+            self.assertIn(sf.verdict("github-pat", "src/a.py", "", placeholder), ("placeholder", "identifier"), placeholder)
+        # Found by Hypothesis in the nightly run: `_my-` inside a random token is no placeholder.
+        self.assertIsNone(sf.verdict("jwt", "tests/a.py", "", "zfPncFZQDV8E0Yv5F0umWPJYsLIhQcMfszb5q9s9Cq_my-yE"))
         slack = "https://hooks.slack.com/services/T" + "0" * 8 + "/B" + "0" * 8 + "/" + "X" * 24
         self.assertEqual(sf.verdict("slack-webhook-url", "views/integrations.html", "", slack), "placeholder")
         self.assertIsNone(sf.verdict("hashicorp-tf-password", "terraform/sql.tf", "", "Aa12345678"))

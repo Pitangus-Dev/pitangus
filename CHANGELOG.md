@@ -45,6 +45,14 @@ between minor versions: anything that changes behaviour is called out below.
   `rules/tests/`: they plant made-up secrets and hostile input on purpose. The demo sample's `osv-scanner.toml`
   declares two newer lodash 4.17.20 advisories (GHSA-xxjr-mmjv-4gpg, GHSA-r5fr-rjxr-66jc), which the demo still shows.
 
+### Fixed
+
+- **A random token with `_my-` or `-your_` inside is no longer set aside as a placeholder.** The secret filter took
+  `your`/`my` followed by `-` or `_` anywhere in a value as a placeholder word, and base64url tokens produce that
+  sequence about once in 20,000: such a token (a JWT, an API key) was hidden as an example. `your`/`my` now count only
+  followed by a credential word (`YOUR-ACCESS-TOKEN`, `my_api_key`, `sk_test_your_secret_key`). Found by the nightly
+  property tests.
+
 ## [0.15.1] - 2026-10-17
 
 ### Upgrade notes
