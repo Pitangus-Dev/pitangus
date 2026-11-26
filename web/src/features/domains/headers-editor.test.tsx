@@ -9,7 +9,7 @@ import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { HeadersEditor, SessionCheck } from '@/features/domains/headers-editor'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
 const ID = 'a'.repeat(24)
 const SECRET = 'Bearer s3cr3t-value-never-shown'
 const DOMAIN = { id: ID, host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: '', key: 'domain:app.example.com', verified: true, expired: false,
@@ -92,7 +92,7 @@ describe('saved headers', () => {
     expect(await screen.findByText(tr('domains.access.check_saved'))).toBeTruthy()
     expect(calls.filter(call => call.path === '/api/domains/session-check').at(-1)).toEqual({ method: 'POST', path: '/api/domains/session-check',
       action: 'domain-session-check', body: { domain_id: ID, url: 'https://app.example.com/account' } })
-    expect(document.activeElement).not.toBe(document.body)  // the form stays: the focus isn't lost on saving
+    expect(document.activeElement).toBe(field)  // the form stays: the focus isn't lost on saving
     await user.click(await screen.findByRole('button', { name: tr('domains.access.check_remove') }))
     expect(await screen.findByText(tr('domains.access.check_removed'))).toBeTruthy()
     const emptied = screen.getByLabelText(tr('domains.access.check_label')) as HTMLInputElement

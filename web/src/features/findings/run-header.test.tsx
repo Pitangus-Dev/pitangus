@@ -4,7 +4,7 @@ import i18n from '@/shared/i18n'
 import { RunHeader } from '@/features/findings/run-header'
 import type { RepositoryRun } from '@/features/findings/finding-model'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`findings:${key}`, options)
 const RUN: RepositoryRun = { id: 'r1', type: 'dast_scan', status: 'completed', created_at: '2026-10-10T00:00:00Z', target: 'https://app.example.com/',
   source: { name: 'app.example.com', provider: 'domain' }, summary: {} }
 

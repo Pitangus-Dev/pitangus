@@ -9,7 +9,7 @@ import { EngineSwitches } from '@/features/engines/engine-switches'
 
 type View = Response<'/api/engines'>
 type Row = View['engines'][number]
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`engines:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`engines:${key}`, options)
 
 const row = (key: string, overrides: Partial<Row> = {}): Row => ({
   key, name: { opengrep: 'Opengrep', betterleaks: 'Betterleaks', trivy: 'Trivy', checkov: 'Checkov', dast: 'ZAP' }[key] ?? key, version: '1.0.0',

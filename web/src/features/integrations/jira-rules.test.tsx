@@ -9,7 +9,7 @@ import type { JiraRouting } from '@/shared/api/queries'
 import { RuleEditor, RulesSection } from '@/features/integrations/jira-rules'
 import { globMatch, resolveRule, type JiraRule } from '@/features/integrations/jira-routing'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`integrations:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`integrations:${key}`, options)
 const rule = (id: string, name: string, extra: Partial<JiraRule> = {}): JiraRule => ({
   id, name, assets: [], patterns: [], destination: 'd1', mode: 'manual', min_severity: 'high', backfill: false, enabled: true, ...extra,
 })

@@ -10,7 +10,7 @@ import type { Asset } from '@/features/sources/asset-option'
 import type { RepositoryFinding } from '@/features/findings/finding-model'
 import { Findings } from '@/pages/Findings'
 
-const tf = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+const tf = (key: string, options: Record<string, unknown> = {}) => i18n.t(`findings:${key}`, options)
 // A status filter's option, with how many of the listed findings it holds.
 const statusOption = (status: string, count: number) => tf('filters.status_count', { label: tf(`filters.status_options.${status}`), count })
 const ADMIN: SessionUser = { id: '1', username: 'ana', display_name: 'Ana', role: 'admin', totp_enabled: false, last_login_at: null }

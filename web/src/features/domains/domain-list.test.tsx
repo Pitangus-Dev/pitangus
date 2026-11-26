@@ -6,7 +6,7 @@ import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { DomainList } from '@/features/domains/domain-list'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
 const page = (items: unknown[]) => ({ items, total: items.length, limit: 20, dast: true })
 const ID = 'a'.repeat(24)
 const PENDING = { id: ID, host: 'app.example.com', url: 'https://app.example.com/', kind: 'web', context: '', key: 'domain:app.example.com', verified: false, expired: false,

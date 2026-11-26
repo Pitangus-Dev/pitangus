@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import type { DomainTestUser } from '@/shared/api/queries'
 
 export type LoginMethod = 'password' | 'password_totp'
@@ -14,6 +15,6 @@ export const METHOD_LABEL = { password: 'domains.test_users.method.password', pa
 export const methodOf = (method: string): LoginMethod => method === 'password_totp' ? 'password_totp' : 'password'
 
 // What a test user is, in one muted line: who it signs in as, how, and where (when not on the domain itself).
-export function testUserSummary(t: (key: string, options?: Record<string, unknown>) => string, user: DomainTestUser, root: string) {
+export function testUserSummary(t: TFunction<'sources'>, user: DomainTestUser, root: string) {
   return [user.username, t(METHOD_LABEL[methodOf(user.method)]), ...(user.applies_to !== root ? [user.applies_to] : [])].join(' · ')
 }

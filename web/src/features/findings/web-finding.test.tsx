@@ -25,7 +25,7 @@ describe('web findings', () => {
   it('show what the scanner says, where, the highlighted evidence, the fix, a check and its references', async () => {
     mockApi(() => undefined)
     const user = userEvent.setup()
-    const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+    const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`findings:${key}`, options)
     renderWithQueries(<RepositoryResult run={RUN} onNew={() => {}} onChanged={() => {}} canAccept />)
 
     expect(screen.queryByText('https://pitangus.dev/:1')).toBeNull()

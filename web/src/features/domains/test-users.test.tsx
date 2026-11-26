@@ -8,7 +8,7 @@ import { mockApi, type Call } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { TestUsersPanel } from '@/features/domains/test-users'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`sources:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`sources:${key}`, options)
 const ID = 'a'.repeat(24)
 const PASSWORD = 'Correct-Horse-Battery-71' // gitleaks:allow
 const SEED = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'

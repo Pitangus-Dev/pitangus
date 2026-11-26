@@ -9,7 +9,7 @@ import { mockApi } from '@/shared/test/api'
 import { mockReactFlowLayout } from '@/shared/test/react-flow'
 import { renderWithQueries } from '@/shared/test/render'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`threats:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`threats:${key}`, options)
 const USER = { id: 'u', username: 'ana', display_name: 'Ana', role: 'member', totp_enabled: true, last_login_at: null } as SessionUser
 const service = (id: string, x: number) => ({ id, name: id.toUpperCase(), kind: 'service' as const, data: [], internet_facing: false, authenticates: false, encrypted_at_rest: false, position: { x, y: 80 } })
 const MODEL: Model = { id: 'm', name: 'Shop', methodology: 'stride', boundaries: [], components: [service('web', 40), service('api', 440)],

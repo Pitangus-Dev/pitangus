@@ -8,7 +8,7 @@ import { ThreatJsonImporter } from '@/features/threats/threat-json-importer'
 import { locate, spanOf } from '@/features/threats/json-locate'
 import schema from '@/examples/threat-models/schema.json'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`threats:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`threats:${key}`, options)
 const PREVIEW = { name: 'Shop', methodology: 'custom', components: 3, flows: 2, boundaries: 1, repository_refs: 0, manual_threats: 0, attack_trees: 0,
   attack_mappings: 2, pasta_stages: 0, relayout: false }
 const DOCUMENT = {

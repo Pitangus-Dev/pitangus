@@ -6,7 +6,7 @@ import { mockApi } from '@/shared/test/api'
 import { renderWithQueries } from '@/shared/test/render'
 import { FixControlNotices } from '@/features/findings/fix-control'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`findings:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`findings:${key}`, options)
 const HOLD = { mode: 'on', hold: { count: 12, at: '2026-10-12T10:00:00Z', run: 'r'.repeat(32) }, released: null, unseen_warn_scans: 3 }
 const COUNTS = { open: 4, fixed: 1, suppressed: 0, from_pr: 0, excluded: 0, unverified: 2, unverified_stale: 2 }
 

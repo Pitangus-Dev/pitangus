@@ -7,7 +7,7 @@ import { renderWithQueries } from '@/shared/test/render'
 import { AnalysisWizard } from '@/features/analyses/analysis-wizard'
 import { browserZone } from '@/features/domains/schedule'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`analyses:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`analyses:${key}`, options)
 const src = (key: string) => i18n.t(`sources:${key}`)
 const SOURCE = { id: 'github#7', name: 'org/api', provider: 'github', branch: 'main', installation_id: 1 }
 const PLAN = { languages: [{ name: 'Python', files: 12, rules: 40 }], runs: ['Opengrep'], skips: [], osv_needed: true, files: 12, manifests: ['setup.py'], iac: [] }

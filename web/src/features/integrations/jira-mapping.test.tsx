@@ -10,7 +10,7 @@ import { MappingTable, ValueSearch } from '@/features/integrations/jira-mapping'
 import { initialDraft, type Entry, type JiraField, type JiraVariables } from '@/features/integrations/jira-mapping-model'
 import type { JiraDestination } from '@/features/integrations/jira-routing'
 
-const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`integrations:${key}`, options)
+const tr = (key: string, options: Record<string, unknown> = {}) => i18n.t(`integrations:${key}`, options)
 const field = (id: string, name: string, type: JiraField['type'], extra: Partial<JiraField> = {}): JiraField => ({
   id, name, type, required: false, has_default: false, schema: { type }, allowed: [], allowed_truncated: false, fillable: !['unsupported', 'managed'].includes(type), ...extra,
 })
